@@ -50,6 +50,8 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     private static final String PDF_SIGNATURE_SERVLET_PATH = "/EFormSignatureViewForPdfGenerationServlet";
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
     private static final String PROVIDER_ID_PARAM = "providerId";
+    /** Single-use render-grant parameter redeemed against {@link EFormRenderTokenService}. */
+    static final String RENDER_TOKEN_PARAM = "renderToken";
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -62,24 +64,8 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
-            LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
-            if (loggedInInfo == null) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires an authenticated _eform session");
-                return;
-            }
-
             boolean browserRender = "true".equals(request.getParameter("browserRender"));
-            response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("Content-Security-Policy", buildContentSecurityPolicy(browserRender));
-
-            boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
             String id = request.getParameter("fdid");
-            String providerId = browserRender ? authorizedRendererProviderId(request, loggedInInfo) : request.getParameter(PROVIDER_ID_PARAM);
-            if (browserRender && providerId == null) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires an authenticated matching provider session");
-                return;
-            }
-
             if (id == null || id.trim().isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: fdid");
                 return;
@@ -89,6 +75,28 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             if (formDataId == null) {
                 return;
             }
+
+            String providerId;
+            if (browserRender) {
+                EFormRenderTokenService.RenderGrant grant = redeemedRenderGrant(request, formDataId);
+                if (grant == null) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires a valid single-use render token");
+                    return;
+                }
+                providerId = grant.providerNo();
+            } else {
+                LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
+                if (loggedInInfo == null) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires an authenticated _eform session");
+                    return;
+                }
+                providerId = request.getParameter(PROVIDER_ID_PARAM);
+            }
+
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Content-Security-Policy", buildContentSecurityPolicy(browserRender));
+
+            boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
 
             String html = buildPdfHtmlForFdid(formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, prepareForFax);
 
@@ -126,6 +134,26 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
     }
 
+    /**
+     * Redeems the single-use render grant carried by a browser-render request.
+     *
+     * <p>Renderer requests carry no HTTP session by design. Authorization happened when
+     * {@code EformDataManagerImpl} passed its {@code _eform} privilege check and minted a grant
+     * bound to this fdid; redemption is consume-once and fail-closed on any mismatch.</p>
+     *
+     * @return the redeemed grant, or null when the token is missing, expired, already used, or
+     *         bound to a different saved eForm
+     */
+    static EFormRenderTokenService.RenderGrant redeemedRenderGrant(HttpServletRequest request, int formDataId) {
+        EFormRenderTokenService.RenderGrant grant =
+                EFormRenderTokenService.getInstance().consume(request.getParameter(RENDER_TOKEN_PARAM));
+        if (grant == null || grant.fdid() != formDataId) {
+            logger.warn("Renderer request rejected: missing, expired, or mismatched render token");
+            return null;
+        }
+        return grant;
+    }
+
     private static LoggedInInfo authorizedEformReadRequest(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
@@ -141,23 +169,6 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         }
 
         return loggedInInfo;
-    }
-
-    private static String authorizedRendererProviderId(HttpServletRequest request, LoggedInInfo loggedInInfo) {
-        String providerId = request.getParameter(PROVIDER_ID_PARAM);
-        if (providerId == null || providerId.isBlank()) {
-            logger.warn("Renderer request rejected: missing providerId for authenticated browser render");
-            return null;
-        }
-
-        String canonicalProviderId = providerId.trim();
-        String sessionProviderId = loggedInInfo.getLoggedInProviderNo();
-        if (sessionProviderId == null || !sessionProviderId.equals(canonicalProviderId)) {
-            logger.warn("Renderer request rejected: provider mismatch for authenticated session");
-            return null;
-        }
-
-        return canonicalProviderId;
     }
 
     // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.

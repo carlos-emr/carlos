@@ -63,45 +63,55 @@ import static org.mockito.Mockito.when;
 class EFormViewForPdfGenerationServletUnitTest {
 
     @Test
-    @DisplayName("should allow browser renderer requests when the authenticated session matches providerId")
-    void shouldAllowBrowserRendererRequest_whenProviderMatchesAuthenticatedSession() throws Exception {
+    @DisplayName("should redeem a browser renderer grant exactly once for the bound eForm")
+    void shouldRedeemRenderGrantOnce_whenValidRenderTokenPresented() {
+        String token = EFormRenderTokenService.getInstance().issue(187, "999998");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-        request.setParameter("providerId", " 999998 ");
-        installLoggedInInfo(request, "999998");
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
 
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+        EFormRenderTokenService.RenderGrant grant = EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187);
 
-            assertThat(invokeAuthorizedRendererProviderId(request)).isEqualTo("999998");
-        }
+        assertThat(grant).isNotNull();
+        assertThat(grant.providerNo()).isEqualTo("999998");
+        assertThat(request.getSession(false)).isNull();
+        // A grant is consume-once: replaying the same token must fail.
+        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNull();
     }
 
     @Test
-    @DisplayName("should reject browser renderer requests without an authenticated session")
-    void shouldRejectBrowserRendererRequest_whenNoAuthenticatedSessionExists() throws Exception {
+    @DisplayName("should reject browser renderer requests without a render token")
+    void shouldRejectBrowserRendererRequest_whenNoRenderTokenPresented() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-        request.setParameter("providerId", "999998");
 
-        assertThat(invokeAuthorizedRendererProviderId(request)).isNull();
+        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNull();
         assertThat(request.getSession(false)).isNull();
     }
 
     @Test
-    @DisplayName("should reject browser renderer requests when providerId does not match the authenticated session")
-    void shouldRejectBrowserRendererRequest_whenProviderDoesNotMatchSession() throws Exception {
+    @DisplayName("should reject browser renderer requests when the token is bound to a different eForm")
+    void shouldRejectBrowserRendererRequest_whenTokenBoundToDifferentEform() {
+        String token = EFormRenderTokenService.getInstance().issue(187, "999998");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-        request.setParameter("providerId", "999998");
-        installLoggedInInfo(request, "111111");
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
 
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 999)).isNull();
+        // Redemption against the wrong fdid burns the token: fail-closed, no second chance.
+        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNull();
+    }
 
-            assertThat(invokeAuthorizedRendererProviderId(request)).isNull();
-        }
+    @Test
+    @DisplayName("should send forbidden for browser renderer requests when the token is missing")
+    void shouldSendForbidden_whenBrowserRenderRequestLacksToken() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("fdid", "123");
+        request.setParameter("browserRender", "true");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormViewForPdfGenerationServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(request.getSession(false)).isNull();
     }
 
     @Test
@@ -309,17 +319,5 @@ class EFormViewForPdfGenerationServletUnitTest {
         Method method = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedEformReadRequest", jakarta.servlet.http.HttpServletRequest.class);
         method.setAccessible(true);
         return (LoggedInInfo) method.invoke(null, request);
-    }
-
-    private static String invokeAuthorizedRendererProviderId(MockHttpServletRequest request) throws Exception {
-        Method readMethod = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedEformReadRequest", jakarta.servlet.http.HttpServletRequest.class);
-        readMethod.setAccessible(true);
-        LoggedInInfo loggedInInfo = (LoggedInInfo) readMethod.invoke(null, request);
-        if (loggedInInfo == null) {
-            return null;
-        }
-        Method method = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedRendererProviderId", jakarta.servlet.http.HttpServletRequest.class, LoggedInInfo.class);
-        method.setAccessible(true);
-        return (String) method.invoke(null, request, loggedInInfo);
     }
 }

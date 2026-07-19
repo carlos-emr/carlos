@@ -181,6 +181,9 @@ public class LoginFilter implements Filter {
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
+            // Session-less renderer surface: loopback-only and gated by a single-use render
+            // token (EFormRenderTokenService) redeemed inside the servlet itself.
+            "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
             "/js/global.js",
@@ -250,6 +253,9 @@ public class LoginFilter implements Filter {
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
+            // Session-less renderer surface: loopback-only and gated by a single-use render
+            // token (EFormRenderTokenService) redeemed inside the servlet itself.
+            "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
             "/provider/providercontrol",

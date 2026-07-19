@@ -129,6 +129,8 @@
         <jna.version>5.19.0</jna.version>
         <!-- HAPI HL7 v2 -->
         <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
+        <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
         <junit-jupiter.version>6.0.3</junit-jupiter.version>
         <mockito.version>5.23.0</mockito.version>
@@ -1341,6 +1343,19 @@
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
             <version>3.2.3</version>
+        </dependency>
+        <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
+             Deliberately NOT selenium-java: chrome-driver + support keeps the tree to the
+             Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-chrome-driver</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-support</artifactId>
+            <version>${selenium.version}</version>
         </dependency>
         <!-- TOTP/HOTP library for MFA -->
         <dependency>

@@ -6,38 +6,34 @@
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.io.File;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
-import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 import javax.imageio.ImageIO;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -47,245 +43,632 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.struts2.ServletActionContext;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeDriverService;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.chromium.HasCdp;
+import org.openqa.selenium.logging.LogEntry;
+import org.openqa.selenium.logging.LogType;
+import org.openqa.selenium.logging.LoggingPreferences;
 import org.springframework.stereotype.Service;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 /**
- * Browser-backed eForm PDF renderer.
+ * Browser-backed eForm PDF renderer driven entirely from the JVM.
  *
- * <p>Loads the local renderer servlet with the current authenticated session,
- * captures stabilized page regions through Playwright, and assembles the captures
- * into a PDF for fax and eDoc workflows.</p>
+ * <p>Selenium launches a pinned headless Chromium (no Node.js runtime anywhere), navigates over
+ * loopback to {@link EFormViewForPdfGenerationServlet} using a single-use render token from
+ * {@link EFormRenderTokenService}, captures stabilized page regions via CDP screenshots, and
+ * assembles the captures into a PDF for fax and eDoc workflows.</p>
+ *
+ * <p>Security invariants (change together or not at all):</p>
+ * <ul>
+ *   <li>Browser egress is locked to loopback by a dead proxy + loopback bypass list, and any
+ *       observed non-loopback request fails the render. {@code acceptInsecureCerts} is safe only
+ *       because of this lockdown — it can never be leveraged against an external host.</li>
+ *   <li>The browser holds no HTTP session or cookies; authorization is a one-shot fdid-bound
+ *       token minted after the caller's {@code _eform} privilege check.</li>
+ *   <li>A fresh browser is launched per render so no state can bleed between users' renders.</li>
+ * </ul>
  */
 @Service
 public class EFormBrowserPdfRenderer {
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
-    private static final String RENDERER_DIAGNOSTIC_PREFIX = "CARLOS_EFORM_RENDER_DIAGNOSTIC ";
-    private static final String SCRIPT_RELATIVE_PATH = "scripts/eform-browser-pdf-render.js";
-    private static final String PLAYWRIGHT_MODULE_RELATIVE_PATH = "node_modules/playwright";
-    private static final String PLAYWRIGHT_PACKAGE_NAME = "playwright";
-    private static final String NODE_MODULES_DIRECTORY_NAME = "node_modules";
-    private static final String ROOT_PROPERTY = "eform_pdf_browser_render_root";
+    private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration NETWORK_QUIET_WINDOW = Duration.ofMillis(500);
+    private static final Duration NETWORK_QUIET_MAX_WAIT = Duration.ofSeconds(10);
+    private static final long SETTLE_DELAY_MILLIS = 1500;
+
+    /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
+    private static final int MAX_CONCURRENT_RENDERS = 2;
+    private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
+    private static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
+
     private static final String BASE_URL_PROPERTY = "eform_pdf_browser_base_url";
-    private static final String NODE_BINARY_PROPERTY = "eform_pdf_browser_node_binary";
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
-    private static final String NODE_MODULES_ROOT_PROPERTY = "eform_pdf_browser_node_modules_root";
+    private static final String CHROMEDRIVER_PATH_PROPERTY = "eform_pdf_browser_chromedriver_path";
     private static final String CATALINA_BASE_PROPERTY = "catalina.base";
-    private static final String ENV_BASE_URL = "CARLOS_EFORM_RENDER_BASE_URL";
-    private static final String ENV_APP_PATH = "CARLOS_EFORM_RENDER_APP_PATH";
-    private static final String ENV_COOKIE_HEADER = "CARLOS_EFORM_RENDER_COOKIE_HEADER";
-    private static final String ENV_CHROME_PATH = "CARLOS_EFORM_RENDER_CHROME_PATH";
-    private static final String ENV_NODE_PATH = "NODE_PATH";
-    private static final String RENDERER_RESOURCE_ROOT = "io/github/carlos_emr/carlos/eform/browserpdf/";
-    private static final String MAIN_SCRIPT_NAME = "eform-browser-pdf-render.js";
-    private static final String[] BUNDLED_SCRIPT_NAMES = {
-            MAIN_SCRIPT_NAME,
-            "eform-local-playwright-utils.js"
-    };
-    private static final List<Path> FALLBACK_NODE_MODULES_DIRECTORIES = List.of(
-            Path.of("/usr/lib/node_modules"),
-            Path.of("/usr/local/lib/node_modules"));
-    private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
+    private static final String ENV_ENABLE_SANDBOX = "EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX";
 
     /**
-     * Renders a saved eForm by loading the authenticated local servlet route in Playwright,
-     * capturing page images, and assembling those captures into a PDF.
+     * Dead proxy plus loopback bypass: every non-loopback fetch is routed into a closed port and
+     * fails, while loopback traffic goes direct. Together with the performance-log gate this
+     * reproduces the previous renderer's abort-non-local-request behavior at two layers.
+     */
+    static final String DEAD_PROXY = "http://127.0.0.1:1";
+    static final String PROXY_BYPASS_LOOPBACK = "127.0.0.1;localhost;[::1]";
+
+    private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
+    private static final int VIEWPORT_WIDTH = 1800;
+    private static final int VIEWPORT_HEIGHT = 3200;
+
+    // ---------------------------------------------------------------------------------------------
+    // Browser-side JS, ported verbatim from the retired Playwright renderer script so capture
+    // fidelity is unchanged. These run inside the same Chromium engine as before.
+    // ---------------------------------------------------------------------------------------------
+
+    /** Async settle: fonts ready, pending images resolved, two animation frames. */
+    static final String STABILIZE_ASYNC_JS =
+            "var callback = arguments[arguments.length - 1];\n"
+            + "(async () => {\n"
+            + "  if (document.fonts && document.fonts.ready instanceof Promise) {\n"
+            + "    await document.fonts.ready;\n"
+            + "  }\n"
+            + "  const pendingImages = Array.from(document.images).filter((image) => !image.complete);\n"
+            + "  await Promise.all(pendingImages.map((image) => new Promise((resolve) => {\n"
+            + "    image.addEventListener('load', resolve, { once: true });\n"
+            + "    image.addEventListener('error', resolve, { once: true });\n"
+            + "  })));\n"
+            + "  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n"
+            + "})().then(() => callback(null)).catch((error) => callback(String(error)));";
+
+    /** Print-cleanup style injection and page-flattening layout prep before capture. */
+    static final String PREPARE_CAPTURE_JS =
+            "const existingCleanupStyle = document.getElementById('eform-browser-pdf-render-cleanup');\n"
+            + "if (!existingCleanupStyle) {\n"
+            + "  const cleanupStyle = document.createElement('style');\n"
+            + "  cleanupStyle.id = 'eform-browser-pdf-render-cleanup';\n"
+            + "  cleanupStyle.textContent = `\n"
+            + "    .DoNotPrint,\n"
+            + "    #BottomButtons,\n"
+            + "    #BaseSelect,\n"
+            + "    #SupplementalInfo,\n"
+            + "    #labDetail {\n"
+            + "      display: none !important;\n"
+            + "      visibility: hidden !important;\n"
+            + "    }\n"
+            + "    textarea {\n"
+            + "      resize: none !important;\n"
+            + "    }\n"
+            + "  `;\n"
+            + "  document.head.appendChild(cleanupStyle);\n"
+            + "}\n"
+            + "const body = document.body;\n"
+            + "if (body) {\n"
+            + "  body.style.margin = '0';\n"
+            + "  body.style.padding = '0';\n"
+            + "  body.style.width = 'max-content';\n"
+            + "  body.style.overflow = 'visible';\n"
+            + "}\n"
+            + "const html = document.documentElement;\n"
+            + "if (html) {\n"
+            + "  html.style.margin = '0';\n"
+            + "  html.style.padding = '0';\n"
+            + "  html.style.background = 'white';\n"
+            + "  html.style.overflow = 'visible';\n"
+            + "}";
+
+    /** Region computation: pageN nodes, BGImage candidates, dedupe/sort, visible-union fallback. */
+    static final String COMPUTE_REGIONS_JS =
+            "const rectFromElement = (el) => {\n"
+            + "  const elementRect = el.getBoundingClientRect();\n"
+            + "  return {\n"
+            + "    left: elementRect.left + window.scrollX,\n"
+            + "    top: elementRect.top + window.scrollY,\n"
+            + "    right: elementRect.right + window.scrollX,\n"
+            + "    bottom: elementRect.bottom + window.scrollY,\n"
+            + "    width: elementRect.width,\n"
+            + "    height: elementRect.height,\n"
+            + "  };\n"
+            + "};\n"
+            + "const isVisibleCaptureCandidate = (el) => {\n"
+            + "  const style = window.getComputedStyle(el);\n"
+            + "  return style.display !== 'none' && style.visibility !== 'hidden' && style.position !== 'fixed';\n"
+            + "};\n"
+            + "const unionRects = (elements) => {\n"
+            + "  let left = Number.POSITIVE_INFINITY;\n"
+            + "  let top = Number.POSITIVE_INFINITY;\n"
+            + "  let right = 0;\n"
+            + "  let bottom = 0;\n"
+            + "  for (const el of elements) {\n"
+            + "    if (!isVisibleCaptureCandidate(el)) {\n"
+            + "      continue;\n"
+            + "    }\n"
+            + "    const rect = rectFromElement(el);\n"
+            + "    if (rect.width <= 0 || rect.height <= 0) {\n"
+            + "      continue;\n"
+            + "    }\n"
+            + "    left = Math.min(left, rect.left);\n"
+            + "    top = Math.min(top, rect.top);\n"
+            + "    right = Math.max(right, rect.right);\n"
+            + "    bottom = Math.max(bottom, rect.bottom);\n"
+            + "  }\n"
+            + "  if (!Number.isFinite(left) || !Number.isFinite(top) || right <= left || bottom <= top) {\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "  return { x: Math.max(0, left), y: Math.max(0, top), width: right - left, height: bottom - top };\n"
+            + "};\n"
+            + "const backgroundCandidates = (elements) => elements\n"
+            + "  .filter((el) => el.tagName === 'IMG')\n"
+            + "  .filter((el) => /(^BGImage$|background image|bgimage)/i.test(el.id || '')\n"
+            + "    || /background image/i.test(el.getAttribute('alt') || ''))\n"
+            + "  .filter(isVisibleCaptureCandidate)\n"
+            + "  .map(rectFromElement)\n"
+            + "  .filter((rect) => rect.width > 0 && rect.height > 0)\n"
+            + "  .sort((a, b) => (b.width * b.height) - (a.width * a.height));\n"
+            + "const rectFromLargestCandidate = (candidateRects) => {\n"
+            + "  if (candidateRects.length === 0) {\n"
+            + "    return null;\n"
+            + "  }\n"
+            + "  const rect = candidateRects[0];\n"
+            + "  return {\n"
+            + "    x: Math.max(0, rect.left),\n"
+            + "    y: Math.max(0, rect.top),\n"
+            + "    width: rect.width,\n"
+            + "    height: rect.height,\n"
+            + "  };\n"
+            + "};\n"
+            + "const dedupeAndSortCaptureRects = (rects) => rects\n"
+            + "  .sort((a, b) => a.top - b.top || a.left - b.left)\n"
+            + "  .filter((rect, index, sorted) => {\n"
+            + "    if (index === 0) {\n"
+            + "      return true;\n"
+            + "    }\n"
+            + "    const previous = sorted[index - 1];\n"
+            + "    return Math.abs(rect.left - previous.left) > 2\n"
+            + "      || Math.abs(rect.top - previous.top) > 2\n"
+            + "      || Math.abs(rect.width - previous.width) > 2\n"
+            + "      || Math.abs(rect.height - previous.height) > 2;\n"
+            + "  })\n"
+            + "  .map((rect) => ({\n"
+            + "    x: Math.max(0, rect.left),\n"
+            + "    y: Math.max(0, rect.top),\n"
+            + "    width: rect.width,\n"
+            + "    height: rect.height,\n"
+            + "  }));\n"
+            + "const allElements = Array.from(document.body ? document.body.querySelectorAll('*') : []);\n"
+            + "const pageNodes = allElements.filter((el) => /^page\\d+$/i.test(el.id));\n"
+            + "const captures = pageNodes\n"
+            + "  .map((pageNode) => {\n"
+            + "    const pageElements = [pageNode, ...pageNode.querySelectorAll('*')];\n"
+            + "    return rectFromLargestCandidate(backgroundCandidates(pageElements)) || unionRects(pageElements);\n"
+            + "  })\n"
+            + "  .filter(Boolean);\n"
+            + "if (captures.length > 0) {\n"
+            + "  return captures;\n"
+            + "}\n"
+            + "const pageBackgroundCaptures = dedupeAndSortCaptureRects(backgroundCandidates(allElements));\n"
+            + "if (pageBackgroundCaptures.length > 0) {\n"
+            + "  return pageBackgroundCaptures;\n"
+            + "}\n"
+            + "const fallback = unionRects(allElements);\n"
+            + "return fallback ? [fallback] : [];";
+
+    /**
+     * Renders a saved eForm by loading the token-authorized local servlet route in headless
+     * Chromium, capturing page regions, and assembling those captures into a PDF.
      *
      * @param fdid saved eForm data identifier
-     * @param providerId provider number expected by the renderer session gate
+     * @param providerId provider number the render surface is scoped to; carried inside the
+     *        single-use render grant, never on the URL
      * @return readable temporary PDF path; caller owns cleanup
-     * @throws PDFGenerationException when the renderer cannot start, times out, fails, or produces no readable PDF
+     * @throws PDFGenerationException when no render slot is available, the browser cannot start,
+     *         the page fails its gates (bad status, blocked egress, console errors), the render
+     *         times out, or no readable PDF is produced
      */
-    // FindSecBugs COMMAND_INJECTION: fixed argv slots only; validated local URL fragments; local Node script launched without shell expansion.
-    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "The renderer command uses fixed argv slots, validates request-derived URL fragments, and launches a local Node script without shell expansion.")
     public Path renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
-        HttpServletRequest currentRequest = ServletActionContext.getRequest();
+        if (!acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT)) {
+            throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.");
+        }
+        try {
+            return renderWithSlot(fdid, providerId);
+        } finally {
+            RENDER_SLOTS.release();
+        }
+    }
+
+    private Path renderWithSlot(int fdid, String providerId) throws PDFGenerationException {
+        HttpServletRequest currentRequest = currentRequestOrNull();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
-        String baseUrl = resolveBaseUrl(projectHome, currentRequest);
-        String appPath = buildAppPath(fdid, providerId);
-        logger.info("Browser eForm renderer starting: fdid={} providerId={} baseUrl={} appPath={}",
-                fdid, providerId, baseUrl, appPath);
-        String cookieHeader = buildRendererSessionCookieHeader(currentRequest);
+        String baseUrl = validateRendererBaseUrl(resolveBaseUrl(projectHome, currentRequest));
+        String renderToken = EFormRenderTokenService.getInstance().issue(fdid, providerId);
+        String appPath = validateRendererAppPath(buildAppPath(fdid, renderToken));
+        logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
+
         Path tempRoot = resolveRendererTempRoot();
-        RendererRuntime rendererRuntime = prepareRendererRuntime(tempRoot);
-        Path runtimeRoot = rendererRuntime.runtimeRoot();
-        Path scriptPath = runtimeRoot.resolve(MAIN_SCRIPT_NAME);
         Path outputDirectory = null;
         Path outputPdfPath = null;
-        Process process = null;
+        ChromeDriver driver = null;
         boolean success = false;
+        long deadlineNanos = System.nanoTime() + RENDER_TIMEOUT.toNanos();
 
         try {
-            // Resolved inside the try block so a discovery failure still cleans up any staged runtime directory.
-            Path nodeModulesDirectory = resolveNodeModulesDirectory(runtimeRoot);
             outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
             outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
 
-            List<String> command = buildCommand(
-                    resolveNodeBinary(),
-                    scriptPath,
-                    outputDirectory);
+            driver = createDriver(buildChromeOptions(resolveChromiumPath(), sandboxDisabled()));
+            driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
+            ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "screen"));
 
-            ProcessBuilder processBuilder = new ProcessBuilder(command); // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder -- command is built from fixed argv positions after resolving the trusted Node binary, trusted renderer script, and managed temp output directory; request/session values are validated and passed separately via environment variables
-            processBuilder.directory(runtimeRoot.toFile());
-            processBuilder.redirectErrorStream(true);
-            Map<String, String> environment = processBuilder.environment();
-            environment.put(ENV_NODE_PATH, nodeModulesDirectory.toString());
-            try {
-                applyRendererEnvironment(environment, baseUrl, appPath, cookieHeader, resolveChromiumPath());
-            } catch (IllegalArgumentException e) {
-                logger.error("Browser eForm renderer rejected baseUrl/appPath before launch: fdid={} providerId={} baseUrl={} appPath={}",
-                        fdid, providerId, baseUrl, appPath, e);
-                throw e;
+            List<LogEntry> performanceEntries = new ArrayList<>();
+            driver.get(baseUrl + appPath);
+            awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
+            settle(driver, deadlineNanos);
+
+            JavascriptExecutor js = driver;
+            js.executeScript(PREPARE_CAPTURE_JS);
+            List<CaptureRegion> regions = readRegions(js.executeScript(COMPUTE_REGIONS_JS));
+            if (regions.isEmpty()) {
+                throw new PDFGenerationException("Browser rendering could not determine any eForm page regions to capture.");
             }
 
-            process = processBuilder.start();
-            Process rendererProcess = process;
-            CompletableFuture<String> outputFuture = CompletableFuture.supplyAsync(() -> readProcessOutput(rendererProcess));
-            boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
-            if (!finished) {
-                terminateProcessTree(process);
-                String processOutput = awaitProcessOutput(outputFuture);
-                logRendererFailure("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, processOutput);
-                throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
-            }
-            String processOutput = awaitProcessOutput(outputFuture);
-            if (process.exitValue() != 0) {
-                logRendererFailure("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, process.exitValue(), processOutput);
-                throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
-            }
+            captureRegions(driver, regions, outputDirectory, deadlineNanos);
+            drainPerformanceLog(driver, performanceEntries);
+            enforceRenderGates(driver, performanceEntries, baseUrl, fdid);
+
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
-                logRendererFailure("Browser eForm renderer completed without captures: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, processOutput);
                 throw new PDFGenerationException("Browser rendering completed without producing any page captures.");
             }
             convertCapturesToPdf(captureFiles, outputPdfPath);
             if (!Files.isReadable(outputPdfPath) || Files.size(outputPdfPath) == 0) {
-                logRendererFailure("Browser eForm renderer produced an unreadable PDF: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, processOutput);
                 throw new PDFGenerationException("Browser rendering completed without producing a readable eForm PDF.");
             }
             success = true;
             return outputPdfPath;
+        } catch (PDFGenerationException e) {
+            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} reason={}", fdid, baseUrl, redactUrls(e.getMessage()));
+            throw e;
         } catch (IOException e) {
-            logger.error("Unable to start browser eForm renderer: fdid={} providerId={} baseUrl={} appPath={}",
-                    fdid, providerId, baseUrl, appPath, e);
-            throw new PDFGenerationException("Unable to start the browser PDF renderer for eForms.", e);
-        } catch (IllegalArgumentException e) {
-            throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.", e);
+            logger.error("Browser eForm renderer I/O failure: fdid={} baseUrl={}", fdid, baseUrl, e);
+            throw new PDFGenerationException("Unable to prepare files for the browser PDF renderer.", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new PDFGenerationException("Browser rendering was interrupted while generating the eForm PDF.", e);
+        } catch (RuntimeException e) {
+            // WebDriver exception messages can embed page URLs; redact before logging.
+            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} error={}", fdid, baseUrl, redactUrls(String.valueOf(e.getMessage())));
+            throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.", e);
         } finally {
+            // The grant is consume-once; discard it if the browser never redeemed it.
+            EFormRenderTokenService.getInstance().invalidate(renderToken);
+            quitQuietly(driver);
             if (!success) {
-                terminateProcessTree(process);
                 deleteQuietly(outputPdfPath);
             }
             deleteRecursivelyQuietly(outputDirectory);
-            if (rendererRuntime.temporary()) {
-                deleteRecursivelyQuietly(runtimeRoot);
-            }
         }
     }
 
-    static String buildAppPath(int fdid, String providerId) {
-        StringBuilder path = new StringBuilder("/EFormViewForPdfGenerationServlet?fdid=")
-                .append(fdid);
-        if (providerId != null && !providerId.isBlank()) {
-            path.append("&providerId=")
-                    .append(URLEncoder.encode(providerId, StandardCharsets.UTF_8));
+    // ---------------------------------------------------------------------------------------------
+    // Browser lifecycle and options
+    // ---------------------------------------------------------------------------------------------
+
+    /**
+     * Builds the pinned launch configuration. The dead-proxy egress lockdown and
+     * {@code acceptInsecureCerts} form a paired invariant: insecure certs are acceptable only for
+     * loopback rendering, which the proxy configuration guarantees is the only reachable network.
+     */
+    static ChromeOptions buildChromeOptions(String chromiumBinary, boolean disableSandbox) {
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments(
+                "--headless=new",
+                "--disable-dev-shm-usage",
+                "--window-size=" + VIEWPORT_WIDTH + "," + VIEWPORT_HEIGHT,
+                "--force-device-scale-factor=1",
+                "--hide-scrollbars",
+                "--proxy-server=" + DEAD_PROXY,
+                "--proxy-bypass-list=" + PROXY_BYPASS_LOOPBACK,
+                "--disable-background-networking",
+                "--disable-extensions",
+                "--no-first-run",
+                "--no-default-browser-check");
+        if (disableSandbox) {
+            options.addArguments("--no-sandbox");
         }
-        return path.append("&browserRender=true").toString();
+        options.setAcceptInsecureCerts(true);
+        if (chromiumBinary != null && !chromiumBinary.isBlank()) {
+            options.setBinary(chromiumBinary.trim());
+        }
+        LoggingPreferences loggingPreferences = new LoggingPreferences();
+        loggingPreferences.enable(LogType.PERFORMANCE, Level.ALL);
+        loggingPreferences.enable(LogType.BROWSER, Level.SEVERE);
+        options.setCapability("goog:loggingPrefs", loggingPreferences);
+        return options;
     }
 
-
-    static String buildRendererSessionCookieHeader(HttpServletRequest request) throws PDFGenerationException {
-        if (request == null) {
-            throw new PDFGenerationException("Browser rendering requires an active authenticated request context.");
-        }
-
-        HttpSession session = request.getSession(false);
-        if (session == null || LoggedInInfo.getLoggedInInfoFromSession(request) == null) {
-            throw new PDFGenerationException("Browser rendering requires an active authenticated session.");
-        }
-
-        String cookieName = request.getServletContext().getSessionCookieConfig().getName();
-        if (cookieName == null || cookieName.isBlank()) {
-            cookieName = "JSESSIONID";
-        }
-        return cookieName + "=" + session.getId();
+    static boolean sandboxDisabled() {
+        return !"true".equals(System.getenv(ENV_ENABLE_SANDBOX));
     }
 
-    private static String readProcessOutput(Process process) {
-        StringBuilder diagnostics = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (!line.startsWith(RENDERER_DIAGNOSTIC_PREFIX)) {
-                    continue;
-                }
-                if (!diagnostics.isEmpty()) {
-                    diagnostics.append(System.lineSeparator());
-                }
-                diagnostics.append(line);
-            }
-        } catch (IOException e) {
-            return "";
-        }
-        return diagnostics.toString();
-    }
-
-    private static String awaitProcessOutput(CompletableFuture<String> outputFuture) throws InterruptedException {
+    private ChromeDriver createDriver(ChromeOptions options) throws PDFGenerationException {
         try {
-            return outputFuture.get(5, TimeUnit.SECONDS);
-        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
-            return "";
+            String chromedriverPath = resolveChromedriverPath();
+            if (chromedriverPath != null) {
+                File chromedriver = PathValidationUtils.validateConfiguredFile(chromedriverPath, CHROMEDRIVER_PATH_PROPERTY);
+                ChromeDriverService service = new ChromeDriverService.Builder()
+                        .usingDriverExecutable(chromedriver)
+                        .build();
+                return new ChromeDriver(service, options);
+            }
+            // No pinned chromedriver: Selenium Manager resolves one matching the browser. Intended
+            // for dev/CI; production deployments should pin eform_pdf_browser_chromedriver_path.
+            return new ChromeDriver(options);
+        } catch (RuntimeException e) {
+            throw new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.", e);
         }
     }
 
-
-    static String extractRendererDiagnostics(String processOutput) {
-        if (processOutput == null || processOutput.isBlank()) {
-            return "<none>";
+    private static void quitQuietly(ChromeDriver driver) {
+        if (driver == null) {
+            return;
         }
-
-        List<String> diagnostics = processOutput.lines()
-                .map(String::trim)
-                .filter(line -> line.startsWith(RENDERER_DIAGNOSTIC_PREFIX))
-                .map(line -> line.substring(RENDERER_DIAGNOSTIC_PREFIX.length()).trim())
-                .filter(line -> !line.isEmpty())
-                .toList();
-
-        if (diagnostics.isEmpty()) {
-            return "<none>";
+        try {
+            driver.quit();
+        } catch (RuntimeException e) {
+            logger.debug("Unable to quit browser eForm renderer driver cleanly", e);
         }
-        return String.join(" | ", diagnostics);
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Stabilization and capture
+    // ---------------------------------------------------------------------------------------------
 
-    private static void logRendererFailure(String message, Object... arguments) {
-        if (logger.isErrorEnabled()) {
-            if (arguments.length == 0) {
-                logger.error(message);
+    /**
+     * Best-effort network quiescence: poll the performance log until no new events arrive for the
+     * quiet window, capped, never failing the render on its own — mirroring the retired script's
+     * ignored-on-timeout {@code networkidle} wait. Drained entries are retained for the gates.
+     */
+    private void awaitNetworkQuiet(ChromeDriver driver, List<LogEntry> performanceEntries, long deadlineNanos)
+            throws InterruptedException {
+        long quietSinceNanos = System.nanoTime();
+        long waitDeadline = Math.min(deadlineNanos, System.nanoTime() + NETWORK_QUIET_MAX_WAIT.toNanos());
+        while (System.nanoTime() < waitDeadline) {
+            Thread.sleep(250);
+            if (drainPerformanceLog(driver, performanceEntries) > 0) {
+                quietSinceNanos = System.nanoTime();
+            } else if (System.nanoTime() - quietSinceNanos >= NETWORK_QUIET_WINDOW.toNanos()) {
                 return;
             }
-            Object[] logArguments = arguments.clone();
-            int diagnosticsIndex = logArguments.length - 1;
-            logArguments[diagnosticsIndex] = extractRendererDiagnostics(String.valueOf(logArguments[diagnosticsIndex]));
-            logger.error(message, logArguments);
         }
+    }
+
+    private void settle(ChromeDriver driver, long deadlineNanos) throws InterruptedException, PDFGenerationException {
+        Thread.sleep(SETTLE_DELAY_MILLIS);
+        checkDeadline(deadlineNanos);
+        Object settleError = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
+        if (settleError != null) {
+            throw new PDFGenerationException("Browser rendering failed while stabilizing the eForm page: " + redactUrls(String.valueOf(settleError)));
+        }
+        checkDeadline(deadlineNanos);
+    }
+
+    private void captureRegions(ChromeDriver driver, List<CaptureRegion> regions, Path outputDirectory, long deadlineNanos)
+            throws IOException, PDFGenerationException {
+        HasCdp cdp = driver;
+        for (int index = 0; index < regions.size(); index++) {
+            checkDeadline(deadlineNanos);
+            CaptureRegion region = regions.get(index);
+            Map<String, Object> clip = Map.of(
+                    "x", (double) Math.max(0, Math.floor(region.x())),
+                    "y", (double) Math.max(0, Math.floor(region.y())),
+                    "width", (double) Math.ceil(region.width()),
+                    "height", (double) Math.ceil(region.height()),
+                    "scale", 1.0d);
+            Map<String, Object> result = cdp.executeCdpCommand("Page.captureScreenshot", Map.of(
+                    "format", "png",
+                    "clip", clip,
+                    "captureBeyondViewport", Boolean.TRUE));
+            Object data = result.get("data");
+            if (!(data instanceof String encoded) || encoded.isEmpty()) {
+                throw new PDFGenerationException("Browser rendering returned an empty capture for an eForm page region.");
+            }
+            Path outputPath = outputDirectory.resolve(String.format("page-%03d.png", index + 1));
+            Files.write(outputPath, Base64.getDecoder().decode(encoded));
+        }
+    }
+
+    static List<CaptureRegion> readRegions(Object rawRegions) throws PDFGenerationException {
+        if (!(rawRegions instanceof List<?> rawList)) {
+            throw new PDFGenerationException("Browser rendering returned an unexpected page-region result.");
+        }
+        List<CaptureRegion> regions = new ArrayList<>();
+        for (Object rawRegion : rawList) {
+            if (!(rawRegion instanceof Map<?, ?> rawMap)) {
+                throw new PDFGenerationException("Browser rendering returned an unexpected page-region entry.");
+            }
+            double x = regionValue(rawMap, "x");
+            double y = regionValue(rawMap, "y");
+            double width = regionValue(rawMap, "width");
+            double height = regionValue(rawMap, "height");
+            if (width > 0 && height > 0) {
+                regions.add(new CaptureRegion(x, y, width, height));
+            }
+        }
+        return regions;
+    }
+
+    private static double regionValue(Map<?, ?> rawMap, String key) throws PDFGenerationException {
+        Object value = rawMap.get(key);
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        throw new PDFGenerationException("Browser rendering returned a non-numeric page-region value.");
+    }
+
+    /** Immutable capture rectangle in CSS page coordinates. */
+    record CaptureRegion(double x, double y, double width, double height) {
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Render gates (fail-closed): main-document status, loopback-only egress, console errors
+    // ---------------------------------------------------------------------------------------------
+
+    private void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries, String baseUrl, int fdid)
+            throws PDFGenerationException {
+        String allowedOrigin = originOf(baseUrl);
+        int disallowedRequests = 0;
+        Integer mainDocumentStatus = null;
+
+        for (LogEntry entry : performanceEntries) {
+            JsonNode message = parsePerformanceMessage(entry.getMessage());
+            if (message == null) {
+                continue;
+            }
+            String method = message.path("method").asText("");
+            JsonNode params = message.path("params");
+            if ("Network.requestWillBeSent".equals(method)) {
+                String url = params.path("request").path("url").asText("");
+                if (isDisallowedRendererRequestUrl(url, allowedOrigin)) {
+                    disallowedRequests++;
+                }
+            } else if ("Network.responseReceived".equals(method)
+                    && "Document".equals(params.path("type").asText(""))
+                    && params.path("response").path("url").asText("").startsWith(allowedOrigin)) {
+                mainDocumentStatus = params.path("response").path("status").asInt();
+            }
+        }
+
+        int severeConsoleEntries = 0;
+        try {
+            for (LogEntry entry : driver.manage().logs().get(LogType.BROWSER)) {
+                if (entry.getLevel().intValue() >= Level.SEVERE.intValue()) {
+                    severeConsoleEntries++;
+                }
+            }
+        } catch (RuntimeException e) {
+            logger.debug("Browser console log unavailable for eForm render gate", e);
+        }
+
+        if (mainDocumentStatus == null || mainDocumentStatus != 200) {
+            logger.error("Browser eForm renderer rejected main document: fdid={} status={}", fdid, mainDocumentStatus);
+            throw new PDFGenerationException("Browser rendering did not receive a successful eForm page response. status=" + mainDocumentStatus);
+        }
+        if (disallowedRequests > 0 || severeConsoleEntries > 0) {
+            // Counts only — never request URLs or console text, which can carry eForm content.
+            logger.error("Browser eForm renderer surfaced page errors: fdid={} disallowedRequests={} severeConsoleEntries={}",
+                    fdid, disallowedRequests, severeConsoleEntries);
+            throw new PDFGenerationException("Browser rendering surfaced page errors. disallowedRequests="
+                    + disallowedRequests + " consoleErrors=" + severeConsoleEntries);
+        }
+    }
+
+    private int drainPerformanceLog(ChromeDriver driver, List<LogEntry> performanceEntries) {
+        try {
+            int before = performanceEntries.size();
+            for (LogEntry entry : driver.manage().logs().get(LogType.PERFORMANCE)) {
+                performanceEntries.add(entry);
+            }
+            return performanceEntries.size() - before;
+        } catch (RuntimeException e) {
+            logger.debug("Browser performance log unavailable for eForm render", e);
+            return 0;
+        }
+    }
+
+    private static JsonNode parsePerformanceMessage(String rawEntry) {
+        try {
+            return OBJECT_MAPPER.readTree(rawEntry).path("message");
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    static boolean isDisallowedRendererRequestUrl(String requestUrl, String allowedOrigin) {
+        if (requestUrl == null || requestUrl.isEmpty()
+                || requestUrl.startsWith("data:") || requestUrl.startsWith("blob:") || requestUrl.startsWith("about:")) {
+            return false;
+        }
+        String scheme = requestUrl.indexOf(':') > 0 ? requestUrl.substring(0, requestUrl.indexOf(':')) : "";
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            // Non-web schemes the browser may touch internally (chrome-extension:, etc.) are
+            // unreachable as exfiltration channels behind the dead proxy; only web URLs matter.
+            return false;
+        }
+        String origin = originOf(requestUrl);
+        return origin == null || !origin.equals(allowedOrigin);
+    }
+
+    static String originOf(String url) {
+        try {
+            URI uri = URI.create(url.trim());
+            if (uri.getScheme() == null || uri.getHost() == null) {
+                return null;
+            }
+            String scheme = uri.getScheme().toLowerCase(java.util.Locale.ROOT);
+            int port = uri.getPort();
+            if (port == -1) {
+                port = "https".equals(scheme) ? 443 : 80;
+            }
+            return scheme + "://" + uri.getHost().toLowerCase(java.util.Locale.ROOT) + ":" + port;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** Strips URLs from third-party error text before it reaches logs (PHI-safe diagnostics). */
+    static String redactUrls(String text) {
+        if (text == null) {
+            return null;
+        }
+        return text.replaceAll("(?i)https?://[^\\s'\"<>]+", "[redacted-url]");
+    }
+
+    private static void checkDeadline(long deadlineNanos) throws PDFGenerationException {
+        if (System.nanoTime() > deadlineNanos) {
+            throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
+        }
+    }
+
+    static boolean acquireRenderSlot(Semaphore slots, Duration wait) {
+        try {
+            return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    private static HttpServletRequest currentRequestOrNull() {
+        try {
+            return ServletActionContext.getRequest();
+        } catch (RuntimeException e) {
+            // Renders triggered outside a Struts request thread fall back to configured base URL.
+            return null;
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // URL construction and validation
+    // ---------------------------------------------------------------------------------------------
+
+    static String buildAppPath(int fdid, String renderToken) {
+        return "/EFormViewForPdfGenerationServlet?fdid=" + fdid
+                + "&browserRender=true"
+                + "&" + EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM + "="
+                + URLEncoder.encode(renderToken == null ? "" : renderToken, StandardCharsets.UTF_8);
     }
 
     static String buildDefaultBaseUrl(String projectHome) {
@@ -314,33 +697,6 @@ public class EFormBrowserPdfRenderer {
         }
         baseUrl.append(normalizedContextPath);
         return baseUrl.toString();
-    }
-
-    static List<String> buildCommand(String nodeBinary, Path scriptPath, Path outputDirectory) {
-        List<String> command = new ArrayList<>();
-        command.add(nodeBinary);
-        command.add(scriptPath.toAbsolutePath().toString());
-        command.add("--output-dir");
-        command.add(outputDirectory.toAbsolutePath().toString());
-        return command;
-    }
-
-    static void applyRendererEnvironment(
-            Map<String, String> environment,
-            String baseUrl,
-            String appPath,
-            String cookieHeader,
-            String chromePath) {
-        environment.put(ENV_BASE_URL, validateRendererBaseUrl(baseUrl));
-        environment.put(ENV_APP_PATH, validateRendererAppPath(appPath));
-        putIfPresent(environment, ENV_COOKIE_HEADER, cookieHeader);
-        putIfPresent(environment, ENV_CHROME_PATH, chromePath);
-    }
-
-    private static void putIfPresent(Map<String, String> environment, String key, String value) {
-        if (value != null && !value.isBlank()) {
-            environment.put(key, value);
-        }
     }
 
     static String validateRendererBaseUrl(String rawBaseUrl) {
@@ -386,28 +742,12 @@ public class EFormBrowserPdfRenderer {
     private String resolveBaseUrl(String projectHome, HttpServletRequest request) {
         String configuredBaseUrl = CarlosProperties.getInstance().getProperty(BASE_URL_PROPERTY);
         if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
-            String resolvedBaseUrl = configuredBaseUrl.trim().replaceAll("/$", "");
-            logger.info("Browser eForm renderer using configured base URL property {}={}", BASE_URL_PROPERTY, resolvedBaseUrl);
-            return resolvedBaseUrl;
+            return configuredBaseUrl.trim().replaceAll("/$", "");
         }
         if (request != null) {
-            String resolvedBaseUrl = buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
-            logger.info("Browser eForm renderer derived local base URL from request: scheme={} localPort={} contextPath={} resolvedBaseUrl={}",
-                    request.getScheme(), request.getLocalPort(), request.getContextPath(), resolvedBaseUrl);
-            return resolvedBaseUrl;
+            return buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
         }
-        String resolvedBaseUrl = buildDefaultBaseUrl(projectHome);
-        logger.info("Browser eForm renderer fell back to default base URL from project_home: projectHome={} resolvedBaseUrl={}",
-                projectHome, resolvedBaseUrl);
-        return resolvedBaseUrl;
-    }
-
-    private String resolveNodeBinary() {
-        String configuredNodeBinary = CarlosProperties.getInstance().getProperty(NODE_BINARY_PROPERTY);
-        if (configuredNodeBinary != null && !configuredNodeBinary.isBlank()) {
-            return configuredNodeBinary.trim();
-        }
-        return "node";
+        return buildDefaultBaseUrl(projectHome);
     }
 
     private String resolveChromiumPath() {
@@ -417,6 +757,18 @@ public class EFormBrowserPdfRenderer {
         }
         return null;
     }
+
+    private String resolveChromedriverPath() {
+        String configuredChromedriverPath = CarlosProperties.getInstance().getProperty(CHROMEDRIVER_PATH_PROPERTY);
+        if (configuredChromedriverPath != null && !configuredChromedriverPath.isBlank()) {
+            return configuredChromedriverPath.trim();
+        }
+        return null;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Managed temp locations and PDF assembly (unchanged from the previous renderer)
+    // ---------------------------------------------------------------------------------------------
 
     private Path resolveRendererTempRoot() throws PDFGenerationException {
         try {
@@ -447,150 +799,8 @@ public class EFormBrowserPdfRenderer {
         return Path.of(tempDir.getPath(), "carlos-eform-browser-pdf-temp");
     }
 
-    private RendererRuntime prepareRendererRuntime(Path tempRoot) throws PDFGenerationException {
-        Path checkoutRoot = resolveScriptRoot();
-        if (checkoutRoot != null) {
-            return new RendererRuntime(checkoutRoot.resolve("scripts"), false);
-        }
-        return new RendererRuntime(extractBundledRendererRuntime(tempRoot), true);
-    }
-
-    private Path resolveScriptRoot() {
-        for (Path candidate : configuredCandidateRoots(ROOT_PROPERTY, "CARLOS_EFORM_PDF_BROWSER_RENDER_ROOT")) {
-            Path scriptPath = candidate.resolve(SCRIPT_RELATIVE_PATH).normalize();
-            if (!Files.isRegularFile(scriptPath)) {
-                continue;
-            }
-            try {
-                PathValidationUtils.validateExistingPath(scriptPath.toFile(), candidate.toFile());
-                return candidate;
-            } catch (SecurityException e) {
-                logger.warn("Ignoring eForm PDF browser renderer root outside its configured directory: {}", candidate, e);
-            }
-        }
-        return null;
-    }
-
-    private Path resolveNodeModulesDirectory(Path runtimeRoot) throws PDFGenerationException {
-        Path nodeModulesDirectory = findNodeModulesDirectory(nodeModulesCandidates(runtimeRoot));
-        if (nodeModulesDirectory != null) {
-            return nodeModulesDirectory;
-        }
-        throw new PDFGenerationException("Unable to locate the Playwright node_modules directory for eForm PDF generation.");
-    }
-
-    static Path findNodeModulesDirectory(List<Path> candidates) {
-        for (Path candidate : candidates) {
-            Path nodeModulesDirectory = validateNodeModulesCandidate(candidate);
-            if (nodeModulesDirectory != null) {
-                return nodeModulesDirectory;
-            }
-        }
-        return null;
-    }
-
-    private List<Path> nodeModulesCandidates(Path runtimeRoot) {
-        Set<Path> candidates = new LinkedHashSet<>();
-        Path runtimeParent = runtimeRoot.getParent();
-        if (runtimeParent != null) {
-            candidates.add(runtimeParent.toAbsolutePath().normalize());
-        }
-        candidates.add(runtimeRoot.toAbsolutePath().normalize());
-        candidates.addAll(configuredCandidateRoots(NODE_MODULES_ROOT_PROPERTY, "CARLOS_EFORM_PDF_BROWSER_NODE_MODULES_ROOT"));
-        candidates.addAll(parsePathList(System.getenv(ENV_NODE_PATH)));
-        candidates.addAll(FALLBACK_NODE_MODULES_DIRECTORIES);
-        return new ArrayList<>(candidates);
-    }
-
-    private static Path validateNodeModulesCandidate(Path candidate) {
-        if (candidate == null) {
-            return null;
-        }
-        Path normalizedCandidate = candidate.toAbsolutePath().normalize();
-        List<Path> playwrightPaths = List.of(
-                normalizedCandidate.resolve(PLAYWRIGHT_MODULE_RELATIVE_PATH).normalize(),
-                normalizedCandidate.resolve(PLAYWRIGHT_PACKAGE_NAME).normalize());
-        for (Path playwrightPath : playwrightPaths) {
-            if (!Files.isDirectory(playwrightPath)) {
-                continue;
-            }
-            Path nodeModulesDirectory = playwrightPath.getParent();
-            if (nodeModulesDirectory == null || !NODE_MODULES_DIRECTORY_NAME.equals(nodeModulesDirectory.getFileName().toString())) {
-                continue;
-            }
-            try {
-                PathValidationUtils.validateExistingPath(playwrightPath.toFile(), nodeModulesDirectory.toFile());
-                return nodeModulesDirectory;
-            } catch (SecurityException e) {
-                logger.warn("Ignoring Playwright node_modules directory outside its candidate root: {}", candidate, e);
-            }
-        }
-        return null;
-    }
-
-    private List<Path> configuredCandidateRoots(String propertyName, String environmentVariableName) {
-        LinkedHashSet<Path> candidates = new LinkedHashSet<>();
-        addConfiguredCandidate(candidates, CarlosProperties.getInstance().getProperty(propertyName), propertyName);
-        addConfiguredCandidate(candidates, System.getenv(environmentVariableName), environmentVariableName);
-        addConfiguredCandidate(candidates, System.getProperty(propertyName), propertyName);
-        return new ArrayList<>(candidates);
-    }
-
-    private void addConfiguredCandidate(Set<Path> candidates, String rawCandidate, String label) {
-        if (rawCandidate == null || rawCandidate.isBlank()) {
-            return;
-        }
-        try {
-            candidates.add(PathValidationUtils.validateConfiguredDirectory(rawCandidate.trim(), label).toPath());
-        } catch (RuntimeException e) {
-            logger.warn("Ignoring invalid eForm PDF browser renderer root candidate: {}", rawCandidate, e);
-        }
-    }
-
-    static List<Path> parsePathList(String rawPaths) {
-        if (rawPaths == null || rawPaths.isBlank()) {
-            return Collections.emptyList();
-        }
-        String[] entries = rawPaths.split(java.util.regex.Pattern.quote(File.pathSeparator));
-        List<Path> parsedPaths = new ArrayList<>();
-        for (String entry : entries) {
-            if (entry == null || entry.isBlank()) {
-                continue;
-            }
-            parsedPaths.add(Path.of(entry.trim()).toAbsolutePath().normalize());
-        }
-        return parsedPaths;
-    }
-
-    private Path extractBundledRendererRuntime(Path tempRoot) throws PDFGenerationException {
-        Path runtimeDir = null;
-        try {
-            runtimeDir = createSecureTempDirectory(tempRoot, "eform-browser-pdf-runtime-");
-            for (String scriptName : BUNDLED_SCRIPT_NAMES) {
-                copyBundledScript(runtimeDir, scriptName);
-            }
-            return runtimeDir;
-        } catch (IOException e) {
-            deleteRecursivelyQuietly(runtimeDir);
-            throw new PDFGenerationException("Unable to stage the bundled Playwright renderer assets for eForm PDF generation.", e);
-        } catch (PDFGenerationException e) {
-            deleteRecursivelyQuietly(runtimeDir);
-            throw e;
-        }
-    }
-
-    private void copyBundledScript(Path runtimeDir, String scriptName) throws IOException, PDFGenerationException {
-        Path outputPath = runtimeDir.resolve(scriptName);
-        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(RENDERER_RESOURCE_ROOT + scriptName)) {
-            if (inputStream == null) {
-                throw new PDFGenerationException("Unable to locate bundled eForm PDF renderer asset: " + scriptName);
-            }
-            Files.copy(inputStream, outputPath, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
     private List<Path> listCaptureFiles(Path outputDirectory) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(outputDirectory, "page-*.png")) {
+        try (var stream = Files.newDirectoryStream(outputDirectory, "page-*.png")) {
             List<Path> captures = new ArrayList<>();
             for (Path capture : stream) {
                 captures.add(capture);
@@ -601,7 +811,7 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
-    private void convertCapturesToPdf(List<Path> captureFiles, Path outputPdfPath) throws PDFGenerationException {
+    static void convertCapturesToPdf(List<Path> captureFiles, Path outputPdfPath) throws PDFGenerationException {
         try (PDDocument document = new PDDocument()) {
             for (Path captureFile : captureFiles) {
                 BufferedImage image = ImageIO.read(captureFile.toFile());
@@ -668,18 +878,10 @@ public class EFormBrowserPdfRenderer {
                 || ("https".equalsIgnoreCase(scheme) && port == 443);
     }
 
-    private record RendererRuntime(Path runtimeRoot, boolean temporary) {
-    }
-
-    private static void terminateProcessTree(Process process) {
-        if (process == null) {
+    private static void deleteQuietly(Path outputPath) {
+        if (outputPath == null) {
             return;
         }
-        process.toHandle().descendants().forEach(ProcessHandle::destroyForcibly);
-        process.destroyForcibly();
-    }
-
-    private static void deleteQuietly(Path outputPath) {
         try {
             Files.deleteIfExists(outputPath);
         } catch (IOException e) {
