@@ -43,9 +43,9 @@ script on a rendered eForm can act as no one. Authorization is anchored at the m
 | `eform_pdf_browser_chromium_path` | unset | Absolute path to the Chromium/Chrome binary. |
 | `eform_pdf_browser_chromedriver_path` | unset | Absolute path to a pinned chromedriver. Set this in production. |
 
-Environment: `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true` keeps Chromium's sandbox on (requires
-kernel user-namespace support); otherwise the renderer launches with `--no-sandbox`, which is
-typical for containerized Tomcat.
+Environment: the renderer is **sandboxed by default** (see "Security operations" below).
+`EFORM_RENDER_ALLOW_UNSANDBOXED=true` is the explicit opt-out that launches Chromium with
+`--no-sandbox`, for deployments where the container is the isolation boundary.
 
 ## Security model
 
@@ -93,27 +93,35 @@ The token design means the render browser holds no session cookies or credential
 compromised render exposes only the content of the form being rendered.
 
 **Selenium is not an isolation layer.** It only launches `chromedriver` → `chrome`; the
-chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). Run the
-browser confined via one of the two paths below — ideally both:
+chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). This
+renderer is **secure by default and fails closed**: it launches Chromium sandboxed, and if a
+sandboxed launch can't start it **fails the render with actionable guidance** rather than silently
+dropping to `--no-sandbox`. Run the browser confined via one of the two paths below — ideally both:
 
-1. **Enable Chromium's own sandbox (preferred).** Chromium's Linux sandbox chroots the renderer
+1. **Chromium's own sandbox (default, preferred).** Chromium's Linux sandbox chroots the renderer
    into an empty dir inside new PID + network namespaces (Layer 1) and applies a seccomp-bpf
    syscall filter (Layer 2). The modern **unprivileged user-namespaces** variant needs **no
    root** — only kernel ≥3.10 with user namespaces enabled
-   (`sysctl kernel.unprivileged_userns_clone=1`). Turn it on by setting
-   `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true` (this drops the `--no-sandbox` flag). Prefer this
-   wherever the host kernel allows it.
-2. **Make the container the boundary (when user namespaces are unavailable).** Many hardened
-   container platforms block the namespaces Chromium's sandbox needs, forcing `--no-sandbox`
-   (the default here). That is acceptable **only if the container itself is the isolation
-   boundary**: run as a dedicated non-root UID, `cap-drop=ALL` (no `CAP_SYS_ADMIN`),
-   `--security-opt no-new-privileges`, a read-only root filesystem, `tmpfs` for `/dev/shm` and
-   the renderer temp root mounted `noexec,nosuid,nodev`, a seccomp profile (Docker default or a
-   Chrome-tuned one), and PID / CPU / memory limits. On newer kernels, Landlock adds filesystem
-   confinement on top.
+   (`sysctl kernel.unprivileged_userns_clone=1`), and the renderer must run as a **non-root**
+   user (Chromium refuses its sandbox as root). This is the default; no configuration is needed.
+   If the sandbox cannot start, the render fails with a message telling the operator to enable
+   user namespaces / run as non-root, or to consciously choose path 2.
+2. **Make the container the boundary (explicit opt-out).** Where user namespaces are unavailable,
+   set `EFORM_RENDER_ALLOW_UNSANDBOXED=true` to launch with `--no-sandbox`. This is acceptable
+   **only if the container itself is the isolation boundary**: dedicated non-root UID,
+   `cap-drop=ALL` (no `CAP_SYS_ADMIN`), `--security-opt no-new-privileges`, read-only root
+   filesystem, `tmpfs` for `/dev/shm` and the renderer temp root mounted `noexec,nosuid,nodev`, a
+   seccomp profile (Docker default or a Chrome-tuned one), and PID / CPU / memory limits. On newer
+   kernels, Landlock adds filesystem confinement. Every render logs a `WARN` while this opt-out is
+   active, so an unsandboxed browser is never silent in ops logs.
 
-`--no-sandbox` with **no** container boundary is a testing-only configuration and must not be
-used where the renderer can be reached by clinic-authored eForms.
+There is **deliberately no automatic fallback** from path 1 to path 2 — a silent drop to
+`--no-sandbox` would reinstate the insecure default. `EFORM_RENDER_ALLOW_UNSANDBOXED` with **no**
+real container boundary is a testing-only configuration and must not be used where the renderer can
+be reached by clinic-authored eForms.
+
+(The dev/CI Playwright check scripts under `scripts/` are separate test tooling; they run as root
+in CI and use their own `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX` opt-in — not this production knob.)
 
 ## Output contract
 

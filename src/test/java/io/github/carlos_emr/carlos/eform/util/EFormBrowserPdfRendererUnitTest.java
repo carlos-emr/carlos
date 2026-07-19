@@ -207,14 +207,15 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
-    @DisplayName("should keep the sandbox enabled when the sandbox environment opt-in is honoured")
-    void shouldKeepSandboxEnabled_whenSandboxOptInRequested() {
+    @DisplayName("should keep the Chromium sandbox enabled by default")
+    void shouldKeepSandboxEnabled_byDefault() {
         ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(null, false, "http://127.0.0.1:8080");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> chromeOptions = (Map<String, Object>) options.asMap().get("goog:chromeOptions");
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) chromeOptions.get("args");
+        // Secure by default: no --no-sandbox unless the operator explicitly opts out.
         assertThat(args).doesNotContain("--no-sandbox");
     }
 

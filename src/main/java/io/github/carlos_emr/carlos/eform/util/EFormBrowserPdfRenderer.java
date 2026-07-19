@@ -100,7 +100,7 @@ public class EFormBrowserPdfRenderer {
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
     private static final String CHROMEDRIVER_PATH_PROPERTY = "eform_pdf_browser_chromedriver_path";
     private static final String CATALINA_BASE_PROPERTY = "catalina.base";
-    private static final String ENV_ENABLE_SANDBOX = "EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX";
+    private static final String ENV_ALLOW_UNSANDBOXED = "EFORM_RENDER_ALLOW_UNSANDBOXED";
 
     /**
      * Dead proxy plus a port-scoped loopback bypass: only the application's own loopback origin
@@ -312,7 +312,12 @@ public class EFormBrowserPdfRenderer {
             outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
             outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
 
-            driver = createDriver(buildChromeOptions(resolveChromiumPath(), sandboxDisabled(), allowedOrigin));
+            boolean allowUnsandboxed = allowUnsandboxed();
+            if (allowUnsandboxed) {
+                logger.warn("Browser eForm renderer running WITHOUT Chromium's OS-level sandbox "
+                        + "(EFORM_RENDER_ALLOW_UNSANDBOXED=true); OS-level containment is delegated to the container boundary.");
+            }
+            driver = createDriver(buildChromeOptions(resolveChromiumPath(), allowUnsandboxed, allowedOrigin));
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
             ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "screen"));
 
@@ -375,7 +380,7 @@ public class EFormBrowserPdfRenderer {
      * {@code acceptInsecureCerts} form a paired invariant: insecure certs are acceptable only for
      * loopback rendering, which the proxy configuration guarantees is the only reachable network.
      */
-    static ChromeOptions buildChromeOptions(String chromiumBinary, boolean disableSandbox, String allowedOrigin) {
+    static ChromeOptions buildChromeOptions(String chromiumBinary, boolean allowUnsandboxed, String allowedOrigin) {
         ChromeOptions options = new ChromeOptions();
         options.addArguments(
                 "--headless=new",
@@ -398,7 +403,9 @@ public class EFormBrowserPdfRenderer {
                 "--disable-extensions",
                 "--no-first-run",
                 "--no-default-browser-check");
-        if (disableSandbox) {
+        if (allowUnsandboxed) {
+            // Explicit operator opt-out: only legitimate when the container itself is the
+            // isolation boundary. Never a silent fallback — see allowUnsandboxed()/createDriver().
             options.addArguments("--no-sandbox");
         }
         options.setAcceptInsecureCerts(true);
@@ -426,8 +433,16 @@ public class EFormBrowserPdfRenderer {
         return "127.0.0.1:" + port + ";localhost:" + port + ";[::1]:" + port;
     }
 
-    static boolean sandboxDisabled() {
-        return !"true".equals(System.getenv(ENV_ENABLE_SANDBOX));
+    /**
+     * Secure by default: the render browser keeps Chromium's OS-level sandbox unless the operator
+     * explicitly opts out with {@code EFORM_RENDER_ALLOW_UNSANDBOXED=true}. The opt-out is only
+     * legitimate where the deployment provides isolation another way (the container is the
+     * boundary); it is never chosen automatically, and there is deliberately no fallback that
+     * drops the sandbox when a sandboxed launch fails — that would silently reinstate the insecure
+     * default.
+     */
+    static boolean allowUnsandboxed() {
+        return "true".equals(System.getenv(ENV_ALLOW_UNSANDBOXED));
     }
 
     private ChromeDriver createDriver(ChromeOptions options) throws PDFGenerationException {
@@ -444,6 +459,17 @@ public class EFormBrowserPdfRenderer {
             // for dev/CI; production deployments should pin eform_pdf_browser_chromedriver_path.
             return new ChromeDriver(options);
         } catch (RuntimeException e) {
+            if (!allowUnsandboxed()) {
+                // Fail closed: a sandboxed launch that cannot start (kernel without unprivileged
+                // user namespaces, or Chromium refusing the sandbox as root) must not degrade to
+                // --no-sandbox on its own. Tell the operator how to make containment real, or how
+                // to consciously accept container-level isolation instead.
+                throw new PDFGenerationException(
+                        "Unable to start the sandboxed headless Chromium renderer for eForms. "
+                        + "Enable unprivileged user namespaces and run the renderer as a non-root user so "
+                        + "Chromium's sandbox can start, or set EFORM_RENDER_ALLOW_UNSANDBOXED=true only when "
+                        + "the container itself provides isolation.", e);
+            }
             throw new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.", e);
         }
     }
