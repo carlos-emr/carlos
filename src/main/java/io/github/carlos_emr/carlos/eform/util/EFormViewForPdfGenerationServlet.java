@@ -211,14 +211,16 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
      * fetch each subresource under the same grant. Every such URL has been normalized to
      * {@code .../<servlet>?<params>} by this point, so one insertion at the {@code ?} boundary covers
      * all forms ({@code ${oscar_image_path}}, {@code /eform/displayImage}, and the signature path).
-     * No-op on the session-authenticated path (null token). The token is URL-safe base64 (unpadded),
-     * so it is a safe query value and attribute content as-is.
+     * No-op on the session-authenticated path (null token). The token is a request parameter, so it
+     * is URI-component encoded before it is spliced into the asset URLs (which live inside HTML
+     * {@code src} attributes): a well-formed URL-safe-base64 grant passes through unchanged, while any
+     * injected metacharacter is neutralized for both the query-string and HTML-attribute contexts.
      */
     private static String appendRenderTokenToAssetUrls(String html, String renderToken) {
         if (renderToken == null || renderToken.isEmpty()) {
             return html;
         }
-        String tokenPrefix = "?" + RENDER_TOKEN_PARAM + "=" + renderToken + "&";
+        String tokenPrefix = "?" + RENDER_TOKEN_PARAM + "=" + SafeEncode.forUriComponent(renderToken) + "&";
         return html
                 .replace(IMAGE_VIEW_SERVLET_NAME + "?", IMAGE_VIEW_SERVLET_NAME + tokenPrefix)
                 .replace(SIGNATURE_VIEW_SERVLET_NAME + "?", SIGNATURE_VIEW_SERVLET_NAME + tokenPrefix);

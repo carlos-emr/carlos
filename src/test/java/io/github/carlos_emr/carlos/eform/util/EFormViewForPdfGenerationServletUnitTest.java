@@ -285,6 +285,37 @@ class EFormViewForPdfGenerationServletUnitTest {
     }
 
     @Test
+    @DisplayName("should URI-encode the render grant before splicing it into asset URLs")
+    void shouldEncodeRenderToken_whenTokenCarriesMetacharacters() {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>("");
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+
+        EFormValue letter = new EFormValue();
+        letter.setVarName("Letter");
+        letter.setVarValue("<img src=\"${oscar_image_path}logo.png\" />");
+
+        // A well-formed grant is URL-safe base64; a token carrying HTML/query metacharacters must be
+        // neutralized before it reaches the src attribute (defence in depth over the upstream grant check).
+        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
+                eForm,
+                List.of(letter),
+                "/carlos",
+                "carlos",
+                false,
+                "\"><script>alert(1)</script>");
+
+        assertThat(html)
+                .doesNotContain("<script>alert(1)</script>")
+                .contains("renderToken=%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E&imagefile=logo.png");
+    }
+
+    @Test
     @DisplayName("should apply stored signature when signature value appears before letter content")
     void shouldApplySignature_whenSignatureValuePrecedesLetter() {
         EForm eForm = mock(EForm.class);
