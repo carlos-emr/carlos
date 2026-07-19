@@ -15,7 +15,7 @@ import java.util.Base64;
 import java.util.Objects;
 
 /**
- * Short-lived, single-use grants that authorize the server-side browser renderer to fetch one
+ * Short-lived, render-scoped grants that authorize the server-side browser renderer to fetch one
  * saved eForm surface.
  *
  * <p>The renderer's headless browser is a separate process with no HTTP session. Instead of

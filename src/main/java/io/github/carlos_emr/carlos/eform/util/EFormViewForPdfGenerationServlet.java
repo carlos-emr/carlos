@@ -152,7 +152,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     }
 
     /**
-     * Redeems the single-use render grant carried by a browser-render request.
+     * Redeems the render-scoped grant carried by a browser-render request.
      *
      * <p>Renderer requests carry no HTTP session by design. Authorization happened when
      * {@code EformDataManagerImpl} passed its {@code _eform} privilege check and minted a grant

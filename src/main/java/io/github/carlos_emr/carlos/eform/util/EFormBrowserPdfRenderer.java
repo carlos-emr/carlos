@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
  * Browser-backed eForm PDF renderer driven entirely from the JVM.
  *
  * <p>Selenium launches a pinned headless Chromium (no Node.js runtime anywhere), navigates over
- * loopback to {@link EFormViewForPdfGenerationServlet} using a single-use render token from
+ * loopback to {@link EFormViewForPdfGenerationServlet} using a render-scoped token from
  * {@link EFormRenderTokenService}, captures stabilized page regions via CDP screenshots, and
  * assembles the captures into a PDF for fax and eDoc workflows.</p>
  *
@@ -73,7 +73,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
  *   <li>Browser egress is locked to loopback by a dead proxy + loopback bypass list, and any
  *       observed non-loopback request fails the render. {@code acceptInsecureCerts} is safe only
  *       because of this lockdown — it can never be leveraged against an external host.</li>
- *   <li>The browser holds no HTTP session or cookies; authorization is a one-shot fdid-bound
+ *   <li>The browser holds no HTTP session or cookies; authorization is a render-scoped fdid-bound
  *       token minted after the caller's {@code _eform} privilege check.</li>
  *   <li>A fresh browser is launched per render so no state can bleed between users' renders.</li>
  * </ul>
@@ -281,7 +281,7 @@ public class EFormBrowserPdfRenderer {
      *
      * @param fdid saved eForm data identifier
      * @param providerId provider number the render surface is scoped to; carried inside the
-     *        single-use render grant, never on the URL
+     *        render grant, never on the URL
      * @return readable temporary PDF path; caller owns cleanup
      * @throws PDFGenerationException when no render slot is available, the browser cannot start,
      *         the page fails its gates (bad status, blocked egress, console errors), the render
@@ -376,7 +376,8 @@ public class EFormBrowserPdfRenderer {
             logger.error("Browser eForm renderer failed: fdid={} baseUrl={} error={}", fdid, baseUrl, redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.", e);
         } finally {
-            // The grant is consume-once; discard it if the browser never redeemed it.
+            // The grant is render-scoped; invalidate it here so a token the browser never redeemed
+            // (or is done with) cannot linger until its TTL.
             EFormRenderTokenService.getInstance().invalidate(renderToken);
             quitQuietly(driver);
             if (!success) {
