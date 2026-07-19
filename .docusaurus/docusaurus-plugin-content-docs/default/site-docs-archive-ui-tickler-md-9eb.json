@@ -1,0 +1,15 @@
+{
+  "id": "archive/ui/tickler",
+  "title": "tickler",
+  "description": "Tickler Module",
+  "source": "@site/docs/archive/ui/tickler.md",
+  "sourceDirName": "archive/ui",
+  "slug": "/archive/ui/tickler",
+  "permalink": "/archive/ui/tickler",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/ui/tickler.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

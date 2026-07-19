@@ -1,0 +1,15 @@
+{
+  "id": "archive/Olis",
+  "title": "Configuring OLIS",
+  "description": "The assumes that you have done the paperwork needed to sign up for OLIS",
+  "source": "@site/docs/archive/Olis.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/Olis",
+  "permalink": "/archive/Olis",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/Olis.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

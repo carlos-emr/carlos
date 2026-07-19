@@ -1,0 +1,98 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["type: bug", "status: needs-triage"]
+type: Bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this — good bug reports help us improve CARLOS for everyone.
+
+        **Important:** Never include real patient data (PHI) in bug reports. Use synthetic or test data only.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug
+      placeholder: What's happening that shouldn't be happening?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Clear steps to reproduce the behavior
+      placeholder: |
+        1. Navigate to...
+        2. Click on...
+        3. Enter data...
+        4. Observe error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+      description: What should happen
+      placeholder: Describe the expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+      description: What actually happens
+      placeholder: Describe what happens instead
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module/Area
+      description: Which part of the application is affected?
+      options:
+        - eChart
+        - Admin Panel
+        - Billing
+        - Forms/eForms
+        - Appointment/Schedule
+        - Lab Results
+        - Reports
+        - Authentication
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_logs
+    attributes:
+      label: Error Messages/Logs
+      description: Any error messages or relevant log output (scrub any patient data before pasting)
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Version/Branch
+      description: Which version or branch are you using?
+      placeholder: e.g., develop, v2.1.0
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched for similar issues
+          required: true
+        - label: I can reproduce this consistently
+          required: false
+        - label: I have verified no patient data (PHI) is included in this report
+          required: true
+        - label: I am willing to submit a PR to fix this
+          required: false

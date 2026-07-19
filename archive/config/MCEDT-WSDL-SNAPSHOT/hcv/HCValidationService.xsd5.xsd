@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://msa.ebs.health.ontario.ca/" version="1.0" xmlns:tns="http://msa.ebs.health.ontario.ca/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="MSA" type="tns:msa_header"/>
+  <xs:simpleType name="user">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="256"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="muid">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="10"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="msa_header">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="ServiceUserMUID" type="tns:muid"/>
+      <xs:element minOccurs="1" name="UserID" type="tns:user"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

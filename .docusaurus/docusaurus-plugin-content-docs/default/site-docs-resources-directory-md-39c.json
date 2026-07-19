@@ -1,0 +1,24 @@
+{
+  "id": "resources-directory",
+  "title": "OpenO Resources Directory Overview",
+  "description": "What is src/main/resources?",
+  "source": "@site/docs/resources-directory.md",
+  "sourceDirName": ".",
+  "slug": "/resources-directory",
+  "permalink": "/resources-directory",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/resources-directory.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "OpenO Form Resources Directory Documentation",
+    "permalink": "/README-form-resources"
+  },
+  "next": {
+    "title": "OpenO EMR Password System",
+    "permalink": "/Password_System"
+  }
+}

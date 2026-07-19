@@ -1,0 +1,15 @@
+{
+  "id": "archive/AddMeasurements",
+  "title": "AddMeasurements",
+  "description": "Description of Integration Point: Push MyOscar Measurements data",
+  "source": "@site/docs/archive/AddMeasurements.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/AddMeasurements",
+  "permalink": "/archive/AddMeasurements",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/AddMeasurements.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

@@ -1,0 +1,24 @@
+{
+  "id": "struts-actions-detailed",
+  "title": "OSCAR EMR Struts Actions Reference",
+  "description": "Overview",
+  "source": "@site/docs/struts-actions-detailed.md",
+  "sourceDirName": ".",
+  "slug": "/struts-actions-detailed",
+  "permalink": "/struts-actions-detailed",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/struts-actions-detailed.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "OpenO EMR Password System",
+    "permalink": "/Password_System"
+  },
+  "next": {
+    "title": "Struts Actions Summary",
+    "permalink": "/struts-actions-summary"
+  }
+}

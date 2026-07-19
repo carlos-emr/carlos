@@ -1,0 +1,15 @@
+{
+  "id": "archive/HumanUserInterfaceGuideline",
+  "title": "OSCAR Human Interface Guideline",
+  "description": "Principles",
+  "source": "@site/docs/archive/HumanUserInterfaceGuideline.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/HumanUserInterfaceGuideline",
+  "permalink": "/archive/HumanUserInterfaceGuideline",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/HumanUserInterfaceGuideline.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

@@ -1,0 +1,1065 @@
+/*
+ *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
+ * <OSCAR TEAM>
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+/* styles.css -- Style sheet for the UI prototype.
+
+   Colours used:
+       #A9A9A9 = darkgray
+       #DCDCDC = gainsboro
+       #F5F5F5 = whitesmoke
+       #000000 = black
+       #FF8C00 = darkorange
+*/
+BODY {
+    FONT-SIZE: Normal;
+    FONT-FAMILY: Verdana, Tahoma, Arial, sans-serif;
+}
+
+TABLE {
+    FONT-SIZE: x-small;
+}
+
+TH {
+    FONT-SIZE: small;
+    font-weight: bold;
+}
+
+A IMG {
+    border: 0px;
+}
+
+H3 {
+    font-size: x-small;
+    font-weight: bold;
+    margin-bottom: -10px;
+}
+
+.box {
+    border-top: 1px;
+    border-left: 1px;
+    border-right: 1px;
+    border-bottom: 1px;
+}
+
+.ControlTextarea {
+    font-family: Verdana, Tahoma, Arial, sans-serif;
+    font-size: 100%;
+}
+
+.FakeLink {
+    text-align: right;
+    font-size: 80%;
+}
+
+.Head {
+    background-color: #BBBBBB;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    width: 100%;
+    font-size: 12pt;
+}
+
+.Head INPUT {
+    width: 100px;
+}
+
+.RowTop {
+    font-size: 9px;
+    font-variant: small-caps;
+    font: bold;
+    background-color: #CCCCFF;
+}
+
+.ControlPushButton {
+    font-size: 80%;
+    font-family: Verdana, Tahoma, Arial, sans-serif;
+}
+
+.Header {
+    font-weight: bold;
+    font-size: 80%;
+    background-color: #6699cc;
+}
+
+/*These are my additions************************/
+H4 {
+    font-size: x-small;
+    font-weight: bold;
+    margin-bottom: -10px;
+}
+
+H3 {
+    font-size: x-small;
+    font-weight: bold;
+    margin-bottom: -10px;
+}
+
+TH {
+    font-size: small;
+    font-weight: bold;
+}
+
+.doctorInfo {
+    font-size: x-small;
+    text-decoration: bold;
+    background-color: #A39FC4;
+}
+
+.encounterTable {
+    background-color: #EBEAF2;
+}
+
+.patientInfo {
+    font-size: small;
+    text-decoration: bold;
+    background-color: #CBC9E0;
+    /*#CBC9E0;*/
+}
+
+.ControlTextarea {
+    font-family: Verdana, Tahoma, Arial, sans-serif;
+    font-size: 100%;
+}
+
+.ControlSelect {
+    font-family: Verdana, Tahoma, Arial, sans-serif;
+    font-size: 80%;
+    width: 100%;
+}
+
+.LeftTable {
+    width: 100%;
+}
+
+.BodyStyle {
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+}
+
+.MainTable {
+    border-collapse: collapse;
+    border-color: #111111;
+    border-width: 0;
+    padding-bottom: 0;
+    padding-top: 0;
+    padding-left: 0;
+    padding-right: 0;
+    width: 100%;
+    font-size: 80%;
+}
+
+.MainTableTopRowLeftColumn {
+    background-color: #003399;
+    border-right: 2px solid #A9A9A9;
+    border-left: 2px solid #A9A9A9;
+    border-top: 2px solid #A9A9A9;
+    height: 34px;
+    max-width: 130px;
+    font-size: 110%;
+    font-weight: bold;
+    color: #FFFFFF;
+}
+
+.MainTableBottomRowLeftColumn {
+    border-right: 2px solid #A9A9A9;
+    border-left: 2px solid #A9A9A9;
+    border-bottom: 2px solid #A9A9A9;
+    height: 4px;
+    max-width: 130px;
+}
+
+.MainTableLeftColumn {
+    border-right: 2px solid #A9A9A9;
+    border-left: 2px solid #A9A9A9;
+    max-width: 130px;
+}
+
+.MainTableTopRowRightColumn {
+    border-right: 2px solid #A9A9A9;
+    border-top: 2px solid #A9A9A9;
+    background-color: #003399;
+    height: 34px;
+    min-width: 400px;
+}
+
+.MainTableBottomRowRightColumn {
+    border-bottom: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    height: 4px;
+}
+
+.MainTableRightColumn {
+    border-right: 2px solid #A9A9A9;
+    height: 34px;
+    margin-left: 4px;
+}
+
+.TopStatusBar {
+    font-weight: bold;
+    background-color: #6699cc;
+    color: black;
+    height: 23px;
+    width: 100%;
+}
+
+/* FOR DEMOGRAPHIC EDIT DEMOGRAPHIC PAGE */
+
+.demographicDetail {
+    background-color: #CCCCFF;
+}
+
+div.info, span.info {
+    font-weight: bold;
+}
+
+div.statusName, div.statusInfo, div.statusAppointment {
+    float: left;
+    padding-right: 20px;
+}
+
+div.statusAppointment {
+    font-style: italic;
+}
+
+div.demographicSection {
+    width: 100%;
+    margin-top: 2px;
+    border-top: 1px solid #ccccff;
+    border-bottom: 1px solid #ccccff;
+    border-left: 1px solid #ccccff;
+    border-right: 1px solid #ccccff;
+    float: left;
+}
+
+div.demographicSection h3 {
+    background-color: #ccccff;
+    font-size: 8pt;
+    font-variant: small-caps;
+    font: bold;
+    margin-top: 0px;
+    padding-top: 0px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+
+div.demographicSection ul {
+
+    list-style: none;
+    list-style-type: none;
+    list-style-position: outside;
+    padding-left: 1px;
+    margin-left: 1px;
+    margin-top: 0px;
+    padding-top: 1px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+
+div.leftSection, div.rightSection {
+    float: left;
+    width: 48%;
+    margin-left: 1%;
+}
+
+div.rightSection {
+}
+
+div.demographicSection li {
+    padding-right: 15px;
+    white-space: nowrap;
+}
+
+#viewDemographics2, div.demographicWrapper, .lightPurple {
+    background-color: #eeeeff;
+    width: 100%;
+}
+
+div.demographicDetail {
+    width: 100%;
+    background-color: #eeeeff;
+}
+
+div.label {
+    clear: both;
+    float: left;
+}
+
+#viewMobileMenu, .mobileScrollBtns, .mobileTitle, .mobileTopBar {
+    display: none;
+}
+
+.darkPurple {
+    background-color: #CCCCFF;
+}
+
+div.demographicWrapper {
+    background-color: #eeeeff;
+    margin-top: 5px;
+    margin-left: 1px;
+    margin-right: 1px;
+}
+
+/* popup menu style for encounter reason */
+.menu {
+    position: absolute;
+    visibility: hidden;
+    background-color: #6699cc;
+    layer-background-color: #6699cc;
+    color: white;
+    border-left: 1px solid black;
+    border-top: 1px solid black;
+    border-bottom: 3px solid black;
+    border-right: 3px solid black;
+    padding: 3px;
+    z-index: 10;
+    font-size: 9px;
+    width: 25em;
+}
+
+.menu a {
+    text-decoration: none;
+    color: white;
+}
+
+div.label {
+    display: block;
+}
+
+/*****************/
+
+.TopStatusBarShort {
+    font-weight: bold;
+    background-color: #6699cc;
+    color: black;
+    height: 23px;
+    width: 500;
+}
+
+.Title {
+    font-weight: bold;
+    font-size: 110%;
+    color: white;
+    background-color: #6699cc;
+}
+
+.fieldBox {
+    font-family: tahoma, helvetica;
+    background-color: "#ddddff";
+}
+
+.note {
+    font-size: 80%;
+    color: #3366CC;
+}
+
+.data {
+    background-color: #F7F7F7;
+    font-size: 80%;
+}
+
+.data2 {
+    background-color: #F7F7F7;
+    color: #3366CC;
+    font-size: 9px;
+}
+
+.data3 {
+    color: #15120B;
+    font-size: 11px;
+}
+
+.data4 {
+    background-color: #F7F7F7;
+    color: #3366CC;
+    font-size: 12px;
+}
+
+.data5 {
+    background-color: #FDFEC7;
+    color: #3366CC;
+    font-size: 9px;
+}
+
+div.topBox {
+    margin-top: 2px;
+    padding: 0px;
+    background-color: #FFFFFF;
+    /*    margin-left:3px;
+    margin-right:3px;*/
+    border-left: 1px solid #6699cc;
+    border-right: 1px solid #6699cc;
+    border-bottom: 1px solid #6699cc;
+}
+
+div.leftBox {
+    clear: both;
+    width: 100%;
+    margin-top: 2px;
+    /*margin-left:3px;
+   margin-right:1px;
+   /*float: left;
+   border-left: 1px solid #6699cc;
+   border-right: 1px solid #6699cc;
+   border-bottom: 1px solid #6699cc; */
+    background-color: #FFFFFF;
+}
+
+span.footnote {
+    background-color: #ccccee;
+    border: 1px solid #000;
+    width: 4px;
+}
+
+div.topBox h3 a {
+    color: white;
+    text-decoration: none;
+}
+
+div.topBox h3 {
+    background-color: #6699cc;
+    /*font-size: 1.0em;*/
+    font-size: 9px;
+    /*font-variant:small-caps;*/
+    color: white;
+    font-weight: bold;
+    margin-top: 0px;
+    padding-top: 0px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+    padding-left: 5px;
+    /*padding-right:5px;*/
+}
+
+div.topBox ul { /*border-top: 1px solid #F11;*/
+    /*border-bottom: 1px solid #F11;*/ /*font-size: 1.0em;*/
+    font-size: 9px;
+    list-style: circle inside;
+    padding-left: 1px;
+    margin-left: 5px;
+    margin-top: 0px;
+    padding-top: 1px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+
+div.topBox li { /*padding-right: 15px;*/
+    white-space: nowrap;
+}
+
+div.leftBox h3 a {
+    color: white;
+    text-decoration: none;
+}
+
+div.leftBox h3 {
+    background-color: #6699cc;
+    /*font-size: 1.0em;*/
+    font-size: 9px;
+    /*font-variant:small-caps;*/
+    color: white;
+    font-weight: bold;
+    margin-top: 0px;
+    padding-top: 0px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+    padding-left: 5px;
+    /*padding-right:5px;*/
+}
+
+div.leftBox ul { /*border-top: 1px solid #F11;*/
+    /*border-bottom: 1px solid #F11;*/ /*font-size: 1.0em;*/
+    font-size: 9px;
+    list-style: none;
+    list-style-type: none;
+    list-style-position: outside;
+    padding-left: 1px;
+    margin-left: 1px;
+    margin-top: 0px;
+    padding-top: 1px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+
+div.leftBox li { /*padding-right: 15px;*/
+    white-space: nowrap;
+}
+
+/* popup menu styles for forms */
+.menu {
+    position: absolute;
+    visibility: hidden;
+    background-color: #6699cc;
+    layer-background-color: #6699cc;
+    color: white;
+    border-left: 1px solid black;
+    border-top: 1px solid black;
+    border-bottom: 3px solid black;
+    border-right: 3px solid black;
+    padding: 3px;
+    z-index: 101;
+    font-size: 9px;
+}
+
+.menuItemright {
+    float: right;
+    color: white;
+    text-decoration: none;
+}
+
+.menuItemleft {
+    float: left;
+    color: white;
+    text-decoration: none;
+}
+
+#leftNavBar {
+    display: inline;
+    float: left;
+    width: 20%;
+}
+
+#rightNavBar {
+    display: inline;
+    float: right;
+    width: 20%;
+    margin-left: -3px;
+}
+
+#content {
+    display: inline;
+    float: left;
+    width: 60%;
+    background-color: #CCCCFF;
+}
+
+#encMainDiv {
+    width: 99%;
+    border-top: thin groove #000000;
+    border-right: thin groove #000000;
+    border-left: thin groove #000000;
+    background-color: #FFFFFF;
+    height: 410px;
+    overflow: auto;
+    margin-left: 2px;
+    position: relative;
+}
+
+.addItem {
+    width: 10%;
+    float: right;
+    text-align: center;
+}
+
+.headerTitle {
+    clear: left;
+    float: left;
+    width: 90%;
+}
+
+/* formatting for navbar */
+.links {
+    color: blue;
+    text-decoration: none;
+    font-size: 9px;
+}
+
+.linkhover {
+    color: black;
+    text-decoration: underline;
+}
+
+#mainContent {
+    background-color: #FFFFFF;
+    width: 100%;
+    margin-right: -2px;
+    display: inline;
+    float: left;
+}
+
+#notCpp {
+    height: 70%;
+    margin-left: 2px;
+    background-color: #FFFFFF;
+}
+
+.editBtn {
+    float: right;
+    margin-right: 5px;
+    font-size: 8px;
+}
+
+.caseNote_date {
+    float: left;
+    font-size: 1.0em;
+    width: 25%;
+    font-weight: bold;
+}
+
+.caseNote_content {
+    float: left;
+    font-size: 1.0em;
+    width: 60%;
+}
+
+div.note {
+    color: #000000;
+    font-family: arial, sans-serif;
+    margin: 3px 0px 3px 5px;
+    float: left;
+    width: 98%;
+}
+
+#save {
+    width: 98.7%;
+    margin-left: 2px;
+    background-color: #CCCCFF;
+    padding: 5px 0px 5px 2px;
+    margin-left: 2px;
+    border-left: thin solid #000000;
+    border-right: thin solid #000000;
+    border-bottom: thin solid #000000;
+}
+
+#save #saveButtons, #save #globalButtons {
+    float: right;
+    margin-right: 5px;
+}
+
+#saveButtons > input {
+    margin: 0 3px;
+}
+
+.sig {
+    background-color: #CCCCFF;
+    color: #000000;
+    width: 100%;
+    font-size: 9px;
+}
+
+.observation, .observationEdit, .showEditDate {
+    float: right;
+    margin-right: 3px;
+    font-style: italic;
+}
+
+.encType {
+    clear: right;
+    margin-right: 3px;
+    float: right;
+}
+
+.topLinks {
+    color: black;
+    text-decoration: none;
+    font-size: 9px;
+}
+
+.topLinkhover {
+    color: blue;
+    text-decoration: underline;
+}
+
+div.newNote {
+    color: #000000;
+    font-family: arial, sans-serif;
+    font-size: 0.8em;
+    margin: 5px 0px 5px 5px;
+    float: left;
+    width: 98%;
+    /* margin-bottom: 30px; /* removes br's */
+}
+
+div.newNote pre {
+    color: #000000;
+    font-family: arial, sans-serif;
+    margin: 0px 3px 0px 3px;
+    width: 100%;
+    clear: left;
+}
+
+.txtArea {
+    font-family: arial, sans-serif;
+    font-size: 1.0em;
+    width: 99%;
+    rows: 10;
+    overflow: hidden;
+    border: none;
+    margin: 0px 3px;
+}
+
+div#autosaveTime {
+    text-align: center;
+    margin: 0px;
+}
+
+div.expandedBox, div.cppBox {
+    clear: both;
+    overflow: auto;
+}
+
+div.expandedBox {
+    height: 100%;
+}
+
+/* in place editor */
+.showEdPosition {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.showEdFooter {
+    text-align: left;
+    padding: 0 2px;
+}
+
+ul#issueIdList {
+    padding: 0;
+}
+
+.showEdContent {
+    /*border: thin ridge black;*/
+    background-color: #CCCCFF;
+    font-size: 9px;
+
+    position: absolute;
+    display: none;
+    z-index: 200;
+    right: 100px;
+    bottom: 200px;
+    text-align: center;
+}
+
+#showEditButtons, #showEditLogout {
+    float: right;
+    margin-right: 10px;
+}
+
+#noteEditTxt {
+    margin: 10px;
+}
+
+div#issueNoteAssign {
+    text-align: center;
+}
+
+/*****/
+
+/* template styles*/
+#issueListCPP {
+    background-color: #FFFFFF;
+    height: 200px;
+    width: 350px;
+    position: absolute;
+    z-index: 1;
+    overflow: auto;
+}
+
+.enTemplate_name_auto_complete {
+    width: 350px;
+    background: #fff;
+    font-size: 9px;
+    text-align: left;
+}
+
+.enTemplate_name_auto_complete ul {
+    border: 1px solid #888;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    list-style-type: square;
+    list-style-position: inside;
+}
+
+.enTemplate_name_auto_complete ul li {
+    margin: 0;
+    padding: 3px;
+}
+
+.enTemplate_name_auto_complete ul li.selected {
+    background-color: #ffb;
+    text-decoration: underline;
+}
+
+.enTemplate_name_auto_complete ul strong.highlight {
+    color: #800;
+    margin: 0;
+    padding: 0;
+}
+
+p.passwd, p.passwdErr {
+    margin: 0px 3px;
+}
+
+p.passwdErr {
+    color: red;
+}
+
+#notesLoading {
+    background-color: #AAAADD;
+    border: 1px solid black;
+    border-radius: 3px 3px 3px 3px;
+    box-shadow: 2px 2px 4px;
+    font-size: 12px;
+    margin-left: 20px;
+    padding: 4px;
+    position: absolute;
+    right: 50px;
+    text-align: center;
+    top: 25px;
+    width: 130px;
+    z-index: 4000;
+}
+
+#notesLoading img {
+    margin-right: 5px;
+}
+
+/* IMPORTED FROM INLINE */
+li.cpp {
+    color: #000000;
+    font-family: arial, sans-serif;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+/*Note format */
+div.newNote {
+    color: #000000;
+    font-family: arial, sans-serif;
+    font-size: 0.8em;
+    margin: 5px 0px 5px 5px;
+    float: left;
+    width: 98%;
+}
+
+div.newNote pre {
+    color: #000000;
+    font-family: arial, sans-serif;
+    margin: 0px 3px 0px 3px;
+    width: 100%;
+    clear: left;
+}
+
+div.note {
+    color: #000000;
+    font-family: arial, sans-serif;
+    margin: 3px 0px 3px 5px;
+    float: left;
+    width: 98%;
+}
+
+div.note pre {
+    color: #000000;
+    font-family: arial, sans-serif;
+    margin: 0px 3px 0px 3px;
+    width: 100%;
+    clear: left;
+}
+
+.sig {
+    background-color: #CCCCFF;
+    color: #000000;
+    width: 100%;
+    font-size: 9px;
+}
+
+.txtArea {
+    font-family: arial, sans-serif;
+    font-size: 1.0em;
+    width: 99%;
+    rows: 10;
+    overflow: hidden;
+    border: none;
+    font-family: arial, sans-serif;
+    margin: 0px 3px 0px 3px;
+}
+
+p.passwd {
+    margin: 0px 3px 0px 3px;
+}
+
+/* span formatting for measurements div found in ajax call */
+span.measureCol1 {
+    float: left;
+    width: 50px;
+}
+
+span.measureCol2 {
+    float: left;
+    width: 55px;
+}
+
+span.measureCol3 {
+    float: left;
+}
+
+.topLinks {
+    color: black;
+    text-decoration: none;
+    font-size: 9px;
+}
+
+.topLinkhover {
+    color: blue;
+    text-decoration: underline;
+}
+
+/* formatting for navbar */
+.links {
+    color: blue;
+    text-decoration: none;
+    font-size: 9px;
+}
+
+.linkhover {
+    color: black;
+    text-decoration: underline;
+}
+
+/* template styles*/
+.enTemplate_name_auto_complete {
+    width: 350px;
+    background: #fff;
+    font-size: 9px;
+    text-align: left;
+}
+
+.enTemplate_name_auto_complete ul {
+    border: 1px solid #888;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    list-style-type: square;
+    list-style-position: inside;
+}
+
+.enTemplate_name_auto_complete ul li {
+    margin: 0;
+    padding: 3px;
+}
+
+.enTemplate_name_auto_complete ul li.selected {
+    background-color: #ffb;
+    text-decoration: underline;
+}
+
+.enTemplate_name_auto_complete ul strong.highlight {
+    color: #800;
+    margin: 0;
+    padding: 0;
+}
+
+/* Encounter type select box */
+
+div.autocomplete {
+    position: absolute;
+    width: 400px;
+    background-color: white;
+    border: 1px solid #ccc;
+    margin: 0px;
+    padding: 0px;
+    font-size: 9px;
+    text-align: left;
+    max-height: 200px;
+    overflow: auto;
+}
+
+div.autocomplete ul {
+    list-style-type: none;
+    margin: 0px;
+    padding: 0px;
+}
+
+div.autocomplete ul li.selected {
+    background-color: #EAF2FB;
+}
+
+div.autocomplete ul li {
+    list-style-type: none;
+    display: block;
+    margin: 0;
+    padding: 2px;
+    cursor: pointer;
+}
+
+.encTypeCombo {
+    margin: 0px;
+    font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+    font-size: 9px;
+    width: 200px;
+    text-align: left;
+    vertical-align: middle;
+    background: #FFFFFF url('../images/downarrow_inv.gif') no-repeat right;
+    height: 18px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    color: #000000;
+}
+
+.printOps {
+    background-color: #CCCCFF;
+    font-size: 9px;
+    position: absolute;
+    display: none;
+    z-index: 1;
+    width: 200px;
+    right: 100px;
+    bottom: 200px;
+}
+
+.showEdContainer {
+    position: absolute;
+    display: none;
+    z-index: 100;
+    right: 100px;
+    bottom: 200px;
+    background-color: transparent;
+    font-size: 8px;
+    text-align: center;
+}
+
+.showEdPosition {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.showEdContent {
+    background-color: #CCCCFF;
+    font-size: 9px;
+    position: absolute;
+    display: none;
+    z-index: 200;
+    right: 100px;
+    bottom: 200px;
+    text-align: center;
+}
+
+#attachDocumentsForm li.selectAllHeading {
+    border-bottom: black thin inset
+}
+
+#attachDocumentsForm h2, #attachDocumentsForm ul {
+    margin: 0px;
+    padding: 0px;
+}

@@ -1,0 +1,15 @@
+{
+  "id": "static/javadoc/legal/jqueryUI",
+  "title": "jqueryUI",
+  "description": "jQuery UI v1.13.2",
+  "source": "@site/docs/static/javadoc/legal/jqueryUI.md",
+  "sourceDirName": "static/javadoc/legal",
+  "slug": "/static/javadoc/legal/jqueryUI",
+  "permalink": "/static/javadoc/legal/jqueryUI",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/static/javadoc/legal/jqueryUI.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

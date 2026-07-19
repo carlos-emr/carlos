@@ -1,0 +1,2 @@
+INSERT INTO `property` (`name`, `value`, `provider_no`) VALUES ('default_ref_prac', '1', '999998');
+INSERT INTO `property` (`name`, `value`, `provider_no`) VALUES ('consultation_letterheadname_default', '1', '999998');

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- <beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+			http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+			http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd
+			http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+			http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd"> -->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+            http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+            http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+	<!-- DataSource -->
+	<!--
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
+	 -->
+	  <aop:aspectj-autoproxy proxy-target-class="true"/>
+	<bean id="dataSource" class="io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="${db_driver}" />
+		<property name="url" value="${db_uri}${db_name}" />
+		<property name="defaultAutoCommit" value="true" />
+
+		<property name="username" value="${db_username}" />
+		<property name="password" value="${db_password}" />
+
+		<property name="maxTotal" value="${db_max_active}" />
+		<property name="maxIdle" value="${db_max_idle}" />
+		<property name="maxWaitMillis" value="${db_max_wait}" />
+
+		<property name="testOnBorrow" value="true" />
+		<property name="validationQuery" value="${db_validationQuery}" />
+
+		<property name="maxOpenPreparedStatements" value="320" />
+		<!-- bug in the connector 3.11 driver which prevents this from being used, we need to upgrade drivers before re-enabling -->
+		<property name="poolPreparedStatements" value="false" />
+		<property name="removeAbandonedOnBorrow" value="${db_remove_abandoned}" />
+		<property name="removeAbandonedOnMaintenance" value="${db_remove_abandoned}" />
+		<property name="removeAbandonedTimeout" value="${db_remove_abandoned_timeout}" />
+		<property name="logAbandoned" value="${db_log_abandoned}" />
+
+	</bean>
+
+	<!-- JPA -->
+	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="jpaVendorAdapter">
+			<bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter" />
+		</property>
+		<property name="jpaProperties">
+			<props>
+				<prop key="hibernate.dialect">${hibernate.dialect}</prop>
+				<prop key="hibernate.show_sql">${hibernate.show_sql}</prop>
+				<prop key="hibernate.generate_statistics">${hibernate.generate_statistics}</prop>
+
+				<prop key="hibernate.cache.use_second_level_cache">false</prop>
+				<prop key="hibernate.cache.use_query_cache">false</prop>
+				<prop key="hibernate.max_fetch_depth">3</prop>
+			</props>
+		</property>
+	</bean>
+	<!-- JPA annotations bean post processor -->
+	<bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor" />
+
+	<!-- TransactionManager -->
+	<bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager" autowire="byName">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+	</bean>
+	
+	<tx:annotation-driven transaction-manager="transactionManager" />
+
+	<!-- Managed Beans -->
+	<context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao">
+    <context:exclude-filter type="regex" expression=".*\.UserPropertyDAOImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.DemographicDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.DxresearchDAOImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.EChartDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.EncounterWindowDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.AppointmentArchiveDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.DemographicExtDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.OtherIdDAOImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.HL7HandlerMSHMappingDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.QueueDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.WaitingListNameDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.AppointmentTypeDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.BillingONCHeader1DaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.CasemgmtNoteLockDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.DataExportDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.SiteDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.BillingreferralDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.Icd9DaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.DocumentMergeDemographicDAOImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.QueueDocumentLinkDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.InboxResultsRepositoryImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.ProviderInboxRoutingDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.ProviderPreferenceDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.SecurityDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.EFormDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.EncounterFormDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.BillingPaymentTypeDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.BillingONPaymentDaoImpl$"/>
+    <context:exclude-filter type="regex" expression=".*\.SecRoleDaoImpl$"/>
+</context:component-scan>
+
+
+	<context:component-scan base-package="io.github.carlos_emr.carlos.fax.core" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.hospitalReportManager.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.olis.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.ON.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.BC.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.dao" />
+
+</beans>

@@ -1,0 +1,24 @@
+{
+  "id": "integrator-system-architecture",
+  "title": "Oscar Integrator System Architecture",
+  "description": "Overview",
+  "source": "@site/docs/integrator-system-architecture.md",
+  "sourceDirName": ".",
+  "slug": "/integrator-system-architecture",
+  "permalink": "/integrator-system-architecture",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/integrator-system-architecture.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Struts Actions Summary",
+    "permalink": "/struts-actions-summary"
+  },
+  "next": {
+    "title": "Decision Support Guideline XSD Schema",
+    "permalink": "/dsGuideline"
+  }
+}

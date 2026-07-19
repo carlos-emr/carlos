@@ -1,0 +1,15 @@
+{
+  "id": "archive/SendImmunization",
+  "title": "SendImmunization",
+  "description": "Description of Integration Point: Push MyOscar Immunization data",
+  "source": "@site/docs/archive/SendImmunization.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/SendImmunization",
+  "permalink": "/archive/SendImmunization",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/SendImmunization.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

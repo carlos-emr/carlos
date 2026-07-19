@@ -1,0 +1,634 @@
+{
+	"info": {
+		"_postman_id": "b9dd6699-9feb-4c6d-be9b-171216c7febc",
+		"name": "SOAP",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "32291732"
+	},
+	"item": [
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/LoginService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\r\n  <soap:Body>\r\n    <login2 xmlns=\"http://webserv.openo.openosp.ca/\">\r\n      <arg0 xmlns=\"\">oscardoc</arg0>\r\n      <arg1 xmlns=\"\">mac2002#</arg1>\r\n    </login2>\r\n  </soap:Body>\r\n</soap:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/LoginService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"LoginService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/ScheduleService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getScheduleTemplateCodes/>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/ScheduleService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"ScheduleService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/DocumentService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n        <ns:getDocument>\r\n            <arg0>1</arg0>\r\n      </ns:getDocument>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/DocumentService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"DocumentService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/DocumentService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getDocumentsByDemographicIdAfter>\r\n         <!-- lastUpdate: Calendar/DateTime in XML format -->\r\n         <lastUpdate>2025-06-27T00:00:00.000-05:00</lastUpdate>\r\n         <!-- demographicId: Integer -->\r\n         <demographicId>1</demographicId>\r\n      </ns:getDocumentsByDemographicIdAfter>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/DocumentService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"DocumentService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/AllergyService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n        <ns:getAllergy>\r\n            <arg0>1</arg0>\r\n      </ns:getAllergy>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/AllergyService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"AllergyService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/BookingService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n        <ns:getAppointmentTypesByProvider>\r\n            <arg0>999998</arg0>\r\n      </ns:getAppointmentTypesByProvider>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/BookingService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"BookingService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/DemographicService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://webserv.openo.openosp.ca/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">9614165624032</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getDemographic2>\r\n            <arg0>1</arg0>\r\n      </ns:getDemographic2>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/DemographicService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"DemographicService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/FacilityService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getDefaultFacility/>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/FacilityService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"FacilityService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/LabUploadService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n        <ns:uploadGammaDynacare>\r\n            <file_name>test</file_name>\r\n            <oscar_provider_no>999998</oscar_provider_no>\r\n            <contents><![CDATA[\r\nMSH|^~\\&|GDML|GDML|||20230609231252||ORU^R01|MAGENTA .83610181|P|2.3\r\nPID|1|9876543225^AB^ON|AC-4622245621316||Patel^Deval^K||19850615|M|||123 MAIN RD^NORTH YORK^ONTARIO^ON^M6B3Y5||(437)774-5555\r\nOBR|1|||253^URINALYSIS CHEMICAL^L253A^URINALYSIS|R|202306090949|202306090949||0000||N|||||654321^provider one||||||20230609231251|||||\r\nOBX|1|ST|253&21^GLUCOSE|1|NEG|mmol/L|-NEG^NEGATIVE (mmol/L)|N||F||||||\r\nOBX|2|ST|253&22^BILIRUBIN|1|NEG||-NEG^NEGATIVE|N||F||||||\r\nOBX|3|ST|253&23^KETONES|1|NEG|mmol/L|-NEG^NEGATIVE (mmol/L)|N||F||||||\r\nOBX|4|NM|253&24^SPECIFIC GRAVITY|1|1.022||1.005-1.039^1.005 - 1.030|N||F||||||\r\nOBX|5|ST|253&25^BLOOD|1|TRACE||-NEG^NEGATIVE|A||F||||||\r\nOBX|6|NM|253&26^pH|1|6.5||5.-8.000^5.0 - 8.0|N||F||||||\r\nOBX|7|ST|253&27^PROTEIN|1|NEG|g/L|-NEG^NEGATIVE (g/L)|N||F||||||\r\nOBX|8|NM|253&28^UROBILINOGEN|1|3.2|umol/L|-42.99^3.2 - 16  umol/L|N||F||||||\r\nOBX|9|ST|253&29^NITRITE|1|NEG||-NEG^NEGATIVE|N||F||||||\r\nOBX|10|ST|253&30^LEUKOCYTES|1|MODERATE||-NEG^NEGATIVE|A||F||||||\r\nOBX|11|ST|253&31^COLOUR|1|YELLOW||-YELLOW^YELLOW|N||F||||||\r\nOBX|12|ST|253&32^APPEARANCE|1|CLOUDY||-CLEAR^CLEAR|A||F||||||\r\n]]></contents>\r\n      </ns:uploadGammaDynacare>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/LabUploadService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"LabUploadService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/MeasurementService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getMeasurementMaps/>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/MeasurementService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"MeasurementService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/PrescriptionService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getPrescription>\r\n            <arg0>1</arg0>\r\n      </ns:getPrescription>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/PrescriptionService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"PrescriptionService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/PreventionService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getPrevention>\r\n            <arg0>1</arg0>\r\n      </ns:getPrevention>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/PreventionService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"PreventionService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/ProgramService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getAllPrograms/>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/ProgramService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"ProgramService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/ProviderService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getLoggedInProviderTransfer/>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/ProviderService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"ProviderService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/ScheduleService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getScheduleTemplateCodes/>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/ScheduleService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"ScheduleService"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "http://127.0.0.8:8080/oscar/ws/SystemInfoService",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-type",
+						"value": "text/xml; charset=utf-8",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "\r\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\r\n                  xmlns:wsse=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\"\r\n                  xmlns:ns=\"http://ws.oscarehr.org/\">\r\n   <soapenv:Header>\r\n      <wsse:Security>\r\n         <wsse:UsernameToken>\r\n            <wsse:Username>128</wsse:Username>\r\n            <wsse:Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText\">mac2002#</wsse:Password>\r\n         </wsse:UsernameToken>\r\n      </wsse:Security>\r\n   </soapenv:Header>\r\n   <soapenv:Body>\r\n      <ns:getServerTimeGmtOffset/>\r\n   </soapenv:Body>\r\n</soapenv:Envelope>\r\n\r\n",
+					"options": {
+						"raw": {
+							"language": "xml"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.8:8080/oscar/ws/SystemInfoService",
+					"protocol": "http",
+					"host": [
+						"127",
+						"0",
+						"0",
+						"8"
+					],
+					"port": "8080",
+					"path": [
+						"oscar",
+						"ws",
+						"SystemInfoService"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

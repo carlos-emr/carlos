@@ -1,0 +1,94 @@
+name: Regression
+description: Report something that used to work but is now broken
+title: "[Regression]: "
+labels: ["type: regression", "priority: high", "status: needs-triage"]
+type: Regression
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for flagging this — regressions are high priority and we want to get them fixed quickly.
+
+        **Important:** Never include real patient data (PHI) in regression reports. Use synthetic or test data only.
+
+  - type: input
+    id: working_version
+    attributes:
+      label: Last Working Version
+      description: Where this worked correctly
+      placeholder: e.g., v2.1.0, commit abc123, or date
+    validations:
+      required: true
+
+  - type: input
+    id: broken_version
+    attributes:
+      label: Broken Version
+      description: Where it's broken
+      placeholder: e.g., v2.2.0, develop branch, current
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What used to work
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current Behavior
+      description: What happens now
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How to reproduce this regression
+      placeholder: |
+        1. Navigate to...
+        2. Click on...
+        3. Observe broken behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module/Area
+      description: Which part is affected?
+      options:
+        - eChart
+        - Admin Panel
+        - Billing
+        - Forms/eForms
+        - Appointment/Schedule
+        - Search
+        - Reports
+        - Authentication
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Any temporary workaround?
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have confirmed this worked in a previous version
+          required: true
+        - label: I have verified no patient data (PHI) is included in this report
+          required: true
+        - label: This is blocking my work
+          required: false

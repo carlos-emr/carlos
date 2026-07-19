@@ -1,0 +1,121 @@
+
+table {
+    border-collapse: collapse;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+table#editDemographic {
+    width: 100%;
+    padding: 0;
+    margin: 0 !important;
+}
+
+table#editDemographic tr, table#editDemographic tr td table#waitingListTable tr {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: stretch;
+    width: 100%;
+}
+
+table#editDemographic tr td, table#editDemographic tr td table#waitingListTable tr td {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    margin: 0 !important;
+}
+
+table#editDemographic tr td input, table#editDemographic tr td select, table#editDemographic tr td textarea {
+    width: 100% !important;
+}
+
+table#editDemographic tr td b, table#editDemographic tr td strong, .alignRight {
+    text-indent: 5px
+}
+
+table#editDemographic tr:nth-of-type(odd) {
+    background-color: white;
+}
+
+
+#pup {
+    position: absolute;
+    z-index: 200; /* aaaalways on top*/
+    padding: 3px;
+    margin-left: 10px;
+    margin-top: 5px;
+    width: 250px;
+    border: 1px solid black;
+    background-color: #777;
+    color: white;
+    font-size: 0.95em;
+}
+
+div.demographicSection {
+    width: 100%;
+    margin-top: 2px;
+    margin-left: 3px;
+    border-top: 1px solid #ccccff;
+    border-bottom: 1px solid #ccccff;
+    border-left: 1px solid #ccccff;
+    border-right: 1px solid #ccccff;
+    float: left;
+}
+
+div.demographicSection h3 {
+    background-color: #ccccff;
+    font-size: 8pt;
+    font-variant: small-caps;
+    margin-top: 0;
+    padding-top: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+div.demographicSection ul {
+
+    list-style: none;
+    list-style-type: none;
+    list-style-position: outside;
+    padding-left: 1px;
+    margin-left: 1px;
+    margin-top: 0;
+    padding-top: 1px;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+
+div.demographicSection li {
+    padding-right: 15px;
+    white-space: nowrap;
+}
+
+
+div.demographicWrapper {
+    background-color: #eeeeff;
+}
+
+/* popup menu style for encounter reason */
+.menu {
+    position: absolute;
+    visibility: hidden;
+    background-color: #6699cc;
+    layer-background-color: #6699cc;
+    color: white;
+    border-left: 1px solid black;
+    border-top: 1px solid black;
+    border-bottom: 3px solid black;
+    border-right: 3px solid black;
+    padding: 3px;
+    z-index: 10;
+    font-size: 9px;
+    width: 25em;
+}
+
+.menu a {
+    text-decoration: none;
+    color: white;
+}

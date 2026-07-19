@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: CARLOS Community Support
+    url: https://github.com/carlos-emr/carlos/discussions/categories/q-a
+    about: Questions or need help? Ask in our Q&A discussions.
+  - name: Security Vulnerability
+    url: https://github.com/carlos-emr/carlos/security/policy
+    about: Please report security vulnerabilities through our security policy. Never open a public issue for security bugs.

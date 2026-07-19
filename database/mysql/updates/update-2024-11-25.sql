@@ -1,0 +1,3 @@
+ALTER TABLE DigitalSignature MODIFY COLUMN signatureImage MEDIUMBLOB;
+
+ALTER TABLE DigitalSignature ADD COLUMN ModuleType ENUM('CONSULTATION', 'E_FORM', 'PRESCRIPTION') null;

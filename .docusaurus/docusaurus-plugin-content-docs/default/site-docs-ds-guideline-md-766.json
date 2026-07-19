@@ -1,0 +1,24 @@
+{
+  "id": "dsGuideline",
+  "title": "Decision Support Guideline XSD Schema",
+  "description": "Overview",
+  "source": "@site/docs/dsGuideline.md",
+  "sourceDirName": ".",
+  "slug": "/dsGuideline",
+  "permalink": "/dsGuideline",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/dsGuideline.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Oscar Integrator System Architecture",
+    "permalink": "/integrator-system-architecture"
+  },
+  "next": {
+    "title": "Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+    "permalink": "/Testing_Exclusion_of_MCEDT_and_HinValidator_tests"
+  }
+}

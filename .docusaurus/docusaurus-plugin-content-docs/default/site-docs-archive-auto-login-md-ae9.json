@@ -1,0 +1,15 @@
+{
+  "id": "archive/AutoLogin",
+  "title": "AutoLogin",
+  "description": "Description of Integration Point: Log into MyOscar automatically",
+  "source": "@site/docs/archive/AutoLogin.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/AutoLogin",
+  "permalink": "/archive/AutoLogin",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/AutoLogin.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

@@ -1,0 +1,15 @@
+{
+  "id": "archive/dispensing_inventory",
+  "title": "Dispensing Feature",
+  "description": "This feature is quick addition to OSCAR that allows for clinics to keep track of internally dispensed medication. This was originally developed for Hamilton Public Health and their Sexual Health clinics.",
+  "source": "@site/docs/archive/dispensing_inventory.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/dispensing_inventory",
+  "permalink": "/archive/dispensing_inventory",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/dispensing_inventory.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

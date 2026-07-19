@@ -1,0 +1,15 @@
+{
+  "id": "archive/GetLoggedInPerson",
+  "title": "GetLoggedInPerson",
+  "description": "Description of Integration Point: Get Logged In Person ID",
+  "source": "@site/docs/archive/GetLoggedInPerson.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/GetLoggedInPerson",
+  "permalink": "/archive/GetLoggedInPerson",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/GetLoggedInPerson.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

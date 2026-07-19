@@ -1,0 +1,15 @@
+{
+  "id": "archive/web_services/OAUTH",
+  "title": "OAUTH",
+  "description": "Web Services via OAuth",
+  "source": "@site/docs/archive/web_services/OAUTH.md",
+  "sourceDirName": "archive/web_services",
+  "slug": "/archive/web_services/OAUTH",
+  "permalink": "/archive/web_services/OAUTH",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/web_services/OAUTH.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

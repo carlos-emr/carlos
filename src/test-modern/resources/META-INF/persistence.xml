@@ -1,0 +1,62 @@
+<persistence xmlns="http://java.sun.com/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://java.sun.com/xml/ns/persistence
+             http://java.sun.com/xml/ns/persistence/persistence_1_0.xsd"
+             version="1.0">
+
+    <!--
+        Test Persistence Unit Configuration
+
+        This mirrors the production persistence.xml which uses a simple configuration
+        and allows Spring/Hibernate to handle entity discovery through:
+        - mappingDirectoryLocations for .hbm.xml files (configured in test-context-full.xml)
+        - Entity scanning for @Entity annotations
+
+        The production approach lets the frameworks handle entity discovery rather
+        than explicitly listing everything, which avoids the complex dependency issues.
+    -->
+    <persistence-unit name="entityManagerFactory" transaction-type="RESOURCE_LOCAL">
+        <!-- Explicitly list the entities we need -->
+        <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
+        <class>io.github.carlos_emr.carlos.commn.model.TicklerUpdate</class>
+        <class>io.github.carlos_emr.carlos.commn.model.TicklerCategory</class>
+        <class>io.github.carlos_emr.carlos.commn.model.TicklerComment</class>
+        <class>io.github.carlos_emr.carlos.commn.model.CustomFilter</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Admission</class>
+        <class>io.github.carlos_emr.carlos.commn.model.OscarLog</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Facility</class>
+        <class>io.github.carlos_emr.carlos.commn.model.DemographicMerged</class>
+        <class>io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue</class>
+        <class>io.github.carlos_emr.carlos.form.model.FormRourke2009</class>
+        <!-- HBM.XML mapped entities -->
+        <mapping-file>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</mapping-file>
+        <!-- PMmodule additional mappings for integration tests -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</mapping-file>
+        <!-- CaseManagement mappings for integration tests -->
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/issue.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</mapping-file>
+        <!-- Security model mappings -->
+        <mapping-file>com/quatro/model/security/Secrole.hbm.xml</mapping-file>
+        <!-- Exclude Secuserrole.hbm.xml - conflicts with PMmodule SecUserRole.hbm.xml -->
+        <!-- Both map to secUserRole table: one with composite key, one with auto-generated id -->
+        <mapping-file>com/quatro/model/security/SecProvider.hbm.xml</mapping-file>
+        <!-- PMmodule functional user mappings -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</mapping-file>
+        <!-- PMmodule additional mappings for HQL parameter binding tests -->
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientRestriction.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</mapping-file>
+        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</mapping-file>
+    </persistence-unit>
+
+</persistence>

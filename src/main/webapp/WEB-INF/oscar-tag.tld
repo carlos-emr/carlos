@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE taglib PUBLIC "-//Sun Microsystems, Inc.//DTD JSP Tag Library 1.1//EN" "http://java.sun.com/j2ee/dtds/web-jsptaglibrary_1_1.dtd">
+
+<taglib>
+
+<tlibversion>1.0</tlibversion>
+<jspversion>1.1</jspversion>
+<shortname>oscar</shortname>
+
+<tag>
+  <name>preventionWarnings</name>
+  <tagclass>io.github.carlos_emr.carlos.prevention.tld.PreventionTag</tagclass>
+  <bodycontent>jsp</bodycontent>
+  <attribute>
+    <name>demographicNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+  <name>newLab</name>
+  <tagclass>io.github.carlos_emr.carlos.lab.tld.LabTag</tagclass>
+  <bodycontent>jsp</bodycontent>
+  <attribute>
+    <name>providerNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+  <name>agedConsult</name>
+  <tagclass>io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.tld.ConsultTag</tagclass>
+  <bodycontent>jsp</bodycontent>
+  <attribute>
+    <name>providerNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+  <name>newUnclaimedLab</name>
+  <tagclass>io.github.carlos_emr.carlos.lab.tld.UnclaimedLabTag</tagclass>
+  <bodycontent>jsp</bodycontent>  
+</tag>
+
+<tag>
+  <name>filledScratch</name>
+  <tagclass>io.github.carlos_emr.carlos.scratch.tld.ScratchTag</tagclass>
+  <bodycontent>jsp</bodycontent>
+  <attribute>
+    <name>providerNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+  <name>newMessage</name>
+  <tagclass>io.github.carlos_emr.carlos.messenger.tld.MsgNewMessageTag</tagclass>
+  <bodycontent>jsp</bodycontent>
+  <attribute>
+    <name>providerNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+   <name>oscarPropertiesCheck</name>
+   <tagclass>io.github.carlos_emr.carlos.util.OscarPropertiesCheck</tagclass>
+   <bodycontent>JSP</bodycontent>       
+   <attribute>
+     <name>property</name>
+     <required>true</required>
+     <rtexprvalue>true</rtexprvalue>     
+   </attribute>
+   <attribute>
+     <name>value</name>
+     <required>true</required>
+     <rtexprvalue>true</rtexprvalue>     
+   </attribute>
+   <attribute>
+     <name>defaultVal</name>
+     <required>false</required>
+     <rtexprvalue>true</rtexprvalue>     
+   </attribute>
+</tag>
+
+<tag>
+  <name>newTickler</name>
+  <tagclass>io.github.carlos_emr.carlos.tickler.tld.TicklerTag</tagclass>
+  <bodycontent>jsp</bodycontent>
+  <attribute>
+    <name>providerNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+  <name>nameage</name>
+  <tagclass>io.github.carlos_emr.carlos.demographic.tld.DemographicNameAgeTag</tagclass>
+  <bodycontent>empty</bodycontent>
+  <attribute>
+    <name>demographicNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+  <name>phrverification</name>
+  <tagclass>org.oscarehr.phr.util.PHRVerificationTag</tagclass>
+  <bodycontent>jsp</bodycontent>
+  <attribute>
+    <name>demographicNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+  <attribute>
+    <name>styleId</name>
+    <required>false</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+<tag>
+  <name>nextAppt</name>
+  <tagclass>io.github.carlos_emr.carlos.appt.tld.NextApptTag</tagclass>
+  <bodycontent>empty</bodycontent>
+  <attribute>
+    <name>demographicNo</name>
+    <required>true</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+  <attribute>
+    <name>date</name>
+    <required>false</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+  <attribute>
+    <name>format</name>
+    <required>false</required>
+    <rtexprvalue>true</rtexprvalue>
+  </attribute>
+</tag>
+
+
+<tag>
+  <name>customInterface</name>
+  <tagclass>io.github.carlos_emr.carlos.utility.CustomInterfaceTag</tagclass>
+  <bodycontent>empty</bodycontent>
+  <attribute>
+    <name>section</name>
+    <required>false</required>
+    <rtexprvalue>false</rtexprvalue>
+  </attribute>
+  <attribute>
+    <name>name</name>
+    <required>false</required>
+    <rtexprvalue>false</rtexprvalue>
+  </attribute>
+</tag>
+
+</taglib>

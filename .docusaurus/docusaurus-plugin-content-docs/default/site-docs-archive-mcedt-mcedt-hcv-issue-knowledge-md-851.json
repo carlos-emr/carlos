@@ -1,0 +1,15 @@
+{
+  "id": "archive/mcedt/MCEDT_HCV_Issue_Knowledge",
+  "title": "MCEDT_HCV_Issue_Knowledge",
+  "description": "MCEDT and HCV Issue Knowledge",
+  "source": "@site/docs/archive/mcedt/MCEDT_HCV_Issue_Knowledge.md",
+  "sourceDirName": "archive/mcedt",
+  "slug": "/archive/mcedt/MCEDT_HCV_Issue_Knowledge",
+  "permalink": "/archive/mcedt/MCEDT_HCV_Issue_Knowledge",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/mcedt/MCEDT_HCV_Issue_Knowledge.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

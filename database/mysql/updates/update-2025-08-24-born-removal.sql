@@ -1,0 +1,31 @@
+-- =====================================================
+-- BORN (Better Outcomes Registry & Network) Removal
+-- Date: 2025-08-24
+-- =====================================================
+-- 
+-- This script documents the removal of BORN (Better Outcomes Registry & Network) 
+-- Ontario integration from OSCAR EMR. BORN was an Ontario-specific perinatal and 
+-- child health registry system.
+--
+-- IMPORTANT: These DROP statements are COMMENTED OUT for safety.
+-- Uncomment only if you want to actually remove the data.
+-- =====================================================
+
+-- BORN Transmission Log Table
+-- Tracks submissions to BORN registry
+-- DROP TABLE IF EXISTS BornTransmissionLog;
+
+-- BORN Pathway Mapping Table  
+-- Maps clinical pathways for BORN reporting
+-- DROP TABLE IF EXISTS BORNPathwayMapping;
+
+-- =====================================================
+-- BORN Integration Removed:
+-- - 17+ integration classes in org.oscarehr.integration.born package
+-- - BORN FHIR integration components
+-- - BORN scheduler jobs and background processes
+-- - BORN-specific form submission features
+-- - BORN administrative interface
+-- - BORN Spring configuration contexts
+-- - BORN dependencies (ca.bornontario.* libraries)
+-- =====================================================

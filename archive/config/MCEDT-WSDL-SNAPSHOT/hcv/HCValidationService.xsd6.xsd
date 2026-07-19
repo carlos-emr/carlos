@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://idp.ebs.health.ontario.ca/" version="1.0" xmlns:tns="http://idp.ebs.health.ontario.ca/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="IDP" type="tns:idp_header"/>
+  <xs:simpleType name="muid">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="10"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="idp_header">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="ServiceUserMUID" type="tns:muid"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

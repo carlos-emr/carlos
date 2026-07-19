@@ -1,0 +1,20 @@
+{
+  "id": "README-form-resources",
+  "title": "OpenO Form Resources Directory Documentation",
+  "description": "This document describes the /oscar/form/ directory which contains resources for OpenO's comprehensive medical forms system, supporting various Canadian provincial health forms and clinical assessments. The system dynamically loads these resources at runtime based on form requirements.",
+  "source": "@site/docs/README-form-resources.md",
+  "sourceDirName": ".",
+  "slug": "/README-form-resources",
+  "permalink": "/README-form-resources",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/README-form-resources.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "next": {
+    "title": "OpenO Resources Directory Overview",
+    "permalink": "/resources-directory"
+  }
+}

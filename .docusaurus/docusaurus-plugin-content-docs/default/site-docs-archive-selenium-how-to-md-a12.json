@@ -1,0 +1,15 @@
+{
+  "id": "archive/selenium_how_to",
+  "title": "Howto: Selenium",
+  "description": "--------",
+  "source": "@site/docs/archive/selenium_how_to.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/selenium_how_to",
+  "permalink": "/archive/selenium_how_to",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/selenium_how_to.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

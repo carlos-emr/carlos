@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- <beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+			http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+			http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd
+			http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+			http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd"> -->
+			
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+            http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+            http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+
+	<!-- configure the available measurement flow sheets -->
+	<bean id="measurementTemplateFlowSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig">
+		<property name="flowSheets">
+			<list>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/omdDiabetesFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/hypertensionFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/hivFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/intakeFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/financesFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/identificationFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/housingFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/socialLegalFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/diabetesQueensFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/ckdFlowsheet.xml</value>
+				<value>classpath:oscar/oscarEncounter/oscarMeasurements/flowsheets/periodicHealthVisit.xml</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- DAO -->
+	<bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName" />
+	<bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName" />
+
+
+	<!-- managers  -->
+	<bean id="issueAdminManager" class="io.github.carlos_emr.carlos.services.IssueAdminManager" autowire="byName" />
+
+	<bean id="oscarSecurityManager" class="io.github.carlos_emr.carlos.PMmodule.service.impl.OscarSecurityManagerImpl" autowire="byName" />
+	<bean id="formsManagerCaisi" class="io.github.carlos_emr.carlos.PMmodule.service.impl.FormsManagerImpl" autowire="byName" />
+	<bean id="populationReportManager" class="io.github.carlos_emr.carlos.commn.service.PopulationReportManager" autowire="byName">
+		<property name="issueDAO" ref="IssueDAO" />
+		<property name="populationReportDao" ref="populationReportDao" />
+	</bean>
+	<!-- ========================= SCHEDULED JOBS ========================= -->
+
+    <!-- Define the scheduled executor factory bean -->
+
+	
+
+	 <bean id="scheduledErProgramDischargeTask" class="io.github.carlos_emr.carlos.PMmodule.task.ErProgramDischargeTask">
+		<property name="admissionManager" ref="admissionManager" />
+		<property name="providerManager" ref="providerManager" />
+	</bean>
+    <!-- Define the scheduled executor factory bean -->
+	<bean class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
+		<property name="scheduledExecutorTasks">
+			<list>
+				<!-- Configure the scheduled task -->
+				<bean class="org.springframework.scheduling.concurrent.ScheduledExecutorTask">
+					<property name="delay" value="180000" />
+					<property name="period" value="300000" />
+					<property name="runnable" ref="scheduledErProgramDischargeTask" />
+				</bean>
+			</list>
+		</property>
+	</bean>
+
+
+	<bean id="scheduledAnonymousClientDischargeTask" class="io.github.carlos_emr.carlos.PMmodule.task.AnonymousClientDischargeTask" />
+    <!-- Define the scheduled executor factory bean -->
+    <bean class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
+        <property name="scheduledExecutorTasks">
+            <list>
+                <!-- Configure the scheduled task -->
+                <bean class="org.springframework.scheduling.concurrent.ScheduledExecutorTask">
+                    <property name="delay" value="6000000" />
+                    <property name="period" value="3600000" />
+                    <property name="runnable" ref="scheduledAnonymousClientDischargeTask" />
+                </bean>
+            </list>
+        </property>
+    </bean>
+
+    <!-- Define the scheduled executor factory bean -->
+	<bean id="schedulerCaisi" class="org.springframework.scheduling.concurrent.ScheduledExecutorFactoryBean">
+    <property name="scheduledExecutorTasks">
+        <list>
+            <bean class="org.springframework.scheduling.concurrent.ScheduledExecutorTask">
+                <property name="runnable" ref="scheduledAnonymousClientDischargeTask" />
+            </bean>
+        </list>
+    </property>
+</bean>
+
+
+
+	<!--
+		<bean id="UCRConfigurationManager" class="org.oscarehr.PMmodule.www.reports.custom.UCRConfigurationManager"> <property name="filename"> <value>org/oscarehr/PMmodule/www/reports/custom/test.xml</value> </property> </bean>
+	-->
+
+
+
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.service" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.web.admin" />
+</beans>

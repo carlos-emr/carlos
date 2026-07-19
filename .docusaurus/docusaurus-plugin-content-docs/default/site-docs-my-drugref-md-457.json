@@ -1,0 +1,24 @@
+{
+  "id": "MyDrugref",
+  "title": "MyDrugref Integration Documentation",
+  "description": "Overview",
+  "source": "@site/docs/MyDrugref.md",
+  "sourceDirName": ".",
+  "slug": "/MyDrugref",
+  "permalink": "/MyDrugref",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/MyDrugref.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+    "permalink": "/Testing_Exclusion_of_MCEDT_and_HinValidator_tests"
+  },
+  "next": {
+    "title": "Legacy HAPI Library Dynamic Loading",
+    "permalink": "/legacy-hapi-dynamic-loading"
+  }
+}

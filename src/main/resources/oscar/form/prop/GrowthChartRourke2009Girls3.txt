@@ -1,0 +1,12 @@
+c_pName	: left, 401, 63, 0, BaseFont.HELVETICA, 8
+c_birthDate : left, 397, 77, 0, BaseFont.HELVETICA, 8
+
+p4_date24m : center, 330, 653, 0, BaseFont.HELVETICA, 6, _, 392, 660, 7
+__age24m :   center, 412, 659, 0, BaseFont.HELVETICA, 6, 2-3 years
+p4_ht24m : center, 430, 652, 0, BaseFont.HELVETICA, 6, _, 486, 720, 7
+p4_wt24m : center, 472, 652, 0, BaseFont.HELVETICA, 6, _, 531, 720, 7
+
+p4_date48m : center, 330, 660, 0, BaseFont.HELVETICA, 6, _, 392, 669, 7
+__age48m :   center, 412, 667, 0, BaseFont.HELVETICA, 6, 4-5 years
+p4_ht48m : center, 430, 660, 0, BaseFont.HELVETICA, 6, _, 486, 728, 7
+p4_wt48m : center, 472, 660, 0, BaseFont.HELVETICA, 6, _, 531, 728, 7

@@ -1,0 +1,24 @@
+{
+  "id": "Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+  "title": "Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+  "description": "OSCAR TESTING",
+  "source": "@site/docs/Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md",
+  "sourceDirName": ".",
+  "slug": "/Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+  "permalink": "/Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "Decision Support Guideline XSD Schema",
+    "permalink": "/dsGuideline"
+  },
+  "next": {
+    "title": "MyDrugref Integration Documentation",
+    "permalink": "/MyDrugref"
+  }
+}

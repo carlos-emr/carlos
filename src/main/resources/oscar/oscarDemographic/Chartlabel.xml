@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Chartlabel" pageWidth="350" pageHeight="75" columnWidth="330" leftMargin="0" rightMargin="0" topMargin="10" bottomMargin="0">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<parameter name="demo" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select d.last_name, IFNULL(d.chart_no,'') AS chart_no, d.first_name,
+			CONCAT(IFNULL(d.address,''),' ') AS address, CONCAT(IFNULL(d.city,''),' ') AS city,
+			CONCAT(IFNULL(d.province,''), ' ') AS province, CONCAT(IFNULL(d.postal,''),' ') AS postal,
+			IFNULL(d.phone,'') AS phone, IFNULL(d.phone2,'') AS phone2,
+			d.year_of_birth, d.month_of_birth, d.date_of_birth,
+			(DATE_FORMAT(NOW(),'%Y')-DATE_FORMAT(CONCAT(d.year_of_birth,"-",d.month_of_birth,"-",d.date_of_birth),'%Y')-(DATE_FORMAT(NOW(),'00-%m-%d')<DATE_FORMAT(CONCAT(d.year_of_birth,"-",d.month_of_birth,"-",d.date_of_birth),'00-%m-%d'))) AS age,
+			CONCAT(IFNULL(d.hin,''),' ') AS hin, CONCAT(IFNULL(d.ver,''),' ') AS ver, d.sex,
+			IFNULL(CONCAT(p.last_name, CONCAT(', ',p.first_name)),'') AS doc_name
+			from demographic d left outer join provider p on d.provider_no = p.provider_no
+			where demographic_no =$P{demo}]]>
+	</queryString>
+	<field name="last_name" class="java.lang.String"/>
+	<field name="chart_no" class="java.lang.String"/>
+	<field name="first_name" class="java.lang.String"/>
+	<field name="address" class="java.lang.String"/>
+	<field name="city" class="java.lang.String"/>
+	<field name="province" class="java.lang.String"/>
+	<field name="postal" class="java.lang.String"/>
+	<field name="phone" class="java.lang.String"/>
+	<field name="phone2" class="java.lang.String"/>
+	<field name="year_of_birth" class="java.lang.String"/>
+	<field name="month_of_birth" class="java.lang.String"/>
+	<field name="date_of_birth" class="java.lang.String"/>
+	<field name="age" class="java.lang.String"/>
+	<field name="hin" class="java.lang.String"/>
+	<field name="ver" class="java.lang.String"/>
+	<field name="sex" class="java.lang.String"/>
+	<field name="doc_name" class="java.lang.String"/>
+	<variable name="nowyear" class="java.lang.Integer" resetType="None">
+		<variableExpression><![CDATA[new java.lang.Integer( 1900 +  (new java.util.Date().getYear()) )]]></variableExpression>
+	</variable>
+	<variable name="useryear" class="java.lang.Integer" resetType="None">
+		<variableExpression><![CDATA[new java.lang.Integer($F{year_of_birth})]]></variableExpression>
+	</variable>
+	<title>
+		<band height="60" splitType="Stretch">
+			<textField>
+				<reportElement x="17" y="45" width="330" height="14"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{last_name} + "," + $F{first_name} + "   " + "CHART#:" + $F{chart_no}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="17" y="30" width="330" height="14"/>
+				<textElement/>
+				<textFieldExpression><![CDATA[$F{address} + " " + $F{city} + "," + $F{province} + " " + $F{postal}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="17" y="15" width="330" height="14"/>
+				<textElement/>
+				<textFieldExpression><![CDATA["HIN:" + $F{hin} + " " + $F{ver} + "   " + "SEX:" + $F{sex} + "  " + "DOB:" +$F{date_of_birth} + "/" + $F{month_of_birth} + "/" + $F{year_of_birth} + "  AGE:" + $F{age}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="17" y="0" width="330" height="14">
+					<printWhenExpression><![CDATA[Boolean.valueOf($F{doc_name} != null)]]></printWhenExpression>
+				</reportElement>
+				<textElement/>
+				<textFieldExpression><![CDATA["HOME: " + $F{phone} + "   " + "Dr. " + $F{doc_name}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="17" y="0" width="330" height="14">
+					<printWhenExpression><![CDATA[Boolean.valueOf($F{doc_name} == null)]]></printWhenExpression>
+				</reportElement>
+				<textElement/>
+				<textFieldExpression><![CDATA["HOME: " + $F{phone} + "   " + " No Doctor Assigned"]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+</jasperReport>

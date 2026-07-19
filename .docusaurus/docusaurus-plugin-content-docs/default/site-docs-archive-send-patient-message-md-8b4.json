@@ -1,0 +1,15 @@
+{
+  "id": "archive/SendPatientMessage",
+  "title": "SendPatientMessage",
+  "description": "Description of Integration Point: Send Patient Message",
+  "source": "@site/docs/archive/SendPatientMessage.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/SendPatientMessage",
+  "permalink": "/archive/SendPatientMessage",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/SendPatientMessage.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

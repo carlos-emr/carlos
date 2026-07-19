@@ -1,0 +1,143 @@
+{
+  "/-5b7": {
+    "__comp": "5e95c892",
+    "__context": {
+      "plugin": "aba21aa0"
+    }
+  },
+  "/-4fa": {
+    "__comp": "a7bd4aaa",
+    "__props": "22dd74f7"
+  },
+  "/-24a": {
+    "__comp": "a94703ab"
+  },
+  "/archive/AddAllergy-484": {
+    "__comp": "17896441",
+    "content": "4c67eea6"
+  },
+  "/archive/AddMeasurements-1ce": {
+    "__comp": "17896441",
+    "content": "35590030"
+  },
+  "/archive/AddPrescriptions-0ce": {
+    "__comp": "17896441",
+    "content": "d84dcce5"
+  },
+  "/archive/AuditRequirements-807": {
+    "__comp": "17896441",
+    "content": "caf0fe21"
+  },
+  "/archive/AutoLogin-163": {
+    "__comp": "17896441",
+    "content": "ae9d0c75"
+  },
+  "/archive/CustomizeLoginPage-71c": {
+    "__comp": "17896441",
+    "content": "be867048"
+  },
+  "/archive/dispensing_inventory-5d4": {
+    "__comp": "17896441",
+    "content": "f7dce377"
+  },
+  "/archive/GetLoggedInPerson-0e2": {
+    "__comp": "17896441",
+    "content": "a6d30775"
+  },
+  "/archive/HumanUserInterfaceGuideline-a3d": {
+    "__comp": "17896441",
+    "content": "d3d90d34"
+  },
+  "/archive/large_data_blob_storage-9a5": {
+    "__comp": "17896441",
+    "content": "c91f1baa"
+  },
+  "/archive/mcedt/MCEDT_HCV_Issue_Knowledge-830": {
+    "__comp": "17896441",
+    "content": "85159f33"
+  },
+  "/archive/Olis-251": {
+    "__comp": "17896441",
+    "content": "8e11632b"
+  },
+  "/archive/selenium_how_to-aa6": {
+    "__comp": "17896441",
+    "content": "a1266ffe"
+  },
+  "/archive/SendImmunization-17e": {
+    "__comp": "17896441",
+    "content": "9eae7d83"
+  },
+  "/archive/SendPatientMessage-186": {
+    "__comp": "17896441",
+    "content": "8b4d8499"
+  },
+  "/archive/ui/patientsearch-00d": {
+    "__comp": "17896441",
+    "content": "74e5e44d"
+  },
+  "/archive/ui/tickler-762": {
+    "__comp": "17896441",
+    "content": "9ebe6d79"
+  },
+  "/archive/ui/tips-09e": {
+    "__comp": "17896441",
+    "content": "169dce75"
+  },
+  "/archive/web_services/OAUTH-992": {
+    "__comp": "17896441",
+    "content": "95e21558"
+  },
+  "/archive/web_services/REST-2ab": {
+    "__comp": "17896441",
+    "content": "5f7bc2f8"
+  },
+  "/dsGuideline-b06": {
+    "__comp": "17896441",
+    "content": "7660191b"
+  },
+  "/integrator-system-architecture-3db": {
+    "__comp": "17896441",
+    "content": "44a90c08"
+  },
+  "/legacy-hapi-dynamic-loading-ab4": {
+    "__comp": "17896441",
+    "content": "6a766e07"
+  },
+  "/MyDrugref-9ed": {
+    "__comp": "17896441",
+    "content": "457027d6"
+  },
+  "/Password_System-43c": {
+    "__comp": "17896441",
+    "content": "679a0613"
+  },
+  "/README-form-resources-8da": {
+    "__comp": "17896441",
+    "content": "8ade813c"
+  },
+  "/resources-directory-d4a": {
+    "__comp": "17896441",
+    "content": "39cdd532"
+  },
+  "/static/javadoc/legal/jquery-3df": {
+    "__comp": "17896441",
+    "content": "aa9a8e80"
+  },
+  "/static/javadoc/legal/jqueryUI-1bc": {
+    "__comp": "17896441",
+    "content": "8b7e4ae4"
+  },
+  "/struts-actions-detailed-981": {
+    "__comp": "17896441",
+    "content": "1ae8e983"
+  },
+  "/struts-actions-summary-b4a": {
+    "__comp": "17896441",
+    "content": "f53e5cea"
+  },
+  "/Testing_Exclusion_of_MCEDT_and_HinValidator_tests-52b": {
+    "__comp": "17896441",
+    "content": "bbb867f4"
+  }
+}

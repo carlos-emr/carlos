@@ -1,0 +1,24 @@
+{
+  "id": "struts-actions-summary",
+  "title": "Struts Actions Summary",
+  "description": "Overview",
+  "source": "@site/docs/struts-actions-summary.md",
+  "sourceDirName": ".",
+  "slug": "/struts-actions-summary",
+  "permalink": "/struts-actions-summary",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/struts-actions-summary.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "OSCAR EMR Struts Actions Reference",
+    "permalink": "/struts-actions-detailed"
+  },
+  "next": {
+    "title": "Oscar Integrator System Architecture",
+    "permalink": "/integrator-system-architecture"
+  }
+}

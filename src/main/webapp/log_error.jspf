@@ -1,0 +1,48 @@
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils"%>
+<%@page import="org.apache.logging.log4j.Logger"%>
+<%@page import="java.io.*,io.github.carlos_emr.*"%>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%
+	Logger logger=MiscUtils.getLogger();
+        boolean debugOn = OscarProperties.getInstance().getBooleanProperty("DEBUG", "yes");
+	try
+	{
+		ErrorData errorData=pageContext.getErrorData();
+		if (errorData!=null)
+		{
+			String errorUri=errorData.getRequestURI();
+			if (errorUri!=null){
+                            logger.error("Errored Uri="+errorUri);
+                            if (debugOn){
+                                out.write("<h3> Error URI "+errorUri+"</h3>");
+                            }
+                        }
+                        
+                        
+
+			int errorCode=errorData.getStatusCode();
+			logger.error("Status Code = "+errorCode);
+                        if(debugOn){
+                            out.write("<h3> Status Code "+errorCode+"</h3>");
+			}
+                        
+			Throwable throwable=errorData.getThrowable();
+			if (throwable!=null){ 
+				logger.error("Error", throwable);
+                            
+                            if (debugOn){
+                                out.write("<pre>");
+                                for (StackTraceElement ste : throwable.getStackTrace())
+                                {
+                                	out.write(ste.toString());
+                                }
+                                out.write("</pre>");
+                            }
+                        }
+		}
+	}
+	catch (Exception e)
+	{
+		logger.error("Error", e);
+	}
+%>

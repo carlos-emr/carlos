@@ -1,0 +1,15 @@
+{
+  "id": "archive/web_services/REST",
+  "title": "REST",
+  "description": "REST Web Services",
+  "source": "@site/docs/archive/web_services/REST.md",
+  "sourceDirName": "archive/web_services",
+  "slug": "/archive/web_services/REST",
+  "permalink": "/archive/web_services/REST",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/web_services/REST.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

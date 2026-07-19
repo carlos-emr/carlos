@@ -1,0 +1,793 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.6.0.final using JasperReports Library version 6.6.0  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="rourke2017" pageWidth="1700" pageHeight="2200" columnWidth="1700" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" whenResourceMissingType="Error" uuid="f42b7d12-c474-4da0-8ae3-d36100b860da">
+    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+    <property name="com.jaspersoft.studio.unit." value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.pageHeight" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.pageWidth" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.topMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.bottomMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.leftMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.rightMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.columnWidth" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.columnSpacing" value="pixel"/>
+    <style name="defaultStyle" isDefault="true" fontSize="16"/>
+    <parameter name="background_image"/>
+    <parameter name="check_image"/>
+    <parameter name="cross_image"/>
+    <parameter name="c_birthRemarks"/>
+    <parameter name="c_famHistory"/>
+    <parameter name="c_riskFactors"/>
+    <parameter name="c_pName"/>
+    <parameter name="c_birthDate"/>
+    <parameter name="c_male"/>
+    <parameter name="c_female"/>
+    <parameter name="c_gestationalAge"/>
+    <parameter name="c_length"/>
+    <parameter name="c_birthWeight"/>
+    <parameter name="c_headCirc"/>
+    <parameter name="c_dischargeWeight"/>
+    <parameter name="p1_date1w"/>
+    <parameter name="p1_date2w"/>
+    <parameter name="p1_date1m"/>
+    <parameter name="p1_ht1w"/>
+    <parameter name="p1_wt1w"/>
+    <parameter name="p1_hc1w"/>
+    <parameter name="p1_ht2w"/>
+    <parameter name="p1_wt2w"/>
+    <parameter name="p1_hc2w"/>
+    <parameter name="p1_ht1m"/>
+    <parameter name="p1_wt1m"/>
+    <parameter name="p1_hc1m"/>
+    <parameter name="p1_pConcern1w"/>
+    <parameter name="p1_pConcern2w"/>
+    <parameter name="p1_pConcern1m"/>
+    <parameter name="p1_breastFeeding1wOk"/>
+    <parameter name="p1_breastFeeding1wOkConcerns"/>
+    <parameter name="p1_vitaminD1wOk"/>
+    <parameter name="p1_vitaminD1wOkConcerns"/>
+    <parameter name="p1_formulaFeeding1wOk"/>
+    <parameter name="p1_formulaFeeding1wOkConcerns"/>
+    <parameter name="p1_stoolUrine1wOk"/>
+    <parameter name="p1_stoolUrine1wOkConcerns"/>
+    <parameter name="p1_supplementationWater1wOk"/>
+    <parameter name="p1_supplementationWater1wOkConcerns"/>
+    <parameter name="p1_supplementationOtherFluids1wOk"/>
+    <parameter name="p1_supplementationOtherFluids1wOkConcerns"/>
+    <parameter name="p1_breastFeeding2wOk"/>
+    <parameter name="p1_breastFeeding2wOkConcerns"/>
+    <parameter name="p1_vitaminD2wOk"/>
+    <parameter name="p1_vitaminD2wOkConcerns"/>
+    <parameter name="p1_formulaFeeding2wOk"/>
+    <parameter name="p1_formulaFeeding2wOkConcerns"/>
+    <parameter name="p1_stoolUrine2wOk"/>
+    <parameter name="p1_stoolUrine2wOkConcerns"/>
+    <parameter name="p1_supplementationWater2wOk"/>
+    <parameter name="p1_supplementationWater2wOkConcerns"/>
+    <parameter name="p1_supplementationOtherFluids2wOk"/>
+    <parameter name="p1_supplementationOtherFluids2wOkConcerns"/>
+    <parameter name="p1_breastFeeding1mOk"/>
+    <parameter name="p1_breastFeeding1mOkConcerns"/>
+    <parameter name="p1_vitaminD1mOk"/>
+    <parameter name="p1_vitaminD1mOkConcerns"/>
+    <parameter name="p1_formulaFeeding1mOk"/>
+    <parameter name="p1_formulaFeeding1mOkConcerns"/>
+    <parameter name="p1_stoolUrine1mOk"/>
+    <parameter name="p1_stoolUrine1mOkConcerns"/>
+    <parameter name="p1_supplementationSolids1mOk"/>
+    <parameter name="p1_supplementationSolids1mOkConcerns"/>
+    <parameter name="p1_supplementationWater1mOk"/>
+    <parameter name="p1_supplementationWater1mOkConcerns"/>
+    <parameter name="p1_supplementationOtherFluids1mOk"/>
+    <parameter name="p1_supplementationOtherFluids1mOkConcerns"/>
+    <parameter name="p1_carSeatOk"/>
+    <parameter name="p1_carSeatOkConcerns"/>
+    <parameter name="p1_smokeSafetyOk"/>
+    <parameter name="p1_smokeSafetyOkConcerns"/>
+    <parameter name="p1_firearmSafetyOk"/>
+    <parameter name="p1_firearmSafetyOkConcerns"/>
+    <parameter name="p1_hotWaterOk"/>
+    <parameter name="p1_hotWaterOkConcerns"/>
+    <parameter name="p1_safeToysOk"/>
+    <parameter name="p1_safeToysOkConcerns"/>
+    <parameter name="p1_pacifierOk"/>
+    <parameter name="p1_pacifierOkConcerns"/>
+    <parameter name="p1_sleepPosOk"/>
+    <parameter name="p1_sleepPosOkConcerns"/>
+    <parameter name="p1_fallsOk"/>
+    <parameter name="p1_fallsOkConcerns"/>
+    <parameter name="p1_cryingOk"/>
+    <parameter name="p1_cryingOkConcerns"/>
+    <parameter name="p1_healthySleepOk"/>
+    <parameter name="p1_healthySleepOkConcerns"/>
+    <parameter name="p1_nightWakingOk"/>
+    <parameter name="p1_nightWakingOkConcerns"/>
+    <parameter name="p1_soothabilityOk"/>
+    <parameter name="p1_soothabilityOkConcerns"/>
+    <parameter name="p1_bondingOk"/>
+    <parameter name="p1_bondingOkConcerns"/>
+    <parameter name="p1_famConflictOk"/>
+    <parameter name="p1_famConflictOkConcerns"/>
+    <parameter name="p1_siblingsOk"/>
+    <parameter name="p1_siblingsOkConcerns"/>
+    <parameter name="p1_pFatigueOk"/>
+    <parameter name="p1_pFatigueOkConcerns"/>
+    <parameter name="p1_homeVisitOk"/>
+    <parameter name="p1_homeVisitOkConcerns"/>
+    <parameter name="p1_makingEndsMeetInquiryOk"/>
+    <parameter name="p1_makingEndsMeetInquiryOkConcerns"/>
+    <parameter name="p1_2ndSmokeOk"/>
+    <parameter name="p1_2ndSmokeOkConcerns"/>
+    <parameter name="p1_sunExposureOk"/>
+    <parameter name="p1_sunExposureOkConcerns"/>
+    <parameter name="p1_noCoughMedOk"/>
+    <parameter name="p1_noCoughMedOkConcerns"/>
+    <parameter name="p1_altMedOk"/>
+    <parameter name="p1_altMedOkConcerns"/>
+    <parameter name="p1_tmpControlOk"/>
+    <parameter name="p1_tmpControlOkConcerns"/>
+    <parameter name="p1_feverOk"/>
+    <parameter name="p1_feverOkConcerns"/>
+    <parameter name="p1_tummyTimeOk"/>
+    <parameter name="p1_tummyTimeOkConcerns"/>
+    <parameter name="p1_sucks1wOk"/>
+    <parameter name="p1_sucks1wOkConcerns"/>
+    <parameter name="p1_sucks2wOk"/>
+    <parameter name="p1_sucks2wOkConcerns"/>
+    <parameter name="p1_noParentsConcerns2wOk"/>
+    <parameter name="p1_noParentsConcerns2wOkConcerns"/>
+    <parameter name="p1_focusGaze1mOk"/>
+    <parameter name="p1_focusGaze1mOkConcerns"/>
+    <parameter name="p1_startles1mOk"/>
+    <parameter name="p1_startles1mOkConcerns"/>
+    <parameter name="p1_calms1mOk"/>
+    <parameter name="p1_calms1mOkConcerns"/>
+    <parameter name="p1_sucks1mOk"/>
+    <parameter name="p1_sucks1mOkConcerns"/>
+    <parameter name="p1_noParentsConcerns1mOk"/>
+    <parameter name="p1_noParentsConcerns1mOkConcerns"/>
+    <parameter name="p1_fontanelles1wOk"/>
+    <parameter name="p1_fontanelles1wOkConcerns"/>
+    <parameter name="p1_skin1wOk"/>
+    <parameter name="p1_skin1wOkConcerns"/>
+    <parameter name="p1_eyes1wOk"/>
+    <parameter name="p1_eyes1wOkConcerns"/>
+    <parameter name="p1_ears1wOk"/>
+    <parameter name="p1_ears1wOkConcerns"/>
+    <parameter name="p1_tongueMobility1wOk"/>
+    <parameter name="p1_tongueMobility1wOkConcerns"/>
+    <parameter name="p1_neckTorticollis1wOk"/>
+    <parameter name="p1_neckTorticollis1wOkConcerns"/>
+    <parameter name="p1_heartLungs1wOk"/>
+    <parameter name="p1_heartLungs1wOkConcerns"/>
+    <parameter name="p1_femoralPulses1wOk"/>
+    <parameter name="p1_femoralPulses1wOkConcerns"/>
+    <parameter name="p1_umbilicus1wOk"/>
+    <parameter name="p1_umbilicus1wOkConcerns"/>
+    <parameter name="p1_hips1wOk"/>
+    <parameter name="p1_hips1wOkConcerns"/>
+    <parameter name="p1_genitalia1wOk"/>
+    <parameter name="p1_genitalia1wOkConcerns"/>
+    <parameter name="p1_maleUrinary1wOk"/>
+    <parameter name="p1_maleUrinary1wOkConcerns"/>
+    <parameter name="p1_patencyOfAnus1wOk"/>
+    <parameter name="p1_patencyOfAnus1wOkConcerns"/>
+    <parameter name="p1_muscleTone1wOk"/>
+    <parameter name="p1_muscleTone1wOkConcerns"/>
+    <parameter name="p1_fontanelles2wOk"/>
+    <parameter name="p1_fontanelles2wOkConcerns"/>
+    <parameter name="p1_skin2wOk"/>
+    <parameter name="p1_skin2wOkConcerns"/>
+    <parameter name="p1_eyes2wOk"/>
+    <parameter name="p1_eyes2wOkConcerns"/>
+    <parameter name="p1_ears2wOk"/>
+    <parameter name="p1_ears2wOkConcerns"/>
+    <parameter name="p1_tongueMobility2wOk"/>
+    <parameter name="p1_tongueMobility2wOkConcerns"/>
+    <parameter name="p1_neckTorticollis2wOk"/>
+    <parameter name="p1_neckTorticollis2wOkConcerns"/>
+    <parameter name="p1_heartLungs2wOk"/>
+    <parameter name="p1_heartLungs2wOkConcerns"/>
+    <parameter name="p1_femoralPulses2wOk"/>
+    <parameter name="p1_femoralPulses2wOkConcerns"/>
+    <parameter name="p1_umbilicus2wOk"/>
+    <parameter name="p1_umbilicus2wOkConcerns"/>
+    <parameter name="p1_hips2wOk"/>
+    <parameter name="p1_hips2wOkConcerns"/>
+    <parameter name="p1_genitalia2wOk"/>
+    <parameter name="p1_genitalia2wOkConcerns"/>
+    <parameter name="p1_maleUrinary2wOk"/>
+    <parameter name="p1_maleUrinary2wOkConcerns"/>
+    <parameter name="p1_muscleTone2wOk"/>
+    <parameter name="p1_muscleTone2wOkConcerns"/>
+    <parameter name="p1_skin1mOk"/>
+    <parameter name="p1_skin1mOkConcerns"/>
+    <parameter name="p1_fontanelles1mOk"/>
+    <parameter name="p1_fontanelles1mOkConcerns"/>
+    <parameter name="p1_eyes1mOk"/>
+    <parameter name="p1_eyes1mOkConcerns"/>
+    <parameter name="p1_corneal1mOk"/>
+    <parameter name="p1_corneal1mOkConcerns"/>
+    <parameter name="p1_ears1mOk"/>
+    <parameter name="p1_ears1mOkConcerns"/>
+    <parameter name="p1_tongueMobility1mOk"/>
+    <parameter name="p1_tongueMobility1mOkConcerns"/>
+    <parameter name="p1_heartAbdomen1mOk"/>
+    <parameter name="p1_heartAbdomen1mOkConcerns"/>
+    <parameter name="p1_neckTorticollis1mOk"/>
+    <parameter name="p1_neckTorticollis1mOkConcerns"/>
+    <parameter name="p1_hips1mOk"/>
+    <parameter name="p1_hips1mOkConcerns"/>
+    <parameter name="p1_muscleTone1mOk"/>
+    <parameter name="p1_muscleTone1mOkConcerns"/>
+    <parameter name="p1_problems1w"/>
+    <parameter name="p1_problems2w"/>
+    <parameter name="p1_problems1m"/>
+    <parameter name="p1_newbornScreening1wOk"/>
+    <parameter name="p1_newbornScreening1wOkConcerns"/>
+    <parameter name="p1_hemoglobinopathyScreen1wOk"/>
+    <parameter name="p1_hemoglobinopathyScreen1wOkConcerns"/>
+    <parameter name="p1_newbornHearingScreen1wOk"/>
+    <parameter name="p1_newbornHearingScreen1wOkConcerns"/>
+    <parameter name="p1_hepatitisVaccine1wOk"/>
+    <parameter name="p1_hepatitisVaccine1wOkConcerns"/>
+    <parameter name="p1_hepatitisVaccine1mOk"/>
+    <parameter name="p1_hepatitisVaccine1mOkConcerns"/>
+    <parameter name="p1_signature1w"/>
+    <parameter name="p1_signature2w"/>
+    <parameter name="p1_signature1m"/>
+    <queryString>
+        <![CDATA[]]>
+    </queryString>
+    <detail>
+        <band height="2200" splitType="Stretch">
+            <image>
+                <reportElement x="0" y="0" width="1700" height="2200" uuid="3c989d58-abfc-4ebd-8711-8137041cd7b4"/>
+                <imageExpression><![CDATA[$P{background_image}]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="70" y="190" width="260" height="118" uuid="27d3988d-8a57-4ab0-9f2c-fbfaf216574f"/>
+                <textFieldExpression><![CDATA[$P{c_birthRemarks}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement positionType="FixRelativeToBottom" x="350" y="190" width="259" height="119" uuid="a6b1e82a-f330-49db-b4fa-6f3ec2ea6468"/>
+                <textFieldExpression><![CDATA[$P{c_famHistory}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="690" y="218" width="460" height="22" uuid="1a5f0621-0b2d-46f6-85e6-8bbab3032b8c"/>
+                <textFieldExpression><![CDATA[$P{c_pName}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1330" y="218" width="190" height="22" uuid="1b730795-e3e8-47f1-b6b3-72e328201b12"/>
+                <textFieldExpression><![CDATA[$P{c_birthDate}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1564" y="219" width="20" height="28" uuid="9e6f35da-b8df-4e27-ba67-c4092b66a8e8"/>
+                <textElement>
+                    <font size="18"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{c_male}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1615" y="219" width="20" height="28" uuid="2ce9dd20-3fc7-4edc-af0f-80338a2ecbd7"/>
+                <textElement>
+                    <font size="18"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{c_female}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="780" y="252" width="90" height="22" uuid="1f70f72a-ca04-4496-9e5d-f7d6c76f5da2"/>
+                <textFieldExpression><![CDATA[$P{c_gestationalAge}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1140" y="252" width="99" height="22" uuid="53908a6f-540d-46cc-a692-91d91dc7a272"/>
+                <textFieldExpression><![CDATA[$P{c_length}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1520" y="252" width="99" height="22" uuid="850f0585-a475-4f40-8283-c2f5ec157055"/>
+                <textFieldExpression><![CDATA[$P{c_birthWeight}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="810" y="285" width="90" height="22" uuid="9ae1f822-d881-46f0-8d82-bd55991f2eb2"/>
+                <textFieldExpression><![CDATA[$P{c_headCirc}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1180" y="285" width="99" height="22" uuid="98b3eb7c-aa60-438f-a5a0-d19d4773fcda"/>
+                <textFieldExpression><![CDATA[$P{c_dischargeWeight}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="210" y="330" width="160" height="22" uuid="ee3ad726-9317-449b-b1be-fc606f3720ce"/>
+                <textFieldExpression><![CDATA[$P{p1_date1w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="740" y="330" width="160" height="22" uuid="c3d29a64-8c02-48d7-93c2-0e7b90fbd76f"/>
+                <textFieldExpression><![CDATA[$P{p1_date2w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1270" y="330" width="160" height="22" uuid="649a2451-2f4c-4014-8d4e-f46cf75d3ab1"/>
+                <textFieldExpression><![CDATA[$P{p1_date1m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="120" y="460" width="100" height="22" uuid="3b612a08-7159-4322-b448-bab50a82e7b6"/>
+                <textFieldExpression><![CDATA[$P{p1_ht1w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="300" y="460" width="100" height="22" uuid="8b766465-49d5-4af8-8f17-869fafe88954"/>
+                <textFieldExpression><![CDATA[$P{p1_wt1w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="480" y="460" width="100" height="22" uuid="69f33c5b-ee16-4f98-bed0-da6cdcf6aed5"/>
+                <textFieldExpression><![CDATA[$P{p1_hc1w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="650" y="460" width="100" height="22" uuid="6b088f65-c635-4156-b6e6-4bbd267373d4"/>
+                <textFieldExpression><![CDATA[$P{p1_ht2w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="840" y="440" width="100" height="22" uuid="0fd2ceb5-5ea3-43e4-b4fc-3e99f828a1b3"/>
+                <textFieldExpression><![CDATA[$P{p1_wt2w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1010" y="460" width="100" height="22" uuid="d9864b20-7446-42af-a52e-e26aa181a826"/>
+                <textFieldExpression><![CDATA[$P{p1_hc2w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1190" y="460" width="100" height="22" uuid="02ebc11b-2d3b-4fac-9865-675131d2710f"/>
+                <textFieldExpression><![CDATA[$P{p1_ht1m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1360" y="460" width="100" height="22" uuid="fdad33af-4dde-4ed0-9c89-7e341627d9af"/>
+                <textFieldExpression><![CDATA[$P{p1_wt1m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1530" y="460" width="100" height="22" uuid="f240f986-5bdd-42ea-bf8f-92c89102bfd0"/>
+                <textFieldExpression><![CDATA[$P{p1_hc1m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="64" y="532" width="516" height="112" uuid="3aceee28-836d-4546-8bb8-417cedc92bee"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p1_pConcern1w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="596" y="532" width="516" height="112" uuid="44c61e9d-fc0f-432f-bf49-b0195d603abe"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p1_pConcern2w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1125" y="532" width="516" height="112" uuid="9057cca0-be04-43c0-9dd4-010634cbabf7"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p1_pConcern1m}]]></textFieldExpression>
+            </textField>
+            <image>
+                <reportElement x="72" y="690" width="20" height="24" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2"/>
+                <imageExpression><![CDATA[$P{p1_breastFeeding1wOk} != null ? $P{check_image} : ($P{p1_breastFeeding1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="100" y="714" width="20" height="24" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2"/>
+                <imageExpression><![CDATA[$P{p1_vitaminD1wOk} != null ? $P{check_image} : ($P{p1_vitaminD1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="740" width="20" height="24" uuid="ce5de04a-3af3-4617-be2a-0237c80ed597"/>
+                <imageExpression><![CDATA[$P{p1_formulaFeeding1wOk} != null ? $P{check_image} : ($P{p1_formulaFeeding1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="788" width="20" height="24" uuid="d53f2e01-d7d0-4518-b7e6-0ad87f0f4138"/>
+                <imageExpression><![CDATA[$P{p1_stoolUrine1wOk} != null ? $P{check_image} : ($P{p1_stoolUrine1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="811" width="20" height="24" uuid="96a13cc7-c7b2-43b9-9b1d-2fedd0d45d04"/>
+                <imageExpression><![CDATA[($P{p1_supplementationWater1wOk} != null && $P{p1_supplementationOtherFluids1wOk} != null) ? $P{check_image} 
+                : (($P{p1_supplementationWater1wOkConcerns} != null && $P{p1_supplementationOtherFluids1wOkConcerns} != null) ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="245" y="811" width="20" height="24" uuid="fa9a6dc6-0e59-492c-a98f-c3cb8fcf4c87"/>
+                <imageExpression><![CDATA[$P{p1_supplementationWater1wOk} != null ? $P{check_image} : ($P{p1_supplementationWater1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="318" y="813" width="20" height="24" uuid="dcfb4393-8d65-48b6-92e0-d04adddaf3ce"/>
+                <imageExpression><![CDATA[$P{p1_supplementationOtherFluids1wOk} != null ? $P{check_image} : ($P{p1_supplementationOtherFluids1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="690" width="20" height="24" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2"/>
+                <imageExpression><![CDATA[$P{p1_breastFeeding2wOk} != null ? $P{check_image} : ($P{p1_breastFeeding2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="627" y="714" width="20" height="24" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2"/>
+                <imageExpression><![CDATA[$P{p1_vitaminD2wOk} != null ? $P{check_image} : ($P{p1_vitaminD2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="740" width="20" height="24" uuid="ce5de04a-3af3-4617-be2a-0237c80ed597"/>
+                <imageExpression><![CDATA[$P{p1_formulaFeeding2wOk} != null ? $P{check_image} : ($P{p1_formulaFeeding2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="788" width="20" height="24" uuid="d53f2e01-d7d0-4518-b7e6-0ad87f0f4138"/>
+                <imageExpression><![CDATA[$P{p1_stoolUrine2wOk} != null ? $P{check_image} : ($P{p1_stoolUrine2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="811" width="20" height="24" uuid="96a13cc7-c7b2-43b9-9b1d-2fedd0d45d04"/>
+                <imageExpression><![CDATA[($P{p1_supplementationWater2wOk} != null && $P{p1_supplementationOtherFluids2wOk} != null) ? $P{check_image} 
+                : (($P{p1_supplementationWater2wOkConcerns} != null && $P{p1_supplementationOtherFluids2wOkConcerns} != null) ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="772" y="811" width="20" height="24" uuid="fa9a6dc6-0e59-492c-a98f-c3cb8fcf4c87"/>
+                <imageExpression><![CDATA[$P{p1_supplementationWater2wOk} != null ? $P{check_image} : ($P{p1_supplementationWater2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="845" y="813" width="20" height="24" uuid="dcfb4393-8d65-48b6-92e0-d04adddaf3ce"/>
+                <imageExpression><![CDATA[$P{p1_supplementationOtherFluids2wOk} != null ? $P{check_image} : ($P{p1_supplementationOtherFluids2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="690" width="20" height="24" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2"/>
+                <imageExpression><![CDATA[$P{p1_breastFeeding1mOk} != null ? $P{check_image} : ($P{p1_breastFeeding1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1160" y="714" width="20" height="24" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2"/>
+                <imageExpression><![CDATA[$P{p1_vitaminD1mOk} != null ? $P{check_image} : ($P{p1_vitaminD1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="740" width="20" height="24" uuid="ce5de04a-3af3-4617-be2a-0237c80ed597"/>
+                <imageExpression><![CDATA[$P{p1_formulaFeeding1mOk} != null ? $P{check_image} : ($P{p1_formulaFeeding1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="788" width="20" height="24" uuid="d53f2e01-d7d0-4518-b7e6-0ad87f0f4138"/>
+                <imageExpression><![CDATA[$P{p1_stoolUrine1mOk} != null ? $P{check_image} : ($P{p1_stoolUrine1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="811" width="20" height="24" uuid="96a13cc7-c7b2-43b9-9b1d-2fedd0d45d04"/>
+                <imageExpression><![CDATA[($P{p1_supplementationWater1mOk} != null && $P{p1_supplementationOtherFluids1mOk} != null && $P{p1_supplementationSolids1mOk} != null) ? $P{check_image} 
+                : (($P{p1_supplementationWater1mOkConcerns} != null && $P{p1_supplementationOtherFluids1mOkConcerns} != null && $P{p1_supplementationSolids1mOkConcerns} != null) ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1305" y="811" width="20" height="24" uuid="fa9a6dc6-0e59-492c-a98f-c3cb8fcf4c87"/>
+                <imageExpression><![CDATA[$P{p1_supplementationSolids1mOk} != null ? $P{check_image} : ($P{p1_supplementationSolids1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1385" y="811" width="20" height="24" uuid="fa9a6dc6-0e59-492c-a98f-c3cb8fcf4c87"/>
+                <imageExpression><![CDATA[$P{p1_supplementationWater1mOk} != null ? $P{check_image} : ($P{p1_supplementationWater1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1459" y="811" width="20" height="24" uuid="dcfb4393-8d65-48b6-92e0-d04adddaf3ce"/>
+                <imageExpression><![CDATA[$P{p1_supplementationOtherFluids1mOk} != null ? $P{check_image} : ($P{p1_supplementationOtherFluids1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="914" width="20" height="24" uuid="78218a8b-9278-4bde-ae7c-758a288c7b0f"/>
+                <imageExpression><![CDATA[$P{p1_carSeatOk} != null ? $P{check_image} : ($P{p1_carSeatOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="937" width="20" height="24" uuid="caca114b-3b20-47b0-b812-e50755dc44f4"/>
+                <imageExpression><![CDATA[$P{p1_smokeSafetyOk} != null ? $P{check_image} : ($P{p1_smokeSafetyOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="963" width="20" height="24" uuid="f8ac5a8d-c93d-47d4-a26c-2e93fd9d48be"/>
+                <imageExpression><![CDATA[$P{p1_firearmSafetyOk} != null ? $P{check_image} : ($P{p1_firearmSafetyOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1036" width="20" height="24" uuid="b28fe42b-71bd-4768-9a48-8bfe4a513b59"/>
+                <imageExpression><![CDATA[$P{p1_hotWaterOk} != null ? $P{check_image} : ($P{p1_hotWaterOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1010" width="20" height="24" uuid="dead5e88-eeb6-45cb-b168-e58a9ecbe1c9"/>
+                <imageExpression><![CDATA[$P{p1_safeToysOk} != null ? $P{check_image} : ($P{p1_safeToysOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="987" width="20" height="24" uuid="c45f1a94-bc69-4452-ba22-3637ce30a055"/>
+                <imageExpression><![CDATA[$P{p1_pacifierOk} != null ? $P{check_image} : ($P{p1_pacifierOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1060" width="20" height="24" uuid="84f38e1c-fd95-4f47-b6e6-eccf79ba0b33"/>
+                <imageExpression><![CDATA[$P{p1_sleepPosOk} != null ? $P{check_image} : ($P{p1_sleepPosOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1109" width="20" height="24" uuid="b337982e-ac05-4ed1-b71b-6a3acedec578"/>
+                <imageExpression><![CDATA[$P{p1_fallsOk} != null ? $P{check_image} : ($P{p1_fallsOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="914" width="20" height="24" uuid="f96c96d3-bbb1-4e62-95c3-ce74e3c0774b"/>
+                <imageExpression><![CDATA[$P{p1_cryingOk} != null ? $P{check_image} : ($P{p1_cryingOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="914" width="20" height="24" uuid="b025e58e-72f5-4f31-84d0-4fbc73ca5dac"/>
+                <imageExpression><![CDATA[$P{p1_healthySleepOk} != null ? $P{check_image} : ($P{p1_healthySleepOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="937" width="20" height="24" uuid="a851ba2e-bdb0-49f6-a071-ab60a76ac6f5"/>
+                <imageExpression><![CDATA[$P{p1_nightWakingOk} != null ? $P{check_image} : ($P{p1_nightWakingOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="937" width="20" height="24" uuid="562460cf-8d36-4e3e-b01f-d43d36bf26d0"/>
+                <imageExpression><![CDATA[$P{p1_soothabilityOk} != null ? $P{check_image} : ($P{p1_soothabilityOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="963" width="20" height="24" uuid="ad8708d9-bada-45dc-969d-6f78653d66d1"/>
+                <imageExpression><![CDATA[$P{p1_bondingOk} != null ? $P{check_image} : ($P{p1_bondingOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="963" width="20" height="24" uuid="9082be78-0fc9-4900-8053-665412fd451e"/>
+                <imageExpression><![CDATA[$P{p1_famConflictOk} != null ? $P{check_image} : ($P{p1_famConflictOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="987" width="20" height="24" uuid="2ce585a1-6ad0-4bdf-903f-aa2113cabb23"/>
+                <imageExpression><![CDATA[$P{p1_siblingsOk} != null ? $P{check_image} : ($P{p1_siblingsOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1010" width="20" height="24" uuid="dcd843f8-51f0-4378-a3b9-6941db0457f3"/>
+                <imageExpression><![CDATA[$P{p1_pFatigueOk} != null ? $P{check_image} : ($P{p1_pFatigueOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1036" width="20" height="24" uuid="3c9b0857-4ba5-418f-bac7-d6d794f5a43f"/>
+                <imageExpression><![CDATA[$P{p1_homeVisitOk} != null ? $P{check_image} : ($P{p1_homeVisitOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1060" width="20" height="24" uuid="5758e78a-ffde-4d84-bd98-43bc536026c2"/>
+                <imageExpression><![CDATA[$P{p1_makingEndsMeetInquiryOk} != null ? $P{check_image} : ($P{p1_makingEndsMeetInquiryOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="914" width="20" height="24" uuid="f3db7396-c1eb-4660-a2a3-66f4857d30a7"/>
+                <imageExpression><![CDATA[$P{p1_2ndSmokeOk} != null ? $P{check_image} : ($P{p1_2ndSmokeOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1432" y="914" width="20" height="24" uuid="31caaed7-0ddb-47f5-981f-e72b861d24c1"/>
+                <imageExpression><![CDATA[$P{p1_sunExposureOk} != null ? $P{check_image} : ($P{p1_sunExposureOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="991" width="20" height="24" uuid="ca30eea8-f444-4e13-8f3e-751f18089514"/>
+                <imageExpression><![CDATA[$P{p1_noCoughMedOk} != null ? $P{check_image} : ($P{p1_noCoughMedOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1015" width="20" height="24" uuid="c4e72093-f725-41f5-8dff-536332fe03a7"/>
+                <imageExpression><![CDATA[$P{p1_altMedOk} != null ? $P{check_image} : ($P{p1_altMedOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1039" width="20" height="24" uuid="677de4bb-bbee-4c90-9c80-d757c2c70599"/>
+                <imageExpression><![CDATA[$P{p1_tmpControlOk} != null ? $P{check_image} : ($P{p1_tmpControlOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1063" width="20" height="24" uuid="73e5fc65-5dc7-4bab-b38d-7da6affd7e33"/>
+                <imageExpression><![CDATA[$P{p1_feverOk} != null ? $P{check_image} : ($P{p1_feverOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1089" width="20" height="24" uuid="c97f7d04-a1a3-4169-a94f-904ad0c9af2f"/>
+                <imageExpression><![CDATA[$P{p1_tummyTimeOk} != null ? $P{check_image} : ($P{p1_tummyTimeOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1207" width="20" height="24" uuid="e4d2cb4c-9dc6-45a2-ba60-c219da111e09"/>
+                <imageExpression><![CDATA[$P{p1_sucks1wOk} != null ? $P{check_image} : ($P{p1_sucks1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1207" width="20" height="24" uuid="9844596d-9fc2-42e0-afad-a1165f94cf32"/>
+                <imageExpression><![CDATA[$P{p1_sucks2wOk} != null ? $P{check_image} : ($P{p1_sucks2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1231" width="20" height="24" uuid="9655055e-620a-4521-89df-1e08c694ecdd"/>
+                <imageExpression><![CDATA[$P{p1_noParentsConcerns2wOk} != null ? $P{check_image} : ($P{p1_noParentsConcerns2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1207" width="20" height="24" uuid="17b8c61d-dff6-49e9-ba2a-a1934deda0ab"/>
+                <imageExpression><![CDATA[$P{p1_focusGaze1mOk} != null ? $P{check_image} : ($P{p1_focusGaze1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1229" width="20" height="24" uuid="32ed7255-01e9-4f6c-bfd0-b68c14b8661c"/>
+                <imageExpression><![CDATA[$P{p1_startles1mOk} != null ? $P{check_image} : ($P{p1_startles1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1251" width="20" height="24" uuid="c2bf3aec-035b-4eab-b325-ca0c6e756856"/>
+                <imageExpression><![CDATA[$P{p1_calms1mOk} != null ? $P{check_image} : ($P{p1_calms1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1273" width="20" height="24" uuid="6fd9547d-d31f-47c4-b6ea-1d6ed2587513"/>
+                <imageExpression><![CDATA[$P{p1_sucks1mOk} != null ? $P{check_image} : ($P{p1_sucks1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1295" width="20" height="24" uuid="5300da62-3897-48c0-a349-bb48fb0d527b"/>
+                <imageExpression><![CDATA[$P{p1_noParentsConcerns1mOk} != null ? $P{check_image} : ($P{p1_noParentsConcerns1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1370" width="20" height="24" uuid="1e83251e-6963-4aeb-8d6c-17494afafd3c"/>
+                <imageExpression><![CDATA[$P{p1_fontanelles1wOk} != null ? $P{check_image} : ($P{p1_fontanelles1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="273" y="1370" width="20" height="24" uuid="9d839d8c-5be6-48b9-9e20-4e6dcc807329"/>
+                <imageExpression><![CDATA[$P{p1_skin1wOk} != null ? $P{check_image} : ($P{p1_skin1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1395" width="20" height="24" uuid="d7a6e69c-b1ab-47b1-a684-d22d38955da4"/>
+                <imageExpression><![CDATA[$P{p1_eyes1wOk} != null ? $P{check_image} : ($P{p1_eyes1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="273" y="1395" width="20" height="24" uuid="c6a1e4a0-ff1a-4d4d-9a98-30e5d85e2473"/>
+                <imageExpression><![CDATA[$P{p1_ears1wOk} != null ? $P{check_image} : ($P{p1_ears1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1419" width="20" height="24" uuid="1d371c92-43ac-4748-8c4d-17aa508461fb"/>
+                <imageExpression><![CDATA[$P{p1_tongueMobility1wOk} != null ? $P{check_image} : ($P{p1_tongueMobility1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="273" y="1419" width="20" height="24" uuid="c592ab53-26a0-44c2-a836-b5a2280ea21c"/>
+                <imageExpression><![CDATA[$P{p1_neckTorticollis1wOk} != null ? $P{check_image} : ($P{p1_neckTorticollis1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1444" width="20" height="24" uuid="a8c3ceaf-7a0f-458c-bba4-837b5d6b459d"/>
+                <imageExpression><![CDATA[$P{p1_heartLungs1wOk} != null ? $P{check_image} : ($P{p1_heartLungs1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="273" y="1444" width="20" height="24" uuid="150f6987-0ef9-4c5e-95d6-b123c16f7abe"/>
+                <imageExpression><![CDATA[$P{p1_femoralPulses1wOk} != null ? $P{check_image} : ($P{p1_femoralPulses1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1467" width="20" height="24" uuid="45ffc45d-159e-46b3-b0dc-221ef709401c"/>
+                <imageExpression><![CDATA[$P{p1_umbilicus1wOk} != null ? $P{check_image} : ($P{p1_umbilicus1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="273" y="1467" width="20" height="24" uuid="bfad6f40-fb98-41a8-8758-c5075203db25"/>
+                <imageExpression><![CDATA[$P{p1_hips1wOk} != null ? $P{check_image} : ($P{p1_hips1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1491" width="20" height="24" uuid="7e61c20c-16ba-46ec-b3c5-87d1fe81c8f8"/>
+                <imageExpression><![CDATA[$P{p1_genitalia1wOk} != null ? $P{check_image} : ($P{p1_genitalia1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="273" y="1491" width="20" height="24" uuid="eed663db-8cda-4ab8-a980-d94caa900c76"/>
+                <imageExpression><![CDATA[$P{p1_maleUrinary1wOk} != null ? $P{check_image} : ($P{p1_maleUrinary1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1516" width="20" height="24" uuid="0fb092da-0c19-4c5b-ac54-d30326bc9165"/>
+                <imageExpression><![CDATA[$P{p1_patencyOfAnus1wOk} != null ? $P{check_image} : ($P{p1_patencyOfAnus1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="273" y="1516" width="20" height="24" uuid="734e9675-69f9-4c7b-8225-74750b62222b"/>
+                <imageExpression><![CDATA[$P{p1_muscleTone1wOk} != null ? $P{check_image} : ($P{p1_muscleTone1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1370" width="20" height="24" uuid="df842f27-c6d1-4b87-81a1-20e1d1a475a6"/>
+                <imageExpression><![CDATA[$P{p1_fontanelles2wOk} != null ? $P{check_image} : ($P{p1_fontanelles2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="1370" width="20" height="24" uuid="d4269b8e-3764-4cb0-bb3b-4af5aa874b17"/>
+                <imageExpression><![CDATA[$P{p1_skin2wOk} != null ? $P{check_image} : ($P{p1_skin2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1395" width="20" height="24" uuid="141b909b-a11f-4009-8273-35cb12ba92d2"/>
+                <imageExpression><![CDATA[$P{p1_eyes2wOk} != null ? $P{check_image} : ($P{p1_eyes2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="1395" width="20" height="24" uuid="c8cd4f7d-d23d-461e-a6e1-e66e6d6cae75"/>
+                <imageExpression><![CDATA[$P{p1_ears2wOk} != null ? $P{check_image} : ($P{p1_ears2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1419" width="20" height="24" uuid="136188fb-dbb9-424c-9970-a58229f47e5f"/>
+                <imageExpression><![CDATA[$P{p1_tongueMobility2wOk} != null ? $P{check_image} : ($P{p1_tongueMobility2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="1419" width="20" height="24" uuid="6ad2dedf-50db-484b-b4d1-32211a42f310"/>
+                <imageExpression><![CDATA[$P{p1_neckTorticollis2wOk} != null ? $P{check_image} : ($P{p1_neckTorticollis2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1444" width="20" height="24" uuid="c13cdab2-67f5-4759-b6de-875536cfe804"/>
+                <imageExpression><![CDATA[$P{p1_heartLungs2wOk} != null ? $P{check_image} : ($P{p1_heartLungs2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="1444" width="20" height="24" uuid="56862e34-4497-40f1-b8f8-a8d1e901acd8"/>
+                <imageExpression><![CDATA[$P{p1_femoralPulses2wOk} != null ? $P{check_image} : ($P{p1_femoralPulses2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1467" width="20" height="24" uuid="4476243f-e79e-4618-a88e-ccee933cb667"/>
+                <imageExpression><![CDATA[$P{p1_umbilicus2wOk} != null ? $P{check_image} : ($P{p1_umbilicus2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="1467" width="20" height="24" uuid="2690d17c-2bbd-4349-aef0-d00e52fdd93e"/>
+                <imageExpression><![CDATA[$P{p1_hips2wOk} != null ? $P{check_image} : ($P{p1_hips2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1491" width="20" height="24" uuid="3d446dcf-138d-4f33-9a0d-9a11f7f772b5"/>
+                <imageExpression><![CDATA[$P{p1_genitalia2wOk} != null ? $P{check_image} : ($P{p1_genitalia2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="800" y="1491" width="20" height="24" uuid="f90e915c-dc37-4290-b2bd-cd1f4c197399"/>
+                <imageExpression><![CDATA[$P{p1_maleUrinary2wOk} != null ? $P{check_image} : ($P{p1_maleUrinary2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="600" y="1516" width="20" height="24" uuid="68421a10-8f28-4aad-8acf-e1ea34703765"/>
+                <imageExpression><![CDATA[$P{p1_muscleTone2wOk} != null ? $P{check_image} : ($P{p1_muscleTone2wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1133" y="1370" width="20" height="24" uuid="ea0d552e-8917-4a05-9fcf-dd5dddcfc0fc"/>
+                <imageExpression><![CDATA[$P{p1_skin1mOk} != null ? $P{check_image} : ($P{p1_skin1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1432" y="1370" width="20" height="24" uuid="a5b0a66d-fb8c-4ed3-80dd-9d90aac84d31"/>
+                <imageExpression><![CDATA[$P{p1_fontanelles1mOk} != null ? $P{check_image} : ($P{p1_fontanelles1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1133" y="1393" width="20" height="24" uuid="f7d17947-c10a-43bb-9558-574d98690fd6"/>
+                <imageExpression><![CDATA[$P{p1_eyes1mOk} != null ? $P{check_image} : ($P{p1_eyes1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1432" y="1393" width="20" height="24" uuid="62965834-26a1-4585-bcc4-02fd8dba2d93"/>
+                <imageExpression><![CDATA[$P{p1_corneal1mOk} != null ? $P{check_image} : ($P{p1_corneal1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1133" y="1415" width="20" height="24" uuid="45b18c07-818c-402e-963d-f544b37dd15f"/>
+                <imageExpression><![CDATA[$P{p1_ears1mOk} != null ? $P{check_image} : ($P{p1_ears1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1432" y="1415" width="20" height="24" uuid="3ed50682-b239-44af-8a0c-e3e46f534ee6"/>
+                <imageExpression><![CDATA[$P{p1_tongueMobility1mOk} != null ? $P{check_image} : ($P{p1_tongueMobility1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1133" y="1437" width="20" height="24" uuid="5b03fe27-8136-4847-83c6-bedf426512d1"/>
+                <imageExpression><![CDATA[$P{p1_heartAbdomen1mOk} != null ? $P{check_image} : ($P{p1_heartAbdomen1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1432" y="1437" width="20" height="24" uuid="8485fac8-565e-4fd9-bae8-9c610a0955e4"/>
+                <imageExpression><![CDATA[$P{p1_neckTorticollis1mOk} != null ? $P{check_image} : ($P{p1_neckTorticollis1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1133" y="1462" width="20" height="24" uuid="7d7196d2-8731-4541-8b87-ce1c7dbd28fe"/>
+                <imageExpression><![CDATA[$P{p1_hips1mOk} != null ? $P{check_image} : ($P{p1_hips1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1133" y="1486" width="20" height="24" uuid="11362f04-fc84-4cf7-8a32-595ebda56bd6"/>
+                <imageExpression><![CDATA[$P{p1_muscleTone1mOk} != null ? $P{check_image} : ($P{p1_muscleTone1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="65" y="1627" width="516" height="160" uuid="d576f040-5f96-4ae0-8c26-c9c3bcb923f8"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p1_problems1w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="595" y="1627" width="516" height="160" uuid="773ee49a-bb9e-4843-b5cc-31cccc1c6a82"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p1_problems2w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1126" y="1627" width="516" height="160" uuid="105450d0-f2db-4a44-86b8-4264f46d1579"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p1_problems1m}]]></textFieldExpression>
+            </textField>
+            <image>
+                <reportElement x="73" y="1839" width="20" height="24" uuid="5045165d-72cf-4230-8cd1-93373dbb5996"/>
+                <imageExpression><![CDATA[$P{p1_newbornScreening1wOk} != null ? $P{check_image} : ($P{p1_newbornScreening1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1863" width="20" height="24" uuid="67fc6575-db67-468b-95f6-23a0cc441f9d"/>
+                <imageExpression><![CDATA[$P{p1_hemoglobinopathyScreen1wOk} != null ? $P{check_image} : ($P{p1_hemoglobinopathyScreen1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1886" width="20" height="24" uuid="b31b7c86-4650-45d0-8a5d-6f83931897a8"/>
+                <imageExpression><![CDATA[$P{p1_newbornHearingScreen1wOk} != null ? $P{check_image} : ($P{p1_newbornHearingScreen1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="73" y="1911" width="20" height="24" uuid="aea17739-b37a-45c1-affb-6fca0f4c3e27"/>
+                <imageExpression><![CDATA[$P{p1_hepatitisVaccine1wOk} != null ? $P{check_image} : ($P{p1_hepatitisVaccine1wOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="1839" width="20" height="24" uuid="d52cd7e3-cf80-4cf4-baff-f4bf1a505560"/>
+                <imageExpression><![CDATA[$P{p1_hepatitisVaccine1mOk} != null ? $P{check_image} : ($P{p1_hepatitisVaccine1mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="65" y="1987" width="515" height="30" uuid="90ba61d6-06c4-43a9-b7bf-fe18d25abeda"/>
+                <textFieldExpression><![CDATA[$P{p1_signature1w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="595" y="1987" width="515" height="30" uuid="55b1fa50-e0c9-45e4-bdac-1148cee8d2b6"/>
+                <textFieldExpression><![CDATA[$P{p1_signature2w}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1127" y="1987" width="509" height="30" uuid="9af358b8-26df-4ead-8de6-1a2fa81755f7"/>
+                <textFieldExpression><![CDATA[$P{p1_signature1m}]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+</jasperReport>

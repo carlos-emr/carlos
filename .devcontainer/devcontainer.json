@@ -1,0 +1,42 @@
+{
+    "name": "CARLOS EMR Dev",
+    "dockerComposeFile": ["docker-compose.yml"],
+    "service": "carlos",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    "dockerComposeOptions": ["--project-name", "carlos-emr"],
+    "postCreateCommand": "sh .devcontainer/development/setup/seed_data.sh && cd /workspace && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "waderyan.gitblame",
+                "redhat.vscode-community-server-connector",
+                "redhat.fabric8-analytics",
+                "vscjava.vscode-java-pack",
+                "anthropic.claude-code"
+            ],
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash",
+                "java.compile.nullAnalysis.mode": "automatic",
+                "java.configuration.updateBuildConfiguration": "interactive",
+                "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms512m -Xlog:disable",
+                "java.maven.downloadSources": false,
+                "claude.mcpServers": {
+                    "playwright": {
+                        "command": "npx",
+                        "args": ["@executeautomation/playwright-mcp-server"],
+                        "env": {
+                            "PLAYWRIGHT_BROWSER": "firefox",
+                            "PLAYWRIGHT_HEADLESS": "true"
+                        }
+                    }
+                }
+              }
+        }
+    },
+
+    "forwardPorts": [8080, 8000, 3306, 3000],
+    "containerUser": "root",
+    "remoteUser": "root"
+}

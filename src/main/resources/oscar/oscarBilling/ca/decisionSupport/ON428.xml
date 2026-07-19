@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<guideline title="428Message" >    
+<conditions>
+	<condition type="dxcodes" any="icd9:428"/>
+	<condition type="paid" any="Q050A">
+			<param key="payer" value="MSP"/>
+			<param key="notInDays" value="365"/>
+	</condition>
+	<condition type="flowsheet" any="chf"/>
+</conditions>
+<consequence>
+<warning strength="warning">Eligible to bill Q050A</warning>
+</consequence>
+</guideline>

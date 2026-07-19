@@ -1,0 +1,1 @@
+alter table demographic add column consentToUseEmailForCare tinyint(1);

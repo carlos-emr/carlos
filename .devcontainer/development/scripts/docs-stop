@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# OpenO EMR - Stop Docusaurus Documentation Server
+# This script stops the Docusaurus development server
+
+set -e
+
+PID_FILE="/tmp/docusaurus.pid"
+LOG_FILE="/tmp/docusaurus.log"
+
+echo "🛑 Stopping OpenO EMR Documentation Server..."
+
+# Check if PID file exists
+if [ ! -f "$PID_FILE" ]; then
+    echo "📖 Documentation server is not running (no PID file found)"
+    exit 0
+fi
+
+# Get the PID
+DOCS_PID=$(cat "$PID_FILE")
+
+# Check if process is actually running
+if ! kill -0 $DOCS_PID 2>/dev/null; then
+    echo "📖 Documentation server is not running (process $DOCS_PID not found)"
+    rm -f "$PID_FILE"
+    exit 0
+fi
+
+# Try graceful shutdown first
+echo "📚 Sending SIGTERM to process $DOCS_PID..."
+if kill $DOCS_PID 2>/dev/null; then
+    # Wait up to 10 seconds for graceful shutdown
+    for i in {1..10}; do
+        if ! kill -0 $DOCS_PID 2>/dev/null; then
+            echo "✅ Documentation server stopped gracefully"
+            rm -f "$PID_FILE"
+            exit 0
+        fi
+        sleep 1
+        echo "   Waiting for graceful shutdown... ($i/10)"
+    done
+    
+    # Force kill if still running
+    echo "⚠️  Forcing shutdown..."
+    if kill -9 $DOCS_PID 2>/dev/null; then
+        echo "✅ Documentation server force-stopped"
+    else
+        echo "❌ Failed to stop documentation server"
+    fi
+else
+    echo "❌ Failed to send stop signal to process $DOCS_PID"
+fi
+
+# Clean up
+rm -f "$PID_FILE"
+
+# Also kill any lingering npm/node processes related to docusaurus
+echo "🧹 Cleaning up any lingering processes..."
+pkill -f "docusaurus start" 2>/dev/null || true
+pkill -f "webpack.*docusaurus" 2>/dev/null || true
+
+echo "🏁 Documentation server shutdown complete"
+
+# Offer to show recent logs
+if [ -f "$LOG_FILE" ] && [ -s "$LOG_FILE" ]; then
+    echo ""
+    echo "📋 Recent logs available at: $LOG_FILE"
+    echo "🔍 View with: tail -20 $LOG_FILE"
+fi

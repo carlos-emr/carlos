@@ -1,0 +1,15 @@
+{
+  "id": "archive/AuditRequirements",
+  "title": "OSCAR Audit Requirements",
+  "description": "Current log/audit table",
+  "source": "@site/docs/archive/AuditRequirements.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/AuditRequirements",
+  "permalink": "/archive/AuditRequirements",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/AuditRequirements.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

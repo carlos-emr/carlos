@@ -1,0 +1,20 @@
+{
+  "id": "legacy-hapi-dynamic-loading",
+  "title": "Legacy HAPI Library Dynamic Loading",
+  "description": "Overview",
+  "source": "@site/docs/legacy-hapi-dynamic-loading.md",
+  "sourceDirName": ".",
+  "slug": "/legacy-hapi-dynamic-loading",
+  "permalink": "/legacy-hapi-dynamic-loading",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/legacy-hapi-dynamic-loading.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "tutorialSidebar",
+  "previous": {
+    "title": "MyDrugref Integration Documentation",
+    "permalink": "/MyDrugref"
+  }
+}

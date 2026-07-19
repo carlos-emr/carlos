@@ -1,0 +1,15 @@
+{
+  "id": "archive/ui/patientsearch",
+  "title": "patientsearch",
+  "description": "Patient Search Module",
+  "source": "@site/docs/archive/ui/patientsearch.md",
+  "sourceDirName": "archive/ui",
+  "slug": "/archive/ui/patientsearch",
+  "permalink": "/archive/ui/patientsearch",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/ui/patientsearch.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

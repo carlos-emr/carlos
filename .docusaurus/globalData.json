@@ -1,0 +1,166 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/",
+          "mainDocId": "README-form-resources",
+          "docs": [
+            {
+              "id": "archive/AddAllergy",
+              "path": "/archive/AddAllergy"
+            },
+            {
+              "id": "archive/AddMeasurements",
+              "path": "/archive/AddMeasurements"
+            },
+            {
+              "id": "archive/AddPrescriptions",
+              "path": "/archive/AddPrescriptions"
+            },
+            {
+              "id": "archive/AuditRequirements",
+              "path": "/archive/AuditRequirements"
+            },
+            {
+              "id": "archive/AutoLogin",
+              "path": "/archive/AutoLogin"
+            },
+            {
+              "id": "archive/CustomizeLoginPage",
+              "path": "/archive/CustomizeLoginPage"
+            },
+            {
+              "id": "archive/dispensing_inventory",
+              "path": "/archive/dispensing_inventory"
+            },
+            {
+              "id": "archive/GetLoggedInPerson",
+              "path": "/archive/GetLoggedInPerson"
+            },
+            {
+              "id": "archive/HumanUserInterfaceGuideline",
+              "path": "/archive/HumanUserInterfaceGuideline"
+            },
+            {
+              "id": "archive/large_data_blob_storage",
+              "path": "/archive/large_data_blob_storage"
+            },
+            {
+              "id": "archive/mcedt/MCEDT_HCV_Issue_Knowledge",
+              "path": "/archive/mcedt/MCEDT_HCV_Issue_Knowledge"
+            },
+            {
+              "id": "archive/Olis",
+              "path": "/archive/Olis"
+            },
+            {
+              "id": "archive/selenium_how_to",
+              "path": "/archive/selenium_how_to"
+            },
+            {
+              "id": "archive/SendImmunization",
+              "path": "/archive/SendImmunization"
+            },
+            {
+              "id": "archive/SendPatientMessage",
+              "path": "/archive/SendPatientMessage"
+            },
+            {
+              "id": "archive/ui/patientsearch",
+              "path": "/archive/ui/patientsearch"
+            },
+            {
+              "id": "archive/ui/tickler",
+              "path": "/archive/ui/tickler"
+            },
+            {
+              "id": "archive/ui/tips",
+              "path": "/archive/ui/tips"
+            },
+            {
+              "id": "archive/web_services/OAUTH",
+              "path": "/archive/web_services/OAUTH"
+            },
+            {
+              "id": "archive/web_services/REST",
+              "path": "/archive/web_services/REST"
+            },
+            {
+              "id": "dsGuideline",
+              "path": "/dsGuideline",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "integrator-system-architecture",
+              "path": "/integrator-system-architecture",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "legacy-hapi-dynamic-loading",
+              "path": "/legacy-hapi-dynamic-loading",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "MyDrugref",
+              "path": "/MyDrugref",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "Password_System",
+              "path": "/Password_System",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "README-form-resources",
+              "path": "/README-form-resources",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "resources-directory",
+              "path": "/resources-directory",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "static/javadoc/legal/jquery",
+              "path": "/static/javadoc/legal/jquery"
+            },
+            {
+              "id": "static/javadoc/legal/jqueryUI",
+              "path": "/static/javadoc/legal/jqueryUI"
+            },
+            {
+              "id": "struts-actions-detailed",
+              "path": "/struts-actions-detailed",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "struts-actions-summary",
+              "path": "/struts-actions-summary",
+              "sidebar": "tutorialSidebar"
+            },
+            {
+              "id": "Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+              "path": "/Testing_Exclusion_of_MCEDT_and_HinValidator_tests",
+              "sidebar": "tutorialSidebar"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "tutorialSidebar": {
+              "link": {
+                "path": "/README-form-resources",
+                "label": "README-form-resources"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

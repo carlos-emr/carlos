@@ -1,0 +1,15 @@
+{
+  "id": "archive/CustomizeLoginPage",
+  "title": "How to Customize the Login Page",
+  "description": "Instructions on how to customize Oscar's new login page with clinic and support provider information.",
+  "source": "@site/docs/archive/CustomizeLoginPage.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/CustomizeLoginPage",
+  "permalink": "/archive/CustomizeLoginPage",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/CustomizeLoginPage.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

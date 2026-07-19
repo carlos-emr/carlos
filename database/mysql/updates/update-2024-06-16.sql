@@ -1,0 +1,1 @@
+ALTER TABLE emailLog MODIFY COLUMN providerNo VARCHAR(6);

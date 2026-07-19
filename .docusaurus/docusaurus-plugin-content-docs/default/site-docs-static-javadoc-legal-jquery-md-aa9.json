@@ -1,0 +1,15 @@
+{
+  "id": "static/javadoc/legal/jquery",
+  "title": "jquery",
+  "description": "jQuery v3.7.1",
+  "source": "@site/docs/static/javadoc/legal/jquery.md",
+  "sourceDirName": "static/javadoc/legal",
+  "slug": "/static/javadoc/legal/jquery",
+  "permalink": "/static/javadoc/legal/jquery",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/static/javadoc/legal/jquery.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

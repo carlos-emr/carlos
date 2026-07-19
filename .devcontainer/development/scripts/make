@@ -1,0 +1,388 @@
+#!/usr/bin/env sh
+
+# Script to manage building and deploying the CARLOS EMR application to Tomcat
+# This script supports the following operations:
+# - clean: Cleans the project and removes the deployed www app from Tomcat.
+# - install: Builds the project and deploys it to Tomcat. Optionally, you can run tests by passing --run-tests.
+
+# SCRIPT_DIR will hold the directory where this script is located.
+# This is useful because you may run the script from a different directory,
+# but we want to ensure that the relative paths (like the server script) always work correctly.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Function to handle the build and deploy logic
+# Takes a single argument ($1) which is a boolean indicating whether to run tests.
+# Takes a second argument ($2) which is a boolean indicating whether to compile JSPs.
+# Takes a third argument ($3) which is a boolean indicating whether to enable dev mode.
+build_and_deploy() {
+  run_tests="$1"
+  compile_jsps="$2"
+  dev_mode="$3"
+
+  # Stop the Catalina server if it's running (ignore errors if it's not)
+  # This prevents Java fault errors when the server isn't already running
+  echo "Stopping server if running..."
+  "$SCRIPT_DIR/server" stop 2>/dev/null || true
+
+  # Setup the over_ride_config.properties file.
+  config_dir="/workspace/src/test/resources"
+  properties_file="${config_dir}/over_ride_config.properties"
+  template_file="${properties_file}.template"
+
+  if [ -f "$template_file" ] && [ ! -f "$properties_file" ]; then
+    echo "Setting up over_ride_config.properties..."
+    cp "$template_file" "$properties_file"
+  fi
+
+  # Build the project with or without tests based on the input argument
+  # - If run_tests is true, it builds the project and runs tests.
+  # - If run_tests is false, it skips tests during the build.
+  # - If compile_jsps is true, it compiles JSPs during the build.
+  jsp_profile=""
+  if [ "$compile_jsps" = true ]; then
+    jsp_profile="-Pjspc"
+  fi
+  
+  dev_mode_flag=""
+  if [ "$dev_mode" = true ]; then
+    dev_mode_flag="-Dstruts.devMode=true"
+  fi
+  
+  if [ "$run_tests" = true ]; then
+    # Run all tests in complete isolation (modern first, then legacy)
+    echo "========================================="
+    echo "Running all tests in isolation"
+    echo "========================================="
+
+    # First, run the complete modern test workflow
+    echo ""
+    echo ">>> PHASE 1: Modern Tests Workflow"
+    echo "Building application with modern profile..."
+    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    echo ""
+    echo "Running modern tests..."
+    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+
+    # Clean up between phases to ensure complete isolation
+    echo ""
+    echo ">>> Cleaning up between test phases..."
+    # Remove the deployed WAR to avoid any state pollution
+    rm -rf /usr/local/tomcat/webapps/carlos
+    # Clean target directory to ensure fresh state
+    mvn clean -q
+
+    # Then, run the complete legacy test workflow
+    echo ""
+    echo ">>> PHASE 2: Legacy Tests Workflow"
+    echo "Building application without modern profile..."
+    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
+    echo ""
+    echo "Running legacy tests..."
+    mvn test -DskipModernTests=true
+  elif [ "$run_tests" = "modern" ]; then
+    # Run only modern tests with JUnit 5 profile and modern lock file
+    # Build WITH modern profile activated and modern lock file
+    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    echo ""
+    echo "Running modern tests..."
+    # Activate modern-tests profile, use modern lock file
+    mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+  elif [ "$run_tests" = "legacy" ]; then
+    # Run only legacy tests WITHOUT JUnit 5, use default lock file
+    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
+    echo ""
+    echo "Running legacy tests..."
+    # Skip modern tests, use default lock file
+    mvn test -DskipModernTests=true
+  elif [ "$run_tests" = "unit" ]; then
+    # Run only modern unit tests with modern lock file
+    # Build WITH modern profile activated and modern lock file
+    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    echo ""
+    echo "Running modern unit tests..."
+    # Use groups + activate modern profile with modern lock file
+    mvn test -Pmodern-tests -Dgroups="unit" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+  elif [ "$run_tests" = "integration" ]; then
+    # Run only modern integration tests with modern lock file
+    # Build WITH modern profile activated and modern lock file
+    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    echo ""
+    echo "Running modern integration tests..."
+    # Use groups + activate modern profile with modern lock file
+    mvn test -Pmodern-tests -Dgroups="integration" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
+  else
+    # Regular build without tests - skip modern tests to use default lock file
+    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
+  fi
+
+  # Extract the version from the pom.xml file.
+  # This will allow us to handle versioned directories during deployment.
+  pom_file="pom.xml"
+  version=$(grep -oPm 1 '<version>\K[^<]+' "$pom_file")
+  snapshot_src_dir="carlos-$version"
+  snapshot_dest_dir="carlos"
+
+  # Create a symlink from the exploded WAR directory to the Tomcat webapps directory.
+  # This ensures the app is deployed with the context path `/carlos`.
+  if [ -d "target/$snapshot_src_dir" ] && [ ! -L "target/$snapshot_src_dir" ]; then
+    mv "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
+    ln -s "/usr/local/tomcat/webapps/$snapshot_dest_dir" "target/$snapshot_src_dir"
+  fi
+
+  # Setup hot reload for fast JSP/HTML/CSS updates when refreshing the browser.
+  if [ -f "/setup-dir/setup-hot-reload.sh" ]; then
+    # Check if inotify-tools is available
+    if [ ! -x "/usr/bin/inotifywait" ]; then
+      echo "WARN: Hot-reload skipped, not installed or executable"
+    else
+      # Ensure the script is executable
+      chmod +x /setup-dir/setup-hot-reload.sh
+
+      echo "Starting hot reload watcher"
+      echo "View live logs: tail -f /tmp/webapp-watcher.log"
+      
+      # Start the hot-reload script in the background
+      /setup-dir/setup-hot-reload.sh > /dev/null 2>&1 &
+    fi
+  fi
+
+  # Start the Catalina server by calling the `server` script located in the same directory as this script.
+  "$SCRIPT_DIR/server" start
+}
+
+# Function to generate documentation and build static site
+generate_and_build_docs() {
+  echo "========================================="
+  echo "Generating and building documentation..."
+  echo "========================================="
+  
+  # Step 1: Clean previous documentation
+  echo ""
+  echo "Step 1: Cleaning previous documentation..."
+  rm -rf target/site/apidocs
+  rm -rf docs/api
+  rm -rf build
+  
+  # Step 2: Generate Javadoc HTML
+  echo ""
+  echo "Step 2: Generating Javadoc HTML documentation..."
+  mvn clean javadoc:javadoc
+  
+  # Step 3: Generate Markdown if javadoc2md is available
+  echo ""
+  echo "Step 3: Converting to Markdown..."
+  if command -v javadoc2md >/dev/null 2>&1; then
+    echo "Converting Javadoc to Markdown for Docusaurus..."
+    mkdir -p docs/api
+    javadoc2md -input src/main/java -output docs/api -skip-private
+    echo "✓ Markdown documentation generated in docs/api/"
+  else
+    echo "⚠ Warning: javadoc2md not found. Skipping Markdown generation."
+    echo "  To enable: rebuild the devcontainer with the updated Dockerfile."
+  fi
+  
+  # Step 4: Copy HTML docs to static folder
+  echo ""
+  echo "Step 4: Preparing static assets..."
+  mkdir -p docs/static
+  rm -rf docs/static/javadoc
+  cp -r target/site/apidocs/apidocs docs/static/javadoc
+  echo "✓ HTML documentation copied to docs/static/javadoc/"
+  
+  # Step 5: Install Docusaurus dependencies if needed
+  echo ""
+  echo "Step 5: Installing dependencies..."
+  if [ ! -d "node_modules" ]; then
+    echo "Installing Docusaurus dependencies..."
+    npm install
+  else
+    echo "✓ Dependencies already installed"
+  fi
+  
+  # Step 6: Build Docusaurus static site
+  echo ""
+  echo "Step 6: Building Docusaurus static site..."
+  npm run build
+  
+  # Summary
+  echo ""
+  echo "========================================="
+  echo "Documentation build complete!"
+  echo "========================================="
+  echo "Generated:"
+  echo "  • HTML Javadoc: target/site/apidocs/apidocs/index.html"
+  if [ -d "docs/api" ]; then
+    echo "  • Markdown API: docs/api/"
+  fi
+  echo "  • Static Javadoc: docs/static/javadoc/index.html"
+  echo "  • Production build: build/"
+  echo ""
+  echo "To serve locally: make docs-serve"
+  echo "To deploy: Copy the 'build/' directory to your web server"
+}
+
+# Function to start Docusaurus development server
+docusaurus_serve() {
+  echo "========================================="
+  echo "Starting Docusaurus documentation server"
+  echo "========================================="
+  
+  # Check if documentation exists, warn if not
+  if [ ! -d "docs/static/javadoc" ] && [ ! -d "docs/api" ]; then
+    echo ""
+    echo "⚠ Warning: No generated documentation found!"
+    echo "  Run 'make docs' first to generate documentation."
+    echo ""
+    read -p "Continue anyway? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+  fi
+  
+  # Install dependencies if node_modules doesn't exist
+  if [ ! -d "node_modules" ]; then
+    echo "Installing Docusaurus dependencies..."
+    npm install
+  fi
+  
+  # Start the development server
+  echo ""
+  echo "Starting Docusaurus at http://localhost:3000"
+  echo "Press Ctrl+C to stop the server"
+  echo ""
+  npm run start
+}
+
+# Function to display the script usage instructions.
+print_help() {
+      echo "Usage: make [command] [flags]"
+      echo ""
+      echo "Commands:"
+      echo "  clean                                         Clean the project and remove the target directory."
+      echo "  install [options]                             Build and deploy the project."
+      echo "    Options:"
+      echo "      --run-tests                             Run all tests (modern + legacy)"
+      echo "      --run-modern-tests                      Run only modern tests (JUnit 5)"
+      echo "      --run-legacy-tests                      Run only legacy tests (JUnit 4)"
+      echo "      --run-unit-tests                        Run only modern unit tests"
+      echo "      --run-integration-tests                 Run only modern integration tests"
+      echo "      --jspc                                  Compile JSPs"
+      echo "      --dev-mode                              Enable Struts dev mode"
+      echo "  jspc                                          Compile JSPs only (no deployment)."
+      echo "  docs                                          Generate all documentation and build static site for production."
+      echo "  docs-serve                                    Start Docusaurus development server (http://localhost:3000)."
+      echo "  lock [--modern|--legacy]                        Update dependency lock file(s):"
+      echo "                                                  (default) - Update both lock files"
+      echo "                                                  --modern - Update modern tests lock file"
+      echo "                                                  --legacy - Update legacy lock file"
+      echo "  help                                          Display this help message."
+}
+
+# Default behavior is to skip tests unless --run-tests is explicitly provided.
+# Default behavior is to skip JSP compilation unless --jspc is explicitly provided.
+run_tests=false
+compile_jsps=false
+dev_mode=false
+
+# If no arguments are provided, display usage instructions and exit.
+if [ $# -eq 0 ]; then
+  print_help
+  exit 1
+fi
+
+# Process command-line arguments
+for arg in "$@"; do
+  case $arg in
+    clean)
+      # Clean the project using Maven and remove the deployed app from Tomcat.
+      # Skip modern tests to use default lock file
+      mvn clean -DskipModernTests=true
+      rm -rf /usr/local/tomcat/webapps/carlos
+      ;;
+    install)
+      # Shift the arguments so that we can check for optional arguments.
+      shift
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --run-tests)
+            run_tests=true
+            shift
+            ;;
+          --run-modern-tests)
+            run_tests="modern"
+            shift
+            ;;
+          --run-legacy-tests)
+            run_tests="legacy"
+            shift
+            ;;
+          --run-unit-tests)
+            run_tests="unit"
+            shift
+            ;;
+          --run-integration-tests)
+            run_tests="integration"
+            shift
+            ;;
+          --jspc)
+            compile_jsps=true
+            shift
+            ;;
+          --dev-mode)
+            dev_mode=true
+            shift
+            ;;
+          *)
+            echo "Unknown flag: $1"
+            print_help
+            exit 1
+            ;;
+        esac
+      done
+      # Run the build and deploy process, passing in whether or not to run tests and compile JSPs.
+      build_and_deploy "$run_tests" "$compile_jsps" "$dev_mode"
+      # Exit after successful build to prevent help menu from showing
+      exit 0
+      ;;
+    jspc)
+      # Compile JSPs only without deployment.
+      echo "Compiling JSPs..."
+      # Skip modern tests to use default lock file
+      mvn package -Pjspc -DskipModernTests=true
+      ;;
+    docs)
+      # Generate all documentation and build static site.
+      generate_and_build_docs
+      ;;
+    docs-serve)
+      # Start Docusaurus development server.
+      docusaurus_serve
+      ;;
+    lock)
+      # Update the maven dependency lock files
+      if [ "$2" = "--modern" ]; then
+        echo "Updating modern dependencies lock file (dependencies-lock-modern.json)..."
+        mvn se.vandmo:dependency-lock-maven-plugin:lock -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
+      elif [ "$2" = "--legacy" ]; then        
+        echo "Updating legacy dependency lock file (dependencies-lock.json)..."
+        mvn se.vandmo:dependency-lock-maven-plugin:lock -DskipModernTests=true
+      else
+        echo "Updating both dependency lock files..."
+        echo "1. Updating legacy lock file (dependencies-lock.json)..."
+        mvn se.vandmo:dependency-lock-maven-plugin:lock -DskipModernTests=true
+        echo "2. Updating modern lock file (dependencies-lock-modern.json)..."
+        mvn se.vandmo:dependency-lock-maven-plugin:lock -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json
+      fi
+      ;;
+    help)
+      # Display script usage instructions.
+      print_help
+      ;;
+    *)
+      # If an unknown argument is passed, display usage instructions and exit.
+      print_help
+      exit 1
+      ;;
+  esac
+done

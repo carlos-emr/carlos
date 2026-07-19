@@ -1,0 +1,137 @@
+/*
+ * 
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License. 
+ * This program is free software; you can redistribute it and/or 
+ * modify it under the terms of the GNU General Public License 
+ * as published by the Free Software Foundation; either version 2 
+ * of the License, or (at your option) any later version. * 
+ * This program is distributed in the hope that it will be useful, 
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
+ * along with this program; if not, write to the Free Software 
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
+ * 
+ * <OSCAR TEAM>
+ * 
+ * This software was written for the 
+ * Department of Family Medicine 
+ * McMaster University 
+ * Hamilton 
+ * Ontario, Canada 
+ */
+*, table {
+    font-family: arial, helvetica, sans-serif;
+    color: #000000;
+    font-size: small;
+}
+
+a, input {
+    outline: none;
+}
+
+.wrapper {
+    margin: auto 15px
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table tr td {
+    vertical-align: top;
+}
+
+table td#displayDxCodeTable table tr th {
+    font-weight: bold;
+    color: white;
+    background-color: #6699cc;
+    padding: 10px 5px;
+}
+
+table td#displayDxCodeTable table tr {
+    border: 1px solid #ccc;
+}
+
+table td#displayDxCodeTable table tr td {
+    padding: 5px;
+}
+
+table td#displayDxCodeTable table tr td:last-of-type a {
+    padding-left: 5px;
+    border-left: 2px #6699cc solid;
+}
+
+table td#displayDxCodeTable table tr td:last-of-type a:first-of-type {
+    padding: 0;
+    border-left: none;
+}
+
+table td#displayDxCodeTable table tr:nth-of-type(odd) td {
+    background-color: whitesmoke;
+}
+
+table td#displayDxCodeTable table tr:nth-of-type(even) td {
+    background-color: white;
+}
+
+table td#codeSelectorTable {
+    padding-right: 15px;
+}
+
+table#dxCodeQuicklist td.heading .panel {
+    background-color: #eeeeee;
+    margin-top: 15px;
+    margin-bottom: 5px;
+}
+
+.notResolved {
+    color: blue;
+}
+
+#oscarDxHeader {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: .5%;
+    margin-bottom: 15px;
+}
+
+table#oscarDxHeader tr td {
+    padding: 1px 5px;
+    background-color: #F3F3F3;
+    vertical-align: middle;
+}
+
+#oscarDxHeader #oscarDxHeaderLeftColumn {
+    width: 19.5% !important;
+    background-color: white;
+    padding: 0px;
+    padding-right: .5% !important;
+    width: 20%;
+}
+
+#oscarDxHeader #oscarDxHeaderLeftColumn h1 {
+    margin: 0px;
+    padding: 7px !important;
+    display: block;
+    font-size: large !important;
+    background-color: black;
+    color: white;
+    font-weight: bold;
+}
+
+#oscarDxHeaderRightColumn {
+    vertical-align: top !important;
+    text-align: right;
+    padding-top: 3px !important;
+    padding-right: 3px !important;
+}
+
+span.HelpAboutLogout a {
+    font-size: x-small;
+    color: black;
+    float: right;
+    padding: 0 3px;
+}

@@ -1,0 +1,1012 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.6.0.final using JasperReports Library version 6.6.0  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="rourke2017" pageWidth="1700" pageHeight="2200" columnWidth="1700" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" whenResourceMissingType="Error" uuid="f42b7d12-c474-4da0-8ae3-d36100b860da">
+    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+    <property name="com.jaspersoft.studio.unit." value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.pageHeight" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.pageWidth" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.topMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.bottomMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.leftMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.rightMargin" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.columnWidth" value="pixel"/>
+    <property name="com.jaspersoft.studio.unit.columnSpacing" value="pixel"/>
+    <style name="defaultStyle" isDefault="true" fontSize="16"/>
+    <parameter name="background_image"/> 
+    <parameter name="check_image"/> 
+    <parameter name="cross_image"/> 
+    <parameter name="c_birthRemarks"/> 
+    <parameter name="c_famHistory"/> 
+    <parameter name="c_riskFactors"/> 
+    <parameter name="c_pName"/> 
+    <parameter name="c_birthDate"/> 
+    <parameter name="c_male"/> 
+    <parameter name="c_female"/> 
+    <parameter name="c_gestationalAge"/> 
+    <parameter name="c_length"/> 
+    <parameter name="c_birthWeight"/> 
+    <parameter name="c_headCirc"/> 
+    <parameter name="c_dischargeWeight"/> 
+    <parameter name="p4_date18m"/> 
+    <parameter name="p4_date24m"/> 
+    <parameter name="p4_date48m"/> 
+    <parameter name="p4_ht18m"/> 
+    <parameter name="p4_wt18m"/> 
+    <parameter name="p4_hc18m"/> 
+    <parameter name="p4_ht24m"/> 
+    <parameter name="p4_wt24m"/> 
+    <parameter name="p4_hc24m"/> 
+    <parameter name="p4_bmi24m"/> 
+    <parameter name="p4_ht48m"/> 
+    <parameter name="p4_wt48m"/> 
+    <parameter name="p4_bmi48m"/> 
+    <parameter name="p4_pConcern18m"/> 
+    <parameter name="p4_pConcern24m"/> 
+    <parameter name="p4_pConcern48m"/> 
+    <parameter name="p4_breastFeeding18mOk"/> 
+    <parameter name="p4_breastFeeding18mOkkConcerns"/> 
+    <parameter name="p4_homoMilk18mOk"/> 
+    <parameter name="p4_homoMilk18mOkConcerns"/> 
+    <parameter name="p4_liquids18mOk"/> 
+    <parameter name="p4_liquids18mOkConcerns"/> 
+    <parameter name="p4_noBottle18mOk"/> 
+    <parameter name="p4_noBottle18mOkConcerns"/> 
+    <parameter name="p4_inquireVegetarian18mOk"/> 
+    <parameter name="p4_inquireVegetarian18mOkConcerns"/> 
+    <parameter name="p4_independentSelfFeed18mOk"/> 
+    <parameter name="p4_independentSelfFeed18mOkConcerns"/> 
+    <parameter name="p4_breastFeeding24mOk"/> 
+    <parameter name="p4_breastFeeding24mOkkConcerns"/> 
+    <parameter name="p4_foodguide24mOk"/> 
+    <parameter name="p4_foodguide24mOkkConcerns"/> 
+    <parameter name="p4_liquids24mOk"/> 
+    <parameter name="p4_liquids24mOkConcerns"/> 
+    <parameter name="p4_inquireVegetarian24mOk"/> 
+    <parameter name="p4_inquireVegetarian24mOkConcerns"/> 
+    <parameter name="p4_lowerfatdiet24mOk"/> 
+    <parameter name="p4_lowerfatdiet24mOkConcerns"/> 
+    <parameter name="p4_homo2percent24mOk"/> 
+    <parameter name="p4_homo2percent24mOkConcerns"/> 
+    <parameter name="p4_homo2percent48mOk"/> 
+    <parameter name="p4_homo2percent48mOkConcerns"/> 
+    <parameter name="p4_liquids48mOk"/> 
+    <parameter name="p4_liquids48mOkConcerns"/> 
+    <parameter name="p4_inquireVegetarian48mOk"/> 
+    <parameter name="p4_inquireVegetarian48mOkConcerns"/> 
+    <parameter name="p4_foodguide48mOk"/> 
+    <parameter name="p4_foodguide48mOkConcerns"/> 
+    <parameter name="p4_carSeat18mOk"/> 
+    <parameter name="p4_carSeat18mOkConcerns"/> 
+    <parameter name="p4_bathSafety18mOk"/> 
+    <parameter name="p4_bathSafety18mOkConcerns"/> 
+    <parameter name="p4_safeToys18mOk"/> 
+    <parameter name="p4_safeToys18mOkConcerns"/> 
+    <parameter name="p4_weanPacifier18mOk"/> 
+    <parameter name="p4_weanPacifier18mOkConcerns"/> 
+    <parameter name="p4_falls18mOk"/> 
+    <parameter name="p4_falls18mOkConcerns"/> 
+    <parameter name="p4_poisons18mOk"/> 
+    <parameter name="p4_poisons18mOkConcerns"/> 
+    <parameter name="p4_parentChild18mOk"/> 
+    <parameter name="p4_parentChild18mOkConcerns"/> 
+    <parameter name="p4_healthySleep18mOk"/> 
+    <parameter name="p4_healthySleep18mOkConcerns"/> 
+    <parameter name="p4_discipline18mOk"/> 
+    <parameter name="p4_discipline18mOkConcerns"/> 
+    <parameter name="p4_highRisk18mOk"/> 
+    <parameter name="p4_highRisk18mOkConcerns"/> 
+    <parameter name="p4_encourageReading18mOk"/> 
+    <parameter name="p4_encourageReading18mOkConcerns"/> 
+    <parameter name="p4_pFatigue18mOk"/> 
+    <parameter name="p4_pFatigue18mOkConcerns"/> 
+    <parameter name="p4_socializing18mOk"/> 
+    <parameter name="p4_socializing18mOkConcerns"/> 
+    <parameter name="p4_activeLiving18mOk"/> 
+    <parameter name="p4_activeLiving18mOkConcerns"/> 
+    <parameter name="p4_makingEndsMeetInquiry18mOk"/> 
+    <parameter name="p4_makingEndsMeetInquiry18mOkConcerns"/> 
+    <parameter name="p4_2ndSmoke18mOk"/> 
+    <parameter name="p4_2ndSmoke18mOkConcerns"/> 
+    <parameter name="p4_pesticides18mOk"/> 
+    <parameter name="p4_pesticides18mOkConcerns"/> 
+    <parameter name="p4_sunExposure18mOk"/> 
+    <parameter name="p4_sunExposure18mOkConcerns"/> 
+    <parameter name="p4_dentalCareOk18mOk"/> 
+    <parameter name="p4_dentalCareOk18mOkConcerns"/> 
+    <parameter name="p4_toiletLearning18mOk"/> 
+    <parameter name="p4_toiletLearning18mOkConcerns"/> 
+    <parameter name="p4_bikeHelmets24mOk"/> 
+    <parameter name="p4_bikeHelmets24mOkConcerns"/> 
+    <parameter name="p4_firearmSafety24mOk"/> 
+    <parameter name="p4_firearmSafety24mOkConcerns"/> 
+    <parameter name="p4_injuryMatches24mOk"/> 
+    <parameter name="p4_injuryMatches24mOkConcerns"/> 
+    <parameter name="p4_poisons24mOk"/> 
+    <parameter name="p4_poisons24mOkConcerns"/> 
+    <parameter name="p4_smokeSafety24mOk"/> 
+    <parameter name="p4_smokeSafety24mOkConcerns"/> 
+    <parameter name="p4_waterSafety24mOk"/> 
+    <parameter name="p4_waterSafety24mOkConcerns"/> 
+    <parameter name="p4_falls24mOk"/> 
+    <parameter name="p4_falls24mOkConcerns"/> 
+    <parameter name="p4_carSeat24mOk"/> 
+    <parameter name="p4_carSeat24mOkConcerns"/> 
+    <parameter name="p4_noPacifiers24mOk"/> 
+    <parameter name="p4_noPacifiers24mOkConcerns"/> 
+    <parameter name="p4_parentChild24mOk"/> 
+    <parameter name="p4_parentChild24mOkConcerns"/> 
+    <parameter name="p4_discipline24mOk"/> 
+    <parameter name="p4_discipline24mOkConcerns"/> 
+    <parameter name="p4_highRisk24mOk"/> 
+    <parameter name="p4_highRisk24mOkConcerns"/> 
+    <parameter name="p4_pFatigue24mOk"/> 
+    <parameter name="p4_pFatigue24mOkConcerns"/> 
+    <parameter name="p4_famConflict24mOk"/> 
+    <parameter name="p4_famConflict24mOkConcerns"/> 
+    <parameter name="p4_siblings24mOk"/> 
+    <parameter name="p4_siblings24mOkConcerns"/> 
+    <parameter name="p4_healthySleep24mOk"/> 
+    <parameter name="p4_healthySleep24mOkConcerns"/> 
+    <parameter name="p4_schoolReadiness24mOk"/> 
+    <parameter name="p4_schoolReadiness24mOkConcerns"/> 
+    <parameter name="p4_socializing24mOk"/> 
+    <parameter name="p4_socializing24mOkConcerns"/> 
+    <parameter name="p4_encourageReading24mOk"/> 
+    <parameter name="p4_encourageReading24mOkConcerns"/> 
+    <parameter name="p4_activeLiving24mOk"/> 
+    <parameter name="p4_activeLiving24mOkConcerns"/> 
+    <parameter name="p4_makingEndsMeetInquiry24mOk"/> 
+    <parameter name="p4_makingEndsMeetInquiry24mOkConcerns"/> 
+    <parameter name="p4_2ndSmoke24mOk"/> 
+    <parameter name="p4_2ndSmoke24mOkConcerns"/> 
+    <parameter name="p4_sunExposure24mOk"/> 
+    <parameter name="p4_sunExposure24mOkConcerns"/> 
+    <parameter name="p4_pesticides24mOk"/> 
+    <parameter name="p4_pesticides24mOkConcerns"/> 
+    <parameter name="p4_dentalCareOk24mOk"/> 
+    <parameter name="p4_dentalCareOk24mOkConcerns"/> 
+    <parameter name="p4_altMed24mOk"/> 
+    <parameter name="p4_altMed24mOkConcerns"/> 
+    <parameter name="p4_toiletLearning24mOk"/> 
+    <parameter name="p4_toiletLearning24mOkConcerns"/> 
+    <parameter name="p4_noCoughMed24mOk"/> 
+    <parameter name="p4_noCoughMed24mOkConcerns"/> 
+    <parameter name="p4_nippisingattained"/> 
+    <parameter name="p4_otherChildren18mOk"/> 
+    <parameter name="p4_otherChildren18mOkConcerns"/> 
+    <parameter name="p4_soothability18mOk"/> 
+    <parameter name="p4_soothability18mOkConcerns"/> 
+    <parameter name="p4_manageable18mOk"/> 
+    <parameter name="p4_manageable18mOkConcerns"/> 
+    <parameter name="p4_comfort18mOk"/> 
+    <parameter name="p4_comfort18mOkConcerns"/> 
+    <parameter name="p4_points2body18mOk"/> 
+    <parameter name="p4_points2body18mOkConcerns"/> 
+    <parameter name="p4_getAttn18mOk"/> 
+    <parameter name="p4_getAttn18mOkConcerns"/> 
+    <parameter name="p4_recsName18mOk"/> 
+    <parameter name="p4_recsName18mOkConcerns"/> 
+    <parameter name="p4_points2want18mOk"/> 
+    <parameter name="p4_points2want18mOkConcerns"/> 
+    <parameter name="p4_looks4toy18mOk"/> 
+    <parameter name="p4_looks4toy18mOkConcerns"/> 
+    <parameter name="p4_initSpeech18mOk"/> 
+    <parameter name="p4_initSpeech18mOkConcerns"/> 
+    <parameter name="p4_says20words18mOk"/> 
+    <parameter name="p4_says20words18mOkConcerns"/> 
+    <parameter name="p4_4consonants18mOk"/> 
+    <parameter name="p4_4consonants18mOkConcerns"/> 
+    <parameter name="p4_walksbackAlone18mOk"/> 
+    <parameter name="p4_walksbackAlone18mOkConcerns"/> 
+    <parameter name="p4_feedsSelf18mOk"/> 
+    <parameter name="p4_feedsSelf18mOkConcerns"/> 
+    <parameter name="p4_removesHat18mOk"/> 
+    <parameter name="p4_removesHat18mOkConcerns"/> 
+    <parameter name="p4_noParentsConcerns18mOk"/> 
+    <parameter name="p4_noParentsConcerns18mOkConcerns"/> 
+    <parameter name="p4_2wSentence24mOk"/> 
+    <parameter name="p4_2wSentence24mOkConcerns"/> 
+    <parameter name="p4_one2stepdirections24mOk"/> 
+    <parameter name="p4_one2stepdirections24mOkConcerns"/> 
+    <parameter name="p4_walksbackward24mOk"/> 
+    <parameter name="p4_walksbackward24mOkConcerns"/> 
+    <parameter name="p4_runse24mOk"/> 
+    <parameter name="p4_runse24mOkConcerns"/> 
+    <parameter name="p4_smallContainer24mOk"/> 
+    <parameter name="p4_smallContainer24mOkConcerns"/> 
+    <parameter name="p4_pretendsPlay24mOk"/> 
+    <parameter name="p4_pretendsPlay24mOkConcerns"/> 
+    <parameter name="p4_newSkills24mOk"/> 
+    <parameter name="p4_newSkills24mOkConcerns"/> 
+    <parameter name="p4_noParentsConcerns24mOk"/> 
+    <parameter name="p4_noParentsConcerns24mOkConcerns"/> 
+    <parameter name="p4_2directions36mOk"/> 
+    <parameter name="p4_2directions36mOkConcerns"/> 
+    <parameter name="p4_5ormoreWords36mOk"/> 
+    <parameter name="p4_5ormoreWords36mOkConcerns"/> 
+    <parameter name="p4_walksUpStairs36mOk"/> 
+    <parameter name="p4_walksUpStairs36mOkConcerns"/> 
+    <parameter name="p4_twistsLids36mOk"/> 
+    <parameter name="p4_twistsLids36mOkConcerns"/> 
+    <parameter name="p4_sharesSometime36mOk"/> 
+    <parameter name="p4_sharesSometime36mOkConcerns"/> 
+    <parameter name="p4_playMakeBelieve36mOk"/> 
+    <parameter name="p4_playMakeBelieve36mOkConcerns"/> 
+    <parameter name="p4_turnsPages36mOk"/> 
+    <parameter name="p4_turnsPages36mOkConcerns"/> 
+    <parameter name="p4_listenMusic36mOk"/> 
+    <parameter name="p4_listenMusic36mOkConcerns"/> 
+    <parameter name="p4_noParentsConcerns36mOk"/> 
+    <parameter name="p4_noParentsConcerns36mOkConcerns"/> 
+    <parameter name="p4_3directions48mOk"/> 
+    <parameter name="p4_3directions48mOkConcerns"/> 
+    <parameter name="p4_asksQuestions48mOk"/> 
+    <parameter name="p4_asksQuestions48mOkConcerns"/> 
+    <parameter name="p4_upDownStairs48mOk"/> 
+    <parameter name="p4_upDownStairs48mOkConcerns"/> 
+    <parameter name="p4_undoesZippers48mOk"/> 
+    <parameter name="p4_undoesZippers48mOkConcerns"/> 
+    <parameter name="p4_tries2comfort48mOk"/> 
+    <parameter name="p4_tries2comfort48mOkConcerns"/> 
+    <parameter name="p4_noParentsConcerns48mOk"/> 
+    <parameter name="p4_noParentsConcerns48mOkConcerns"/> 
+    <parameter name="p4_countsOutloud60mOk"/> 
+    <parameter name="p4_countsOutloud60mOkConcerns"/> 
+    <parameter name="p4_speaksClearly60mOk"/> 
+    <parameter name="p4_speaksClearly60mOkConcerns"/> 
+    <parameter name="p4_throwsCatches60mOk"/> 
+    <parameter name="p4_throwsCatches60mOkConcerns"/> 
+    <parameter name="p4_hops1foot60mOk"/> 
+    <parameter name="p4_hops1foot60mOkConcerns"/> 
+    <parameter name="p4_dressesUndresses60mOk"/> 
+    <parameter name="p4_dressesUndresses60mOkConcerns"/> 
+    <parameter name="p4_obeysAdult60mOk"/> 
+    <parameter name="p4_obeysAdult60mOkConcerns"/> 
+    <parameter name="p4_retellsStory60mOk"/> 
+    <parameter name="p4_retellsStory60mOkConcerns"/> 
+    <parameter name="p4_separates60mOk"/> 
+    <parameter name="p4_separates60mOkConcerns"/> 
+    <parameter name="p4_noParentsConcerns60mOk"/> 
+    <parameter name="p4_noParentsConcerns60mOkConcerns"/> 
+    <parameter name="p4_fontanelles18mOk"/> 
+    <parameter name="p4_fontanelles18mOkConcerns"/> 
+    <parameter name="p4_eyes18mOk"/> 
+    <parameter name="p4_eyes18mOkConcerns"/> 
+    <parameter name="p4_corneal18mOk"/> 
+    <parameter name="p4_corneal18mOkConcerns"/> 
+    <parameter name="p4_hearing18mOk"/> 
+    <parameter name="p4_hearing18mOkConcerns"/> 
+    <parameter name="p4_teeth18mOk"/> 
+    <parameter name="p4_teeth18mOkConcerns"/> 
+    <parameter name="p4_tonsilSize18mOk"/> 
+    <parameter name="p4_tonsilSize18mOkConcerns"/> 
+    <parameter name="p4_bloodPressure24mOk"/> 
+    <parameter name="p4_bloodPressure24mOkConcerns"/> 
+    <parameter name="p4_teeth24mOk"/> 
+    <parameter name="p4_teeth24mOkConcerns"/> 
+    <parameter name="p4_eyes24mOk"/> 
+    <parameter name="p4_eyes24mOkConcerns"/> 
+    <parameter name="p4_hearing24mOk"/> 
+    <parameter name="p4_hearing24mOkConcerns"/> 
+    <parameter name="p4_corneal24mOk"/> 
+    <parameter name="p4_corneal24mOkConcerns"/> 
+    <parameter name="p4_tonsilSize24mOk"/> 
+    <parameter name="p4_tonsilSize24mOkConcerns"/> 
+    <parameter name="p4_bloodPressure48mOk"/> 
+    <parameter name="p4_bloodPressure48mOkConcerns"/> 
+    <parameter name="p4_teeth48mOk"/> 
+    <parameter name="p4_teeth48mOkConcerns"/> 
+    <parameter name="p4_eyes48mOk"/> 
+    <parameter name="p4_eyes48mOkConcerns"/> 
+    <parameter name="p4_hearing48mOk"/> 
+    <parameter name="p4_hearing48mOkConcerns"/> 
+    <parameter name="p4_corneal48mOk"/> 
+    <parameter name="p4_corneal48mOkConcerns"/> 
+    <parameter name="p4_tonsilSize48mOk"/> 
+    <parameter name="p4_tonsilSize48mOkConcerns"/> 
+    <parameter name="p4_problems18m"/> 
+    <parameter name="p4_problems24m"/> 
+    <parameter name="p4_problems48m"/> 
+    <parameter name="p4_hemoglobinOk"/> 
+    <parameter name="p4_hemoglobinOkConcerns"/> 
+    <parameter name="p4_BloodLeadOk"/> 
+    <parameter name="p4_BloodLeadOkConcerns"/> 
+    <parameter name="p4_signature18m"/> 
+    <parameter name="p4_signature24m"/> 
+    <parameter name="p4_signature48m"/> 
+    <queryString>
+        <![CDATA[]]>
+    </queryString>
+    <detail>
+        <band height="2200" splitType="Stretch">
+            <image>
+                <reportElement x="0" y="0" width="1700" height="2200" uuid="3c989d58-abfc-4ebd-8711-8137041cd7b4"/>
+                <imageExpression><![CDATA[$P{background_image}]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="70" y="170" width="260" height="138" uuid="27d3988d-8a57-4ab0-9f2c-fbfaf216574f"/>
+                <textFieldExpression><![CDATA[$P{c_birthRemarks}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement positionType="FixRelativeToBottom" x="350" y="170" width="259" height="138" uuid="a6b1e82a-f330-49db-b4fa-6f3ec2ea6468"/>
+                <textFieldExpression><![CDATA[$P{c_famHistory}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="690" y="218" width="460" height="22" uuid="1a5f0621-0b2d-46f6-85e6-8bbab3032b8c"/>
+                <textFieldExpression><![CDATA[$P{c_pName}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1330" y="218" width="190" height="22" uuid="1b730795-e3e8-47f1-b6b3-72e328201b12"/>
+                <textFieldExpression><![CDATA[$P{c_birthDate}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1553" y="223" width="20" height="28" uuid="9e6f35da-b8df-4e27-ba67-c4092b66a8e8"/>
+                <textElement>
+                    <font size="18"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{c_male}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1604" y="223" width="20" height="28" uuid="2ce9dd20-3fc7-4edc-af0f-80338a2ecbd7"/>
+                <textElement>
+                    <font size="18"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{c_female}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="760" y="270" width="90" height="22" uuid="1f70f72a-ca04-4496-9e5d-f7d6c76f5da2"/>
+                <textFieldExpression><![CDATA[$P{c_gestationalAge}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="990" y="270" width="99" height="22" uuid="53908a6f-540d-46cc-a692-91d91dc7a272"/>
+                <textFieldExpression><![CDATA[$P{c_length}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1231" y="270" width="99" height="22" uuid="850f0585-a475-4f40-8283-c2f5ec157055"/>
+                <textFieldExpression><![CDATA[$P{c_birthWeight}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1490" y="270" width="90" height="22" uuid="9ae1f822-d881-46f0-8d82-bd55991f2eb2"/>
+                <textFieldExpression><![CDATA[$P{c_headCirc}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="210" y="320" width="160" height="22" uuid="ee3ad726-9317-449b-b1be-fc606f3720ce"/>
+                <textFieldExpression><![CDATA[$P{p4_date18m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="740" y="320" width="160" height="22" uuid="c3d29a64-8c02-48d7-93c2-0e7b90fbd76f"/>
+                <textFieldExpression><![CDATA[$P{p4_date24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1270" y="320" width="160" height="22" uuid="649a2451-2f4c-4014-8d4e-f46cf75d3ab1"/>
+                <textFieldExpression><![CDATA[$P{p4_date48m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="78" y="445" width="100" height="22" uuid="3b612a08-7159-4322-b448-bab50a82e7b6"/>
+                <textFieldExpression><![CDATA[$P{p4_ht18m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="258" y="445" width="100" height="22" uuid="8b766465-49d5-4af8-8f17-869fafe88954"/>
+                <textFieldExpression><![CDATA[$P{p4_wt18m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="438" y="445" width="100" height="22" uuid="69f33c5b-ee16-4f98-bed0-da6cdcf6aed5"/>
+                <textFieldExpression><![CDATA[$P{p4_hc18m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="608" y="445" width="100" height="22" uuid="6b088f65-c635-4156-b6e6-4bbd267373d4"/>
+                <textFieldExpression><![CDATA[$P{p4_ht24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="730" y="445" width="100" height="22" uuid="0fd2ceb5-5ea3-43e4-b4fc-3e99f828a1b3"/>
+                <textFieldExpression><![CDATA[$P{p4_wt24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="880" y="445" width="100" height="22" uuid="d9864b20-7446-42af-a52e-e26aa181a826"/>
+                <textFieldExpression><![CDATA[$P{p4_hc24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1030" y="445" width="77" height="22" uuid="04fc7423-0ffc-4995-abf9-f1be2967dfaa"/>
+                <textFieldExpression><![CDATA[$P{p4_bmi24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1158" y="445" width="100" height="22" uuid="02ebc11b-2d3b-4fac-9865-675131d2710f"/>
+                <textFieldExpression><![CDATA[$P{p4_ht48m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1328" y="445" width="100" height="22" uuid="fdad33af-4dde-4ed0-9c89-7e341627d9af"/>
+                <textFieldExpression><![CDATA[$P{p4_wt48m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1498" y="445" width="100" height="22" uuid="f240f986-5bdd-42ea-bf8f-92c89102bfd0"/>
+                <textFieldExpression><![CDATA[$P{p4_bmi48m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="64" y="499" width="516" height="112" uuid="3aceee28-836d-4546-8bb8-417cedc92bee"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p4_pConcern18m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="596" y="499" width="516" height="112" uuid="44c61e9d-fc0f-432f-bf49-b0195d603abe"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p4_pConcern24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1125" y="499" width="516" height="112" uuid="9057cca0-be04-43c0-9dd4-010634cbabf7"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="14"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p4_pConcern48m}]]></textFieldExpression>
+            </textField>
+            <image>
+                <reportElement x="72" y="645" width="20" height="24" uuid="d0765abe-d693-4fa1-aa55-6a82eacc78f2"/>
+                <imageExpression><![CDATA[$P{p4_breastFeeding18mOk} != null ? $P{check_image} : ($P{p4_breastFeeding18mOkkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="665" width="20" height="24" uuid="2af4738b-43e8-44cd-a6bf-ee4cce354976"/>
+                <imageExpression><![CDATA[$P{p4_homoMilk18mOk} != null ? $P{check_image} : ($P{p4_homoMilk18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="684" width="20" height="24" uuid="a63ff93f-fe29-4b5d-86b7-edae5eb6255f"/>
+                <imageExpression><![CDATA[$P{p4_liquids18mOk} != null ? $P{check_image} : ($P{p4_liquids18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="704" width="20" height="24" uuid="5888da74-d5d5-4eb6-9b53-387cccf16ecd"/>
+                <imageExpression><![CDATA[$P{p4_noBottle18mOk} != null ? $P{check_image} : ($P{p4_noBottle18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="723" width="20" height="24" uuid="4e42d52c-202c-4f22-be89-70535c1ed69f"/>
+                <imageExpression><![CDATA[$P{p4_inquireVegetarian18mOk} != null ? $P{check_image} : ($P{p4_inquireVegetarian18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="744" width="20" height="24" uuid="44742652-9ae7-40dd-b753-08953d6fac3d"/>
+                <imageExpression><![CDATA[$P{p4_independentSelfFeed18mOk} != null ? $P{check_image} : ($P{p4_independentSelfFeed18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="645" width="20" height="24" uuid="2c705b6f-0816-4422-8bbb-3496ff5906f0"/>
+                <imageExpression><![CDATA[$P{p4_breastFeeding24mOk} != null ? $P{check_image} : ($P{p4_breastFeeding24mOkkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="913" y="645" width="20" height="24" uuid="d3099a9b-425f-4c8b-9a5b-057e69046bfa"/>
+                <imageExpression><![CDATA[$P{p4_foodguide24mOk} != null ? $P{check_image} : ($P{p4_foodguide24mOkkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="668" width="20" height="24" uuid="3e12f5ac-c77f-4b0b-822c-3a3451702286"/>
+                <imageExpression><![CDATA[$P{p4_liquids24mOk} != null ? $P{check_image} : ($P{p4_liquids24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="687" width="20" height="24" uuid="287978ea-2483-489e-8e46-61415359b9ca"/>
+                <imageExpression><![CDATA[$P{p4_inquireVegetarian24mOk} != null ? $P{check_image} : ($P{p4_inquireVegetarian24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="707" width="20" height="24" uuid="77b66245-bec5-4025-afc1-8932300f062e"/>
+                <imageExpression><![CDATA[$P{p4_lowerfatdiet24mOk} != null ? $P{check_image} : ($P{p4_lowerfatdiet24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="726" width="20" height="24" uuid="d27b83c7-7e16-4c9a-8b6f-45cb717f7f41"/>
+                <imageExpression><![CDATA[$P{p4_homo2percent24mOk} != null ? $P{check_image} : ($P{p4_homo2percent24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="645" width="20" height="24" uuid="4e65d4f5-0f61-478f-b27d-bd88a44debd4"/>
+                <imageExpression><![CDATA[$P{p4_homo2percent48mOk} != null ? $P{check_image} : ($P{p4_homo2percent48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="667" width="20" height="24" uuid="a2ad94d9-82f1-44c9-8302-88845f1805ad"/>
+                <imageExpression><![CDATA[$P{p4_liquids48mOk} != null ? $P{check_image} : ($P{p4_liquids48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="687" width="20" height="24" uuid="ad2a657b-cc46-4105-8f0f-5f180bc80c0c"/>
+                <imageExpression><![CDATA[$P{p4_inquireVegetarian48mOk} != null ? $P{check_image} : ($P{p4_inquireVegetarian48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1132" y="706" width="20" height="24" uuid="ca41934c-37c1-4d15-aaec-732bf1638188"/>
+                <imageExpression><![CDATA[$P{p4_foodguide48mOk} != null ? $P{check_image} : ($P{p4_foodguide48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="823" width="20" height="24" uuid="9e29cfa4-d676-4137-ad4d-08baae7581b3"/>
+                <imageExpression><![CDATA[$P{p4_carSeat18mOk} != null ? $P{check_image} : ($P{p4_carSeat18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="842" width="20" height="24" uuid="454fa3bd-f181-4335-aaf3-5572a455ffc1"/>
+                <imageExpression><![CDATA[$P{p4_bathSafety18mOk} != null ? $P{check_image} : ($P{p4_bathSafety18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="862" width="20" height="24" uuid="9555ba85-a4e8-4d5e-861f-2f282cd79857"/>
+                <imageExpression><![CDATA[$P{p4_safeToys18mOk} != null ? $P{check_image} : ($P{p4_safeToys18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="372" y="862" width="20" height="24" uuid="a7beb0b8-a271-4ce7-893b-601fa1f880b6"/>
+                <imageExpression><![CDATA[$P{p4_weanPacifier18mOk} != null ? $P{check_image} : ($P{p4_weanPacifier18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="881" width="20" height="24" uuid="a01ba5ca-7623-4d49-80ae-3c0bd6f14b5d"/>
+                <imageExpression><![CDATA[$P{p4_falls18mOk} != null ? $P{check_image} : ($P{p4_falls18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="901" width="20" height="24" uuid="fccd526a-af88-43f3-bef7-37dbb0baaace"/>
+                <imageExpression><![CDATA[$P{p4_poisons18mOk} != null ? $P{check_image} : ($P{p4_poisons18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="940" width="20" height="24" uuid="203fef81-020d-4679-bb6a-7a58b5525aa6"/>
+                <imageExpression><![CDATA[$P{p4_parentChild18mOk} != null ? $P{check_image} : ($P{p4_parentChild18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="372" y="940" width="20" height="24" uuid="221355e0-fb47-4272-93c8-16bcddc826ba"/>
+                <imageExpression><![CDATA[$P{p4_healthySleep18mOk} != null ? $P{check_image} : ($P{p4_healthySleep18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="959" width="20" height="24" uuid="4d13bcc4-f80a-4bfc-b9ce-596e395448aa"/>
+                <imageExpression><![CDATA[$P{p4_discipline18mOk} != null ? $P{check_image} : ($P{p4_discipline18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="998" width="20" height="24" uuid="1210a33d-2598-4fe5-b943-04dd438488b3"/>
+                <imageExpression><![CDATA[$P{p4_highRisk18mOk} != null ? $P{check_image} : ($P{p4_highRisk18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="372" y="998" width="20" height="24" uuid="d6cb1f1e-e93b-44e2-b7f4-958cb41b841a"/>
+                <imageExpression><![CDATA[$P{p4_encourageReading18mOk} != null ? $P{check_image} : ($P{p4_encourageReading18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1017" width="20" height="24" uuid="4e5cafd3-c1f0-4008-aaff-a51e8568d89e"/>
+                <imageExpression><![CDATA[$P{p4_pFatigue18mOk} != null ? $P{check_image} : ($P{p4_pFatigue18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1037" width="20" height="24" uuid="b024e340-b837-417d-97c4-eecef42d3217"/>
+                <imageExpression><![CDATA[$P{p4_socializing18mOk} != null ? $P{check_image} : ($P{p4_socializing18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1059" width="20" height="24" uuid="be457594-6927-4bb9-a2fb-a6b179365374"/>
+                <imageExpression><![CDATA[$P{p4_activeLiving18mOk} != null ? $P{check_image} : ($P{p4_activeLiving18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1078" width="20" height="24" uuid="06e54072-8126-4be8-b551-8cc722345c4f"/>
+                <imageExpression><![CDATA[$P{p4_makingEndsMeetInquiry18mOk} != null ? $P{check_image} : ($P{p4_makingEndsMeetInquiry18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1117" width="20" height="24" uuid="6ff95309-a685-4885-a334-cd1c8ef0ce33"/>
+                <imageExpression><![CDATA[$P{p4_2ndSmoke18mOk} != null ? $P{check_image} : ($P{p4_2ndSmoke18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="372" y="1117" width="20" height="24" uuid="c9e59692-3ca0-4d21-acc7-2393f6e3c21a"/>
+                <imageExpression><![CDATA[$P{p4_pesticides18mOk} != null ? $P{check_image} : ($P{p4_pesticides18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1137" width="20" height="24" uuid="a5414e4c-e416-43f1-915d-b47d23f2cdcd"/>
+                <imageExpression><![CDATA[$P{p4_sunExposure18mOk} != null ? $P{check_image} : ($P{p4_sunExposure18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1175" width="20" height="24" uuid="591a6345-7741-44d0-8015-2f325c41cdaf"/>
+                <imageExpression><![CDATA[$P{p4_dentalCareOk18mOk} != null ? $P{check_image} : ($P{p4_dentalCareOk18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="372" y="1175" width="20" height="24" uuid="5bb29ea6-3bc9-43ee-b1e9-8715111e6d44"/>
+                <imageExpression><![CDATA[$P{p4_toiletLearning18mOk} != null ? $P{check_image} : ($P{p4_toiletLearning18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="823" width="20" height="24" uuid="4fe4d7fd-4a6f-4e43-86f7-a72cb53a0bb5"/>
+                <imageExpression><![CDATA[$P{p4_bikeHelmets24mOk} != null ? $P{check_image} : ($P{p4_bikeHelmets24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="823" width="20" height="24" uuid="bdcd3bbc-4ede-4dc8-89f1-1427794332f4"/>
+                <imageExpression><![CDATA[$P{p4_firearmSafety24mOk} != null ? $P{check_image} : ($P{p4_firearmSafety24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1099" y="823" width="20" height="24" uuid="d7c9c9af-7f34-4252-b580-27d8b345ffff"/>
+                <imageExpression><![CDATA[$P{p4_injuryMatches24mOk} != null ? $P{check_image} : ($P{p4_injuryMatches24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1399" y="823" width="20" height="24" uuid="dfb396e3-5646-4e65-8e64-8df9c850764b"/>
+                <imageExpression><![CDATA[$P{p4_poisons24mOk} != null ? $P{check_image} : ($P{p4_poisons24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="843" width="20" height="24" uuid="f7de53b3-b932-4aaf-b8d0-fdcf900a3efb"/>
+                <imageExpression><![CDATA[$P{p4_smokeSafety24mOk} != null ? $P{check_image} : ($P{p4_smokeSafety24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="843" width="20" height="24" uuid="c04d8994-5b0f-459c-bd2f-8b71a63d7307"/>
+                <imageExpression><![CDATA[$P{p4_waterSafety24mOk} != null ? $P{check_image} : ($P{p4_waterSafety24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1099" y="843" width="20" height="24" uuid="131b89a6-98a9-41f0-a13a-1d73b704fde6"/>
+                <imageExpression><![CDATA[$P{p4_falls24mOk} != null ? $P{check_image} : ($P{p4_falls24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="862" width="20" height="24" uuid="245b1186-164d-4046-9269-238a7b344b70"/>
+                <imageExpression><![CDATA[$P{p4_carSeat24mOk} != null ? $P{check_image} : ($P{p4_carSeat24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1099" y="862" width="20" height="24" uuid="e68a2fcc-fad1-41ab-9805-7f49416fdae7"/>
+                <imageExpression><![CDATA[$P{p4_noPacifiers24mOk} != null ? $P{check_image} : ($P{p4_noPacifiers24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="911" width="20" height="24" uuid="cb7e042e-d3c5-4f95-9573-1449f0e2bb5e"/>
+                <imageExpression><![CDATA[$P{p4_parentChild24mOk} != null ? $P{check_image} : ($P{p4_parentChild24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="911" width="20" height="24" uuid="c2e26d36-8cb3-4651-a89e-4b7741e4d41f"/>
+                <imageExpression><![CDATA[$P{p4_discipline24mOk} != null ? $P{check_image} : ($P{p4_discipline24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1399" y="911" width="20" height="24" uuid="c74d8648-ae41-4dcf-b07f-a2dc2258ff74"/>
+                <imageExpression><![CDATA[$P{p4_highRisk24mOk} != null ? $P{check_image} : ($P{p4_highRisk24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="930" width="20" height="24" uuid="3757f0b1-d56a-47e2-93bf-1776585876b7"/>
+                <imageExpression><![CDATA[$P{p4_pFatigue24mOk} != null ? $P{check_image} : ($P{p4_pFatigue24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="930" width="20" height="24" uuid="43439fe1-497f-4d87-9c56-7dde08393d10"/>
+                <imageExpression><![CDATA[$P{p4_famConflict24mOk} != null ? $P{check_image} : ($P{p4_famConflict24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1399" y="930" width="20" height="24" uuid="9b165f21-2b7a-46ae-8a81-7a5aa782a255"/>
+                <imageExpression><![CDATA[$P{p4_siblings24mOk} != null ? $P{check_image} : ($P{p4_siblings24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="979" width="20" height="24" uuid="d8be4d87-84e9-405d-8a0d-ef2c4b488c4d"/>
+                <imageExpression><![CDATA[$P{p4_healthySleep24mOk} != null ? $P{check_image} : ($P{p4_healthySleep24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="979" width="20" height="24" uuid="d00df652-e9fd-44cc-8dc0-8ad75acdb5c3"/>
+                <imageExpression><![CDATA[$P{p4_schoolReadiness24mOk} != null ? $P{check_image} : ($P{p4_schoolReadiness24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1334" y="979" width="20" height="24" uuid="1f50c875-8e28-4976-a4cc-3c3678ee4ef6"/>
+                <imageExpression><![CDATA[$P{p4_socializing24mOk} != null ? $P{check_image} : ($P{p4_socializing24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="1001" width="20" height="24" uuid="fa7eaf26-c196-4249-bd5c-0c2a6a0ce0ff"/>
+                <imageExpression><![CDATA[$P{p4_encourageReading24mOk} != null ? $P{check_image} : ($P{p4_encourageReading24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="1001" width="20" height="24" uuid="da3e9760-d015-4fae-a0f3-1f4a73ed526c"/>
+                <imageExpression><![CDATA[$P{p4_activeLiving24mOk} != null ? $P{check_image} : ($P{p4_activeLiving24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="1021" width="20" height="24" uuid="43a42d92-8491-4fc5-a650-bc2902b5b6e1"/>
+                <imageExpression><![CDATA[$P{p4_makingEndsMeetInquiry24mOk} != null ? $P{check_image} : ($P{p4_makingEndsMeetInquiry24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="1069" width="20" height="24" uuid="d55dcd06-ce59-4662-919e-eac69ef552e3"/>
+                <imageExpression><![CDATA[$P{p4_2ndSmoke24mOk} != null ? $P{check_image} : ($P{p4_2ndSmoke24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="1069" width="20" height="24" uuid="1b7c94de-9922-45d8-a0b0-46bd804dd36e"/>
+                <imageExpression><![CDATA[$P{p4_sunExposure24mOk} != null ? $P{check_image} : ($P{p4_sunExposure24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1399" y="1069" width="20" height="24" uuid="309e1ed6-2bda-4028-8b37-4b51d04387c8"/>
+                <imageExpression><![CDATA[$P{p4_pesticides24mOk} != null ? $P{check_image} : ($P{p4_pesticides24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="1118" width="20" height="24" uuid="434c4d7f-e9b2-4a91-88ff-94b993e61b1f"/>
+                <imageExpression><![CDATA[$P{p4_dentalCareOk24mOk} != null ? $P{check_image} : ($P{p4_dentalCareOk24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="1118" width="20" height="24" uuid="29b2173b-28cf-4664-9f6e-b2aeecccc4b6"/>
+                <imageExpression><![CDATA[$P{p4_altMed24mOk} != null ? $P{check_image} : ($P{p4_altMed24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="599" y="1138" width="20" height="24" uuid="d4a464d7-5279-4679-9ba3-e5594302b160"/>
+                <imageExpression><![CDATA[$P{p4_toiletLearning24mOk} != null ? $P{check_image} : ($P{p4_toiletLearning24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="899" y="1138" width="20" height="24" uuid="f3240545-8828-4211-babf-bfd9caa0dc65"/>
+                <imageExpression><![CDATA[$P{p4_noCoughMed24mOk} != null ? $P{check_image} : ($P{p4_noCoughMed24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="363" y="1286" width="207" height="22" uuid="39686e2b-de34-4cde-930d-4fe89517227b"/>
+                <textFieldExpression><![CDATA[$P{p4_nippisingattained}]]></textFieldExpression>
+            </textField>
+            <image>
+                <reportElement x="72" y="1325" width="20" height="24" uuid="827d7daf-6ce8-407d-99cf-52f1793c5794"/>
+                <imageExpression><![CDATA[$P{p4_otherChildren18mOk} != null ? $P{check_image} : ($P{p4_otherChildren18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="381" y="1325" width="20" height="24" uuid="fd1ec9d6-89ee-40ea-9d40-edf86dcea976"/>
+                <imageExpression><![CDATA[$P{p4_soothability18mOk} != null ? $P{check_image} : ($P{p4_soothability18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1345" width="20" height="24" uuid="ddf743a5-cac4-49d9-93f2-c116ad1e37f8"/>
+                <imageExpression><![CDATA[$P{p4_manageable18mOk} != null ? $P{check_image} : ($P{p4_manageable18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1363" width="20" height="24" uuid="d9e41909-c825-4fb3-860d-732f84f8f113"/>
+                <imageExpression><![CDATA[$P{p4_comfort18mOk} != null ? $P{check_image} : ($P{p4_comfort18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1441" width="20" height="24" uuid="111d80c7-377c-45d3-b994-09450a55b678"/>
+                <imageExpression><![CDATA[$P{p4_points2body18mOk} != null ? $P{check_image} : ($P{p4_points2body18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1422" width="20" height="24" uuid="67cff848-4ce3-4b8f-8780-c03db0cc7e37"/>
+                <imageExpression><![CDATA[$P{p4_getAttn18mOk} != null ? $P{check_image} : ($P{p4_getAttn18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1402" width="20" height="24" uuid="6416178a-cb9f-4d87-923a-08d2e6600d38"/>
+                <imageExpression><![CDATA[$P{p4_recsName18mOk} != null ? $P{check_image} : ($P{p4_recsName18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1460" width="20" height="24" uuid="fb4528ac-d04d-4d7e-bb39-eebd0f333093"/>
+                <imageExpression><![CDATA[$P{p4_points2want18mOk} != null ? $P{check_image} : ($P{p4_points2want18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1480" width="20" height="24" uuid="5ad02895-85f9-4405-85d0-cb640ed88bb8"/>
+                <imageExpression><![CDATA[$P{p4_looks4toy18mOk} != null ? $P{check_image} : ($P{p4_looks4toy18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1499" width="20" height="24" uuid="a46f6d1c-cd62-48be-9596-ab6b44a99cd5"/>
+                <imageExpression><![CDATA[$P{p4_initSpeech18mOk} != null ? $P{check_image} : ($P{p4_initSpeech18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1519" width="20" height="24" uuid="6b380428-2787-47de-8b1e-1413ceca1b67"/>
+                <imageExpression><![CDATA[$P{p4_says20words18mOk} != null ? $P{check_image} : ($P{p4_says20words18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1538" width="20" height="24" uuid="5b227fb5-7372-4fce-a4ec-480965cdf096"/>
+                <imageExpression><![CDATA[$P{p4_4consonants18mOk} != null ? $P{check_image} : ($P{p4_4consonants18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1577" width="20" height="24" uuid="8249864f-b8df-4c61-8e55-f1264b5d9b7b"/>
+                <imageExpression><![CDATA[$P{p4_walksbackAlone18mOk} != null ? $P{check_image} : ($P{p4_walksbackAlone18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="382" y="1577" width="20" height="24" uuid="aed011b5-d781-44f0-9a00-c0da1220264f"/>
+                <imageExpression><![CDATA[$P{p4_feedsSelf18mOk} != null ? $P{check_image} : ($P{p4_feedsSelf18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1616" width="20" height="24" uuid="7d43e52e-7d7e-4802-a35e-fe9a61484179"/>
+                <imageExpression><![CDATA[$P{p4_removesHat18mOk} != null ? $P{check_image} : ($P{p4_removesHat18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="339" y="1616" width="20" height="24" uuid="04cf07e1-671b-476a-bc08-ac25af1164e7"/>
+                <imageExpression><![CDATA[$P{p4_noParentsConcerns18mOk} != null ? $P{check_image} : ($P{p4_noParentsConcerns18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1277" width="20" height="24" uuid="7abae40e-d618-4c5f-9f66-7543fcd0180b"/>
+                <imageExpression><![CDATA[$P{p4_2wSentence24mOk} != null ? $P{check_image} : ($P{p4_2wSentence24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1297" width="20" height="24" uuid="eaaf22cf-e9b5-4188-950a-21d5dbbf247c"/>
+                <imageExpression><![CDATA[$P{p4_one2stepdirections24mOk} != null ? $P{check_image} : ($P{p4_one2stepdirections24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1335" width="20" height="24" uuid="5861ae3a-69fb-4f49-9cf1-cb276f1c0a66"/>
+                <imageExpression><![CDATA[$P{p4_walksbackward24mOk} != null ? $P{check_image} : ($P{p4_walksbackward24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1375" width="20" height="24" uuid="c5088abd-8ca0-42d2-977d-b874c0f3cbfe"/>
+                <imageExpression><![CDATA[$P{p4_runse24mOk} != null ? $P{check_image} : ($P{p4_runse24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1394" width="20" height="24" uuid="7d19f8c3-1cfe-4db9-8bc3-470208b8ad2d"/>
+                <imageExpression><![CDATA[$P{p4_smallContainer24mOk} != null ? $P{check_image} : ($P{p4_smallContainer24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1414" width="20" height="24" uuid="4e94d525-afd8-4c9c-977b-c072de77b80c"/>
+                <imageExpression><![CDATA[$P{p4_pretendsPlay24mOk} != null ? $P{check_image} : ($P{p4_pretendsPlay24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1452" width="20" height="24" uuid="1db4649e-96ca-40f7-9555-7d9bfbbb62f5"/>
+                <imageExpression><![CDATA[$P{p4_newSkills24mOk} != null ? $P{check_image} : ($P{p4_newSkills24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="596" y="1491" width="20" height="24" uuid="5a1421f0-0f6a-4ef8-ba87-153cd1c62b1f"/>
+                <imageExpression><![CDATA[$P{p4_noParentsConcerns24mOk} != null ? $P{check_image} : ($P{p4_noParentsConcerns24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1277" width="20" height="24" uuid="14b06878-c0cf-436b-a188-b1fc43b68b10"/>
+                <imageExpression><![CDATA[$P{p4_2directions36mOk} != null ? $P{check_image} : ($P{p4_2directions36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1355" width="20" height="24" uuid="f542defc-96a5-4664-9835-0a28d3f7983f"/>
+                <imageExpression><![CDATA[$P{p4_5ormoreWords36mOk} != null ? $P{check_image} : ($P{p4_5ormoreWords36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1394" width="20" height="24" uuid="e48bd638-61ef-47bb-9f5e-1fe28481fec6"/>
+                <imageExpression><![CDATA[$P{p4_walksUpStairs36mOk} != null ? $P{check_image} : ($P{p4_walksUpStairs36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1414" width="20" height="24" uuid="e9ae75a1-0079-4527-b5d5-0d31a3f3f1e8"/>
+                <imageExpression><![CDATA[$P{p4_twistsLids36mOk} != null ? $P{check_image} : ($P{p4_twistsLids36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1433" width="20" height="24" uuid="d424857a-5653-4220-a9f7-37312966d420"/>
+                <imageExpression><![CDATA[$P{p4_sharesSometime36mOk} != null ? $P{check_image} : ($P{p4_sharesSometime36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1452" width="20" height="24" uuid="b96a3b87-035f-4aca-a1d1-658450349790"/>
+                <imageExpression><![CDATA[$P{p4_playMakeBelieve36mOk} != null ? $P{check_image} : ($P{p4_playMakeBelieve36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1530" width="20" height="24" uuid="4543627b-4bca-4009-8c03-017468c47c6a"/>
+                <imageExpression><![CDATA[$P{p4_turnsPages36mOk} != null ? $P{check_image} : ($P{p4_turnsPages36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1549" width="20" height="24" uuid="be1dc612-c365-4d06-8070-1d7e0f974371"/>
+                <imageExpression><![CDATA[$P{p4_listenMusic36mOk} != null ? $P{check_image} : ($P{p4_listenMusic36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="855" y="1589" width="20" height="24" uuid="e51eb5e9-4214-4cb3-bcef-6fda36a06abb"/>
+                <imageExpression><![CDATA[$P{p4_noParentsConcerns36mOk} != null ? $P{check_image} : ($P{p4_noParentsConcerns36mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1125" y="1277" width="20" height="24" uuid="1bb6f316-9bd4-4461-932d-465af5a6c35b"/>
+                <imageExpression><![CDATA[$P{p4_3directions48mOk} != null ? $P{check_image} : ($P{p4_3directions48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1125" y="1297" width="20" height="24" uuid="e4c137d3-3d0e-410d-a005-2f9a51cada8c"/>
+                <imageExpression><![CDATA[$P{p4_asksQuestions48mOk} != null ? $P{check_image} : ($P{p4_asksQuestions48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1125" y="1355" width="20" height="24" uuid="2ee5bcaf-f5aa-4840-bcb1-982ae146b6b0"/>
+                <imageExpression><![CDATA[$P{p4_upDownStairs48mOk} != null ? $P{check_image} : ($P{p4_upDownStairs48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1125" y="1393" width="20" height="24" uuid="001c5a88-53f2-41da-824c-d21bd57776e8"/>
+                <imageExpression><![CDATA[$P{p4_undoesZippers48mOk} != null ? $P{check_image} : ($P{p4_undoesZippers48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1125" y="1413" width="20" height="24" uuid="4739d9f0-d254-4228-aed9-062ba98d1227"/>
+                <imageExpression><![CDATA[$P{p4_tries2comfort48mOk} != null ? $P{check_image} : ($P{p4_tries2comfort48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1125" y="1452" width="20" height="24" uuid="2e1bba7f-5f2f-47b8-ae7a-2bc70e0ee5fc"/>
+                <imageExpression><![CDATA[$P{p4_noParentsConcerns48mOk} != null ? $P{check_image} : ($P{p4_noParentsConcerns48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1277" width="20" height="24" uuid="510f22d1-d3e1-4bef-84f8-adfc3eeb4462"/>
+                <imageExpression><![CDATA[$P{p4_countsOutloud60mOk} != null ? $P{check_image} : ($P{p4_countsOutloud60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1316" width="20" height="24" uuid="59d40927-eab5-4a4d-bf5d-beec30e0eb3a"/>
+                <imageExpression><![CDATA[$P{p4_speaksClearly60mOk} != null ? $P{check_image} : ($P{p4_speaksClearly60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1355" width="20" height="24" uuid="b87b0c58-268c-481b-a441-9dc550ccbfc5"/>
+                <imageExpression><![CDATA[$P{p4_throwsCatches60mOk} != null ? $P{check_image} : ($P{p4_throwsCatches60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1374" width="20" height="24" uuid="5070d971-92ee-4e52-a81a-36d86868f67a"/>
+                <imageExpression><![CDATA[$P{p4_hops1foot60mOk} != null ? $P{check_image} : ($P{p4_hops1foot60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1394" width="20" height="24" uuid="bf9b218c-ad5c-4a80-897c-08e17a5ec242"/>
+                <imageExpression><![CDATA[$P{p4_dressesUndresses60mOk} != null ? $P{check_image} : ($P{p4_dressesUndresses60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1433" width="20" height="24" uuid="27d0a4f7-6ecb-47f7-ae83-bbbae59ccc9e"/>
+                <imageExpression><![CDATA[$P{p4_obeysAdult60mOk} != null ? $P{check_image} : ($P{p4_obeysAdult60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1471" width="20" height="24" uuid="a2273f5d-cc54-40fb-9a5b-02f7efc42ec8"/>
+                <imageExpression><![CDATA[$P{p4_retellsStory60mOk} != null ? $P{check_image} : ($P{p4_retellsStory60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1491" width="20" height="24" uuid="6a02f21e-ed45-4d78-8c8f-7719d3b0e7c9"/>
+                <imageExpression><![CDATA[$P{p4_separates60mOk} != null ? $P{check_image} : ($P{p4_separates60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1387" y="1530" width="20" height="24" uuid="5a59580d-29ec-40fb-9c1d-0b9613ce1e79"/>
+                <imageExpression><![CDATA[$P{p4_noParentsConcerns60mOk} != null ? $P{check_image} : ($P{p4_noParentsConcerns60mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1683" width="20" height="24" uuid="ee3a9a2b-3ee4-4248-92b3-fc4fc6019bd1"/>
+                <imageExpression><![CDATA[$P{p4_fontanelles18mOk} != null ? $P{check_image} : ($P{p4_fontanelles18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="372" y="1683" width="20" height="24" uuid="54b1d485-0fe4-4832-813f-8232a9c321a2"/>
+                <imageExpression><![CDATA[$P{p4_eyes18mOk} != null ? $P{check_image} : ($P{p4_eyes18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1702" width="20" height="24" uuid="59702f02-5c15-403d-8c38-921442bf8649"/>
+                <imageExpression><![CDATA[$P{p4_corneal18mOk} != null ? $P{check_image} : ($P{p4_corneal18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1722" width="20" height="24" uuid="7a02952a-8064-40cc-a86f-64f26a041e4e"/>
+                <imageExpression><![CDATA[$P{p4_hearing18mOk} != null ? $P{check_image} : ($P{p4_hearing18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="372" y="1722" width="20" height="24" uuid="6dc09acc-e7cb-45ac-a8a9-b88e0d83dded"/>
+                <imageExpression><![CDATA[$P{p4_teeth18mOk} != null ? $P{check_image} : ($P{p4_teeth18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="72" y="1741" width="20" height="24" uuid="d780b377-d769-40d7-af26-a8b45ac67780"/>
+                <imageExpression><![CDATA[$P{p4_tonsilSize18mOk} != null ? $P{check_image} : ($P{p4_tonsilSize18mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="1683" width="20" height="24" uuid="f00cf5e8-7755-4ae4-9d47-98d237ab177f"/>
+                <imageExpression><![CDATA[$P{p4_bloodPressure24mOk} != null ? $P{check_image} : ($P{p4_bloodPressure24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="898" y="1683" width="20" height="24" uuid="901a6d5b-d38d-41e3-a10f-f4ed0f93dc0a"/>
+                <imageExpression><![CDATA[$P{p4_teeth24mOk} != null ? $P{check_image} : ($P{p4_teeth24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="1703" width="20" height="24" uuid="9190aa45-e0ff-40e9-8b26-d859db6af310"/>
+                <imageExpression><![CDATA[$P{p4_eyes24mOk} != null ? $P{check_image} : ($P{p4_eyes24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="898" y="1703" width="20" height="24" uuid="311f8763-452b-40f2-88bd-6c054fcf916d"/>
+                <imageExpression><![CDATA[$P{p4_hearing24mOk} != null ? $P{check_image} : ($P{p4_hearing24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="1722" width="20" height="24" uuid="64be7d30-f855-40b2-8841-9c603adcb2ef"/>
+                <imageExpression><![CDATA[$P{p4_corneal24mOk} != null ? $P{check_image} : ($P{p4_corneal24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="598" y="1741" width="20" height="24" uuid="435e9713-daab-40ae-a053-03cc593900d2"/>
+                <imageExpression><![CDATA[$P{p4_tonsilSize24mOk} != null ? $P{check_image} : ($P{p4_tonsilSize24mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1131" y="1683" width="20" height="24" uuid="95147bc8-1463-4e4d-8696-4fbcc5dca7b4"/>
+                <imageExpression><![CDATA[$P{p4_bloodPressure48mOk} != null ? $P{check_image} : ($P{p4_bloodPressure48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1431" y="1683" width="20" height="24" uuid="2b44fcf0-adcf-45b0-ad20-086077905c1f"/>
+                <imageExpression><![CDATA[$P{p4_teeth48mOk} != null ? $P{check_image} : ($P{p4_teeth48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1431" y="1702" width="20" height="24" uuid="bcb2d0a6-e038-4290-923a-c3b482c3860d"/>
+                <imageExpression><![CDATA[$P{p4_eyes48mOk} != null ? $P{check_image} : ($P{p4_eyes48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1131" y="1702" width="20" height="24" uuid="9dad060a-f73e-4052-ad5b-a6c8cc3183af"/>
+                <imageExpression><![CDATA[$P{p4_hearing48mOk} != null ? $P{check_image} : ($P{p4_hearing48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1131" y="1722" width="20" height="24" uuid="240c879f-3061-48b0-95bb-ef2d65ab16e7"/>
+                <imageExpression><![CDATA[$P{p4_corneal48mOk} != null ? $P{check_image} : ($P{p4_corneal48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="1131" y="1741" width="20" height="24" uuid="42629318-e529-4085-a453-6e1b0979f1c0"/>
+                <imageExpression><![CDATA[$P{p4_tonsilSize48mOk} != null ? $P{check_image} : ($P{p4_tonsilSize48mOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="64" y="1800" width="517" height="91" uuid="7b5d7e97-ab66-41de-acbe-69e1351a4090"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="12"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p4_problems18m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="594" y="1800" width="517" height="91" uuid="e91b4a3d-8498-4126-8120-e5422f7df4eb"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="12"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p4_problems24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1125" y="1800" width="517" height="91" uuid="f7f9b5c5-fa25-49d3-b95f-d5865a4742c3"/>
+                <textElement  textAlignment="Left" verticalAlignment="Top">
+                    <font size="12"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{p4_problems48m}]]></textFieldExpression>
+            </textField>
+            <image>
+                <reportElement x="72" y="1935" width="20" height="24" uuid="3d3fc2c3-a74c-4f90-a969-a1859cbc41e1"/>
+                <imageExpression><![CDATA[$P{p4_hemoglobinOk} != null ? $P{check_image} : ($P{p4_hemoglobinOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <image>
+                <reportElement x="456" y="1935" width="20" height="24" uuid="5069869e-ab37-4d3a-b9e5-11d490ec7885"/>
+                <imageExpression><![CDATA[$P{p4_BloodLeadOk} != null ? $P{check_image} : ($P{p4_BloodLeadOkConcerns} != null ? $P{cross_image} : null)]]></imageExpression>
+            </image>
+            <textField>
+                <reportElement x="70" y="2010" width="501" height="31" uuid="68dd7be5-de3a-42dc-b806-672487d1096d"/>
+                <textFieldExpression><![CDATA[$P{p4_signature18m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="604" y="2010" width="501" height="31" uuid="390c62a9-1186-45ef-9e98-dbb9b12092b5"/>
+                <textFieldExpression><![CDATA[$P{p4_signature24m}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="1132" y="2010" width="501" height="31" uuid="2ac96268-d3da-4771-94bd-65df4e10f5d4"/>
+                <textFieldExpression><![CDATA[$P{p4_signature48m}]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+</jasperReport>

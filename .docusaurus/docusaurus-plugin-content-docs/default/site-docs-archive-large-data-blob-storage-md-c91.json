@@ -1,0 +1,15 @@
+{
+  "id": "archive/large_data_blob_storage",
+  "title": "large_data_blob_storage",
+  "description": "This document outlines how we will handle storing large blobs of data, i.e. files.",
+  "source": "@site/docs/archive/large_data_blob_storage.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/large_data_blob_storage",
+  "permalink": "/archive/large_data_blob_storage",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/large_data_blob_storage.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

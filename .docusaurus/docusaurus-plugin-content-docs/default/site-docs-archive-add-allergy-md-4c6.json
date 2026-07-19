@@ -1,0 +1,15 @@
+{
+  "id": "archive/AddAllergy",
+  "title": "AddAllergy",
+  "description": "Description of Integration Point: Push MyOscar Allergy data",
+  "source": "@site/docs/archive/AddAllergy.md",
+  "sourceDirName": "archive",
+  "slug": "/archive/AddAllergy",
+  "permalink": "/archive/AddAllergy",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/AddAllergy.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

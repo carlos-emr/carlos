@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# OpenO EMR - Start Docusaurus Documentation Server
+# This script starts the Docusaurus development server for OpenO EMR documentation
+
+set -e
+
+WEBSITE_DIR="/workspace/website"
+DOCS_PORT=3000
+PID_FILE="/tmp/docusaurus.pid"
+
+echo "🚀 Starting OpenO EMR Documentation Server..."
+
+# Check if website directory exists
+if [ ! -d "$WEBSITE_DIR" ]; then
+    echo "❌ Error: Website directory not found at $WEBSITE_DIR"
+    echo "   Make sure Docusaurus is properly configured."
+    exit 1
+fi
+
+# Check if already running
+if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+    echo "📖 Documentation server is already running on port $DOCS_PORT"
+    echo "   PID: $(cat $PID_FILE)"
+    echo "   Access at: http://localhost:$DOCS_PORT"
+    exit 0
+fi
+
+cd "$WEBSITE_DIR"
+
+# Install dependencies if node_modules doesn't exist
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing documentation dependencies..."
+    npm install
+fi
+
+echo "📚 Starting Docusaurus development server..."
+echo "   Port: $DOCS_PORT"
+echo "   Access at: http://localhost:$DOCS_PORT"
+echo "   Press Ctrl+C in the terminal where this is running to stop"
+
+# Start in background and save PID
+nohup npm start > /tmp/docusaurus.log 2>&1 &
+DOCS_PID=$!
+echo $DOCS_PID > "$PID_FILE"
+
+# Wait a moment and check if it started successfully
+sleep 3
+if kill -0 $DOCS_PID 2>/dev/null; then
+    echo "✅ Documentation server started successfully!"
+    echo "   PID: $DOCS_PID"
+    echo "   Log: /tmp/docusaurus.log"
+    echo ""
+    echo "🔍 To view logs: tail -f /tmp/docusaurus.log"
+    echo "🛑 To stop: docs-stop"
+else
+    echo "❌ Failed to start documentation server"
+    echo "📋 Check logs: cat /tmp/docusaurus.log"
+    rm -f "$PID_FILE"
+    exit 1
+fi

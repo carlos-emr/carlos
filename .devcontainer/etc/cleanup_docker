@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Stop and remove all containers
+docker container stop $(docker container ls -a -q)
+docker container rm $(docker container ls -a -q)
+
+# Remove all images
+docker image rm $(docker image ls -a -q)
+
+# Remove all volumes (excluding default and named volumes)
+#docker volume rm $(docker volume ls -qf dangling=true)

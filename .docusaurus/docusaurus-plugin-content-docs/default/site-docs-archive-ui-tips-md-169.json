@@ -1,0 +1,15 @@
+{
+  "id": "archive/ui/tips",
+  "title": "tips",
+  "description": "Tips to help with web development in the new UI",
+  "source": "@site/docs/archive/ui/tips.md",
+  "sourceDirName": "archive/ui",
+  "slug": "/archive/ui/tips",
+  "permalink": "/archive/ui/tips",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/openosp/openo-emr/tree/main/docs/archive/ui/tips.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

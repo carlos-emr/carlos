@@ -1,0 +1,142 @@
+/*
+ *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
+ * <OSCAR TEAM>
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+
+* {
+    font-size: 12px;
+    line-height: 1;
+}
+
+form {
+    margin: 0px;
+    padding: 0px;
+}
+
+ul {
+    margin: 0px;
+    padding: 0px;
+    list-style: none;
+}
+
+a:active {
+    text-decoration: none;
+}
+
+a:link {
+    text-decoration: none;
+    color: #0066CC
+}
+
+a:visited {
+    text-decoration: none;
+    color: #0080c0;
+}
+
+a:hover {
+    color: #000;
+    TEXT-DECORATION: underline;
+}
+
+.deep { /*background-color: #B7B18D; */
+}
+
+.weak {
+    background-color: #EEEEFF;
+}
+
+.title {
+    text-align: left;
+    font-weight: bold;
+    height: 12px
+}
+
+#cancelButton, #backButton, #searchPopUpButton {
+    display: none;
+}
+
+#searchResults table {
+    background-color: white;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.header {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+}
+
+#searchResults table td {
+    text-align: left;
+    vertical-align: middle;
+    border: thin solid #BDBDBD;
+}
+
+
+.odd {
+    background-color: #fff;
+}
+
+.even {
+    background-color: #EEEEFF;
+}
+
+.odd:hover {
+    background-color: #FACC2E;
+}
+
+.even:hover {
+    background-color: #FACC2E;
+}
+
+
+#searchResults {
+    margin: auto 15px;
+}
+
+#searchResults tr.tableHeadings {
+    font-weight: bold;
+}
+
+.demoId {
+    border-left: 1px solid #c0c0c0;
+}
+
+.createNew {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: right;
+}
+
+.goBackToSchedule {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: left;
+}
+
+
+.dateFormat {
+    font-size: 12px;
+    font-weight: normal;
+}

@@ -1,0 +1,1 @@
+UPDATE `preventions` SET prevention_type = "RSV" WHERE `prevention_type` = "RSVPreF3";

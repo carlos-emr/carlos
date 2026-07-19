@@ -1,0 +1,506 @@
+/*
+ * 
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License. 
+ * This program is free software; you can redistribute it and/or 
+ * modify it under the terms of the GNU General Public License 
+ * as published by the Free Software Foundation; either version 2 
+ * of the License, or (at your option) any later version. * 
+ * This program is distributed in the hope that it will be useful, 
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
+ * along with this program; if not, write to the Free Software 
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
+ * 
+ * <OSCAR TEAM>
+ * 
+ * This software was written for the 
+ * Department of Family Medicine 
+ * McMaster University 
+ * Hamilton 
+ * Ontario, Canada 
+ */
+
+table#firstTable tr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+tr#ivoryBar, table#monthScheduleNavigation tr td {
+    background-color: whitesmoke;
+    display: flex;
+    justify-content: space-between;
+    gap: 5px;
+}
+
+#dateAndCalendar a {
+    padding-right: 5px;
+}
+
+.hideReason {
+    display: none;
+}
+
+* {
+    overscroll-behavior: none;
+}
+
+body {
+    background-color: #486ebd;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+    height: 100%;
+    line-height: 1 !important;
+}
+
+#main-container {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    overflow: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+
+table#firstTable {
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    z-index: 1000;
+    border-bottom: 1px solid #c0c0c0;
+    height: 25px;
+}
+
+table#firstTable tr td.icon-container {
+    padding-left: 10px;
+}
+
+
+
+table#firstTable td#oscarLogo a img {
+    width: 22px;
+}
+
+table#firstTable td#firstMenu ul#navlist:not(.dashboardDropdown),
+table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    list-style-type: none;
+}
+
+#firstMenu, #ivoryBar #dateAndCalendar {
+    margin-left: 10px;
+}
+
+#userSettings, #ivoryBar #group {
+    margin-right: 15px;
+}
+
+#ivoryBar #group {
+    display: flex;
+    gap: 5px;
+    align-content: center;
+    align-items: center;
+}
+
+table#firstTable td {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+table#firstTable #logoutButton span {
+    font-size: 18px;
+}
+
+table#firstTable td#userSettings ul#userSettingsMenu li {
+    display: inline-block;
+}
+
+table#scheduleNavigation tr td.title {
+    white-space: nowrap;
+}
+
+tr td.infirmaryView {
+    position: sticky;
+    top: 50px;
+    left: 0;
+    height: 25px;
+    padding: 0 5px;
+    right: 0;
+}
+
+td#group {
+    padding-right: 15px;
+}
+
+table#scheduleNavigation, table#monthScheduleNavigation {
+    position: fixed;
+    top: 25px;
+    right: 0;
+    left: 0;
+    height: 25px;
+    width: 100%;
+    /*! border-bottom: 1px solid #c0c0c0; */
+}
+
+table#scheduleNavigation tr td {
+    white-space: nowrap;
+    padding: 3px 0;
+}
+
+.providerSchedule {
+    background-color: #486ebd;
+}
+
+
+* table {
+    border-collapse: collapse;
+}
+
+
+td.appt {
+    vertical-align: top;
+    border-top: #486ebd 2px solid;
+    overflow: hidden;
+    padding-top: 3px;
+    padding-left: 3px;
+    padding-right: 3px;
+    border-bottom: #486ebd 2px solid;
+    border-left: #486ebd 2px solid;
+    border-right: #486ebd 2px solid;
+}
+
+td.appt .appt-container {
+    width: 100%;
+    display: flex;
+    overflow: hidden;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+div.apt-tag a {
+    padding: 1px 3px;
+    display: inline-block;
+    margin: 0;
+}
+
+
+div.navigation-tag a:hover, div.patient-tag a:hover {
+    background-color: blue;
+    color: white;
+}
+
+div.apt-tag:empty {
+    display: none;
+}
+
+div.apt-tag a img {
+    width: 100% !important;
+    max-width: 18px;
+    margin: 0 !important;
+}
+
+div.appt-container div.navigation-tag {
+    white-space: nowrap;
+}
+
+.hourmin {
+    padding: 0 3px;
+    border-top: #486ebd 2px solid;
+    border-bottom: #486ebd 2px solid;
+}
+
+.scheduleTimeNot00, .scheduleTime00 {
+    border-top: #486ebd 2px solid;
+    border-right: #486ebd 2px solid;
+    width: 5%;
+    min-width: 5%;
+}
+
+table#scheduleTable {
+    margin-top: 51px;
+}
+
+.scheduleTimeNot00 a, .scheduleTime00 a {
+    width: 5%;
+    min-width: 5%;
+}
+
+a.orange {
+    text-decoration: none;
+    font-weight: bold;
+    color: #9966CC;
+}
+
+a.orange:Hover {
+    text-decoration: none;
+    color: white;
+}
+
+a.black {
+    text-decoration: none;
+    font-weight: bold;
+    color: black;
+}
+
+a.black:Hover {
+    text-decoration: none;
+    color: white;
+}
+
+a {
+    text-decoration: none;
+    font-weight: bold;
+    color: #00283c;
+}
+
+a:visited {
+    text-decoration: none;
+    font-weight: bold;
+    color: #00283c;
+}
+
+a:active {
+    text-decoration: none;
+    font-weight: bold;
+    color: #00283c;
+}
+
+a:Hover {
+    text-decoration: none;
+    color: red;
+}
+
+/* Navigation bar link styles - override Bootstrap defaults */
+table#firstTable a,
+table#firstTable a:visited,
+table#firstTable a:active {
+    color: #00283c;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+table#firstTable a:hover,
+table#firstTable a:focus,
+table#firstTable a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+input, select, textarea {
+    background-color: #F4EaD7;
+    border: 1px solid #0097cf;
+}
+
+td {
+    /*font-family: "Arial", sans-serif;*/
+    font-size: 12px;
+}
+
+hr {
+    color: orange;
+}
+
+p {
+    margin-right: 10px;
+    margin-left: 10px;
+    margin-top: 0;
+}
+
+.adhour {
+    /*font-family: "Arial", sans-serif;*/
+    font-size: 12px;
+    color: white;
+    display: block;
+    padding: 3px;
+}
+
+.small {
+    margin-top: 15px;
+    margin-left: 100px;
+    margin-right: 140px;
+    /*font-family: "Arial Black", sans-serif;*/
+    font-size: 9px;
+    color: #00408f;
+}
+
+.Monthappt {
+    /*font-family: "Arial Black", sans-serif;*/
+    font-size: 8px;
+    color: black;
+}
+
+.title {
+    font-size: 14px;
+    color: black;
+}
+
+.text3 {
+    font-size: 12px;
+}
+
+.date {
+    font-size: 16px;
+    color: red;
+    background: yellow;
+}
+
+.datepname {
+    font-size: 12px;
+}
+
+.dateAppointment {
+    font-weight: bold;
+    font-size: inherit;
+    color: #00283c;
+}
+
+.datephour {
+    font-size: 12px;
+    color: brown;
+}
+
+.datepreason {
+    font-size: 12px;
+    color: green;
+}
+
+/* Alert styling - high specificity needed to override nav link colors above */
+.tabalert,
+.tabalert a,
+a .tabalert,
+table#firstTable .tabalert {
+    color: red !important;
+}
+
+.tabalert:hover,
+a:hover .tabalert {
+    color: white !important;
+}
+
+table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
+    line-height: 1;
+    display: inline-block;
+}
+
+table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
+    display: inline-block;
+    padding: 5px;
+}
+
+table#firstTable td#firstMenu #navlist li:hover {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu #navlist li a:hover {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu #navlist #logoutMobile {
+    display: none;
+}
+
+#unclaimedLabLink {
+    padding-right: 5px;
+}
+
+div.reason-tag a {
+    font-weight: normal !important;
+    font-style: italic;
+}
+
+#providerSchedule, #providerSchedule td {
+    border-collapse: collapse;
+}
+
+#providerSchedule td.noGrid {
+    border: none;
+}
+
+.scheduleTime00, .scheduleTimeNot00 {
+    width: 5%;
+}
+
+.scheduleTime00 {
+    background-color: #3EA4E1;
+}
+
+.scheduleTimeNot00 {
+    background-color: #00A488;
+}
+
+.dropdown {
+    display: inline-block !important;
+    position: relative;
+}
+
+.dashboardDropdown {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    white-space: initial;
+    overflow-wrap: break-word;
+    z-index: 1000;
+}
+
+.dashboardDropdown a {
+    color: black;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    padding: 5px;
+    width: 300px;
+}
+
+.dashboardDropdown ul li {
+    width: 300px;
+    display: block;
+}
+
+.dashboardDropdown ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.dropdown:hover .dashboardDropdown {
+    display: block;
+}
+
+#oscar_new_msg .tabalert sup {
+    color: silver;
+}
+
+#integratorMessageCount {
+    color: #bf6cf7 !important;
+    font-weight: bold !important;
+}
+
+#demographicMessageCount, #totalMessageCount {
+    color: red !important;
+}
+
+@media print {
+    .noprint {
+        display: none !important;
+    }
+}

@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+
+command=$1
+skip_tests=true
+
+if [ "$command" = "test" ]; then
+  skip_tests=false
+fi
+
+case $command in
+  clean)
+    mvn clean
+    ;;
+  lock)
+    mvn se.vandmo:dependency-lock-maven-plugin:lock
+    ;;
+  *)
+    mvn clean -Dmaven.test.skip=$skip_tests prepare-package war:exploded
+
+    # Assuming the pom.xml file is in the current directory
+    pom_file="pom.xml"
+
+    # This version number is the deployable war version from here: https://bitbucket.org/MagentaHealth/oscar/src/master/pom.xml
+    # <artifactId>oscar</artifactId>
+	  # <packaging>war</packaging>
+	  # <version>v24.02.0</version>
+	  # <name>OpenOSCAR</name>
+    # Extract the first occurrence of version from pom.xml
+    version=$(grep -oPm 1 '<version>\K[^<]+' "$pom_file")
+
+    # It *should* be possible to deploy that `oscar-0.0.0-SNAPSHOT` directory to Tomcat using the `oscar-0.0.0-SNAPSHOT` name,
+    # but unknown bugs prevent the app from starting up if that name is used. :man_shrugging:
+    # So, let's rename it to `oscar`. Then, our properties file in the home directory can also be called `oscar.properties`
+    # (it's already been symlinked by the setup scripts).
+    # We'll also create a symlink so that we can continue to compile into `oscar-0.0.0-SNAPSHOT`,
+    # which is where Maven expects to deposit its artifacts.
+    snapshot_src_dir='oscar-'$version
+    snapshot_dest_dir='oscar'
+
+    # Only make the link if it hasn't already been linked yet
+    if [ -d "target/$snapshot_src_dir" ] && [ ! -L "target/$snapshot_src_dir" ]; then
+      mv target/$snapshot_src_dir target/$snapshot_dest_dir
+      ln -s $snapshot_dest_dir target/$snapshot_src_dir
+    fi
+    ;;
+esac

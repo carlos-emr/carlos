@@ -1,0 +1,59 @@
+name: Documentation
+description: Report documentation issues or improvements
+title: "[Docs]: "
+labels: ["type: documentation", "status: needs-triage"]
+type: Documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve our documentation — clear docs make CARLOS easier for everyone.
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Type
+      description: What kind of issue?
+      options:
+        - Missing documentation
+        - Incorrect documentation
+        - Unclear documentation
+        - Typo/Grammar
+        - New documentation needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Location
+      description: Where is the issue?
+      placeholder: e.g., README.md, /docs/api-guide.md, or "Installation section"
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue
+      description: What's wrong or missing
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggestion
+      description: How should it be fixed?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have checked existing documentation
+          required: true
+        - label: I am willing to submit a PR to fix this
+          required: false
