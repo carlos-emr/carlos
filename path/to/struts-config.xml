@@ -1,0 +1,8 @@
+// ...
+
+<action path="/CaseManagementEntry" type="com.example.TicklerMain" method="saveNoteDialog">
+    <parameter name="method" value="POST"/>
+    <forward name="success" path="/CaseManagementEntry.do"/>
+</action>
+
+// ...
