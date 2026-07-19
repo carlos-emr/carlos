@@ -197,9 +197,13 @@ class EFormBrowserPdfRendererUnitTest {
                 .contains("--proxy-server=" + EFormBrowserPdfRenderer.DEAD_PROXY)
                 .contains("--proxy-bypass-list=127.0.0.1:8080;localhost:8080;[::1]:8080")
                 .contains("--remote-debugging-pipe")
+                .contains("--disable-file-system")
                 .contains("--window-size=1800,3200")
                 .contains("--force-device-scale-factor=1")
-                .contains("--no-sandbox");
+                .contains("--no-sandbox")
+                // INVARIANT: these flags would enable local file reads and must never be present.
+                .doesNotContain("--allow-file-access-from-files")
+                .doesNotContain("--disable-web-security");
     }
 
     @Test
@@ -243,6 +247,25 @@ class EFormBrowserPdfRendererUnitTest {
                 "http://127.0.0.1:9999/other-port", allowedOrigin)).isTrue();
         assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
                 "http://10.0.0.5/internal", allowedOrigin)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should fail closed on local-file and other non-web schemes")
+    void shouldFailClosed_onLocalFileAndOtherNonWebSchemes() {
+        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+
+        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+                "file:///etc/passwd", allowedOrigin)).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+                "file:///var/lib/OscarDocument/secret.pdf", allowedOrigin)).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+                "filesystem:http://127.0.0.1:8080/temporary/x", allowedOrigin)).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+                "chrome://settings", allowedOrigin)).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+                "view-source:http://127.0.0.1:8080/carlos", allowedOrigin)).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+                "ftp://127.0.0.1/x", allowedOrigin)).isTrue();
     }
 
     @Test
@@ -306,6 +329,22 @@ class EFormBrowserPdfRendererUnitTest {
 
         assertThat(scan.disallowedRequests()).isEqualTo(1);
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should fail closed on WebSocket and WebTransport egress attempts")
+    void shouldFailClosed_onWebSocketAndWebTransportEgress() {
+        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\""),
+                cdpMessage("Network.webTransportCreated", "\"url\":\"https://evil.example/wt\""),
+                // Even a WebSocket back to the app's own loopback port is fail-closed: the render
+                // surface never opens one, so its presence is treated as an egress attempt.
+                cdpMessage("Network.webSocketCreated", "\"url\":\"ws://127.0.0.1:8080/carlos/live\""));
+
+        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.disallowedRequests()).isEqualTo(3);
     }
 
     @Test

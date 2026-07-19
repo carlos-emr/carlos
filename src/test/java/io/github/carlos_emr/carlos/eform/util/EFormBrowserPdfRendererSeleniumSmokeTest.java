@@ -116,6 +116,53 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
         }
     }
 
+    @Test
+    @DisplayName("should not load a local file subresource referenced by a malicious eForm")
+    void shouldNotLoadLocalFileSubresource_referencedByMaliciousEform() throws Exception {
+        String chromiumBinary = findChromiumBinary();
+        assumeTrue(chromiumBinary != null, "no headless Chromium binary available on this host");
+        Path secret = Files.createTempFile("eform-file-access-probe-", ".txt");
+        Files.writeString(secret, "TOP-SECRET-LOCAL-FILE-CONTENT");
+
+        // A page served over http that tries to pull a local file into an <img>. Chromium's
+        // default cross-scheme policy must keep the image broken (naturalWidth 0), proving the
+        // renderer's launch flags never opened file access.
+        String html = "<!doctype html><html><body>"
+                + "<img id='probe' src='file://" + secret.toAbsolutePath() + "'>"
+                + "</body></html>";
+        byte[] pageBytes = html.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
+            exchange.sendResponseHeaders(200, pageBytes.length);
+            try (OutputStream body = exchange.getResponseBody()) {
+                body.write(pageBytes);
+            }
+        });
+        server.start();
+
+        ChromeDriver driver = null;
+        try {
+            String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
+            driver = startDriverOrSkip(EFormBrowserPdfRenderer.buildChromeOptions(chromiumBinary, true, allowedOrigin));
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30)).scriptTimeout(Duration.ofSeconds(30));
+            driver.get(allowedOrigin + "/probe.html");
+            Thread.sleep(1000);
+
+            Object naturalWidth = driver.executeScript(
+                    "var img = document.getElementById('probe'); return img ? img.naturalWidth : -1;");
+            assertThat(((Number) naturalWidth).intValue())
+                    .as("local file:// image must not load into the render surface")
+                    .isZero();
+        } finally {
+            if (driver != null) {
+                driver.quit();
+            }
+            server.stop(0);
+            Files.deleteIfExists(secret);
+        }
+    }
+
     private static ChromeDriver startDriverOrSkip(ChromeOptions options) {
         try {
             return new ChromeDriver(options);

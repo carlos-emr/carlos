@@ -60,6 +60,13 @@ typical for containerized Tomcat.
 - **No attachable browser control channel.** Chromium runs with `--remote-debugging-pipe`, so
   DevTools is a parent-process pipe rather than a localhost TCP port another local process could
   connect to.
+- **No local file access.** A malicious eForm cannot read server files (`file:///etc/passwd`,
+  `/var/lib/OscarDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
+  policy blocks `file://` subresources from the http render origin, and the renderer's request
+  gate fails the render on *any* non-web scheme (`file:`, `filesystem:`, `chrome:`,
+  `view-source:`, …). The launch config must **never** add `--allow-file-access-from-files` or
+  `--disable-web-security` (an inline code invariant and a unit test enforce their absence); the
+  FileSystem API is additionally turned off with `--disable-file-system`.
 - **`acceptInsecureCerts` is paired with the lockdown.** HTTPS connectors present certificates
   for the clinic's hostname, not `127.0.0.1`; the renderer accepts that mismatch so rendering
   works on TLS deployments. This is safe *only because* egress is loopback-locked — do not
@@ -78,14 +85,35 @@ typical for containerized Tomcat.
 ### Security operations note
 
 The containment layers split responsibility: the egress lockdown and fail-closed gates contain
-**malicious page content** (JS-level attacks), while the **Chromium sandbox** contains native
-browser exploits. The sandbox is off by default (`--no-sandbox`) because containerized Tomcat
-frequently lacks kernel user-namespace support — **enable it wherever the kernel allows** by
-setting `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true`. Because the renderer processes
-clinic-authored content, treat the pinned Chromium (and chromedriver) like any other
-security-patched dependency: keep it updated. Note the token design means the render browser
-holds no session cookies or credentials — a compromised render exposes only the content of the
-form being rendered.
+**malicious page content** (JS-level attacks — including WebSocket/WebTransport egress, which the
+gate rejects alongside HTTP), while an **OS-level sandbox** contains native browser exploits (an
+RCE in Chromium's renderer). Because the renderer processes clinic-authored content, treat the
+pinned Chromium and chromedriver like any other security-patched dependency: keep them updated.
+The token design means the render browser holds no session cookies or credentials, so a
+compromised render exposes only the content of the form being rendered.
+
+**Selenium is not an isolation layer.** It only launches `chromedriver` → `chrome`; the
+chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). Run the
+browser confined via one of the two paths below — ideally both:
+
+1. **Enable Chromium's own sandbox (preferred).** Chromium's Linux sandbox chroots the renderer
+   into an empty dir inside new PID + network namespaces (Layer 1) and applies a seccomp-bpf
+   syscall filter (Layer 2). The modern **unprivileged user-namespaces** variant needs **no
+   root** — only kernel ≥3.10 with user namespaces enabled
+   (`sysctl kernel.unprivileged_userns_clone=1`). Turn it on by setting
+   `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true` (this drops the `--no-sandbox` flag). Prefer this
+   wherever the host kernel allows it.
+2. **Make the container the boundary (when user namespaces are unavailable).** Many hardened
+   container platforms block the namespaces Chromium's sandbox needs, forcing `--no-sandbox`
+   (the default here). That is acceptable **only if the container itself is the isolation
+   boundary**: run as a dedicated non-root UID, `cap-drop=ALL` (no `CAP_SYS_ADMIN`),
+   `--security-opt no-new-privileges`, a read-only root filesystem, `tmpfs` for `/dev/shm` and
+   the renderer temp root mounted `noexec,nosuid,nodev`, a seccomp profile (Docker default or a
+   Chrome-tuned one), and PID / CPU / memory limits. On newer kernels, Landlock adds filesystem
+   confinement on top.
+
+`--no-sandbox` with **no** container boundary is a testing-only configuration and must not be
+used where the renderer can be reached by clinic-authored eForms.
 
 ## Output contract
 

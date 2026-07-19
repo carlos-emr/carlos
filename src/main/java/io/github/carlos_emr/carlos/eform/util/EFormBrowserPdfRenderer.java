@@ -388,6 +388,12 @@ public class EFormBrowserPdfRenderer {
                 // DevTools over a pipe instead of an ephemeral localhost TCP port, so no other
                 // local process can attach to the render browser's control channel.
                 "--remote-debugging-pipe",
+                // Turn off the FileSystem API. Local file access is otherwise blocked by
+                // Chromium's default cross-scheme policy plus the strict scheme gate in
+                // isDisallowedRendererRequestUrl. INVARIANT: never add --allow-file-access-from-files
+                // or --disable-web-security here — either would let a malicious eForm read local
+                // files into the captured PDF.
+                "--disable-file-system",
                 "--disable-background-networking",
                 "--disable-extensions",
                 "--no-first-run",
@@ -584,9 +590,18 @@ public class EFormBrowserPdfRenderer {
     }
 
     /**
-     * Replays raw CDP performance-log messages: counts requests to any origin other than the
-     * allowed loopback origin and records the status of the first main-frame document response.
-     * Later {@code Document} events belong to iframes (e.g. signature blocks) and are ignored.
+     * Replays raw CDP performance-log messages: counts egress attempts to any origin other than
+     * the allowed loopback origin and records the status of the first main-frame document
+     * response. Later {@code Document} events belong to iframes (e.g. signature blocks) and are
+     * ignored.
+     *
+     * <p>Egress is observed across all CDP channels a page can open, not just HTTP: WebSocket
+     * ({@code Network.webSocketCreated}) and WebTransport ({@code Network.webTransportCreated})
+     * arrive on their own events rather than {@code requestWillBeSent}, so they are inspected
+     * here too. Their {@code ws:}/{@code wss:}/{@code https:}-CONNECT URLs are non-http(s) or
+     * cross-origin, so a render surface never legitimately opens one — any occurrence fails the
+     * render. This keeps the "reject every non-allowlisted egress attempt" invariant whole even
+     * though the dead proxy already blocks the external ones.</p>
      */
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
         int disallowedRequests = 0;
@@ -601,6 +616,12 @@ public class EFormBrowserPdfRenderer {
             if ("Network.requestWillBeSent".equals(method)) {
                 String url = params.path("request").path("url").asText("");
                 if (isDisallowedRendererRequestUrl(url, allowedOrigin)) {
+                    disallowedRequests++;
+                }
+            } else if ("Network.webSocketCreated".equals(method) || "Network.webTransportCreated".equals(method)) {
+                // ws:/wss:/webtransport URLs are non-http(s) schemes, so isDisallowedRendererRequestUrl
+                // fails them closed regardless of host — the render surface never opens one.
+                if (isDisallowedRendererRequestUrl(params.path("url").asText(""), allowedOrigin)) {
                     disallowedRequests++;
                 }
             } else if (mainDocumentStatus == null
@@ -635,6 +656,15 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
+    /**
+     * Strict allowlist gate. Permitted requests are exactly the inert pseudo-schemes
+     * ({@code data:}/{@code blob:}/{@code about:}) or http(s) to the validated loopback origin.
+     * Everything else — {@code file:}, {@code filesystem:}, {@code chrome:}, {@code view-source:},
+     * {@code ftp:}, etc. — is disallowed and fails the render. This is defense-in-depth against
+     * <em>local file disclosure into the captured PDF</em> (a {@code file://} subresource is
+     * already blocked by Chromium's default cross-scheme policy; this gate is the CARLOS-side
+     * backstop if that default is ever weakened), not merely an exfiltration control.
+     */
     static boolean isDisallowedRendererRequestUrl(String requestUrl, String allowedOrigin) {
         if (requestUrl == null || requestUrl.isEmpty()
                 || requestUrl.startsWith("data:") || requestUrl.startsWith("blob:") || requestUrl.startsWith("about:")) {
@@ -642,9 +672,10 @@ public class EFormBrowserPdfRenderer {
         }
         String scheme = requestUrl.indexOf(':') > 0 ? requestUrl.substring(0, requestUrl.indexOf(':')) : "";
         if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
-            // Non-web schemes the browser may touch internally (chrome-extension:, etc.) are
-            // unreachable as exfiltration channels behind the dead proxy; only web URLs matter.
-            return false;
+            // Any non-web scheme (file:, filesystem:, chrome:, view-source:, ...) is fail-closed:
+            // the eForm render surface only ever needs http(s) to the loopback app plus inert
+            // data:/blob:/about: resources.
+            return true;
         }
         String origin = originOf(requestUrl);
         return origin == null || !origin.equals(allowedOrigin);
