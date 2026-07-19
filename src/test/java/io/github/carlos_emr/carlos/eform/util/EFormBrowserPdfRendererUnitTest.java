@@ -389,11 +389,14 @@ class EFormBrowserPdfRendererUnitTest {
                 cdpMessage("Network.webTransportCreated", "\"url\":\"https://evil.example/wt\""),
                 // Even a WebSocket back to the app's own loopback port is fail-closed: the render
                 // surface never opens one, so its presence is treated as an egress attempt.
-                cdpMessage("Network.webSocketCreated", "\"url\":\"ws://127.0.0.1:8080/carlos/live\""));
+                cdpMessage("Network.webSocketCreated", "\"url\":\"ws://127.0.0.1:8080/carlos/live\""),
+                // A same-origin WebTransport uses an https: URL that WOULD pass the origin allowlist,
+                // yet is still a live bidirectional egress channel — it must fail closed too.
+                cdpMessage("Network.webTransportCreated", "\"url\":\"https://127.0.0.1:8080/carlos/wt\""));
 
         EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
 
-        assertThat(scan.disallowedRequests()).isEqualTo(3);
+        assertThat(scan.disallowedRequests()).isEqualTo(4);
     }
 
     @Test

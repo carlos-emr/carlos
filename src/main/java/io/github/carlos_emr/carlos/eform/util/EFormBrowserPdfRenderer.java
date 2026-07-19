@@ -688,10 +688,11 @@ public class EFormBrowserPdfRenderer {
      *
      * <p>Egress is observed across all CDP channels a page can open, not just HTTP: WebSocket
      * ({@code Network.webSocketCreated}) and WebTransport ({@code Network.webTransportCreated})
-     * arrive on their own events rather than {@code requestWillBeSent}, so they are inspected
-     * here too. Their {@code ws:}/{@code wss:}/{@code https:}-CONNECT URLs are non-http(s) or
-     * cross-origin, so a render surface never legitimately opens one — any occurrence fails the
-     * render. This keeps the "reject every non-allowlisted egress attempt" invariant whole even
+     * arrive on their own events rather than {@code requestWillBeSent}. A render surface never
+     * legitimately opens either, so <em>any</em> such event fails the render unconditionally — the
+     * URL is not origin-checked, because a same-origin {@code wss:}/{@code https:} WebTransport
+     * would otherwise pass the origin allowlist and slip a live bidirectional channel past the
+     * gate. This keeps the "reject every non-allowlisted egress attempt" invariant whole even
      * though the dead proxy already blocks the external ones.</p>
      */
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
@@ -710,11 +711,11 @@ public class EFormBrowserPdfRenderer {
                     disallowedRequests++;
                 }
             } else if ("Network.webSocketCreated".equals(method) || "Network.webTransportCreated".equals(method)) {
-                // ws:/wss:/webtransport URLs are non-http(s) schemes, so isDisallowedRendererRequestUrl
-                // fails them closed regardless of host — the render surface never opens one.
-                if (isDisallowedRendererRequestUrl(params.path("url").asText(""), allowedOrigin)) {
-                    disallowedRequests++;
-                }
+                // A render surface never opens a WebSocket or WebTransport. Fail closed on any such
+                // channel regardless of URL/origin: a same-origin wss:/https: WebTransport would pass
+                // isDisallowedRendererRequestUrl (http(s) to the allowed origin) yet is still a live
+                // bidirectional egress channel the dead HTTP proxy does not cover.
+                disallowedRequests++;
             } else if (mainDocumentStatus == null
                     && "Network.responseReceived".equals(method)
                     && "Document".equals(params.path("type").asText(""))
