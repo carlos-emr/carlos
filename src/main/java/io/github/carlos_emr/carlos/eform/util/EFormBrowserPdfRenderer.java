@@ -302,11 +302,10 @@ public class EFormBrowserPdfRenderer {
         HttpServletRequest currentRequest = currentRequestOrNull();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
         String baseUrl = validateRendererBaseUrl(resolveBaseUrl(projectHome, currentRequest));
-        String renderToken = EFormRenderTokenService.getInstance().issue(fdid, providerId);
-        String appPath = validateRendererAppPath(buildAppPath(fdid, renderToken));
-        logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
-
-        Path tempRoot = resolveRendererTempRoot();
+        // Issued inside the try so the finally always invalidates it: if temp-root setup (or any
+        // other pre-render step) throws, the grant must not linger in the bounded token cache for
+        // its full TTL. invalidate(null) is a safe no-op if we fail before issuance.
+        String renderToken = null;
         Path outputDirectory = null;
         Path outputPdfPath = null;
         ChromeDriver driver = null;
@@ -314,6 +313,11 @@ public class EFormBrowserPdfRenderer {
         long deadlineNanos = System.nanoTime() + RENDER_TIMEOUT.toNanos();
 
         try {
+            renderToken = EFormRenderTokenService.getInstance().issue(fdid, providerId);
+            String appPath = validateRendererAppPath(buildAppPath(fdid, renderToken));
+            logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
+
+            Path tempRoot = resolveRendererTempRoot();
             String allowedOrigin = originOf(baseUrl);
             if (allowedOrigin == null) {
                 throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.");
