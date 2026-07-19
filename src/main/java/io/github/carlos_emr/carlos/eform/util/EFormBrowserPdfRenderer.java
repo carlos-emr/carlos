@@ -103,12 +103,12 @@ public class EFormBrowserPdfRenderer {
     private static final String ENV_ENABLE_SANDBOX = "EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX";
 
     /**
-     * Dead proxy plus loopback bypass: every non-loopback fetch is routed into a closed port and
-     * fails, while loopback traffic goes direct. Together with the performance-log gate this
-     * reproduces the previous renderer's abort-non-local-request behavior at two layers.
+     * Dead proxy plus a port-scoped loopback bypass: only the application's own loopback origin
+     * escapes the dead proxy, so a request to any other host — or any other loopback port — is
+     * blocked before it is ever sent. Together with the performance-log gate this reproduces the
+     * previous renderer's pre-send route aborts at two independent layers.
      */
     static final String DEAD_PROXY = "http://127.0.0.1:1";
-    static final String PROXY_BYPASS_LOOPBACK = "127.0.0.1;localhost;[::1]";
 
     private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
     private static final int VIEWPORT_WIDTH = 1800;
@@ -305,10 +305,14 @@ public class EFormBrowserPdfRenderer {
         long deadlineNanos = System.nanoTime() + RENDER_TIMEOUT.toNanos();
 
         try {
+            String allowedOrigin = originOf(baseUrl);
+            if (allowedOrigin == null) {
+                throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.");
+            }
             outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
             outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
 
-            driver = createDriver(buildChromeOptions(resolveChromiumPath(), sandboxDisabled()));
+            driver = createDriver(buildChromeOptions(resolveChromiumPath(), sandboxDisabled(), allowedOrigin));
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
             ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "screen"));
 
@@ -371,7 +375,7 @@ public class EFormBrowserPdfRenderer {
      * {@code acceptInsecureCerts} form a paired invariant: insecure certs are acceptable only for
      * loopback rendering, which the proxy configuration guarantees is the only reachable network.
      */
-    static ChromeOptions buildChromeOptions(String chromiumBinary, boolean disableSandbox) {
+    static ChromeOptions buildChromeOptions(String chromiumBinary, boolean disableSandbox, String allowedOrigin) {
         ChromeOptions options = new ChromeOptions();
         options.addArguments(
                 "--headless=new",
@@ -380,7 +384,10 @@ public class EFormBrowserPdfRenderer {
                 "--force-device-scale-factor=1",
                 "--hide-scrollbars",
                 "--proxy-server=" + DEAD_PROXY,
-                "--proxy-bypass-list=" + PROXY_BYPASS_LOOPBACK,
+                "--proxy-bypass-list=" + proxyBypassListFor(allowedOrigin),
+                // DevTools over a pipe instead of an ephemeral localhost TCP port, so no other
+                // local process can attach to the render browser's control channel.
+                "--remote-debugging-pipe",
                 "--disable-background-networking",
                 "--disable-extensions",
                 "--no-first-run",
@@ -397,6 +404,20 @@ public class EFormBrowserPdfRenderer {
         loggingPreferences.enable(LogType.BROWSER, Level.SEVERE);
         options.setCapability("goog:loggingPrefs", loggingPreferences);
         return options;
+    }
+
+    /**
+     * Builds the port-scoped proxy bypass for the validated loopback origin. Only the
+     * application's own {@code host:port} escapes the dead proxy; other loopback ports stay
+     * behind it, so a malicious form cannot even send one-shot requests at other local services.
+     */
+    static String proxyBypassListFor(String allowedOrigin) {
+        URI uri = URI.create(allowedOrigin);
+        int port = uri.getPort();
+        if (port == -1) {
+            port = "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+        }
+        return "127.0.0.1:" + port + ";localhost:" + port + ";[::1]:" + port;
     }
 
     static boolean sandboxDisabled() {

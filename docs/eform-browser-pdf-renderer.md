@@ -49,11 +49,17 @@ typical for containerized Tomcat.
 
 ## Security model
 
-- **Loopback-only egress, enforced twice.** Chromium launches with a dead proxy
-  (`--proxy-server=http://127.0.0.1:1`) and a loopback bypass list, so the browser physically
-  cannot reach non-loopback hosts. Independently, the renderer replays Chrome's network log and
-  **fails the render** if any request targeted an origin other than the configured loopback base
-  — a form whose content tries (or needs) to fetch elsewhere is never silently faxed.
+- **Loopback-only egress, enforced twice — scoped to the application's own port.** Chromium
+  launches with a dead proxy (`--proxy-server=http://127.0.0.1:1`) whose bypass list is exactly
+  the app's own loopback `host:port` (`127.0.0.1:<port>;localhost:<port>;[::1]:<port>`), so the
+  browser physically cannot reach non-loopback hosts *or other local services on different
+  ports* — such requests are blocked before they are sent. Independently, the renderer replays
+  Chrome's network log and **fails the render** if any request targeted an origin other than the
+  configured loopback base — a form whose content tries (or needs) to fetch elsewhere is never
+  silently faxed.
+- **No attachable browser control channel.** Chromium runs with `--remote-debugging-pipe`, so
+  DevTools is a parent-process pipe rather than a localhost TCP port another local process could
+  connect to.
 - **`acceptInsecureCerts` is paired with the lockdown.** HTTPS connectors present certificates
   for the clinic's hostname, not `127.0.0.1`; the renderer accepts that mismatch so rendering
   works on TLS deployments. This is safe *only because* egress is loopback-locked — do not
@@ -68,6 +74,18 @@ typical for containerized Tomcat.
   console entries; otherwise the render fails with counts (never page content) in the log.
 - **PHI-safe diagnostics.** Log lines carry fdid, sanitized origin, and counters. URLs inside
   WebDriver error messages are redacted before logging.
+
+### Security operations note
+
+The containment layers split responsibility: the egress lockdown and fail-closed gates contain
+**malicious page content** (JS-level attacks), while the **Chromium sandbox** contains native
+browser exploits. The sandbox is off by default (`--no-sandbox`) because containerized Tomcat
+frequently lacks kernel user-namespace support — **enable it wherever the kernel allows** by
+setting `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true`. Because the renderer processes
+clinic-authored content, treat the pinned Chromium (and chromedriver) like any other
+security-patched dependency: keep it updated. Note the token design means the render browser
+holds no session cookies or credentials — a compromised render exposes only the content of the
+form being rendered.
 
 ## Output contract
 

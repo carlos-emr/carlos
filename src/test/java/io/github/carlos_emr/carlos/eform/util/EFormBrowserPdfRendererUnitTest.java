@@ -180,7 +180,8 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should pin egress lockdown and capture settings in the browser launch options")
     void shouldPinSecurityAndCaptureSettings_inChromeOptions() {
-        ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions("/opt/chromium/chrome", true);
+        ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(
+                "/opt/chromium/chrome", true, "http://127.0.0.1:8080");
 
         Map<String, Object> capabilities = options.asMap();
         assertThat(capabilities.get("acceptInsecureCerts")).isEqualTo(Boolean.TRUE);
@@ -194,7 +195,8 @@ class EFormBrowserPdfRendererUnitTest {
         assertThat(args)
                 .contains("--headless=new")
                 .contains("--proxy-server=" + EFormBrowserPdfRenderer.DEAD_PROXY)
-                .contains("--proxy-bypass-list=" + EFormBrowserPdfRenderer.PROXY_BYPASS_LOOPBACK)
+                .contains("--proxy-bypass-list=127.0.0.1:8080;localhost:8080;[::1]:8080")
+                .contains("--remote-debugging-pipe")
                 .contains("--window-size=1800,3200")
                 .contains("--force-device-scale-factor=1")
                 .contains("--no-sandbox");
@@ -203,13 +205,25 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should keep the sandbox enabled when the sandbox environment opt-in is honoured")
     void shouldKeepSandboxEnabled_whenSandboxOptInRequested() {
-        ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(null, false);
+        ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(null, false, "http://127.0.0.1:8080");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> chromeOptions = (Map<String, Object>) options.asMap().get("goog:chromeOptions");
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) chromeOptions.get("args");
         assertThat(args).doesNotContain("--no-sandbox");
+    }
+
+    @Test
+    @DisplayName("should scope the proxy bypass to the application's own loopback port")
+    void shouldScopeProxyBypass_toApplicationLoopbackPort() {
+        assertThat(EFormBrowserPdfRenderer.proxyBypassListFor("http://127.0.0.1:8080"))
+                .isEqualTo("127.0.0.1:8080;localhost:8080;[::1]:8080");
+        // Default ports are made explicit so other loopback ports never match the bypass.
+        assertThat(EFormBrowserPdfRenderer.proxyBypassListFor("http://127.0.0.1"))
+                .isEqualTo("127.0.0.1:80;localhost:80;[::1]:80");
+        assertThat(EFormBrowserPdfRenderer.proxyBypassListFor("https://127.0.0.1"))
+                .isEqualTo("127.0.0.1:443;localhost:443;[::1]:443");
     }
 
     @Test

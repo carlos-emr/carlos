@@ -61,7 +61,8 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
         ChromeDriver driver = null;
         Path tempDir = Files.createTempDirectory("eform-selenium-smoke-");
         try {
-            ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(chromiumBinary, true);
+            String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
+            ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(chromiumBinary, true, allowedOrigin);
             driver = startDriverOrSkip(options);
             driver.manage().timeouts()
                     .pageLoadTimeout(Duration.ofSeconds(30))
