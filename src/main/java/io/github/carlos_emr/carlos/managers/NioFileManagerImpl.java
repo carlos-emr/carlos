@@ -211,13 +211,18 @@ public class NioFileManagerImpl implements NioFileManager {
         // Define the allowed base directory for documents
         Path baseDocumentPath = Paths.get(baseDocumentDir()).normalize().toAbsolutePath();
 
-        // Validate and normalize the source directory - allow either document storage or approved temp paths.
+        // Validate and normalize the source directory - allow either document storage or a
+        // CARLOS-owned temp preview path. The temp branch is scoped to application-owned temp
+        // subtrees (isInApplicationTempDirectory), not the whole shared temp root, so a caller with
+        // _edoc/_fax READ cannot point the renderer at an unrelated file another process left in
+        // java.io.tmpdir or Tomcat work (cubic SCQPk). Legitimate fax previews are produced under
+        // those CARLOS-owned roots by saveTempFile / the eForm browser renderer.
         Path normalizedSourceDir;
         boolean sourceDirectoryInAllowedTemp = false;
         try {
             normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
 
-            if (PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
+            if (PathValidationUtils.isInApplicationTempDirectory(normalizedSourceDir.toFile())) {
                 sourceDirectoryInAllowedTemp = true;
             } else {
                 normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
@@ -252,7 +257,7 @@ public class NioFileManagerImpl implements NioFileManager {
             // Ensure source file is within the source directory and, for temp previews, remains in an approved temp location.
             try {
                 sourceFile = PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
-                if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInAllowedTempDirectory(sourceFile.toFile())) {
+                if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInApplicationTempDirectory(sourceFile.toFile())) {
                     log.error("Source file is outside allowed temp path");
                     return null;
                 }
@@ -421,6 +426,17 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     /**
+     * Returns (creating if absent) the CARLOS-owned temporary root beneath {@code java.io.tmpdir}.
+     * Application-generated temp files (e.g. fax-preview PDFs) live under this named root so the fax
+     * preview endpoints can accept them via {@link PathValidationUtils#isInApplicationTempDirectory}
+     * without trusting the entire shared temp space.
+     */
+    private static Path applicationTempParent() throws IOException {
+        Path parent = Paths.get(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+        return Files.createDirectories(parent);
+    }
+
+    /**
      * Save a file to the temporary directory from ByteArrayOutputStream
      *
      * @throws IOException
@@ -428,7 +444,7 @@ public class NioFileManagerImpl implements NioFileManager {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path saveTempFile(final String fileName, ByteArrayOutputStream os, String fileType) throws IOException {
-        Path directory = Files.createTempDirectory(TEMP_PDF_DIRECTORY + System.currentTimeMillis());
+        Path directory = Files.createTempDirectory(applicationTempParent(), TEMP_PDF_DIRECTORY + System.currentTimeMillis());
         if (fileType == null) {
             fileType = DEFAULT_FILE_SUFFIX;
         }
@@ -457,8 +473,8 @@ public class NioFileManagerImpl implements NioFileManager {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path createTempFile(final String fileName, ByteArrayOutputStream os) throws IOException {
         String sanitizedName = new File(fileName).getName();
-        
-        Path directory = Files.createTempDirectory(DEFAULT_GENERIC_TEMP + System.currentTimeMillis());
+
+        Path directory = Files.createTempDirectory(applicationTempParent(), DEFAULT_GENERIC_TEMP + System.currentTimeMillis());
         Path file = directory.resolve(sanitizedName).normalize();
 
         // Ensure the resolved path is still within the temp directory

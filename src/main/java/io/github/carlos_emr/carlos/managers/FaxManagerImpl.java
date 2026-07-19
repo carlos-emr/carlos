@@ -298,8 +298,11 @@ public class FaxManagerImpl implements FaxManager {
         String senderFaxNumber = (String) faxJobMap.get("senderFaxNumber");
         Integer demographicNo = (Integer) faxJobMap.get("demographicNo");
 
-        // Promote renderer/upload temp files into the permanent document store before queuing.
-        if (faxFilePath != null && PathValidationUtils.isInAllowedTempDirectory(new File(faxFilePath))) {
+        // Promote CARLOS-owned renderer/preview temp files into the permanent document store before
+        // queuing. Scoped to application-owned temp subtrees (not the whole shared temp root) so a
+        // caller-supplied faxFilePath cannot promote and fax out an unrelated file another process
+        // left in java.io.tmpdir or Tomcat work (cubic SCQPk).
+        if (faxFilePath != null && PathValidationUtils.isInApplicationTempDirectory(new File(faxFilePath))) {
             String promoted = nioFileManager.copyFileToOscarDocuments(faxFilePath);
             // copyFileToOscarDocuments returns null when promotion fails. Follow the same controlled
             // error path as resolveAndValidateFilePath below — return an ERROR-status FaxJob rather
@@ -817,7 +820,9 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         File file = new File(filePath);
-        if (PathValidationUtils.isInAllowedTempDirectory(file)) {
+        // Accept CARLOS-owned temp previews only, not the entire shared temp root, so a caller
+        // cannot name an unrelated temp file for preview/fax (cubic SCQPk).
+        if (PathValidationUtils.isInApplicationTempDirectory(file)) {
             return;
         }
 
@@ -848,7 +853,8 @@ public class FaxManagerImpl implements FaxManager {
 
         File file = new File(filePath);
         Path resolvedPath;
-        if (PathValidationUtils.isInAllowedTempDirectory(file)) {
+        // Accept CARLOS-owned temp previews only, not the entire shared temp root (cubic SCQPk).
+        if (PathValidationUtils.isInApplicationTempDirectory(file)) {
             resolvedPath = file.getCanonicalFile().toPath();
         } else {
             File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));

@@ -110,7 +110,10 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         System.setProperty("java.io.tmpdir", tempRoot.toString());
         try {
             resetAllowedTempDirectoriesCache();
-            Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
+            // The eForm browser renderer writes under a CARLOS-owned temp subtree; place the fixture
+            // there so it satisfies the application-owned temp boundary the fax flow now enforces.
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
             Path copiedPdf = Path.of("/var/lib/OscarDocument/oscar/document", tempPdf.getFileName().toString());
             when(nioFileManager.copyFileToOscarDocuments(tempPdf.toString())).thenReturn(copiedPdf.toString());
             doReturn(copiedPdf).when(manager).resolveAndValidateFilePath(copiedPdf.toString());
@@ -146,7 +149,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         System.setProperty("java.io.tmpdir", tempRoot.toString());
         try {
             resetAllowedTempDirectoriesCache();
-            Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
 
             Path resolved = manager.resolveAndValidateFilePath(tempPdf.toString());
 
@@ -177,6 +181,31 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             System.setProperty("java.io.tmpdir", originalTmpDir);
             resetAllowedTempDirectoriesCache();
             Files.deleteIfExists(outsideFile);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a temp file inside the shared temp root that is not CARLOS-owned")
+    void shouldRejectFilePath_whenInSharedTempButNotApplicationOwned() throws Exception {
+        Path tempRoot = Files.createTempDirectory("fax-shared-temp-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        try {
+            resetAllowedTempDirectoriesCache();
+            // A file directly under the shared temp root (not under a carlos-owned subtree) must be
+            // rejected even though it is inside an allowed temp root (cubic SCQPk).
+            Path foreignPdf = Files.createTempFile(tempRoot, "foreign-", ".pdf");
+
+            assertThatThrownBy(() -> manager.resolveAndValidateFilePath(foreignPdf.toString()))
+                    .isInstanceOf(SecurityException.class);
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
         }
     }
 

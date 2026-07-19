@@ -952,9 +952,11 @@ public class EFormBrowserPdfRenderer {
      *
      * <p>The rendered PDF is later reused by the fax flow as {@code faxFilePath}, and
      * {@code FaxManagerImpl.validateFilePath}/{@code resolveAndValidateFilePath} only accept files
-     * under {@code DOCUMENT_DIR} or {@link PathValidationUtils#isInAllowedTempDirectory(File)}
-     * (java.io.tmpdir and the Tomcat work directories). The renderer therefore must keep its
-     * output inside those already-whitelisted temp locations; do not add roots (such as
+     * under {@code DOCUMENT_DIR} or a CARLOS application-owned temp subtree
+     * ({@link PathValidationUtils#isInApplicationTempDirectory(File)}) — not the entire shared temp
+     * root. The roots returned here ({@code <catalina.base>/work/carlos/eform-browser-pdf-temp} and
+     * {@code <java.io.tmpdir>/carlos-eform-browser-pdf-temp}) are CARLOS-owned and satisfy that
+     * check; do not move renderer output to a non-{@code carlos}-owned temp location (or to
      * {@code BASE_DOCUMENT_DIR}, removed for exactly this reason) that fax path validation rejects.</p>
      */
     static Path resolveRendererTempRoot(String catalinaBase, String javaTmpDir) {

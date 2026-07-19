@@ -655,6 +655,46 @@ class PathValidationUtilsUnitTest {
 
             assertThat(PathValidationUtils.isInAllowedTempDirectory(outsideFile)).isFalse();
         }
+
+        @Test
+        @DisplayName("should report null file as not in an application temp directory")
+        void shouldReturnFalse_forApplicationTemp_whenFileIsNull() {
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should report a file under the CARLOS-owned temp root as an application temp file")
+        void shouldReturnTrue_whenFileIsUnderCarlosOwnedTempRoot() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path appRoot = Files.createDirectories(
+                    Path.of(systemTempDir, PathValidationUtils.APPLICATION_TEMP_ROOT_NAME, "app-temp-positive-"));
+            File appFile = Files.createTempFile(appRoot, "generated-", ".pdf").toFile();
+            appFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(appFile)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should report a file under the renderer temp root as an application temp file")
+        void shouldReturnTrue_whenFileIsUnderRendererTempRoot() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path rendererRoot = Files.createDirectories(
+                    Path.of(systemTempDir, "carlos-eform-browser-pdf-temp"));
+            File rendererFile = Files.createTempFile(rendererRoot, "eform-browser-render-", ".pdf").toFile();
+            rendererFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(rendererFile)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not report a bare system temp file as an application temp file")
+        void shouldReturnFalse_whenFileIsInSharedTempButNotCarlosOwned() throws IOException {
+            File tempFile = Files.createTempFile("shared-not-carlos-", ".tmp").toFile();
+            tempFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInAllowedTempDirectory(tempFile)).isTrue();
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(tempFile)).isFalse();
+        }
     }
 
     // ========================================================================

@@ -63,6 +63,23 @@ public final class PathValidationUtils {
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of(
             "jsp", "jspx", "war", "class", "jar", "jnlp");
 
+    /**
+     * Directory name of the CARLOS-owned temporary root beneath {@code java.io.tmpdir} into which the
+     * application writes its own generated PDFs (see {@code NioFileManagerImpl.saveTempFile}). Keeping
+     * these under a single named root lets {@link #isInApplicationTempDirectory(File)} distinguish
+     * CARLOS-generated temp files from arbitrary files elsewhere in the shared temp roots.
+     */
+    public static final String APPLICATION_TEMP_ROOT_NAME = "carlos-temp";
+
+    /**
+     * First-path-segment names (immediately below a matched allowed temp root) that denote a
+     * CARLOS-owned temporary subtree. {@code carlos-temp} is written by {@code saveTempFile};
+     * {@code carlos-eform-browser-pdf-temp} (under {@code java.io.tmpdir}) and {@code carlos} (under
+     * Tomcat {@code work/}) are written by the eForm browser PDF renderer.
+     */
+    private static final Set<String> APPLICATION_TEMP_SEGMENTS =
+            Set.of(APPLICATION_TEMP_ROOT_NAME, "carlos-eform-browser-pdf-temp", "carlos");
+
     private static final Logger logger = MiscUtils.getLogger();
 
     /**
@@ -822,6 +839,49 @@ public final class PathValidationUtils {
             return false;
         } catch (IOException e) {
             logger.error("Error validating file path", e);
+            return false;
+        }
+    }
+
+    /**
+     * Checks if a file resides within a CARLOS <em>application-owned</em> temporary subtree — a
+     * stricter boundary than {@link #isInAllowedTempDirectory(File)}.
+     *
+     * <p>{@link #isInAllowedTempDirectory(File)} accepts the entire shared temp roots
+     * ({@code java.io.tmpdir}, Tomcat {@code work}), which is appropriate for container-managed
+     * uploads. That is too broad, however, for endpoints that render or stream a caller-named temp
+     * file back to the user: any file another process left in the shared temp root would then be
+     * exposed. This method narrows acceptance to the temp subtrees CARLOS creates itself — the
+     * {@link #APPLICATION_TEMP_ROOT_NAME} root written by {@code NioFileManagerImpl.saveTempFile}
+     * and the {@code carlos-eform-browser-pdf-temp} / {@code work/carlos} roots written by the eForm
+     * browser PDF renderer — so a caller cannot point such an endpoint at an unrelated file
+     * elsewhere in the shared temp space.</p>
+     *
+     * @param file the file to check
+     * @return true if the file is within a CARLOS-owned temp subtree, false otherwise
+     */
+    public static boolean isInApplicationTempDirectory(File file) {
+        if (file == null) {
+            return false;
+        }
+
+        try {
+            String canonicalPath = file.getCanonicalPath();
+            for (String allowedDir : getAllowedTempDirectories()) {
+                String prefix = allowedDir + File.separator;
+                if (!canonicalPath.startsWith(prefix)) {
+                    continue;
+                }
+                String remainder = canonicalPath.substring(prefix.length());
+                int separatorIndex = remainder.indexOf(File.separatorChar);
+                String firstSegment = separatorIndex >= 0 ? remainder.substring(0, separatorIndex) : remainder;
+                if (APPLICATION_TEMP_SEGMENTS.contains(firstSegment)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (IOException e) {
+            logger.error("Error validating application temp path", e);
             return false;
         }
     }

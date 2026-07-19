@@ -214,10 +214,10 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("Creates preview images for approved temp PDFs used by fax rendering")
-    void shouldCreateCacheVersion_whenSourcePdfIsInAllowedTempDirectory() throws IOException {
-        allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-preview-");
-        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
-                "test temp directory must resolve inside an allowed temp directory");
+    void shouldCreateCacheVersion_whenSourcePdfIsInApplicationTempDirectory() throws IOException {
+        allowedTempDir = createApplicationTempDirectory("nio-cache-preview-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside a CARLOS-owned temp directory");
         Files.createDirectories(getDocumentCacheDirectory());
         Path sourcePdf = allowedTempDir.resolve("fax-preview-unique.pdf");
         Path expectedCache = getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png");
@@ -238,11 +238,11 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("Scopes the preview cache to the source directory so a reused filename cannot leak another document")
     void shouldScopeCacheToSourceDirectory_whenTwoTempSourcesReuseAFilename() throws IOException {
-        Path firstSource = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-collide-a-");
-        Path secondSource = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-collide-b-");
-        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(firstSource.toFile())
-                        && PathValidationUtils.isInAllowedTempDirectory(secondSource.toFile()),
-                "test temp directories must resolve inside an allowed temp directory");
+        Path firstSource = createApplicationTempDirectory("nio-cache-collide-a-");
+        Path secondSource = createApplicationTempDirectory("nio-cache-collide-b-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(firstSource.toFile())
+                        && PathValidationUtils.isInApplicationTempDirectory(secondSource.toFile()),
+                "test temp directories must resolve inside a CARLOS-owned temp directory");
         Files.createDirectories(getDocumentCacheDirectory());
 
         // Same filename, distinct source directories: the collision case the source-scoped key closes.
@@ -270,6 +270,35 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             deleteQuietly(firstSource);
             deleteQuietly(secondSource);
         }
+    }
+
+    @Test
+    @DisplayName("Rejects preview sources in the shared temp root that are not CARLOS-owned")
+    void shouldReturnNull_whenSourceIsInSharedTempButNotApplicationOwned() throws IOException {
+        // A directory directly under java.io.tmpdir (not under carlos-temp) is inside the broad
+        // allowed temp root but is NOT a CARLOS-owned preview area — an unrelated file another
+        // process could leave there must not be renderable via the fax-preview path (cubic SCQPk).
+        Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-temp-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(foreignDir.toFile())
+                        && !PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),
+                "foreign dir must be in the shared temp root but not CARLOS-owned");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path foreignPdf = foreignDir.resolve("foreign.pdf");
+        createSinglePagePdf(foreignPdf);
+
+        try {
+            Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, foreignDir.toString(), "foreign.pdf", 1);
+            assertThat(cacheVersion).isNull();
+        } finally {
+            deleteQuietly(foreignPdf);
+            deleteQuietly(foreignDir);
+        }
+    }
+
+    private static Path createApplicationTempDirectory(String prefix) throws IOException {
+        Path applicationParent = Files.createDirectories(
+                Path.of(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+        return Files.createTempDirectory(applicationParent, prefix);
     }
 
     private static void deleteQuietly(Path path) {
