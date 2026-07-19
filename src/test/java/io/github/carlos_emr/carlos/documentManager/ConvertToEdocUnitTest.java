@@ -131,8 +131,14 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should preserve oscar image path resources when backing files exist")
     void shouldPreserveOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
-        Path imageDirectory = Path.of(CarlosProperties.getInstance().getEformImageDirectory());
+        // Point the eform image root at this test's @TempDir so the ${oscar_image_path} backing
+        // files are created and resolved in an isolated, auto-cleaned location rather than the real
+        // configured image store. ConvertToEdoc resolves the directory live, so this override takes
+        // effect for the getDocument() call below; restored in the finally block.
+        String originalEformImagesDir = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
+        Path imageDirectory = tempDir.resolve("eform-images");
         Files.createDirectories(imageDirectory);
+        CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", imageDirectory.toString());
         Path image = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.png");
         Path script = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.js");
         Files.writeString(image, "png-placeholder");
@@ -149,8 +155,12 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
                     .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.png")
                     .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.js");
         } finally {
-            Files.deleteIfExists(image);
-            Files.deleteIfExists(script);
+            // Properties.setProperty rejects null, so a previously-unset value is cleared from the map.
+            if (originalEformImagesDir == null) {
+                CarlosProperties.getInstance().remove("EFORM_IMAGES_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", originalEformImagesDir);
+            }
         }
     }
 

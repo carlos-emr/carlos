@@ -70,13 +70,23 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     Path tempDir;
 
     private String originalHeadless;
+    private String originalBaseDocumentDir;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         // Force headless so ImageIO/AWT cache rendering works in CI; capture the prior value so
         // tearDown can restore it and this global property does not leak into other tests' JVM.
         originalHeadless = System.getProperty("java.awt.headless");
         System.setProperty("java.awt.headless", "true");
+        // Point the document root at this test's @TempDir so the fax-preview cache writes land in
+        // an isolated, auto-cleaned location rather than the real configured document store. The
+        // production resolver (NioFileManagerImpl#baseDocumentDir) reads this property live, so the
+        // override takes effect without a redeploy; captured here for restoration in tearDown.
+        originalBaseDocumentDir = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", tempDir.toString());
+        // getDocumentCacheDirectory() creates a single-level "document_cache" dir under <base>/carlos,
+        // so the parent context directory must already exist.
+        Files.createDirectories(tempDir.resolve("carlos"));
         nioFileManager = new NioFileManagerImpl();
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
@@ -111,6 +121,13 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             System.clearProperty("java.awt.headless");
         } else {
             System.setProperty("java.awt.headless", originalHeadless);
+        }
+        // Restore the document root. Properties.setProperty rejects null, so a previously-unset
+        // value is cleared from the map rather than re-set.
+        if (originalBaseDocumentDir == null) {
+            CarlosProperties.getInstance().remove("BASE_DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("BASE_DOCUMENT_DIR", originalBaseDocumentDir);
         }
     }
 

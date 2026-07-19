@@ -80,7 +80,15 @@ public class NioFileManagerImpl implements NioFileManager {
     private static final String TEMP_PDF_DIRECTORY = "tempPDF";
     private static final String DEFAULT_FILE_SUFFIX = "pdf";
     private static final String DEFAULT_GENERIC_TEMP = "tempDirectory";
-    private static final String BASE_DOCUMENT_DIR = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+
+    /**
+     * Resolves the configured document root on each call rather than capturing it in a load-time
+     * {@code static final}, so a test can point it at an isolated temporary directory (and so a
+     * reconfigured root is picked up without a redeploy).
+     */
+    private static String baseDocumentDir() {
+        return CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+    }
 
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum) {
 
@@ -152,7 +160,7 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        Path cacheDir = Paths.get(BASE_DOCUMENT_DIR, context.getContextPath(), DOCUMENT_CACHE_DIRECTORY);
+        Path cacheDir = Paths.get(baseDocumentDir(), context.getContextPath(), DOCUMENT_CACHE_DIRECTORY);
 
         if (!Files.exists(cacheDir)) {
             try {
@@ -199,7 +207,7 @@ public class NioFileManagerImpl implements NioFileManager {
             }
             
             // Define the allowed base directory for documents
-            Path baseDocumentPath = Paths.get(BASE_DOCUMENT_DIR).normalize().toAbsolutePath();
+            Path baseDocumentPath = Paths.get(baseDocumentDir()).normalize().toAbsolutePath();
 
             // Validate and normalize the source directory - allow either document storage or approved temp paths.
             Path normalizedSourceDir;
@@ -568,7 +576,7 @@ public class NioFileManagerImpl implements NioFileManager {
     private String getDocumentDirectory() {
         String document_dir = DOCUMENT_DIRECTORY;
         if (document_dir == null || !Files.isDirectory(Paths.get(document_dir))) {
-            document_dir = String.valueOf(Paths.get(BASE_DOCUMENT_DIR, "document"));
+            document_dir = String.valueOf(Paths.get(baseDocumentDir(), "document"));
         }
         return document_dir;
     }

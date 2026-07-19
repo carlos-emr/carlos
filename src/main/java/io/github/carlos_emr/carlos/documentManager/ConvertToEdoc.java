@@ -101,7 +101,6 @@ public final class ConvertToEdoc {
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
     private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
-    private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", CarlosProperties.getInstance().getEformImageDirectory());
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
@@ -1117,12 +1116,16 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * fetch the default EForm image directory in the host file system
+     * Fetches the configured EForm image directory in the host file system.
+     *
+     * <p>Resolved live on each call (via {@link CarlosProperties#getEformImageDirectory()}) rather
+     * than captured in a load-time {@code static final}, so a reconfigured image root is picked up
+     * without a redeploy and a test can point it at an isolated temporary directory.</p>
      *
      * @return String directory path
      */
     private static String getImageDirectory() {
-        return DEFAULT_IMAGE_DIRECTORY;
+        return CarlosProperties.getInstance().getEformImageDirectory();
     }
 
     /**
