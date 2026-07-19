@@ -63,8 +63,8 @@ import static org.mockito.Mockito.when;
 class EFormViewForPdfGenerationServletUnitTest {
 
     @Test
-    @DisplayName("should redeem a browser renderer grant exactly once for the bound eForm")
-    void shouldRedeemRenderGrantOnce_whenValidRenderTokenPresented() {
+    @DisplayName("should redeem a render grant repeatedly for the bound eForm within one render")
+    void shouldRedeemRenderGrantRepeatedly_whenValidRenderTokenPresented() {
         String token = EFormRenderTokenService.getInstance().issue(187, "999998");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
         request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
@@ -74,8 +74,13 @@ class EFormViewForPdfGenerationServletUnitTest {
         assertThat(grant).isNotNull();
         assertThat(grant.providerNo()).isEqualTo("999998");
         assertThat(request.getSession(false)).isNull();
-        // A grant is consume-once: replaying the same token must fail.
-        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNull();
+        // Render-scoped, not consume-once: the eForm document and its asset-image subresources
+        // redeem the same grant, so a replay succeeds until the renderer invalidates the token.
+        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187))
+                .as("render-scoped grant redeems repeatedly").isNotNull();
+        EFormRenderTokenService.getInstance().invalidate(token);
+        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187))
+                .as("invalidated grant no longer redeems").isNull();
     }
 
     @Test
@@ -95,8 +100,10 @@ class EFormViewForPdfGenerationServletUnitTest {
         request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
 
         assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 999)).isNull();
-        // Redemption against the wrong fdid burns the token: fail-closed, no second chance.
-        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNull();
+        // An fdid mismatch fails closed but does not burn the render-scoped token; the eForm it was
+        // actually minted for still redeems.
+        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNotNull();
+        EFormRenderTokenService.getInstance().invalidate(token);
     }
 
     @Test
@@ -235,13 +242,46 @@ class EFormViewForPdfGenerationServletUnitTest {
                 List.of(letter),
                 "/carlos",
                 "carlos",
-                true);
+                true,
+                null);
 
         assertThat(html)
                 .contains("position:absolute; margin-top:35px;")
                 .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
                 .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
                 .contains("<body style='width:640px;'>");
+    }
+
+    @Test
+    @DisplayName("should append the render grant to image asset URLs when rendering")
+    void shouldAppendRenderToken_whenBrowserRenderingImageBearingForm() {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>("");
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+
+        EFormValue letter = new EFormValue();
+        letter.setVarName("Letter");
+        letter.setVarValue("<img src=\"../eform/displayImage?imagefile=bg.png\" />"
+                + "<img src=\"${oscar_image_path}logo.png\" />");
+
+        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
+                eForm,
+                List.of(letter),
+                "/carlos",
+                "carlos",
+                false,
+                "grant-abc123");
+
+        // Both the /eform/displayImage form and the ${oscar_image_path} form carry the grant so the
+        // sessionless render browser can fetch each asset image.
+        assertThat(html)
+                .contains("/carlos/EFormImageViewForPdfGenerationServlet?renderToken=grant-abc123&imagefile=bg.png")
+                .contains("/EFormImageViewForPdfGenerationServlet?renderToken=grant-abc123&imagefile=logo.png");
     }
 
     @Test
@@ -268,7 +308,8 @@ class EFormViewForPdfGenerationServletUnitTest {
                 List.of(signature, letter),
                 "/carlos",
                 "carlos",
-                false);
+                false,
+                null);
 
         assertThat(html)
                 .contains("/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42")

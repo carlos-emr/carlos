@@ -41,6 +41,37 @@ class EFormRenderTokenServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should return the grant repeatedly without removing it when peeking")
+    void shouldReturnGrantRepeatedly_whenPeeking() {
+        EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
+
+        String token = service.issue(187, "999998");
+
+        // A render fetches the document plus several asset images under one grant, so peek must be
+        // repeatable and must not remove the token.
+        EFormRenderTokenService.RenderGrant first = service.peek(token);
+        EFormRenderTokenService.RenderGrant second = service.peek(token);
+        assertThat(first).isNotNull();
+        assertThat(first.fdid()).isEqualTo(187);
+        assertThat(first.providerNo()).isEqualTo("999998");
+        assertThat(second).as("peek must be repeatable within a render").isNotNull();
+
+        // The renderer bounds the lifetime by invalidating the token when the render finishes.
+        service.invalidate(token);
+        assertThat(service.peek(token)).as("invalidated token must no longer peek").isNull();
+    }
+
+    @Test
+    @DisplayName("should return null when peeking unknown or empty tokens")
+    void shouldReturnNull_whenPeekingUnknownOrEmptyTokens() {
+        EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
+
+        assertThat(service.peek(null)).isNull();
+        assertThat(service.peek("")).isNull();
+        assertThat(service.peek("never-issued")).isNull();
+    }
+
+    @Test
     @DisplayName("should expire unredeemed grants after the token time to live")
     void shouldExpireGrant_afterTimeToLive() {
         AtomicLong nowNanos = new AtomicLong(0);

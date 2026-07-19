@@ -11,10 +11,13 @@ anywhere on the server**.
 ```
 EformDataManagerImpl.createEformPDF (checks _eform read privilege)
   └─ EFormBrowserPdfRenderer.renderSavedEformPdf(fdid, providerNo)
-       ├─ mints a single-use render token (EFormRenderTokenService, 2-min TTL, consume-once)
+       ├─ mints a render-scoped render token (EFormRenderTokenService, 2-min TTL)
        ├─ launches headless Chromium via Selenium ChromeDriver (fresh browser per render)
        ├─ navigates over loopback to /EFormViewForPdfGenerationServlet?fdid=…&browserRender=true&renderToken=…
-       │    └─ servlet enforces: loopback remote address + token redemption bound to the fdid
+       │    ├─ servlet enforces: loopback remote address + token grant bound to the fdid
+       │    └─ rewrites the eForm's ${oscar_image_path}/displayImage asset URLs to
+       │         /EFormImageViewForPdfGenerationServlet?renderToken=…&imagefile=…, so the sessionless
+       │         browser fetches each background/asset image under the same grant (loopback + token)
        ├─ stabilizes the page (fonts, images, animation frames), computes capture regions,
        │    takes clipped CDP screenshots (page-NNN.png)
        └─ assembles the captures into eform-browser-render-*.pdf with PDFBox
@@ -71,8 +74,17 @@ Environment: the renderer is **sandboxed by default** (see "Security operations"
   for the clinic's hostname, not `127.0.0.1`; the renderer accepts that mismatch so rendering
   works on TLS deployments. This is safe *only because* egress is loopback-locked — do not
   change either setting without the other.
-- **Single-use render tokens.** 32 random bytes, 2-minute TTL, atomically consumed on first
-  redemption, bound to one fdid. Unredeemed tokens are invalidated when a render finishes.
+- **Render-scoped render tokens.** 32 random bytes, 2-minute TTL, bound to one fdid. The grant is
+  *peeked* (not consumed) on each redemption so one render can authorize the eForm document plus its
+  loopback asset-image subresources — the render browser holds no session, so those sessionless
+  fetches authorize themselves with the same grant. The renderer invalidates the token when the
+  render finishes; the TTL is the backstop. `EFormImageViewForPdfGenerationServlet` accepts a live
+  grant as an alternative to a session **only** on the loopback path, and only for reads of shared
+  eForm template assets (backgrounds/JS/CSS) — never patient records.
+  `EFormSignatureViewForPdfGenerationServlet` (digital signatures — PHI) now **requires** a live
+  grant on the loopback path, closing the previous always-open by-id enumeration surface. In-render
+  script is contained by the egress lockdown, not the grant: a malicious form can read what its own
+  render sees but cannot send it anywhere.
 - **Fresh browser per render.** No cookies, storage, or cache can bleed between renders or
   users. `driver.quit()` in a `finally` block tears down chromedriver and Chromium.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
@@ -122,6 +134,22 @@ be reached by clinic-authored eForms.
 
 (The dev/CI Playwright check scripts under `scripts/` are separate test tooling; they run as root
 in CI and use their own `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX` opt-in — not this production knob.)
+
+## Known limitations and tracked follow-ups
+
+These are inherited from the original browser-render feature (PR #3164) and are intentionally
+**not** changed here, because a code change would be either behavior-breaking for rendering or an
+operational configuration matter:
+
+- **eForm HTML rewrites run on display and save, not only on render.** `EForm.setContextPath()` /
+  `getFormHtml()` normalize asset URLs on the ordinary display and save paths as well as the render
+  path, so saving can persist transformed HTML and perturb the `sameform` de-duplication. The render
+  path depends on these rewrites; narrowing them to render-only risks breaking rendering and belongs
+  in an upstream change with full display/save regression coverage. Tracked as a follow-up.
+- **Fax preview of page-image eForms needs `_edoc` write.** `CoverPage.jsp` builds the inline
+  preview page images via `createCacheVersion2`, which requires `_edoc` write. Fax users without
+  `_edoc` still get a working **Open PDF** link (soft degradation) — this is an operator
+  role-configuration note, not a defect.
 
 ## Output contract
 

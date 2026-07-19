@@ -323,6 +323,12 @@ public class EFormBrowserPdfRenderer {
 
             List<LogEntry> performanceEntries = new ArrayList<>();
             driver.get(baseUrl + appPath);
+            // Drain immediately after navigation so the main-document response is captured into our
+            // non-evicting list before any later request flood can push it out of Selenium's
+            // bounded internal buffer, then latch its status as a fallback for the final gate.
+            drainPerformanceLog(driver, performanceEntries);
+            Integer latchedMainStatus = scanNetworkEvents(
+                    performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
             awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
             settle(driver, deadlineNanos);
 
@@ -335,7 +341,7 @@ public class EFormBrowserPdfRenderer {
 
             captureRegions(driver, regions, outputDirectory, deadlineNanos);
             drainPerformanceLog(driver, performanceEntries);
-            enforceRenderGates(driver, performanceEntries, baseUrl, fdid);
+            enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid);
 
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
@@ -399,6 +405,12 @@ public class EFormBrowserPdfRenderer {
                 // or --disable-web-security here — either would let a malicious eForm read local
                 // files into the captured PDF.
                 "--disable-file-system",
+                // Close the WebRTC egress hole: RTCPeerConnection ICE/STUN/TURN is UDP and would
+                // bypass the HTTP dead proxy entirely (and emits none of the CDP network events the
+                // gate inspects), so a malicious eForm could exfiltrate DOM PHI over it while the
+                // render still succeeds. Disable the feature and force non-proxied UDP off.
+                "--disable-features=WebRtc",
+                "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
                 "--disable-background-networking",
                 "--disable-extensions",
                 "--no-first-run",
@@ -453,7 +465,18 @@ public class EFormBrowserPdfRenderer {
                 ChromeDriverService service = new ChromeDriverService.Builder()
                         .usingDriverExecutable(chromedriver)
                         .build();
-                return new ChromeDriver(service, options);
+                try {
+                    return new ChromeDriver(service, options);
+                } catch (RuntimeException e) {
+                    // Selenium starts the caller-owned service before session creation but does not
+                    // stop it if the ChromeDriver constructor throws (e.g. a sandboxed launch that
+                    // cannot start). Stop it here so a repeatedly-failing host cannot orphan
+                    // chromedriver processes.
+                    if (service.isRunning()) {
+                        service.stop();
+                    }
+                    throw e;
+                }
             }
             // No pinned chromedriver: Selenium Manager resolves one matching the browser. Intended
             // for dev/CI; production deployments should pin eform_pdf_browser_chromedriver_path.
@@ -579,13 +602,15 @@ public class EFormBrowserPdfRenderer {
     // Render gates (fail-closed): main-document status, loopback-only egress, console errors
     // ---------------------------------------------------------------------------------------------
 
-    private void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries, String baseUrl, int fdid)
-            throws PDFGenerationException {
+    private void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
+            Integer latchedMainStatus, String baseUrl, int fdid) throws PDFGenerationException {
         NetworkGateScan scan = scanNetworkEvents(
                 performanceEntries.stream().map(LogEntry::getMessage).toList(),
                 originOf(baseUrl));
         int disallowedRequests = scan.disallowedRequests();
-        Integer mainDocumentStatus = scan.mainDocumentStatus();
+        // Prefer the status seen in the final full scan; fall back to the value latched right after
+        // navigation so a mid-render perf-log flood cannot turn a good render into a status=null failure.
+        Integer mainDocumentStatus = scan.mainDocumentStatus() != null ? scan.mainDocumentStatus() : latchedMainStatus;
 
         int severeConsoleEntries = 0;
         try {
@@ -729,11 +754,16 @@ public class EFormBrowserPdfRenderer {
         if (text == null) {
             return null;
         }
-        return text.replaceAll("(?i)https?://[^\\s'\"<>]+", "[redacted-url]");
+        // Strip http(s) plus other schemes and bare filesystem paths that a WebDriver/settle error
+        // could embed, so no URL or local path reaches the logs.
+        return text
+                .replaceAll("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+", "[redacted-url]")
+                .replaceAll("(?<![\\w./])/[\\w./-]{2,}", "[redacted-path]");
     }
 
     private static void checkDeadline(long deadlineNanos) throws PDFGenerationException {
-        if (System.nanoTime() > deadlineNanos) {
+        // Difference comparison is nanoTime wrap-around safe, unlike a direct `>`.
+        if (System.nanoTime() - deadlineNanos > 0) {
             throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
         }
     }
@@ -901,10 +931,18 @@ public class EFormBrowserPdfRenderer {
             for (Path capture : stream) {
                 captures.add(capture);
             }
+            // Sort by the numeric page index, not lexically, so ordering is correct past 999 pages.
             return captures.stream()
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .sorted(Comparator.comparingInt(EFormBrowserPdfRenderer::capturePageIndex)
+                            .thenComparing(path -> path.getFileName().toString()))
                     .toList();
         }
+    }
+
+    private static int capturePageIndex(Path capture) {
+        String name = capture.getFileName().toString();
+        String digits = name.replaceAll("\\D", "");
+        return digits.isEmpty() ? Integer.MAX_VALUE : Integer.parseInt(digits);
     }
 
     static void convertCapturesToPdf(List<Path> captureFiles, Path outputPdfPath) throws PDFGenerationException {

@@ -91,11 +91,16 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         try {
             String fileName = validateRequestedFileName(request.getParameter("imagefile"));
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            if (loggedInInfo == null) {
+            if (loggedInInfo != null) {
+                enforceAssetReadPrivilege(loggedInInfo, fileName);
+            } else if (!hasValidRenderGrant(request)) {
+                // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
+                // by design (no session cookie ever enters the render browser). Such requests are
+                // authorized instead by a render-scoped grant that was minted only after an _eform
+                // privilege check, is loopback-only, and is invalidated when the render finishes.
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
-            enforceAssetReadPrivilege(loggedInInfo, fileName);
 
             File file = DisplayImage2Action.getImageFile(fileName);
             if (!file.exists() || !file.isFile()) {
@@ -125,6 +130,16 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                     "An internal error occurred. Please try again or contact your system administrator.",
                     "Unable to send internal-error response for EFormImageViewForPdfGenerationServlet");
         }
+    }
+
+    /**
+     * True when the request carries a live render-scoped grant. The grant authorizes the sessionless
+     * render browser to read shared eForm template assets (backgrounds, JS, CSS) over loopback for
+     * the duration of one render; it was issued only after an {@code _eform} privilege check.
+     */
+    private static boolean hasValidRenderGrant(HttpServletRequest request) {
+        String token = request.getParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM);
+        return EFormRenderTokenService.getInstance().peek(token) != null;
     }
 
     private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {

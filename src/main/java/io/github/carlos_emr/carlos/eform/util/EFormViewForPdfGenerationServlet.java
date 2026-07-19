@@ -47,11 +47,13 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String IMAGE_RENDERING_SERVLET_PATH = "/imageRenderingServlet";
-    private static final String PDF_SIGNATURE_SERVLET_PATH = "/EFormSignatureViewForPdfGenerationServlet";
+    private static final String SIGNATURE_VIEW_SERVLET_NAME = "EFormSignatureViewForPdfGenerationServlet";
+    private static final String PDF_SIGNATURE_SERVLET_PATH = "/" + SIGNATURE_VIEW_SERVLET_NAME;
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
     private static final String PROVIDER_ID_PARAM = "providerId";
-    /** Single-use render-grant parameter redeemed against {@link EFormRenderTokenService}. */
+    /** Render-scoped grant parameter redeemed against {@link EFormRenderTokenService}. */
     static final String RENDER_TOKEN_PARAM = "renderToken";
+    private static final String IMAGE_VIEW_SERVLET_NAME = "EFormImageViewForPdfGenerationServlet";
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -77,13 +79,17 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             }
 
             String providerId;
+            String renderToken = null;
             if (browserRender) {
                 EFormRenderTokenService.RenderGrant grant = redeemedRenderGrant(request, formDataId);
                 if (grant == null) {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires a valid single-use render token");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires a valid render token");
                     return;
                 }
                 providerId = grant.providerNo();
+                // Carry the grant forward onto the eForm's own asset URLs so the sessionless render
+                // browser can fetch its background/asset images under the same render-scoped token.
+                renderToken = request.getParameter(RENDER_TOKEN_PARAM);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
                 if (loggedInInfo == null) {
@@ -98,7 +104,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
             boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
 
-            String html = buildPdfHtmlForFdid(formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, prepareForFax);
+            String html = buildPdfHtmlForFdid(formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, prepareForFax, renderToken);
 
             HtmlResponse.of(HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET, html).writeTo(response);
         } catch (IOException e) {
@@ -120,9 +126,11 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
      * @param userAgent renderer user agent used by existing signature setup logic
      * @param providerId provider number used for provider-scoped signature rendering
      * @param prepareForFax true when fax preview positioning wrappers are required
+     * @param renderToken render-scoped grant appended to local asset URLs so the sessionless
+     *        render browser can fetch its images; null for the session-authenticated path
      * @return normalized HTML ready for the browser renderer
      */
-    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, boolean prepareForFax) {
+    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, boolean prepareForFax, String renderToken) {
         EForm eForm = new EForm(String.valueOf(formDataId));
         eForm.setSignatureCode(contextPath, userAgent, eForm.getDemographicNo(), providerId);
         eForm.setContextPath(contextPath);
@@ -131,7 +139,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
         String projectHome = CarlosProperties.getInstance().getProperty("project_home");
 
-        return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
+        return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax, renderToken);
     }
 
     /**
@@ -139,14 +147,16 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
      *
      * <p>Renderer requests carry no HTTP session by design. Authorization happened when
      * {@code EformDataManagerImpl} passed its {@code _eform} privilege check and minted a grant
-     * bound to this fdid; redemption is consume-once and fail-closed on any mismatch.</p>
+     * bound to this fdid. Redemption is render-scoped ({@code peek}, not consume) so the same grant
+     * also authorizes the eForm's loopback asset-image subresources during the render; the renderer
+     * invalidates the token when the render finishes. Fail-closed on any mismatch.</p>
      *
-     * @return the redeemed grant, or null when the token is missing, expired, already used, or
-     *         bound to a different saved eForm
+     * @return the grant, or null when the token is missing, expired, invalidated, or bound to a
+     *         different saved eForm
      */
     static EFormRenderTokenService.RenderGrant redeemedRenderGrant(HttpServletRequest request, int formDataId) {
         EFormRenderTokenService.RenderGrant grant =
-                EFormRenderTokenService.getInstance().consume(request.getParameter(RENDER_TOKEN_PARAM));
+                EFormRenderTokenService.getInstance().peek(request.getParameter(RENDER_TOKEN_PARAM));
         if (grant == null || grant.fdid() != formDataId) {
             logger.warn("Renderer request rejected: missing, expired, or mismatched render token");
             return null;
@@ -173,7 +183,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
     // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.
     @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
-    static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax) {
+    static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax, String renderToken) {
         applyLetterHtml(eForm, eFormValues, prepareForFax);
         applySignatureHtml(eForm, eFormValues, contextPath);
 
@@ -185,12 +195,33 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         eForm.setFormHtml(html);
         eForm.setImagePath(contextPath);
         html = eForm.getFormHtml();
-        String imageViewServletPath = contextPath + "/EFormImageViewForPdfGenerationServlet";
+        String imageViewServletPath = contextPath + "/" + IMAGE_VIEW_SERVLET_NAME;
         html = html.replace(contextPath + "/eform/displayImage", imageViewServletPath);
         html = html.replace("/eform/displayImage", imageViewServletPath);
+        html = appendRenderTokenToAssetUrls(html, renderToken);
         eForm.setFormHtml(html);
         eForm.setNowDateTime();
         return eForm.getFormHtml();
+    }
+
+    /**
+     * Appends the render-scoped grant to every eForm asset-servlet URL — background/asset images
+     * ({@code EFormImageViewForPdfGenerationServlet}) and digital signatures
+     * ({@code EFormSignatureViewForPdfGenerationServlet}) — so the sessionless render browser can
+     * fetch each subresource under the same grant. Every such URL has been normalized to
+     * {@code .../<servlet>?<params>} by this point, so one insertion at the {@code ?} boundary covers
+     * all forms ({@code ${oscar_image_path}}, {@code /eform/displayImage}, and the signature path).
+     * No-op on the session-authenticated path (null token). The token is URL-safe base64 (unpadded),
+     * so it is a safe query value and attribute content as-is.
+     */
+    private static String appendRenderTokenToAssetUrls(String html, String renderToken) {
+        if (renderToken == null || renderToken.isEmpty()) {
+            return html;
+        }
+        String tokenPrefix = "?" + RENDER_TOKEN_PARAM + "=" + renderToken + "&";
+        return html
+                .replace(IMAGE_VIEW_SERVLET_NAME + "?", IMAGE_VIEW_SERVLET_NAME + tokenPrefix)
+                .replace(SIGNATURE_VIEW_SERVLET_NAME + "?", SIGNATURE_VIEW_SERVLET_NAME + tokenPrefix);
     }
 
     private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues, boolean prepareForFax) {
@@ -239,7 +270,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private static String imageViewServletBase(String projectHome) {
-        return "/" + projectHome + "/EFormImageViewForPdfGenerationServlet";
+        return "/" + projectHome + "/" + IMAGE_VIEW_SERVLET_NAME;
     }
 
     private static String imageViewServletImagePrefix(String projectHome) {

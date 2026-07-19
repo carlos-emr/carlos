@@ -78,6 +78,61 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should stream a local eform background image for a sessionless render carrying a valid grant")
+    void shouldStreamLocalEformImage_withValidRenderGrantAndNoSession() throws Exception {
+        Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
+        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            Path image = tempDir.resolve("bg.png");
+            byte[] imageBytes = new byte[] {9, 8, 7, 6};
+            Files.write(image, imageBytes);
+
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+
+            // No SecurityInfoManager privilege stubbing: a sessionless render must authorize purely
+            // by the render-scoped grant, never by falling back to a privilege check.
+            registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+
+            try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+                carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+                request.setRemoteAddr("127.0.0.1");
+                request.setParameter("imagefile", "bg.png");
+                request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+                // No logged-in provider was installed, yet the render-scoped grant alone authorized
+                // the fetch: image streamed with no privilege check.
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+                assertThat(response.getContentType()).isEqualTo("image/png");
+                assertThat(response.getContentAsByteArray()).containsExactly(imageBytes);
+            }
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+            deleteTree(tempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a sessionless request whose render grant is unknown or expired")
+    void shouldRejectSessionlessRequest_whenRenderGrantInvalid() throws Exception {
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("imagefile", "bg.png");
+        request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, "never-issued-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
+    }
+
+    @Test
     @DisplayName("should reject authenticated requests without eform read privilege")
     void shouldRejectAuthenticatedRequest_whenEformReadPrivilegeMissing() throws Exception {
         Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");

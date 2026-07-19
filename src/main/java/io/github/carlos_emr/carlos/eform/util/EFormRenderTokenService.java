@@ -21,13 +21,21 @@ import java.util.Objects;
  * <p>The renderer's headless browser is a separate process with no HTTP session. Instead of
  * forwarding the requesting user's session cookie into that browser (which would let any script
  * on the rendered page act as the user), the caller mints an opaque token here <em>after</em> its
- * own {@code _eform} privilege check, and {@link EFormViewForPdfGenerationServlet} redeems it
- * exactly once for the bound {@code fdid}. This mirrors the pending-MFA cache-token pattern:
- * the token is a random capability reference, never a credential.</p>
+ * own {@code _eform} privilege check, and the PDF-render servlets redeem it for the bound
+ * {@code fdid}. This mirrors the pending-MFA cache-token pattern: the token is a random capability
+ * reference, never a credential.</p>
+ *
+ * <p><strong>Render-scoped, not single-use.</strong> A single render fetches several loopback
+ * subresources under the same token — the main eForm document plus its {@code ${oscar_image_path}}
+ * background/asset images (rendered via {@link EFormImageViewForPdfGenerationServlet}). Those
+ * subresource fetches carry no HTTP session, so they authorize themselves by
+ * {@link #peek(String)}ing the same grant. Redemption therefore does <em>not</em> remove the token;
+ * instead the renderer {@link #invalidate(String)}s it in its {@code finally} block, and the
+ * two-minute TTL bounds any leak. {@link #consume(String)} remains available for callers that want
+ * atomic remove-on-read semantics.</p>
  *
  * <p>Entries expire two minutes after issue — comfortably above the renderer's page budget and
- * far below any session lifetime. {@link #consume(String)} removes atomically so a token can
- * authorize at most one fetch even under concurrent redemption attempts.</p>
+ * far below any session lifetime.</p>
  */
 final class EFormRenderTokenService {
 
@@ -81,6 +89,21 @@ final class EFormRenderTokenService {
         }
         // Atomic remove so two concurrent redemption attempts cannot both observe the grant.
         return cache.asMap().remove(token);
+    }
+
+    /**
+     * Returns a token's grant <em>without</em> removing it, so the same render can authorize the
+     * eForm document and every loopback subresource it pulls (background/asset images) under one
+     * grant. The renderer bounds the lifetime by {@link #invalidate(String)}ing the token when the
+     * render finishes; the TTL is the backstop.
+     *
+     * @return the grant, or null when the token is unknown, expired, or invalidated
+     */
+    RenderGrant peek(String token) {
+        if (token == null || token.isEmpty()) {
+            return null;
+        }
+        return cache.getIfPresent(token);
     }
 
     /**

@@ -198,6 +198,9 @@ class EFormBrowserPdfRendererUnitTest {
                 .contains("--proxy-bypass-list=127.0.0.1:8080;localhost:8080;[::1]:8080")
                 .contains("--remote-debugging-pipe")
                 .contains("--disable-file-system")
+                // WebRTC (UDP) would bypass the HTTP proxy and the CDP gate — must be disabled.
+                .contains("--disable-features=WebRtc")
+                .contains("--force-webrtc-ip-handling-policy=disable_non_proxied_udp")
                 .contains("--window-size=1800,3200")
                 .contains("--force-device-scale-factor=1")
                 .contains("--no-sandbox")
@@ -290,6 +293,11 @@ class EFormBrowserPdfRendererUnitTest {
                 .doesNotContain("127.0.0.1")
                 .contains("[redacted-url]");
         assertThat(EFormBrowserPdfRenderer.redactUrls(null)).isNull();
+        // Non-http schemes and bare filesystem paths are redacted too.
+        assertThat(EFormBrowserPdfRenderer.redactUrls("open file:///etc/passwd failed"))
+                .doesNotContain("/etc/passwd").contains("[redacted-url]");
+        assertThat(EFormBrowserPdfRenderer.redactUrls("cannot read /var/lib/OscarDocument/secret.pdf"))
+                .doesNotContain("/var/lib/OscarDocument/secret.pdf").contains("[redacted-path]");
     }
 
     @Test

@@ -46,6 +46,18 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             return;
         }
 
+        // Digital signatures are PHI. The only live consumer is the server-side PDF renderer, whose
+        // sessionless browser fetches signature images over loopback under a render-scoped grant
+        // (minted only after an _eform privilege check, invalidated when the render finishes). Require
+        // that grant so this loopback endpoint is no longer a bare, always-open enumeration surface
+        // for any local process. The grant rides the signature URL the render servlet emits.
+        String token = request.getParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM);
+        if (EFormRenderTokenService.getInstance().peek(token) == null) {
+            logger.warn("Rejected EFormSignatureViewForPdfGenerationServlet request lacking a valid render grant");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
 
         try {
             // get signature image by digitalSignatureId
