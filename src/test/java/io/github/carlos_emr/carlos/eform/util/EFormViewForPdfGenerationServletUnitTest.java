@@ -29,21 +29,19 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -51,7 +49,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("eform")
-class EFormViewForPdfGenerationServletUnitTest {
+class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should redeem a render grant repeatedly for the bound eForm within one render")
@@ -132,15 +130,12 @@ class EFormViewForPdfGenerationServletUnitTest {
         installLoggedInInfo(request, "999998");
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
 
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+        LoggedInInfo authorized = invokeAuthorizedEformReadRequest(request);
 
-            LoggedInInfo authorized = invokeAuthorizedEformReadRequest(request);
-
-            assertThat(authorized).isNotNull();
-            assertThat(authorized.getLoggedInProviderNo()).isEqualTo("999998");
-        }
+        assertThat(authorized).isNotNull();
+        assertThat(authorized.getLoggedInProviderNo()).isEqualTo("999998");
     }
 
     @Test
@@ -150,12 +145,9 @@ class EFormViewForPdfGenerationServletUnitTest {
         installLoggedInInfo(request, "999998");
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
 
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
-
-            assertThat(invokeAuthorizedEformReadRequest(request)).isNull();
-        }
+        assertThat(invokeAuthorizedEformReadRequest(request)).isNull();
     }
 
     @Test

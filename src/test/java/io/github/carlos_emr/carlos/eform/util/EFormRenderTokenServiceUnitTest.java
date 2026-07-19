@@ -94,15 +94,31 @@ class EFormRenderTokenServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should expire unredeemed grants after the token time to live")
+    @DisplayName("should expire unredeemed grants just past the two-minute token time to live")
     void shouldExpireGrant_afterTimeToLive() {
         AtomicLong nowNanos = new AtomicLong(0);
         EFormRenderTokenService service = new EFormRenderTokenService(nowNanos::get);
 
         String token = service.issue(187, "999998");
-        nowNanos.addAndGet(java.time.Duration.ofMinutes(3).toNanos());
+        // Advance just past the two-minute TTL rather than an over-generous three minutes, so a
+        // regression that widened the TTL (e.g. to 2m30s) would fail this test instead of passing.
+        nowNanos.addAndGet(java.time.Duration.ofMinutes(2).plusSeconds(1).toNanos());
 
         assertThat(service.consume(token)).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep unredeemed grants live just before the two-minute token time to live")
+    void shouldKeepGrant_beforeTimeToLive() {
+        AtomicLong nowNanos = new AtomicLong(0);
+        EFormRenderTokenService service = new EFormRenderTokenService(nowNanos::get);
+
+        String token = service.issue(187, "999998");
+        // One second short of the two-minute TTL: the grant must still be redeemable, pinning the
+        // lower edge of the contract so a regression that shortened the TTL would be caught too.
+        nowNanos.addAndGet(java.time.Duration.ofSeconds(119).toNanos());
+
+        assertThat(service.peek(token)).isNotNull();
     }
 
     @Test

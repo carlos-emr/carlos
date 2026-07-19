@@ -209,7 +209,10 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
         assertThatCode(() -> new EFormImageViewForPdfGenerationServlet().doGet(request, response))
                 .doesNotThrowAnyException();
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        // The servlet rejects the traversal-shaped imagefile with SC_FORBIDDEN before sendError
+        // throws; a real container records the status before the write can fail, so assert the
+        // reject status rather than the mock's default 200.
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
     }
 
     @Test
@@ -270,6 +273,9 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     private static final class SendErrorFailingResponse extends MockHttpServletResponse {
         @Override
         public void sendError(int status, String errorMessage) throws IOException {
+            // Real containers record the status before flushing the error page can fail; mirror that
+            // so the status the servlet requested is observable even though the write throws.
+            setStatus(status);
             throw new IOException("boom");
         }
     }

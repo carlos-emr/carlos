@@ -107,7 +107,7 @@ class EFormBrowserPdfRendererUnitTest {
 
     @Test
     @DisplayName("should create a secure temporary renderer directory inside the managed temp root")
-    void shouldCreateSecureTemporaryRendererDirectory() throws IOException {
+    void shouldCreateSecureTempDirectory_insideManagedTempRoot() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-root-");
         Path directory = EFormBrowserPdfRenderer.createSecureTempDirectory(root, "eform-browser-render-test-");
         try {
@@ -128,7 +128,7 @@ class EFormBrowserPdfRendererUnitTest {
 
     @Test
     @DisplayName("should create a secure temporary renderer pdf file inside the managed temp root")
-    void shouldCreateSecureTemporaryRendererPdfFile() throws IOException {
+    void shouldCreateSecureTempFile_insideManagedTempRoot() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-root-");
         Path file = EFormBrowserPdfRenderer.createSecureTempFile(root, "eform-browser-render-test-", ".pdf");
         try {

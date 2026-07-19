@@ -76,6 +76,7 @@ class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
         Path actualPath = manager.getEformFaxDocument(loggedInInfo, 77);
 
         assertThat(actualPath).isEqualTo(expectedPath);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
         verify(eformDataManager).createEformPDF(loggedInInfo, 77);
     }
 
@@ -88,6 +89,7 @@ class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
         Path actualPath = manager.getEformFaxDocument(loggedInInfo, 77);
 
         assertThat(actualPath).isNull();
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
         verify(eformDataManager).createEformPDF(loggedInInfo, 77);
     }
 }

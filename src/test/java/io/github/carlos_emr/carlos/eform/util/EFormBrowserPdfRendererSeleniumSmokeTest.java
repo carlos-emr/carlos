@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import com.sun.net.httpserver.HttpServer;
@@ -41,6 +42,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.chromium.HasCdp;
@@ -130,11 +132,19 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
             assertThat(new String(header, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF");
             assertThat(Files.size(pdfPath)).isGreaterThan(1000);
         } finally {
-            if (driver != null) {
-                driver.quit();
+            // Nest so a throw from any one cleanup step still runs the rest (a failed driver.quit()
+            // must not leak the loopback server or orphan the temp dir).
+            try {
+                if (driver != null) {
+                    driver.quit();
+                }
+            } finally {
+                try {
+                    server.stop(0);
+                } finally {
+                    deleteRecursively(tempDir);
+                }
             }
-            server.stop(0);
-            deleteRecursively(tempDir);
         }
     }
 
@@ -177,21 +187,41 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
                     .as("local file:// image must not load into the render surface")
                     .isZero();
         } finally {
-            if (driver != null) {
-                driver.quit();
+            // Nest so a throw from any one cleanup step still runs the rest.
+            try {
+                if (driver != null) {
+                    driver.quit();
+                }
+            } finally {
+                try {
+                    server.stop(0);
+                } finally {
+                    Files.deleteIfExists(secret);
+                }
             }
-            server.stop(0);
-            Files.deleteIfExists(secret);
         }
     }
 
     private static ChromeDriver startDriverOrSkip(ChromeOptions options) {
         try {
             return new ChromeDriver(options);
-        } catch (RuntimeException e) {
-            // No matching chromedriver (offline host, unsupported browser build): skip, not fail.
-            assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
-            throw new IllegalStateException("unreachable");
+        } catch (WebDriverException e) {
+            // Skip ONLY when the driver/browser genuinely cannot start (offline host, no matching
+            // chromedriver, missing binary). Any other WebDriver failure — a bad options build, a
+            // Selenium regression, a browser that starts then crashes — must fail the test, not be
+            // silently converted into a green skip.
+            String message = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
+            boolean driverUnavailable = message.contains("cannot find")
+                    || message.contains("unable to find")
+                    || message.contains("no such file")
+                    || message.contains("executable")
+                    || message.contains("chrome failed to start")
+                    || message.contains("binary");
+            if (driverUnavailable) {
+                assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
+                throw new IllegalStateException("unreachable");
+            }
+            throw e;
         }
     }
 

@@ -98,8 +98,13 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (eDocUtilMock != null) eDocUtilMock.close();
-        if (mocks != null) mocks.close();
+        // Wrap so mocks.close() always runs even if the static-mock close throws; otherwise an
+        // un-closed MockedStatic<EDocUtil> would leak its registration into later tests.
+        try {
+            if (eDocUtilMock != null) eDocUtilMock.close();
+        } finally {
+            if (mocks != null) mocks.close();
+        }
     }
 
     @Test

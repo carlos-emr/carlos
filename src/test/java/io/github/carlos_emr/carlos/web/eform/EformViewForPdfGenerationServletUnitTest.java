@@ -71,6 +71,8 @@ class EformViewForPdfGenerationServletUnitTest {
                     && java.util.Arrays.equals(new String[] {"999998"}, forwarded.getParameterMap().get("providerId"));
         }), eq(response));
         assertThat(response.getStatus()).isEqualTo(200);
+        // The gate servlet sets the anti-MIME-sniffing header on the success path; lock it in.
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         // The forwarded efmshowform_data view owns the CSP; the gate servlet must not set one.
         assertThat(response.getHeader("Content-Security-Policy")).isNull();
     }

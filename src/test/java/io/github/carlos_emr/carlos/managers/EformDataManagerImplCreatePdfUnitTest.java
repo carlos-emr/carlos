@@ -120,9 +120,11 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     void shouldRequireDemographicScopedEformReadPrivilege_beforeBrowserRendering() throws Exception {
         when(eFormBrowserPdfRenderer.renderSavedEformPdf(77, "999998")).thenReturn(null);
 
+        // This test's contract is the demographic-scoped privilege check below; the null-path →
+        // exception-message contract is owned by shouldThrowPdfGenerationException_whenBrowserRendererReturnsNullPath,
+        // so assert only the exception type here to avoid duplicating that message assertion.
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
-                .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("browser rendering");
+                .isInstanceOf(PDFGenerationException.class);
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123");
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
