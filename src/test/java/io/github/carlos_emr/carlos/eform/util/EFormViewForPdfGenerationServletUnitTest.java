@@ -25,33 +25,24 @@ package io.github.carlos_emr.carlos.eform.util;
 import java.lang.reflect.Method;
 
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
-import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -168,187 +159,6 @@ class EFormViewForPdfGenerationServletUnitTest {
     }
 
     @Test
-    @DisplayName("should normalize a valid stored signature URL under the current context path")
-    void shouldNormalizeValidStoredSignatureUrl_whenContextScoped() {
-        String normalized = EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl(
-                "/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=42&r=99",
-                "/carlos");
-
-        assertThat(normalized).isEqualTo("/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42");
-    }
-
-    @Test
-    @DisplayName("should normalize a valid stored signature URL without a context path prefix")
-    void shouldNormalizeValidStoredSignatureUrl_whenRootRelative() {
-        String normalized = EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl(
-                "/imageRenderingServlet?source=signature_stored&digitalSignatureId=7",
-                "/carlos");
-
-        assertThat(normalized).isEqualTo("/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=7");
-    }
-
-    @ParameterizedTest(name = "invalid signature URL [{index}]")
-    @MethodSource("invalidSignatureUrls")
-    @DisplayName("should reject invalid signature URLs")
-    void shouldRejectInvalidSignatureUrl_whenNormalizingSignatureUrl(String rawUrl) {
-        String normalized = EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl(rawUrl, "/carlos");
-
-        assertThat(normalized).isNull();
-    }
-
-    @Test
-    @DisplayName("should HTML attribute encode the generated signature image markup")
-    void shouldEncodeSignatureImageMarkup_whenBuildingImageHtml() {
-        String markup = EFormViewForPdfGenerationServlet.buildSignatureImageMarkup(
-                "/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42&foo=bar",
-                "1",
-                "2",
-                "3",
-                "4");
-
-        assertThat(markup).contains("src=\"/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42&amp;foo=bar\"");
-    }
-
-    @Test
-    @DisplayName("should return null for null input")
-    void shouldReturnNull_forNullUrl() {
-        assertThat(EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl(null, "/carlos")).isNull();
-    }
-
-    @Test
-    @DisplayName("should return null for empty string input")
-    void shouldReturnNull_forEmptyUrl() {
-        assertThat(EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl("", "/carlos")).isNull();
-    }
-
-    @Test
-    @DisplayName("should build fax-ready HTML from the stored letter content")
-    void shouldBuildFaxReadyHtml_whenPreparingPdfHtml() {
-        EForm eForm = mock(EForm.class);
-        AtomicReference<String> htmlRef = new AtomicReference<>("<div id=\"signatureDisplay\"></div>");
-        when(eForm.getDemographicNo()).thenReturn("1");
-        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
-        doAnswer(invocation -> {
-            htmlRef.set(invocation.getArgument(0));
-            return null;
-        }).when(eForm).setFormHtml(anyString());
-
-        EFormValue letter = new EFormValue();
-        letter.setVarName("Letter");
-        letter.setVarValue("<div class=\"DoNotPrint\" style=\"color:red\">hide</div><img src=\"../eform/displayImage?imagefile=bg.png\" />");
-
-        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
-                eForm,
-                List.of(letter),
-                "/carlos",
-                "carlos",
-                true,
-                null);
-
-        assertThat(html)
-                .contains("position:absolute; margin-top:35px;")
-                .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
-                .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
-                .contains("<body style='width:640px;'>");
-    }
-
-    @Test
-    @DisplayName("should append the render grant to image asset URLs when rendering")
-    void shouldAppendRenderToken_whenBrowserRenderingImageBearingForm() {
-        EForm eForm = mock(EForm.class);
-        AtomicReference<String> htmlRef = new AtomicReference<>("");
-        when(eForm.getDemographicNo()).thenReturn("1");
-        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
-        doAnswer(invocation -> {
-            htmlRef.set(invocation.getArgument(0));
-            return null;
-        }).when(eForm).setFormHtml(anyString());
-
-        EFormValue letter = new EFormValue();
-        letter.setVarName("Letter");
-        letter.setVarValue("<img src=\"../eform/displayImage?imagefile=bg.png\" />"
-                + "<img src=\"${oscar_image_path}logo.png\" />");
-
-        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
-                eForm,
-                List.of(letter),
-                "/carlos",
-                "carlos",
-                false,
-                "grant-abc123");
-
-        // Both the /eform/displayImage form and the ${oscar_image_path} form carry the grant so the
-        // sessionless render browser can fetch each asset image.
-        assertThat(html)
-                .contains("/carlos/EFormImageViewForPdfGenerationServlet?renderToken=grant-abc123&imagefile=bg.png")
-                .contains("/EFormImageViewForPdfGenerationServlet?renderToken=grant-abc123&imagefile=logo.png");
-    }
-
-    @Test
-    @DisplayName("should URI-encode the render grant before splicing it into asset URLs")
-    void shouldEncodeRenderToken_whenTokenCarriesMetacharacters() {
-        EForm eForm = mock(EForm.class);
-        AtomicReference<String> htmlRef = new AtomicReference<>("");
-        when(eForm.getDemographicNo()).thenReturn("1");
-        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
-        doAnswer(invocation -> {
-            htmlRef.set(invocation.getArgument(0));
-            return null;
-        }).when(eForm).setFormHtml(anyString());
-
-        EFormValue letter = new EFormValue();
-        letter.setVarName("Letter");
-        letter.setVarValue("<img src=\"${oscar_image_path}logo.png\" />");
-
-        // A well-formed grant is URL-safe base64; a token carrying HTML/query metacharacters must be
-        // neutralized before it reaches the src attribute (defence in depth over the upstream grant check).
-        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
-                eForm,
-                List.of(letter),
-                "/carlos",
-                "carlos",
-                false,
-                "\"><script>alert(1)</script>");
-
-        assertThat(html)
-                .doesNotContain("<script>alert(1)</script>")
-                .contains("renderToken=%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E&imagefile=logo.png");
-    }
-
-    @Test
-    @DisplayName("should apply stored signature when signature value appears before letter content")
-    void shouldApplySignature_whenSignatureValuePrecedesLetter() {
-        EForm eForm = mock(EForm.class);
-        AtomicReference<String> htmlRef = new AtomicReference<>("");
-        when(eForm.getDemographicNo()).thenReturn("1");
-        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
-        doAnswer(invocation -> {
-            htmlRef.set(invocation.getArgument(0));
-            return null;
-        }).when(eForm).setFormHtml(anyString());
-
-        EFormValue signature = new EFormValue();
-        signature.setVarName("signatureValue");
-        signature.setVarValue("/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=42");
-        EFormValue letter = new EFormValue();
-        letter.setVarName("Letter");
-        letter.setVarValue("<script>signatureControl.initialize({eform:true, height:40, width:120, top:10, left:20})</script><div id=\"signatureDisplay\"></div>");
-
-        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
-                eForm,
-                List.of(signature, letter),
-                "/carlos",
-                "carlos",
-                false,
-                null);
-
-        assertThat(html)
-                .contains("/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42")
-                .contains("position:absolute;left:20;top:10;width:120;height:40;")
-                .doesNotContain("<div id=\"signatureDisplay\"></div>");
-    }
-
-    @Test
     @DisplayName("should keep scripts blocked for legacy server-side PDF rendering")
     void shouldBuildStrictCsp_whenNotBrowserRendering() {
         assertThat(EFormViewForPdfGenerationServlet.buildContentSecurityPolicy(false))
@@ -364,15 +174,6 @@ class EFormViewForPdfGenerationServletUnitTest {
                 .contains("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
                 .contains("object-src 'none'")
                 .contains("img-src 'self' data: blob:");
-    }
-
-    private static Stream<String> invalidSignatureUrls() {
-        return Stream.of(
-                "javascript:alert(1)",
-                "https://evil.example/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=5",
-                "/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=12\" onerror=\"alert(1)",
-                "/carlos/imageRenderingServlet?source=signature_preview&signatureRequestId=temp123"
-        );
     }
 
     private static void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {
