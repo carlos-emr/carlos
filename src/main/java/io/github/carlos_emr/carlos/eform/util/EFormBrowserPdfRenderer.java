@@ -118,6 +118,9 @@ public class EFormBrowserPdfRenderer {
     // unbounded Chromium/JVM memory or temp storage. Generous vs. any real multi-page eForm.
     private static final int MAX_CAPTURE_REGIONS = 200;
     private static final double MAX_CAPTURE_DIMENSION = 20_000;
+    // Peak decoded-image memory is one region at a time (~4 bytes/pixel); 64M px ≈ 256 MB, generous
+    // vs. any real eForm page yet far below a single 20000×20000 (1.6 GB) region.
+    private static final double MAX_CAPTURE_REGION_PIXELS = 64_000_000d;
     private static final double MAX_CAPTURE_TOTAL_PIXELS = 300_000_000d;
 
     // ---------------------------------------------------------------------------------------------
@@ -593,13 +596,25 @@ public class EFormBrowserPdfRenderer {
             double y = regionValue(rawMap, "y");
             double width = regionValue(rawMap, "width");
             double height = regionValue(rawMap, "height");
+            // Fail closed on non-finite geometry (NaN/Infinity): every comparison below is false for
+            // NaN, so it would otherwise slip through the size/budget checks and reach the CDP
+            // screenshot with NaN coordinates, failing the whole render unpredictably.
+            if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(width) || !Double.isFinite(height)) {
+                throw new PDFGenerationException("Browser rendering returned a non-finite page-region value.");
+            }
             if (width <= 0 || height <= 0) {
                 continue;
             }
             if (width > MAX_CAPTURE_DIMENSION || height > MAX_CAPTURE_DIMENSION) {
                 throw new PDFGenerationException("Browser rendering page region exceeds the maximum capture dimension.");
             }
-            totalPixels += width * height;
+            // Per-region pixel cap bounds peak decoded-image memory (one region is held at a time in
+            // PDF assembly), independent of the cumulative budget below.
+            double regionPixels = width * height;
+            if (regionPixels > MAX_CAPTURE_REGION_PIXELS) {
+                throw new PDFGenerationException("Browser rendering page region exceeds the safe per-page pixel budget.");
+            }
+            totalPixels += regionPixels;
             if (totalPixels > MAX_CAPTURE_TOTAL_PIXELS) {
                 throw new PDFGenerationException("Browser rendering total capture area exceeds the safe pixel budget.");
             }

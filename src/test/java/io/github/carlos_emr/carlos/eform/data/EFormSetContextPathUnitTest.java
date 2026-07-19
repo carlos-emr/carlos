@@ -202,20 +202,22 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
-    @DisplayName("should preserve non-delimiter escapes when rewriting legacy string timers")
-    void shouldPreserveNonDelimiterEscapes_whenRewritingLegacyStringTimers() {
+    @DisplayName("should decode string-literal escapes when rewriting legacy string timers")
+    void shouldDecodeStringLiteralEscapes_whenRewritingLegacyStringTimers() {
         EForm eform = new EForm();
-        // The body carries a newline escape (\n) that does NOT escape the ' delimiter; it must be
-        // preserved verbatim, not doubled into a literal backslash-n which would corrupt the JS.
+        // The body is a JS string literal; hoisting it into a function body must decode its escapes
+        // once (\n -> newline, \x41 -> 'A') the way the engine would when evaluating the string —
+        // NOT leave a literal backslash-n, which is invalid function source.
         eform.setFormHtml("<html><body>"
-                + "<script>setTimeout('a\\nb', 100)</script>"
+                + "<script>setTimeout('a\\nb; c=\\x41', 100)</script>"
                 + "</body></html>");
 
         eform.setContextPath("/carlos");
 
         assertThat(eform.getFormHtml())
-                .contains("setTimeout(function(){ a\\nb }, 100)")
-                .doesNotContain("a\\\\nb");
+                .contains("setTimeout(function(){ a\nb; c=A }, 100)")
+                .doesNotContain("a\\nb")
+                .doesNotContain("\\x41");
     }
 
 }

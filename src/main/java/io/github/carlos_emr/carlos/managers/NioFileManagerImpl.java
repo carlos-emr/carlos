@@ -85,7 +85,7 @@ public class NioFileManagerImpl implements NioFileManager {
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
-            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         // Validate input parameters
@@ -149,7 +149,7 @@ public class NioFileManagerImpl implements NioFileManager {
     public Path getDocumentCacheDirectory(LoggedInInfo loggedInInfo) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
-            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         Path cacheDir = Paths.get(BASE_DOCUMENT_DIR, context.getContextPath(), DOCUMENT_CACHE_DIRECTORY);
@@ -180,7 +180,7 @@ public class NioFileManagerImpl implements NioFileManager {
         // derives a cache thumbnail). Require _edoc READ — matching the sibling cache methods above —
         // so read-only workflows such as fax preview are not forced to hold _edoc WRITE.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
-            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         // Sanitize the filename to prevent path traversal

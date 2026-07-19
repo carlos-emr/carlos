@@ -301,11 +301,14 @@ public class FaxManagerImpl implements FaxManager {
         // Promote renderer/upload temp files into the permanent document store before queuing.
         if (faxFilePath != null && PathValidationUtils.isInAllowedTempDirectory(new File(faxFilePath))) {
             String promoted = nioFileManager.copyFileToOscarDocuments(faxFilePath);
-            // copyFileToOscarDocuments returns null when promotion fails. Reject the job with a
-            // controlled error rather than passing null downstream, where path validation would throw
-            // an uncaught IllegalArgumentException and surface as a 500.
+            // copyFileToOscarDocuments returns null when promotion fails. Follow the same controlled
+            // error path as resolveAndValidateFilePath below — return an ERROR-status FaxJob rather
+            // than passing null downstream (uncaught IllegalArgumentException → 500) or throwing.
             if (promoted == null || promoted.isBlank()) {
-                throw new RuntimeException("Unable to prepare the fax document for sending.");
+                FaxJob failed = new FaxJob();
+                failed.setStatus(STATUS.ERROR);
+                failed.setStatusString("File missing on local storage or invalid file path.");
+                return failed;
             }
             faxFilePath = promoted;
         }

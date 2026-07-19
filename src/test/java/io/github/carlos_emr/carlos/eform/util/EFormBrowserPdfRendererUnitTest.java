@@ -324,6 +324,27 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a page region with non-finite geometry")
+    void shouldRejectRegion_whenGeometryNonFinite() {
+        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+                Map.of("x", 0d, "y", 0d, "width", Double.NaN, "height", 100d))))
+                .isInstanceOf(PDFGenerationException.class);
+        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+                Map.of("x", 0d, "y", 0d, "width", 100d, "height", Double.POSITIVE_INFINITY))))
+                .isInstanceOf(PDFGenerationException.class);
+    }
+
+    @Test
+    @DisplayName("should reject a single region that exceeds the per-page pixel budget")
+    void shouldRejectRegion_whenPerRegionPixelsExceedBudget() {
+        // 15000 x 15000 = 225M px is under the per-region dimension cap but over the per-region
+        // pixel budget, so it must fail closed even as the only region.
+        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+                Map.of("x", 0L, "y", 0L, "width", 15_000L, "height", 15_000L))))
+                .isInstanceOf(PDFGenerationException.class);
+    }
+
+    @Test
     @DisplayName("should reject a page region that exceeds the maximum capture dimension")
     void shouldRejectRegion_whenDimensionExceedsCap() {
         assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(

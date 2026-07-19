@@ -509,9 +509,8 @@ public class EForm extends EFormBase {
         Matcher matcher = pattern.matcher(html);
         StringBuffer rewritten = new StringBuffer();
         while (matcher.find()) {
-            char delimiter = matcher.group(1).charAt(0);
             String replacement = timerFunction + "(function(){ "
-                    + unescapeLegacyTimerBody(matcher.group(2), delimiter)
+                    + decodeJsStringLiteralBody(matcher.group(2))
                     + " }, " + matcher.group(3) + ")";
             matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
         }
@@ -519,37 +518,93 @@ public class EForm extends EFormBase {
         return rewritten.toString();
     }
 
-    private static String unescapeLegacyTimerBody(String body, char delimiter) {
-        StringBuilder normalized = new StringBuilder(body.length());
-        int index = 0;
-        while (index < body.length()) {
-            char current = body.charAt(index);
-            if (current != '\\') {
-                normalized.append(current);
-                index += 1;
+    /**
+     * Decodes a JavaScript string-literal body once, turning it into the equivalent raw source for a
+     * function body. A legacy timer written as {@code setTimeout('code', ms)} passed a STRING to the
+     * engine; hoisting that body into {@code setTimeout(function(){ code }, ms)} must resolve the
+     * string's escapes (newline, tab, hex, unicode, escaped quotes, escaped backslash, line
+     * continuations, …) exactly as the engine would when evaluating the string, or
+     * the callback's semantics change. Unknown escapes collapse to the escaped character, matching
+     * non-strict JavaScript. Works for both {@code '...'} and {@code "..."} bodies because the
+     * delimiter escape is just another {@code \<char>} handled by the default branch.
+     */
+    private static String decodeJsStringLiteralBody(String body) {
+        StringBuilder out = new StringBuilder(body.length());
+        int i = 0;
+        int n = body.length();
+        while (i < n) {
+            char c = body.charAt(i++);
+            if (c != '\\' || i >= n) {
+                out.append(c);
                 continue;
             }
-
-            int slashStart = index;
-            while (index < body.length() && body.charAt(index) == '\\') {
-                index += 1;
-            }
-            int slashCount = index - slashStart;
-            boolean escapesDelimiter = index < body.length()
-                    && body.charAt(index) == delimiter
-                    && (slashCount % 2) == 1;
-            // Only collapse the escape of the string delimiter (backslash-quote inside a '...' body).
-            // Every other backslash escape (newline, tab, unicode, double-quote, backslash) is
-            // preserved VERBATIM — doubling it would corrupt the JavaScript (e.g. a newline escape
-            // turning into a literal backslash-n).
-            int preservedSlashes = escapesDelimiter ? slashCount / 2 : slashCount;
-            normalized.append("\\".repeat(preservedSlashes));
-            if (escapesDelimiter) {
-                normalized.append(delimiter);
-                index += 1;
+            char e = body.charAt(i++);
+            switch (e) {
+                case 'n': out.append('\n'); break;
+                case 't': out.append('\t'); break;
+                case 'r': out.append('\r'); break;
+                case 'b': out.append('\b'); break;
+                case 'f': out.append('\f'); break;
+                case 'v': out.append((char) 0x0B); break;
+                case '0':
+                    if (i >= n || !Character.isDigit(body.charAt(i))) {
+                        out.append('\0');
+                    } else {
+                        out.append('0');
+                    }
+                    break;
+                case 'x':
+                    if (i + 1 < n && isHexDigit(body.charAt(i)) && isHexDigit(body.charAt(i + 1))) {
+                        out.append((char) Integer.parseInt(body.substring(i, i + 2), 16));
+                        i += 2;
+                    } else {
+                        out.append('x');
+                    }
+                    break;
+                case 'u':
+                    i = appendUnicodeEscape(out, body, i);
+                    break;
+                case '\n':
+                    break; // line continuation
+                case '\r':
+                    if (i < n && body.charAt(i) == '\n') {
+                        i += 1; // CRLF line continuation
+                    }
+                    break;
+                default:
+                    out.append(e); // \' \" \\ \/ \` and any other escape -> the literal character
             }
         }
-        return normalized.toString();
+        return out.toString();
+    }
+
+    /** Handles fixed-length and brace unicode escapes starting at {@code i} (just past the 'u'). */
+    private static int appendUnicodeEscape(StringBuilder out, String body, int i) {
+        int n = body.length();
+        if (i < n && body.charAt(i) == '{') {
+            int close = body.indexOf('}', i + 1);
+            if (close > i + 1) {
+                try {
+                    out.appendCodePoint(Integer.parseInt(body.substring(i + 1, close), 16));
+                    return close + 1;
+                } catch (RuntimeException ignored) {
+                    // malformed brace unicode escape: fall through to a literal 'u'
+                }
+            }
+            out.append('u');
+            return i;
+        }
+        if (i + 3 < n && isHexDigit(body.charAt(i)) && isHexDigit(body.charAt(i + 1))
+                && isHexDigit(body.charAt(i + 2)) && isHexDigit(body.charAt(i + 3))) {
+            out.append((char) Integer.parseInt(body.substring(i, i + 4), 16));
+            return i + 4;
+        }
+        out.append('u');
+        return i;
+    }
+
+    private static boolean isHexDigit(char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
     public void setFdid(String fdid) {

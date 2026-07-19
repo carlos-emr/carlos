@@ -197,9 +197,9 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         applySignatureHtml(eForm, eFormValues, contextPath);
 
         String html = eForm.getFormHtml();
-        html = html.replace("../eform/displayImage", imageViewServletBase(projectHome));
-        html = html.replace("${oscar_image_path}", imageViewServletImagePrefix(projectHome));
-        html = html.replace("$%7Boscar_image_path%7D", imageViewServletImagePrefix(projectHome));
+        html = html.replace("../eform/displayImage", imageViewServletBase(projectHome, contextPath));
+        html = html.replace("${oscar_image_path}", imageViewServletImagePrefix(projectHome, contextPath));
+        html = html.replace("$%7Boscar_image_path%7D", imageViewServletImagePrefix(projectHome, contextPath));
         html = html.replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;");
         eForm.setFormHtml(html);
         eForm.setImagePath(contextPath);
@@ -280,18 +280,18 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'";
     }
 
-    private static String imageViewServletBase(String projectHome) {
-        // An empty/blank project_home (root context, or unconfigured) must not produce a leading
-        // "//…" — the browser reads that as a protocol-relative URL to an external host, which would
-        // make every eForm asset fetch fail.
-        if (projectHome == null || projectHome.isBlank()) {
-            return "/" + IMAGE_VIEW_SERVLET_NAME;
-        }
-        return "/" + projectHome + "/" + IMAGE_VIEW_SERVLET_NAME;
+    private static String imageViewServletBase(String projectHome, String contextPath) {
+        // Prefer the configured project_home. When it is blank/unset, fall back to the servlet
+        // context path so a non-root deployment (e.g. /carlos) still resolves — never emit a leading
+        // "//…" (a protocol-relative URL to an external host) or drop the context prefix entirely.
+        String base = (projectHome == null || projectHome.isBlank())
+                ? normalizeContextPath(contextPath)
+                : "/" + projectHome.trim();
+        return base + "/" + IMAGE_VIEW_SERVLET_NAME;
     }
 
-    private static String imageViewServletImagePrefix(String projectHome) {
-        return imageViewServletBase(projectHome) + "?imagefile=";
+    private static String imageViewServletImagePrefix(String projectHome, String contextPath) {
+        return imageViewServletBase(projectHome, contextPath) + "?imagefile=";
     }
 
     static String normalizePdfSignatureUrl(String rawUrl, String contextPath) {
