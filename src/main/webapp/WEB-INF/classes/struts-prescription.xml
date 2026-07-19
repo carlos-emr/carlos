@@ -161,6 +161,7 @@
         <action name="rx/WriteToEncounter" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action">
             <result name="success">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
         </action>
+        <action name="rx/faxPrescription" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxFaxPrescription2Action"/>
         <action name="rx/updateDrugrefDB" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateDrugref2Action"/>
         <action name="rx/copyFavorite" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
             <result name="success">/WEB-INF/jsp/rx/CopyFavorites2.jsp</result>

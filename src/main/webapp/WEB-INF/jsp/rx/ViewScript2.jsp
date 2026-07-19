@@ -325,12 +325,18 @@
                 }
                 <%}
             }%>
-                let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
-                document.getElementById("preview").contentWindow.document.getElementById("preview2Form").action = action;
-                if (method !== "oscarRxFax") {
-                    document.getElementById("preview").contentWindow.document.getElementById("preview2Form").target = "_blank";
+                let requestParams = "__title=Rx&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                let action;
+                let previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
+                if (method === "oscarRxFax") {
+                    action = "<%= request.getContextPath() %>/rx/faxPrescription?" + requestParams;
+                    previewForm.target = "_self";
+                } else {
+                    action = "<%= request.getContextPath() %>/form/createcustomedpdf?__method=" + method + "&" + requestParams;
+                    previewForm.target = "_blank";
                 }
-                document.getElementById("preview").contentWindow.document.getElementById("preview2Form").submit();
+                previewForm.action = action;
+                previewForm.submit();
 
                 return true;
             }
