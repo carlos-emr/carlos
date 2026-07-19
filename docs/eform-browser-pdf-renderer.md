@@ -8,7 +8,7 @@ anywhere on the server**.
 
 ## Architecture
 
-```
+```text
 EformDataManagerImpl.createEformPDF (checks _eform read privilege)
   └─ EFormBrowserPdfRenderer.renderSavedEformPdf(fdid, providerNo)
        ├─ mints a render-scoped render token (EFormRenderTokenService, 2-min TTL)
@@ -66,8 +66,9 @@ Environment: the renderer is **sandboxed by default** (see "Security operations"
 - **No local file access.** A malicious eForm cannot read server files (`file:///etc/passwd`,
   `/var/lib/OscarDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
   policy blocks `file://` subresources from the http render origin, and the renderer's request
-  gate fails the render on *any* non-web scheme (`file:`, `filesystem:`, `chrome:`,
-  `view-source:`, …). The launch config must **never** add `--allow-file-access-from-files` or
+  gate fails the render on any non-web scheme (`file:`, `filesystem:`, `chrome:`, `view-source:`,
+  …) **other than** the inert pseudo-schemes `data:`/`blob:`/`about:`, which are explicitly allowed
+  (matching `isDisallowedRendererRequestUrl`). The launch config must **never** add `--allow-file-access-from-files` or
   `--disable-web-security` (an inline code invariant and a unit test enforce their absence); the
   FileSystem API is additionally turned off with `--disable-file-system`.
 - **`acceptInsecureCerts` is paired with the lockdown.** HTTPS connectors present certificates
@@ -89,10 +90,16 @@ Environment: the renderer is **sandboxed by default** (see "Security operations"
   users. `driver.quit()` in a `finally` block tears down chromedriver and Chromium.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
   so rendering can never saturate Tomcat's request workers.
-- **Fail-closed page gates.** The main document must return HTTP 200 and produce zero severe
-  console entries; otherwise the render fails with counts (never page content) in the log.
-- **PHI-safe diagnostics.** Log lines carry fdid, sanitized origin, and counters. URLs inside
-  WebDriver error messages are redacted before logging.
+- **Page gates.** The main-document status gate is **fail-closed**: a `null` or non-200 main
+  document fails the render. The severe-console-entry check is **best-effort** — it fails the
+  render when severe console entries are observed, but if the browser log itself cannot be read it
+  logs at debug and proceeds (fail-open on log-fetch failure) rather than blocking a good render on
+  a browser that does not expose console logs. Failures report counts, never page content.
+- **PHI-safe diagnostics.** Log lines carry fdid (a separate structured field), the loopback base
+  URL (host + context path only — no PHI, and the fdid/token live in a separate path value not
+  embedded in it), and counters. URLs inside WebDriver error messages are redacted before logging,
+  and the raw WebDriver exception is **not** propagated as the failure cause (only a redacted
+  message is), so a downstream handler that logs the throwable cannot re-emit an unredacted URL.
 
 ### Security operations note
 
@@ -110,22 +117,28 @@ renderer is **secure by default and fails closed**: it launches Chromium sandbox
 sandboxed launch can't start it **fails the render with actionable guidance** rather than silently
 dropping to `--no-sandbox`. Run the browser confined via one of the two paths below — ideally both:
 
-1. **Chromium's own sandbox (default, preferred).** Chromium's Linux sandbox chroots the renderer
-   into an empty dir inside new PID + network namespaces (Layer 1) and applies a seccomp-bpf
-   syscall filter (Layer 2). The modern **unprivileged user-namespaces** variant needs **no
-   root** — only kernel ≥3.10 with user namespaces enabled
-   (`sysctl kernel.unprivileged_userns_clone=1`), and the renderer must run as a **non-root**
-   user (Chromium refuses its sandbox as root). This is the default; no configuration is needed.
-   If the sandbox cannot start, the render fails with a message telling the operator to enable
-   user namespaces / run as non-root, or to consciously choose path 2.
+1. **Chromium's own sandbox (default, preferred).** Chromium confines the renderer with a Layer-1
+   namespace sandbox plus a Layer-2 seccomp-bpf syscall filter. In the legacy **setuid** sandbox
+   (the `chrome-sandbox` helper) Layer 1 `chroot()`s the renderer into an empty directory inside new
+   PID + network namespaces. The modern **unprivileged user-namespaces** variant achieves equivalent
+   confinement using user + PID + network namespaces without any setuid helper, and needs **no
+   root** — only a kernel with **unprivileged user namespaces enabled** (the exact knob is
+   distro-specific: on Debian/Ubuntu `sysctl kernel.unprivileged_userns_clone=1`; mainline/other
+   distros gate it differently, e.g. `user.max_user_namespaces`, and many enable it by default) —
+   with the renderer running as a **non-root** user (Chromium refuses its sandbox as root). This is
+   the default; no configuration is needed. If the sandbox cannot start, the render fails with a
+   message telling the operator to enable user namespaces / run as non-root, or to consciously
+   choose path 2.
 2. **Make the container the boundary (explicit opt-out).** Where user namespaces are unavailable,
    set `EFORM_RENDER_ALLOW_UNSANDBOXED=true` to launch with `--no-sandbox`. This is acceptable
    **only if the container itself is the isolation boundary**: dedicated non-root UID,
    `cap-drop=ALL` (no `CAP_SYS_ADMIN`), `--security-opt no-new-privileges`, read-only root
    filesystem, `tmpfs` for `/dev/shm` and the renderer temp root mounted `noexec,nosuid,nodev`, a
-   seccomp profile (Docker default or a Chrome-tuned one), and PID / CPU / memory limits. On newer
-   kernels, Landlock adds filesystem confinement. Every render logs a `WARN` while this opt-out is
-   active, so an unsandboxed browser is never silent in ops logs.
+   seccomp profile (Docker default or a Chrome-tuned one), and PID / CPU / memory limits.
+   (Landlock filesystem confinement is **not** configured by CARLOS or applied automatically by a
+   newer kernel — it would only apply if Chromium engages it itself or you add an explicit Landlock
+   policy, so do not assume this path gains filesystem confinement for free.) Every render logs a
+   `WARN` while this opt-out is active, so an unsandboxed browser is never silent in ops logs.
 
 There is **deliberately no automatic fallback** from path 1 to path 2 — a silent drop to
 `--no-sandbox` would reinstate the insecure default. `EFORM_RENDER_ALLOW_UNSANDBOXED` with **no**

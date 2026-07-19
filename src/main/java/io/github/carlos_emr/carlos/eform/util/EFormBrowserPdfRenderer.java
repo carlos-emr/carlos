@@ -376,9 +376,14 @@ public class EFormBrowserPdfRenderer {
             Thread.currentThread().interrupt();
             throw new PDFGenerationException("Browser rendering was interrupted while generating the eForm PDF.", e);
         } catch (RuntimeException e) {
-            // WebDriver exception messages can embed page URLs; redact before logging.
+            // WebDriver exception messages can embed the loopback render URL (which carries the fdid
+            // and render token). Log a redacted message at error, and keep the full exception for
+            // troubleshooting at debug only. Deliberately do NOT chain the raw exception as the
+            // cause: a downstream handler that logs the throwable (FaxDocumentManagerImpl) would
+            // otherwise re-emit the unredacted URL, defeating the renderer's PHI-safe logging.
             logger.error("Browser eForm renderer failed: fdid={} baseUrl={} error={}", fdid, baseUrl, redactUrls(String.valueOf(e.getMessage())));
-            throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.", e);
+            logger.debug("Browser eForm renderer failure detail (fdid={})", fdid, e);
+            throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.");
         } finally {
             // The grant is render-scoped; invalidate it here so a token the browser never redeemed
             // (or is done with) cannot linger until its TTL.
