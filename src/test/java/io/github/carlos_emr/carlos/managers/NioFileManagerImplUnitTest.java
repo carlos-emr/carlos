@@ -235,6 +235,51 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("Scopes the preview cache to the source directory so a reused filename cannot leak another document")
+    void shouldScopeCacheToSourceDirectory_whenTwoTempSourcesReuseAFilename() throws IOException {
+        Path firstSource = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-collide-a-");
+        Path secondSource = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-collide-b-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(firstSource.toFile())
+                        && PathValidationUtils.isInAllowedTempDirectory(secondSource.toFile()),
+                "test temp directories must resolve inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+
+        // Same filename, distinct source directories: the collision case the source-scoped key closes.
+        String sharedFilename = "collision.pdf";
+        createSinglePagePdf(firstSource.resolve(sharedFilename));
+        createSinglePagePdf(secondSource.resolve(sharedFilename));
+
+        try {
+            Path firstCache = nioFileManager.createCacheVersion2(loggedInInfo, firstSource.toString(), sharedFilename, 1);
+            Path secondCache = nioFileManager.createCacheVersion2(loggedInInfo, secondSource.toString(), sharedFilename, 1);
+
+            assertThat(firstCache).isNotNull().exists();
+            assertThat(secondCache).isNotNull().exists();
+            // Keyed on filename+page alone, both would resolve to the same "collision.pdf_1.png" and
+            // the second call would hand back the first source's cached page. The source-scoped key
+            // gives each source a distinct cache file.
+            assertThat(secondCache.getFileName().toString())
+                    .isNotEqualTo(firstCache.getFileName().toString());
+            assertThat(firstCache.getFileName().toString()).endsWith("_1.png");
+            assertThat(secondCache.getFileName().toString()).endsWith("_1.png");
+        } finally {
+            // Source PDFs/dirs live under the system temp root (not the @TempDir), so clean them up.
+            deleteQuietly(firstSource.resolve(sharedFilename));
+            deleteQuietly(secondSource.resolve(sharedFilename));
+            deleteQuietly(firstSource);
+            deleteQuietly(secondSource);
+        }
+    }
+
+    private static void deleteQuietly(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // best-effort test cleanup
+        }
+    }
+
     private Path createOutsideAllowedTempDirectory() throws IOException {
         return Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "nio-delete-outside-" + UUID.randomUUID());
     }
@@ -249,4 +294,5 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             document.save(path.toFile());
         }
     }
+
 }

@@ -36,10 +36,13 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import jakarta.servlet.ServletContext;
 
@@ -194,47 +197,56 @@ public class NioFileManagerImpl implements NioFileManager {
         // Sanitize the filename to prevent path traversal
         String sanitizedFilename = sanitizeFileName(filename);
 
-        Path cacheFilePath = hasCacheVersion2(loggedInInfo, sanitizedFilename, pageNum);
+        // Validate the source directory up front. The cache entry is scoped to the canonical source
+        // directory below, so resolving it first is required to build the lookup key — and it means
+        // two different temp/document directories that happen to reuse the same PDF filename can
+        // never collide on a shared "<filename>_<page>.png" cache key and hand back one another's
+        // rendered page (cubic SCQQI). A caller with only a filename (no source) cannot mint a
+        // preview at all, which is the intended contract for the fax-preview flow.
+        if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {
+            log.error("Invalid source directory: null or empty");
+            return null;
+        }
+
+        // Define the allowed base directory for documents
+        Path baseDocumentPath = Paths.get(baseDocumentDir()).normalize().toAbsolutePath();
+
+        // Validate and normalize the source directory - allow either document storage or approved temp paths.
+        Path normalizedSourceDir;
+        boolean sourceDirectoryInAllowedTemp = false;
+        try {
+            normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
+
+            if (PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
+                sourceDirectoryInAllowedTemp = true;
+            } else {
+                normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
+            }
+
+            if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
+                if (log.isErrorEnabled()) {
+                    String sanitizedSourceDirectory = LogSafe.sanitize(sourceDirectory, 1024);
+                    log.error("Source directory does not exist or is not a directory: {}", sanitizedSourceDirectory);
+                }
+                return null;
+            }
+        } catch (Exception e) {
+            if (log.isErrorEnabled()) {
+                log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
+            }
+            return null;
+        }
+
+        // Source-scoped cache identity: fold a stable digest of the canonical source directory into
+        // the cache filename so both the lookup and the write are unique per source (cubic SCQQI).
+        String scopedCacheName = sanitizedFilename + "_" + sourceDirectoryCacheKey(normalizedSourceDir);
+
+        Path cacheFilePath = hasCacheVersion2(loggedInInfo, scopedCacheName, pageNum);
 
         /*
          * create a new cache file if an existing cache file is not returned.
          */
         if (cacheFilePath == null) {
-            // Validate source directory input
-            if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {
-                log.error("Invalid source directory: null or empty");
-                return null;
-            }
-            
-            // Define the allowed base directory for documents
-            Path baseDocumentPath = Paths.get(baseDocumentDir()).normalize().toAbsolutePath();
-
-            // Validate and normalize the source directory - allow either document storage or approved temp paths.
-            Path normalizedSourceDir;
-            boolean sourceDirectoryInAllowedTemp = false;
-            try {
-                normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
-
-                if (PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
-                    sourceDirectoryInAllowedTemp = true;
-                } else {
-                    normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
-                }
-
-                if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
-                    if (log.isErrorEnabled()) {
-                        String sanitizedSourceDirectory = LogSafe.sanitize(sourceDirectory, 1024);
-                        log.error("Source directory does not exist or is not a directory: {}", sanitizedSourceDirectory);
-                    }
-                    return null;
-                }
-            } catch (Exception e) {
-                if (log.isErrorEnabled()) {
-                    log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
-                }
-                return null;
-            }
-
             Path sourceFile = normalizedSourceDir.resolve(sanitizedFilename).normalize().toAbsolutePath();
 
             // Ensure source file is within the source directory and, for temp previews, remains in an approved temp location.
@@ -248,10 +260,10 @@ public class NioFileManagerImpl implements NioFileManager {
                 log.error("Path traversal attempt in source file");
                 return null;
             }
-            
+
             Path documentCacheDir = getDocumentCacheDirectory(loggedInInfo);
             Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
-            cacheFilePath = normalizedCacheDir.resolve(sanitizedFilename + "_" + pageNum + ".png");
+            cacheFilePath = normalizedCacheDir.resolve(scopedCacheName + "_" + pageNum + ".png");
             cacheFilePath = cacheFilePath.normalize().toAbsolutePath();
             
             // Verify the cache file path is within the cache directory
@@ -379,8 +391,33 @@ public class NioFileManagerImpl implements NioFileManager {
             log.warn("Filename became empty after sanitization: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return "invalid_filename";
         }
-        
+
         return baseName;
+    }
+
+    /**
+     * Derives a short, stable, filename-safe cache-key segment from a canonical source directory so
+     * a page-preview cache entry is scoped to its source. Two different source directories that reuse
+     * the same PDF filename therefore resolve to distinct cache files and can never return one
+     * another's rendered page.
+     *
+     * @param sourceDirectory canonicalized, normalized source directory
+     * @return 16-character lowercase hex digest of the directory path (SHA-256 truncated)
+     */
+    private static String sourceDirectoryCacheKey(Path sourceDirectory) {
+        byte[] pathBytes = sourceDirectory.toString().getBytes(StandardCharsets.UTF_8);
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(pathBytes);
+            StringBuilder key = new StringBuilder(16);
+            for (int i = 0; i < 8; i++) {
+                key.append(Character.forDigit((hash[i] >> 4) & 0xF, 16));
+                key.append(Character.forDigit(hash[i] & 0xF, 16));
+            }
+            return key.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is a required JCA algorithm; fall back to a non-negative hashCode key if absent.
+            return Integer.toHexString(sourceDirectory.toString().hashCode() & 0x7fffffff);
+        }
     }
 
     /**
