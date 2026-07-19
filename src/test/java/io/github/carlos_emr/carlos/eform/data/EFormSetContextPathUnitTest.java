@@ -185,6 +185,23 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
+    @DisplayName("should not entity-escape script operators when normalizing a rewritten inline script")
+    void shouldNotEntityEscapeScriptOperators_whenNormalizingRewrittenScript() {
+        EForm eform = new EForm();
+        // A single inline script that both triggers the legacy-timer rewrite AND uses a '<' operator.
+        // The DOM normalization must emit the body verbatim; escaping '<' to '&lt;' would break the JS.
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout('poll()', 100); for (var i=0; i<n; i++) { total += i; }</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("i<n")
+                .doesNotContain("i&lt;n");
+    }
+
+    @Test
     @DisplayName("should preserve non-delimiter escapes when rewriting legacy string timers")
     void shouldPreserveNonDelimiterEscapes_whenRewritingLegacyStringTimers() {
         EForm eform = new EForm();
