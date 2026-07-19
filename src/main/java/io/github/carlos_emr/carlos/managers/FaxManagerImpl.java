@@ -300,7 +300,14 @@ public class FaxManagerImpl implements FaxManager {
 
         // Promote renderer/upload temp files into the permanent document store before queuing.
         if (faxFilePath != null && PathValidationUtils.isInAllowedTempDirectory(new File(faxFilePath))) {
-            faxFilePath = nioFileManager.copyFileToOscarDocuments(faxFilePath);
+            String promoted = nioFileManager.copyFileToOscarDocuments(faxFilePath);
+            // copyFileToOscarDocuments returns null when promotion fails. Reject the job with a
+            // controlled error rather than passing null downstream, where path validation would throw
+            // an uncaught IllegalArgumentException and surface as a 500.
+            if (promoted == null || promoted.isBlank()) {
+                throw new RuntimeException("Unable to prepare the fax document for sending.");
+            }
+            faxFilePath = promoted;
         }
         recipientFaxNumber = recipientFaxNumber.replaceAll("\\D", "");
 

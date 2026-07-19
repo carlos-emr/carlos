@@ -200,6 +200,13 @@ class EFormJspMigrationRegressionTest {
         assertThat(excludePattern.matcher("/carlos/EFormSignatureViewForPdfGenerationServlet").matches()).isTrue();
         assertThat(excludePattern.matcher("/contentRenderingServlet/document/1").matches()).isTrue();
         assertThat(excludePattern.matcher("/carlos/contentRenderingServlet/document/1").matches()).isTrue();
+
+        // The signature-control library page must reach Struts (its compatibility-alias action),
+        // not be excluded as a static .jsp — otherwise legacy eForms 404 loading the signature pad.
+        assertThat(excludePattern.matcher("/library/eforms/signatureControl.jsp").matches()).isFalse();
+        assertThat(excludePattern.matcher("/carlos/library/eforms/signatureControl.jsp").matches()).isFalse();
+        // A different library .jsp stays excluded.
+        assertThat(excludePattern.matcher("/library/eforms/other.jsp").matches()).isTrue();
     }
 
     @Test

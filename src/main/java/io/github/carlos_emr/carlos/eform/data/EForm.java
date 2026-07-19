@@ -38,6 +38,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.nodes.DataNode;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
@@ -80,9 +81,12 @@ public class EForm extends EFormBase {
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
     private static final String LOAD_SIG_CALL = "loadSig()";
-    private static final String LOAD_SIG_FUNCTION = "function loadSig(";
-    private static final String LOAD_SIG_WINDOW = "window.loadSig";
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
+    // Detect a real loadSig DEFINITION (function declaration or assignment), not a bare call such as
+    // an inline "window.loadSig()" — treating a call as a definition would suppress the fallback and
+    // leave loadSig undefined, breaking the form's onload.
+    private static final Pattern LOAD_SIG_DEFINITION =
+            Pattern.compile("function\\s+loadSig\\s*\\(|window\\s*\\.\\s*loadSig\\s*=");
     // Matches legacy string-argument timer calls with either quote style. The backreference \1 pins
     // the closing quote to the opening one, while the body consumes either escaped characters or
     // any non-delimiter, non-line-break content so escaped quotes do not terminate the match early.
@@ -421,10 +425,14 @@ public class EForm extends EFormBase {
                 .replace("src=\"/eform/jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"");
     }
 
+    private static boolean definesLoadSig(String content) {
+        return content != null && LOAD_SIG_DEFINITION.matcher(content).find();
+    }
+
     private String injectLoadSigFallback(String html) {
         if (StringUtils.isBlank(html)) return html;
         if (!html.contains(LOAD_SIG_CALL)) return html;
-        if (html.contains(LOAD_SIG_FUNCTION) || html.contains(LOAD_SIG_WINDOW)) return html;
+        if (definesLoadSig(html)) return html;
 
         String fallback = "<" + SCRIPT_TAG + ">" + LOAD_SIG_FALLBACK + "</" + SCRIPT_TAG + ">";
         int bodyClose = StringUtils.lastIndexOfIgnoreCase(html, "</body>");
@@ -476,7 +484,14 @@ public class EForm extends EFormBase {
             }
         }
         for (Element script : getDocument().select(SCRIPT_TAG + ":not([src])")) {
-            script.text(rewriteLegacyStringTimers(script.data()));
+            String rewritten = rewriteLegacyStringTimers(script.data());
+            if (!rewritten.equals(script.data())) {
+                // Replace the script body via a DataNode, not text(): script content is raw JavaScript
+                // and must be emitted verbatim. Element.text() would HTML-escape operators like '<'
+                // (e.g. `for (i=0; i<n; ...)` -> `i&lt;n`), corrupting the script during rendering.
+                script.empty();
+                script.appendChild(new DataNode(rewritten));
+            }
         }
 
         Element body = getDocument().body();
@@ -484,7 +499,7 @@ public class EForm extends EFormBase {
 
         boolean hasLoadSigDefinition = getDocument().select(SCRIPT_TAG + ":not([src])").stream()
                 .map(Element::data)
-                .anyMatch(scriptContent -> scriptContent.contains(LOAD_SIG_FUNCTION) || scriptContent.contains(LOAD_SIG_WINDOW));
+                .anyMatch(EForm::definesLoadSig);
         if (!hasLoadSigDefinition) {
             body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
         }
@@ -523,8 +538,12 @@ public class EForm extends EFormBase {
             boolean escapesDelimiter = index < body.length()
                     && body.charAt(index) == delimiter
                     && (slashCount % 2) == 1;
+            // Only collapse the escape of the string delimiter (backslash-quote inside a '...' body).
+            // Every other backslash escape (newline, tab, unicode, double-quote, backslash) is
+            // preserved VERBATIM — doubling it would corrupt the JavaScript (e.g. a newline escape
+            // turning into a literal backslash-n).
             int preservedSlashes = escapesDelimiter ? slashCount / 2 : slashCount;
-            normalized.append("\\\\".repeat(preservedSlashes));
+            normalized.append("\\".repeat(preservedSlashes));
             if (escapesDelimiter) {
                 normalized.append(delimiter);
                 index += 1;

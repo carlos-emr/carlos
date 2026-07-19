@@ -176,7 +176,10 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, "")) {
+        // Rendering a page image of an already-readable document is a read-side operation (it only
+        // derives a cache thumbnail). Require _edoc READ — matching the sibling cache methods above —
+        // so read-only workflows such as fax preview are not forced to hold _edoc WRITE.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 

@@ -67,6 +67,15 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             }
 
             boolean browserRender = "true".equals(request.getParameter("browserRender"));
+            if (browserRender) {
+                // Signal the response-rewriting filters to leave this render's HTML untouched so the
+                // captured eForm DOM is byte-for-byte the stored form. CsrfGuardScriptInjectionFilter
+                // also skips this route by URI (it checks before doFilter); LogoutBroadcastFilter reads
+                // this attribute after doFilter.
+                request.setAttribute(
+                        io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE,
+                        Boolean.TRUE);
+            }
             String id = request.getParameter("fdid");
             if (id == null || id.trim().isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: fdid");
@@ -137,7 +146,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
         EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
         List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
-        String projectHome = CarlosProperties.getInstance().getProperty("project_home");
+        String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
 
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax, renderToken);
     }
@@ -272,6 +281,12 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private static String imageViewServletBase(String projectHome) {
+        // An empty/blank project_home (root context, or unconfigured) must not produce a leading
+        // "//…" — the browser reads that as a protocol-relative URL to an external host, which would
+        // make every eForm asset fetch fail.
+        if (projectHome == null || projectHome.isBlank()) {
+            return "/" + IMAGE_VIEW_SERVLET_NAME;
+        }
         return "/" + projectHome + "/" + IMAGE_VIEW_SERVLET_NAME;
     }
 

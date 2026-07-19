@@ -99,6 +99,31 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
+    @DisplayName("should still inject a loadSig fallback when only an inline call is present")
+    void shouldInjectLoadSigFallback_whenInlineCallIsNotADefinition() {
+        EForm eform = new EForm();
+        // An inline window.loadSig() CALL must not be mistaken for a definition; the fallback is
+        // still required so onload's loadSig() has something to invoke.
+        eform.setFormHtml("<html><body onload=\"loadSig();\"><script>window.loadSig();</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("window.loadSig = window.loadSig || function loadSig() {};");
+    }
+
+    @Test
+    @DisplayName("should not inject a loadSig fallback when a real definition is present")
+    void shouldNotInjectLoadSigFallback_whenDefinitionPresent() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body onload=\"loadSig();\"><script>window.loadSig = function(){};</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml()).doesNotContain("|| function loadSig() {};");
+    }
+
+    @Test
     @DisplayName("should leave the form HTML unchanged when the context path is blank")
     void shouldLeaveHtmlUnchanged_whenContextPathBlank() {
         EForm eform = formWithMarker();
@@ -157,6 +182,23 @@ class EFormSetContextPathUnitTest {
         assertThat(eform.getFormHtml())
                 .contains("setTimeout(function(){ $('#field').val(\"done\") }, 100)")
                 .contains("setInterval(function(){ say('hi') }, 200)");
+    }
+
+    @Test
+    @DisplayName("should preserve non-delimiter escapes when rewriting legacy string timers")
+    void shouldPreserveNonDelimiterEscapes_whenRewritingLegacyStringTimers() {
+        EForm eform = new EForm();
+        // The body carries a newline escape (\n) that does NOT escape the ' delimiter; it must be
+        // preserved verbatim, not doubled into a literal backslash-n which would corrupt the JS.
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout('a\\nb', 100)</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("setTimeout(function(){ a\\nb }, 100)")
+                .doesNotContain("a\\\\nb");
     }
 
 }

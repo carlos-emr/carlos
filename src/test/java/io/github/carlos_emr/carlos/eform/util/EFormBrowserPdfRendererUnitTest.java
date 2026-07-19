@@ -198,9 +198,11 @@ class EFormBrowserPdfRendererUnitTest {
                 .contains("--proxy-bypass-list=127.0.0.1:8080;localhost:8080;[::1]:8080")
                 .contains("--remote-debugging-pipe")
                 .contains("--disable-file-system")
-                // WebRTC (UDP) would bypass the HTTP proxy and the CDP gate — must be disabled.
-                .contains("--disable-features=WebRtc")
+                // WebRTC (UDP) would bypass the HTTP proxy and the CDP gate — force all WebRTC UDP
+                // through the dead proxy so non-proxied ICE/STUN/TURN cannot leave the host.
                 .contains("--force-webrtc-ip-handling-policy=disable_non_proxied_udp")
+                // The no-op --disable-features=WebRtc flag must not be relied upon.
+                .doesNotContain("--disable-features=WebRtc")
                 .contains("--window-size=1800,3200")
                 .contains("--force-device-scale-factor=1")
                 .contains("--no-sandbox")
@@ -318,6 +320,23 @@ class EFormBrowserPdfRendererUnitTest {
         assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions("not-a-list"))
                 .isInstanceOf(PDFGenerationException.class);
         assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(Map.of("x", "NaN"))))
+                .isInstanceOf(PDFGenerationException.class);
+    }
+
+    @Test
+    @DisplayName("should reject a page region that exceeds the maximum capture dimension")
+    void shouldRejectRegion_whenDimensionExceedsCap() {
+        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+                Map.of("x", 0L, "y", 0L, "width", 999_999L, "height", 100L))))
+                .isInstanceOf(PDFGenerationException.class);
+    }
+
+    @Test
+    @DisplayName("should reject a region set whose total pixel area exceeds the budget")
+    void shouldRejectRegions_whenTotalPixelsExceedBudget() {
+        List<Map<String, Object>> huge = java.util.Collections.nCopies(50,
+                Map.of("x", 0L, "y", 0L, "width", 19_000L, "height", 19_000L));
+        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(huge))
                 .isInstanceOf(PDFGenerationException.class);
     }
 

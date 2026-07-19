@@ -114,6 +114,12 @@ public class EFormBrowserPdfRenderer {
     private static final int VIEWPORT_WIDTH = 1800;
     private static final int VIEWPORT_HEIGHT = 3200;
 
+    // DOM-controlled capture geometry caps (fail-closed): a clinic-authored form cannot drive
+    // unbounded Chromium/JVM memory or temp storage. Generous vs. any real multi-page eForm.
+    private static final int MAX_CAPTURE_REGIONS = 200;
+    private static final double MAX_CAPTURE_DIMENSION = 20_000;
+    private static final double MAX_CAPTURE_TOTAL_PIXELS = 300_000_000d;
+
     // ---------------------------------------------------------------------------------------------
     // Browser-side JS, ported verbatim from the retired Playwright renderer script so capture
     // fidelity is unchanged. These run inside the same Chromium engine as before.
@@ -407,9 +413,10 @@ public class EFormBrowserPdfRenderer {
                 "--disable-file-system",
                 // Close the WebRTC egress hole: RTCPeerConnection ICE/STUN/TURN is UDP and would
                 // bypass the HTTP dead proxy entirely (and emits none of the CDP network events the
-                // gate inspects), so a malicious eForm could exfiltrate DOM PHI over it while the
-                // render still succeeds. Disable the feature and force non-proxied UDP off.
-                "--disable-features=WebRtc",
+                // gate inspects). The load-bearing control is forcing all WebRTC UDP through the
+                // (dead) proxy so non-proxied ICE/STUN/TURN cannot leave the host; Chromium has no
+                // single "WebRtc" feature flag (an unknown --disable-features name is silently
+                // ignored), so we do NOT rely on one.
                 "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
                 "--disable-background-networking",
                 "--disable-extensions",
@@ -570,7 +577,14 @@ public class EFormBrowserPdfRenderer {
         if (!(rawRegions instanceof List<?> rawList)) {
             throw new PDFGenerationException("Browser rendering returned an unexpected page-region result.");
         }
+        // The region geometry comes from the (clinic-authored) eForm DOM. Bound it so a malicious or
+        // pathological form cannot drive Chromium/JVM memory or temp storage arbitrarily high despite
+        // the render semaphore — reject rather than attempt an enormous capture.
+        if (rawList.size() > MAX_CAPTURE_REGIONS) {
+            throw new PDFGenerationException("Browser rendering produced too many page regions to capture safely.");
+        }
         List<CaptureRegion> regions = new ArrayList<>();
+        double totalPixels = 0;
         for (Object rawRegion : rawList) {
             if (!(rawRegion instanceof Map<?, ?> rawMap)) {
                 throw new PDFGenerationException("Browser rendering returned an unexpected page-region entry.");
@@ -579,9 +593,17 @@ public class EFormBrowserPdfRenderer {
             double y = regionValue(rawMap, "y");
             double width = regionValue(rawMap, "width");
             double height = regionValue(rawMap, "height");
-            if (width > 0 && height > 0) {
-                regions.add(new CaptureRegion(x, y, width, height));
+            if (width <= 0 || height <= 0) {
+                continue;
             }
+            if (width > MAX_CAPTURE_DIMENSION || height > MAX_CAPTURE_DIMENSION) {
+                throw new PDFGenerationException("Browser rendering page region exceeds the maximum capture dimension.");
+            }
+            totalPixels += width * height;
+            if (totalPixels > MAX_CAPTURE_TOTAL_PIXELS) {
+                throw new PDFGenerationException("Browser rendering total capture area exceeds the safe pixel budget.");
+            }
+            regions.add(new CaptureRegion(x, y, width, height));
         }
         return regions;
     }
@@ -608,9 +630,11 @@ public class EFormBrowserPdfRenderer {
                 performanceEntries.stream().map(LogEntry::getMessage).toList(),
                 originOf(baseUrl));
         int disallowedRequests = scan.disallowedRequests();
-        // Prefer the status seen in the final full scan; fall back to the value latched right after
-        // navigation so a mid-render perf-log flood cannot turn a good render into a status=null failure.
-        Integer mainDocumentStatus = scan.mainDocumentStatus() != null ? scan.mainDocumentStatus() : latchedMainStatus;
+        // Prefer the status latched immediately after navigation — at that point only the top-level
+        // document has responded, so it is unambiguously the MAIN document's status. Fall back to the
+        // full-scan value only if the latch is missing. This prevents a later same-origin iframe's
+        // Document 200 from standing in for a missing/failed main-document response.
+        Integer mainDocumentStatus = latchedMainStatus != null ? latchedMainStatus : scan.mainDocumentStatus();
 
         int severeConsoleEntries = 0;
         try {
@@ -942,7 +966,15 @@ public class EFormBrowserPdfRenderer {
     private static int capturePageIndex(Path capture) {
         String name = capture.getFileName().toString();
         String digits = name.replaceAll("\\D", "");
-        return digits.isEmpty() ? Integer.MAX_VALUE : Integer.parseInt(digits);
+        if (digits.isEmpty()) {
+            return Integer.MAX_VALUE;
+        }
+        try {
+            return Integer.parseInt(digits);
+        } catch (NumberFormatException e) {
+            // Overflow on an absurdly long numeric name: sort it last rather than crash the sort.
+            return Integer.MAX_VALUE;
+        }
     }
 
     static void convertCapturesToPdf(List<Path> captureFiles, Path outputPdfPath) throws PDFGenerationException {

@@ -25,6 +25,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
@@ -90,7 +91,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
         try {
             String fileName = validateRequestedFileName(request.getParameter("imagefile"));
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            // Use the existing session only; never allocate one. The sessionless render browser must
+            // not receive a session cookie, and rejected probes must not populate the session manager.
+            HttpSession session = request.getSession(false);
+            LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
             if (loggedInInfo != null) {
                 enforceAssetReadPrivilege(loggedInInfo, fileName);
             } else if (!hasValidRenderGrant(request)) {
