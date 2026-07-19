@@ -13,7 +13,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.List;
+
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -39,6 +43,8 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
+            // The grant's eForm (fdid 4321) references signature 42, so the fetch is authorized.
+            registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
 
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
@@ -54,6 +60,41 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
         }
+    }
+
+    @Test
+    @DisplayName("should reject a signature id the render's eForm does not reference")
+    void shouldRejectSignature_whenNotReferencedByRenderEform() throws Exception {
+        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
+            registerMock(DigitalSignatureManager.class, manager);
+            // The grant's eForm (fdid 4321) references only signature 42; a request for 99 is denied
+            // so a crafted form cannot pull an unrelated patient's signature into the render.
+            registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "99");
+            request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    private static EFormValueDao eFormValueDaoReferencing(int fdid, String signatureId) {
+        EFormValue signatureValue = new EFormValue();
+        signatureValue.setVarName("signatureValue");
+        signatureValue.setVarValue("/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=" + signatureId);
+        EFormValueDao dao = mock(EFormValueDao.class);
+        when(dao.findByFormDataId(fdid)).thenReturn(List.of(signatureValue));
+        return dao;
     }
 
     @Test

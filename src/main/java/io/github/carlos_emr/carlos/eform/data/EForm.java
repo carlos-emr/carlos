@@ -93,9 +93,11 @@ public class EForm extends EFormBase {
     private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
-    // The "</" that begins a closing </script> tag (case-insensitive), re-escaped after timer
-    // decoding so a decoded script-close cannot truncate the surrounding inline script.
-    private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script)");
+    // The "</" that begins a closing </script> tag, re-escaped after timer decoding so a decoded
+    // script-close cannot truncate the surrounding inline script. Scoped to the exact sequences the
+    // HTML tokenizer treats as a script end tag — "</script" followed by whitespace, "/", or ">" —
+    // so ordinary identifiers like "</scriptable" are left untouched. (Case-insensitive.)
+    private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[\\s/>])");
 
     private String runtimeContextPath;
 

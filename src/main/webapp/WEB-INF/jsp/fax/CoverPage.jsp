@@ -430,7 +430,7 @@
                             <p class="text-muted">
                                 Preview shows the generated fax PDF as server-rendered images.
                                 <a id="previewPdfLink"
-                                   href="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<carlos:encode value='${faxFilePath}' context="uriComponent"/>"
+                                   href="${ctx}/fax/faxAction?method=getPreview&faxFilePath=${carlos:forUriComponent(faxFilePath)}"
                                    target="_blank" rel="noopener noreferrer">Open PDF</a>
                             </p>
                             <div id="previewStatus" class="text-muted">Loading preview…</div>
@@ -463,7 +463,7 @@
 </div>
 
 <script type="text/javascript">
-    var ctx = "<carlos:encode value='${ ctx }' context="javaScript"/>";
+    var ctx = "${carlos:forJavaScript(ctx)}";
     
     // HTML entity encoding function to prevent XSS
     function escapeHtml(text) {

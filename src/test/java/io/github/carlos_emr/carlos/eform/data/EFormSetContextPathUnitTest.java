@@ -238,4 +238,21 @@ class EFormSetContextPathUnitTest {
                 .doesNotContain("a</script>b");
     }
 
+    @Test
+    @DisplayName("should not escape a non-closing script identifier when rewriting legacy string timers")
+    void shouldNotEscapeNonClosingScriptToken_whenRewritingLegacyStringTimers() {
+        EForm eform = new EForm();
+        // "</scripting" is not a script end tag (no whitespace / "/" / ">" after "script"), so the
+        // script-close neutralization must leave it verbatim rather than emitting an invalid "<\/".
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout('doc.querySelector(\"a[href=</scripting]\")', 100)</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("a[href=</scripting]")
+                .doesNotContain("<\\/scripting");
+    }
+
 }

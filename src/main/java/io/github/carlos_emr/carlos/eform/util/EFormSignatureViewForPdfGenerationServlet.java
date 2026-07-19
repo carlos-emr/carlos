@@ -15,6 +15,8 @@ package io.github.carlos_emr.carlos.eform.util;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -22,7 +24,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -33,6 +37,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    /** Matches a {@code digitalSignatureId=<n>} reference in a stored eForm value's query string. */
+    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("[?&]digitalSignatureId=(\\d+)");
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -52,7 +59,8 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         // that grant so this loopback endpoint is no longer a bare, always-open enumeration surface
         // for any local process. The grant rides the signature URL the render servlet emits.
         String token = request.getParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM);
-        if (EFormRenderTokenService.getInstance().peek(token) == null) {
+        EFormRenderTokenService.RenderGrant grant = EFormRenderTokenService.getInstance().peek(token);
+        if (grant == null) {
             logger.warn("Rejected EFormSignatureViewForPdfGenerationServlet request lacking a valid render grant");
             // Handle the sendError IOException locally so it never escapes the servlet method.
             try {
@@ -71,9 +79,19 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
                 return;
             }
+            int digitalSignatureId = Integer.parseInt(signatureIdParam);
+            // Bind the fetch to the render's own eForm: a grant is minted for one fdid, so it may only
+            // retrieve a signature that eForm actually references. Without this, a valid render token
+            // (or any local process holding one) could enumerate arbitrary signature ids and pull an
+            // unrelated patient's signature image into the generated PDF.
+            if (!isSignatureReferencedByEform(grant.fdid(), signatureIdParam)) {
+                logger.warn("Rejected signature fetch for a digitalSignatureId not referenced by the render's eForm");
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature digitalSignature = digitalSignatureManager
-					.getDigitalSignature(Integer.parseInt(signatureIdParam));
+					.getDigitalSignature(digitalSignatureId);
             if (digitalSignature != null) {
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
@@ -100,5 +118,30 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+    }
+
+    /**
+     * Returns true when the saved eForm identified by {@code fdid} references {@code signatureId} in
+     * any of its stored values. This binds the render-scoped grant to the eForm it was minted for:
+     * the renderer only ever embeds signatures the form itself declares (in its {@code signatureValue}
+     * or letter content), so authorizing exactly that set prevents a crafted form from fetching an
+     * unrelated signature. The comparison is on the numeric string so an unbounded stored id cannot
+     * throw while parsing.
+     */
+    static boolean isSignatureReferencedByEform(int fdid, String signatureId) {
+        EFormValueDao eFormValueDao = SpringUtils.getBean(EFormValueDao.class);
+        for (EFormValue value : eFormValueDao.findByFormDataId(fdid)) {
+            String stored = value.getVarValue();
+            if (stored == null) {
+                continue;
+            }
+            Matcher matcher = DIGITAL_SIGNATURE_ID_REFERENCE.matcher(stored);
+            while (matcher.find()) {
+                if (signatureId.equals(matcher.group(1))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
