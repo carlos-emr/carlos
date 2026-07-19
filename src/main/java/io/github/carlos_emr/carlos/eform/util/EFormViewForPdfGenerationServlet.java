@@ -138,6 +138,11 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return grant;
     }
 
+    /**
+     * Session-auth path for non-browser callers: returns the logged-in user only when the request
+     * carries an authenticated session with provider + security context and {@code _eform} read
+     * privilege; returns null (logging the reason) on any denial.
+     */
     private static LoggedInInfo authorizedEformReadRequest(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
@@ -155,6 +160,13 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return loggedInInfo;
     }
 
+    /**
+     * Builds the response Content-Security-Policy. Legacy server-side rendering blocks all scripts
+     * ({@code script-src 'none'}); the browser-render path must allow same-origin inline/eval scripts
+     * and {@code blob:}/{@code data:} images because the eForm is a JavaScript-built document the
+     * headless browser has to execute to capture it. Both policies keep every fetch origin at
+     * {@code 'self'}.
+     */
     static String buildContentSecurityPolicy(boolean browserRender) {
         if (!browserRender) {
             return "default-src 'self'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
@@ -162,6 +174,10 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'";
     }
 
+    /**
+     * Parses the {@code fdid} parameter. Returns null <em>after</em> sending a 400 response when it
+     * is non-numeric, so the caller must stop processing on a null return.
+     */
     private static Integer parseFormDataId(String id, HttpServletResponse response) throws IOException {
         try {
             return Integer.parseInt(id);

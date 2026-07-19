@@ -83,6 +83,20 @@ public final class EformRenderPdfHtmlComposer {
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax, renderToken);
     }
 
+    /**
+     * Assembles the final render HTML for a loaded {@link EForm}: injects the stored letter content,
+     * splices any stored signature image, rewrites the legacy image references
+     * ({@code ../eform/displayImage}, {@code ${oscar_image_path}}, {@code /eform/displayImage}) to the
+     * {@code EFormImageViewForPdfGenerationServlet} route, hides print-suppressed blocks, and — when
+     * {@code renderToken} is non-null — carries the render grant onto every asset URL.
+     *
+     * <p>Ordering is load-bearing: letter and signature content are injected <em>before</em> the
+     * image-path rewrites so the rewrites also cover the freshly injected markup.</p>
+     *
+     * @param renderToken render-scoped grant spliced onto asset URLs, or null for the
+     *        session-authenticated (non-browser) path
+     * @return the normalized HTML ready for capture
+     */
     // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.
     @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
     static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax, String renderToken) {
@@ -129,6 +143,11 @@ public final class EformRenderPdfHtmlComposer {
                 .replace(SIGNATURE_VIEW_SERVLET_NAME + "?", SIGNATURE_VIEW_SERVLET_NAME + tokenPrefix);
     }
 
+    /**
+     * Replaces the form body with the stored {@code Letter} content, remapping its legacy
+     * signature-render path and, for fax preview, wrapping it in the absolute-positioned offset the
+     * fax cover page expects. No-op when the form has no {@code Letter} value.
+     */
     private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues, boolean prepareForFax) {
         for (EFormValue value : eFormValues) {
             if (!"Letter".equals(value.getVarName())) {
@@ -144,6 +163,11 @@ public final class EformRenderPdfHtmlComposer {
         }
     }
 
+    /**
+     * Splices a stored signature image in place of the JS signature pad's {@code signatureDisplay}
+     * target, reusing the geometry declared in the form's {@code signatureControl.initialize(...)}
+     * call. Skips silently when the stored URL fails {@link #normalizePdfSignatureUrl} validation.
+     */
     private static void applySignatureHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath) {
         for (EFormValue value : eFormValues) {
             if (!"signatureValue".equals(value.getVarName())) {
@@ -167,6 +191,16 @@ public final class EformRenderPdfHtmlComposer {
         }
     }
 
+    /**
+     * Validates and canonicalizes a stored signature reference into a safe, local
+     * {@code EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=...} URL with a numeric id.
+     *
+     * <p>Security boundary: returns null unless the input is a purely local, root-relative reference
+     * to that servlet with a numeric id. Any scheme, host, authority, fragment, opaque form,
+     * HTML-attribute metacharacter, or non-numeric id is rejected — so a non-null result is always
+     * safe to place in an {@code src} attribute (after {@link #buildSignatureImageMarkup} applies
+     * HTML-attribute encoding).</p>
+     */
     static String normalizePdfSignatureUrl(String rawUrl, String contextPath) {
         if (rawUrl == null) {
             return null;
@@ -207,6 +241,7 @@ public final class EformRenderPdfHtmlComposer {
         return PDF_SIGNATURE_SERVLET_PATH + "?" + DIGITAL_SIGNATURE_ID_PARAM + "=" + digitalSignatureId;
     }
 
+    /** Builds the positioned signature {@code <img>}, HTML-attribute-encoding the (already validated) URL. */
     static String buildSignatureImageMarkup(String signatureUrl, String left, String top, String width, String height) {
         return String.format(
                 "<div id=\"signatureDisplay\"><img src=\"%s\" style=\"position:absolute;left:%s;top:%s;width:%s;height:%s;\" /> </div>",
@@ -244,6 +279,11 @@ public final class EformRenderPdfHtmlComposer {
         return contextPath.endsWith("/") ? contextPath.substring(0, contextPath.length() - 1) : contextPath;
     }
 
+    /**
+     * Returns the first digit-only value of {@code parameterName} in the raw query string, or null.
+     * The digit-only constraint keeps a metacharacter out of the id that is spliced back into the
+     * canonicalized signature URL.
+     */
     private static String extractDigitsQueryParam(String rawQuery, String parameterName) {
         if (rawQuery == null || rawQuery.isBlank()) {
             return null;
