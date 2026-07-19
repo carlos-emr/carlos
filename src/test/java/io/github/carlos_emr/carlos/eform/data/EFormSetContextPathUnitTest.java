@@ -220,4 +220,22 @@ class EFormSetContextPathUnitTest {
                 .doesNotContain("\\x41");
     }
 
+    @Test
+    @DisplayName("should not expose a raw script-closing tag when decoding a legacy string timer")
+    void shouldNeutralizeScriptClose_whenDecodedTimerBodyClosesTheScript() {
+        EForm eform = new EForm();
+        // The legacy string body writes a </script> escaped as <\/script> — decoding resolves the
+        // \/ to /, so without re-escaping the hoisted body would contain a raw </script> that
+        // truncates the inline script mid-parse. The rewrite must keep it as <\/script>.
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout('document.write(\"a<\\/script>b\")', 100)</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("setTimeout(function(){ document.write(\"a<\\/script>b\") }, 100)")
+                .doesNotContain("a</script>b");
+    }
+
 }

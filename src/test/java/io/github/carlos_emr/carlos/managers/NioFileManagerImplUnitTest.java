@@ -69,8 +69,13 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     @TempDir
     Path tempDir;
 
+    private String originalHeadless;
+
     @BeforeEach
     void setUp() {
+        // Force headless so ImageIO/AWT cache rendering works in CI; capture the prior value so
+        // tearDown can restore it and this global property does not leak into other tests' JVM.
+        originalHeadless = System.getProperty("java.awt.headless");
         System.setProperty("java.awt.headless", "true");
         nioFileManager = new NioFileManagerImpl();
         securityInfoManager = mock(SecurityInfoManager.class);
@@ -101,6 +106,11 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         }
         if (outsideDir != null) {
             Files.deleteIfExists(outsideDir);
+        }
+        if (originalHeadless == null) {
+            System.clearProperty("java.awt.headless");
+        } else {
+            System.setProperty("java.awt.headless", originalHeadless);
         }
     }
 

@@ -93,6 +93,9 @@ public class EForm extends EFormBase {
     private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
+    // The "</" that begins a closing </script> tag (case-insensitive), re-escaped after timer
+    // decoding so a decoded script-close cannot truncate the surrounding inline script.
+    private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script)");
 
     private String runtimeContextPath;
 
@@ -510,7 +513,7 @@ public class EForm extends EFormBase {
         StringBuffer rewritten = new StringBuffer();
         while (matcher.find()) {
             String replacement = timerFunction + "(function(){ "
-                    + decodeJsStringLiteralBody(matcher.group(2))
+                    + neutralizeScriptClose(decodeJsStringLiteralBody(matcher.group(2)))
                     + " }, " + matcher.group(3) + ")";
             matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
         }
@@ -522,11 +525,17 @@ public class EForm extends EFormBase {
      * Decodes a JavaScript string-literal body once, turning it into the equivalent raw source for a
      * function body. A legacy timer written as {@code setTimeout('code', ms)} passed a STRING to the
      * engine; hoisting that body into {@code setTimeout(function(){ code }, ms)} must resolve the
-     * string's escapes (newline, tab, hex, unicode, escaped quotes, escaped backslash, line
-     * continuations, …) exactly as the engine would when evaluating the string, or
-     * the callback's semantics change. Unknown escapes collapse to the escaped character, matching
-     * non-strict JavaScript. Works for both {@code '...'} and {@code "..."} bodies because the
-     * delimiter escape is just another {@code \<char>} handled by the default branch.
+     * string's escapes (newline, tab, hex, unicode, escaped quotes, escaped backslash, …) exactly
+     * as the engine would when evaluating the string, or the callback's semantics change. Unknown
+     * escapes collapse to the escaped character, matching non-strict JavaScript. Works for both
+     * {@code '...'} and {@code "..."} bodies because the delimiter escape is just another
+     * {@code \<char>} handled by the default branch.
+     *
+     * <p>Legacy octal escapes ({@code \1}-{@code \7}) are intentionally left as identity escapes:
+     * they are deprecated, never appear in the clinic-authored timer strings this handles, and
+     * decoding them would add complexity for no real form. The caller re-escapes any resulting
+     * script-closing token via {@link #neutralizeScriptClose(String)} so a decoded {@code </script}
+     * cannot truncate the surrounding inline script.</p>
      */
     private static String decodeJsStringLiteralBody(String body) {
         StringBuilder out = new StringBuilder(body.length());
@@ -564,18 +573,24 @@ public class EForm extends EFormBase {
                 case 'u':
                     i = appendUnicodeEscape(out, body, i);
                     break;
-                case '\n':
-                    break; // line continuation
-                case '\r':
-                    if (i < n && body.charAt(i) == '\n') {
-                        i += 1; // CRLF line continuation
-                    }
-                    break;
                 default:
                     out.append(e); // \' \" \\ \/ \` and any other escape -> the literal character
             }
         }
         return out.toString();
+    }
+
+    /**
+     * Re-escapes a script-closing token inside decoded timer source so hoisting the body into the
+     * inline {@code <script>} cannot truncate it. Decoding a legacy string body resolves escapes
+     * such as {@code \/}, {@code \x3C}, and {@code <}; if the original string embedded
+     * {@code </script>} (only ever legal inside an inner string or regex literal), the decoded
+     * {@code </script} would otherwise close the surrounding {@code <script>} mid-parse and drop
+     * the rest of the form's JavaScript. {@code <\/script} is HTML-parser-safe and, sitting inside
+     * that inner string/regex, is runtime-identical.
+     */
+    private static String neutralizeScriptClose(String source) {
+        return SCRIPT_CLOSE_TOKEN.matcher(source).replaceAll(Matcher.quoteReplacement("<\\/"));
     }
 
     /** Handles fixed-length and brace unicode escapes starting at {@code i} (just past the 'u'). */
