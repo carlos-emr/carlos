@@ -528,28 +528,11 @@ public class EFormBrowserPdfRenderer {
 
     private void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries, String baseUrl, int fdid)
             throws PDFGenerationException {
-        String allowedOrigin = originOf(baseUrl);
-        int disallowedRequests = 0;
-        Integer mainDocumentStatus = null;
-
-        for (LogEntry entry : performanceEntries) {
-            JsonNode message = parsePerformanceMessage(entry.getMessage());
-            if (message == null) {
-                continue;
-            }
-            String method = message.path("method").asText("");
-            JsonNode params = message.path("params");
-            if ("Network.requestWillBeSent".equals(method)) {
-                String url = params.path("request").path("url").asText("");
-                if (isDisallowedRendererRequestUrl(url, allowedOrigin)) {
-                    disallowedRequests++;
-                }
-            } else if ("Network.responseReceived".equals(method)
-                    && "Document".equals(params.path("type").asText(""))
-                    && params.path("response").path("url").asText("").startsWith(allowedOrigin)) {
-                mainDocumentStatus = params.path("response").path("status").asInt();
-            }
-        }
+        NetworkGateScan scan = scanNetworkEvents(
+                performanceEntries.stream().map(LogEntry::getMessage).toList(),
+                originOf(baseUrl));
+        int disallowedRequests = scan.disallowedRequests();
+        Integer mainDocumentStatus = scan.mainDocumentStatus();
 
         int severeConsoleEntries = 0;
         try {
@@ -573,6 +556,41 @@ public class EFormBrowserPdfRenderer {
             throw new PDFGenerationException("Browser rendering surfaced page errors. disallowedRequests="
                     + disallowedRequests + " consoleErrors=" + severeConsoleEntries);
         }
+    }
+
+    /** Outcome of replaying Chrome's network events against the allowed loopback origin. */
+    record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus) {
+    }
+
+    /**
+     * Replays raw CDP performance-log messages: counts requests to any origin other than the
+     * allowed loopback origin and records the status of the first main-frame document response.
+     * Later {@code Document} events belong to iframes (e.g. signature blocks) and are ignored.
+     */
+    static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
+        int disallowedRequests = 0;
+        Integer mainDocumentStatus = null;
+        for (String rawEntry : rawEntries) {
+            JsonNode message = parsePerformanceMessage(rawEntry);
+            if (message == null) {
+                continue;
+            }
+            String method = message.path("method").asText("");
+            JsonNode params = message.path("params");
+            if ("Network.requestWillBeSent".equals(method)) {
+                String url = params.path("request").path("url").asText("");
+                if (isDisallowedRendererRequestUrl(url, allowedOrigin)) {
+                    disallowedRequests++;
+                }
+            } else if (mainDocumentStatus == null
+                    && "Network.responseReceived".equals(method)
+                    && "Document".equals(params.path("type").asText(""))
+                    && allowedOrigin != null
+                    && allowedOrigin.equals(originOf(params.path("response").path("url").asText("")))) {
+                mainDocumentStatus = params.path("response").path("status").asInt();
+            }
+        }
+        return new NetworkGateScan(disallowedRequests, mainDocumentStatus);
     }
 
     private int drainPerformanceLog(ChromeDriver driver, List<LogEntry> performanceEntries) {

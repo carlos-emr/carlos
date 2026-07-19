@@ -276,6 +276,54 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should count disallowed origins and take the first document status from network events")
+    void shouldScanNetworkEvents_forGateDecisions() {
+        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.requestWillBeSent", "\"request\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\"}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                // Later Document events belong to iframes and must not overwrite the main status.
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/signature\",\"status\":404}"),
+                cdpMessage("Network.requestWillBeSent", "\"request\":{\"url\":\"https://evil.example/exfil\"}"),
+                cdpMessage("Network.requestWillBeSent", "\"request\":{\"url\":\"data:image/png;base64,AAAA\"}"),
+                "not-json");
+
+        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.disallowedRequests()).isEqualTo(1);
+        assertThat(scan.mainDocumentStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should match the main document status when the base URL uses a default port")
+    void shouldMatchMainDocumentStatus_withDefaultPortBaseUrl() {
+        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"));
+
+        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.mainDocumentStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should report no main document status when only foreign documents responded")
+    void shouldReportNoMainDocumentStatus_whenOnlyForeignDocumentsResponded() {
+        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:9999/other\",\"status\":200}"));
+
+        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.mainDocumentStatus()).isNull();
+        assertThat(scan.disallowedRequests()).isZero();
+    }
+
+    private static String cdpMessage(String method, String paramsJson) {
+        return "{\"message\":{\"method\":\"" + method + "\",\"params\":{" + paramsJson + "}}}";
+    }
+
+    @Test
     @DisplayName("should refuse a render slot when the concurrency bound is saturated")
     void shouldRefuseRenderSlot_whenConcurrencyBoundSaturated() {
         Semaphore drained = new Semaphore(0);
