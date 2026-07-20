@@ -209,4 +209,43 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             assertThat(response.getHeader("Content-Disposition")).startsWith("inline;");
         }
     }
+
+    @Test
+    @DisplayName("should return 403 (not an uncaught throw) when image preview generation is denied by _edoc")
+    void shouldReturnForbidden_whenImagePreviewThrowsSecurityException() {
+        // getPreview() gates _fax READ, but preview image generation runs through
+        // NioFileManager.createCacheVersion2, which enforces an _edoc READ gate. A _fax-only principal
+        // therefore triggers a SecurityException deep in the call chain; getPreview must own that error
+        // (clean 403) rather than let it escape and leave Struts to write an HTML error page into the
+        // image/png stream (direct-response contract).
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq("/tmp/carlos-temp/fax.pdf"), eq(1)))
+                .thenThrow(new SecurityException("missing required sec object (_edoc)"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        request.setParameter("showAs", "image");
+        request.setParameter("pageNumber", "1");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
 }

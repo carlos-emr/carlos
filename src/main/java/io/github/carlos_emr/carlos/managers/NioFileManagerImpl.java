@@ -563,7 +563,17 @@ public class NioFileManagerImpl implements NioFileManager {
         }
         Path baseDocumentPath = Paths.get(baseDocumentDir()).normalize().toAbsolutePath();
         try {
-            Path normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
+            // Canonicalize (resolve symlinks) so the source-scoped cache key matches the write side, which
+            // keys off EDocUtil.resolvePath()'s canonical path. Without this, a symlinked java.io.tmpdir
+            // (e.g. macOS /tmp -> /private/tmp) makes the write key hash the canonical dir while flush hashes
+            // the symlinked dir, so removeCacheVersions matches nothing and the SI8_2 flush fix silently
+            // no-ops on such hosts. Falls back to normalize() if the path cannot be canonicalized.
+            Path normalizedSourceDir;
+            try {
+                normalizedSourceDir = Paths.get(sourceDirectory).toFile().getCanonicalFile().toPath();
+            } catch (IOException canonicalizationFailure) {
+                normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
+            }
             if (!PathValidationUtils.isInApplicationTempDirectory(normalizedSourceDir.toFile())) {
                 normalizedSourceDir = PathValidationUtils.validateExistingPath(
                         normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();

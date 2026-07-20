@@ -222,7 +222,9 @@ public class EformDataManagerImpl implements EformDataManager {
             logger.warn("EForm PDF generation failed during browser rendering: fdid={} reason={}", fdid, e.getMessage());
             throw e;
         } catch (RuntimeException e) {
-            logger.error("EForm PDF generation errored during browser rendering: fdid={} type={}", fdid, e.getClass().getName());
+            // Only genuinely-unexpected non-renderer errors (NPE/Spring/etc.) reach here — the renderer
+            // de-chains WebDriver exceptions internally, so this carries no PHI; keep the stack for triage.
+            logger.error("EForm PDF generation errored during browser rendering: fdid={} type={}", fdid, e.getClass().getName(), e);
             throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
         }
 

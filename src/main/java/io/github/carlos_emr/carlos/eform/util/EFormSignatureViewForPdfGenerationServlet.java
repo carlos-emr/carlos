@@ -25,8 +25,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -98,6 +100,15 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 			DigitalSignature digitalSignature = digitalSignatureManager
 					.getDigitalSignature(digitalSignatureId);
             if (digitalSignature != null) {
+                // Patient-scope check on top of the form-reference binding: a signature bound to a concrete
+                // demographic may only be embedded in a render for that same demographic. Without this, a
+                // crafted eForm that *references* another patient's digitalSignatureId (which passes
+                // isSignatureReferencedByEform) could pull that patient's signature image (PHI) into the PDF.
+                if (!signatureBelongsToRenderDemographic(grant.fdid(), digitalSignature)) {
+                    logger.warn("Rejected signature fetch whose demographic does not match the render's eForm");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
                 byte[] image = digitalSignature.getSignatureImage();
@@ -142,6 +153,28 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
      * unrelated signature. The comparison is on the numeric string so an unbounded stored id cannot
      * throw while parsing.
      */
+    /**
+     * Returns true when {@code signature} may be embedded in the render identified by {@code fdid}:
+     * either the signature is not patient-bound (null/0 demographic — a provider-scoped signature that
+     * carries no patient linkage) or its demographic matches the render's eForm demographic. This adds a
+     * patient-scope check on top of {@link #isSignatureReferencedByEform}: the reference binding alone
+     * confirms the crafted form *mentions* the id, but not that the underlying signature row belongs to the
+     * same patient. Fails closed (returns false) when the render's eForm cannot be resolved.
+     */
+    static boolean signatureBelongsToRenderDemographic(int fdid, DigitalSignature signature) {
+        Integer signatureDemographic = signature.getDemographicId();
+        if (signatureDemographic == null || signatureDemographic == 0) {
+            // Not bound to a patient (e.g. a provider signature); the form-reference binding is the boundary.
+            return true;
+        }
+        EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
+        EFormData eFormData = eFormDataDao.findByFormDataId(fdid);
+        if (eFormData == null) {
+            return false;
+        }
+        return signatureDemographic.equals(eFormData.getDemographicId());
+    }
+
     static boolean isSignatureReferencedByEform(int fdid, String signatureId) {
         EFormValueDao eFormValueDao = SpringUtils.getBean(EFormValueDao.class);
         List<EFormValue> storedValues = eFormValueDao.findByFormDataId(fdid);

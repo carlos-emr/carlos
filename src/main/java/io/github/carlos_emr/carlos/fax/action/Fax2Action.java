@@ -91,10 +91,12 @@ public class Fax2Action extends ActionSupport {
             return prepareFax();
         } else if ("getPreview".equals(method)) {
             getPreview();
-            return null;
+            // getPreview streams bytes directly to the response; return NONE (not a bare null) so Struts
+            // does not resolve a named result / write HTML into the binary download (direct-response contract).
+            return NONE;
         } else if ("getPageCount".equals(method)) {
             getPageCount();
-            return null;
+            return NONE;
         }
         return cancel();
     }
@@ -161,7 +163,7 @@ public class Fax2Action extends ActionSupport {
             // Verify user has access to this patient's record
             if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
                 logger.warn("Unauthorized access attempt to demographic {} by provider {}",
-                        demographicNo, LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
+                        LogSafe.sanitize(String.valueOf(demographicNo)), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
                 throw new SecurityException("Unauthorized access to patient record");
             }
         }
@@ -316,8 +318,22 @@ public class Fax2Action extends ActionSupport {
          */
         if (requestedFaxFilePath != null && !requestedFaxFilePath.isEmpty()) {
             if (showAs != null && showAs.equals("image")) {
-                // The faxManager.getFaxPreviewImage method already handles path validation
-                outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
+                // The faxManager.getFaxPreviewImage method already handles path validation.
+                // Own the error response here: preview image generation goes through
+                // NioFileManager.createCacheVersion2, which enforces an _edoc READ gate (getPreview only
+                // gates _fax), and can throw on an invalid/inaccessible path. An uncaught throw would let
+                // Struts write an HTML error page into this image/png stream (direct-response contract).
+                try {
+                    outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
+                } catch (SecurityException e) {
+                    logger.error("Security validation failed for fax preview image: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return;
+                } catch (RuntimeException e) {
+                    logger.error("Error generating fax preview image: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    sendErrorQuietly(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate fax preview");
+                    return;
+                }
                 if (outfile != null && outfile.getFileName() != null) {
                     response.setContentType("image/png");
                     String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());

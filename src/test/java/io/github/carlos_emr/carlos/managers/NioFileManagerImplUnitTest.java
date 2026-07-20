@@ -370,6 +370,46 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Clears preview pages when flush reaches the source dir through a symlink (canonical cache key)")
+    void shouldRemovePreviewPages_whenSourceDirReachedViaSymlink() throws IOException {
+        allowedTempDir = createApplicationTempDirectory("nio-cache-symlink-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside a CARLOS-owned temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("symlinked.pdf");
+        createSinglePagePdf(sourcePdf);
+
+        // A symlink whose target is the real (canonical) source dir models a symlinked java.io.tmpdir
+        // (e.g. macOS /tmp -> /private/tmp). The write side keys the page-image cache off the canonical
+        // dir (EDocUtil.resolvePath), so the remove side must canonicalize too or removeCacheVersions
+        // computes a non-matching prefix and silently clears nothing.
+        Path symlinkDir;
+        try {
+            symlinkDir = Files.createSymbolicLink(
+                    allowedTempDir.resolveSibling(allowedTempDir.getFileName() + "-link"), allowedTempDir);
+        } catch (IOException | UnsupportedOperationException symlinkUnsupported) {
+            assumeTrue(false, "filesystem does not support symbolic links");
+            return;
+        }
+
+        // Seed the cache via the real (canonical) dir path — the write side.
+        Path pageOne = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+        assertThat(pageOne).isNotNull().exists();
+        try {
+            // Flush via the symlinked dir path — the remove side must resolve to the same canonical
+            // source and clear the page image.
+            int removed = nioFileManager.removeCacheVersions(symlinkDir.toString(), sourcePdf.getFileName().toString());
+
+            assertThat(removed).as("preview page removed even when the source dir is reached via a symlink").isEqualTo(1);
+            assertThat(Files.exists(pageOne)).isFalse();
+        } finally {
+            Files.deleteIfExists(pageOne);
+            Files.deleteIfExists(sourcePdf);
+            Files.deleteIfExists(symlinkDir);
+        }
+    }
+
+    @Test
     @DisplayName("Refuses to clear preview cache for a source outside the allowed preview locations")
     void shouldNotRemovePreviewPages_forDisallowedSource() throws Exception {
         // A directory under the shared temp root but NOT CARLOS-owned (and not the document root) is not
