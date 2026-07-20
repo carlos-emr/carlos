@@ -25,6 +25,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * through optional email encryption with password protection and encrypted attachments. All
  * email transactions are logged for audit trail purposes and can be linked to specific patient
  * charts and healthcare providers.</p>
+ *
+ * <p>Optional fields that downstream email handling expects to be non-null are initialized to
+ * safe defaults. In particular, attachments default to an empty list and chart display defaults
+ * to {@link ChartDisplayOption#WITHOUT_NOTE}.</p>
  * 
  * <p>Typical usage:</p>
  * <pre>
@@ -66,8 +70,6 @@ public class EmailData {
 
     /**
      * Default constructor for creating an empty EmailData instance.
-     * Optional fields are initialized to safe defaults where downstream email handling expects
-     * non-null values. Use setter methods to populate the email data fields.
      */
     public EmailData() {
     }

@@ -474,14 +474,11 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     }
 
     /**
-     * Converts a string to Title Case format (first letter uppercase, rest lowercase).
+     * Formats first and last name parts as a display name.
      *
-     * <p><strong>Note:</strong> Despite the method name, this produces Title Case
-     * (e.g., "Firstname") rather than true camelCase (e.g., "firstName"). This is
-     * the expected behavior for formatting person names in this class.</p>
-     *
-     * @param inputString String the input string to convert
-     * @return String the Title Case formatted string
+     * @param firstName String the first name part to format
+     * @param lastName String the last name part to format
+     * @return String the formatted full name
      */
     private String formatFullName(String firstName, String lastName) {
         String formattedFirstName = toCamelCase(firstName);
