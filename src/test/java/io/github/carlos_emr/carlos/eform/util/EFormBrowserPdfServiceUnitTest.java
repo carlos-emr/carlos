@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.util.List;
@@ -285,6 +286,40 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should sweep only stale eform-browser-render entries under the managed root")
+    void shouldSweepStaleRendererRoots_leavingFreshAndUnrelatedEntries() throws IOException {
+        Path root = Files.createTempDirectory("eform-browser-render-sweep-root-");
+        Path staleDir = Files.createDirectory(root.resolve("eform-browser-render-stale123"));
+        Path staleFile = Files.createFile(root.resolve("eform-browser-render-stale.pdf"));
+        Path freshDir = Files.createDirectory(root.resolve("eform-browser-render-fresh123"));
+        Path unrelated = Files.createFile(root.resolve("keepme.txt"));
+        try {
+            FileTime old = FileTime.fromMillis(System.currentTimeMillis() - Duration.ofHours(2).toMillis());
+            Files.setLastModifiedTime(staleDir, old);
+            Files.setLastModifiedTime(staleFile, old);
+
+            EFormBrowserPdfService.sweepStaleRendererRoots(root);
+
+            assertThat(Files.exists(staleDir)).as("stale render dir removed").isFalse();
+            assertThat(Files.exists(staleFile)).as("stale render pdf removed").isFalse();
+            assertThat(Files.exists(freshDir)).as("fresh render dir kept").isTrue();
+            assertThat(Files.exists(unrelated)).as("unrelated file kept").isTrue();
+        } finally {
+            deleteRecursivelyIfExists(staleDir);
+            Files.deleteIfExists(staleFile);
+            deleteRecursivelyIfExists(freshDir);
+            Files.deleteIfExists(unrelated);
+            Files.deleteIfExists(root);
+        }
+    }
+
+    private static void deleteRecursivelyIfExists(Path dir) throws IOException {
+        if (Files.exists(dir)) {
+            Files.deleteIfExists(dir);
+        }
+    }
+
+    @Test
     @DisplayName("should redact URLs from third-party error text before logging")
     void shouldRedactUrls_fromErrorText() {
         String redacted = EFormBrowserPdfService.redactUrls(
@@ -300,6 +335,13 @@ class EFormBrowserPdfServiceUnitTest {
                 .doesNotContain("/etc/passwd").contains("[redacted-url]");
         assertThat(EFormBrowserPdfService.redactUrls("cannot read /var/lib/OscarDocument/secret.pdf"))
                 .doesNotContain("/var/lib/OscarDocument/secret.pdf").contains("[redacted-path]");
+        // Windows drive-letter and UNC paths are redacted too.
+        assertThat(EFormBrowserPdfService.redactUrls("cannot read C:\\Users\\clinic\\secret.pdf"))
+                .doesNotContain("Users").doesNotContain("secret.pdf").contains("[redacted-path]");
+        assertThat(EFormBrowserPdfService.redactUrls("chromedriver at C:/tools/chromedriver.exe not found"))
+                .doesNotContain("tools").doesNotContain("chromedriver.exe").contains("[redacted-path]");
+        assertThat(EFormBrowserPdfService.redactUrls("cannot reach \\\\fileserver\\share\\doc.pdf"))
+                .doesNotContain("fileserver").doesNotContain("doc.pdf").contains("[redacted-path]");
     }
 
     @Test

@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -318,6 +319,7 @@ public class EFormBrowserPdfService {
             logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
 
             Path tempRoot = resolveRendererTempRoot();
+            sweepStaleRendererRoots(tempRoot);
             String allowedOrigin = originOf(baseUrl);
             if (allowedOrigin == null) {
                 throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.");
@@ -485,10 +487,24 @@ public class EFormBrowserPdfService {
     }
 
     private ChromeDriver createDriver(ChromeOptions options) throws PDFGenerationException {
+        // Validate the configured chromedriver path (if any) BEFORE the sandbox-guarded start below,
+        // so a bad eform_pdf_browser_chromedriver_path surfaces as a config-specific error instead of
+        // being caught by the broad catch and misreported as a Chromium sandbox failure that sends
+        // operators to change user namespaces (cubic DGaq).
+        File chromedriver = null;
+        String chromedriverPath = resolveChromedriverPath();
+        if (chromedriverPath != null) {
+            try {
+                chromedriver = PathValidationUtils.validateConfiguredFile(chromedriverPath, CHROMEDRIVER_PATH_PROPERTY);
+            } catch (RuntimeException e) {
+                throw new PDFGenerationException(
+                        "The configured " + CHROMEDRIVER_PATH_PROPERTY + " does not point to a usable chromedriver "
+                        + "executable. Fix the property, or unset it to let Selenium Manager resolve a matching "
+                        + "chromedriver.", e);
+            }
+        }
         try {
-            String chromedriverPath = resolveChromedriverPath();
-            if (chromedriverPath != null) {
-                File chromedriver = PathValidationUtils.validateConfiguredFile(chromedriverPath, CHROMEDRIVER_PATH_PROPERTY);
+            if (chromedriver != null) {
                 ChromeDriverService service = new ChromeDriverService.Builder()
                         .usingDriverExecutable(chromedriver)
                         .build();
@@ -818,10 +834,14 @@ public class EFormBrowserPdfService {
         if (text == null) {
             return null;
         }
-        // Strip http(s) plus other schemes and bare filesystem paths that a WebDriver/settle error
-        // could embed, so no URL or local path reaches the logs.
+        // Strip http(s) plus other schemes and bare filesystem paths (Unix, Windows drive-letter, and
+        // UNC) that a WebDriver/settle error could embed, so no URL or local path reaches the logs.
+        // Order matters: the scheme://... rule runs first so a c://… URL is consumed before the
+        // drive-letter rule can see it.
         return text
                 .replaceAll("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+", "[redacted-url]")
+                .replaceAll("\\\\\\\\[^\\s'\"<>]+", "[redacted-path]")
+                .replaceAll("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*", "[redacted-path]")
                 .replaceAll("(?<![\\w./])/[\\w./-]{2,}", "[redacted-path]");
     }
 
@@ -1116,6 +1136,41 @@ public class EFormBrowserPdfService {
                     .forEach(EFormBrowserPdfService::deleteQuietly);
         } catch (IOException e) {
             logger.debug("Unable to delete temporary browser-rendered capture directory {}", directory, e);
+        }
+    }
+
+    /** Age after which an orphaned renderer artifact under the shared managed root is swept. */
+    private static final Duration STALE_RENDERER_ROOT_TTL = Duration.ofHours(1);
+
+    /**
+     * Best-effort sweep of renderer artifacts (both {@code eform-browser-render-*} capture dirs and
+     * their {@code .pdf} temp files) left under the shared managed root by a JVM or browser that was
+     * killed before the per-render {@code finally} cleanup ran. Only entries older than
+     * {@link #STALE_RENDERER_ROOT_TTL} are removed, so an in-flight concurrent render is never
+     * touched. Never throws — a sweep failure must not fail the render (cubic CQP1).
+     */
+    static void sweepStaleRendererRoots(Path managedRoot) {
+        if (managedRoot == null || !Files.isDirectory(managedRoot)) {
+            return;
+        }
+        long cutoffMillis = System.currentTimeMillis() - STALE_RENDERER_ROOT_TTL.toMillis();
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
+            for (Path entry : entries) {
+                try {
+                    if (Files.getLastModifiedTime(entry).toMillis() >= cutoffMillis) {
+                        continue;
+                    }
+                } catch (IOException e) {
+                    continue; // can't stat it; leave it for a later sweep
+                }
+                if (Files.isDirectory(entry)) {
+                    deleteRecursivelyQuietly(entry);
+                } else {
+                    deleteQuietly(entry);
+                }
+            }
+        } catch (IOException e) {
+            logger.debug("Unable to sweep stale renderer temp roots under {}", managedRoot, e);
         }
     }
 

@@ -115,7 +115,7 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
                                 "height", Math.ceil(region.height()),
                                 "scale", 1.0d),
                         "captureBeyondViewport", Boolean.TRUE));
-                byte[] png = Base64.getDecoder().decode((String) result.get("data"));
+                byte[] png = Base64.getDecoder().decode(String.valueOf(result.get("data")));
                 assertThat(png).as("capture %s bytes", index).isNotEmpty();
                 Path capturePath = tempDir.resolve(String.format("page-%03d.png", index + 1));
                 Files.write(capturePath, png);
