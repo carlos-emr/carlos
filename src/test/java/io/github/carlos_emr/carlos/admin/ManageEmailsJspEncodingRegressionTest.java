@@ -57,8 +57,10 @@ class ManageEmailsJspEncodingRegressionTest {
                 .doesNotContain("<%@ taglib uri=\"owasp.encoder.jakarta.advanced\" prefix=\"e\" %>")
                 .contains("data-bs-content=\"${carlos:forHtmlAttribute(emailStatusResult.errorMessage)}\"")
                 .doesNotContain("data-bs-content=\"${emailStatusResult.errorMessage}\"");
-        assertThat(renderedAttribute)
+        assertThat(encodedErrorMessage)
                 .contains("onmouseover")
+                .doesNotContain("\"");
+        assertThat(renderedAttribute)
                 .doesNotContain("\" onmouseover=\"");
     }
 
