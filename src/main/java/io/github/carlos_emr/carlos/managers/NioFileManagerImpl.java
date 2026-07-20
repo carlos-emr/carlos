@@ -455,6 +455,12 @@ public class NioFileManagerImpl implements NioFileManager {
         }
         int dot = filename.lastIndexOf('.');
         String extension = (dot > 0 && dot < filename.length() - 1) ? filename.substring(dot) : "";
+        // Bound the extension too: a filename whose "extension" is itself pathologically long would
+        // otherwise re-inflate the digest-based name past the component limit. Drop it in that case —
+        // the 16-char digest still keeps the cache entry unique and source-scoped (cubic SIt6B).
+        if (extension.length() > maxBaseLength - 16) {
+            extension = "";
+        }
         return sha256Hex16(filename) + extension;
     }
 
@@ -683,7 +689,14 @@ public class NioFileManagerImpl implements NioFileManager {
      * (cubic HYtv).</p>
      */
     private String getDocumentDirectory() {
-        return CarlosProperties.getInstance().getDocumentDirectory();
+        // Resolve live (HYtv), but keep the legacy recovery: if the configured document dir is stale or
+        // not an actual directory, fall back to <BASE_DOCUMENT_DIR>/document rather than returning an
+        // unusable path (cubic SIt6A).
+        String documentDirectory = CarlosProperties.getInstance().getDocumentDirectory();
+        if (documentDirectory == null || !Files.isDirectory(Paths.get(documentDirectory))) {
+            return Paths.get(baseDocumentDir(), "document").toString();
+        }
+        return documentDirectory;
     }
 
     /**

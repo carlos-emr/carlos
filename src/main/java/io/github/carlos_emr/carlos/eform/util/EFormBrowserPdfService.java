@@ -1154,22 +1154,23 @@ public class EFormBrowserPdfService {
             return;
         }
         long cutoffMillis = System.currentTimeMillis() - STALE_RENDERER_ROOT_TTL.toMillis();
+        // Sweep only capture DIRECTORIES. The render's output .pdf sits directly under the managed root
+        // with the same prefix, but renderSavedEformPdf RETURNS it for caller-owned cleanup, so it must
+        // never be swept even when old (cubic SIt6F). Catch unchecked failures too (e.g.
+        // DirectoryIteratorException) so a traversal/permission error can never turn this best-effort
+        // cleanup into a render prerequisite (cubic SIt6C).
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
             for (Path entry : entries) {
                 try {
-                    if (Files.getLastModifiedTime(entry).toMillis() >= cutoffMillis) {
+                    if (!Files.isDirectory(entry) || Files.getLastModifiedTime(entry).toMillis() >= cutoffMillis) {
                         continue;
                     }
                 } catch (IOException e) {
                     continue; // can't stat it; leave it for a later sweep
                 }
-                if (Files.isDirectory(entry)) {
-                    deleteRecursivelyQuietly(entry);
-                } else {
-                    deleteQuietly(entry);
-                }
+                deleteRecursivelyQuietly(entry);
             }
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             logger.debug("Unable to sweep stale renderer temp roots under {}", managedRoot, e);
         }
     }

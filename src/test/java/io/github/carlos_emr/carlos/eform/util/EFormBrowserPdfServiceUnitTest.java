@@ -286,36 +286,31 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should sweep only stale eform-browser-render entries under the managed root")
-    void shouldSweepStaleRendererRoots_leavingFreshAndUnrelatedEntries() throws IOException {
+    @DisplayName("should sweep only stale render DIRECTORIES, keeping fresh dirs and caller-owned output files")
+    void shouldSweepStaleRendererDirectories_keepingFreshDirsAndOutputFiles() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-sweep-root-");
         Path staleDir = Files.createDirectory(root.resolve("eform-browser-render-stale123"));
-        Path staleFile = Files.createFile(root.resolve("eform-browser-render-stale.pdf"));
+        Path staleOutputPdf = Files.createFile(root.resolve("eform-browser-render-stale.pdf"));
         Path freshDir = Files.createDirectory(root.resolve("eform-browser-render-fresh123"));
         Path unrelated = Files.createFile(root.resolve("keepme.txt"));
         try {
             FileTime old = FileTime.fromMillis(System.currentTimeMillis() - Duration.ofHours(2).toMillis());
             Files.setLastModifiedTime(staleDir, old);
-            Files.setLastModifiedTime(staleFile, old);
+            Files.setLastModifiedTime(staleOutputPdf, old);
 
             EFormBrowserPdfService.sweepStaleRendererRoots(root);
 
-            assertThat(Files.exists(staleDir)).as("stale render dir removed").isFalse();
-            assertThat(Files.exists(staleFile)).as("stale render pdf removed").isFalse();
+            assertThat(Files.exists(staleDir)).as("stale render capture dir removed").isFalse();
+            // The output .pdf is caller-owned and must survive the sweep even when old (SIt6F).
+            assertThat(Files.exists(staleOutputPdf)).as("caller-owned output pdf kept").isTrue();
             assertThat(Files.exists(freshDir)).as("fresh render dir kept").isTrue();
             assertThat(Files.exists(unrelated)).as("unrelated file kept").isTrue();
         } finally {
-            deleteRecursivelyIfExists(staleDir);
-            Files.deleteIfExists(staleFile);
-            deleteRecursivelyIfExists(freshDir);
+            Files.deleteIfExists(staleDir);
+            Files.deleteIfExists(staleOutputPdf);
+            Files.deleteIfExists(freshDir);
             Files.deleteIfExists(unrelated);
             Files.deleteIfExists(root);
-        }
-    }
-
-    private static void deleteRecursivelyIfExists(Path dir) throws IOException {
-        if (Files.exists(dir)) {
-            Files.deleteIfExists(dir);
         }
     }
 

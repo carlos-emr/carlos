@@ -826,7 +826,10 @@ public final class ConvertToEdoc {
             // (cubic CQPt). Fall back to the raw remainder if it is not validly encoded.
             String encodedRemainder = path.substring(OSCAR_IMAGE_PATH_TOKEN_ENCODED.length());
             try {
-                filename = URLDecoder.decode(encodedRemainder, StandardCharsets.UTF_8);
+                // Protect a literal '+' (percent-encode it) before decoding: URLDecoder applies form
+                // semantics and would otherwise turn '+' into a space, dropping a valid filename that
+                // legitimately contains '+' (cubic SIt50). '%20' still decodes to a real space.
+                filename = URLDecoder.decode(encodedRemainder.replace("+", "%2B"), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException e) {
                 filename = encodedRemainder;
             }

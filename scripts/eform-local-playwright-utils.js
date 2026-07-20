@@ -294,7 +294,18 @@ async function invokeFetchAttached(page) {
   // 4xx/5xx attachment failure would be wrongly reported as success (cubic CQQS). Awaiting the
   // response promise (it resolves to null on timeout/error) makes the status check deterministic.
   await responsePromise;
-  if (sidebarResponse && sidebarResponse.status() >= 400) {
+  // A null response means the request timed out or errored (responsePromise resolves to null in that
+  // case); treat that as a failure too, otherwise a missing attachment load would pass silently (cubic
+  // SIt5n).
+  if (!sidebarResponse) {
+    return {
+      hasFunction: true,
+      error: 'fetchAttached() did not receive a displayAttachedFiles response',
+      text: '',
+      html: '',
+    };
+  }
+  if (sidebarResponse.status() >= 400) {
     return {
       hasFunction: true,
       error: `fetchAttached() request failed with HTTP ${sidebarResponse.status()} for ${sidebarResponse.url()}`,

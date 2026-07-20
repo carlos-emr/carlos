@@ -256,8 +256,9 @@ public class LoginFilter implements Filter {
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
-            // Session-less renderer surface (loopback-only). These routes are exempt from the login
-            // redirect because each servlet performs its OWN authorization: the render page accepts a
+            // Session-less renderer surface (loopback-only). These routes must not refresh the
+            // authenticated session's inactivity timer (this list controls the timer only, not the
+            // login redirect); each servlet performs its OWN authorization: the render page accepts a
             // render-scoped token OR an authenticated _eform session; the signature route requires a
             // live render grant on the loopback path; the image route accepts a live render grant as a
             // session alternative for shared template assets. They are NOT uniformly single-use-token gated.

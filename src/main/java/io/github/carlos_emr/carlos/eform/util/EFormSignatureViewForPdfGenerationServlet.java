@@ -40,11 +40,11 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
     private static final Logger logger = MiscUtils.getLogger();
 
     /** Matches a {@code digitalSignatureId=<n>} reference in a stored eForm value's query string. */
-    // Accept both the raw "&digitalSignatureId=" and its HTML-escaped "&amp;digitalSignatureId="
-    // form: stored eForm/letter markup may persist the reference escaped, and the ';' that ends
-    // "&amp;" would otherwise fail the [?&] class and wrongly deny a legitimate signature fetch
-    // (cubic HOdU).
-    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("[?&](?:amp;)?digitalSignatureId=(\\d+)");
+    // Accept the reference as a first query parameter ("?digitalSignatureId="), a raw subsequent
+    // parameter ("&digitalSignatureId="), or its HTML-escaped form ("&amp;digitalSignatureId=").
+    // The "amp;" is scoped to the "&" branch only, so a malformed "?amp;digitalSignatureId=" (neither
+    // a raw parameter nor a valid escape) is NOT accepted (cubic HOdU/SIt57).
+    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;)?)digitalSignatureId=(\\d+)");
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

@@ -204,6 +204,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             Fax2Action action = new Fax2Action();
             action.getPreview();
 
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentType()).isEqualTo("image/png");
             assertThat(response.getHeader("Content-Disposition")).startsWith("inline;");
         }
