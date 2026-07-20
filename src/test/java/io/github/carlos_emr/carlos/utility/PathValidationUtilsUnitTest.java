@@ -695,6 +695,21 @@ class PathValidationUtilsUnitTest {
             assertThat(PathValidationUtils.isInAllowedTempDirectory(tempFile)).isTrue();
             assertThat(PathValidationUtils.isInApplicationTempDirectory(tempFile)).isFalse();
         }
+
+        @Test
+        @DisplayName("should not report a tmpdir 'carlos' subtree as application temp (that segment is work-only)")
+        void shouldReturnFalse_whenTmpdirFirstSegmentIsWorkOnly() throws IOException {
+            // 'carlos' is a CARLOS-owned first segment only under a Tomcat work/ root, never under
+            // java.io.tmpdir. A file under <java.io.tmpdir>/carlos must NOT pass the application temp
+            // boundary — the segment set is keyed per-root so it cannot be smuggled past fax
+            // promotion / eForm preview from the wrong root.
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path strayRoot = Files.createDirectories(Path.of(systemTempDir, "carlos", "app-temp-cross-root-"));
+            File strayFile = Files.createTempFile(strayRoot, "stray-", ".pdf").toFile();
+            strayFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(strayFile)).isFalse();
+        }
     }
 
     // ========================================================================

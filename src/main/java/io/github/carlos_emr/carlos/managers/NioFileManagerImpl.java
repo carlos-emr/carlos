@@ -175,7 +175,7 @@ public class NioFileManagerImpl implements NioFileManager {
         return cacheDir;
     }
 
-        /**
+    /**
      * Creates or returns a cached PNG preview for a page in a source PDF.
      *
      * @param loggedInInfo current authenticated user used to resolve the document cache directory
@@ -185,6 +185,8 @@ public class NioFileManagerImpl implements NioFileManager {
      * @return cached PNG path, or {@code null} when inputs are missing, paths are unauthorized, source paths traverse outside
      *         the validated directory, the source PDF is missing, or the requested page is out of range
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
 
         // Rendering a page image of an already-readable document is a read-side operation (it only
@@ -421,7 +423,9 @@ public class NioFileManagerImpl implements NioFileManager {
             return key.toString();
         } catch (NoSuchAlgorithmException e) {
             // SHA-256 is a required JCA algorithm; fall back to a non-negative hashCode key if absent.
-            return Integer.toHexString(sourceDirectory.toString().hashCode() & 0x7fffffff);
+            // Zero-pad to a fixed 8 hex chars so leading zeros are preserved (avoids collisions that
+            // Integer.toHexString would introduce by dropping them).
+            return String.format("%08x", sourceDirectory.toString().hashCode() & 0x7fffffff);
         }
     }
 
@@ -433,7 +437,14 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     private static Path applicationTempParent() throws IOException {
         Path parent = Paths.get(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
-        return Files.createDirectories(parent);
+        Path created = Files.createDirectories(parent);
+        // Reject a pre-seeded symlink at the predictable carlos-temp root: a local process that wins
+        // the race to create it as a symlink could otherwise redirect application temp writes outside
+        // the CARLOS-owned tree.
+        if (Files.isSymbolicLink(created)) {
+            throw new IOException("Application temp root must be a real directory, not a symbolic link: " + created);
+        }
+        return created;
     }
 
     /**

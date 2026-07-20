@@ -215,9 +215,17 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     private static void resetAllowedTempDirectoriesCache() throws Exception {
-        Field allowedTempDirectories = io.github.carlos_emr.carlos.utility.PathValidationUtils.class
-                .getDeclaredField("allowedTempDirectories");
-        allowedTempDirectories.setAccessible(true);
-        allowedTempDirectories.set(null, null);
+        clearStaticField("allowedTempDirectories");
+        // The application-temp-root map is keyed on the same system properties (java.io.tmpdir /
+        // catalina.*) and cached independently, so it must be cleared alongside the allowed-dirs
+        // cache when a test rebinds java.io.tmpdir.
+        clearStaticField("applicationTempRoots");
+    }
+
+    private static void clearStaticField(String fieldName) throws Exception {
+        Field field = io.github.carlos_emr.carlos.utility.PathValidationUtils.class
+                .getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(null, null);
     }
 }

@@ -284,7 +284,13 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     }
 
     private void deployGeneratedAsset(String filename, File targetDir, byte[] content) {
-        deployAssetFromStream(filename, targetDir, new ByteArrayInputStream(content), "generated:" + filename);
+        try (ByteArrayInputStream stream = new ByteArrayInputStream(content)) {
+            deployAssetFromStream(filename, targetDir, stream, "generated:" + filename);
+        } catch (IOException e) {
+            // ByteArrayInputStream.close() is a documented no-op; this only satisfies the
+            // try-with-resources close() contract should a non-array stream type be used here later.
+            logger.error("Failed to close generated asset stream for {}", filename, e);
+        }
     }
 
     private void deploySampleLabCompatibilityAssets(File targetDir) {

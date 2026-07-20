@@ -161,11 +161,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private static String validateRequestedFileName(String fileName) {
-        try {
-            return PathValidationUtils.validatePathComponent(fileName, "imagefile");
-        } catch (IllegalArgumentException e) {
-            throw new SecurityException("Invalid imagefile parameter", e);
-        }
+        // validatePathComponent throws IllegalArgumentException for malformed/blank/traversal input.
+        // Let it propagate so doGet answers a 400 (client error) rather than re-wrapping it as a
+        // SecurityException that the 403 handler would misreport as an authorization failure.
+        return PathValidationUtils.validatePathComponent(fileName, "imagefile");
     }
 
     private static String resolveContentType(File file) {

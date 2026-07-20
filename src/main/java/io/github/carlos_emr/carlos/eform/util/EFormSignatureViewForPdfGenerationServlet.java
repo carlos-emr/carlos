@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.eform.util;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -130,7 +131,13 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
      */
     static boolean isSignatureReferencedByEform(int fdid, String signatureId) {
         EFormValueDao eFormValueDao = SpringUtils.getBean(EFormValueDao.class);
-        for (EFormValue value : eFormValueDao.findByFormDataId(fdid)) {
+        List<EFormValue> storedValues = eFormValueDao.findByFormDataId(fdid);
+        if (storedValues == null) {
+            // Fail closed: an absent value set cannot reference the requested signature, so a null
+            // return denies the fetch rather than throwing an NPE that would surface as a 500.
+            return false;
+        }
+        for (EFormValue value : storedValues) {
             String stored = value.getVarValue();
             if (stored == null) {
                 continue;

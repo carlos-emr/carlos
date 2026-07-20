@@ -677,7 +677,14 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
-        boolean temp = nioFileManager.deleteTempFile(filePath);
+
+        // Only a CARLOS-owned temp artifact is eligible for temp deletion here. Guarding on the
+        // application temp boundary keeps a non-temp filePath (e.g. a DOCUMENT_DIR path passed by the
+        // fax cancel flow) from raising a SecurityException out of deleteTempFile.
+        File tempTarget = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
+        boolean temp = tempTarget != null
+                && PathValidationUtils.isInApplicationTempDirectory(tempTarget)
+                && nioFileManager.deleteTempFile(filePath);
 
         return cache || temp;
     }

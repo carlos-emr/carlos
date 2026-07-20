@@ -382,7 +382,11 @@ public class EFormBrowserPdfService {
             // cause: a downstream handler that logs the throwable (FaxDocumentManagerImpl) would
             // otherwise re-emit the unredacted URL, defeating the renderer's PHI-safe logging.
             logger.error("Browser eForm renderer failed: fdid={} baseUrl={} error={}", fdid, baseUrl, redactUrls(String.valueOf(e.getMessage())));
-            logger.debug("Browser eForm renderer failure detail (fdid={})", fdid, e);
+            // Do NOT pass the raw throwable even at debug: a WebDriver exception's message/stack can
+            // embed the loopback render URL (fdid + render token). Log the type and a redacted
+            // message so debug diagnostics never re-expose the render capability.
+            logger.debug("Browser eForm renderer failure detail: fdid={} type={} error={}",
+                    fdid, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.");
         } finally {
             // The grant is render-scoped; invalidate it here so a token the browser never redeemed
@@ -456,6 +460,9 @@ public class EFormBrowserPdfService {
      * application's own {@code host:port} escapes the dead proxy; other loopback ports stay
      * behind it, so a malicious form cannot even send one-shot requests at other local services.
      */
+    // IMPROPER_UNICODE: equalsIgnoreCase here classifies the literal URI scheme ("https") to pick a
+    // default port; a case-insensitive protocol-name compare, not an authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal URI scheme to choose a default port; not a security or authorization decision")
     static String proxyBypassListFor(String allowedOrigin) {
         URI uri = URI.create(allowedOrigin);
         int port = uri.getPort();
@@ -766,6 +773,9 @@ public class EFormBrowserPdfService {
      * already blocked by Chromium's default cross-scheme policy; this gate is the CARLOS-side
      * backstop if that default is ever weakened), not merely an exfiltration control.
      */
+    // IMPROPER_UNICODE: equalsIgnoreCase compares the literal request scheme against "http"/"https"
+    // to fail-close non-web schemes; a case-insensitive protocol-name compare, not identity folding.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal request scheme against http/https for the fail-closed scheme gate; not user identity folding")
     static boolean isDisallowedRendererRequestUrl(String requestUrl, String allowedOrigin) {
         if (requestUrl == null || requestUrl.isEmpty()
                 || requestUrl.startsWith("data:") || requestUrl.startsWith("blob:") || requestUrl.startsWith("about:")) {
@@ -782,6 +792,10 @@ public class EFormBrowserPdfService {
         return origin == null || !origin.equals(allowedOrigin);
     }
 
+    // IMPROPER_UNICODE: toLowerCase(Locale.ROOT) normalizes the URI scheme and host for an
+    // origin-equality compare against the pinned loopback base; canonicalizing protocol/host labels,
+    // not folding user identity.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Locale.ROOT lower-casing normalizes the URI scheme/host for loopback origin comparison; not user identity folding")
     static String originOf(String url) {
         try {
             URI uri = URI.create(url.trim());
@@ -875,6 +889,9 @@ public class EFormBrowserPdfService {
         return baseUrl.toString();
     }
 
+    // IMPROPER_UNICODE: equalsIgnoreCase checks the literal configured base-URL scheme is http/https;
+    // a case-insensitive protocol-name compare, not user identity folding.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal configured base-URL scheme against http/https; not user identity folding")
     static String validateRendererBaseUrl(String rawBaseUrl) {
         if (rawBaseUrl == null || rawBaseUrl.isBlank()) {
             throw new IllegalArgumentException("Renderer base URL must be non-empty");
@@ -1039,6 +1056,13 @@ public class EFormBrowserPdfService {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Renderer temp files are created only beneath resolveRendererTempRoot(), which validates configured roots before creating a managed private temp directory.")
     private static Path createSecureTempPath(Path tempRoot, boolean directory, String prefix, String suffix) throws IOException {
         Path managedRoot = Files.createDirectories(tempRoot);
+        // Reject a pre-seeded symlink at the managed root: a local attacker who wins the race to
+        // create the predictable renderer temp root as a symlink could otherwise redirect the
+        // per-render child (and its rendered PDF) outside the CARLOS-owned tree. The child itself is
+        // already created atomically with a random name and 0700 via createTempDirectory below.
+        if (Files.isSymbolicLink(managedRoot)) {
+            throw new IOException("Renderer temp root must be a real directory, not a symbolic link: " + managedRoot);
+        }
         FileAttribute<?>[] secureAttributes = securePosixAttributes(directory);
         try {
             return directory

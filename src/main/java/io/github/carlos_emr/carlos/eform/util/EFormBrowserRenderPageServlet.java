@@ -22,6 +22,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -49,6 +51,11 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     /** Render-scoped grant parameter redeemed against {@link EFormRenderTokenService}. */
     static final String RENDER_TOKEN_PARAM = "renderToken";
 
+    // SERVLET_HEADER_USER_AGENT: the User-Agent read here is passed to the HTML composer for
+    // browser-quirk selection only — it is never trusted as an authority or emitted raw — so a
+    // spoofed value cannot cross a trust boundary. (Replaces the class-keyed exclude that the rename
+    // orphaned; a per-site suppression is rename-proof.)
+    @SuppressFBWarnings(value = "SERVLET_HEADER_USER_AGENT", justification = "User-Agent is used only for browser-quirk selection in the render HTML composer, never trusted as authority or emitted raw")
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {

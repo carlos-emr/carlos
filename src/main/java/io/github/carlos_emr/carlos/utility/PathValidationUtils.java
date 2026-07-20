@@ -12,7 +12,9 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 
@@ -72,13 +74,21 @@ public final class PathValidationUtils {
     public static final String APPLICATION_TEMP_ROOT_NAME = "carlos-temp";
 
     /**
-     * First-path-segment names (immediately below a matched allowed temp root) that denote a
-     * CARLOS-owned temporary subtree. {@code carlos-temp} is written by {@code saveTempFile};
-     * {@code carlos-eform-browser-pdf-temp} (under {@code java.io.tmpdir}) and {@code carlos} (under
-     * Tomcat {@code work/}) are written by the eForm browser PDF renderer.
+     * CARLOS-owned first-path-segment names that legitimately live directly below
+     * {@code java.io.tmpdir}: {@code carlos-temp} is written by {@code saveTempFile};
+     * {@code carlos-eform-browser-pdf-temp} is the eForm browser renderer's {@code java.io.tmpdir}
+     * fallback root.
      */
-    private static final Set<String> APPLICATION_TEMP_SEGMENTS =
-            Set.of(APPLICATION_TEMP_ROOT_NAME, "carlos-eform-browser-pdf-temp", "carlos");
+    private static final Set<String> TMPDIR_APPLICATION_TEMP_SEGMENTS =
+            Set.of(APPLICATION_TEMP_ROOT_NAME, "carlos-eform-browser-pdf-temp");
+
+    /**
+     * CARLOS-owned first-path-segment name below a Tomcat {@code work} root: {@code work/carlos} is
+     * the eForm browser renderer's catalina temp root. {@code carlos-temp} /
+     * {@code carlos-eform-browser-pdf-temp} are deliberately NOT accepted here — they only ever live
+     * under {@code java.io.tmpdir}.
+     */
+    private static final Set<String> WORK_APPLICATION_TEMP_SEGMENTS = Set.of("carlos");
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -87,6 +97,12 @@ public final class PathValidationUtils {
      * Uses LinkedHashSet to preserve insertion order for debugging.
      */
     private static volatile Set<String> allowedTempDirectories;
+
+    /**
+     * Lazily-initialized map of canonical temp-root path to the CARLOS-owned first segments permitted
+     * directly beneath that specific root (see {@link #buildApplicationTempRoots()}).
+     */
+    private static volatile Map<String, Set<String>> applicationTempRoots;
 
     private PathValidationUtils() {
         // Utility class - prevent instantiation
@@ -867,15 +883,18 @@ public final class PathValidationUtils {
 
         try {
             String canonicalPath = file.getCanonicalPath();
-            for (String allowedDir : getAllowedTempDirectories()) {
-                String prefix = allowedDir + File.separator;
+            for (Map.Entry<String, Set<String>> root : getApplicationTempRoots().entrySet()) {
+                String prefix = root.getKey() + File.separator;
                 if (!canonicalPath.startsWith(prefix)) {
                     continue;
                 }
                 String remainder = canonicalPath.substring(prefix.length());
                 int separatorIndex = remainder.indexOf(File.separatorChar);
                 String firstSegment = separatorIndex >= 0 ? remainder.substring(0, separatorIndex) : remainder;
-                if (APPLICATION_TEMP_SEGMENTS.contains(firstSegment)) {
+                // Accept only the CARLOS-owned first segment that belongs to *this* root, so a
+                // segment valid under one root (e.g. carlos-temp under java.io.tmpdir) is not honoured
+                // under another (e.g. Tomcat work).
+                if (root.getValue().contains(firstSegment)) {
                     return true;
                 }
             }
@@ -1036,6 +1055,44 @@ public final class PathValidationUtils {
         addTempDir(dirs, System.getProperty("catalina.home"), "work");
 
         return dirs;
+    }
+
+    private static Map<String, Set<String>> getApplicationTempRoots() {
+        if (applicationTempRoots == null) {
+            synchronized (PathValidationUtils.class) {
+                if (applicationTempRoots == null) {
+                    applicationTempRoots = Collections.unmodifiableMap(buildApplicationTempRoots());
+                }
+            }
+        }
+        return applicationTempRoots;
+    }
+
+    /**
+     * Maps each canonical temp root to the CARLOS-owned first segments that legitimately live
+     * directly beneath it. Keying per-root — rather than testing one flat segment set against every
+     * allowed temp root — stops a caller from smuggling e.g. {@code <java.io.tmpdir>/carlos} or
+     * {@code <work>/carlos-temp} past the boundary: only the exact subtree a renderer/temp writer
+     * actually creates under a given root is accepted.
+     */
+    private static Map<String, Set<String>> buildApplicationTempRoots() {
+        Map<String, Set<String>> roots = new LinkedHashMap<>();
+        addApplicationTempRoot(roots, TMPDIR_APPLICATION_TEMP_SEGMENTS, System.getProperty("java.io.tmpdir"), null);
+        addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.base"), "work");
+        addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.home"), "work");
+        return roots;
+    }
+
+    private static void addApplicationTempRoot(Map<String, Set<String>> roots, Set<String> segments, String basePath, String subDir) {
+        if (basePath == null || basePath.trim().isEmpty()) {
+            return;
+        }
+        try {
+            File dir = (subDir != null) ? new File(basePath, subDir) : new File(basePath);
+            roots.put(dir.getCanonicalPath(), segments);
+        } catch (IOException e) {
+            logger.debug("Could not resolve canonical path for {}: {}", basePath, e.getMessage());
+        }
     }
 
     /**

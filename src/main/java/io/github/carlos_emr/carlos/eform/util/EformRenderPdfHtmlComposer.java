@@ -166,8 +166,13 @@ public final class EformRenderPdfHtmlComposer {
     /**
      * Splices a stored signature image in place of the JS signature pad's {@code signatureDisplay}
      * target, reusing the geometry declared in the form's {@code signatureControl.initialize(...)}
-     * call. Skips silently when the stored URL fails {@link #normalizePdfSignatureUrl} validation.
+     * call. Logs a warning and skips the signature when the stored URL fails
+     * {@link #normalizePdfSignatureUrl} validation.
      */
+    // MODIFICATION_AFTER_VALIDATION: the regex match on the form HTML only extracts signature-pad
+    // geometry; the security validation is on the signature URL (normalizePdfSignatureUrl returns
+    // null → skip), and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.
+    @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "the html.replace only substitutes a fixed placeholder div; the signature URL is validated by normalizePdfSignatureUrl and encoded by buildSignatureImageMarkup before insertion")
     private static void applySignatureHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath) {
         for (EFormValue value : eFormValues) {
             if (!"signatureValue".equals(value.getVarName())) {
