@@ -163,7 +163,13 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        Path cacheDir = Paths.get(baseDocumentDir(), context.getContextPath(), DOCUMENT_CACHE_DIRECTORY);
+        // context.getContextPath() is "/carlos" (leading slash) in production. Paths.get(String,
+        // String...) JOINS its segments and collapses redundant separators — it does NOT re-anchor on
+        // a leading slash the way Path.resolve("/carlos") would — so baseDocumentDir() is preserved
+        // either way. Strip a single leading separator so the intent is explicit and stays correct if
+        // this is ever refactored to resolve() (copilot/cubic HNrA/HXQl/HYt6 — a clarity/robustness
+        // change; no behavioral bug here).
+        Path cacheDir = Paths.get(baseDocumentDir(), stripLeadingSeparator(context.getContextPath()), DOCUMENT_CACHE_DIRECTORY);
 
         if (!Files.exists(cacheDir)) {
             try {
@@ -246,7 +252,9 @@ public class NioFileManagerImpl implements NioFileManager {
 
         // Source-scoped cache identity: fold a stable digest of the canonical source directory into
         // the cache filename so both the lookup and the write are unique per source (cubic SCQQI).
-        String scopedCacheName = sanitizedFilename + "_" + sourceDirectoryCacheKey(normalizedSourceDir);
+        // The filename portion is length-bounded so an overlong (but valid) PDF name can't push the
+        // cache component past the filesystem's per-component limit (cubic HmTc).
+        String scopedCacheName = boundedCacheBaseName(sanitizedFilename) + "_" + sourceDirectoryCacheKey(normalizedSourceDir);
 
         Path cacheFilePath = hasCacheVersion2(loggedInInfo, scopedCacheName, pageNum);
 
@@ -412,9 +420,14 @@ public class NioFileManagerImpl implements NioFileManager {
      * @return 16-character lowercase hex digest of the directory path (SHA-256 truncated)
      */
     private static String sourceDirectoryCacheKey(Path sourceDirectory) {
-        byte[] pathBytes = sourceDirectory.toString().getBytes(StandardCharsets.UTF_8);
+        return sha256Hex16(sourceDirectory.toString());
+    }
+
+    /** First 8 bytes of the SHA-256 digest of {@code input}, rendered as 16 lowercase hex chars. */
+    private static String sha256Hex16(String input) {
+        byte[] bytes = input.getBytes(StandardCharsets.UTF_8);
         try {
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(pathBytes);
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(bytes);
             StringBuilder key = new StringBuilder(16);
             for (int i = 0; i < 8; i++) {
                 key.append(Character.forDigit((hash[i] >> 4) & 0xF, 16));
@@ -425,8 +438,34 @@ public class NioFileManagerImpl implements NioFileManager {
             // SHA-256 is a required JCA algorithm; fall back to a non-negative hashCode key if absent.
             // Zero-pad to a fixed 8 hex chars so leading zeros are preserved (avoids collisions that
             // Integer.toHexString would introduce by dropping them).
-            return String.format("%08x", sourceDirectory.toString().hashCode() & 0x7fffffff);
+            return String.format("%08x", input.hashCode() & 0x7fffffff);
         }
+    }
+
+    /**
+     * Bounds the filename portion of a source-scoped cache name. Short filenames pass through
+     * verbatim; an overlong one is replaced with a fixed-length digest that keeps its extension, so
+     * the final {@code <name>_<sourceKey>_<page>.png} cache component cannot exceed the filesystem's
+     * per-component length limit and a legitimately long PDF name can still be previewed (cubic HmTc).
+     */
+    private static String boundedCacheBaseName(String filename) {
+        final int maxBaseLength = 120;
+        if (filename.length() <= maxBaseLength) {
+            return filename;
+        }
+        int dot = filename.lastIndexOf('.');
+        String extension = (dot > 0 && dot < filename.length() - 1) ? filename.substring(dot) : "";
+        return sha256Hex16(filename) + extension;
+    }
+
+    /** Removes a single leading path separator so a servlet context path ("/carlos") joins as a relative segment. */
+    private static String stripLeadingSeparator(String segment) {
+        if (segment == null || segment.isEmpty()) {
+            return "";
+        }
+        return (segment.charAt(0) == '/' || segment.charAt(0) == File.separatorChar)
+                ? segment.substring(1)
+                : segment;
     }
 
     /**
@@ -631,18 +670,17 @@ public class NioFileManagerImpl implements NioFileManager {
 
     /**
      * Get the default OscarDocument directory.
-     * Newer versions of OSCAR will only define the path for the BASE_DOCUMENT and
-     * not for the full DOCUMENT_DIRECTORY path in Oscar.properties.
-     * This method considers both locations.
+     *
+     * <p>Resolves live from {@code CarlosProperties} ({@code DOCUMENT_DIR}, or
+     * {@code <BASE_DOCUMENT_DIR>/document} when unset) rather than the load-time
+     * {@link NioFileManager#DOCUMENT_DIRECTORY} snapshot, so the document root stays consistent with
+     * the live {@link #baseDocumentDir()} that {@link #createCacheVersion2} and
+     * {@link #getDocumentCacheDirectory} validate against — a runtime {@code BASE_DOCUMENT_DIR} change
+     * can no longer split document storage and cache/source validation across two different roots
+     * (cubic HYtv).</p>
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String getDocumentDirectory() {
-        String document_dir = DOCUMENT_DIRECTORY;
-        if (document_dir == null || !Files.isDirectory(Paths.get(document_dir))) {
-            document_dir = String.valueOf(Paths.get(baseDocumentDir(), "document"));
-        }
-        return document_dir;
+        return CarlosProperties.getInstance().getDocumentDirectory();
     }
 
     /**

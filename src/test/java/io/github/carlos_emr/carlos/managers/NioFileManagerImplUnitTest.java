@@ -93,7 +93,9 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         ServletContext servletContext = mock(ServletContext.class);
 
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(true);
-        when(servletContext.getContextPath()).thenReturn("carlos");
+        // The Servlet API returns a non-root context path WITH a leading slash; mirror that contract
+        // so the test exercises the same input the production resolver strips (copilot HXQl, cubic HYt6).
+        when(servletContext.getContextPath()).thenReturn("/carlos");
 
         ReflectionTestUtils.setField(nioFileManager, "securityInfoManager", securityInfoManager);
         ReflectionTestUtils.setField(nioFileManager, "context", servletContext);
@@ -104,8 +106,9 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         if (allowedTempDir != null) {
             Files.deleteIfExists(allowedTempDir.resolve("fax-preview.pdf"));
             Files.deleteIfExists(allowedTempDir.resolve("fax-preview-unique.pdf"));
-            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview.pdf_1.png"));
-            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png"));
+            // The generated cache files carry the source-scoped key (<name>_<key>_<page>.png), so a
+            // fixed-name delete never matches; the cache lives under the @TempDir document root and is
+            // auto-removed. Each cache test deletes its own returned path (copilot HDGA).
             Files.deleteIfExists(allowedTempDir);
         }
         if (symlink != null) {
@@ -220,18 +223,50 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
                 "test temp directory must resolve inside a CARLOS-owned temp directory");
         Files.createDirectories(getDocumentCacheDirectory());
         Path sourcePdf = allowedTempDir.resolve("fax-preview-unique.pdf");
-        Path expectedCache = getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png");
-        Files.deleteIfExists(expectedCache);
         createSinglePagePdf(sourcePdf);
 
+        Path cacheVersion = null;
         try {
-            Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+            cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
 
             assertThat(cacheVersion).isNotNull().exists();
             assertThat(cacheVersion.getFileName().toString()).endsWith("_1.png");
             assertThat(Files.size(cacheVersion)).isPositive();
         } finally {
-            Files.deleteIfExists(expectedCache);
+            if (cacheVersion != null) {
+                Files.deleteIfExists(cacheVersion);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Bounds the cache filename for overlong PDF names so preview rendering still succeeds")
+    void shouldBoundCacheFilename_whenSourcePdfNameIsOverlong() throws IOException {
+        allowedTempDir = createApplicationTempDirectory("nio-cache-longname-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside a CARLOS-owned temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        // A 200-char base name is a valid file component but would blow past the 255-char limit once
+        // the "_<sourceKey>_<page>.png" suffix is appended, unless the cache name is bounded (HmTc).
+        String longName = "a".repeat(200) + ".pdf";
+        Path sourcePdf = allowedTempDir.resolve(longName);
+        createSinglePagePdf(sourcePdf);
+
+        Path cacheVersion = null;
+        try {
+            cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), longName, 1);
+
+            assertThat(cacheVersion).isNotNull().exists();
+            String cacheName = cacheVersion.getFileName().toString();
+            assertThat(cacheName).endsWith("_1.png");
+            assertThat(cacheName.length()).isLessThanOrEqualTo(255);
+        } finally {
+            if (cacheVersion != null) {
+                Files.deleteIfExists(cacheVersion);
+            }
+            // tearDown only knows the fixed fixture names, so remove this test's long-named source
+            // before it tries to delete the (now-empty) allowedTempDir.
+            Files.deleteIfExists(sourcePdf);
         }
     }
 
