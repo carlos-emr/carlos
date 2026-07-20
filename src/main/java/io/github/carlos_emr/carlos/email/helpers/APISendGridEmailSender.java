@@ -167,15 +167,14 @@ public class APISendGridEmailSender {
     }
 
     public byte[] preparePayloadBytes() throws EmailSendingException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
-        }
+        requireEmailWritePrivilege();
 
         preparedPayloadBytes = createEmailJSON().getBytes(StandardCharsets.UTF_8);
         return preparedPayloadBytes.clone();
     }
 
     public void sendPreparedPayload() throws EmailSendingException {
+        requireEmailWritePrivilege();
         if (preparedPayloadBytes == null) {
             preparePayloadBytes();
         }
@@ -275,11 +274,17 @@ public class APISendGridEmailSender {
                 jsonAttachment.put("type", PDF_CONTENT_TYPE);
                 jsonAttachment.put("disposition", "attachment");
                 jsonAttachments.add(jsonAttachment);
-            } catch (IOException | SecurityException e) {
+            } catch (IOException | IllegalArgumentException | SecurityException e) {
                 throw new EmailSendingException("Failed to attach " + emailAttachment.getFileName() + " while sending email using SendGrid.", e);
             }
         }
         emailJson.put("attachments", jsonAttachments);
+    }
+
+    private void requireEmailWritePrivilege() {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new RuntimeException("missing required sec object (_email)");
+        }
     }
 
     private List<EmailAttachment> safeAttachments(List<EmailAttachment> attachments) {

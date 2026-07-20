@@ -175,9 +175,7 @@ public class EmailSender {
      *         invalid configuration, network issues, authentication failures, or provider-specific errors
      */
     public void send() throws EmailSendingException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
-        }
+        requireEmailWritePrivilege();
 
         switch (emailConfig.getEmailType()) {
             case SMTP:
@@ -206,6 +204,7 @@ public class EmailSender {
     }
 
     public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
+        requireEmailWritePrivilege();
         if (!supportsOutboundArchive()) {
             throw new EmailSendingException("Outbound email archive is not supported for this email configuration");
         }
@@ -228,6 +227,7 @@ public class EmailSender {
     }
 
     public void sendPrepared() throws EmailSendingException {
+        requireEmailWritePrivilege();
         if (preparedApiSendGridSendHelper == null) {
             if (supportsOutboundArchive()) {
                 throw new EmailSendingException("Prepared SendGrid payload is required before sending");
@@ -236,6 +236,12 @@ public class EmailSender {
             return;
         }
         preparedApiSendGridSendHelper.sendPreparedPayload();
+    }
+
+    private void requireEmailWritePrivilege() {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new RuntimeException("missing required sec object (_email)");
+        }
     }
 
     /**

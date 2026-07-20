@@ -64,6 +64,22 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject prepared SendGrid send when write privilege is missing")
+    void shouldRejectPreparedSend_whenWritePrivilegeMissing() throws Exception {
+        EmailConfig emailConfig = sendGridEmailConfig();
+        EmailData emailData = emailData(List.of());
+        EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.FAILED);
+        injectDependency(emailLog, "id", 45);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true, true, false);
+        EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+        emailSender.prepareOutboundArchive(emailLog);
+
+        assertThatThrownBy(emailSender::sendPrepared)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("missing required sec object (_email)");
+    }
+
+    @Test
     @DisplayName("should prepare SendGrid archive request from submitted JSON payload")
     void shouldPrepareSendGridArchiveRequest_fromSubmittedJsonPayload() throws Exception {
         Path attachmentPath = tempDir.resolve("attachment.pdf");

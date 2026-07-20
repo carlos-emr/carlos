@@ -114,6 +114,25 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("attachment path is required");
     }
 
+    @Test
+    @DisplayName("should reject prepared SendGrid payload send when write privilege is missing")
+    void shouldRejectPreparedSendGridPayloadSend_whenWritePrivilegeMissing() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true, false);
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                sendGridEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Test subject",
+                "Body text",
+                null,
+                null);
+        sender.preparePayloadBytes();
+
+        assertThatThrownBy(sender::sendPreparedPayload)
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("missing required sec object (_email)");
+    }
+
     private EmailConfig sendGridEmailConfig() {
         EmailConfig emailConfig = new EmailConfig(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID, "provider@example.test");
         emailConfig.setSenderFirstName("Provider");
