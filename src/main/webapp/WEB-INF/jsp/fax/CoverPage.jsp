@@ -558,9 +558,15 @@
             return;
         }
 
-        previewStatus.text("Showing " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
-
         var initialCount = Math.min(pageCount, PREVIEW_INITIAL_PAGE_CAP);
+        // Reflect the initial cap so the count is not misleading for a large fax: only the first
+        // initialCount pages render up front until the user clicks "Show remaining …" (cubic SIxT6).
+        if (pageCount > initialCount) {
+            previewStatus.text("Showing first " + initialCount + " of " + pageCount + " pages.");
+        } else {
+            previewStatus.text("Showing " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
+        }
+
         for (var i = 1; i <= initialCount; i++) {
             appendPreviewImage(previewImages, faxFilePath, i);
         }

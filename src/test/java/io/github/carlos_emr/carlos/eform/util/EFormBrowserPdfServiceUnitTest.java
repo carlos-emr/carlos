@@ -286,12 +286,13 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should sweep only stale render DIRECTORIES, keeping fresh dirs and caller-owned output files")
-    void shouldSweepStaleRendererDirectories_keepingFreshDirsAndOutputFiles() throws IOException {
+    @DisplayName("should sweep stale render dirs and orphaned output PDFs, keeping fresh artifacts")
+    void shouldSweepStaleRendererArtifacts_keepingFreshOnes() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-sweep-root-");
         Path staleDir = Files.createDirectory(root.resolve("eform-browser-render-stale123"));
         Path staleOutputPdf = Files.createFile(root.resolve("eform-browser-render-stale.pdf"));
         Path freshDir = Files.createDirectory(root.resolve("eform-browser-render-fresh123"));
+        Path freshOutputPdf = Files.createFile(root.resolve("eform-browser-render-fresh.pdf"));
         Path unrelated = Files.createFile(root.resolve("keepme.txt"));
         try {
             FileTime old = FileTime.fromMillis(System.currentTimeMillis() - Duration.ofHours(2).toMillis());
@@ -301,14 +302,17 @@ class EFormBrowserPdfServiceUnitTest {
             EFormBrowserPdfService.sweepStaleRendererRoots(root);
 
             assertThat(Files.exists(staleDir)).as("stale render capture dir removed").isFalse();
-            // The output .pdf is caller-owned and must survive the sweep even when old (SIt6F).
-            assertThat(Files.exists(staleOutputPdf)).as("caller-owned output pdf kept").isTrue();
+            // An output orphaned past the retention window is reclaimed so PDFs cannot accumulate (SIzm2);
+            // a fresh, not-yet-consumed output survives on the age gate (SIt6F).
+            assertThat(Files.exists(staleOutputPdf)).as("orphaned stale output pdf swept").isFalse();
+            assertThat(Files.exists(freshOutputPdf)).as("fresh caller-owned output pdf kept").isTrue();
             assertThat(Files.exists(freshDir)).as("fresh render dir kept").isTrue();
             assertThat(Files.exists(unrelated)).as("unrelated file kept").isTrue();
         } finally {
             Files.deleteIfExists(staleDir);
             Files.deleteIfExists(staleOutputPdf);
             Files.deleteIfExists(freshDir);
+            Files.deleteIfExists(freshOutputPdf);
             Files.deleteIfExists(unrelated);
             Files.deleteIfExists(root);
         }

@@ -484,12 +484,17 @@ public class NioFileManagerImpl implements NioFileManager {
         Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir"));
         Path parent = tmpDir.resolve(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
         Path created = Files.createDirectories(parent);
-        // Reject if the created root resolves — through a symlink at carlos-temp OR at any ancestor —
-        // to somewhere outside the real java.io.tmpdir, so a local process that pre-created/swapped it
-        // for a symlink cannot redirect application temp writes out of the tmpdir tree. Comparing real
-        // paths tolerates a legitimately symlinked java.io.tmpdir; the residual check-to-use window is
-        // bounded because the files written beneath this root are private (cubic SIZkO, HtRV).
-        if (!created.toRealPath().startsWith(tmpDir.toRealPath())) {
+        // Reject if carlos-temp itself is a symlink, and reject if it resolves outside the real
+        // java.io.tmpdir. Both guards defend against a local process that pre-created/swapped the root
+        // to redirect application temp writes, but the leaf-symlink guard also keeps this write path
+        // consistent with the read side: isInApplicationTempDirectory canonicalizes files (resolving a
+        // symlinked carlos-temp), so a symlinked root would still pass the real-path check here yet make
+        // every file written beneath it fail the downstream first-segment check — a silent self-DoS on
+        // fax-preview temp files. Comparing real paths (rather than rejecting all symlinks) still
+        // tolerates a legitimately symlinked java.io.tmpdir *ancestor* (e.g. macOS /tmp -> /private/tmp),
+        // where both sides canonicalize consistently. The residual check-to-use window is bounded
+        // because the files written beneath this root are private (cubic SIZkO, SIwOk, HtRV).
+        if (Files.isSymbolicLink(created) || !created.toRealPath().startsWith(tmpDir.toRealPath())) {
             throw new IOException("Application temp root resolves outside java.io.tmpdir: " + created);
         }
         return created;

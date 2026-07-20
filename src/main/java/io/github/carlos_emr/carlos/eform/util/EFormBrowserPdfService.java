@@ -1144,9 +1144,10 @@ public class EFormBrowserPdfService {
 
     /**
      * Best-effort sweep of renderer artifacts (both {@code eform-browser-render-*} capture dirs and
-     * their {@code .pdf} temp files) left under the shared managed root by a JVM or browser that was
-     * killed before the per-render {@code finally} cleanup ran. Only entries older than
-     * {@link #STALE_RENDERER_ROOT_TTL} are removed, so an in-flight concurrent render is never
+     * their {@code .pdf} output files) left under the shared managed root by a JVM or browser that was
+     * killed before the per-render {@code finally} cleanup ran, or by a caller that failed before it
+     * consumed a returned output. Only entries older than {@link #STALE_RENDERER_ROOT_TTL} are removed,
+     * so an in-flight concurrent render — and a freshly returned, not-yet-consumed output PDF — is never
      * touched. Never throws — a sweep failure must not fail the render (cubic CQP1).
      */
     static void sweepStaleRendererRoots(Path managedRoot) {
@@ -1154,21 +1155,30 @@ public class EFormBrowserPdfService {
             return;
         }
         long cutoffMillis = System.currentTimeMillis() - STALE_RENDERER_ROOT_TTL.toMillis();
-        // Sweep only capture DIRECTORIES. The render's output .pdf sits directly under the managed root
-        // with the same prefix, but renderSavedEformPdf RETURNS it for caller-owned cleanup, so it must
-        // never be swept even when old (cubic SIt6F). Catch unchecked failures too (e.g.
+        // The render's output .pdf sits directly under the managed root with the same prefix and is
+        // RETURNED by renderSavedEformPdf for caller-owned cleanup. Every legitimate caller consumes it
+        // synchronously within the same request (concat/fax/attach), far inside the TTL, so the age gate
+        // alone keeps a fresh output safe (cubic SIt6F) while still reclaiming an output orphaned past
+        // the TTL by a caller that died mid-consumption (cubic SIzm2). Capture dirs are always
+        // caller-detached, so they are swept whenever stale. Catch unchecked failures too (e.g.
         // DirectoryIteratorException) so a traversal/permission error can never turn this best-effort
         // cleanup into a render prerequisite (cubic SIt6C).
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
             for (Path entry : entries) {
+                boolean isDirectory;
                 try {
-                    if (!Files.isDirectory(entry) || Files.getLastModifiedTime(entry).toMillis() >= cutoffMillis) {
-                        continue;
+                    if (Files.getLastModifiedTime(entry).toMillis() >= cutoffMillis) {
+                        continue; // fresh: an in-flight render or a not-yet-consumed output — leave it
                     }
+                    isDirectory = Files.isDirectory(entry);
                 } catch (IOException e) {
                     continue; // can't stat it; leave it for a later sweep
                 }
-                deleteRecursivelyQuietly(entry);
+                if (isDirectory) {
+                    deleteRecursivelyQuietly(entry);
+                } else if (entry.getFileName().toString().endsWith(".pdf")) {
+                    deleteQuietly(entry); // orphaned output reclaimed past its retention window
+                }
             }
         } catch (IOException | RuntimeException e) {
             logger.debug("Unable to sweep stale renderer temp roots under {}", managedRoot, e);
