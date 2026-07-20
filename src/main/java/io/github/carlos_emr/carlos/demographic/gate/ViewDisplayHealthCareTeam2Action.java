@@ -31,7 +31,15 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewDisplayHealthCareTeam2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public ViewDisplayHealthCareTeam2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewDisplayHealthCareTeam2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     @Override
     public String execute() throws Exception {
