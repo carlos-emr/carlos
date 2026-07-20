@@ -221,7 +221,9 @@ class EFormBrowserPdfServiceUnitTest {
         Map<String, Object> chromeOptions = (Map<String, Object>) options.asMap().get("goog:chromeOptions");
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) chromeOptions.get("args");
-        // Secure by default: no --no-sandbox unless the operator explicitly opts out.
+        // Secure by default: no --no-sandbox unless the operator explicitly opts out. Assert the args
+        // are actually populated first so doesNotContain cannot pass vacuously (SonarCloud S5841).
+        assertThat(args).isNotEmpty();
         assertThat(args).doesNotContain("--no-sandbox");
     }
 
