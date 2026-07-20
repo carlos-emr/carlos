@@ -95,9 +95,12 @@ public class EForm extends EFormBase {
     private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
     // The "</" that begins a closing </script> tag, re-escaped after timer decoding so a decoded
     // script-close cannot truncate the surrounding inline script. Scoped to the exact sequences the
-    // HTML tokenizer treats as a script end tag — "</script" followed by whitespace, "/", or ">" —
-    // so ordinary identifiers like "</scriptable" are left untouched. (Case-insensitive.)
-    private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[\\s/>])");
+    // HTML tokenizer treats as a script end tag — "</script" followed by an ASCII whitespace the
+    // HTML spec recognizes (space, tab, LF, FF, CR), "/", or ">" — so ordinary identifiers like
+    // "</scriptable" are left untouched. Java's "\s" is deliberately NOT used: it also matches the
+    // vertical tab (U+000B), which HTML does not treat as a tag delimiter, so "</script..." must
+    // stay untouched (cubic HOdZ). (Case-insensitive.)
+    private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[ \\t\\n\\f\\r/>])");
 
     private String runtimeContextPath;
 

@@ -164,4 +164,34 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should preserve percent-encoded oscar image path resources when backing files exist")
+    void shouldPreserveEncodedOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
+        String originalEformImagesDir = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
+        Path imageDirectory = tempDir.resolve("eform-images");
+        Files.createDirectories(imageDirectory);
+        CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", imageDirectory.toString());
+        Path image = imageDirectory.resolve("convert-to-edoc-encoded-token-test.png");
+        Files.writeString(image, "png-placeholder");
+
+        try {
+            // The token (and filename) arrive percent-encoded in stored markup; the resolver must
+            // still find the backing file and preserve the resource instead of dropping it (cubic CQPt).
+            String html = "<html><body>"
+                    + "<img src=\"%24%7Boscar_image_path%7Dconvert-to-edoc-encoded-token-test.png\">"
+                    + "</body></html>";
+
+            Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+            assertThat(document.select("img[src]")).hasSize(1);
+            assertThat(document.outerHtml()).contains("%24%7Boscar_image_path%7Dconvert-to-edoc-encoded-token-test.png");
+        } finally {
+            if (originalEformImagesDir == null) {
+                CarlosProperties.getInstance().remove("EFORM_IMAGES_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", originalEformImagesDir);
+            }
+        }
+    }
+
 }

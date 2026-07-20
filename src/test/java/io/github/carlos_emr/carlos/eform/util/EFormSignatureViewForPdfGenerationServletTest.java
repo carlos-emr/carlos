@@ -79,6 +79,36 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should stream a signature referenced with an HTML-escaped ampersand in stored markup")
+    void shouldStreamSignature_whenReferenceIsHtmlEscaped() throws Exception {
+        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            byte[] imageBytes = new byte[] {9, 8, 7};
+            DigitalSignature signature = new DigitalSignature();
+            signature.setSignatureImage(imageBytes);
+
+            DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
+            when(manager.getDigitalSignature(42)).thenReturn(signature);
+            registerMock(DigitalSignatureManager.class, manager);
+            // Stored markup escapes the '&' as '&amp;'; the reference must still authorize the fetch.
+            registerMock(EFormValueDao.class, eFormValueDaoReferencingEscaped(4321, "42"));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsByteArray()).containsExactly(imageBytes);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
     @DisplayName("should reject a signature id the render's eForm does not reference")
     void shouldRejectSignature_whenNotReferencedByRenderEform() throws Exception {
         String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
@@ -108,6 +138,15 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         EFormValue signatureValue = new EFormValue();
         signatureValue.setVarName("signatureValue");
         signatureValue.setVarValue("/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=" + signatureId);
+        EFormValueDao dao = mock(EFormValueDao.class);
+        when(dao.findByFormDataId(fdid)).thenReturn(List.of(signatureValue));
+        return dao;
+    }
+
+    private static EFormValueDao eFormValueDaoReferencingEscaped(int fdid, String signatureId) {
+        EFormValue signatureValue = new EFormValue();
+        signatureValue.setVarName("signatureValue");
+        signatureValue.setVarValue("/carlos/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=" + signatureId);
         EFormValueDao dao = mock(EFormValueDao.class);
         when(dao.findByFormDataId(fdid)).thenReturn(List.of(signatureValue));
         return dao;

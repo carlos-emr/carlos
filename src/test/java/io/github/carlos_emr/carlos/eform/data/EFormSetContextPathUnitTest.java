@@ -170,6 +170,25 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
+    @DisplayName("should neutralize a real </script> but leave </script followed by a vertical tab intact")
+    void shouldNeutralizeScriptClose_onlyForHtmlDelimiters() {
+        EForm eform = new EForm();
+        // Decoded timer body: var a='</script>'  (real close — must be neutralized to <\/script>)
+        //                     var b='</scriptx'  (vertical tab after 'script' — NOT an HTML tag
+        //                     delimiter, so it must be left intact; Java \s wrongly matched it, HOdZ).
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout(\"var a='<\\/script>'; var b='<\\/script\\vx'\", 100);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        String html = eform.getFormHtml();
+        assertThat(html).contains("<\\/script>");            // real close-tag neutralized
+        assertThat(html).contains("</scriptx");        // vertical-tab sequence preserved
+        assertThat(html).doesNotContain("<\\/scriptx"); // and NOT neutralized
+    }
+
+    @Test
     @DisplayName("should rewrite legacy string timers when the code body contains escaped matching quotes")
     void shouldRewriteLegacyStringTimers_withEscapedMatchingQuotesInCodeBody() {
         EForm eform = new EForm();

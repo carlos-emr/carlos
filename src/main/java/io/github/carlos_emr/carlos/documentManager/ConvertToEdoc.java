@@ -56,6 +56,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -101,6 +103,8 @@ public final class ConvertToEdoc {
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
     private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
+    /** Percent-encoded form of {@link #OSCAR_IMAGE_PATH_TOKEN} as it can appear in stored src/href markup. */
+    private static final String OSCAR_IMAGE_PATH_TOKEN_ENCODED = "%24%7Boscar_image_path%7D";
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
@@ -813,11 +817,23 @@ public final class ConvertToEdoc {
     }
 
     private static void collectOscarImagePathCandidate(String path, List<String> potentialFilePaths) {
-        if (!path.startsWith(OSCAR_IMAGE_PATH_TOKEN)) {
+        String filename;
+        if (path.startsWith(OSCAR_IMAGE_PATH_TOKEN)) {
+            filename = path.substring(OSCAR_IMAGE_PATH_TOKEN.length());
+        } else if (path.regionMatches(true, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED.length())) {
+            // A percent-encoded token implies a percent-encoded filename too; decode the remainder so
+            // encoded eForm background images still resolve into the PDF instead of being dropped
+            // (cubic CQPt). Fall back to the raw remainder if it is not validly encoded.
+            String encodedRemainder = path.substring(OSCAR_IMAGE_PATH_TOKEN_ENCODED.length());
+            try {
+                filename = URLDecoder.decode(encodedRemainder, StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                filename = encodedRemainder;
+            }
+        } else {
             return;
         }
 
-        String filename = path.substring(OSCAR_IMAGE_PATH_TOKEN.length());
         String candidate = buildImageDirectoryPath(filename);
         if (!candidate.isEmpty()) {
             potentialFilePaths.add(candidate);
