@@ -59,20 +59,28 @@ if(request.getParameter("demographic_no")!=null){
 DemographicDao demographicDao_header = SpringUtils.getBean(DemographicDao.class);
 Demographic demographic_header=demographicDao_header.getDemographic(d);
 
-
+DemographicCust demographicCust = null;
+if (demographic_header != null) {
 	DemographicCustDao demographicCustDao = (DemographicCustDao)SpringUtils.getBean(DemographicCustDao.class);
-	DemographicCust demographicCust = demographicCustDao.find(demographic_header.getDemographicNo());
-	String alert = new String();
-	if(demographicCust!=null) {
-		alert = demographicCust.getAlert();
-	}
+	demographicCust = demographicCustDao.find(demographic_header.getDemographicNo());
+}
+
+String alert = "";
+if (demographicCust != null && demographicCust.getAlert() != null) {
+	alert = demographicCust.getAlert();
+}
+
+String demographicEditUrl = request.getContextPath()
+		+ "/demographic/DemographicEdit?demographic_no="
+		+ SafeEncode.forUriComponent(d);
 %>
 
+<% if (demographic_header != null) { %>
 <div id="demoHeader" class="navbar fixed-top card card-body p-0" style="padding:0px;margin:0px;">
 <!--<a><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt demographicNo='<%=d%>' /></a>-->
 
 <div style="display:inline-block;margin-left:15px;">
-<h4 class="DoNotPrint"><a href="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/demographic/DemographicEdit?demographic_no=<%= SafeEncode.forUriComponent(d) %>" style="color:#333;text-decoration:none;"><%= SafeEncode.forHtml(demographic_header.getLastName()) %>, <%= SafeEncode.forHtml(demographic_header.getFirstName()) %> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%= SafeEncode.forHtml(demographic_header.getTitle()) %>) <%}%></a>
+<h4 class="DoNotPrint"><a href="<%= SafeEncode.forHtmlAttribute(demographicEditUrl) %>" style="color:#333;text-decoration:none;"><%= SafeEncode.forHtml(demographic_header.getLastName()) %>, <%= SafeEncode.forHtml(demographic_header.getFirstName()) %> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%= SafeEncode.forHtml(demographic_header.getTitle()) %>) <%}%></a>
 
 
 <%if(alert.length()!=0){%>
@@ -98,3 +106,4 @@ Demographic demographic_header=demographicDao_header.getDemographic(d);
 
 </div>
 </div>
+<% } %>
