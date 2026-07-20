@@ -143,6 +143,28 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return failed result when sender config is missing and optional fields are unset")
+    void shouldReturnFailedResult_whenSenderConfigIsMissingAndOptionalFieldsAreUnset() {
+        EmailData emailData = new EmailData();
+        emailData.setRecipients(new String[] {"recipient@example.invalid"});
+        emailData.setSubject("Subject");
+        emailData.setBody("Body");
+
+        EmailLog result;
+        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
+            result = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertMisconfiguredSenderFailure(result);
+            assertThat(emailSenders.constructed()).isEmpty();
+        }
+        verify(emailConfigDao, never()).findActiveEmailConfigById(anyInt());
+        verify(emailLogDao, never()).persist(any(EmailLog.class));
+        verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
+        verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        assertThat(result.getEmailAttachments()).isEmpty();
+    }
+
+    @Test
     @DisplayName("should not expose raw config or secrets in sender config failure")
     void shouldNotExposeRawConfigOrSecrets_whenSenderConfigFails() {
         EmailData emailData = emailData(456);

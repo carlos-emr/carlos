@@ -56,18 +56,18 @@ public class EmailData {
     private String passwordClue;
     private boolean isEncrypted;
     private boolean isAttachmentEncrypted;
-    private ChartDisplayOption chartDisplayOption;
+    private ChartDisplayOption chartDisplayOption = ChartDisplayOption.WITHOUT_NOTE;
     private String internalComment;
     private TransactionType transactionType;
     private Integer demographicNo;
     private String providerNo;
     private String additionalParams;
-    private List<EmailAttachment> attachments;
+    private List<EmailAttachment> attachments = Collections.emptyList();
 
     /**
      * Default constructor for creating an empty EmailData instance.
-     * All fields are initialized to their default values (null for objects, false for booleans).
-     * Use setter methods to populate the email data fields.
+     * Optional fields are initialized to safe defaults where downstream email handling expects
+     * non-null values. Use setter methods to populate the email data fields.
      */
     public EmailData() {
     }
@@ -489,5 +489,3 @@ public class EmailData {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
     }
 }
-
-
