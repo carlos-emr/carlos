@@ -58,7 +58,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         // (minted only after an _eform privilege check, invalidated when the render finishes). Require
         // that grant so this loopback endpoint is no longer a bare, always-open enumeration surface
         // for any local process. The grant rides the signature URL the render servlet emits.
-        String token = request.getParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM);
+        String token = request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM);
         EFormRenderTokenService.RenderGrant grant = EFormRenderTokenService.getInstance().peek(token);
         if (grant == null) {
             logger.warn("Rejected EFormSignatureViewForPdfGenerationServlet request lacking a valid render grant");

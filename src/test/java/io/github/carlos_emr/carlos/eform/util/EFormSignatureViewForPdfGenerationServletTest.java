@@ -65,7 +65,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -92,7 +92,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "99");
-            request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);

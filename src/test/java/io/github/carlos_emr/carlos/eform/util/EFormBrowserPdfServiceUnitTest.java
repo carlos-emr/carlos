@@ -21,15 +21,15 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@DisplayName("EFormBrowserPdfRenderer unit tests")
+@DisplayName("EFormBrowserPdfService unit tests")
 @Tag("unit")
 @Tag("fast")
-class EFormBrowserPdfRendererUnitTest {
+class EFormBrowserPdfServiceUnitTest {
 
     @Test
     @DisplayName("should build the dedicated browser-render servlet path carrying the render token")
     void shouldBuildAppPath_whenRenderingSavedEformPdf() {
-        String appPath = EFormBrowserPdfRenderer.buildAppPath(187, "tok-abc_123");
+        String appPath = EFormBrowserPdfService.buildAppPath(187, "tok-abc_123");
 
         assertThat(appPath)
                 .startsWith("/EFormViewForPdfGenerationServlet?")
@@ -42,7 +42,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should keep print-only cleanup rules in the capture preparation script")
     void shouldKeepPrintCleanupRules_inCapturePreparationScript() {
-        assertThat(EFormBrowserPdfRenderer.PREPARE_CAPTURE_JS)
+        assertThat(EFormBrowserPdfService.PREPARE_CAPTURE_JS)
                 .contains(".DoNotPrint")
                 .contains("#BottomButtons")
                 .contains("#BaseSelect")
@@ -54,7 +54,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should keep the region heuristics in the region computation script")
     void shouldKeepRegionHeuristics_inRegionComputationScript() {
-        assertThat(EFormBrowserPdfRenderer.COMPUTE_REGIONS_JS)
+        assertThat(EFormBrowserPdfService.COMPUTE_REGIONS_JS)
                 .contains("backgroundCandidates")
                 .contains(".filter(isVisibleCaptureCandidate)")
                 .contains("pageBackgroundCaptures")
@@ -65,7 +65,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should keep the font and image settle waits in the stabilization script")
     void shouldKeepSettleWaits_inStabilizationScript() {
-        assertThat(EFormBrowserPdfRenderer.STABILIZE_ASYNC_JS)
+        assertThat(EFormBrowserPdfService.STABILIZE_ASYNC_JS)
                 .contains("document.fonts.ready instanceof Promise")
                 .contains("!image.complete")
                 .contains("requestAnimationFrame");
@@ -74,7 +74,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should resolve the renderer temp root under catalina base so fax path validation accepts the output")
     void shouldResolveRendererTempRoot_underCatalinaBaseWhenConfigured() {
-        Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
+        Path root = EFormBrowserPdfService.resolveRendererTempRoot(
                 "/var/lib/tomcat10",
                 "/tmp");
 
@@ -85,7 +85,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should resolve the renderer temp root under a namespaced system temp fallback")
     void shouldResolveRendererTempRoot_underNamespacedSystemTempFallback() {
-        Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
+        Path root = EFormBrowserPdfService.resolveRendererTempRoot(
                 null,
                 "/tmp");
 
@@ -96,20 +96,20 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should accept only loopback hosts for the renderer host check")
     void shouldAcceptOnlyLoopbackHosts_forRendererHostCheck() {
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("localhost")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("127.0.0.1")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("::1")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.5")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.1.20")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("host.docker.internal")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("carlos")).isFalse();
+        assertThat(EFormBrowserPdfService.isLocalRendererHost("localhost")).isTrue();
+        assertThat(EFormBrowserPdfService.isLocalRendererHost("127.0.0.1")).isTrue();
+        assertThat(EFormBrowserPdfService.isLocalRendererHost("::1")).isTrue();
+        assertThat(EFormBrowserPdfService.isLocalRendererHost("10.0.0.5")).isFalse();
+        assertThat(EFormBrowserPdfService.isLocalRendererHost("192.168.1.20")).isFalse();
+        assertThat(EFormBrowserPdfService.isLocalRendererHost("host.docker.internal")).isFalse();
+        assertThat(EFormBrowserPdfService.isLocalRendererHost("carlos")).isFalse();
     }
 
     @Test
     @DisplayName("should create a secure temporary renderer directory inside the managed temp root")
     void shouldCreateSecureTempDirectory_insideManagedTempRoot() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-root-");
-        Path directory = EFormBrowserPdfRenderer.createSecureTempDirectory(root, "eform-browser-render-test-");
+        Path directory = EFormBrowserPdfService.createSecureTempDirectory(root, "eform-browser-render-test-");
         try {
             assertThat(Files.isDirectory(directory)).isTrue();
             assertThat(directory).hasParentRaw(root);
@@ -130,7 +130,7 @@ class EFormBrowserPdfRendererUnitTest {
     @DisplayName("should create a secure temporary renderer pdf file inside the managed temp root")
     void shouldCreateSecureTempFile_insideManagedTempRoot() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-root-");
-        Path file = EFormBrowserPdfRenderer.createSecureTempFile(root, "eform-browser-render-test-", ".pdf");
+        Path file = EFormBrowserPdfService.createSecureTempFile(root, "eform-browser-render-test-", ".pdf");
         try {
             assertThat(Files.isRegularFile(file)).isTrue();
             assertThat(file).hasParentRaw(root);
@@ -150,21 +150,21 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should build a local base URL from project home")
     void shouldBuildLocalBaseUrl_whenNoOverrideIsProvided() {
-        assertThat(EFormBrowserPdfRenderer.buildDefaultBaseUrl("carlos"))
+        assertThat(EFormBrowserPdfService.buildDefaultBaseUrl("carlos"))
                 .isEqualTo("http://127.0.0.1:8080/carlos");
     }
 
     @Test
     @DisplayName("should build a local base URL from the active servlet context")
     void shouldBuildLocalBaseUrl_whenUsingTheActiveRequestContext() {
-        assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("http", 8080, "/carlos"))
+        assertThat(EFormBrowserPdfService.buildLocalBaseUrl("http", 8080, "/carlos"))
                 .isEqualTo("http://127.0.0.1:8080/carlos");
     }
 
     @Test
     @DisplayName("should reject non-local base URLs for the browser renderer")
     void shouldRejectNonLocalBaseUrl_whenValidatingRendererTarget() {
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.validateRendererBaseUrl("https://evil.example/steal"))
+        assertThatThrownBy(() -> EFormBrowserPdfService.validateRendererBaseUrl("https://evil.example/steal"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("loopback");
     }
@@ -172,7 +172,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should reject non-root-relative app paths for the browser renderer")
     void shouldRejectNonRootRelativeAppPath_whenValidatingRendererTarget() {
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.validateRendererAppPath("https://evil.example/steal"))
+        assertThatThrownBy(() -> EFormBrowserPdfService.validateRendererAppPath("https://evil.example/steal"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Application path");
     }
@@ -180,7 +180,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should pin egress lockdown and capture settings in the browser launch options")
     void shouldPinSecurityAndCaptureSettings_inChromeOptions() {
-        ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(
+        ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(
                 "/opt/chromium/chrome", true, "http://127.0.0.1:8080");
 
         Map<String, Object> capabilities = options.asMap();
@@ -194,7 +194,7 @@ class EFormBrowserPdfRendererUnitTest {
         List<String> args = (List<String>) chromeOptions.get("args");
         assertThat(args)
                 .contains("--headless=new")
-                .contains("--proxy-server=" + EFormBrowserPdfRenderer.DEAD_PROXY)
+                .contains("--proxy-server=" + EFormBrowserPdfService.DEAD_PROXY)
                 .contains("--proxy-bypass-list=127.0.0.1:8080;localhost:8080;[::1]:8080")
                 .contains("--remote-debugging-pipe")
                 .contains("--disable-file-system")
@@ -214,7 +214,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should keep the Chromium sandbox enabled by default")
     void shouldKeepSandboxEnabled_byDefault() {
-        ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(null, false, "http://127.0.0.1:8080");
+        ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(null, false, "http://127.0.0.1:8080");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> chromeOptions = (Map<String, Object>) options.asMap().get("goog:chromeOptions");
@@ -227,85 +227,85 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should scope the proxy bypass to the application's own loopback port")
     void shouldScopeProxyBypass_toApplicationLoopbackPort() {
-        assertThat(EFormBrowserPdfRenderer.proxyBypassListFor("http://127.0.0.1:8080"))
+        assertThat(EFormBrowserPdfService.proxyBypassListFor("http://127.0.0.1:8080"))
                 .isEqualTo("127.0.0.1:8080;localhost:8080;[::1]:8080");
         // Default ports are made explicit so other loopback ports never match the bypass.
-        assertThat(EFormBrowserPdfRenderer.proxyBypassListFor("http://127.0.0.1"))
+        assertThat(EFormBrowserPdfService.proxyBypassListFor("http://127.0.0.1"))
                 .isEqualTo("127.0.0.1:80;localhost:80;[::1]:80");
-        assertThat(EFormBrowserPdfRenderer.proxyBypassListFor("https://127.0.0.1"))
+        assertThat(EFormBrowserPdfService.proxyBypassListFor("https://127.0.0.1"))
                 .isEqualTo("127.0.0.1:443;localhost:443;[::1]:443");
     }
 
     @Test
     @DisplayName("should classify request URLs against the allowed loopback origin")
     void shouldClassifyRequestUrls_againstAllowedOrigin() {
-        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
 
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=a.png", allowedOrigin)).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "data:image/png;base64,AAAA", allowedOrigin)).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "about:blank", allowedOrigin)).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "https://evil.example/exfil?x=1", allowedOrigin)).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "http://127.0.0.1:9999/other-port", allowedOrigin)).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "http://10.0.0.5/internal", allowedOrigin)).isTrue();
     }
 
     @Test
     @DisplayName("should fail closed on local-file and other non-web schemes")
     void shouldFailClosed_onLocalFileAndOtherNonWebSchemes() {
-        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
 
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "file:///etc/passwd", allowedOrigin)).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "file:///var/lib/OscarDocument/secret.pdf", allowedOrigin)).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "filesystem:http://127.0.0.1:8080/temporary/x", allowedOrigin)).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "chrome://settings", allowedOrigin)).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "view-source:http://127.0.0.1:8080/carlos", allowedOrigin)).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isDisallowedRendererRequestUrl(
+        assertThat(EFormBrowserPdfService.isDisallowedRendererRequestUrl(
                 "ftp://127.0.0.1/x", allowedOrigin)).isTrue();
     }
 
     @Test
     @DisplayName("should normalize default ports when computing request origins")
     void shouldNormalizeDefaultPorts_whenComputingOrigins() {
-        assertThat(EFormBrowserPdfRenderer.originOf("http://127.0.0.1/x"))
-                .isEqualTo(EFormBrowserPdfRenderer.originOf("http://127.0.0.1:80/y"));
-        assertThat(EFormBrowserPdfRenderer.originOf("https://127.0.0.1/x"))
-                .isEqualTo(EFormBrowserPdfRenderer.originOf("https://127.0.0.1:443/y"));
-        assertThat(EFormBrowserPdfRenderer.originOf("not a url")).isNull();
+        assertThat(EFormBrowserPdfService.originOf("http://127.0.0.1/x"))
+                .isEqualTo(EFormBrowserPdfService.originOf("http://127.0.0.1:80/y"));
+        assertThat(EFormBrowserPdfService.originOf("https://127.0.0.1/x"))
+                .isEqualTo(EFormBrowserPdfService.originOf("https://127.0.0.1:443/y"));
+        assertThat(EFormBrowserPdfService.originOf("not a url")).isNull();
     }
 
     @Test
     @DisplayName("should redact URLs from third-party error text before logging")
     void shouldRedactUrls_fromErrorText() {
-        String redacted = EFormBrowserPdfRenderer.redactUrls(
+        String redacted = EFormBrowserPdfService.redactUrls(
                 "timeout navigating to https://127.0.0.1:8443/carlos/EFormViewForPdfGenerationServlet?fdid=9 after 30s");
 
         assertThat(redacted)
                 .doesNotContain("fdid=9")
                 .doesNotContain("127.0.0.1")
                 .contains("[redacted-url]");
-        assertThat(EFormBrowserPdfRenderer.redactUrls(null)).isNull();
+        assertThat(EFormBrowserPdfService.redactUrls(null)).isNull();
         // Non-http schemes and bare filesystem paths are redacted too.
-        assertThat(EFormBrowserPdfRenderer.redactUrls("open file:///etc/passwd failed"))
+        assertThat(EFormBrowserPdfService.redactUrls("open file:///etc/passwd failed"))
                 .doesNotContain("/etc/passwd").contains("[redacted-url]");
-        assertThat(EFormBrowserPdfRenderer.redactUrls("cannot read /var/lib/OscarDocument/secret.pdf"))
+        assertThat(EFormBrowserPdfService.redactUrls("cannot read /var/lib/OscarDocument/secret.pdf"))
                 .doesNotContain("/var/lib/OscarDocument/secret.pdf").contains("[redacted-path]");
     }
 
     @Test
     @DisplayName("should convert script region maps into typed capture regions")
     void shouldConvertScriptRegionMaps_toCaptureRegions() throws PDFGenerationException {
-        List<EFormBrowserPdfRenderer.CaptureRegion> regions = EFormBrowserPdfRenderer.readRegions(List.of(
+        List<EFormBrowserPdfService.CaptureRegion> regions = EFormBrowserPdfService.readRegions(List.of(
                 Map.of("x", 0L, "y", 10.5d, "width", 1650L, "height", 2200L),
                 Map.of("x", 0L, "y", 2210L, "width", 1650L, "height", 0L)));
 
@@ -317,19 +317,19 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should reject unexpected region payload shapes from the page script")
     void shouldRejectUnexpectedRegionPayload_fromPageScript() {
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions("not-a-list"))
+        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions("not-a-list"))
                 .isInstanceOf(PDFGenerationException.class);
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(Map.of("x", "NaN"))))
+        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(Map.of("x", "NaN"))))
                 .isInstanceOf(PDFGenerationException.class);
     }
 
     @Test
     @DisplayName("should reject a page region with non-finite geometry")
     void shouldRejectRegion_whenGeometryNonFinite() {
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
                 Map.of("x", 0d, "y", 0d, "width", Double.NaN, "height", 100d))))
                 .isInstanceOf(PDFGenerationException.class);
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
                 Map.of("x", 0d, "y", 0d, "width", 100d, "height", Double.POSITIVE_INFINITY))))
                 .isInstanceOf(PDFGenerationException.class);
     }
@@ -339,7 +339,7 @@ class EFormBrowserPdfRendererUnitTest {
     void shouldRejectRegion_whenPerRegionPixelsExceedBudget() {
         // 15000 x 15000 = 225M px is under the per-region dimension cap but over the per-region
         // pixel budget, so it must fail closed even as the only region.
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
                 Map.of("x", 0L, "y", 0L, "width", 15_000L, "height", 15_000L))))
                 .isInstanceOf(PDFGenerationException.class);
     }
@@ -347,7 +347,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should reject a page region that exceeds the maximum capture dimension")
     void shouldRejectRegion_whenDimensionExceedsCap() {
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(List.of(
+        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
                 Map.of("x", 0L, "y", 0L, "width", 999_999L, "height", 100L))))
                 .isInstanceOf(PDFGenerationException.class);
     }
@@ -357,14 +357,14 @@ class EFormBrowserPdfRendererUnitTest {
     void shouldRejectRegions_whenTotalPixelsExceedBudget() {
         List<Map<String, Object>> huge = java.util.Collections.nCopies(50,
                 Map.of("x", 0L, "y", 0L, "width", 19_000L, "height", 19_000L));
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.readRegions(huge))
+        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(huge))
                 .isInstanceOf(PDFGenerationException.class);
     }
 
     @Test
     @DisplayName("should count disallowed origins and take the first document status from network events")
     void shouldScanNetworkEvents_forGateDecisions() {
-        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.requestWillBeSent", "\"request\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\"}"),
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
@@ -374,7 +374,7 @@ class EFormBrowserPdfRendererUnitTest {
                 cdpMessage("Network.requestWillBeSent", "\"request\":{\"url\":\"data:image/png;base64,AAAA\"}"),
                 "not-json");
 
-        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
         assertThat(scan.disallowedRequests()).isEqualTo(1);
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
@@ -383,7 +383,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should fail closed on WebSocket and WebTransport egress attempts")
     void shouldFailClosed_onWebSocketAndWebTransportEgress() {
-        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\""),
                 cdpMessage("Network.webTransportCreated", "\"url\":\"https://evil.example/wt\""),
@@ -394,7 +394,7 @@ class EFormBrowserPdfRendererUnitTest {
                 // yet is still a live bidirectional egress channel — it must fail closed too.
                 cdpMessage("Network.webTransportCreated", "\"url\":\"https://127.0.0.1:8080/carlos/wt\""));
 
-        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
         assertThat(scan.disallowedRequests()).isEqualTo(4);
     }
@@ -402,11 +402,11 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should match the main document status when the base URL uses a default port")
     void shouldMatchMainDocumentStatus_withDefaultPortBaseUrl() {
-        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1/carlos");
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"));
 
-        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
     }
@@ -414,11 +414,11 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should report no main document status when only foreign documents responded")
     void shouldReportNoMainDocumentStatus_whenOnlyForeignDocumentsResponded() {
-        String allowedOrigin = EFormBrowserPdfRenderer.originOf("http://127.0.0.1:8080/carlos");
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:9999/other\",\"status\":200}"));
 
-        EFormBrowserPdfRenderer.NetworkGateScan scan = EFormBrowserPdfRenderer.scanNetworkEvents(rawEntries, allowedOrigin);
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
         assertThat(scan.mainDocumentStatus()).isNull();
         assertThat(scan.disallowedRequests()).isZero();
@@ -433,10 +433,10 @@ class EFormBrowserPdfRendererUnitTest {
     void shouldRefuseRenderSlot_whenConcurrencyBoundSaturated() {
         Semaphore drained = new Semaphore(0);
 
-        assertThat(EFormBrowserPdfRenderer.acquireRenderSlot(drained, Duration.ofMillis(50))).isFalse();
+        assertThat(EFormBrowserPdfService.acquireRenderSlot(drained, Duration.ofMillis(50))).isFalse();
 
         Semaphore available = new Semaphore(1);
-        assertThat(EFormBrowserPdfRenderer.acquireRenderSlot(available, Duration.ofMillis(50))).isTrue();
+        assertThat(EFormBrowserPdfService.acquireRenderSlot(available, Duration.ofMillis(50))).isTrue();
     }
 
 }

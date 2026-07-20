@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
  * Browser-backed eForm PDF renderer driven entirely from the JVM.
  *
  * <p>Selenium launches a pinned headless Chromium (no Node.js runtime anywhere), navigates over
- * loopback to {@link EFormViewForPdfGenerationServlet} using a render-scoped token from
+ * loopback to {@link EFormBrowserRenderPageServlet} using a render-scoped token from
  * {@link EFormRenderTokenService}, captures stabilized page regions via CDP screenshots, and
  * assembles the captures into a PDF for fax and eDoc workflows.</p>
  *
@@ -79,7 +79,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
  * </ul>
  */
 @Service
-public class EFormBrowserPdfRenderer {
+public class EFormBrowserPdfService {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -843,7 +843,7 @@ public class EFormBrowserPdfRenderer {
     static String buildAppPath(int fdid, String renderToken) {
         return "/EFormViewForPdfGenerationServlet?fdid=" + fdid
                 + "&browserRender=true"
-                + "&" + EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM + "="
+                + "&" + EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM + "="
                 + URLEncoder.encode(renderToken == null ? "" : renderToken, StandardCharsets.UTF_8);
     }
 
@@ -985,7 +985,7 @@ public class EFormBrowserPdfRenderer {
             }
             // Sort by the numeric page index, not lexically, so ordering is correct past 999 pages.
             return captures.stream()
-                    .sorted(Comparator.comparingInt(EFormBrowserPdfRenderer::capturePageIndex)
+                    .sorted(Comparator.comparingInt(EFormBrowserPdfService::capturePageIndex)
                             .thenComparing(path -> path.getFileName().toString()))
                     .toList();
         }
@@ -1089,7 +1089,7 @@ public class EFormBrowserPdfRenderer {
         }
         try (var stream = Files.walk(directory)) {
             stream.sorted(Comparator.reverseOrder())
-                    .forEach(EFormBrowserPdfRenderer::deleteQuietly);
+                    .forEach(EFormBrowserPdfService::deleteQuietly);
         } catch (IOException e) {
             logger.debug("Unable to delete temporary browser-rendered capture directory {}", directory, e);
         }

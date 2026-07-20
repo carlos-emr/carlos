@@ -58,10 +58,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * <p>Skips cleanly when no Chromium binary or matching chromedriver is available, so CI hosts
  * without a browser stay green while browser-equipped environments verify the real pipeline.</p>
  */
-@DisplayName("EFormBrowserPdfRenderer Selenium smoke test")
+@DisplayName("EFormBrowserPdfService Selenium smoke test")
 @Tag("integration")
 @Tag("eform")
-class EFormBrowserPdfRendererSeleniumSmokeTest {
+class EFormBrowserPdfServiceSeleniumSmokeTest {
 
     @Test
     @DisplayName("should render the eForm test-pattern fixture to a PDF with headless Chromium")
@@ -86,7 +86,7 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
         Path tempDir = Files.createTempDirectory("eform-selenium-smoke-");
         try {
             String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
-            ChromeOptions options = EFormBrowserPdfRenderer.buildChromeOptions(chromiumBinary, true, allowedOrigin);
+            ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin);
             driver = startDriverOrSkip(options);
             driver.manage().timeouts()
                     .pageLoadTimeout(Duration.ofSeconds(30))
@@ -94,18 +94,18 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
 
             driver.get("http://127.0.0.1:" + server.getAddress().getPort() + "/test-pattern.html");
             Thread.sleep(1500);
-            Object settleError = driver.executeAsyncScript(EFormBrowserPdfRenderer.STABILIZE_ASYNC_JS);
+            Object settleError = driver.executeAsyncScript(EFormBrowserPdfService.STABILIZE_ASYNC_JS);
             assertThat(settleError).as("stabilization script error").isNull();
-            driver.executeScript(EFormBrowserPdfRenderer.PREPARE_CAPTURE_JS);
+            driver.executeScript(EFormBrowserPdfService.PREPARE_CAPTURE_JS);
 
-            List<EFormBrowserPdfRenderer.CaptureRegion> regions =
-                    EFormBrowserPdfRenderer.readRegions(driver.executeScript(EFormBrowserPdfRenderer.COMPUTE_REGIONS_JS));
+            List<EFormBrowserPdfService.CaptureRegion> regions =
+                    EFormBrowserPdfService.readRegions(driver.executeScript(EFormBrowserPdfService.COMPUTE_REGIONS_JS));
             assertThat(regions).as("computed capture regions").isNotEmpty();
 
             HasCdp cdp = driver;
             List<Path> captures = new ArrayList<>();
             for (int index = 0; index < regions.size(); index++) {
-                EFormBrowserPdfRenderer.CaptureRegion region = regions.get(index);
+                EFormBrowserPdfService.CaptureRegion region = regions.get(index);
                 Map<String, Object> result = cdp.executeCdpCommand("Page.captureScreenshot", Map.of(
                         "format", "png",
                         "clip", Map.of(
@@ -123,7 +123,7 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
             }
 
             Path pdfPath = tempDir.resolve("test-pattern.pdf");
-            EFormBrowserPdfRenderer.convertCapturesToPdf(captures, pdfPath);
+            EFormBrowserPdfService.convertCapturesToPdf(captures, pdfPath);
 
             byte[] header = new byte[4];
             try (var in = Files.newInputStream(pdfPath)) {
@@ -176,7 +176,7 @@ class EFormBrowserPdfRendererSeleniumSmokeTest {
         ChromeDriver driver = null;
         try {
             String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
-            driver = startDriverOrSkip(EFormBrowserPdfRenderer.buildChromeOptions(chromiumBinary, true, allowedOrigin));
+            driver = startDriverOrSkip(EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin));
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30)).scriptTimeout(Duration.ofSeconds(30));
             driver.get(allowedOrigin + "/probe.html");
             Thread.sleep(1000);

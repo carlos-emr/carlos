@@ -53,7 +53,7 @@ import org.springframework.context.annotation.Lazy;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
-import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfRenderer;
+import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -78,16 +78,16 @@ public class EformDataManagerImpl implements EformDataManager {
     private FormsManager formsManager;
 
 
-    private final EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
+    private final EFormBrowserPdfService eFormBrowserPdfService;
 
     /**
      * @param securityInfoManager authorization gate for {@code _eform} privilege checks
-     * @param eFormBrowserPdfRenderer headless-browser renderer used to produce saved-eForm PDFs
+     * @param eFormBrowserPdfService headless-browser renderer used to produce saved-eForm PDFs
      */
     @Autowired
-    public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfRenderer eFormBrowserPdfRenderer) {
+    public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfService eFormBrowserPdfService) {
         this.securityInfoManager = securityInfoManager;
-        this.eFormBrowserPdfRenderer = eFormBrowserPdfRenderer;
+        this.eFormBrowserPdfService = eFormBrowserPdfService;
     }
 
     // @Autowired
@@ -210,7 +210,7 @@ public class EformDataManagerImpl implements EformDataManager {
 
         Path path;
         try {
-            path = eFormBrowserPdfRenderer.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
+            path = eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
         } catch (PDFGenerationException e) {
             // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
             throw e;

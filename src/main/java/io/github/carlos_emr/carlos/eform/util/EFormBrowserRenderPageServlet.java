@@ -35,8 +35,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * redemption (browser path) or session {@code _eform} authorization (session path), the
  * per-render Content-Security-Policy, and writing the response. The stored-form HTML assembly is
  * delegated to {@link EformRenderPdfHtmlComposer}.</p>
+ *
+ * <p>The class was renamed from {@code EFormViewForPdfGenerationServlet} to disambiguate it from the
+ * legacy session gate {@code web.eform.EformViewForPdfGenerationServlet} (which differed only by
+ * case). Its registered {@code /EFormViewForPdfGenerationServlet} URL is deliberately retained — the
+ * loopback render navigation, the {@code LoginFilter}/{@code HttpMethodGuardFilter}/CSRF exclusions,
+ * and the Struts exclude pattern all key on that path.</p>
  */
-public final class EFormViewForPdfGenerationServlet extends HttpServlet {
+public final class EFormBrowserRenderPageServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String PROVIDER_ID_PARAM = "providerId";
@@ -47,9 +53,9 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             String remoteAddress = request.getRemoteAddr();
-            logger.debug("EFormViewForPdfGenerationServlet request from : {}", remoteAddress);
+            logger.debug("EFormBrowserRenderPageServlet request from : {}", remoteAddress);
             if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
-                logger.warn("Unauthorised request made to EFormViewForPdfGenerationServlet from address : {}", remoteAddress);
+                logger.warn("Unauthorised request made to EFormBrowserRenderPageServlet from address : {}", remoteAddress);
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
@@ -108,7 +114,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            logger.error("Unexpected error in EFormViewForPdfGenerationServlet", e);
+            logger.error("Unexpected error in EFormBrowserRenderPageServlet", e);
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");

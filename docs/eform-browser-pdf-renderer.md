@@ -10,7 +10,7 @@ anywhere on the server**.
 
 ```text
 EformDataManagerImpl.createEformPDF (checks _eform read privilege)
-  └─ EFormBrowserPdfRenderer.renderSavedEformPdf(fdid, providerNo)
+  └─ EFormBrowserPdfService.renderSavedEformPdf(fdid, providerNo)
        ├─ mints a render-scoped render token (EFormRenderTokenService, 2-min TTL)
        ├─ launches headless Chromium via Selenium ChromeDriver (fresh browser per render)
        ├─ navigates over loopback to /EFormViewForPdfGenerationServlet?fdid=…&browserRender=true&renderToken=…
@@ -173,8 +173,8 @@ raster captures at 96 CSS px → 72 pt scale; callers own cleanup of the returne
 
 ## Verification
 
-- Unit tests: `mvn test -Dtest=EFormBrowserPdfRendererUnitTest,EFormRenderTokenServiceUnitTest,EFormViewForPdfGenerationServletUnitTest`
+- Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormViewForPdfGenerationServletUnitTest`
 - End-to-end smoke (skips cleanly without a browser):
-  `mvn test -Dtest=EFormBrowserPdfRendererSeleniumSmokeTest` — serves
+  `mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeTest` — serves
   `scripts/fixtures/eform/test-pattern.html` over loopback and asserts real regions, captures,
   and a valid `%PDF` output.

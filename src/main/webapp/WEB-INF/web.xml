@@ -478,7 +478,7 @@
 
 	<servlet>
 		<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>
-		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormViewForPdfGenerationServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormBrowserRenderPageServlet</servlet-class>
 	</servlet>
 
 	<servlet>

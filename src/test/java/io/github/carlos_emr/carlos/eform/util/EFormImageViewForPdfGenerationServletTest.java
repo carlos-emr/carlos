@@ -116,7 +116,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
                 MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
                 request.setRemoteAddr("127.0.0.1");
                 request.setParameter("imagefile", "bg.png");
-                request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
+                request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
                 MockHttpServletResponse response = new MockHttpServletResponse();
 
                 new EFormImageViewForPdfGenerationServlet().doGet(request, response);
@@ -140,7 +140,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("127.0.0.1");
         request.setParameter("imagefile", "bg.png");
-        request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, "never-issued-token");
+        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, "never-issued-token");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         new EFormImageViewForPdfGenerationServlet().doGet(request, response);

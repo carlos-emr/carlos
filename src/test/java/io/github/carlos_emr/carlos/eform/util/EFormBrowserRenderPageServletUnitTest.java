@@ -45,30 +45,30 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@DisplayName("EFormViewForPdfGenerationServlet unit tests")
+@DisplayName("EFormBrowserRenderPageServlet unit tests")
 @Tag("unit")
 @Tag("fast")
 @Tag("eform")
-class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
+class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should redeem a render grant repeatedly for the bound eForm within one render")
     void shouldRedeemRenderGrantRepeatedly_whenValidRenderTokenPresented() {
         String token = EFormRenderTokenService.getInstance().issue(187, "999998");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-        request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
+        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
 
-        EFormRenderTokenService.RenderGrant grant = EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187);
+        EFormRenderTokenService.RenderGrant grant = EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 187);
 
         assertThat(grant).isNotNull();
         assertThat(grant.providerNo()).isEqualTo("999998");
         assertThat(request.getSession(false)).isNull();
         // Render-scoped, not consume-once: the eForm document and its asset-image subresources
         // redeem the same grant, so a replay succeeds until the renderer invalidates the token.
-        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187))
+        assertThat(EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 187))
                 .as("render-scoped grant redeems repeatedly").isNotNull();
         EFormRenderTokenService.getInstance().invalidate(token);
-        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187))
+        assertThat(EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 187))
                 .as("invalidated grant no longer redeems").isNull();
     }
 
@@ -77,7 +77,7 @@ class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
     void shouldRejectBrowserRendererRequest_whenNoRenderTokenPresented() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
 
-        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNull();
+        assertThat(EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 187)).isNull();
         assertThat(request.getSession(false)).isNull();
     }
 
@@ -86,12 +86,12 @@ class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
     void shouldRejectBrowserRendererRequest_whenTokenBoundToDifferentEform() {
         String token = EFormRenderTokenService.getInstance().issue(187, "999998");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-        request.setParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM, token);
+        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
 
-        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 999)).isNull();
+        assertThat(EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 999)).isNull();
         // An fdid mismatch fails closed but does not burn the render-scoped token; the eForm it was
         // actually minted for still redeems.
-        assertThat(EFormViewForPdfGenerationServlet.redeemedRenderGrant(request, 187)).isNotNull();
+        assertThat(EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 187)).isNotNull();
         EFormRenderTokenService.getInstance().invalidate(token);
     }
 
@@ -104,7 +104,7 @@ class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
         request.setParameter("browserRender", "true");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        new EFormViewForPdfGenerationServlet().doGet(request, response);
+        new EFormBrowserRenderPageServlet().doGet(request, response);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(request.getSession(false)).isNull();
@@ -118,7 +118,7 @@ class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
         request.setParameter("fdid", "123");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        new EFormViewForPdfGenerationServlet().doGet(request, response);
+        new EFormBrowserRenderPageServlet().doGet(request, response);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
     }
@@ -153,7 +153,7 @@ class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep scripts blocked for legacy server-side PDF rendering")
     void shouldBuildStrictCsp_whenNotBrowserRendering() {
-        assertThat(EFormViewForPdfGenerationServlet.buildContentSecurityPolicy(false))
+        assertThat(EFormBrowserRenderPageServlet.buildContentSecurityPolicy(false))
                 .contains("script-src 'none'")
                 .contains("object-src 'none'");
     }
@@ -161,7 +161,7 @@ class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should allow same-origin scripts for browser PDF rendering")
     void shouldBuildBrowserRenderCsp_whenBrowserRendering() {
-        assertThat(EFormViewForPdfGenerationServlet.buildContentSecurityPolicy(true))
+        assertThat(EFormBrowserRenderPageServlet.buildContentSecurityPolicy(true))
                 .contains("default-src 'self' data:")
                 .contains("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
                 .contains("object-src 'none'")
@@ -181,7 +181,7 @@ class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
     }
 
     private static LoggedInInfo invokeAuthorizedEformReadRequest(MockHttpServletRequest request) throws Exception {
-        Method method = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedEformReadRequest", jakarta.servlet.http.HttpServletRequest.class);
+        Method method = EFormBrowserRenderPageServlet.class.getDeclaredMethod("authorizedEformReadRequest", jakarta.servlet.http.HttpServletRequest.class);
         method.setAccessible(true);
         return (LoggedInInfo) method.invoke(null, request);
     }

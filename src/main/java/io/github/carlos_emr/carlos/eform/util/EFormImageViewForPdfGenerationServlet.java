@@ -142,7 +142,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
      * the duration of one render; it was issued only after an {@code _eform} privilege check.
      */
     private static boolean hasValidRenderGrant(HttpServletRequest request) {
-        String token = request.getParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM);
+        String token = request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM);
         return EFormRenderTokenService.getInstance().peek(token) != null;
     }
 

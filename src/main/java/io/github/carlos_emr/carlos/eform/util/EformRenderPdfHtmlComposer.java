@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Composes the normalized eForm HTML that the PDF renderer captures.
  *
- * <p>Extracted from {@link EFormViewForPdfGenerationServlet} so the HTTP concerns (loopback gate,
+ * <p>Extracted from {@link EFormBrowserRenderPageServlet} so the HTTP concerns (loopback gate,
  * token redemption, session auth, CSP headers, response writing) stay in the servlet while the
  * stored-form HTML assembly — letter positioning, signature-image splicing, legacy image-path
  * rewriting, and render-token propagation onto asset URLs — lives in one testable place.</p>
@@ -136,7 +136,7 @@ public final class EformRenderPdfHtmlComposer {
         if (renderToken == null || renderToken.isEmpty()) {
             return html;
         }
-        String tokenPrefix = "?" + EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM
+        String tokenPrefix = "?" + EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM
                 + "=" + SafeEncode.forUriComponent(renderToken) + "&";
         return html
                 .replace(IMAGE_VIEW_SERVLET_NAME + "?", IMAGE_VIEW_SERVLET_NAME + tokenPrefix)
