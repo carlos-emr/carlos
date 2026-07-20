@@ -1139,45 +1139,62 @@ public class EFormBrowserPdfService {
         }
     }
 
-    /** Age after which an orphaned renderer artifact under the shared managed root is swept. */
-    private static final Duration STALE_RENDERER_ROOT_TTL = Duration.ofHours(1);
+    /**
+     * Age after which an orphaned renderer capture directory under the shared managed root is swept.
+     * Capture dirs are always detached from the caller (deleted in the per-render {@code finally}), so a
+     * short window safely reclaims ones left by a JVM/browser killed mid-render.
+     */
+    private static final Duration STALE_RENDERER_DIR_TTL = Duration.ofHours(1);
+
+    /**
+     * Age after which an orphaned renderer output {@code .pdf} is swept. The output is RETURNED to the
+     * caller, which owns cleanup, so this window is deliberately far larger than any possible request
+     * lifetime (a single render is capped at {@link #RENDER_TIMEOUT} = 90s and callers consume the PDF
+     * synchronously within the same request). At 24h the age sweep cannot intersect a still-in-use
+     * output — even a long multi-attachment workflow (cubic SI8TZ) — while still bounding disk use if a
+     * caller dies mid-consumption and never cleans up (cubic SIzm2).
+     */
+    private static final Duration STALE_RENDERER_OUTPUT_TTL = Duration.ofHours(24);
 
     /**
      * Best-effort sweep of renderer artifacts (both {@code eform-browser-render-*} capture dirs and
      * their {@code .pdf} output files) left under the shared managed root by a JVM or browser that was
      * killed before the per-render {@code finally} cleanup ran, or by a caller that failed before it
-     * consumed a returned output. Only entries older than {@link #STALE_RENDERER_ROOT_TTL} are removed,
-     * so an in-flight concurrent render — and a freshly returned, not-yet-consumed output PDF — is never
-     * touched. Never throws — a sweep failure must not fail the render (cubic CQP1).
+     * consumed a returned output. Directories are reclaimed after {@link #STALE_RENDERER_DIR_TTL} and
+     * caller-owned output PDFs only after the much longer {@link #STALE_RENDERER_OUTPUT_TTL}, so an
+     * in-flight render — and a returned, not-yet-consumed output — is never touched. Never throws — a
+     * sweep failure must not fail the render (cubic CQP1).
      */
     static void sweepStaleRendererRoots(Path managedRoot) {
         if (managedRoot == null || !Files.isDirectory(managedRoot)) {
             return;
         }
-        long cutoffMillis = System.currentTimeMillis() - STALE_RENDERER_ROOT_TTL.toMillis();
+        long now = System.currentTimeMillis();
+        long dirCutoffMillis = now - STALE_RENDERER_DIR_TTL.toMillis();
+        long outputCutoffMillis = now - STALE_RENDERER_OUTPUT_TTL.toMillis();
         // The render's output .pdf sits directly under the managed root with the same prefix and is
-        // RETURNED by renderSavedEformPdf for caller-owned cleanup. Every legitimate caller consumes it
-        // synchronously within the same request (concat/fax/attach), far inside the TTL, so the age gate
-        // alone keeps a fresh output safe (cubic SIt6F) while still reclaiming an output orphaned past
-        // the TTL by a caller that died mid-consumption (cubic SIzm2). Capture dirs are always
-        // caller-detached, so they are swept whenever stale. Catch unchecked failures too (e.g.
-        // DirectoryIteratorException) so a traversal/permission error can never turn this best-effort
-        // cleanup into a render prerequisite (cubic SIt6C).
+        // RETURNED by renderSavedEformPdf for caller-owned cleanup, so it is age-gated on the long
+        // output window that no live request can reach (SIt6F fresh-output-safe, SIzm2 bounded-growth,
+        // SI8TZ never-sweeps-an-in-use-output). Capture dirs are always caller-detached, so a short
+        // window reclaims them. Catch unchecked failures too (e.g. DirectoryIteratorException) so a
+        // traversal/permission error can never turn this best-effort cleanup into a render prerequisite
+        // (cubic SIt6C).
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
             for (Path entry : entries) {
                 boolean isDirectory;
+                long modifiedMillis;
                 try {
-                    if (Files.getLastModifiedTime(entry).toMillis() >= cutoffMillis) {
-                        continue; // fresh: an in-flight render or a not-yet-consumed output — leave it
-                    }
+                    modifiedMillis = Files.getLastModifiedTime(entry).toMillis();
                     isDirectory = Files.isDirectory(entry);
                 } catch (IOException e) {
                     continue; // can't stat it; leave it for a later sweep
                 }
                 if (isDirectory) {
-                    deleteRecursivelyQuietly(entry);
-                } else if (entry.getFileName().toString().endsWith(".pdf")) {
-                    deleteQuietly(entry); // orphaned output reclaimed past its retention window
+                    if (modifiedMillis < dirCutoffMillis) {
+                        deleteRecursivelyQuietly(entry);
+                    }
+                } else if (entry.getFileName().toString().endsWith(".pdf") && modifiedMillis < outputCutoffMillis) {
+                    deleteQuietly(entry); // orphaned output reclaimed only long past any request lifetime
                 }
             }
         } catch (IOException | RuntimeException e) {

@@ -286,33 +286,37 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should sweep stale render dirs and orphaned output PDFs, keeping fresh artifacts")
+    @DisplayName("should sweep stale dirs and long-orphaned output PDFs, keeping fresh and recently-returned artifacts")
     void shouldSweepStaleRendererArtifacts_keepingFreshOnes() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-sweep-root-");
         Path staleDir = Files.createDirectory(root.resolve("eform-browser-render-stale123"));
-        Path staleOutputPdf = Files.createFile(root.resolve("eform-browser-render-stale.pdf"));
+        Path orphanedOutputPdf = Files.createFile(root.resolve("eform-browser-render-orphan.pdf"));
+        Path recentOutputPdf = Files.createFile(root.resolve("eform-browser-render-recent.pdf"));
         Path freshDir = Files.createDirectory(root.resolve("eform-browser-render-fresh123"));
-        Path freshOutputPdf = Files.createFile(root.resolve("eform-browser-render-fresh.pdf"));
         Path unrelated = Files.createFile(root.resolve("keepme.txt"));
         try {
-            FileTime old = FileTime.fromMillis(System.currentTimeMillis() - Duration.ofHours(2).toMillis());
-            Files.setLastModifiedTime(staleDir, old);
-            Files.setLastModifiedTime(staleOutputPdf, old);
+            // Older than the 1h dir window but within the 24h output window.
+            FileTime twoHoursOld = FileTime.fromMillis(System.currentTimeMillis() - Duration.ofHours(2).toMillis());
+            // Older than the 24h output window — clearly orphaned by a caller that never cleaned up.
+            FileTime twoDaysOld = FileTime.fromMillis(System.currentTimeMillis() - Duration.ofHours(48).toMillis());
+            Files.setLastModifiedTime(staleDir, twoHoursOld);
+            Files.setLastModifiedTime(recentOutputPdf, twoHoursOld);
+            Files.setLastModifiedTime(orphanedOutputPdf, twoDaysOld);
 
             EFormBrowserPdfService.sweepStaleRendererRoots(root);
 
             assertThat(Files.exists(staleDir)).as("stale render capture dir removed").isFalse();
-            // An output orphaned past the retention window is reclaimed so PDFs cannot accumulate (SIzm2);
-            // a fresh, not-yet-consumed output survives on the age gate (SIt6F).
-            assertThat(Files.exists(staleOutputPdf)).as("orphaned stale output pdf swept").isFalse();
-            assertThat(Files.exists(freshOutputPdf)).as("fresh caller-owned output pdf kept").isTrue();
+            // A caller-owned output is reclaimed only long past any request lifetime (SIzm2), never while
+            // a workflow could still hold it (SIt6F/SI8TZ).
+            assertThat(Files.exists(orphanedOutputPdf)).as("output orphaned past 24h swept").isFalse();
+            assertThat(Files.exists(recentOutputPdf)).as("recently-returned output pdf kept").isTrue();
             assertThat(Files.exists(freshDir)).as("fresh render dir kept").isTrue();
             assertThat(Files.exists(unrelated)).as("unrelated file kept").isTrue();
         } finally {
             Files.deleteIfExists(staleDir);
-            Files.deleteIfExists(staleOutputPdf);
+            Files.deleteIfExists(orphanedOutputPdf);
+            Files.deleteIfExists(recentOutputPdf);
             Files.deleteIfExists(freshDir);
-            Files.deleteIfExists(freshOutputPdf);
             Files.deleteIfExists(unrelated);
             Files.deleteIfExists(root);
         }

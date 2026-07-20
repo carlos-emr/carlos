@@ -72,6 +72,18 @@ public interface NioFileManager {
     public boolean removeCacheVersion(LoggedInInfo loggedInInfo, final String fileName);
 
     /**
+     * Remove every cached page image produced by {@link #createCacheVersion2} for one source PDF.
+     * Page images are named {@code <boundedFilename>_<sourceKey>_<page>.png}, so callers that only hold
+     * the PDF's path (e.g. the fax-preview flush) cannot clear them with the single-file
+     * {@link #removeCacheVersion}; this rebuilds the same source-scoped prefix and removes all pages.
+     *
+     * @param sourceDirectory the directory the PDF was previewed from (its parent directory)
+     * @param filename        the PDF filename
+     * @return the number of cache page images removed
+     */
+    public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename);
+
+    /**
      * Save a file to the temporary directory from ByteArrayOutputStream
      *
      * @throws IOException

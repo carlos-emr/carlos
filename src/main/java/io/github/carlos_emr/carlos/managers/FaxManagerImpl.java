@@ -680,7 +680,13 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_fax)");
         }
 
-        boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
+        // Preview page images are cached per source PDF as "<boundedName>_<sourceKey>_<page>.png", so
+        // clearing them requires the same source-scoped prefix, not the raw PDF name — remove every page
+        // for this source (copilot SI8_2). With the multi-page CoverPage preview this can be many PNGs.
+        File previewSource = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
+        boolean cache = previewSource != null
+                && previewSource.getParent() != null
+                && nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName()) > 0;
 
         // Only a CARLOS-owned temp artifact is eligible for temp deletion here. Guarding on the
         // application temp boundary keeps a non-temp filePath (e.g. a DOCUMENT_DIR path passed by the

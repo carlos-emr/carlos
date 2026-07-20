@@ -308,6 +308,41 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Removes every source-scoped preview page image when clearing by source PDF")
+    void shouldRemoveAllPreviewPages_whenClearingBySource() throws IOException {
+        allowedTempDir = createApplicationTempDirectory("nio-cache-flush-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside a CARLOS-owned temp directory");
+        Path cacheDir = getDocumentCacheDirectory();
+        Files.createDirectories(cacheDir);
+        Path sourcePdf = allowedTempDir.resolve("flush-me.pdf");
+        createSinglePagePdf(sourcePdf);
+
+        Path pageOne = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+        assertThat(pageOne).isNotNull().exists();
+        // A second page image shares the same source-scoped prefix (simulate a multi-page preview),
+        // and a different source's cache page must be left untouched.
+        String scopedBase = pageOne.getFileName().toString().replaceFirst("_1\\.png$", "");
+        Path pageTwo = Files.createFile(cacheDir.resolve(scopedBase + "_2.png"));
+        Path otherSourcePage = Files.createFile(cacheDir.resolve("other-source_0123456789abcdef_1.png"));
+
+        try {
+            int removed = nioFileManager.removeCacheVersions(
+                    loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString());
+
+            assertThat(removed).as("both pages of this source removed").isEqualTo(2);
+            assertThat(Files.exists(pageOne)).as("page 1 removed").isFalse();
+            assertThat(Files.exists(pageTwo)).as("page 2 removed").isFalse();
+            assertThat(Files.exists(otherSourcePage)).as("a different source's cache page is untouched").isTrue();
+        } finally {
+            Files.deleteIfExists(pageOne);
+            Files.deleteIfExists(pageTwo);
+            Files.deleteIfExists(otherSourcePage);
+            Files.deleteIfExists(sourcePdf);
+        }
+    }
+
+    @Test
     @DisplayName("Rejects preview sources in the shared temp root that are not CARLOS-owned")
     void shouldReturnNull_whenSourceIsInSharedTempButNotApplicationOwned() throws IOException {
         // A directory directly under java.io.tmpdir (not under carlos-temp) is inside the broad

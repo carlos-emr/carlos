@@ -582,6 +582,9 @@
                     for (var j = initialCount + 1; j <= pageCount; j++) {
                         appendPreviewImage(previewImages, faxFilePath, j);
                     }
+                    // All pages are now materialized, so the "first N of M" status no longer holds
+                    // (cubic SI8Tb).
+                    previewStatus.text("Showing all " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
                 });
             previewImages.append(showMore);
         }
