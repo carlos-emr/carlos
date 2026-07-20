@@ -136,6 +136,29 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
     }
 
+    @Test
+    @DisplayName("should preserve an explicit Content-Length on the skip-injection renderer path")
+    void shouldPreserveContentLength_whenRendererSkipsInjection() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/eformViewForPdfGenerationServlet");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.REQUEST);
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        byte[] body = "<html><body>renderer output</body></html>".getBytes(StandardCharsets.UTF_8);
+
+        FilterChain rendererChain = (servletRequest, servletResponse) -> {
+            servletRequest.setAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(body.length);
+            servletResponse.getOutputStream().write(body);
+        };
+
+        filter.doFilter(request, response, rendererChain);
+
+        // The renderer response is passed through unchanged, so its explicit Content-Length survives.
+        assertThat(response.getContentAsByteArray()).containsExactly(body);
+        assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
+    }
+
 
     private String scriptInjectedRequestAttribute() throws Exception {
         Field field = LogoutBroadcastFilter.class.getDeclaredField("SCRIPT_INJECTED_REQUEST_ATTRIBUTE");

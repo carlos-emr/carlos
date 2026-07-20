@@ -197,7 +197,11 @@ public class LogoutBroadcastFilter implements Filter {
         delegatingResponse.markChainComplete();
 
         if (Boolean.TRUE.equals(httpRequest.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
-            delegatingResponse.discardDeferredContentLength();
+            // Skip-injection responses are passed through unchanged, so an explicitly-supplied
+            // Content-Length is still correct and must be replayed. Do NOT discard it here (only the
+            // SCRIPT_INJECTED / append paths below, which lengthen the body, discard). Routing straight
+            // through completeWithoutInjection() preserves the header, matching the no-session path
+            // below (cubic CQQY).
             delegatingResponse.completeWithoutInjection();
             return;
         }
