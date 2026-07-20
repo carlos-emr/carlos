@@ -53,6 +53,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -78,6 +79,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-03-06
  */
 public class DisplayImage2Action extends ActionSupport {
+    private static final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
     // Shared with EFormImageViewForPdfGenerationServlet via EformAssetContentType so the two eForm
     // asset-streaming paths cannot drift on the MIME allowlist (cubic CQQa). Header hardening
@@ -94,6 +96,7 @@ public class DisplayImage2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
+            logger.warn("DisplayImage2Action rejected: no authenticated session");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return NONE;
         }
@@ -111,6 +114,7 @@ public class DisplayImage2Action extends ActionSupport {
 
         File validatedFile = getValidatedImageFile(fileName);
         if (!validatedFile.exists() || !validatedFile.isFile()) {
+            logger.debug("eForm asset not found: {}", LogSafe.sanitize(fileName));
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
@@ -118,9 +122,11 @@ public class DisplayImage2Action extends ActionSupport {
         try {
             data = process(validatedFile, fileName);
         } catch (FileNotFoundException e) {
+            logger.debug("eForm asset disappeared before streaming: {}", LogSafe.sanitize(fileName));
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         } catch (IllegalArgumentException e) {
+            logger.debug("eForm asset request rejected (unsupported type): {}", LogSafe.sanitize(fileName));
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
             return NONE;
         }
@@ -138,7 +144,7 @@ public class DisplayImage2Action extends ActionSupport {
             IOUtils.copy(stream, outputStream);
             return NONE;
         } catch (IOException | IllegalStateException e) {
-            MiscUtils.getLogger().error("Error streaming eform image to response", e);
+            logger.error("Error streaming eform image to response", e);
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
@@ -166,6 +172,7 @@ public class DisplayImage2Action extends ActionSupport {
 
     private void validateRequestedFileName(String fileName) {
         if (!fileName.equals(FilenameUtils.getName(fileName))) {
+            logger.warn("Path traversal attempt in imagefile parameter: {}", LogSafe.sanitize(fileName));
             throw new SecurityException("Path traversal detected in imagefile parameter");
         }
     }

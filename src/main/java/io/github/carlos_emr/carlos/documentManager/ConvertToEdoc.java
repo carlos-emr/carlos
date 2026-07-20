@@ -42,6 +42,7 @@ import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -142,7 +143,7 @@ public final class ConvertToEdoc {
                     DocumentType.eForm,
                     path.getParent().toString());
         } else {
-            logger.error("Could not read temporary PDF file " + filename);
+            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
         }
 
         return edoc;
@@ -221,7 +222,7 @@ public final class ConvertToEdoc {
                     formTransportContainer.getDocumentType(),
                     path.toString());
         } else {
-            logger.error("Could not read temporary PDF file " + filename);
+            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
         }
 
         return edoc;
@@ -292,10 +293,14 @@ public final class ConvertToEdoc {
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             renderPDF(document, os);
             path = nioFileManager.saveTempFile(filename, os);
+            if (logger.isDebugEnabled()) {
+                // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
+                logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));
+            }
         } catch (DocumentException e1) {
             logger.error("Exception parsing file to PDF. File not saved. ", e1);
         } catch (IOException e) {
-            logger.error("Problem while writing PDF file to filesystem. " + filename, e);
+            logger.error("Problem while writing PDF file to filesystem. {}", LogSafe.sanitize(filename), e);
         }
 
         return path;

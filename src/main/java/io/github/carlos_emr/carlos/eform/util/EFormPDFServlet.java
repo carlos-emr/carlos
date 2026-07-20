@@ -268,7 +268,7 @@ public class EFormPDFServlet extends HttpServlet {
             List<List<List<String>>> xMeasurementValues = new ArrayList<List<List<String>>>();
             List<List<List<String>>> yMeasurementValues = new ArrayList<List<List<String>>>();
             for (int idx = 0; idx < numPages; ++idx) {
-                MiscUtils.getLogger().debug("Adding page " + idx);
+                MiscUtils.getLogger().debug("Adding page {}", idx);
                 xMeasurementValues.add(new ArrayList<List<String>>());
                 yMeasurementValues.add(new ArrayList<List<String>>());
             }
@@ -314,15 +314,15 @@ public class EFormPDFServlet extends HttpServlet {
                 Properties[] tempPropertiesArray;
                 if (i <= graphicCfg.length) {
                     tempPropertiesArray = graphicCfg[i - 1];
-                    MiscUtils.getLogger().debug("Plotting page " + i);
+                    MiscUtils.getLogger().debug("Plotting page {}", i);
                 } else {
                     tempPropertiesArray = null;
-                    MiscUtils.getLogger().debug("Skipped Plotting page " + i);
+                    MiscUtils.getLogger().debug("Skipped Plotting page {}", i);
                 }
 
                 //if there are properties to plot
                 if (tempPropertiesArray != null) {
-                    MiscUtils.getLogger().debug("TEMP PROP LENGTH " + tempPropertiesArray.length);
+                    MiscUtils.getLogger().debug("TEMP PROP LENGTH {}", tempPropertiesArray.length);
                     for (int k = 0; k < tempPropertiesArray.length; k++) {
 
                         //initialise with measurement values which are mapped to config file by form get graphic function
@@ -583,7 +583,8 @@ public class EFormPDFServlet extends HttpServlet {
                 }
 
                 xMeasurementValues.get(page).get(section).add((String) req.getAttribute(temp.toString()));
-                MiscUtils.getLogger().debug("Setting xMeasurementDate to {}", LogSafe.sanitize((String) req.getAttribute(temp.toString())));
+                // Log the coordinate key only, never the measurement date value (growth-chart PHI).
+                MiscUtils.getLogger().debug("Setting xMeasurementDate for key {}", LogSafe.sanitize(temp.toString()));
 
                 temp = new StringBuilder("yVal_");
                 temp = temp.append(elementNum);
@@ -592,7 +593,8 @@ public class EFormPDFServlet extends HttpServlet {
                 MiscUtils.getLogger().debug("Key {}", LogSafe.sanitize(temp.toString()));
                 tempValue = (String) req.getAttribute(temp.toString());
                 yMeasurementValues.get(page).get(section).add(tempValue);
-                MiscUtils.getLogger().debug("Setting yMeasurementValue to {}", LogSafe.sanitize(tempValue));
+                // Log the coordinate key only, never the measurement value (growth-chart PHI).
+                MiscUtils.getLogger().debug("Setting yMeasurementValue for key {}", LogSafe.sanitize(temp.toString()));
             } else {
                 props.setProperty(temp.toString(), req.getAttribute(temp.toString()).toString());
             }
@@ -773,8 +775,9 @@ public class EFormPDFServlet extends HttpServlet {
             else if (temp.toString().equals("__className"))
                 className = tempValue;
             else {
-                MiscUtils.getLogger().debug("Adding xDate {} VAL: {}", LogSafe.sanitize(temp.toString()), LogSafe.sanitize(props.getProperty(temp.toString())));
-                MiscUtils.getLogger().debug("Adding yHeight {} VAL: {}", LogSafe.sanitize(tempValue), LogSafe.sanitize(props.getProperty(tempValue)));
+                // Log the coordinate keys only, never the plotted measurement values (growth-chart PHI).
+                MiscUtils.getLogger().debug("Adding xDate for key {}", LogSafe.sanitize(temp.toString()));
+                MiscUtils.getLogger().debug("Adding yHeight for key {}", LogSafe.sanitize(tempValue));
                 xDate.add(props.getProperty(temp.toString()));
                 yHeight.add(props.getProperty(tempValue));
             }

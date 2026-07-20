@@ -147,7 +147,7 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_con)");
         }
 
-        logger.info("Rendering consultation request document number " + requestId + " for fax preview.");
+        logger.info("Rendering consultation request document number {} for fax preview.", requestId);
 
         return null;
     }
@@ -158,7 +158,7 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_edoc)");
         }
 
-        logger.info("Rendering document number " + documentNo + " for fax preview.");
+        logger.info("Rendering document number {} for fax preview.", documentNo);
         return null;
     }
 
@@ -167,7 +167,7 @@ public class FaxManagerImpl implements FaxManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo)) {
             throw new RuntimeException("missing required sec object (_eform)");
         }
-        logger.info("Rendering eform number " + eformId + " for fax preview.");
+        logger.info("Rendering eform number {} for fax preview.", eformId);
         return faxDocumentManager.getEformFaxDocument(loggedInInfo, eformId);
     }
 
@@ -176,7 +176,7 @@ public class FaxManagerImpl implements FaxManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, demographicNo)) {
             throw new RuntimeException("missing required sec object (_rx)");
         }
-        logger.info("Rendering prescription number " + rxId + " for fax preview.");
+        logger.info("Rendering prescription number {} for fax preview.", rxId);
 
         return null;
     }
@@ -187,7 +187,7 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_form)");
         }
 
-        logger.info("Rendering form number " + formId + " for fax preview.");
+        logger.info("Rendering form number {} for fax preview.", formId);
 
         return null;
     }
@@ -329,7 +329,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // No valid account means no fax can be sent.
         if (faxConfig == null) {
-            logger.error("Fax account " + faxJob.getFax_line() + " is not found, invalid, or inactive");
+            logger.error("Fax account {} is not found, invalid, or inactive", LogSafe.sanitize(faxJob.getFax_line()));
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("Fax account " + faxJob.getFax_line() + " is not found, invalid, or inactive");
             return faxJob;
@@ -384,7 +384,7 @@ public class FaxManagerImpl implements FaxManager {
                 FaxRecipient faxRecipient = new FaxRecipient(copytoRecipientJson);
                 faxRecipientArray.add(faxRecipient);
             } catch (Exception e) {
-                logger.error("Failed to parse fax recipient JSON: {} - Recipient will be SKIPPED", copytoRecipient, e);
+                logger.error("Failed to parse fax recipient JSON: {} - Recipient will be SKIPPED", LogSafe.sanitize(copytoRecipient), e);
                 failedRecipients.add(copytoRecipient);
             }
         }
@@ -574,6 +574,10 @@ public class FaxManagerImpl implements FaxManager {
 
         if (filePath != null && Files.exists(filePath)) {
             outfile = nioFileManager.createCacheVersion2(loggedInInfo, filePath.getParent().toString(), filePath.getFileName().toString(), pageNumber);
+        } else {
+            // No source PDF on disk means no preview can be generated; surface it rather than returning
+            // a silent null the caller may render as a broken image.
+            logger.warn("Fax preview source is missing; no preview image generated (page {})", pageNumber);
         }
         return outfile;
     }
@@ -696,6 +700,9 @@ public class FaxManagerImpl implements FaxManager {
                 && PathValidationUtils.isInApplicationTempDirectory(tempTarget)
                 && nioFileManager.deleteTempFile(filePath);
 
+        if (logger.isDebugEnabled()) {
+            logger.debug("Fax preview flush: cacheCleared={} tempDeleted={}", cache, temp);
+        }
         return cache || temp;
     }
 
@@ -907,7 +914,8 @@ public class FaxManagerImpl implements FaxManager {
         if (faxNumber != null && !faxNumber.trim().isEmpty()) {
             if (!faxNumber.matches(FAX_NUMBER_PATTERN)) {
                 String errorMsg = "Invalid " + fieldName + " format: contains illegal characters";
-                logger.error(errorMsg + " - " + faxNumber);
+                // faxNumber failed format validation, so it may carry injection/control chars — sanitize.
+                logger.error("{} - {}", errorMsg, LogSafe.sanitize(faxNumber));
                 throw new SecurityException(errorMsg);
             }
         }

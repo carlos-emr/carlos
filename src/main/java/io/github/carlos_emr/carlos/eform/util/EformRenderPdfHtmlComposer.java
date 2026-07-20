@@ -80,6 +80,12 @@ public final class EformRenderPdfHtmlComposer {
         List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
 
+        if (logger.isDebugEnabled()) {
+            // fdid + value count only; never the render token or any stored eForm field value.
+            logger.debug("Composing eForm PDF render HTML: fdid={} storedValues={} prepareForFax={}",
+                    formDataId, eFormValues == null ? 0 : eFormValues.size(), prepareForFax);
+        }
+
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax, renderToken);
     }
 
@@ -138,6 +144,9 @@ public final class EformRenderPdfHtmlComposer {
         }
         String tokenPrefix = "?" + EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM
                 + "=" + SafeEncode.forUriComponent(renderToken) + "&";
+        // Render-grant path only: note that the grant is being carried onto asset URLs. NEVER log the
+        // token value itself — only that splicing occurred.
+        logger.debug("Splicing render grant onto eForm asset URLs for browser render");
         return html
                 .replace(IMAGE_VIEW_SERVLET_NAME + "?", IMAGE_VIEW_SERVLET_NAME + tokenPrefix)
                 .replace(SIGNATURE_VIEW_SERVLET_NAME + "?", SIGNATURE_VIEW_SERVLET_NAME + tokenPrefix);

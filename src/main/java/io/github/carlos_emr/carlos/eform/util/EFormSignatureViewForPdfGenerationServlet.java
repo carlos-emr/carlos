@@ -102,6 +102,9 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
                 byte[] image = digitalSignature.getSignatureImage();
                 if (image == null) {
+                    // Referenced signature row exists but carries no image bytes. No id in the message
+                    // (signatures are PHI); a blank signature in a PDF is now traceable to this branch.
+                    logger.debug("eForm signature fetch: referenced signature has no image data (404)");
                     response.sendError(HttpServletResponse.SC_NOT_FOUND, "Signature image data is missing");
                     return;
                 }
@@ -112,6 +115,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- image/jpeg binary write
                 bos.flush();
 
+                logger.debug("Streamed eForm signature image to render browser ({} bytes)", image.length);
                 return;
             }
             // The id is referenced by the render's eForm but no signature row exists for it (e.g. the

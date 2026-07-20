@@ -160,7 +160,8 @@ public class Fax2Action extends ActionSupport {
             }
             // Verify user has access to this patient's record
             if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-                logger.warn("Unauthorized access attempt to demographic " + demographicNo + " by provider " + loggedInInfo.getLoggedInProviderNo());
+                logger.warn("Unauthorized access attempt to demographic {} by provider {}",
+                        demographicNo, LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
                 throw new SecurityException("Unauthorized access to patient record");
             }
         }
@@ -182,7 +183,8 @@ public class Fax2Action extends ActionSupport {
         if (recipient != null && !recipient.trim().isEmpty()) {
             // Check for potential injection patterns
             if (recipient.contains("<script") || recipient.contains("javascript:") || recipient.contains("onerror=")) {
-                logger.error("Potential XSS attempt in recipient name: " + recipient);
+                // recipient failed the XSS screen, so it may carry markup/control chars — sanitize.
+                logger.error("Potential XSS attempt in recipient name: {}", LogSafe.sanitize(recipient));
                 throw new SecurityException("Invalid characters in recipient name");
             }
         }
@@ -202,7 +204,7 @@ public class Fax2Action extends ActionSupport {
                             faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + i + "]");
                         }
                     } catch (Exception e) {
-                        logger.error("Failed to parse copy-to recipient JSON at index " + i + ": " + copyRecipient, e);
+                        logger.error("Failed to parse copy-to recipient JSON at index {}: {}", i, LogSafe.sanitize(copyRecipient), e);
                         throw new SecurityException("Invalid copy-to recipient format at index " + i);
                     }
                 }
@@ -355,9 +357,12 @@ public class Fax2Action extends ActionSupport {
                     outs.write(data); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary fax document download
                 }
                 outs.flush();
+                logger.debug("Streamed fax preview to client");
             } catch (IOException e) {
                 logger.error("Error reading or writing file", e);
             }
+        } else {
+            logger.debug("Fax preview produced no servable file; nothing streamed");
         }
     }
 
@@ -410,6 +415,9 @@ public class Fax2Action extends ActionSupport {
                 }
             }
         } else {
+            // No configured/active fax accounts: the preview screen shows a message but nothing gets
+            // sent, so surface the misconfiguration for operators.
+            logger.warn("prepareFax found no active fax accounts; nothing can be sent");
             request.setAttribute("message", "No active fax accounts found.");
         }
 

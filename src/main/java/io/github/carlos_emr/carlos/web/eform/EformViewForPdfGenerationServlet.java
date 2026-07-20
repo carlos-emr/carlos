@@ -62,15 +62,16 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             String remoteAddress = request.getRemoteAddr();
-            logger.debug("EformPdfServlet request from : {}", remoteAddress);
+            logger.debug("EformViewForPdfGenerationServlet request from : {}", remoteAddress);
             if (!isLocalRequest(remoteAddress)) {
-                logger.warn("Unauthorised request made to EformPdfServlet from address : {}", remoteAddress);
+                logger.warn("Unauthorised request made to EformViewForPdfGenerationServlet from address : {}", remoteAddress);
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
 
             String providerNo = request.getParameter(PROVIDER_ID_PARAM);
             if (providerNo == null || providerNo.isBlank()) {
+                logger.debug("EformViewForPdfGenerationServlet rejected: missing required {} parameter", PROVIDER_ID_PARAM);
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: " + PROVIDER_ID_PARAM);
                 return;
             }
@@ -81,6 +82,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires an authenticated matching provider session");
                 return;
             }
+            logger.debug("EformViewForPdfGenerationServlet authorized provider-scoped render; forwarding to eForm view");
 
             response.setHeader("X-Content-Type-Options", "nosniff");
             // Content-Security-Policy is intentionally NOT set here: the forwarded

@@ -30,6 +30,10 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Objects;
 
+import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
 /**
  * Short-lived, render-scoped grants that authorize the server-side browser renderer to fetch one
  * saved eForm surface.
@@ -54,6 +58,10 @@ import java.util.Objects;
  * far below any session lifetime.</p>
  */
 final class EFormRenderTokenService {
+
+    // The token value is a live capability reference and MUST NEVER be logged. These traces record
+    // grant lifecycle by fdid only (a PHI-correlating identifier, never clinical content).
+    private static final Logger logger = MiscUtils.getLogger();
 
     private static final long MAX_SIZE = 1_000L;
     private static final Duration TTL = Duration.ofMinutes(2);
@@ -91,6 +99,7 @@ final class EFormRenderTokenService {
     String issue(int fdid, String providerNo) {
         String token = generateToken();
         cache.put(token, new RenderGrant(fdid, providerNo));
+        logger.debug("Render grant issued for fdid={} (grants live={})", fdid, cache.estimatedSize());
         return token;
     }
 
@@ -104,7 +113,13 @@ final class EFormRenderTokenService {
             return null;
         }
         // Atomic remove so two concurrent redemption attempts cannot both observe the grant.
-        return cache.asMap().remove(token);
+        RenderGrant grant = cache.asMap().remove(token);
+        if (grant == null) {
+            logger.debug("Render grant consume found no live grant (unknown/expired/already redeemed)");
+        } else {
+            logger.debug("Render grant consumed for fdid={}", grant.fdid());
+        }
+        return grant;
     }
 
     /**
@@ -119,7 +134,13 @@ final class EFormRenderTokenService {
         if (token == null || token.isEmpty()) {
             return null;
         }
-        return cache.getIfPresent(token);
+        RenderGrant grant = cache.getIfPresent(token);
+        // peek runs for every loopback subresource of a render (hot path), so only the miss is logged
+        // — a rejected subresource fetch is the interesting event; a hit is the expected steady state.
+        if (grant == null) {
+            logger.debug("Render grant peek found no live grant for the presented token (unknown/expired/invalidated)");
+        }
+        return grant;
     }
 
     /**
@@ -131,6 +152,7 @@ final class EFormRenderTokenService {
             return;
         }
         cache.invalidate(token);
+        logger.debug("Render grant invalidated (render finished or aborted)");
     }
 
     long size() {

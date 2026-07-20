@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -315,7 +316,7 @@ public class EForm extends EFormBase {
                 }
                 apName = EFormUtil.removeQuotes(apName);
 
-                log.debug("AP ==== " + apName);
+                log.debug("AP ==== {}", LogSafe.sanitize(apName));
                 if (setAP2nd && !apName.startsWith("e$")) continue; // ignore non-e$ oscarDB on 2nd run
 
                 int needing = needValueInForm;
@@ -329,7 +330,8 @@ public class EForm extends EFormBase {
                 // - input: directly inserts value="" attribute at this position
                 int attributeEndPos = EFormUtil.getAttributeEndPos(marker, fieldHeader);
                 if (attributeEndPos == -1) {
-                    log.error("Failed to find attribute end position for marker: " + marker + " in field: " + fieldHeader);
+                    log.error("Failed to find attribute end position for marker: {} in field: {}",
+                            LogSafe.sanitize(marker), LogSafe.sanitize(fieldHeader));
                     continue;
                 }
                 int pointer = markerLoc + attributeEndPos;
@@ -345,8 +347,8 @@ public class EForm extends EFormBase {
                     if (needing > needValueInForm) html = putValuesFromAP(curAP, fieldType, pointer, html);
                 }
 
-                log.debug("Marker ==== " + markerLoc);
-                log.debug("FIELD TYPE ====" + fieldType);
+                log.debug("Marker ==== {}", markerLoc);
+                log.debug("FIELD TYPE ===={}", LogSafe.sanitize(fieldType));
                 log.debug("=================End Cycle==============");
             }
             formHtml = html.toString();
@@ -370,7 +372,7 @@ public class EForm extends EFormBase {
             String fieldName = EFormUtil.removeQuotes(EFormUtil.getAttribute("name", fieldHeader));
             if (StringUtils.isBlank(fieldName)) continue;
 
-            log.debug("OPEN ==== " + efmName);
+            log.debug("OPEN ==== {}", LogSafe.sanitize(efmName));
             // sets up the pointer where to write the value
             String fdid = EFormUtil.removeQuotes(EFormUtil.getAttribute(OPENER_VALUE, fieldHeader));
             EFormLoader.getInstance();
@@ -388,7 +390,7 @@ public class EForm extends EFormBase {
                          */
                         html = putValue(onclick, type, fieldName, pointer, html);
 
-            log.debug("Opener ==== " + markerLoc);
+            log.debug("Opener ==== {}", markerLoc);
             log.debug("=================End Opener Cycle==============");
         }
         formHtml = html.toString();
@@ -914,13 +916,13 @@ public class EForm extends EFormBase {
 		int open = html.substring(0, pointer).lastIndexOf("<");
 		int close = html.substring(pointer).indexOf(">") + pointer + 1;
 		String tag = html.substring(open, close);
-		log.debug("TAG ====" + tag);
+		log.debug("TAG ===={}", LogSafe.sanitize(tag));
 		int start; // <input type="^text".....
 		int end; // <input type="text^"....
 		if (tag.substring(1, 9).equalsIgnoreCase("textarea")) return "textarea";
 		if (tag.substring(1, 7).equalsIgnoreCase("select")) return "select";
 
-		log.debug("TAG PROCESS ====" + tag.substring(1, 9));
+		log.debug("TAG PROCESS ===={}", LogSafe.sanitize(tag.substring(1, 9)));
 		if ((start = tag.toLowerCase().indexOf(" type=")) >= 0) {
 			start += 6; // account for type=...
 			if (tag.charAt(start) == '\"') { // account for type="..."
@@ -1106,7 +1108,7 @@ public class EForm extends EFormBase {
         int open = html.substring(0, pointer).lastIndexOf("<");
         int close = html.substring(pointer).indexOf(">") + pointer + 1;
         String tag = html.substring(open, close);
-        log.debug("TAG ====" + tag);
+        log.debug("TAG ===={}", LogSafe.sanitize(tag));
         int start;  //<input type="^text".....
         int end;    //<input type="text^"....
         if ((start = tag.toLowerCase().indexOf(" name=")) >= 0) {

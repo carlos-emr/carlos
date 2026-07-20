@@ -79,6 +79,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
             }
             String id = request.getParameter("fdid");
             if (id == null || id.trim().isEmpty()) {
+                logger.debug("EFormBrowserRenderPageServlet rejected: missing required fdid parameter");
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: fdid");
                 return;
             }
@@ -100,6 +101,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 // Carry the grant forward onto the eForm's own asset URLs so the sessionless render
                 // browser can fetch its background/asset images under the same render-scoped token.
                 renderToken = request.getParameter(RENDER_TOKEN_PARAM);
+                logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
                 if (loggedInInfo == null) {
@@ -107,6 +109,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     return;
                 }
                 providerId = request.getParameter(PROVIDER_ID_PARAM);
+                logger.debug("EFormBrowserRenderPageServlet authorized via _eform session: fdid={}", formDataId);
             }
 
             response.setHeader("X-Content-Type-Options", "nosniff");

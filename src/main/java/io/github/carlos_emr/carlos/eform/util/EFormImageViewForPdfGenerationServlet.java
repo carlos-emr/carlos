@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -69,17 +70,22 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
             if (loggedInInfo != null) {
                 enforceAssetReadPrivilege(loggedInInfo, fileName);
+                logger.debug("eForm asset request authorized via _eform session");
             } else if (!hasValidRenderGrant(request)) {
                 // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
                 // by design (no session cookie ever enters the render browser). Such requests are
                 // authorized instead by a render-scoped grant that was minted only after an _eform
                 // privilege check, is loopback-only, and is invalidated when the render finishes.
+                logger.warn("eForm asset request rejected: no authenticated session and no valid render grant");
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
+            } else {
+                logger.debug("eForm asset request authorized via render grant (sessionless render browser)");
             }
 
             File file = DisplayImage2Action.getImageFile(fileName);
             if (!file.exists() || !file.isFile()) {
+                logger.debug("eForm asset not found: {}", LogSafe.sanitize(fileName));
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -90,6 +96,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                 OutputStream outputStream = response.getOutputStream();
                 IOUtils.copy(stream, outputStream);
             }
+            logger.debug("Streamed eForm asset to render browser: {}", LogSafe.sanitize(fileName));
         } catch (ServletException | IOException e) {
             throw e;
         } catch (IllegalArgumentException e) {

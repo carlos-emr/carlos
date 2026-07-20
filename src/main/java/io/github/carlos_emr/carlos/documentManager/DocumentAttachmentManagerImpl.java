@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.utility.DateUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +66,8 @@ import java.util.*;
  */
 @Service
 public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager {
+    private static final org.apache.logging.log4j.Logger logger =
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
     private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
 
     @Autowired
@@ -386,7 +389,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             ConcatPDF.concat(pdfDocumentList, outputStream);
             path = nioFileManager.saveTempFile("combinedPDF_" + new Date().getTime(), outputStream);
             flattenPDFFormFields(path);
+            logger.debug("Concatenated {} PDF document(s) into a combined PDF ({} bytes)",
+                    pdfDocumentList.size(), outputStream.size());
         } catch (IOException e) {
+            logger.error("Failed to concatenate {} PDF document(s) into a combined eForm PDF",
+                    pdfDocumentList.size(), e);
             throw new PDFGenerationException("An error occurred while concatenating PDF.", e);
         }
         return path;
@@ -516,6 +523,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<LabResultData> attachedLabs = labResultData.populateLabResultsDataEForm(loggedInInfo, demographicId, fdid, CommonLabResultData.ATTACHED);
         ArrayList<HashMap<String, ? extends Object>> attachedHRMs = eformDataManager.getHRMDocumentsAttachedToEForm(loggedInInfo, fdid, demographicId);
         List<EctFormData.PatientForm> attachedForms = eformDataManager.getFormsAttachedToEForm(loggedInInfo, fdid, demographicId);
+
+        // fdid is a PHI-correlating identifier; log via LogSafe alongside the per-type attachment
+        // counts so a maintainer can see the composition of a rendered eForm packet.
+        logger.debug("Rendering eForm with attachments: fdid={} eforms={} edocs={} labs={} hrms={} forms={}",
+                LogSafe.sanitize(fdid), attachedEForms.size(), attachedEDocs.size(), attachedLabs.size(),
+                attachedHRMs.size(), attachedForms.size());
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(eFormPath.toString());

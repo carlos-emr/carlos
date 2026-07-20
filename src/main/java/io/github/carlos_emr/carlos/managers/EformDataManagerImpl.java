@@ -62,6 +62,9 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 @Service
 public class EformDataManagerImpl implements EformDataManager {
 
+    private static final org.apache.logging.log4j.Logger logger =
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+
     private final SecurityInfoManager securityInfoManager;
 
     @Autowired
@@ -200,6 +203,7 @@ public class EformDataManagerImpl implements EformDataManager {
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
         if (eformData == null) {
+            logger.warn("EForm PDF generation failed: no saved eForm found for fdid={}", fdid);
             throw new PDFGenerationException("EForm PDF generation failed because the eForm was not found.");
         }
 
@@ -208,21 +212,27 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        logger.debug("Generating eForm PDF via browser renderer: fdid={}", fdid);
         Path path;
         try {
             path = eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
         } catch (PDFGenerationException e) {
             // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
+            // The renderer already logged a redacted cause; record which fdid failed here for correlation.
+            logger.warn("EForm PDF generation failed during browser rendering: fdid={} reason={}", fdid, e.getMessage());
             throw e;
         } catch (RuntimeException e) {
+            logger.error("EForm PDF generation errored during browser rendering: fdid={} type={}", fdid, e.getClass().getName());
             throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
         }
 
         if (path == null) {
+            logger.warn("EForm PDF generation returned no output path: fdid={}", fdid);
             throw new PDFGenerationException("EForm PDF generation failed during browser rendering.");
         }
 
         if (Files.isReadable(path)) {
+            logger.debug("EForm PDF generation succeeded: fdid={}", fdid);
             LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document saved at " + path.toString());
         } else {
             LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document failed to save for eform id " + fdid);

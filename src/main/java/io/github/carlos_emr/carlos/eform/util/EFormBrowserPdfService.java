@@ -295,6 +295,10 @@ public class EFormBrowserPdfService {
      */
     public Path renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
         if (!acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT)) {
+            // Load-shed: all render slots were busy for the full wait. Log so a maintainer can see the
+            // renderer is saturated (fdid only — no PHI, no render URL/token).
+            logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
+                    MAX_CONCURRENT_RENDERS, fdid);
             throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.");
         }
         try {
@@ -316,7 +320,8 @@ public class EFormBrowserPdfService {
         Path outputPdfPath = null;
         ChromeDriver driver = null;
         boolean success = false;
-        long deadlineNanos = System.nanoTime() + RENDER_TIMEOUT.toNanos();
+        long startNanos = System.nanoTime();
+        long deadlineNanos = startNanos + RENDER_TIMEOUT.toNanos();
 
         try {
             renderToken = EFormRenderTokenService.getInstance().issue(fdid, providerId);
@@ -338,10 +343,15 @@ public class EFormBrowserPdfService {
                         + "(EFORM_RENDER_ALLOW_UNSANDBOXED=true); OS-level containment is delegated to the container boundary.");
             }
             driver = createDriver(buildChromeOptions(resolveChromiumPath(), allowUnsandboxed, allowedOrigin));
+            logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
+                    fdid, allowUnsandboxed ? "disabled" : "enabled");
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
             ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "screen"));
 
             List<LogEntry> performanceEntries = new ArrayList<>();
+            // Navigate the sessionless render browser to the loopback render page. Do NOT log the full
+            // URL: it carries the fdid and the render token; log the origin only.
+            logger.debug("Browser eForm renderer navigating to render page: fdid={} origin={}", fdid, allowedOrigin);
             driver.get(baseUrl + appPath);
             // Drain immediately after navigation so the main-document response is captured into our
             // non-evicting list before any later request flood can push it out of Selenium's
@@ -358,6 +368,7 @@ public class EFormBrowserPdfService {
             if (regions.isEmpty()) {
                 throw new PDFGenerationException("Browser rendering could not determine any eForm page regions to capture.");
             }
+            logger.debug("Browser eForm renderer computed {} page region(s) to capture: fdid={}", regions.size(), fdid);
 
             captureRegions(driver, regions, outputDirectory, deadlineNanos);
             drainPerformanceLog(driver, performanceEntries);
@@ -372,12 +383,20 @@ public class EFormBrowserPdfService {
                 throw new PDFGenerationException("Browser rendering completed without producing a readable eForm PDF.");
             }
             success = true;
+            // Success record: fdid, region count, output size and elapsed time give operators an
+            // end-to-end render trace. No PHI, no render URL/token — origin/counts/bytes only.
+            logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={}",
+                    fdid, regions.size(), Files.size(outputPdfPath),
+                    (System.nanoTime() - startNanos) / 1_000_000L);
             return outputPdfPath;
         } catch (PDFGenerationException e) {
             logger.error("Browser eForm renderer failed: fdid={} baseUrl={} reason={}", fdid, baseUrl, redactUrls(e.getMessage()));
             throw e;
         } catch (IOException e) {
-            logger.error("Browser eForm renderer I/O failure: fdid={} baseUrl={}", fdid, baseUrl, e);
+            // Redact: an IOException from temp-file/capture handling can carry a path; keep the type and
+            // a redacted message rather than the raw throwable, consistent with the RuntimeException path.
+            logger.error("Browser eForm renderer I/O failure: fdid={} baseUrl={} type={} error={}",
+                    fdid, baseUrl, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException("Unable to prepare files for the browser PDF renderer.", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -552,7 +571,10 @@ public class EFormBrowserPdfService {
         try {
             driver.quit();
         } catch (RuntimeException e) {
-            logger.debug("Unable to quit browser eForm renderer driver cleanly", e);
+            // Never pass the raw WebDriver throwable: its message/stack can embed the loopback render
+            // URL (fdid + render token). Log the type and a redacted message only.
+            logger.debug("Unable to quit browser eForm renderer driver cleanly: type={} error={}",
+                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
         }
     }
 
@@ -612,6 +634,7 @@ public class EFormBrowserPdfService {
             Path outputPath = outputDirectory.resolve(String.format("page-%03d.png", index + 1));
             Files.write(outputPath, Base64.getDecoder().decode(encoded));
         }
+        logger.debug("Browser eForm renderer captured {} page image(s)", regions.size());
     }
 
     static List<CaptureRegion> readRegions(Object rawRegions) throws PDFGenerationException {
@@ -697,7 +720,9 @@ public class EFormBrowserPdfService {
                 }
             }
         } catch (RuntimeException e) {
-            logger.debug("Browser console log unavailable for eForm render gate", e);
+            // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
+            logger.debug("Browser console log unavailable for eForm render gate: type={} error={}",
+                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
         }
 
         if (mainDocumentStatus == null || mainDocumentStatus != 200) {
@@ -772,7 +797,9 @@ public class EFormBrowserPdfService {
             }
             return performanceEntries.size() - before;
         } catch (RuntimeException e) {
-            logger.debug("Browser performance log unavailable for eForm render", e);
+            // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
+            logger.debug("Browser performance log unavailable for eForm render: type={} error={}",
+                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
             return 0;
         }
     }
@@ -1064,6 +1091,7 @@ public class EFormBrowserPdfService {
                 }
             }
             document.save(outputPdfPath.toFile());
+            logger.debug("Assembled {} eForm capture(s) into a {}-page PDF", captureFiles.size(), document.getNumberOfPages());
         } catch (IOException e) {
             throw new PDFGenerationException("Unable to assemble the browser-rendered eForm captures into a PDF.", e);
         }
@@ -1184,6 +1212,7 @@ public class EFormBrowserPdfService {
         // window reclaims them. Catch unchecked failures too (e.g. DirectoryIteratorException) so a
         // traversal/permission error can never turn this best-effort cleanup into a render prerequisite
         // (cubic SIt6C).
+        int reclaimed = 0;
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
             for (Path entry : entries) {
                 boolean isDirectory;
@@ -1197,13 +1226,18 @@ public class EFormBrowserPdfService {
                 if (isDirectory) {
                     if (modifiedMillis < dirCutoffMillis) {
                         deleteRecursivelyQuietly(entry);
+                        reclaimed++;
                     }
                 } else if (entry.getFileName().toString().endsWith(".pdf") && modifiedMillis < outputCutoffMillis) {
                     deleteQuietly(entry); // orphaned output reclaimed only long past any request lifetime
+                    reclaimed++;
                 }
             }
         } catch (IOException | RuntimeException e) {
             logger.debug("Unable to sweep stale renderer temp roots under {}", managedRoot, e);
+        }
+        if (reclaimed > 0) {
+            logger.debug("Swept {} stale renderer artifact(s) under the managed temp root", reclaimed);
         }
     }
 

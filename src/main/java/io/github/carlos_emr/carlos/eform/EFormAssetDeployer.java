@@ -181,6 +181,10 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
         deployGeneratedAsset("BNK.png", targetDir, BLANK_SIGNATURE_PNG);
         deploySampleLabCompatibilityAssets(targetDir);
+
+        // Per-asset outcomes are logged above (deployed / already-exists / failed); this single line
+        // makes the "deployer ran to completion" milestone visible without DEBUG.
+        logger.info("eForm asset deployment complete for directory: {}", targetDir.getAbsolutePath());
     }
 
     /**
