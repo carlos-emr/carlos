@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.webserv.rest.exceptionMapping;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.ConversionException;
 import io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse;
 
 import jakarta.ws.rs.core.Context;
@@ -36,26 +37,20 @@ import jakarta.ws.rs.ext.Provider;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Maps an {@link IllegalArgumentException} to a {@code 400 Bad Request} JSON
- * {@link ErrorResponse}.
+ * Maps a {@link ConversionException} to a {@code 400 Bad Request} JSON {@link ErrorResponse}.
  *
- * <p>This is the mapper that fixes the reported defect: an unknown path segment such as
- * {@code /rx/drugs/active/1} reaches {@code RxStatus.valueOf("ACTIVE")}, which throws
- * {@code IllegalArgumentException}. Previously that propagated uncaught and produced an
- * HTML {@code 500}; now it becomes a structured {@code 400}. Because
- * {@code NumberFormatException} extends {@code IllegalArgumentException}, malformed numeric
- * path/query parameters are covered by the same mapper.
+ * <p>{@code ConversionException} is raised by the REST conversion layer when a domain model
+ * cannot be turned into (or built from) its transfer-object representation — typically the
+ * result of malformed or unsupported client input, hence a client error.
  *
- * <p>The exception message is surfaced to the client as validation feedback (it describes
- * which input was rejected). It is passed through {@link LogSafe#sanitizeForDisplay} to
- * strip control characters while preserving the human-readable text; a {@code null}
- * message falls back to a generic description. Callers that throw this exception must not
- * embed PHI in the message.
+ * <p><strong>PHI safety:</strong> conversion failures can reference field values, so the
+ * raw exception message is logged server-side only and the client receives a generic
+ * message.
  *
  * @since 2026-06-21
  */
 @Provider
-public class IllegalArgumentExceptionMapper implements ExceptionMapper<IllegalArgumentException> {
+public class ConversionExceptionMapper implements ExceptionMapper<ConversionException> {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -63,16 +58,13 @@ public class IllegalArgumentExceptionMapper implements ExceptionMapper<IllegalAr
     private UriInfo uriInfo;
 
     @Override
-    public Response toResponse(IllegalArgumentException exception) {
-        logger.debug("Rejected invalid request parameter at " + safePath()
+    public Response toResponse(ConversionException exception) {
+        logger.warn("REST conversion failed at " + safePath()
                 + ": " + LogSafe.sanitize(exception.getMessage()));
 
-        String rawMessage = exception.getMessage();
-        String clientMessage = rawMessage != null
-                ? LogSafe.sanitizeForDisplay(rawMessage)
-                : "One or more request parameters are invalid or malformed.";
-
-        ErrorResponse body = ErrorResponse.of("VALIDATION_ERROR", clientMessage);
+        ErrorResponse body = ErrorResponse.of(
+                "CONVERSION_ERROR",
+                "The request could not be processed due to invalid or unconvertible data.");
 
         return Response.status(Response.Status.BAD_REQUEST)
                 .entity(body)

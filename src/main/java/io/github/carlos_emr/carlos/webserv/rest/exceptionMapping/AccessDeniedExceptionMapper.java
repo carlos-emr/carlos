@@ -61,10 +61,11 @@ public class AccessDeniedExceptionMapper implements ExceptionMapper<AccessDenied
 
     @Override
     public Response toResponse(AccessDeniedException exception) {
+        // Log with the exception so the full stack trace is captured server-side.
         logger.warn("Access denied at " + safePath()
                 + " [permission=" + LogSafe.sanitize(exception.getPermission())
                 + ", action=" + LogSafe.sanitize(exception.getAction())
-                + ", subject=" + LogSafe.sanitize(exception.getSubject()) + "]");
+                + ", subject=" + LogSafe.sanitize(exception.getSubject()) + "]", exception);
 
         Map<String, Object> details = new LinkedHashMap<>();
         if (exception.getPermission() != null) {

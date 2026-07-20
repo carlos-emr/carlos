@@ -60,7 +60,7 @@ public class SecurityExceptionMapper implements ExceptionMapper<SecurityExceptio
                 + ": " + LogSafe.sanitize(exception.getMessage()));
 
         ErrorResponse body = ErrorResponse.of(
-                "ACCESS_DENIED",
+                "SECURITY_ERROR",
                 "You do not have permission to perform this action.");
 
         return Response.status(Response.Status.FORBIDDEN)

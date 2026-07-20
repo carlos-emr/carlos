@@ -42,18 +42,18 @@ import org.apache.logging.log4j.Logger;
  *
  * <p>This is the least specific mapper in the chain: JAX-RS selects the most specific
  * registered {@code ExceptionMapper} for a thrown type, so domain mappers (access
- * denied, validation, etc.) take precedence and only genuinely unexpected failures
- * land here.
+ * denied, validation, conversion, etc.) take precedence and only genuinely unexpected
+ * failures land here.
  *
  * <p><strong>PHI safety:</strong> the full exception (including stack trace) is logged
  * server-side for diagnosis, but the client body carries only a generic, static message.
- * Exception messages are never echoed to the client because they may embed query
- * fragments, identifiers, or other internals.
+ * Exception messages are never echoed to the client because an unexpected failure may
+ * embed internals, query fragments, or identifiers.
  *
  * @since 2026-06-21
  */
 @Provider
-public class GenericExceptionMapper implements ExceptionMapper<Throwable> {
+public class GeneralExceptionMapper implements ExceptionMapper<Throwable> {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -62,8 +62,10 @@ public class GenericExceptionMapper implements ExceptionMapper<Throwable> {
 
     @Override
     public Response toResponse(Throwable exception) {
+        // Log the full exception (with stack trace) server-side for diagnosis.
         logger.error("Unhandled REST exception at " + safePath(), exception);
 
+        // Deliberately generic: never expose the exception message to the client.
         ErrorResponse body = ErrorResponse.of(
                 "INTERNAL_ERROR",
                 "An unexpected error occurred while processing the request.");

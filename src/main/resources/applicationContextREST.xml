@@ -199,12 +199,12 @@
                  bodies instead of the container's default HTML error page (issue #242).
                  JAX-RS selects the most specific mapper per thrown type, so the Throwable
                  fallback only handles what the domain mappers do not. -->
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GenericExceptionMapper"/>
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.WebApplicationExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.AccessDeniedExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.SecurityExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.PatientDirectiveExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper"/>
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.OperationNotSupportedExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.ConversionExceptionMapper"/>
         </jaxrs:providers>
 
         <jaxrs:extensionMappings>

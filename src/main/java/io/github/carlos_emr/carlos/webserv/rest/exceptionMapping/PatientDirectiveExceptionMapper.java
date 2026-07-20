@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.webserv.rest.exceptionMapping;
 
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse;
@@ -33,23 +34,24 @@ import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
-import javax.naming.OperationNotSupportedException;
-
 import org.apache.logging.log4j.Logger;
 
 /**
- * Maps a {@link javax.naming.OperationNotSupportedException} to a {@code 400 Bad Request}
- * JSON {@link ErrorResponse}.
+ * Maps a {@link PatientDirectiveException} to a {@code 403} JSON {@link ErrorResponse}.
  *
- * <p>REST endpoints (e.g. {@code RxWebService#drugs}) throw this checked exception when the
- * requested operation/status is not one the endpoint supports. It is treated as a client
- * error: the caller asked for something the contract does not offer.
+ * <p>A patient directive is a patient-authored access restriction (part of the
+ * circle-of-care consent model), not a provider authorization failure. It is an expected,
+ * policy-driven outcome rather than an error condition, so it is logged at {@code INFO}
+ * level — distinguishing it from the {@code WARN}-level privilege denials handled by
+ * {@link AccessDeniedExceptionMapper} and {@link SecurityExceptionMapper}.
+ *
+ * <p><strong>PHI safety:</strong> the client body carries only a generic message; the raw
+ * exception message is recorded server-side at INFO.
  *
  * @since 2026-06-21
  */
 @Provider
-public class OperationNotSupportedExceptionMapper
-        implements ExceptionMapper<OperationNotSupportedException> {
+public class PatientDirectiveExceptionMapper implements ExceptionMapper<PatientDirectiveException> {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -57,15 +59,16 @@ public class OperationNotSupportedExceptionMapper
     private UriInfo uriInfo;
 
     @Override
-    public Response toResponse(OperationNotSupportedException exception) {
-        logger.debug("Unsupported operation requested at " + safePath()
+    public Response toResponse(PatientDirectiveException exception) {
+        // Expected, policy-driven outcome — INFO, not WARN/ERROR.
+        logger.info("Access blocked by patient directive at " + safePath()
                 + ": " + LogSafe.sanitize(exception.getMessage()));
 
         ErrorResponse body = ErrorResponse.of(
-                "UNSUPPORTED_OPERATION",
-                "The requested operation is not supported.");
+                "PATIENT_DIRECTIVE",
+                "Access to this record is restricted by a patient directive.");
 
-        return Response.status(Response.Status.BAD_REQUEST)
+        return Response.status(Response.Status.FORBIDDEN)
                 .entity(body)
                 .type(MediaType.APPLICATION_JSON)
                 .build();

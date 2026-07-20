@@ -182,7 +182,19 @@ public class RxWebService extends AbstractServiceImpl {
     public DrugSearchResponse drugs(@PathParam("status") String status, @PathParam("demographicNo") int demographicNo) {
         DrugSearchResponse drugResponse;
 
-        switch (RxStatus.valueOf(status.trim().toUpperCase())) {
+        RxStatus rxStatus;
+        try {
+            rxStatus = RxStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // Rethrow with a clean, client-safe message. RxStatus.valueOf's native message
+            // embeds the fully-qualified enum name (io.github.carlos_emr...RxStatus), which the
+            // IllegalArgumentException mapper would faithfully echo — and which the response
+            // stack-trace sanitizer then treats as a leak and replaces with an HTML error page.
+            // A plain "Unknown drug status" message yields a clean JSON 400. See issue #242.
+            throw new IllegalArgumentException("Unknown drug status: " + status);
+        }
+
+        switch (rxStatus) {
             case ALL:
                 drugResponse = getAllDrugs(demographicNo);
                 break;
