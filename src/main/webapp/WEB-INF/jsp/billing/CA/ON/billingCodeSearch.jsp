@@ -41,7 +41,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-    <title>Service Code Search</title>
+    <title><fmt:message key="billing.billingCodeSearch.titleServicecodesear"/></title>
     <script LANGUAGE="JavaScript">
         <!--
         function CodeAttach(File0) {

@@ -44,7 +44,7 @@
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <title>BILLING HISTORY</title>
+    <title><fmt:message key="billing.billingONHistorySpec.titleBillinghistory"/></title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
     <script language="JavaScript">
@@ -64,7 +64,7 @@
 
 <table style="width:100%">
     <tr class="myDarkGreen">
-        <th>BILLING HISTORY</th>
+        <th><fmt:message key="billing.billingONHistorySpec.thBillinghistory"/></th>
     </tr>
 </table>
 

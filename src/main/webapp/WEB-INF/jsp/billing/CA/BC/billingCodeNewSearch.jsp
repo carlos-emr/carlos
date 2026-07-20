@@ -110,7 +110,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Service Code Search</title>
+    <title><fmt:message key="billing.billingCodeNewSearch.titleServicecodesear"/></title>
     <script LANGUAGE="JavaScript">
         <!--
         function CodeAttach(File0, dx1, dx2, dx3) {

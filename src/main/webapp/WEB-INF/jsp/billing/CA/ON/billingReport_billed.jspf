@@ -27,12 +27,14 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <table width="100%" border="2" valign="top">
 <c:choose>
 <c:when test="${empty billingReportFragmentModel.billedRows}">
     <tr>
-        <td>No billed billing rows found.</td>
+        <td><fmt:message key="billing.billingReport_billed.tdNobilledbilling"/></td>
     </tr>
 </c:when>
 <c:otherwise>

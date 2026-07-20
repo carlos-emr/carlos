@@ -43,7 +43,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-    <title>Billing Summary</title>
+    <title><fmt:message key="billing.billingCodeUpdate.titleBillingsummary"/></title>
     <script LANGUAGE="JavaScript">
         <!--
         function CodeAttach(File0, File1, File2) {
@@ -88,7 +88,7 @@
     <c:otherwise>
 <%-- Update mode: assembler already persisted; emit popup-close JS. --%>
 <p>
-<h1>Successful Addition of a billing Record.</h1>
+<h1><fmt:message key="billing.billingCodeUpdate.h1Successfuladdit"/></h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);
