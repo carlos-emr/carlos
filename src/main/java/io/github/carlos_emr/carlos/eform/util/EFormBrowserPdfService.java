@@ -85,6 +85,11 @@ public class EFormBrowserPdfService {
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    /** URI scheme constant reused by the scheme gates and default-port logic (SonarCloud S1192). */
+    private static final String SCHEME_HTTPS = "https";
+    /** Placeholder substituted for filesystem paths in redacted diagnostics (SonarCloud S1192). */
+    private static final String REDACTED_PATH = "[redacted-path]";
+
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
     private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
@@ -469,7 +474,7 @@ public class EFormBrowserPdfService {
         URI uri = URI.create(allowedOrigin);
         int port = uri.getPort();
         if (port == -1) {
-            port = "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+            port = SCHEME_HTTPS.equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
         }
         return "127.0.0.1:" + port + ";localhost:" + port + ";[::1]:" + port;
     }
@@ -798,7 +803,7 @@ public class EFormBrowserPdfService {
             return false;
         }
         String scheme = requestUrl.indexOf(':') > 0 ? requestUrl.substring(0, requestUrl.indexOf(':')) : "";
-        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+        if (!"http".equalsIgnoreCase(scheme) && !SCHEME_HTTPS.equalsIgnoreCase(scheme)) {
             // Any non-web scheme (file:, filesystem:, chrome:, view-source:, ...) is fail-closed:
             // the eForm render surface only ever needs http(s) to the loopback app plus inert
             // data:/blob:/about: resources.
@@ -821,7 +826,7 @@ public class EFormBrowserPdfService {
             String scheme = uri.getScheme().toLowerCase(java.util.Locale.ROOT);
             int port = uri.getPort();
             if (port == -1) {
-                port = "https".equals(scheme) ? 443 : 80;
+                port = SCHEME_HTTPS.equals(scheme) ? 443 : 80;
             }
             return scheme + "://" + uri.getHost().toLowerCase(java.util.Locale.ROOT) + ":" + port;
         } catch (IllegalArgumentException e) {
@@ -840,9 +845,9 @@ public class EFormBrowserPdfService {
         // drive-letter rule can see it.
         return text
                 .replaceAll("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+", "[redacted-url]")
-                .replaceAll("\\\\\\\\[^\\s'\"<>]+", "[redacted-path]")
-                .replaceAll("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*", "[redacted-path]")
-                .replaceAll("(?<![\\w./])/[\\w./-]{2,}", "[redacted-path]");
+                .replaceAll("\\\\\\\\[^\\s'\"<>]+", REDACTED_PATH)
+                .replaceAll("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*", REDACTED_PATH)
+                .replaceAll("(?<![\\w./])/[\\w./-]{2,}", REDACTED_PATH);
     }
 
     private static void checkDeadline(long deadlineNanos) throws PDFGenerationException {
@@ -919,7 +924,7 @@ public class EFormBrowserPdfService {
 
         URI uri = URI.create(rawBaseUrl.trim());
         String scheme = uri.getScheme();
-        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !SCHEME_HTTPS.equalsIgnoreCase(scheme))) {
             throw new IllegalArgumentException("Renderer base URL must use http or https");
         }
         if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
@@ -1113,7 +1118,7 @@ public class EFormBrowserPdfService {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison here only classifies literal protocol names for port defaults and is not used for authentication or authorization.")
     private static boolean isDefaultPort(String scheme, int port) {
         return ("http".equalsIgnoreCase(scheme) && port == 80)
-                || ("https".equalsIgnoreCase(scheme) && port == 443);
+                || (SCHEME_HTTPS.equalsIgnoreCase(scheme) && port == 443);
     }
 
     private static void deleteQuietly(Path outputPath) {
