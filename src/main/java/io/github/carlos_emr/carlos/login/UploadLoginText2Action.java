@@ -31,16 +31,11 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.LogSafe;
-import org.apache.struts2.ActionSupport;
-import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.action.UploadedFilesAware;
-import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -48,6 +43,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,16 +67,59 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger _logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
 
-    public String execute() {
+    public UploadLoginText2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
+    @Override
+    public String execute() throws Exception {
+        requireAdminWrite();
+
+        if (rejectNonPost()) {
+            return NONE;
+        }
+
+        updateAcceptableUseAgreementDuration();
+
+        boolean error = uploadLoginText();
+        request.setAttribute("error", error);
+        return SUCCESS;
+    }
+
+    private void requireAdminWrite() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
+    }
 
-        boolean error = false;
+    private boolean rejectNonPost() throws IOException {
+        if ("POST".equals(request.getMethod())) {
+            return false;
+        }
 
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return true;
+    }
+
+    private void updateAcceptableUseAgreementDuration() {
+        Property prop = buildAcceptableUseAgreementProperty();
+        if (prop == null) {
+            return;
+        }
+
+        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
+        Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+        if (latestProperty == null || !prop.getValue().equals(latestProperty.getValue())) {
+            propertyDao.persist(prop);
+        } else {
+            _logger.debug("No need to update. Same AcceptableUse Property as it was before");
+        }
+    }
+
+    private Property buildAcceptableUseAgreementProperty() {
         String validDurationNumber = request.getParameter("validDurationNumber"); // verify it's a number
         String validDurationPeriod = request.getParameter("validDurationPeriod"); //verify it's one of these year month weeks days
         String validForever = request.getParameter("validForever");
@@ -82,40 +127,33 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
         _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSafe.sanitize(validDurationNumber), LogSafe.sanitize(validDurationPeriod), LogSafe.sanitize(validForever), LogSafe.sanitize(foreverFrom));
 
-        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
-        Property prop = null;
-
         if (validForever != null && validForever.equals("forever")) {
-            prop = new Property();
+            Property prop = new Property();
             prop.setName("aua_valid_from");
             prop.setValue(foreverFrom);
-        } else { //time period was selected
-            try {
-                Integer.parseInt(validDurationNumber);
-            } catch (Exception e) {
-                _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
-            }
-
-            if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
-                prop = new Property();
-                prop.setName("aua_valid_duration");
-                prop.setValue(validDurationNumber + " " + validDurationPeriod);
-            } else {
-                _logger.error("Not a valid Period :{}", LogSafe.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            }
+            return prop;
         }
 
-        if (prop != null) {
-            //Check to see if prop is still the same as last time.
-            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-            if (latestProperty == null || !prop.getValue().equals(latestProperty.getValue())) {
-                propertyDao.persist(prop);
-            } else {
-                _logger.debug("No need to update. Same AcceptableUse Property as it was before");
-            }
+        try {
+            Integer.parseInt(validDurationNumber);
+        } catch (NumberFormatException e) {
+            _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
+            return null;
         }
 
+        if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
+            Property prop = new Property();
+            prop.setName("aua_valid_duration");
+            prop.setValue(validDurationNumber + " " + validDurationPeriod);
+            return prop;
+        }
 
+        _logger.error("Not a valid Period :{}", LogSafe.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        return null;
+    }
+
+    private boolean uploadLoginText() {
+        boolean error = false;
         try {
             if (importFile == null) {
                 _logger.warn("No file uploaded; skipping login text write");
@@ -127,9 +165,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             MiscUtils.getLogger().error("Error", e);
             error = true;
         }
-
-        request.setAttribute("error", error);
-        return SUCCESS;
+        return error;
     }
 
     private void writeLoginTextFile() throws IOException {
