@@ -322,7 +322,11 @@ public class Fax2Action extends ActionSupport {
                     // Encode filename to prevent HTTP response splitting by removing any control characters
                     String encodedFilename = URLEncoder.encode(sanitizedFilename, StandardCharsets.UTF_8)
                             .replaceAll("\\+", "%20"); // Replace + with %20 for spaces in filenames
-                    response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFilename + "\"");
+                    // Inline (not attachment): this PNG is the in-page fax preview rendered in an
+                    // <img>, so browsers that honour Content-Disposition on embedded resources must
+                    // render it rather than download it. The explicit "Open PDF" link uses the
+                    // separate application/pdf branch below (cubic CQQU).
+                    response.setHeader("Content-Disposition", "inline; filename=\"" + encodedFilename + "\"");
                 }
             } else {
                 // Validate and resolve the PDF path using FaxManager

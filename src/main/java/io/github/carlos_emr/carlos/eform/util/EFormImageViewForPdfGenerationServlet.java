@@ -44,39 +44,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
-    private static final String IMAGE_JPEG = "image/jpeg";
-    private static final String HTML_CONTENT_TYPE = "text/html";
-    private static final Map<String, String> CONTENT_TYPES = Map.ofEntries(
-            Map.entry("png", "image/png"),
-            Map.entry("jpeg", IMAGE_JPEG),
-            Map.entry("jpe", IMAGE_JPEG),
-            Map.entry("jpg", IMAGE_JPEG),
-            Map.entry("bmp", "image/bmp"),
-            Map.entry("cod", "image/cis-cod"),
-            Map.entry("ief", "image/ief"),
-            Map.entry("jfif", "image/pipeg"),
-            Map.entry("svg", "image/svg+xml"),
-            Map.entry("tiff", "image/tiff"),
-            Map.entry("tif", "image/tiff"),
-            Map.entry("pbm", "image/x-portable-bitmap"),
-            Map.entry("pnm", "image/x-portable-anymap"),
-            Map.entry("pgm", "image/x-portable-greymap"),
-            Map.entry("ppm", "image/x-portable-pixmap"),
-            Map.entry("xbm", "image/x-xbitmap"),
-            Map.entry("xpm", "image/x-xpixmap"),
-            Map.entry("xwd", "image/x-xwindowdump"),
-            Map.entry("rgb", "image/x-rgb"),
-            Map.entry("ico", "image/x-icon"),
-            Map.entry("cmx", "image/x-cmx"),
-            Map.entry("ras", "image/x-cmu-raster"),
-            Map.entry("gif", "image/gif"),
-            Map.entry("js", "text/javascript"),
-            Map.entry("css", "text/css"),
-            Map.entry("json", "application/json"),
-            Map.entry("rtl", HTML_CONTENT_TYPE),
-            Map.entry("html", HTML_CONTENT_TYPE),
-            Map.entry("htm", HTML_CONTENT_TYPE)
-    );
+    // Shared with DisplayImage2Action via EformAssetContentType so the two eForm asset-streaming
+    // paths cannot drift on the MIME allowlist (cubic CQQa). Header hardening (sanitizeHeaderValue)
+    // stays per-class.
+    private static final Map<String, String> CONTENT_TYPES = EformAssetContentType.BY_EXTENSION;
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

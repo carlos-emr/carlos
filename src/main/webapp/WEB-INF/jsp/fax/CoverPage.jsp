@@ -524,6 +524,28 @@
         });
     }
 
+    // Cap how many page-image elements are materialized up front so a very large PDF cannot make the
+    // cover page slow or unresponsive; the rest render on demand via a "Show remaining" button. Each
+    // <img> is also natively lazy-loaded (cubic CQQR).
+    var PREVIEW_INITIAL_PAGE_CAP = 25;
+
+    function appendPreviewImage(container, faxFilePath, pageNumber) {
+        var image = $("<img />")
+            .attr("src", ctx + "/fax/faxAction?method=getPreview&showAs=image&faxFilePath=" + encodeURIComponent(faxFilePath) + "&pageNumber=" + pageNumber)
+            .attr("alt", "Fax preview page " + pageNumber)
+            .attr("loading", "lazy")
+            .addClass("img-fluid border rounded bg-white")
+            .css("background-image", "url('" + ctx + "/images/loader.gif')")
+            .css("background-position", "50% 50%")
+            .css("background-repeat", "no-repeat");
+
+        $("<div />")
+            .addClass("mb-3")
+            .append($("<div />").addClass("small text-muted mb-1").text("Page " + pageNumber))
+            .append(image)
+            .appendTo(container);
+    }
+
     function renderPreviewImages(pageCount) {
         var faxFilePath = $("input[name='faxFilePath']").val();
         var previewStatus = $("#previewStatus");
@@ -538,21 +560,24 @@
 
         previewStatus.text("Showing " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
 
-        for (var i = 1; i <= pageCount; i++) {
-            var image = $("<img />")
-                .attr("src", ctx + "/fax/faxAction?method=getPreview&showAs=image&faxFilePath=" + encodeURIComponent(faxFilePath) + "&pageNumber=" + i)
-                .attr("alt", "Fax preview page " + i)
-                .attr("loading", "lazy")
-                .addClass("img-fluid border rounded bg-white")
-                .css("background-image", "url('" + ctx + "/images/loader.gif')")
-                .css("background-position", "50% 50%")
-                .css("background-repeat", "no-repeat");
+        var initialCount = Math.min(pageCount, PREVIEW_INITIAL_PAGE_CAP);
+        for (var i = 1; i <= initialCount; i++) {
+            appendPreviewImage(previewImages, faxFilePath, i);
+        }
 
-            $("<div />")
-                .addClass("mb-3")
-                .append($("<div />").addClass("small text-muted mb-1").text("Page " + i))
-                .append(image)
-                .appendTo(previewImages);
+        if (pageCount > initialCount) {
+            var remaining = pageCount - initialCount;
+            var showMore = $("<button />")
+                .attr("type", "button")
+                .addClass("btn btn-outline-secondary btn-sm mb-3")
+                .text("Show remaining " + remaining + " page" + (remaining === 1 ? "" : "s"))
+                .on("click", function () {
+                    $(this).remove();
+                    for (var j = initialCount + 1; j <= pageCount; j++) {
+                        appendPreviewImage(previewImages, faxFilePath, j);
+                    }
+                });
+            previewImages.append(showMore);
         }
     }
 

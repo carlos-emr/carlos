@@ -40,6 +40,8 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
 
+import io.github.carlos_emr.carlos.eform.util.EformAssetContentType;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -77,39 +79,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class DisplayImage2Action extends ActionSupport {
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
-    private static final String IMAGE_JPEG = "image/jpeg";
-    private static final String TEXT_HTML = "text/html";
-    private static final Map<String, String> OVERRIDDEN_CONTENT_TYPES = Map.ofEntries(
-            Map.entry("png", "image/png"),
-            Map.entry("jpeg", IMAGE_JPEG),
-            Map.entry("jpe", IMAGE_JPEG),
-            Map.entry("jpg", IMAGE_JPEG),
-            Map.entry("bmp", "image/bmp"),
-            Map.entry("cod", "image/cis-cod"),
-            Map.entry("ief", "image/ief"),
-            Map.entry("jfif", "image/pipeg"),
-            Map.entry("svg", "image/svg+xml"),
-            Map.entry("tiff", "image/tiff"),
-            Map.entry("tif", "image/tiff"),
-            Map.entry("pbm", "image/x-portable-bitmap"),
-            Map.entry("pnm", "image/x-portable-anymap"),
-            Map.entry("pgm", "image/x-portable-greymap"),
-            Map.entry("ppm", "image/x-portable-pixmap"),
-            Map.entry("xbm", "image/x-xbitmap"),
-            Map.entry("xpm", "image/x-xpixmap"),
-            Map.entry("xwd", "image/x-xwindowdump"),
-            Map.entry("rgb", "image/x-rgb"),
-            Map.entry("ico", "image/x-icon"),
-            Map.entry("cmx", "image/x-cmx"),
-            Map.entry("ras", "image/x-cmu-raster"),
-            Map.entry("gif", "image/gif"),
-            Map.entry("js", "text/javascript"),
-            Map.entry("css", "text/css"),
-            Map.entry("json", "application/json"),
-            Map.entry("rtl", TEXT_HTML),
-            Map.entry("html", TEXT_HTML),
-            Map.entry("htm", TEXT_HTML)
-    );
+    // Shared with EFormImageViewForPdfGenerationServlet via EformAssetContentType so the two eForm
+    // asset-streaming paths cannot drift on the MIME allowlist (cubic CQQa). Header hardening
+    // (sanitizeHeaderValue) stays per-class.
+    private static final Map<String, String> OVERRIDDEN_CONTENT_TYPES = EformAssetContentType.BY_EXTENSION;
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

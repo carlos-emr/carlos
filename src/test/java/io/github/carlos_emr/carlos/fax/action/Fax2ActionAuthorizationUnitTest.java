@@ -21,12 +21,16 @@
  */
 package io.github.carlos_emr.carlos.fax.action;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -165,6 +169,43 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             action.getPreview();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        }
+    }
+
+    @Test
+    @DisplayName("should serve the image preview with an inline content disposition")
+    void shouldServeImagePreview_withInlineContentDisposition(@TempDir Path tempDir) throws Exception {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        Path previewPng = tempDir.resolve("fax-preview-page.png");
+        Files.write(previewPng, new byte[] {(byte) 0x89, 'P', 'N', 'G'});
+        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq("/tmp/carlos-temp/fax.pdf"), eq(1)))
+                .thenReturn(previewPng);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        request.setParameter("showAs", "image");
+        request.setParameter("pageNumber", "1");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getContentType()).isEqualTo("image/png");
+            assertThat(response.getHeader("Content-Disposition")).startsWith("inline;");
         }
     }
 }
