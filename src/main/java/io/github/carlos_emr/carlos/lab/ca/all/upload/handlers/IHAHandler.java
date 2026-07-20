@@ -191,8 +191,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Document getXML(String fileName) {
         try {
-            // Validate the file path using PathValidationUtils
-            File file = new File(fileName);
+            File file = PathValidationUtils.validateExistingDocumentPath(fileName);
 
             // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
@@ -211,8 +210,6 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             }
 
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
-            
-            // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 

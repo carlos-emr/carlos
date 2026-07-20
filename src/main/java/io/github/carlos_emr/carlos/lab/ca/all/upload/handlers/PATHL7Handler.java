@@ -84,10 +84,7 @@ public class PATHL7Handler implements MessageHandler {
             // Base directory - validate using PathValidationUtils
             String baseDir = CarlosProperties.getInstance().getDocumentDirectory();
             java.io.File baseDirFile = new java.io.File(baseDir);
-            java.io.File targetFile = new java.io.File(fileName);
-
-            // Validate the existing file is within the allowed directory
-            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
+            java.io.File targetFile = PathValidationUtils.validateExistingPath(fileName, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
                 logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe

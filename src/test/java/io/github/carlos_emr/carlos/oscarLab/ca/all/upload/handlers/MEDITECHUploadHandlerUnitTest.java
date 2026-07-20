@@ -28,13 +28,19 @@
 package io.github.carlos_emr.carlos.oscarLab.ca.all.upload.handlers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -45,21 +51,14 @@ import java.util.zip.ZipFile;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MEDITECHHandler;
 
-/**
- * Unit tests for {@link MEDITECHHandler} upload parse functionality.
- *
- * <p>Parameterized tests verifying that each MEDITECH HL7 message from the
- * test archive can be successfully parsed by the upload handler.
- * Migrated from legacy JUnit 4 MEDITECHHandlerTest (upload).
- *
- * @since 2026-03-07
- */
 @Tag("unit")
 @Tag("lab")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -99,4 +98,85 @@ class MEDITECHUploadHandlerUnitTest {
         java.util.List<String> result = handler.parse(new ByteArrayInputStream(hl7Body.getBytes(StandardCharsets.UTF_8)));
         assertThat(result).isNotNull();
     }
+
+    @Test
+    @DisplayName("should accept temp upload file outside document directory")
+    void shouldAcceptTempUploadFile_whenOutsideDocumentDirectory() throws Exception {
+        Path documentDir = Files.createTempDirectory("meditech-document-dir");
+        Path uploadFile = Files.createTempFile("meditech-upload", ".txt");
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+            MEDITECHHandler handler = new MEDITECHHandler();
+            Method method = MEDITECHHandler.class.getDeclaredMethod("validateAndGetFile", String.class);
+            method.setAccessible(true);
+
+            File result = (File) method.invoke(handler, uploadFile.toString());
+
+            assertThat(result.getCanonicalFile()).isEqualTo(uploadFile.toFile().getCanonicalFile());
+        } finally {
+            restoreDocumentDir(previousDocumentDir);
+            Files.deleteIfExists(uploadFile);
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should fail closed when document directory is missing")
+    void shouldFailClosed_whenDocumentDirectoryIsMissing() throws Exception {
+        Path uploadFile = Files.createTempFile("meditech-upload", ".txt");
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+
+        try {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+
+            MEDITECHHandler handler = new MEDITECHHandler();
+            Method method = MEDITECHHandler.class.getDeclaredMethod("validateAndGetFile", String.class);
+            method.setAccessible(true);
+
+            assertThatThrownBy(() -> method.invoke(handler, uploadFile.toString()))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .hasCauseInstanceOf(IOException.class);
+        } finally {
+            restoreDocumentDir(previousDocumentDir);
+            Files.deleteIfExists(uploadFile);
+        }
+    }
+
+    @Test
+    @DisplayName("should not expose upload file path in file state errors")
+    void shouldNotExposeUploadFilePathInFileStateErrors() throws Exception {
+        Path documentDir = Files.createTempDirectory("meditech-document-dir");
+        Path uploadFile = documentDir.resolve("missing-meditech-upload.txt");
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+            MEDITECHHandler handler = new MEDITECHHandler();
+            Method method = MEDITECHHandler.class.getDeclaredMethod("validateAndGetFile", String.class);
+            method.setAccessible(true);
+
+            assertThatThrownBy(() -> method.invoke(handler, uploadFile.toString()))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .extracting(Throwable::getCause)
+                    .extracting(Throwable::getMessage)
+                    .asString()
+                    .doesNotContain(uploadFile.toString());
+        } finally {
+            restoreDocumentDir(previousDocumentDir);
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    private static void restoreDocumentDir(String previousDocumentDir) {
+        if (previousDocumentDir == null) {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+        }
+    }
+
 }

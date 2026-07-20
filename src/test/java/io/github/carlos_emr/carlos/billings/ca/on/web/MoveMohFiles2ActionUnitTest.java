@@ -433,7 +433,7 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         MoveMohFiles2Action action = new MoveMohFiles2Action();
 
         try (MockedStatic<PathValidationUtils> pathMock = mockStatic(PathValidationUtils.class)) {
-            pathMock.when(() -> PathValidationUtils.validateExistingPath(any(), any()))
+            pathMock.when(() -> PathValidationUtils.validateExistingPath(any(java.io.File.class), any(java.io.File.class)))
                     .thenThrow(new NullPointerException("programming error"));
 
             assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
