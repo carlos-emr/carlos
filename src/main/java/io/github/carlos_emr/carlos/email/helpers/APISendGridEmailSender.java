@@ -159,7 +159,7 @@ public class APISendGridEmailSender {
      *                               if SSL context initialization fails, if the HTTP
      *                               request fails (status code >= 400), if API credentials
      *                               are invalid, or if attachment encoding fails
-     * @throws RuntimeException if the logged-in user does not have _email WRITE privilege
+     * @throws SecurityException if the logged-in user does not have _email WRITE privilege
      */
     public void send() throws EmailSendingException {
         preparePayloadBytes();
@@ -283,7 +283,7 @@ public class APISendGridEmailSender {
 
     private void requireEmailWritePrivilege() {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
     }
 

@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     UNIQUE INDEX `idx_outboundEmailArchiveDeletion_archiveId` (`archiveId`),
     INDEX `idx_outboundEmailArchiveDeletion_emailLogId` (`emailLogId`),
     INDEX `idx_outboundEmailArchiveDeletion_demographicNo` (`demographicNo`),
+    CONSTRAINT `fk_outboundEmailArchiveDeletion_archive`
+        FOREIGN KEY (`archiveId`) REFERENCES `outboundEmailArchive` (`id`),
     CONSTRAINT `fk_outboundEmailArchiveDeletion_emailLog`
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`)
 ) ENGINE=InnoDB;

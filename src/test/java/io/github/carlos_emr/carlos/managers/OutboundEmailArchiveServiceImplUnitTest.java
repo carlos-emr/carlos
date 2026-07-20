@@ -321,6 +321,20 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should prevent callers from mutating archive attachments directly")
+    void shouldPreventDirectAttachmentMutation_whenAttachmentsAreExposed() throws Exception {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThatThrownBy(() -> archive.getAttachments().add(new OutboundEmailArchiveAttachment()))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
     @DisplayName("should reject attachment document from a different demographic before storing the eDoc")
     void shouldRejectAttachmentDocumentFromDifferentDemographic_beforeStoringEdoc() {
         byte[] attachmentBytes = "encrypted pdf bytes".getBytes(StandardCharsets.UTF_8);

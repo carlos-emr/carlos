@@ -75,7 +75,7 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         emailSender.prepareOutboundArchive(emailLog);
 
         assertThatThrownBy(emailSender::sendPrepared)
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_email)");
     }
 

@@ -23,10 +23,8 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -49,7 +47,7 @@ import java.util.Date;
 public class OutboundEmailArchiveDeletion extends OutboundEmailArchiveArtifact {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "archiveId", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "archiveId", nullable = false)
     private OutboundEmailArchive archive;
 
     @ManyToOne(fetch = FetchType.LAZY)

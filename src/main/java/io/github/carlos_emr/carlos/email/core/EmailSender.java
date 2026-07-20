@@ -170,7 +170,7 @@ public class EmailSender {
      * <p>All email sending operations are logged for audit trail purposes, which is required
      * for healthcare compliance and security monitoring.</p>
      *
-     * @throws RuntimeException if the current user lacks the required "_email" security privilege
+     * @throws SecurityException if the current user lacks the required "_email" security privilege
      * @throws EmailSendingException if there is an error during email transmission, including
      *         invalid configuration, network issues, authentication failures, or provider-specific errors
      */
@@ -240,7 +240,7 @@ public class EmailSender {
 
     private void requireEmailWritePrivilege() {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
     }
 

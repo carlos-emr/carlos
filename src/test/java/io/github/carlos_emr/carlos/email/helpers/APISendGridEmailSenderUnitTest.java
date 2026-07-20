@@ -129,7 +129,7 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
         sender.preparePayloadBytes();
 
         assertThatThrownBy(sender::sendPreparedPayload)
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_email)");
     }
 

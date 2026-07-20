@@ -38,6 +38,7 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -295,7 +296,7 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     }
 
     public List<OutboundEmailArchiveAttachment> getAttachments() {
-        return attachments;
+        return Collections.unmodifiableList(attachments);
     }
 
     public void addAttachment(OutboundEmailArchiveAttachment attachment) {
