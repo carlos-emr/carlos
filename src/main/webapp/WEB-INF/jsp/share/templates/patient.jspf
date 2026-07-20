@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicCust"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao"%>
-<%@page import="org.owasp.encoder.Encode" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -72,15 +72,15 @@ Demographic demographic_header=demographicDao_header.getDemographic(d);
 <!--<a><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt demographicNo='<%=d%>' /></a>-->
 
 <div style="display:inline-block;margin-left:15px;">
-<h4 class="DoNotPrint"><a href="<%= Encode.forHtmlAttribute(request.getContextPath()) %>/demographic/DemographicEdit?demographic_no=<%= Encode.forUriComponent(d) %>" style="color:#333;text-decoration:none;"><%= Encode.forHtml(demographic_header.getLastName()) %>, <%= Encode.forHtml(demographic_header.getFirstName()) %> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%= Encode.forHtml(demographic_header.getTitle()) %>) <%}%></a>
+<h4 class="DoNotPrint"><a href="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/demographic/DemographicEdit?demographic_no=<%= SafeEncode.forUriComponent(d) %>" style="color:#333;text-decoration:none;"><%= SafeEncode.forHtml(demographic_header.getLastName()) %>, <%= SafeEncode.forHtml(demographic_header.getFirstName()) %> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%= SafeEncode.forHtml(demographic_header.getTitle()) %>) <%}%></a>
 
 
 <%if(alert.length()!=0){%>
-<a title="<%= Encode.forHtmlAttribute(alert) %>"><i class="fa-solid fa-triangle-exclamation"></i></a>
+<a title="<%= SafeEncode.forHtmlAttribute(alert) %>"><i class="fa-solid fa-triangle-exclamation"></i></a>
 <%}%>
 </h4>
 
-<h4 class="print"><%= Encode.forHtml(demographic_header.getLastName()) %>, <%= Encode.forHtml(demographic_header.getFirstName()) %> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%= Encode.forHtml(demographic_header.getTitle()) %>) <%}%></h4>
+<h4 class="print"><%= SafeEncode.forHtml(demographic_header.getLastName()) %>, <%= SafeEncode.forHtml(demographic_header.getFirstName()) %> <%if(demographic_header.getTitle() != null && !demographic_header.getTitle().isEmpty()) {%>(<%= SafeEncode.forHtml(demographic_header.getTitle()) %>) <%}%></h4>
 </div>
 
 
@@ -88,13 +88,13 @@ Demographic demographic_header=demographicDao_header.getDemographic(d);
 <div class="float-end" style="display:inline-block;margin-right:15px;text-align:right;padding-top:8px;">
 
 
-<span style="padding-right:10px;font-size:14px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.patient.context.born"/>: <strong><%= Encode.forHtml(demographic_header.getFormattedDob()) %>  <%if(demographic_header.getAgeInYears()>0){%>
+<span style="padding-right:10px;font-size:14px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.patient.context.born"/>: <strong><%= SafeEncode.forHtml(demographic_header.getFormattedDob()) %>  <%if(demographic_header.getAgeInYears()>0){%>
 
- (<%= Encode.forHtml(String.valueOf(demographic_header.getAgeInYears())) %>y)
+ (<%= SafeEncode.forHtml(String.valueOf(demographic_header.getAgeInYears())) %>y)
 
  <%} %></strong></span>
-<span style="padding-right:10px;font-size:14px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.patient.context.sex"/>: <strong><%= Encode.forHtml(demographic_header.getSexDesc()) %></strong></span>
-<span style="padding-right:10px;font-size:14px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.patient.context.hin"/>: <strong><%= Encode.forHtml(demographic_header.getHin()) %></strong></span>
+<span style="padding-right:10px;font-size:14px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.patient.context.sex"/>: <strong><%= SafeEncode.forHtml(demographic_header.getSexDesc()) %></strong></span>
+<span style="padding-right:10px;font-size:14px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.patient.context.hin"/>: <strong><%= SafeEncode.forHtml(demographic_header.getHin()) %></strong></span>
 
 </div>
 </div>
