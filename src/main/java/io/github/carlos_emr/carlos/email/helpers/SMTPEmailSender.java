@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.email.helpers;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Properties;
 
@@ -64,6 +65,7 @@ public class SMTPEmailSender {
     private String subject;
     private String body;
     private List<EmailAttachment> attachments;
+    private MimeMessage preparedMessage;
 
     /**
      * Private default constructor to prevent instantiation without required parameters.
@@ -109,6 +111,11 @@ public class SMTPEmailSender {
      * @throws RuntimeException if the user lacks required _email write privilege
      */
     public void send() throws EmailSendingException {
+        prepareMessageBytes();
+        sendPreparedMessage();
+    }
+
+    public byte[] prepareMessageBytes() throws EmailSendingException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
         }
@@ -122,7 +129,22 @@ public class SMTPEmailSender {
             helper.setSubject(subject);
             helper.setText(body, false);
             addAttachments(helper, attachments);
-            javaMailSender.send(message);
+            message.saveChanges();
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            message.writeTo(outputStream);
+            preparedMessage = message;
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            throw new EmailSendingException(e.getMessage(), e);
+        }
+    }
+
+    public void sendPreparedMessage() throws EmailSendingException {
+        if (preparedMessage == null) {
+            prepareMessageBytes();
+        }
+        try {
+            javaMailSender.send(preparedMessage);
         } catch (Exception e) {
             throw new EmailSendingException(e.getMessage(), e);
         }

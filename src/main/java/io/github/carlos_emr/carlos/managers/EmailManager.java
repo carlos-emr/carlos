@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
@@ -99,6 +100,8 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private OutboundEmailArchiveService outboundEmailArchiveService;
 
     /**
      * Sends an email with optional encryption and creates a corresponding email log entry.
@@ -134,7 +137,12 @@ public class EmailManager {
                 encryptEmail(emailData);
             }
             EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
-            emailSender.send();
+            if (emailSender.supportsOutboundArchive()) {
+                archiveOutboundEmail(loggedInInfo, emailSender, emailLog);
+                emailSender.sendPrepared();
+            } else {
+                emailSender.send();
+            }
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
             if (emailLog.getChartDisplayOption().equals(ChartDisplayOption.WITH_FULL_NOTE)) {
                 addEmailNote(loggedInInfo, emailLog);
@@ -144,6 +152,15 @@ public class EmailManager {
             logger.error("Failed to send email", e);
         }
         return emailLog;
+    }
+
+    private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
+        try {
+            OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+            outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
+        } catch (IOException | RuntimeException e) {
+            throw new EmailSendingException("Failed to archive outbound email", e);
+        }
     }
 
     /**
