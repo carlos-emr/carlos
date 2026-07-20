@@ -220,7 +220,8 @@ public class FaxStatusUpdater {
                     } catch (FaxProviderException e) {
                         log.error("Failed to update fax status for fax id {}", faxJob.getId(), e);
                         // Replace rather than append to prevent unbounded growth on prolonged failures
-                        faxJob.setStatusString("Status check failed: " + e.getMessage());
+                        // Use generic message - full exception details are logged server-side only
+                        faxJob.setStatusString("Status check failed");
                         try {
                             faxJobDao.merge(faxJob);
                         } catch (RuntimeException mergeEx) {

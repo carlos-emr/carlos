@@ -47,6 +47,8 @@
             <result name="EFORM">/eform/efmshowform_data</result>
             <result name="eFormError">/eform/efmshowform_data?error=true</result>
         </action>
+        <action name="fax/SearchFaxRecipient" class="io.github.carlos_emr.carlos.fax.action.FaxRecipientSearch2Action">
+        </action>
         <action name="admin/ManageEmails" class="io.github.carlos_emr.carlos.email.admin.ManageEmails2Action">
             <result name="show">/WEB-INF/jsp/admin/manageEmails.jsp</result>
             <result name="emailstatus">/WEB-INF/jsp/admin/emailStatusResults.jspf</result>
