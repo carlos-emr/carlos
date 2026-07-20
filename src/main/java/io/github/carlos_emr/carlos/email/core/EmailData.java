@@ -1,6 +1,6 @@
 package io.github.carlos_emr.carlos.email.core;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -27,7 +27,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * charts and healthcare providers.</p>
  *
  * <p>Optional fields that downstream email handling expects to be non-null are initialized to
- * safe defaults. In particular, attachments default to an empty list and chart display defaults
+ * safe defaults. In particular, attachments default to a mutable empty list and chart display defaults
  * to {@link ChartDisplayOption#WITHOUT_NOTE}.</p>
  * 
  * <p>Typical usage:</p>
@@ -66,7 +66,7 @@ public class EmailData {
     private Integer demographicNo;
     private String providerNo;
     private String additionalParams;
-    private List<EmailAttachment> attachments = Collections.emptyList();
+    private List<EmailAttachment> attachments = new ArrayList<>();
 
     /**
      * Default constructor for creating an empty EmailData instance.
@@ -488,6 +488,6 @@ public class EmailData {
      * @param attachments List&lt;EmailAttachment&gt; the list of attachments; null values are converted to empty list
      */
     public void setAttachments(List<EmailAttachment> attachments) {
-        this.attachments = attachments != null ? attachments : Collections.emptyList();
+        this.attachments = attachments != null ? attachments : new ArrayList<>();
     }
 }
