@@ -106,25 +106,21 @@ public class EmailManager {
     private SecurityInfoManager securityInfoManager;
 
     /**
-     * Sends an email with optional encryption and creates a corresponding email log entry.
+     * Sends an email with optional encryption and returns the email send result.
      *
-     * This method orchestrates the complete email sending workflow including field sanitization,
-     * outbox preparation, optional encryption, transmission, and status tracking. If configured
-     * to display in the patient chart, it also creates a case management note documenting the
-     * email communication.
+     * This method validates access, sanitizes the email data, resolves the active sender
+     * configuration, persists a FAILED outbox log for valid sender configurations, optionally
+     * encrypts the content, sends the message, and updates the persisted log to SUCCESS or
+     * FAILED. If configured to display in the patient chart, it also creates a case management
+     * note documenting the email communication.
      *
-     * The method performs the following steps:
-     * 1. Validates user has _email WRITE privilege
-     * 2. Sanitizes email data fields
-     * 3. Creates email log entry in FAILED status
-     * 4. Encrypts message and/or attachments if requested
-     * 5. Sends email via configured email server
-     * 6. Updates log status to SUCCESS or FAILED
-     * 7. Creates chart note if configured for WITH_FULL_NOTE display
+     * If the sender configuration is missing or inactive, this method returns a transient
+     * FAILED EmailLog with a safe error message. That failure result is not persisted and does
+     * not have a database id.
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
      * @param emailData EmailData containing email subject, body, recipients, attachments, and configuration options
-     * @return EmailLog the persisted email log entry with final status and metadata
+     * @return EmailLog the persisted email log entry for normal send attempts, or a transient failed result for sender configuration failures
      * @throws RuntimeException if user lacks _email WRITE privilege
      */
     public EmailLog sendEmail(LoggedInInfo loggedInInfo, EmailData emailData) {
