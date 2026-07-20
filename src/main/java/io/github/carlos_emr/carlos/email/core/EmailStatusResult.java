@@ -502,6 +502,14 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
         if (inputString.startsWith("(") && inputString.endsWith(")")) {
             return inputString;
         }
+        int aliasStart = inputString.indexOf(" (");
+        if (aliasStart > 0 && inputString.endsWith(")")) {
+            return toCamelCaseName(inputString.substring(0, aliasStart)) + inputString.substring(aliasStart);
+        }
+        return toCamelCaseName(inputString);
+    }
+
+    private String toCamelCaseName(String inputString) {
         return Character.toUpperCase(inputString.charAt(0)) + inputString.substring(1).toLowerCase();
     }
 

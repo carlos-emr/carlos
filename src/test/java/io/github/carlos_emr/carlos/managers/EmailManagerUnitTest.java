@@ -172,7 +172,12 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailData.setAdditionalParams("sendgridApiKey=SG.raw-secret-token;smtpPassword=raw-password");
         when(emailConfigDao.findActiveEmailConfigById(456)).thenReturn(null);
 
-        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
+        EmailLog result;
+        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
+            result = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertThat(emailSenders.constructed()).isEmpty();
+        }
 
         assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
         assertThat(result.getErrorMessage())
@@ -202,6 +207,26 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(result.getSenderEmail()).isEmpty();
         assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("should include alias for email status result when demographic has legal name")
+    void shouldIncludeAlias_whenEmailStatusDemographicHasLegalName() {
+        demographic.setAlias("  CJ Patient  ");
+        EmailLog emailLog = new EmailLog(null, "", new String[] {"recipient@example.invalid"}, "Subject", "Body", EmailStatus.FAILED);
+        emailLog.setDemographic(demographic);
+        emailLog.setProvider(provider);
+        emailLog.setErrorMessage(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
+        when(emailLogDao.getEmailStatusByDateDemographicSenderStatus(any(), any(), nullable(String.class), nullable(String.class), nullable(String.class)))
+                .thenReturn(Collections.singletonList(emailLog));
+
+        List<EmailStatusResult> results = emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, "2026-07-16", "2026-07-16", null, null, "FAILED");
+
+        assertThat(results).hasSize(1);
+        EmailStatusResult result = results.get(0);
+        assertThat(result.getRecipientFirstName()).isEqualTo("Patient");
+        assertThat(result.getRecipientLastName()).isEqualTo("Example (CJ Patient)");
+        assertThat(result.getRecipientFullName()).isEqualTo("Patient Example (CJ Patient)");
     }
 
     @Test

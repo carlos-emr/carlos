@@ -632,7 +632,9 @@ public class EmailManager {
         if (aliasOnlyName != null) {
             return aliasOnlyName;
         }
-        return getDisplayNamePart(demographic != null ? demographic.getLastName() : null, PATIENT_NAME_PART);
+        String lastName = getDisplayNamePart(demographic != null ? demographic.getLastName() : null, PATIENT_NAME_PART);
+        String aliasName = getDemographicAliasName(demographic);
+        return aliasName != null ? lastName + " " + aliasName : lastName;
     }
 
     private String getProviderFirstName(Provider provider) {
@@ -648,6 +650,13 @@ public class EmailManager {
             return null;
         }
 
+        return getDemographicAliasName(demographic);
+    }
+
+    private String getDemographicAliasName(Demographic demographic) {
+        if (demographic == null) {
+            return null;
+        }
         String alias = trimToNull(demographic.getAlias());
         return alias != null ? "(" + alias + ")" : null;
     }
