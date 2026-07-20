@@ -686,7 +686,7 @@ public class FaxManagerImpl implements FaxManager {
         File previewSource = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
         boolean cache = previewSource != null
                 && previewSource.getParent() != null
-                && nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName()) > 0;
+                && nioFileManager.removeCacheVersions(previewSource.getParent(), previewSource.getName()) > 0;
 
         // Only a CARLOS-owned temp artifact is eligible for temp deletion here. Guarding on the
         // application temp boundary keeps a non-temp filePath (e.g. a DOCUMENT_DIR path passed by the

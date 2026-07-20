@@ -328,7 +328,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
         try {
             int removed = nioFileManager.removeCacheVersions(
-                    loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString());
+                    allowedTempDir.toString(), sourcePdf.getFileName().toString());
 
             assertThat(removed).as("both pages of this source removed").isEqualTo(2);
             assertThat(Files.exists(pageOne)).as("page 1 removed").isFalse();
@@ -339,6 +339,50 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             Files.deleteIfExists(pageTwo);
             Files.deleteIfExists(otherSourcePage);
             Files.deleteIfExists(sourcePdf);
+        }
+    }
+
+    @Test
+    @DisplayName("Clears preview pages without _edoc so the fax-only cancel/flush flow is not broken")
+    void shouldRemovePreviewPages_withoutEdocPrivilege() throws IOException {
+        allowedTempDir = createApplicationTempDirectory("nio-cache-noedoc-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside a CARLOS-owned temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("cancel-me.pdf");
+        createSinglePagePdf(sourcePdf);
+        // Seed the cache while _edoc is granted (createCacheVersion2 requires it).
+        Path pageOne = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+        assertThat(pageOne).isNotNull().exists();
+
+        // Now simulate a user with _fax READ but not _edoc READ (the fax-cancel/flush caller): removal
+        // must still succeed rather than throwing before the temp artifact can be cleaned up (SJD9t).
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(false);
+        try {
+            int removed = nioFileManager.removeCacheVersions(allowedTempDir.toString(), sourcePdf.getFileName().toString());
+
+            assertThat(removed).as("preview page removed without _edoc").isEqualTo(1);
+            assertThat(Files.exists(pageOne)).isFalse();
+        } finally {
+            Files.deleteIfExists(pageOne);
+            Files.deleteIfExists(sourcePdf);
+        }
+    }
+
+    @Test
+    @DisplayName("Refuses to clear preview cache for a source outside the allowed preview locations")
+    void shouldNotRemovePreviewPages_forDisallowedSource() throws IOException {
+        // A directory under the shared temp root but NOT CARLOS-owned (and not the document root) is not
+        // a valid preview source, so cache cleanup keyed on it must be a no-op (SJD9x).
+        Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-flush-");
+        assumeTrue(!PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),
+                "foreign dir must not resolve inside a CARLOS-owned temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        try {
+            int removed = nioFileManager.removeCacheVersions(foreignDir.toString(), "whatever.pdf");
+            assertThat(removed).as("no cache removed for a disallowed source").isZero();
+        } finally {
+            deleteQuietly(foreignDir);
         }
     }
 

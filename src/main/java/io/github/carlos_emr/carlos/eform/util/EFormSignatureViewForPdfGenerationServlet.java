@@ -114,6 +114,11 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
                 return;
             }
+            // The id is referenced by the render's eForm but no signature row exists for it (e.g. the
+            // signature was deleted). Fail deterministically with 404 rather than falling through to an
+            // empty 200, so the renderer sees a clear missing-resource result and logs are unambiguous
+            // (copilot SJD9p).
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Signature not found");
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {

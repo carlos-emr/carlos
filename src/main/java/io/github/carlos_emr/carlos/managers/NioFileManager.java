@@ -81,7 +81,7 @@ public interface NioFileManager {
      * @param filename        the PDF filename
      * @return the number of cache page images removed
      */
-    public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename);
+    public int removeCacheVersions(String sourceDirectory, String filename);
 
     /**
      * Save a file to the temporary directory from ByteArrayOutputStream

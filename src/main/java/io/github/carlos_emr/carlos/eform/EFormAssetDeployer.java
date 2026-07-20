@@ -300,9 +300,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
         // Expected and benign: these legacy sample-lab background images are intentionally not bundled.
         // Log once at DEBUG with the full list rather than a per-asset WARN on every startup, which
-        // added recurring noise to production logs (copilot SIxUE). SAMPLE_LAB_BACKGROUND_ASSETS is a
-        // non-empty compile-time constant, so the message is emitted unconditionally (github-code-quality
-        // SI9Wy flagged a length>0 guard here as an always-true test).
+        // added recurring noise to production logs (copilot SIxUE). The message is emitted unconditionally
+        // because SAMPLE_LAB_BACKGROUND_ASSETS is the (currently non-empty) fixed asset list; a length>0
+        // guard here was an always-true test (github-code-quality SI9Wy / cubic SJD90).
         logger.debug("Sample lab compatibility background assets are not bundled and will not be synthesized: {}",
                 List.of(SAMPLE_LAB_BACKGROUND_ASSETS));
     }

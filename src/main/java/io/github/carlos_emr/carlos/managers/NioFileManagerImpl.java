@@ -164,6 +164,18 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        return resolveDocumentCacheDirectory();
+    }
+
+    /**
+     * Resolves (creating if absent) the document preview-cache directory without a privilege check.
+     * {@link #getDocumentCacheDirectory} wraps this behind an {@code _edoc} READ gate; the fax-preview
+     * flush path reaches it through {@link #removeCacheVersions}, which is authorized by its own caller's
+     * {@code _fax} READ and must not require {@code _edoc} (cubic SJD9t).
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private Path resolveDocumentCacheDirectory() {
         // context.getContextPath() is "/carlos" (leading slash) in production. Paths.get(String,
         // String...) JOINS its segments and collapses redundant separators — it does NOT re-anchor on
         // a leading slash the way Path.resolve("/carlos") would — so baseDocumentDir() is preserved
@@ -217,39 +229,14 @@ public class NioFileManagerImpl implements NioFileManager {
             return null;
         }
 
-        // Define the allowed base directory for documents
-        Path baseDocumentPath = Paths.get(baseDocumentDir()).normalize().toAbsolutePath();
-
-        // Validate and normalize the source directory - allow either document storage or a
-        // CARLOS-owned temp preview path. The temp branch is scoped to application-owned temp
-        // subtrees (isInApplicationTempDirectory), not the whole shared temp root, so a caller with
-        // _edoc/_fax READ cannot point the renderer at an unrelated file another process left in
-        // java.io.tmpdir or Tomcat work (cubic SCQPk). Legitimate fax previews are produced under
-        // those CARLOS-owned roots by saveTempFile / the eForm browser renderer.
-        Path normalizedSourceDir;
-        boolean sourceDirectoryInAllowedTemp = false;
-        try {
-            normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
-
-            if (PathValidationUtils.isInApplicationTempDirectory(normalizedSourceDir.toFile())) {
-                sourceDirectoryInAllowedTemp = true;
-            } else {
-                normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
-            }
-
-            if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
-                if (log.isErrorEnabled()) {
-                    String sanitizedSourceDirectory = LogSafe.sanitize(sourceDirectory, 1024);
-                    log.error("Source directory does not exist or is not a directory: {}", sanitizedSourceDirectory);
-                }
-                return null;
-            }
-        } catch (Exception e) {
-            if (log.isErrorEnabled()) {
-                log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
-            }
+        // Validate and normalize the source directory to an allowed preview location (a CARLOS-owned
+        // temp subtree or the document root). Shared with removeCacheVersions so the writer and remover
+        // agree on both the allowed-source set and the derived key (cubic SJD9x).
+        Path normalizedSourceDir = resolveAllowedPreviewSourceDir(sourceDirectory);
+        if (normalizedSourceDir == null) {
             return null;
         }
+        boolean sourceDirectoryInAllowedTemp = PathValidationUtils.isInApplicationTempDirectory(normalizedSourceDir.toFile());
 
         // Source-scoped cache identity: fold a stable digest of the canonical source directory into
         // the cache filename so both the lookup and the write are unique per source (cubic SCQQI).
@@ -391,26 +378,26 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     @Override
     // FindSecBugs PATH_TRAVERSAL_IN: each candidate is confined to the cache directory via
-    // PathValidationUtils.validateExistingPath before deletion; the source key derives from server config.
+    // PathValidationUtils.validateExistingPath before deletion; the source is validated to an allowed
+    // preview location and the key derives from that validated path plus server config.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public final int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-        if (sourceDirectory == null || sourceDirectory.trim().isEmpty() || filename == null || filename.trim().isEmpty()) {
+    public final int removeCacheVersions(String sourceDirectory, String filename) {
+        if (filename == null || filename.trim().isEmpty()) {
             return 0;
         }
-
-        String scopedPrefix;
-        try {
-            Path normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
-            scopedPrefix = scopedCacheBaseName(sanitizeFileName(filename), normalizedSourceDir) + "_";
-        } catch (Exception e) {
-            log.error("Invalid source directory while clearing preview cache: {}", LogSafe.sanitize(sourceDirectory, 1024));
+        // No _edoc gate: the only caller (FaxManagerImpl.flush) is already authorized by _fax READ and
+        // this removes only that preview's own regenerable page-image cache. Requiring _edoc here broke
+        // the fax-cancel/flush flow for users holding _fax READ but not _edoc READ, throwing before the
+        // approved temp file could be deleted (cubic SJD9t). The source is validated to the same allowed
+        // preview locations the writer accepts, so a caller cannot target caches for arbitrary paths
+        // (cubic SJD9x).
+        Path normalizedSourceDir = resolveAllowedPreviewSourceDir(sourceDirectory);
+        if (normalizedSourceDir == null) {
             return 0;
         }
+        String scopedPrefix = scopedCacheBaseName(sanitizeFileName(filename), normalizedSourceDir) + "_";
 
-        Path normalizedCacheDir = getDocumentCacheDirectory(loggedInInfo).normalize().toAbsolutePath();
+        Path normalizedCacheDir = resolveDocumentCacheDirectory().normalize().toAbsolutePath();
         if (!Files.isDirectory(normalizedCacheDir)) {
             return 0;
         }
@@ -541,6 +528,46 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     private static String scopedCacheBaseName(String sanitizedFilename, Path normalizedSourceDir) {
         return boundedCacheBaseName(sanitizedFilename) + "_" + sourceDirectoryCacheKey(normalizedSourceDir);
+    }
+
+    /**
+     * Resolves and validates a preview source directory to the same allowed locations the cache writer
+     * accepts: a CARLOS-owned temp subtree ({@link PathValidationUtils#isInApplicationTempDirectory}) or
+     * the document root. The temp branch is scoped to application-owned temp subtrees, not the whole
+     * shared temp root, so a caller with {@code _edoc}/{@code _fax} READ cannot point the cache at an
+     * unrelated file another process left in {@code java.io.tmpdir} or Tomcat work (cubic SCQPk).
+     *
+     * <p>Shared between {@link #createCacheVersion2} and {@link #removeCacheVersions} so the remover
+     * cannot clean caches for arbitrary caller-supplied paths and both derive the key identically
+     * (cubic SJD9x).</p>
+     *
+     * @return the normalized source directory (temp branch: normalized-absolute; document branch:
+     *         canonical), or {@code null} if it is not an allowed, existing preview source
+     */
+    private Path resolveAllowedPreviewSourceDir(String sourceDirectory) {
+        if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {
+            return null;
+        }
+        Path baseDocumentPath = Paths.get(baseDocumentDir()).normalize().toAbsolutePath();
+        try {
+            Path normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
+            if (!PathValidationUtils.isInApplicationTempDirectory(normalizedSourceDir.toFile())) {
+                normalizedSourceDir = PathValidationUtils.validateExistingPath(
+                        normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
+            }
+            if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
+                if (log.isErrorEnabled()) {
+                    log.error("Source directory does not exist or is not a directory: {}", LogSafe.sanitize(sourceDirectory, 1024));
+                }
+                return null;
+            }
+            return normalizedSourceDir;
+        } catch (Exception e) {
+            if (log.isErrorEnabled()) {
+                log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
+            }
+            return null;
+        }
     }
 
     /** Removes a single leading path separator so a servlet context path ("/carlos") joins as a relative segment. */
