@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.email.helpers;
 import java.io.File;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -19,6 +22,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -66,6 +70,31 @@ public class SMTPEmailSender {
     private String body;
     private List<EmailAttachment> attachments;
     private MimeMessage preparedMessage;
+    private List<PreparedAttachment> preparedAttachments = List.of();
+
+    public static final class PreparedAttachment {
+        private final EmailAttachment attachment;
+        private final Path path;
+        private final byte[] bytes;
+
+        private PreparedAttachment(EmailAttachment attachment, Path path, byte[] bytes) {
+            this.attachment = attachment;
+            this.path = path;
+            this.bytes = bytes.clone();
+        }
+
+        public EmailAttachment getAttachment() {
+            return attachment;
+        }
+
+        public Path getPath() {
+            return path;
+        }
+
+        public byte[] getBytes() {
+            return bytes.clone();
+        }
+    }
 
     /**
      * Private default constructor to prevent instantiation without required parameters.
@@ -121,6 +150,8 @@ public class SMTPEmailSender {
         }
 
         javaMailSender = createTLSMailSender(emailConfig);
+        preparedMessage = null;
+        preparedAttachments = List.of();
         MimeMessage message = javaMailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
@@ -128,10 +159,11 @@ public class SMTPEmailSender {
             helper.setTo(recipients);
             helper.setSubject(subject);
             helper.setText(body, false);
-            addAttachments(helper, attachments);
+            List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments);
             message.saveChanges();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             message.writeTo(outputStream);
+            preparedAttachments = attachmentSnapshots;
             preparedMessage = message;
             return outputStream.toByteArray();
         } catch (Exception e) {
@@ -148,6 +180,10 @@ public class SMTPEmailSender {
         } catch (Exception e) {
             throw new EmailSendingException(e.getMessage(), e);
         }
+    }
+
+    public List<PreparedAttachment> getPreparedAttachments() {
+        return preparedAttachments;
     }
 
     /**
@@ -215,14 +251,23 @@ public class SMTPEmailSender {
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    private void addAttachments(MimeMessageHelper helper, List<EmailAttachment> attachments) throws MessagingException {
-        if (attachments == null) {
-            return;
+    private List<PreparedAttachment> addAttachments(MimeMessageHelper helper, List<EmailAttachment> attachments) throws MessagingException, IOException {
+        if (attachments == null || attachments.isEmpty()) {
+            return List.of();
         }
 
+        List<PreparedAttachment> attachmentSnapshots = new ArrayList<>();
         for (EmailAttachment attachment : attachments) {
-            helper.addAttachment(attachment.getFileName(), PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())));
+            if (attachment == null || attachment.getFilePath() == null) {
+                throw new MessagingException("Email attachment path is required");
+            }
+
+            Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+            byte[] attachmentBytes = Files.readAllBytes(attachmentPath);
+            helper.addAttachment(attachment.getFileName(), new ByteArrayResource(attachmentBytes));
+            attachmentSnapshots.add(new PreparedAttachment(attachment, attachmentPath, attachmentBytes));
         }
+        return List.copyOf(attachmentSnapshots);
     }
 
 }

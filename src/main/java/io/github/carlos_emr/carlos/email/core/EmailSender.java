@@ -1,8 +1,6 @@
 package io.github.carlos_emr.carlos.email.core;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,7 +21,6 @@ import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -211,7 +208,7 @@ public class EmailSender {
         archiveRequest.setArtifactType(OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822);
         archiveRequest.setTransportType(emailConfig.getEmailType().name());
         archiveRequest.setProviderName(emailConfig.getEmailProvider().name());
-        archiveRequest.setAttachments(buildAttachmentArchiveMetadata());
+        archiveRequest.setAttachments(buildAttachmentArchiveMetadata(preparedSmtpSendHelper.getPreparedAttachments()));
         return archiveRequest;
     }
 
@@ -267,33 +264,31 @@ public class EmailSender {
         }
     }
 
-    private List<OutboundEmailArchiveAttachmentDto> buildAttachmentArchiveMetadata() throws EmailSendingException {
-        if (attachments == null || attachments.isEmpty()) {
+    private List<OutboundEmailArchiveAttachmentDto> buildAttachmentArchiveMetadata(List<SMTPEmailSender.PreparedAttachment> preparedAttachments) throws EmailSendingException {
+        if (preparedAttachments == null || preparedAttachments.isEmpty()) {
             return List.of();
         }
 
-        try {
-            java.util.ArrayList<OutboundEmailArchiveAttachmentDto> attachmentDtos = new java.util.ArrayList<>();
-            for (EmailAttachment attachment : attachments) {
-                attachmentDtos.add(buildAttachmentArchiveMetadata(attachment));
-            }
-            return attachmentDtos;
-        } catch (IOException e) {
-            throw new EmailSendingException("Failed to read email attachment for archive", e);
+        java.util.ArrayList<OutboundEmailArchiveAttachmentDto> attachmentDtos = new java.util.ArrayList<>();
+        for (SMTPEmailSender.PreparedAttachment preparedAttachment : preparedAttachments) {
+            attachmentDtos.add(buildAttachmentArchiveMetadata(preparedAttachment));
         }
+        return attachmentDtos;
     }
 
-    private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(EmailAttachment attachment) throws IOException {
-        if (attachment == null || attachment.getFilePath() == null) {
-            throw new IOException("Email attachment path is required for archive metadata");
+    private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(SMTPEmailSender.PreparedAttachment preparedAttachment) throws EmailSendingException {
+        if (preparedAttachment == null || preparedAttachment.getAttachment() == null) {
+            throw new EmailSendingException("Prepared attachment is required for archive metadata");
         }
 
-        Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+        EmailAttachment attachment = preparedAttachment.getAttachment();
+        Path attachmentPath = preparedAttachment.getPath();
+        byte[] attachmentBytes = preparedAttachment.getBytes();
         OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
         attachmentDto.setFileName(attachment.getFileName());
         attachmentDto.setContentType(resolveAttachmentContentType(attachment, attachmentPath));
-        attachmentDto.setSha256Hash(sha256Hex(attachmentPath));
-        attachmentDto.setByteSize(Files.size(attachmentPath));
+        attachmentDto.setSha256Hash(sha256Hex(attachmentBytes));
+        attachmentDto.setByteSize((long) attachmentBytes.length);
         attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
         attachmentDto.setSourceDocumentId(attachment.getDocumentId());
         return attachmentDto;
@@ -317,17 +312,10 @@ public class EmailSender {
         return contentType != null ? contentType : DEFAULT_ATTACHMENT_CONTENT_TYPE;
     }
 
-    private String sha256Hex(Path path) throws IOException {
+    private String sha256Hex(byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (InputStream inputStream = Files.newInputStream(path)) {
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    digest.update(buffer, 0, bytesRead);
-                }
-            }
-            return HEX_FORMAT.formatHex(digest.digest());
+            return HEX_FORMAT.formatHex(digest.digest(bytes));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
