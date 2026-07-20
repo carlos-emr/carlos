@@ -171,14 +171,12 @@ public class EmailSender {
      * <p>All email sending operations are logged for audit trail purposes, which is required
      * for healthcare compliance and security monitoring.</p>
      *
-     * @throws RuntimeException if the current user lacks the required "_email" security privilege
+     * @throws SecurityException if the current user lacks the required "_email" security privilege
      * @throws EmailSendingException if there is an error during email transmission, including
      *         invalid configuration, network issues, authentication failures, or provider-specific errors
      */
     public void send() throws EmailSendingException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
-        }
+        assertEmailWritePrivilege();
 
         switch (emailConfig.getEmailType()) {
             case SMTP:
@@ -197,6 +195,7 @@ public class EmailSender {
     }
 
     public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
+        assertEmailWritePrivilege();
         if (!supportsOutboundArchive()) {
             throw new EmailSendingException("Outbound email archive is not supported for this email configuration");
         }
@@ -217,6 +216,7 @@ public class EmailSender {
     }
 
     public void sendPrepared() throws EmailSendingException {
+        assertEmailWritePrivilege();
         if (preparedSmtpSendHelper == null) {
             send();
             return;
@@ -259,6 +259,12 @@ public class EmailSender {
             return new LocalSMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
         }
         return new SMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+    }
+
+    private void assertEmailWritePrivilege() {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
     }
 
     private List<OutboundEmailArchiveAttachmentDto> buildAttachmentArchiveMetadata() throws EmailSendingException {

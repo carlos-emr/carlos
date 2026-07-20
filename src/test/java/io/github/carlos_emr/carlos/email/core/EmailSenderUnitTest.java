@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -29,7 +30,10 @@ import java.util.HexFormat;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EmailSender")
@@ -96,6 +100,34 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
             assertThat(attachmentDto.getByteSize()).isEqualTo((long) textAttachmentBytes.length);
             assertThat(attachmentDto.getSha256Hash()).isEqualTo(sha256Hex(textAttachmentBytes));
         });
+    }
+
+    @Test
+    @DisplayName("should reject SMTP archive preparation when email privilege is missing")
+    void shouldRejectSmtpArchivePreparation_whenEmailPrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        EmailConfig emailConfig = smtpEmailConfig();
+        EmailData emailData = emailData(List.of());
+        EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.FAILED);
+        EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+
+        assertThatThrownBy(() -> emailSender.prepareOutboundArchive(emailLog))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_email)");
+    }
+
+    @Test
+    @DisplayName("should reject prepared SMTP send when email privilege is missing")
+    void shouldRejectPreparedSmtpSend_whenEmailPrivilegeMissing() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        EmailSender emailSender = new EmailSender(loggedInInfo, smtpEmailConfig(), emailData(List.of()));
+        SMTPEmailSender smtpSendHelper = mock(SMTPEmailSender.class);
+        injectDependency(emailSender, "preparedSmtpSendHelper", smtpSendHelper);
+
+        assertThatThrownBy(emailSender::sendPrepared)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_email)");
+        verify(smtpSendHelper, never()).sendPreparedMessage();
     }
 
     private EmailData emailData(List<EmailAttachment> attachments) {
