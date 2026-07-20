@@ -60,6 +60,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+// TODO: verify these two import paths against another servlet in this
+// package that already performs a hasPrivilege() check — package names
+// below are a best guess and may need adjusting before this compiles.
+import io.github.carlos_emr.carlos.util.LoggedInInfo;
+import io.github.carlos_emr.carlos.security.SecurityInfoManager;
+
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
  * such as blood pressure and vitals in the encounter view.
@@ -70,6 +76,7 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
     protected int width = 550;
     protected int height = 360;
+
 
     @Override
     public void service(HttpServletRequest request, HttpServletResponse httpServletResponse) throws ServletException, IOException {
@@ -84,6 +91,16 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
         if (demographicNo == null && bean != null) {
             demographicNo = bean.getDemographicNo();
+        }
+
+        // Security fix (issue #2623): patient-scoped authorization check,
+        // mirroring the pattern in MeasurementData2Action.java (measurements/web).
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
         try {
