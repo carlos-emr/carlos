@@ -58,8 +58,12 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         byte[] attachmentBytes = "pdf-content".getBytes(StandardCharsets.UTF_8);
         Files.write(attachmentPath, attachmentBytes);
         EmailAttachment attachment = new EmailAttachment("attachment_001.pdf", attachmentPath.toString(), DocumentType.DOC, 77);
+        Path textAttachmentPath = tempDir.resolve("notes.txt");
+        byte[] textAttachmentBytes = "plain-text-content".getBytes(StandardCharsets.UTF_8);
+        Files.write(textAttachmentPath, textAttachmentBytes);
+        EmailAttachment textAttachment = new EmailAttachment("notes.txt", textAttachmentPath.toString(), DocumentType.DOC, 78);
         EmailConfig emailConfig = smtpEmailConfig();
-        EmailData emailData = emailData(List.of(attachment));
+        EmailData emailData = emailData(List.of(attachment, textAttachment));
         EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.FAILED);
         injectDependency(emailLog, "id", 44);
 
@@ -75,13 +79,22 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         assertThat(archiveRequest.getTransportType()).isEqualTo("SMTP");
         assertThat(archiveRequest.getProviderName()).isEqualTo("GMAIL");
         assertThat(eml).contains("Subject: Test subject").contains("patient@example.test");
-        assertThat(archiveRequest.getAttachments()).singleElement().satisfies(attachmentDto -> {
+        assertThat(archiveRequest.getAttachments()).hasSize(2);
+        assertThat(archiveRequest.getAttachments().get(0)).satisfies(attachmentDto -> {
             assertThat(attachmentDto.getFileName()).isEqualTo("attachment_001.pdf");
             assertThat(attachmentDto.getContentType()).isEqualTo("application/pdf");
             assertThat(attachmentDto.getSourceDocumentType()).isEqualTo("DOC");
             assertThat(attachmentDto.getSourceDocumentId()).isEqualTo(77);
             assertThat(attachmentDto.getByteSize()).isEqualTo((long) attachmentBytes.length);
             assertThat(attachmentDto.getSha256Hash()).isEqualTo(sha256Hex(attachmentBytes));
+        });
+        assertThat(archiveRequest.getAttachments().get(1)).satisfies(attachmentDto -> {
+            assertThat(attachmentDto.getFileName()).isEqualTo("notes.txt");
+            assertThat(attachmentDto.getContentType()).isEqualTo("text/plain");
+            assertThat(attachmentDto.getSourceDocumentType()).isEqualTo("DOC");
+            assertThat(attachmentDto.getSourceDocumentId()).isEqualTo(78);
+            assertThat(attachmentDto.getByteSize()).isEqualTo((long) textAttachmentBytes.length);
+            assertThat(attachmentDto.getSha256Hash()).isEqualTo(sha256Hex(textAttachmentBytes));
         });
     }
 

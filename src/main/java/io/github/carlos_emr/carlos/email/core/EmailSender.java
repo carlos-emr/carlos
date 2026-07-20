@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.email.core;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -58,7 +59,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class EmailSender {
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String RFC822_CONTENT_TYPE = "message/rfc822";
-    private static final String PDF_CONTENT_TYPE = "application/pdf";
+    private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
 
     private LoggedInInfo loggedInInfo;
 
@@ -277,15 +278,37 @@ public class EmailSender {
     }
 
     private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(EmailAttachment attachment) throws IOException {
+        if (attachment == null || attachment.getFilePath() == null) {
+            throw new IOException("Email attachment path is required for archive metadata");
+        }
+
         Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
         OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
         attachmentDto.setFileName(attachment.getFileName());
-        attachmentDto.setContentType(PDF_CONTENT_TYPE);
+        attachmentDto.setContentType(resolveAttachmentContentType(attachment, attachmentPath));
         attachmentDto.setSha256Hash(sha256Hex(attachmentPath));
         attachmentDto.setByteSize(Files.size(attachmentPath));
         attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
         attachmentDto.setSourceDocumentId(attachment.getDocumentId());
         return attachmentDto;
+    }
+
+    private String resolveAttachmentContentType(EmailAttachment attachment, Path attachmentPath) {
+        String contentType = null;
+        try {
+            contentType = Files.probeContentType(attachmentPath);
+        } catch (IOException ignored) {
+        }
+
+        if (contentType == null && attachment.getFileName() != null) {
+            contentType = URLConnection.guessContentTypeFromName(attachment.getFileName());
+        }
+
+        if (contentType == null && attachmentPath.getFileName() != null) {
+            contentType = URLConnection.guessContentTypeFromName(attachmentPath.getFileName().toString());
+        }
+
+        return contentType != null ? contentType : DEFAULT_ATTACHMENT_CONTENT_TYPE;
     }
 
     private String sha256Hex(Path path) throws IOException {

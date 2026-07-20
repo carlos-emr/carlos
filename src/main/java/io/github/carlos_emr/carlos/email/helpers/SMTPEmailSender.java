@@ -103,12 +103,12 @@ public class SMTPEmailSender {
      * a MIME message with the configured subject, body, and attachments, and
      * transmits the message to all specified recipients.</p>
      *
-     * <p>Security: Requires the _email write privilege. Throws RuntimeException
+     * <p>Security: Requires the _email write privilege. Throws SecurityException
      * if the user lacks required permissions.</p>
      *
      * @throws EmailSendingException if email transmission fails due to network errors,
      *         invalid configuration, authentication failure, or attachment processing errors
-     * @throws RuntimeException if the user lacks required _email write privilege
+     * @throws SecurityException if the user lacks required _email write privilege
      */
     public void send() throws EmailSendingException {
         prepareMessageBytes();
@@ -117,7 +117,7 @@ public class SMTPEmailSender {
 
     public byte[] prepareMessageBytes() throws EmailSendingException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         javaMailSender = createTLSMailSender(emailConfig);
