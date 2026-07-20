@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -51,7 +53,7 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should prepare SendGrid payload without API key")
-    void shouldPrepareSendGridPayloadWithoutApiKey() throws Exception {
+    void shouldPrepareSendGridPayload_withoutApiKey() throws Exception {
         Path attachmentPath = tempDir.resolve("attachment.pdf");
         Files.write(attachmentPath, "pdf-content".getBytes(StandardCharsets.UTF_8));
         EmailAttachment attachment = new EmailAttachment("attachment_001.pdf", attachmentPath.toString(), DocumentType.DOC, 77);
@@ -75,6 +77,41 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
         assertThat(payloadJson.at("/subject").asText()).isEqualTo("Test subject");
         assertThat(payloadJson.at("/attachments/0/filename").asText()).isEqualTo("attachment_001.pdf");
         assertThat(payloadJson.at("/attachments/0/content").asText()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("should prepare SendGrid payload with null attachments")
+    void shouldPrepareSendGridPayload_withNullAttachments() throws Exception {
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                sendGridEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Test subject",
+                "Body text",
+                null,
+                null);
+
+        JsonNode payloadJson = OBJECT_MAPPER.readTree(sender.preparePayloadBytes());
+
+        assertThat(payloadJson.get("attachments")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject SendGrid payload when attachment path is missing")
+    void shouldRejectSendGridPayload_whenAttachmentPathMissing() {
+        EmailAttachment attachment = new EmailAttachment("attachment_001.pdf", null, DocumentType.DOC, 77);
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                sendGridEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Test subject",
+                "Body text",
+                null,
+                List.of(attachment));
+
+        assertThatThrownBy(sender::preparePayloadBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("attachment path is required");
     }
 
     private EmailConfig sendGridEmailConfig() {

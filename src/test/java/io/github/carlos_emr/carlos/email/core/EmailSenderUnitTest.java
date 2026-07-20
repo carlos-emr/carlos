@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +29,7 @@ import java.util.HexFormat;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -49,6 +51,16 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("should reject prepared SendGrid send without prepared archive")
+    void shouldRejectPreparedSend_withoutPreparedArchive() {
+        EmailSender emailSender = new EmailSender(loggedInInfo, sendGridEmailConfig(), emailData(List.of()));
+
+        assertThatThrownBy(emailSender::sendPrepared)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("Prepared SendGrid payload is required");
     }
 
     @Test

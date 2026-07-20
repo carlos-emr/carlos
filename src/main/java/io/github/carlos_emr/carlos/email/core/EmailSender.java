@@ -1,12 +1,12 @@
 package io.github.carlos_emr.carlos.email.core;
 
-import java.io.File;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -22,7 +22,6 @@ import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -56,6 +55,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-01-24
  */
 public class EmailSender {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String JSON_CONTENT_TYPE = "application/json";
     private static final String PDF_CONTENT_TYPE = "application/pdf";
@@ -210,8 +210,9 @@ public class EmailSender {
             throw new EmailSendingException("Outbound email archive is not supported for this email configuration");
         }
 
-        preparedApiSendGridSendHelper = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
-        byte[] artifactBytes = preparedApiSendGridSendHelper.preparePayloadBytes();
+        preparedApiSendGridSendHelper = null;
+        APISendGridEmailSender apiSendGridSendHelper = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
+        byte[] artifactBytes = apiSendGridSendHelper.preparePayloadBytes();
 
         OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
         archiveRequest.setEmailLog(emailLog);
@@ -221,12 +222,16 @@ public class EmailSender {
         archiveRequest.setArtifactType(OutboundEmailArchive.ARTIFACT_TYPE_API_PAYLOAD);
         archiveRequest.setTransportType(emailConfig.getEmailType().name());
         archiveRequest.setProviderName(emailConfig.getEmailProvider().name());
-        archiveRequest.setAttachments(buildAttachmentArchiveMetadata());
+        archiveRequest.setAttachments(buildAttachmentArchiveMetadata(artifactBytes));
+        preparedApiSendGridSendHelper = apiSendGridSendHelper;
         return archiveRequest;
     }
 
     public void sendPrepared() throws EmailSendingException {
         if (preparedApiSendGridSendHelper == null) {
+            if (supportsOutboundArchive()) {
+                throw new EmailSendingException("Prepared SendGrid payload is required before sending");
+            }
             send();
             return;
         }
@@ -263,45 +268,54 @@ public class EmailSender {
         }
     }
 
-    private List<OutboundEmailArchiveAttachmentDto> buildAttachmentArchiveMetadata() throws EmailSendingException {
+    private List<OutboundEmailArchiveAttachmentDto> buildAttachmentArchiveMetadata(byte[] artifactBytes) throws EmailSendingException {
         if (attachments == null || attachments.isEmpty()) {
             return List.of();
         }
 
         try {
-            java.util.ArrayList<OutboundEmailArchiveAttachmentDto> attachmentDtos = new java.util.ArrayList<>();
-            for (EmailAttachment attachment : attachments) {
-                attachmentDtos.add(buildAttachmentArchiveMetadata(attachment));
+            JsonNode payloadAttachments = OBJECT_MAPPER.readTree(artifactBytes).path("attachments");
+            if (!payloadAttachments.isArray()) {
+                throw new EmailSendingException("Prepared SendGrid payload is missing attachments");
+            }
+            if (payloadAttachments.size() != attachments.size()) {
+                throw new EmailSendingException("Prepared SendGrid payload attachment count does not match email attachments");
+            }
+
+            List<OutboundEmailArchiveAttachmentDto> attachmentDtos = new ArrayList<>();
+            for (int index = 0; index < attachments.size(); index++) {
+                attachmentDtos.add(buildAttachmentArchiveMetadata(attachments.get(index), payloadAttachments.get(index)));
             }
             return attachmentDtos;
-        } catch (IOException e) {
-            throw new EmailSendingException("Failed to read email attachment for archive", e);
+        } catch (IOException | IllegalArgumentException e) {
+            throw new EmailSendingException("Failed to read prepared email attachment payload for archive", e);
         }
     }
 
-    private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(EmailAttachment attachment) throws IOException {
-        Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+    private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(EmailAttachment attachment, JsonNode payloadAttachment) throws EmailSendingException {
+        if (attachment == null) {
+            throw new EmailSendingException("Email attachment is required for archive metadata");
+        }
+        String attachmentContent = payloadAttachment.path("content").asText(null);
+        if (attachmentContent == null || attachmentContent.isBlank()) {
+            throw new EmailSendingException("Prepared SendGrid attachment content is required for archive metadata");
+        }
+        byte[] attachmentBytes = Base64.getDecoder().decode(attachmentContent);
+
         OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
         attachmentDto.setFileName(attachment.getFileName());
         attachmentDto.setContentType(PDF_CONTENT_TYPE);
-        attachmentDto.setSha256Hash(sha256Hex(attachmentPath));
-        attachmentDto.setByteSize(Files.size(attachmentPath));
+        attachmentDto.setSha256Hash(sha256Hex(attachmentBytes));
+        attachmentDto.setByteSize((long) attachmentBytes.length);
         attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
         attachmentDto.setSourceDocumentId(attachment.getDocumentId());
         return attachmentDto;
     }
 
-    private String sha256Hex(Path path) throws IOException {
+    private String sha256Hex(byte[] input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (InputStream inputStream = Files.newInputStream(path)) {
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    digest.update(buffer, 0, bytesRead);
-                }
-            }
-            return HEX_FORMAT.formatHex(digest.digest());
+            return HEX_FORMAT.formatHex(digest.digest(input));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }

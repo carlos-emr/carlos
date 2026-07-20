@@ -62,6 +62,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class APISendGridEmailSender {
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     private LoggedInInfo loggedInInfo;
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -96,7 +97,7 @@ public class APISendGridEmailSender {
      * @param subject String the email subject line
      * @param body String the email body content (plain text format)
      * @param attachments List&lt;EmailAttachment&gt; list of file attachments to include
-     *                    in the email, may be empty but not null
+     *                    in the email, may be null or empty
      */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
@@ -104,7 +105,7 @@ public class APISendGridEmailSender {
         this.recipients = recipients;
         this.subject = subject;
         this.body = body;
-        this.attachments = attachments;
+        this.attachments = safeAttachments(attachments);
     }
 
     /**
@@ -124,7 +125,7 @@ public class APISendGridEmailSender {
      * @param additionalParams String additional custom parameters for SendGrid API,
      *                         may be null if not required
      * @param attachments List&lt;EmailAttachment&gt; list of file attachments to include
-     *                    in the email, may be empty but not null
+     *                    in the email, may be null or empty
      */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, String additionalParams, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
@@ -133,7 +134,7 @@ public class APISendGridEmailSender {
         this.subject = subject;
         this.body = body;
         this.additionalParams = additionalParams;
-        this.attachments = attachments;
+        this.attachments = safeAttachments(attachments);
     }
 
     /**
@@ -264,20 +265,38 @@ public class APISendGridEmailSender {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void addAttachments(ObjectNode emailJson) throws EmailSendingException {
         ArrayNode jsonAttachments = objectMapper.createArrayNode();
-        for (EmailAttachment emailAttachment : attachments) {
+        for (EmailAttachment attachment : attachments) {
+            EmailAttachment emailAttachment = requireValidAttachment(attachment);
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
                 Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
                 jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
-                jsonAttachment.put("type", "application/pdf");
+                jsonAttachment.put("type", PDF_CONTENT_TYPE);
                 jsonAttachment.put("disposition", "attachment");
                 jsonAttachments.add(jsonAttachment);
-            } catch (Exception e) {
-                throw new EmailSendingException("Failed to attach " + emailAttachment.getFileName() + " while sending email using SendGrid.");
+            } catch (IOException | SecurityException e) {
+                throw new EmailSendingException("Failed to attach " + emailAttachment.getFileName() + " while sending email using SendGrid.", e);
             }
         }
         emailJson.put("attachments", jsonAttachments);
+    }
+
+    private List<EmailAttachment> safeAttachments(List<EmailAttachment> attachments) {
+        return attachments != null ? attachments : List.of();
+    }
+
+    private EmailAttachment requireValidAttachment(EmailAttachment attachment) throws EmailSendingException {
+        if (attachment == null) {
+            throw new EmailSendingException("Email attachment is required while sending email using SendGrid.");
+        }
+        if (attachment.getFileName() == null || attachment.getFileName().isBlank()) {
+            throw new EmailSendingException("Email attachment filename is required while sending email using SendGrid.");
+        }
+        if (attachment.getFilePath() == null || attachment.getFilePath().isBlank()) {
+            throw new EmailSendingException("Email attachment path is required while sending email using SendGrid.");
+        }
+        return attachment;
     }
 
     private void addAdditionalParams(ObjectNode emailJson) throws EmailSendingException {
