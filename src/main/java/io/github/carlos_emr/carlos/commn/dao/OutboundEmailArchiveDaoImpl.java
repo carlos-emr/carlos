@@ -23,7 +23,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
-import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
@@ -53,10 +53,11 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
         if (archiveId == null) {
             return null;
         }
-        Query query = entityManager.createNativeQuery(
-                "SELECT * FROM outboundEmailArchive WHERE id = ?1 FOR UPDATE",
+        TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
+                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.id = :archiveId",
                 OutboundEmailArchive.class);
-        query.setParameter(1, archiveId);
+        query.setParameter("archiveId", archiveId);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         List<OutboundEmailArchive> rows = query.getResultList();
         return rows.isEmpty() ? null : rows.get(0);
     }
