@@ -67,8 +67,11 @@ Environment: the renderer is **sandboxed by default** (see "Security operations"
   `/var/lib/OscarDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
   policy blocks `file://` subresources from the http render origin, and the renderer's request
   gate fails the render on any non-web scheme (`file:`, `filesystem:`, `chrome:`, `view-source:`,
-  …) **other than** the inert pseudo-schemes `data:`/`blob:`/`about:`, which are explicitly allowed
-  (matching `isDisallowedRendererRequestUrl`). The launch config must **never** add `--allow-file-access-from-files` or
+  …) **other than** the non-network pseudo-schemes `data:`/`blob:`/`about:`, which are explicitly
+  allowed (matching `isDisallowedRendererRequestUrl`). These are permitted because they cannot reach
+  the network — **not** because their content is inert: `data:`/`blob:` can carry executable script
+  and `about:blank` can inherit the opener origin, so in-render script is contained by the egress
+  lockdown, not by this scheme gate. The launch config must **never** add `--allow-file-access-from-files` or
   `--disable-web-security` (an inline code invariant and a unit test enforce their absence); the
   FileSystem API is additionally turned off with `--disable-file-system`.
 - **`acceptInsecureCerts` is paired with the lockdown.** HTTPS connectors present certificates
@@ -159,8 +162,8 @@ operational configuration matter:
   path, so saving can persist transformed HTML and perturb the `sameform` de-duplication. The render
   path depends on these rewrites; narrowing them to render-only risks breaking rendering and belongs
   in an upstream change with full display/save regression coverage. Tracked as a follow-up.
-- **Fax preview of page-image eForms needs `_edoc` write.** `CoverPage.jsp` builds the inline
-  preview page images via `createCacheVersion2`, which requires `_edoc` write. Fax users without
+- **Fax preview of page-image eForms needs `_edoc` read.** `CoverPage.jsp` builds the inline
+  preview page images via `createCacheVersion2`, which requires `_edoc` read. Fax users without
   `_edoc` still get a working **Open PDF** link (soft degradation) — this is an operator
   role-configuration note, not a defect.
 
@@ -173,7 +176,7 @@ raster captures at 96 CSS px → 72 pt scale; callers own cleanup of the returne
 
 ## Verification
 
-- Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormViewForPdfGenerationServletUnitTest`
+- Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormBrowserRenderPageServletUnitTest`
 - End-to-end smoke (skips cleanly without a browser):
   `mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeTest` — serves
   `scripts/fixtures/eform/test-pattern.html` over loopback and asserts real regions, captures,

@@ -45,7 +45,7 @@
 
     Preview behavior (see docs/eform-browser-pdf-renderer.md):
       The document is previewed two ways. Inline page IMAGES are produced via
-      NioFileManager.createCacheVersion2 and require _edoc WRITE; a user without _edoc still gets a
+      NioFileManager.createCacheVersion2 and require _edoc READ; a user without _edoc still gets a
       working "Open PDF" link (soft degradation), so the preview never hard-fails on missing _edoc.
 
     Key request parameters / attributes:
@@ -53,7 +53,7 @@
       showAs        - "image" selects the inline page-image preview; otherwise the PDF is served
       pageNumber    - 1-based page selector for the image preview
       demographicNo - patient the fax relates to
-      letterheadFax - whether the clinic letterhead cover page is applied
+      letterheadFax - clinic/sender fax number used to select and prefill the sending fax account
       fax           - recipient fax number prefilled into the form
 
     @since 2026-05-29
