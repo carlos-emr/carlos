@@ -1089,7 +1089,11 @@ public final class PathValidationUtils {
         }
         try {
             File dir = (subDir != null) ? new File(basePath, subDir) : new File(basePath);
-            roots.put(dir.getCanonicalPath(), segments);
+            // Merge rather than overwrite: when two configured roots canonicalize to the same directory
+            // (e.g. java.io.tmpdir == catalina.base/work on some deployments), both legitimate segment
+            // sets must be honoured, otherwise a valid carlos-temp file could fail validation (cubic
+            // SIZkX).
+            roots.computeIfAbsent(dir.getCanonicalPath(), ignored -> new LinkedHashSet<>()).addAll(segments);
         } catch (IOException e) {
             logger.debug("Could not resolve canonical path for {}: {}", basePath, e.getMessage());
         }

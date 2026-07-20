@@ -176,7 +176,7 @@ raster captures at 96 CSS px → 72 pt scale; callers own cleanup of the returne
 
 ## Verification
 
-- Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormBrowserRenderPageServletUnitTest`
+- Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormBrowserRenderPageServletUnitTest,EformViewForPdfGenerationServletUnitTest` (the last is the legacy session-gate servlet, kept alongside the browser render servlet)
 - End-to-end smoke (skips cleanly without a browser):
   `mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeTest` — serves
   `scripts/fixtures/eform/test-pattern.html` over loopback and asserts real regions, captures,

@@ -475,13 +475,16 @@ public class NioFileManagerImpl implements NioFileManager {
      * without trusting the entire shared temp space.
      */
     private static Path applicationTempParent() throws IOException {
-        Path parent = Paths.get(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+        Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir"));
+        Path parent = tmpDir.resolve(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
         Path created = Files.createDirectories(parent);
-        // Reject a pre-seeded symlink at the predictable carlos-temp root: a local process that wins
-        // the race to create it as a symlink could otherwise redirect application temp writes outside
-        // the CARLOS-owned tree.
-        if (Files.isSymbolicLink(created)) {
-            throw new IOException("Application temp root must be a real directory, not a symbolic link: " + created);
+        // Reject if the created root resolves — through a symlink at carlos-temp OR at any ancestor —
+        // to somewhere outside the real java.io.tmpdir, so a local process that pre-created/swapped it
+        // for a symlink cannot redirect application temp writes out of the tmpdir tree. Comparing real
+        // paths tolerates a legitimately symlinked java.io.tmpdir; the residual check-to-use window is
+        // bounded because the files written beneath this root are private (cubic SIZkO, HtRV).
+        if (!created.toRealPath().startsWith(tmpDir.toRealPath())) {
+            throw new IOException("Application temp root resolves outside java.io.tmpdir: " + created);
         }
         return created;
     }

@@ -183,7 +183,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject imagefile parameters containing NUL bytes")
+    @DisplayName("should reject imagefile parameters containing NUL bytes as a bad request")
     void shouldRejectImagefileContainingNullBytes() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
@@ -194,7 +194,9 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
         new EFormImageViewForPdfGenerationServlet().doGet(request, response);
 
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        // A malformed imagefile is a client error (400), not an authorization failure (403) — the
+        // filename is validated before the privilege check (cubic Fc2c/SIZkT).
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
     }
 
     @Test
@@ -209,10 +211,10 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
         assertThatCode(() -> new EFormImageViewForPdfGenerationServlet().doGet(request, response))
                 .doesNotThrowAnyException();
-        // The servlet rejects the traversal-shaped imagefile with SC_FORBIDDEN before sendError
-        // throws; a real container records the status before the write can fail, so assert the
-        // reject status rather than the mock's default 200.
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        // The servlet rejects the traversal-shaped imagefile with SC_BAD_REQUEST (a client error,
+        // validated before the privilege check) before sendError throws; a real container records the
+        // status before the write can fail, so assert the reject status rather than the mock's default 200.
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
     }
 
     @Test

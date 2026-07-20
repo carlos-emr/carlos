@@ -32,6 +32,7 @@ import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -132,10 +133,15 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private static String validateRequestedFileName(String fileName) {
-        // validatePathComponent throws IllegalArgumentException for malformed/blank/traversal input.
-        // Let it propagate so doGet answers a 400 (client error) rather than re-wrapping it as a
-        // SecurityException that the 403 handler would misreport as an authorization failure.
-        return PathValidationUtils.validatePathComponent(fileName, "imagefile");
+        try {
+            return PathValidationUtils.validatePathComponent(fileName, "imagefile");
+        } catch (FileValidationException e) {
+            // validatePathComponent signals malformed/blank/traversal input with a
+            // FileValidationException (a SecurityException). Translate it to IllegalArgumentException so
+            // doGet answers 400 (client error) instead of the 403 the SecurityException handler would
+            // emit — a bad imagefile is a bad request, not an authorization failure (cubic Fc2c/SIZkT).
+            throw new IllegalArgumentException("Invalid imagefile parameter", e);
+        }
     }
 
     private static String resolveContentType(File file) {

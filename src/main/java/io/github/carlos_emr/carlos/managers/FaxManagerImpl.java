@@ -670,6 +670,10 @@ public class FaxManagerImpl implements FaxManager {
     /**
      * Clear the preview cache and temp directory.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: the File is only used to test the application-temp boundary via
+    // PathValidationUtils.isInApplicationTempDirectory before deletion; nioFileManager.deleteTempFile
+    // re-validates the path independently.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public boolean flush(LoggedInInfo loggedInInfo, String filePath) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
