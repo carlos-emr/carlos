@@ -544,6 +544,10 @@ public class NioFileManagerImpl implements NioFileManager {
      * @return the normalized source directory (temp branch: normalized-absolute; document branch:
      *         canonical), or {@code null} if it is not an allowed, existing preview source
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: baseDocumentDir() is trusted server config, and the caller-supplied
+    // sourceDirectory is confined to a CARLOS-owned temp subtree or the document root before use; the
+    // resolved directory is only stat'd and hashed into a cache key here, never read as file content.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path resolveAllowedPreviewSourceDir(String sourceDirectory) {
         if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {
             return null;
@@ -555,6 +559,8 @@ public class NioFileManagerImpl implements NioFileManager {
                 normalizedSourceDir = PathValidationUtils.validateExistingPath(
                         normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
             }
+            // codeql[java/path-injection] -- containment-validated above (application-temp or document
+            // root); the directory is only stat'd and hashed into a cache key, never read as content.
             if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
                 if (log.isErrorEnabled()) {
                     log.error("Source directory does not exist or is not a directory: {}", LogSafe.sanitize(sourceDirectory, 1024));

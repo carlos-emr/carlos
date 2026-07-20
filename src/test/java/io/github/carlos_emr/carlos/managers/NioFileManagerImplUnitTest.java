@@ -371,19 +371,45 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("Refuses to clear preview cache for a source outside the allowed preview locations")
-    void shouldNotRemovePreviewPages_forDisallowedSource() throws IOException {
+    void shouldNotRemovePreviewPages_forDisallowedSource() throws Exception {
         // A directory under the shared temp root but NOT CARLOS-owned (and not the document root) is not
-        // a valid preview source, so cache cleanup keyed on it must be a no-op (SJD9x).
+        // a valid preview source, so cache cleanup keyed on it must be a no-op (SJD9x/SJNuK).
         Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-flush-");
         assumeTrue(!PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),
                 "foreign dir must not resolve inside a CARLOS-owned temp directory");
-        Files.createDirectories(getDocumentCacheDirectory());
+        Path cacheDir = getDocumentCacheDirectory();
+        Files.createDirectories(cacheDir);
+
+        // Seed a cache file that would match the prefix removeCacheVersions computes IF it processed
+        // this foreign source. If the guard were bypassed, this file would be deleted; asserting it
+        // survives (and removed == 0) proves the guard rejected the source, not merely that no files
+        // matched (cubic SJNuK). The prefix mirrors createCacheVersion2's naming.
+        String fileName = "whatever.pdf";
+        String wouldBePrefix = fileName + "_" + sourceKeyOf(foreignDir) + "_";
+        Path wouldBeCache = Files.createFile(cacheDir.resolve(wouldBePrefix + "1.png"));
         try {
-            int removed = nioFileManager.removeCacheVersions(foreignDir.toString(), "whatever.pdf");
+            int removed = nioFileManager.removeCacheVersions(foreignDir.toString(), fileName);
+
             assertThat(removed).as("no cache removed for a disallowed source").isZero();
+            assertThat(Files.exists(wouldBeCache)).as("a disallowed source's would-be cache is left intact").isTrue();
         } finally {
+            Files.deleteIfExists(wouldBeCache);
             deleteQuietly(foreignDir);
         }
+    }
+
+    /**
+     * Reproduces NioFileManagerImpl's source-directory cache key: the first 8 bytes of the SHA-256 of
+     * the normalized absolute directory path, as 16 lowercase hex characters.
+     */
+    private static String sourceKeyOf(Path directory) throws Exception {
+        byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(directory.normalize().toAbsolutePath().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        StringBuilder key = new StringBuilder(16);
+        for (int i = 0; i < 8; i++) {
+            key.append(String.format("%02x", hash[i] & 0xff));
+        }
+        return key.toString();
     }
 
     @Test
