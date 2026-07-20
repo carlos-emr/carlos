@@ -281,8 +281,19 @@ async function invokeFetchAttached(page) {
     return { hasFunction: true, error: invocation.error, text: '', html: '' };
   }
 
+  // Let whichever of the DOM change or the network response settle first, then wait for the DOM to
+  // finish updating.
   await Promise.race([responsePromise, domPromise]);
-  await page.waitForTimeout(250);
+  await page.waitForFunction((previousMarkup) => {
+    const attachmentTarget = document.getElementById('tdAttachedDocs');
+    return !!attachmentTarget && attachmentTarget.innerHTML.trim().length > 0
+      && attachmentTarget.innerHTML !== previousMarkup;
+  }, previousHtml, { timeout: 5000 }).catch(() => {});
+  // Gate success on the SETTLED network response, not on whichever promise won the race above: if the
+  // DOM changed optimistically before the request finished, sidebarResponse would still be null and a
+  // 4xx/5xx attachment failure would be wrongly reported as success (cubic CQQS). Awaiting the
+  // response promise (it resolves to null on timeout/error) makes the status check deterministic.
+  await responsePromise;
   if (sidebarResponse && sidebarResponse.status() >= 400) {
     return {
       hasFunction: true,
@@ -293,11 +304,6 @@ async function invokeFetchAttached(page) {
       url: sidebarResponse.url(),
     };
   }
-  await page.waitForFunction((previousMarkup) => {
-    const attachmentTarget = document.getElementById('tdAttachedDocs');
-    return !!attachmentTarget && attachmentTarget.innerHTML.trim().length > 0
-      && attachmentTarget.innerHTML !== previousMarkup;
-  }, previousHtml, { timeout: 5000 }).catch(() => {});
 
   return page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
     const target = document.getElementById('tdAttachedDocs');
