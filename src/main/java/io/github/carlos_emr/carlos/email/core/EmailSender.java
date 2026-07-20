@@ -1,12 +1,5 @@
 package io.github.carlos_emr.carlos.email.core;
 
-import java.io.IOException;
-import java.net.URLConnection;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -54,9 +47,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-01-24
  */
 public class EmailSender {
-    private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String RFC822_CONTENT_TYPE = "message/rfc822";
-    private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
 
     private LoggedInInfo loggedInInfo;
 
@@ -187,10 +178,26 @@ public class EmailSender {
         }
     }
 
+    /**
+     * Indicates whether this sender can prepare a durable outbound archive artifact.
+     *
+     * @return {@code true} for SMTP configurations, where the finalized RFC 822 message can be captured before transport
+     */
     public boolean supportsOutboundArchive() {
         return emailConfig.getEmailType() == EmailConfig.EmailType.SMTP;
     }
 
+    /**
+     * Prepares the finalized SMTP message bytes and wraps them in an archive request.
+     *
+     * <p>This method must run before {@link #sendPrepared()} so the exact prepared
+     * message is archived before it is transported.</p>
+     *
+     * @param emailLog persisted email log that owns the archive artifact
+     * @return archive request containing the RFC 822 artifact and attachment metadata
+     * @throws EmailSendingException if this configuration cannot be archived or message preparation fails
+     * @throws SecurityException if the current user lacks the required "_email" write privilege
+     */
     public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
         assertEmailWritePrivilege();
         if (!supportsOutboundArchive()) {
@@ -212,11 +219,16 @@ public class EmailSender {
         return archiveRequest;
     }
 
+    /**
+     * Sends the SMTP message previously prepared for outbound archiving.
+     *
+     * @throws EmailSendingException if no prepared SMTP message exists or transport delivery fails
+     * @throws SecurityException if the current user lacks the required "_email" write privilege
+     */
     public void sendPrepared() throws EmailSendingException {
         assertEmailWritePrivilege();
         if (preparedSmtpSendHelper == null) {
-            send();
-            return;
+            throw new EmailSendingException("SMTP message must be prepared before sending");
         }
         preparedSmtpSendHelper.sendPreparedMessage();
     }
@@ -282,42 +294,13 @@ public class EmailSender {
         }
 
         EmailAttachment attachment = preparedAttachment.getAttachment();
-        Path attachmentPath = preparedAttachment.getPath();
-        byte[] attachmentBytes = preparedAttachment.getBytes();
         OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
         attachmentDto.setFileName(attachment.getFileName());
-        attachmentDto.setContentType(resolveAttachmentContentType(attachment, attachmentPath));
-        attachmentDto.setSha256Hash(sha256Hex(attachmentBytes));
-        attachmentDto.setByteSize((long) attachmentBytes.length);
+        attachmentDto.setContentType(preparedAttachment.getContentType());
+        attachmentDto.setSha256Hash(preparedAttachment.getSha256Hash());
+        attachmentDto.setByteSize(preparedAttachment.getByteSize());
         attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
         attachmentDto.setSourceDocumentId(attachment.getDocumentId());
         return attachmentDto;
-    }
-
-    private String resolveAttachmentContentType(EmailAttachment attachment, Path attachmentPath) {
-        String contentType = null;
-        try {
-            contentType = Files.probeContentType(attachmentPath);
-        } catch (IOException ignored) {
-        }
-
-        if (contentType == null && attachment.getFileName() != null) {
-            contentType = URLConnection.guessContentTypeFromName(attachment.getFileName());
-        }
-
-        if (contentType == null && attachmentPath.getFileName() != null) {
-            contentType = URLConnection.guessContentTypeFromName(attachmentPath.getFileName().toString());
-        }
-
-        return contentType != null ? contentType : DEFAULT_ATTACHMENT_CONTENT_TYPE;
-    }
-
-    private String sha256Hex(byte[] bytes) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HEX_FORMAT.formatHex(digest.digest(bytes));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
-        }
     }
 }

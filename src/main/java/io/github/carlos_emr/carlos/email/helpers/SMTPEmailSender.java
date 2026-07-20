@@ -3,9 +3,13 @@ package io.github.carlos_emr.carlos.email.helpers;
 import java.io.File;
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Properties;
 
@@ -58,6 +62,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @since 2026-01-24
  */
 public class SMTPEmailSender {
+    private static final HexFormat HEX_FORMAT = HexFormat.of();
+    private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
+
     private final Logger logger = MiscUtils.getLogger();
     private LoggedInInfo loggedInInfo;
 
@@ -75,12 +82,16 @@ public class SMTPEmailSender {
     public static final class PreparedAttachment {
         private final EmailAttachment attachment;
         private final Path path;
-        private final byte[] bytes;
+        private final String contentType;
+        private final String sha256Hash;
+        private final long byteSize;
 
-        private PreparedAttachment(EmailAttachment attachment, Path path, byte[] bytes) {
+        private PreparedAttachment(EmailAttachment attachment, Path path, String contentType, String sha256Hash, long byteSize) {
             this.attachment = attachment;
             this.path = path;
-            this.bytes = bytes.clone();
+            this.contentType = contentType;
+            this.sha256Hash = sha256Hash;
+            this.byteSize = byteSize;
         }
 
         public EmailAttachment getAttachment() {
@@ -91,8 +102,16 @@ public class SMTPEmailSender {
             return path;
         }
 
-        public byte[] getBytes() {
-            return bytes.clone();
+        public String getContentType() {
+            return contentType;
+        }
+
+        public String getSha256Hash() {
+            return sha256Hash;
+        }
+
+        public long getByteSize() {
+            return byteSize;
         }
     }
 
@@ -144,6 +163,17 @@ public class SMTPEmailSender {
         sendPreparedMessage();
     }
 
+    /**
+     * Builds, finalizes, and serializes the SMTP message that will later be sent.
+     *
+     * <p>Attachments are read once into the prepared MIME message and their archive
+     * metadata is recorded from that same byte snapshot. Callers must archive the
+     * returned RFC 822 bytes before invoking {@link #sendPreparedMessage()}.</p>
+     *
+     * @return finalized RFC 822 message bytes suitable for outbound archive storage
+     * @throws EmailSendingException if message construction, attachment reading, or serialization fails
+     * @throws SecurityException if the current user lacks the required "_email" write privilege
+     */
     public byte[] prepareMessageBytes() throws EmailSendingException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
@@ -171,9 +201,14 @@ public class SMTPEmailSender {
         }
     }
 
+    /**
+     * Sends the message previously finalized by {@link #prepareMessageBytes()}.
+     *
+     * @throws EmailSendingException if the message has not been prepared or transport delivery fails
+     */
     public void sendPreparedMessage() throws EmailSendingException {
         if (preparedMessage == null) {
-            prepareMessageBytes();
+            throw new EmailSendingException("SMTP message must be prepared before sending");
         }
         try {
             javaMailSender.send(preparedMessage);
@@ -261,13 +296,51 @@ public class SMTPEmailSender {
             if (attachment == null || attachment.getFilePath() == null) {
                 throw new MessagingException("Email attachment path is required");
             }
+            if (attachment.getFileName() == null || attachment.getFileName().isBlank()) {
+                throw new MessagingException("Email attachment file name is required");
+            }
 
             Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
             byte[] attachmentBytes = Files.readAllBytes(attachmentPath);
-            helper.addAttachment(attachment.getFileName(), new ByteArrayResource(attachmentBytes));
-            attachmentSnapshots.add(new PreparedAttachment(attachment, attachmentPath, attachmentBytes));
+            String contentType = resolveAttachmentContentType(helper, attachment, attachmentPath);
+            helper.addAttachment(attachment.getFileName(), new ByteArrayResource(attachmentBytes, attachment.getFileName()), contentType);
+            attachmentSnapshots.add(new PreparedAttachment(attachment, attachmentPath, contentType, sha256Hex(attachmentBytes), attachmentBytes.length));
         }
         return List.copyOf(attachmentSnapshots);
+    }
+
+    private String resolveAttachmentContentType(MimeMessageHelper helper, EmailAttachment attachment, Path attachmentPath) {
+        String fileName = attachment.getFileName();
+        String contentType = null;
+        if (fileName != null && !fileName.isBlank()) {
+            contentType = helper.getFileTypeMap().getContentType(fileName);
+        }
+
+        if (isBlankOrDefaultContentType(contentType)) {
+            try {
+                contentType = Files.probeContentType(attachmentPath);
+            } catch (IOException ignored) {
+            }
+        }
+
+        if (isBlankOrDefaultContentType(contentType) && attachmentPath.getFileName() != null) {
+            contentType = URLConnection.guessContentTypeFromName(attachmentPath.getFileName().toString());
+        }
+
+        return contentType != null && !contentType.isBlank() ? contentType : DEFAULT_ATTACHMENT_CONTENT_TYPE;
+    }
+
+    private boolean isBlankOrDefaultContentType(String contentType) {
+        return contentType == null || contentType.isBlank() || DEFAULT_ATTACHMENT_CONTENT_TYPE.equals(contentType);
+    }
+
+    private String sha256Hex(byte[] bytes) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HEX_FORMAT.formatHex(digest.digest(bytes));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
     }
 
 }

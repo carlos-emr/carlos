@@ -560,6 +560,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         });
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: generated filename is validated as a single path component.
+    // The resolved path is revalidated for DOCUMENT_DIR containment before deletion.
     @SuppressFBWarnings(
             value = "PATH_TRAVERSAL_IN",
             justification = "Archive eDoc cleanup validates the generated filename as a single path component and revalidates DOCUMENT_DIR containment before deletion.")
