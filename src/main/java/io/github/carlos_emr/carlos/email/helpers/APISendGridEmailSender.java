@@ -4,6 +4,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -18,7 +19,8 @@ import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.apache.hc.core5.ssl.SSLContexts;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -71,6 +73,7 @@ public class APISendGridEmailSender {
     private String additionalParams;
     private String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
     private List<EmailAttachment> attachments;
+    private byte[] preparedPayloadBytes;
 
     /**
      * Private no-argument constructor to prevent instantiation without required parameters.
@@ -158,8 +161,22 @@ public class APISendGridEmailSender {
      * @throws RuntimeException if the logged-in user does not have _email WRITE privilege
      */
     public void send() throws EmailSendingException {
+        preparePayloadBytes();
+        sendPreparedPayload();
+    }
+
+    public byte[] preparePayloadBytes() throws EmailSendingException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
+        }
+
+        preparedPayloadBytes = createEmailJSON().getBytes(StandardCharsets.UTF_8);
+        return preparedPayloadBytes.clone();
+    }
+
+    public void sendPreparedPayload() throws EmailSendingException {
+        if (preparedPayloadBytes == null) {
+            preparePayloadBytes();
         }
 
         try {
@@ -180,7 +197,7 @@ public class APISendGridEmailSender {
                 httpPost.setHeader("Content-Type", "application/json");
                 httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
 
-                StringEntity entity = new StringEntity(createEmailJSON());
+                ByteArrayEntity entity = new ByteArrayEntity(preparedPayloadBytes, ContentType.APPLICATION_JSON);
                 httpPost.setEntity(entity);
                 var response = httpClient.execute(httpPost);
                 if (response.getCode() >= 400) {
@@ -203,7 +220,6 @@ public class APISendGridEmailSender {
         addBody(emailJson);
         addAttachments(emailJson);
         addAdditionalParams(emailJson);
-        addApiKey(emailJson);
         return emailJson.toString();
     }
 
@@ -266,10 +282,6 @@ public class APISendGridEmailSender {
 
     private void addAdditionalParams(ObjectNode emailJson) throws EmailSendingException {
         emailJson.put("additionalParams", additionalParams);
-    }
-
-    private void addApiKey(ObjectNode emailJson) throws EmailSendingException {
-        emailJson.put("apiKey", getAPIKey());
     }
 
     private String getAPIKey() throws EmailSendingException {

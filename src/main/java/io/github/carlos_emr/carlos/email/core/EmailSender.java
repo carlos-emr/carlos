@@ -1,18 +1,28 @@
 package io.github.carlos_emr.carlos.email.core;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 
-
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.LocalSMTPEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -46,7 +56,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-01-24
  */
 public class EmailSender {
-    private final Logger logger = MiscUtils.getLogger();
+    private static final HexFormat HEX_FORMAT = HexFormat.of();
+    private static final String JSON_CONTENT_TYPE = "application/json";
+    private static final String PDF_CONTENT_TYPE = "application/pdf";
+
     private LoggedInInfo loggedInInfo;
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -57,6 +70,7 @@ public class EmailSender {
     private String body;
     private String additionalParams;
     private List<EmailAttachment> attachments;
+    private APISendGridEmailSender preparedApiSendGridSendHelper;
 
     /**
      * Private no-argument constructor to prevent direct instantiation without required parameters.
@@ -186,6 +200,39 @@ public class EmailSender {
         }
     }
 
+    public boolean supportsOutboundArchive() {
+        return emailConfig.getEmailType() == EmailConfig.EmailType.API
+                && emailConfig.getEmailProvider() == EmailConfig.EmailProvider.SENDGRID;
+    }
+
+    public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
+        if (!supportsOutboundArchive()) {
+            throw new EmailSendingException("Outbound email archive is not supported for this email configuration");
+        }
+
+        preparedApiSendGridSendHelper = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
+        byte[] artifactBytes = preparedApiSendGridSendHelper.preparePayloadBytes();
+
+        OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
+        archiveRequest.setEmailLog(emailLog);
+        archiveRequest.setArtifactBytes(artifactBytes);
+        archiveRequest.setFileName("outbound-email-" + emailLog.getId() + "-sendgrid.json");
+        archiveRequest.setContentType(JSON_CONTENT_TYPE);
+        archiveRequest.setArtifactType(OutboundEmailArchive.ARTIFACT_TYPE_API_PAYLOAD);
+        archiveRequest.setTransportType(emailConfig.getEmailType().name());
+        archiveRequest.setProviderName(emailConfig.getEmailProvider().name());
+        archiveRequest.setAttachments(buildAttachmentArchiveMetadata());
+        return archiveRequest;
+    }
+
+    public void sendPrepared() throws EmailSendingException {
+        if (preparedApiSendGridSendHelper == null) {
+            send();
+            return;
+        }
+        preparedApiSendGridSendHelper.sendPreparedPayload();
+    }
+
     /**
      * Sends email using API-based providers.
      *
@@ -216,5 +263,47 @@ public class EmailSender {
         }
     }
 
-    // For debugging
+    private List<OutboundEmailArchiveAttachmentDto> buildAttachmentArchiveMetadata() throws EmailSendingException {
+        if (attachments == null || attachments.isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            java.util.ArrayList<OutboundEmailArchiveAttachmentDto> attachmentDtos = new java.util.ArrayList<>();
+            for (EmailAttachment attachment : attachments) {
+                attachmentDtos.add(buildAttachmentArchiveMetadata(attachment));
+            }
+            return attachmentDtos;
+        } catch (IOException e) {
+            throw new EmailSendingException("Failed to read email attachment for archive", e);
+        }
+    }
+
+    private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(EmailAttachment attachment) throws IOException {
+        Path attachmentPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+        OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
+        attachmentDto.setFileName(attachment.getFileName());
+        attachmentDto.setContentType(PDF_CONTENT_TYPE);
+        attachmentDto.setSha256Hash(sha256Hex(attachmentPath));
+        attachmentDto.setByteSize(Files.size(attachmentPath));
+        attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
+        attachmentDto.setSourceDocumentId(attachment.getDocumentId());
+        return attachmentDto;
+    }
+
+    private String sha256Hex(Path path) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream inputStream = Files.newInputStream(path)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    digest.update(buffer, 0, bytesRead);
+                }
+            }
+            return HEX_FORMAT.formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
 }
