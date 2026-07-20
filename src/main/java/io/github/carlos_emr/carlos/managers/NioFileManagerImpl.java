@@ -559,9 +559,10 @@ public class NioFileManagerImpl implements NioFileManager {
                 normalizedSourceDir = PathValidationUtils.validateExistingPath(
                         normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
             }
-            // codeql[java/path-injection] -- containment-validated above (application-temp or document
-            // root); the directory is only stat'd and hashed into a cache key, never read as content.
-            if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
+            // The directory is containment-validated above (application-temp or document root) and is
+            // only stat'd and hashed into a cache key, never read as content — the suppression must sit
+            // on the flagged sink line itself to take effect.
+            if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) { // codeql[java/path-injection]
                 if (log.isErrorEnabled()) {
                     log.error("Source directory does not exist or is not a directory: {}", LogSafe.sanitize(sourceDirectory, 1024));
                 }
