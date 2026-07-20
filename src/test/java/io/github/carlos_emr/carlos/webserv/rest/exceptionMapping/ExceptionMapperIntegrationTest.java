@@ -24,7 +24,12 @@ package io.github.carlos_emr.carlos.webserv.rest.exceptionMapping;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider;
+import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector;
 
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
@@ -125,12 +130,28 @@ class ExceptionMapperIntegrationTest {
     private record Result(int status, String contentType, String body) {
     }
 
+    /**
+     * Builds a JSON provider whose ObjectMapper mirrors the production {@code jacksonObjectMapper}:
+     * a Jackson-primary / JAXB-secondary introspector pair. This is what makes {@code @JsonInclude}
+     * (null {@code details} omission) and {@code @JsonPropertyOrder} take effect — a JAXB-only
+     * introspector would silently ignore them, which is the exact defect this test guards against.
+     */
+    private static JacksonJsonProvider productionLikeJsonProvider() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setAnnotationIntrospector(new AnnotationIntrospectorPair(
+                new JacksonAnnotationIntrospector(),
+                new JakartaXmlBindAnnotationIntrospector(TypeFactory.defaultInstance())));
+        JacksonJsonProvider provider = new JacksonJsonProvider();
+        provider.setMapper(mapper);
+        return provider;
+    }
+
     @BeforeAll
     static void startServer() {
         JAXRSServerFactoryBean factory = new JAXRSServerFactoryBean();
         factory.setResourceClasses(ThrowingResource.class);
         factory.setProviders(List.of(
-                new JacksonJsonProvider(),
+                productionLikeJsonProvider(),
                 new GeneralExceptionMapper(),
                 new AccessDeniedExceptionMapper(),
                 new SecurityExceptionMapper(),
@@ -194,6 +215,8 @@ class ExceptionMapperIntegrationTest {
 
         assertThat(response.status()).isEqualTo(400);
         assertThat(response.body()).contains("\"code\":\"VALIDATION_ERROR\"");
+        // Null details must be omitted from the serialized body (issue #242 contract).
+        assertThat(response.body()).doesNotContain("details");
     }
 
     @Test
