@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CARLOS Patient Portal Mocks</title>
+  <link rel="stylesheet" href="../src/main/webapp/css/fontawesome-all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="mock-shell">
+    <aside class="screen-rail" aria-label="Mock screens">
+      <div class="rail-brand">
+        <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="rail-logo">
+        <div>
+          <strong>CARLOS</strong>
+          <span>Patient Portal</span>
+        </div>
+      </div>
+      <button class="screen-link active" data-screen="signin"><i class="fas fa-sign-in-alt"></i><span>Sign in</span></button>
+      <button class="screen-link" data-screen="mfa"><i class="fas fa-key"></i><span>MFA</span></button>
+      <button class="screen-link" data-screen="dashboard"><i class="fas fa-th-large"></i><span>Dashboard</span></button>
+      <button class="screen-link" data-screen="passwords"><i class="fas fa-lock"></i><span>Email passwords</span></button>
+      <button class="screen-link" data-screen="account"><i class="fas fa-user-cog"></i><span>Account</span></button>
+      <button class="screen-link" data-screen="staff"><i class="fas fa-user-md"></i><span>Staff admin</span></button>
+      <button class="screen-link" data-screen="messages"><i class="fas fa-comments"></i><span>Messages later</span></button>
+    </aside>
+
+    <main class="screen-stage">
+      <section class="portal-screen active" id="signin" aria-label="Sign in mock">
+        <header class="patient-topbar compact">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>North River Family Health</span>
+            </div>
+          </div>
+          <div class="language-switch" aria-label="Language">
+            <button class="text-tab selected">EN</button>
+            <button class="text-tab">FR</button>
+          </div>
+        </header>
+
+        <div class="auth-layout">
+          <section class="auth-panel" aria-labelledby="signin-title">
+            <h1 id="signin-title">Sign in</h1>
+            <form class="form-stack">
+              <label>
+                <span>Username</span>
+                <input type="text" value="jane.brook" autocomplete="username">
+              </label>
+              <label>
+                <span>Password</span>
+                <input type="password" value="mockpassword" autocomplete="current-password">
+              </label>
+              <button class="primary-action" type="button"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
+              <div class="form-links">
+                <a href="#">Forgot password</a>
+                <a href="#">Need help</a>
+              </div>
+            </form>
+          </section>
+
+          <section class="status-strip" aria-label="Portal status">
+            <div class="status-item good">
+              <i class="fas fa-check-circle"></i>
+              <span>Portal available</span>
+            </div>
+            <div class="status-item">
+              <i class="fas fa-clock"></i>
+              <span>Session length: 1 hour</span>
+            </div>
+            <div class="status-item">
+              <i class="fas fa-shield-alt"></i>
+              <span>MFA required</span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="mfa" aria-label="MFA mock">
+        <header class="patient-topbar compact">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>North River Family Health</span>
+            </div>
+          </div>
+          <button class="topbar-button"><i class="fas fa-question-circle"></i><span>Help</span></button>
+        </header>
+
+        <div class="auth-layout">
+          <section class="auth-panel" aria-labelledby="mfa-title">
+            <h1 id="mfa-title">Enter security code</h1>
+            <div class="destination-line">
+              <i class="fas fa-envelope"></i>
+              <span>Code sent to ja***@example.ca</span>
+            </div>
+            <div class="code-row" aria-label="Security code">
+              <input inputmode="numeric" maxlength="1" value="4">
+              <input inputmode="numeric" maxlength="1" value="8">
+              <input inputmode="numeric" maxlength="1" value="2">
+              <input inputmode="numeric" maxlength="1" value="">
+              <input inputmode="numeric" maxlength="1" value="">
+              <input inputmode="numeric" maxlength="1" value="">
+            </div>
+            <div class="button-row">
+              <button class="primary-action" type="button"><i class="fas fa-check"></i><span>Verify</span></button>
+              <button class="secondary-action" type="button"><i class="fas fa-redo"></i><span>Resend</span></button>
+            </div>
+            <p class="quiet-line">Code expires at 10:42 AM</p>
+          </section>
+
+          <section class="status-strip" aria-label="Security status">
+            <div class="status-item">
+              <i class="fas fa-mobile-alt"></i>
+              <span>SMS available for this clinic</span>
+            </div>
+            <div class="status-item warn">
+              <i class="fas fa-hourglass-half"></i>
+              <span>1 email code per minute</span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="dashboard" aria-label="Dashboard mock">
+        <header class="patient-topbar">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>Jane Brook · North River Family Health</span>
+            </div>
+          </div>
+          <nav class="patient-nav" aria-label="Portal navigation">
+            <button class="selected">Dashboard</button>
+            <button>Email passwords</button>
+            <button>Account</button>
+            <button>Help</button>
+          </nav>
+          <button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-power-off"></i></button>
+        </header>
+
+        <div class="workspace">
+          <section class="module-grid" aria-label="Portal modules">
+            <button class="module-tile">
+              <i class="fas fa-lock"></i>
+              <span>Email passwords</span>
+              <small>3 available</small>
+            </button>
+            <button class="module-tile">
+              <i class="fas fa-user-cog"></i>
+              <span>Account</span>
+              <small>Password, contact, MFA</small>
+            </button>
+            <button class="module-tile">
+              <i class="fas fa-life-ring"></i>
+              <span>Help</span>
+              <small>Clinic contact</small>
+            </button>
+            <button class="module-tile disabled" aria-disabled="true">
+              <i class="fas fa-file-medical"></i>
+              <span>Documents</span>
+              <small>Not enabled</small>
+            </button>
+            <button class="module-tile disabled" aria-disabled="true">
+              <i class="fas fa-comments"></i>
+              <span>Messages</span>
+              <small>Later phase</small>
+            </button>
+          </section>
+
+          <aside class="side-panel" aria-label="Account status">
+            <h2>Account</h2>
+            <dl class="summary-list">
+              <div><dt>MFA</dt><dd class="pill good">Enabled</dd></div>
+              <div><dt>Session</dt><dd>42 min left</dd></div>
+              <div><dt>Contact</dt><dd>Verified</dd></div>
+            </dl>
+            <button class="secondary-action full-width"><i class="fas fa-phone"></i><span>Clinic help</span></button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="passwords" aria-label="Email passwords mock">
+        <header class="patient-topbar">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>Email passwords</strong>
+              <span>Jane Brook · North River Family Health</span>
+            </div>
+          </div>
+          <nav class="patient-nav" aria-label="Portal navigation">
+            <button>Dashboard</button>
+            <button class="selected">Email passwords</button>
+            <button>Account</button>
+            <button>Help</button>
+          </nav>
+          <button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-power-off"></i></button>
+        </header>
+
+        <div class="toolbar">
+          <label class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="search" value="blood" aria-label="Search email records">
+          </label>
+          <select aria-label="Provider">
+            <option>All providers</option>
+            <option>Dr. A. Singh</option>
+            <option>Dr. M. Lee</option>
+          </select>
+          <select aria-label="Date">
+            <option>Last 12 months</option>
+            <option>Last 30 days</option>
+          </select>
+          <button class="secondary-action"><i class="fas fa-filter"></i><span>Filter</span></button>
+        </div>
+
+        <div class="record-list" aria-label="Unlock passwords">
+          <article class="record-row">
+            <div class="record-main">
+              <div class="record-title">Bloodwork requisition follow-up</div>
+              <div class="record-meta">Jul 18, 2026 · Dr. A. Singh · North River Family Health</div>
+            </div>
+            <div class="password-chip" aria-label="Unlock password">R7KQ-MP3X-9VTA-2NHD</div>
+            <button class="icon-button" title="Copy password" aria-label="Copy password"><i class="fas fa-copy"></i></button>
+          </article>
+          <article class="record-row">
+            <div class="record-main">
+              <div class="record-title">Specialist referral package</div>
+              <div class="record-meta">Jul 12, 2026 · Referral clerk · Lakeside Cardiology</div>
+            </div>
+            <div class="password-chip" aria-label="Unlock password">K8MJ-2TQX-D4PN-7RFA</div>
+            <button class="icon-button" title="Copy password" aria-label="Copy password"><i class="fas fa-copy"></i></button>
+          </article>
+          <article class="record-row unavailable">
+            <div class="record-main">
+              <div class="record-title">Insurance form copy</div>
+              <div class="record-meta">Jun 28, 2026 · Admin team · North River Family Health</div>
+            </div>
+            <div class="password-chip muted" aria-label="Unavailable">Unavailable</div>
+            <button class="icon-button" title="Unavailable" aria-label="Unavailable" disabled><i class="fas fa-ban"></i></button>
+          </article>
+        </div>
+
+        <footer class="pagination-bar" aria-label="Pagination">
+          <button class="secondary-action" disabled><i class="fas fa-chevron-left"></i><span>Previous</span></button>
+          <span>Page 1 of 1</span>
+          <button class="secondary-action" disabled><span>Next</span><i class="fas fa-chevron-right"></i></button>
+        </footer>
+      </section>
+
+      <section class="portal-screen" id="account" aria-label="Account mock">
+        <header class="patient-topbar">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>Account</strong>
+              <span>jane.brook</span>
+            </div>
+          </div>
+          <nav class="patient-nav" aria-label="Portal navigation">
+            <button>Dashboard</button>
+            <button>Email passwords</button>
+            <button class="selected">Account</button>
+            <button>Help</button>
+          </nav>
+          <button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-power-off"></i></button>
+        </header>
+
+        <div class="settings-grid">
+          <section class="settings-panel">
+            <h2>Profile</h2>
+            <dl class="summary-list">
+              <div><dt>Username</dt><dd>jane.brook</dd></div>
+              <div><dt>Email</dt><dd>ja***@example.ca</dd></div>
+              <div><dt>Phone</dt><dd>***-***-1284</dd></div>
+            </dl>
+            <div class="button-row">
+              <button class="secondary-action"><i class="fas fa-edit"></i><span>Change</span></button>
+              <button class="secondary-action"><i class="fas fa-sync"></i><span>Request CARLOS update</span></button>
+            </div>
+          </section>
+
+          <section class="settings-panel">
+            <h2>Security</h2>
+            <dl class="summary-list">
+              <div><dt>Password</dt><dd>Changed Jun 20, 2026</dd></div>
+              <div><dt>MFA</dt><dd class="pill good">Email enabled</dd></div>
+              <div><dt>SMS</dt><dd class="pill warn">Optional</dd></div>
+            </dl>
+            <div class="button-row">
+              <button class="secondary-action"><i class="fas fa-key"></i><span>Password</span></button>
+              <button class="secondary-action"><i class="fas fa-shield-alt"></i><span>MFA</span></button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="staff" aria-label="Staff admin mock">
+        <header class="staff-topbar">
+          <div class="staff-nav">
+            <span class="tiny-logo"><img src="../src/main/webapp/images/oscar_logo_small.png" alt=""></span>
+            <a href="#">Schedule</a>
+            <a href="#">Search</a>
+            <a href="#">Inbox</a>
+            <a href="#">Msg</a>
+            <a href="#">eDoc</a>
+            <a href="#">Administration</a>
+          </div>
+          <div class="staff-user"><i class="fas fa-user"></i><span>doctor carlosdoc</span></div>
+        </header>
+
+        <div class="staff-workspace">
+          <section class="staff-panel">
+            <div class="panel-titlebar">
+              <h1>Patient portal</h1>
+              <span>Jane Brook · demographic_no 10234</span>
+            </div>
+            <div class="staff-toolbar">
+              <button class="toolbar-link"><i class="fas fa-envelope"></i><span>Invite</span></button>
+              <button class="toolbar-link"><i class="fas fa-redo"></i><span>Resend</span></button>
+              <button class="toolbar-link"><i class="fas fa-unlock"></i><span>Unlock</span></button>
+              <button class="toolbar-link danger"><i class="fas fa-ban"></i><span>Revoke</span></button>
+            </div>
+            <table class="staff-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Username</th>
+                  <th>MFA</th>
+                  <th>Last invite</th>
+                  <th>Audit</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="pill good">Active</span></td>
+                  <td>jane.brook</td>
+                  <td>Email</td>
+                  <td>Accepted Jul 10, 2026</td>
+                  <td>12 events</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="staff-panel">
+            <div class="panel-titlebar">
+              <h2>Masked patient-view preview</h2>
+              <span>Raw password hidden</span>
+            </div>
+            <article class="record-row staff-preview">
+              <div class="record-main">
+                <div class="record-title">Bloodwork requisition follow-up</div>
+                <div class="record-meta">Patient sees date, sender, subject, and status</div>
+              </div>
+              <div class="password-chip muted">••••-••••-••••-••••</div>
+            </article>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="messages" aria-label="Future patient messages mock">
+        <header class="patient-topbar future">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>Messages</strong>
+              <span>Future module</span>
+            </div>
+          </div>
+          <nav class="patient-nav" aria-label="Portal navigation">
+            <button>Dashboard</button>
+            <button>Documents</button>
+            <button class="selected">Messages</button>
+          </nav>
+        </header>
+
+        <div class="message-layout">
+          <section class="thread-list" aria-label="Message threads">
+            <button class="thread selected">
+              <strong>Follow-up request</strong>
+              <span>Needs acknowledgement</span>
+            </button>
+            <button class="thread">
+              <strong>Form reminder</strong>
+              <span>Response enabled</span>
+            </button>
+          </section>
+          <section class="message-thread" aria-label="Selected message">
+            <div class="message-header">
+              <h1>Follow-up request</h1>
+              <span class="pill warn">Not acknowledged</span>
+            </div>
+            <div class="message-bubble staff-message">
+              <div class="sender-line">North River Family Health</div>
+              <p>Please review the attached document before your appointment.</p>
+              <button class="secondary-action"><i class="fas fa-paperclip"></i><span>Referral package</span></button>
+            </div>
+            <div class="message-actions">
+              <button class="primary-action"><i class="fas fa-check"></i><span>Acknowledge</span></button>
+              <button class="secondary-action"><i class="fas fa-reply"></i><span>Reply</span></button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const links = document.querySelectorAll('.screen-link');
+    const screens = document.querySelectorAll('.portal-screen');
+
+    links.forEach((link) => {
+      link.addEventListener('click', () => {
+        links.forEach((item) => item.classList.remove('active'));
+        screens.forEach((screen) => screen.classList.remove('active'));
+        link.classList.add('active');
+        document.getElementById(link.dataset.screen).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
