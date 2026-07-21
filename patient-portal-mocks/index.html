@@ -96,6 +96,53 @@
         </div>
       </section>
 
+      <section class="portal-screen" id="locked" aria-label="Locked account mock">
+        <header class="patient-topbar compact">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>Maple Creek Medical</span>
+            </div>
+          </div>
+          <div class="language-switch" aria-label="Language">
+            <button class="text-tab selected">EN</button>
+            <button class="text-tab">FR</button>
+            <button class="text-tab">ES</button>
+            <button class="text-tab">PL</button>
+            <button class="text-tab">PT-BR</button>
+          </div>
+        </header>
+
+        <div class="auth-layout single">
+          <section class="auth-panel locked-panel" aria-labelledby="locked-title">
+            <div class="lock-status-icon" aria-hidden="true">
+              <i class="fas fa-lock"></i>
+            </div>
+            <h1 id="locked-title">Account locked</h1>
+            <p class="locked-message">This portal account is locked and cannot be used to sign in right now.</p>
+            <div class="locked-guidance">
+              <div>
+                <i class="fas fa-envelope"></i>
+                <span>Check your email for the account lock notice.</span>
+              </div>
+              <div>
+                <i class="fas fa-clinic-medical"></i>
+                <span>Contact Maple Creek Medical to unlock the account.</span>
+              </div>
+              <div>
+                <i class="fas fa-key"></i>
+                <span>After unlock, use the fresh reset link to choose a new password.</span>
+              </div>
+            </div>
+            <div class="button-row">
+              <button class="primary-action" type="button"><i class="fas fa-phone"></i><span>Clinic help</span></button>
+              <button class="secondary-action" type="button" data-target="signin"><i class="fas fa-arrow-left"></i><span>Back to sign in</span></button>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section class="portal-screen" id="dashboard" aria-label="Dashboard mock">
         <header class="patient-topbar">
           <div class="brand-lockup">

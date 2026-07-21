@@ -179,6 +179,53 @@ a:hover {
   padding: 18px;
 }
 
+.locked-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.lock-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: #fff;
+  background: var(--amber);
+  border-radius: 4px;
+  font-size: 20px;
+}
+
+.locked-message {
+  margin: -4px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.locked-guidance {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: #fff8e8;
+  border: 1px solid #efd596;
+  border-radius: 4px;
+}
+
+.locked-guidance div {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: #3d2c0c;
+  line-height: 1.35;
+}
+
+.locked-guidance i {
+  margin-top: 2px;
+  color: var(--amber);
+  text-align: center;
+}
+
 h1,
 h2 {
   margin: 0 0 12px;
