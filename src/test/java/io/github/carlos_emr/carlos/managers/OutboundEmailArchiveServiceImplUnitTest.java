@@ -419,6 +419,20 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject archive without eDoc write authority")
+    void shouldRejectArchive_whenCallerLacksEdocWriteAuthority() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+
+        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_edoc)");
+
+        verifyNoInteractions(documentManager);
+    }
+
+    @Test
     @DisplayName("should reject archive without patient access")
     void shouldRejectArchive_whenCallerCannotAccessPatientRecord() {
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);

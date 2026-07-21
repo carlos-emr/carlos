@@ -167,7 +167,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      * @return persisted outbound email archive metadata linked to the stored eDoc
      * @throws IOException if writing the archive artifact through the document manager fails
      * @throws IllegalArgumentException if required request, provider, email log, artifact, or demographic data is missing or invalid
-     * @throws SecurityException if the current user lacks access to archive the target demographic's document
+     * @throws SecurityException if the current user lacks eDoc write privilege or access to archive the target demographic's document
      */
     @Override
     @Transactional(rollbackFor = IOException.class)
@@ -538,6 +538,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     }
 
     private void authorizeArchiveAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
         if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("not authorized for outbound email archive demographic");
         }
