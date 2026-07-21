@@ -548,6 +548,25 @@ h2 {
   text-align: right;
 }
 
+.sync-note {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  margin: 10px 0 0;
+  padding: 8px 9px;
+  color: var(--muted);
+  background: #f8f9fb;
+  border: 1px solid #e2e6ef;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.sync-note i {
+  margin-top: 1px;
+  color: var(--carlos-blue);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
