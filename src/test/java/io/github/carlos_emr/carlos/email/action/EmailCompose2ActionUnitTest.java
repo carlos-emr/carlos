@@ -98,7 +98,6 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     void shouldCapPendingComposeSubmissionStates_whenMaxExceeded() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         String oldestToken = null;
-        List<String> tokens = new ArrayList<>();
         try {
             for (int i = 0; i <= EmailCompose2Action.MAX_PENDING_EMAIL_COMPOSE_STATES; i++) {
                 String token = EmailCompose2Action.storeEmailComposeSubmissionState(
@@ -106,7 +105,6 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                         "password" + i,
                         EmailPdfPasswordService.DELIVERY_INSTRUCTION,
                         List.of());
-                tokens.add(token);
                 if (i == 0) {
                     oldestToken = token;
                 }
