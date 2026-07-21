@@ -46,8 +46,148 @@
               </label>
               <button class="primary-action" type="button" data-target="mfa"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
               <div class="form-links">
-                <a href="#">Forgot your portal password?</a>
-                <a href="#">Activate your portal account</a>
+                <a href="#reset" data-target="reset">Forgot your portal password?</a>
+                <a href="#activate" data-target="activate">Activate your portal account</a>
+              </div>
+              <p class="clinic-help-line"><i class="fas fa-phone"></i><span>Need help? <a href="#">Contact Maple Creek Medical</a></span></p>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="signin-error" aria-label="Sign in error mock">
+        <header class="patient-topbar compact">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>Maple Creek Medical</span>
+            </div>
+          </div>
+          <div class="language-switch" aria-label="Language">
+            <button class="text-tab selected">EN</button>
+            <button class="text-tab">FR</button>
+            <button class="text-tab">ES</button>
+            <button class="text-tab">PL</button>
+            <button class="text-tab">PT-BR</button>
+          </div>
+        </header>
+
+        <div class="auth-layout single">
+          <section class="auth-panel" aria-labelledby="signin-error-title">
+            <h1 id="signin-error-title">Sign in</h1>
+            <div class="form-alert error" role="alert">
+              <i class="fas fa-exclamation-circle"></i>
+              <span>The username or password was not accepted.</span>
+            </div>
+            <form class="form-stack">
+              <label>
+                <span>Username</span>
+                <input type="text" value="patient.username" autocomplete="username">
+              </label>
+              <label>
+                <span>Password</span>
+                <div class="password-input-row">
+                  <input type="password" value="mockpassword" autocomplete="current-password">
+                  <button class="icon-button password-toggle" type="button" title="Show password" aria-label="Show password" data-toggle-password>
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </div>
+              </label>
+              <button class="primary-action" type="button" data-target="mfa"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
+              <div class="form-links">
+                <a href="#reset" data-target="reset">Forgot your portal password?</a>
+                <a href="#activate" data-target="activate">Activate your portal account</a>
+              </div>
+              <p class="quiet-line">Too many failed attempts may lock this account.</p>
+              <p class="clinic-help-line"><i class="fas fa-phone"></i><span>Need help? <a href="#">Contact Maple Creek Medical</a></span></p>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="activate" aria-label="Activation mock">
+        <header class="patient-topbar compact">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>Maple Creek Medical</span>
+            </div>
+          </div>
+          <div class="language-switch" aria-label="Language">
+            <button class="text-tab selected">EN</button>
+            <button class="text-tab">FR</button>
+            <button class="text-tab">ES</button>
+            <button class="text-tab">PL</button>
+            <button class="text-tab">PT-BR</button>
+          </div>
+        </header>
+
+        <div class="auth-layout single">
+          <section class="auth-panel" aria-labelledby="activate-title">
+            <h1 id="activate-title">Activate account</h1>
+            <form class="form-stack">
+              <label>
+                <span>Invite code</span>
+                <input type="text" value="MC-000000" autocomplete="one-time-code">
+              </label>
+              <label>
+                <span>Email</span>
+                <input type="email" value="patient@example.ca" autocomplete="email">
+              </label>
+              <label>
+                <span>Health card</span>
+                <input type="text" value="•••• 0000" autocomplete="off">
+              </label>
+              <button class="primary-action" type="button" data-target="mfa"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
+              <p class="plain-note">Activation requires a clinic invitation. Details are checked together before any account information is shown.</p>
+              <div class="form-links">
+                <a href="#signin" data-target="signin">Back to sign in</a>
+              </div>
+              <p class="clinic-help-line"><i class="fas fa-phone"></i><span>Need help? <a href="#">Contact Maple Creek Medical</a></span></p>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="reset" aria-label="Password reset mock">
+        <header class="patient-topbar compact">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>Maple Creek Medical</span>
+            </div>
+          </div>
+          <div class="language-switch" aria-label="Language">
+            <button class="text-tab selected">EN</button>
+            <button class="text-tab">FR</button>
+            <button class="text-tab">ES</button>
+            <button class="text-tab">PL</button>
+            <button class="text-tab">PT-BR</button>
+          </div>
+        </header>
+
+        <div class="auth-layout single">
+          <section class="auth-panel" aria-labelledby="reset-title">
+            <h1 id="reset-title">Reset password</h1>
+            <form class="form-stack">
+              <label>
+                <span>Username</span>
+                <input type="text" value="patient.username" autocomplete="username">
+              </label>
+              <label>
+                <span>Email</span>
+                <input type="email" value="patient@example.ca" autocomplete="email">
+              </label>
+              <button class="primary-action" type="button"><i class="fas fa-envelope"></i><span>Send reset link</span></button>
+              <div class="form-alert neutral" role="status">
+                <i class="fas fa-info-circle"></i>
+                <span>If the details match a portal account, a reset link will be sent.</span>
+              </div>
+              <div class="form-links">
+                <a href="#signin" data-target="signin">Back to sign in</a>
               </div>
               <p class="clinic-help-line"><i class="fas fa-phone"></i><span>Need help? <a href="#">Contact Maple Creek Medical</a></span></p>
             </form>
@@ -98,6 +238,68 @@
               <button class="secondary-action" type="button"><i class="fas fa-redo"></i><span>Resend</span></button>
             </div>
             <p class="quiet-line">Code expires at 10:42 AM</p>
+          </section>
+
+          <section class="status-strip" aria-label="Security status">
+            <div class="status-item">
+              <i class="fas fa-mobile-alt"></i>
+              <span>SMS available for this clinic</span>
+            </div>
+            <div class="status-item warn">
+              <i class="fas fa-hourglass-half"></i>
+              <span data-mfa-rate>1 email code per minute</span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="portal-screen" id="mfa-error" aria-label="MFA error mock">
+        <header class="patient-topbar compact mfa-topbar">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>CARLOS Patient Portal</strong>
+              <span>Maple Creek Medical</span>
+            </div>
+          </div>
+          <button class="topbar-button"><i class="fas fa-question-circle"></i><span>Help</span></button>
+        </header>
+
+        <div class="auth-layout">
+          <section class="auth-panel" aria-labelledby="mfa-error-title">
+            <h1 id="mfa-error-title">Enter security code</h1>
+            <div class="form-alert error" role="alert">
+              <i class="fas fa-exclamation-circle"></i>
+              <span>The code was not accepted.</span>
+            </div>
+            <div class="destination-line" aria-live="polite">
+              <i class="fas fa-envelope" data-mfa-destination-icon></i>
+              <span data-mfa-destination>Code sent to ja***@example.ca</span>
+            </div>
+            <div class="mfa-method-switch">
+              <span>Send code by</span>
+              <div class="segmented-control" role="group" aria-label="MFA delivery method">
+                <button class="selected" type="button" aria-pressed="true" data-mfa-method data-icon="fa-envelope" data-destination="Code sent to ja***@example.ca" data-rate="1 email code per minute">
+                  <i class="fas fa-envelope"></i><span>Email</span>
+                </button>
+                <button type="button" aria-pressed="false" data-mfa-method data-icon="fa-mobile-alt" data-destination="Code sent to ***-***-1284" data-rate="1 SMS code per 5 minutes">
+                  <i class="fas fa-mobile-alt"></i><span>SMS</span>
+                </button>
+              </div>
+            </div>
+            <div class="code-row" aria-label="Security code">
+              <input inputmode="numeric" maxlength="1" value="4">
+              <input inputmode="numeric" maxlength="1" value="8">
+              <input inputmode="numeric" maxlength="1" value="1">
+              <input inputmode="numeric" maxlength="1" value="">
+              <input inputmode="numeric" maxlength="1" value="">
+              <input inputmode="numeric" maxlength="1" value="">
+            </div>
+            <div class="button-row">
+              <button class="primary-action" type="button" data-target="dashboard"><i class="fas fa-check"></i><span>Verify</span></button>
+              <button class="secondary-action" type="button"><i class="fas fa-redo"></i><span>Resend</span></button>
+            </div>
+            <p class="quiet-line">Try again or request a new code.</p>
           </section>
 
           <section class="status-strip" aria-label="Security status">
@@ -288,6 +490,55 @@
         </footer>
       </section>
 
+      <section class="portal-screen" id="passwords-empty" aria-label="Empty email passwords mock">
+        <header class="patient-topbar session-topbar">
+          <div class="brand-lockup">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
+            <div>
+              <strong>Email passwords</strong>
+              <span>example patient · Maple Creek Medical</span>
+            </div>
+          </div>
+          <nav class="patient-nav" aria-label="Portal navigation">
+            <button data-target="dashboard">Dashboard</button>
+            <button class="selected" data-target="passwords">Email passwords</button>
+            <button data-target="account">Account</button>
+            <button>Help</button>
+          </nav>
+          <button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-power-off"></i></button>
+        </header>
+
+        <div class="toolbar">
+          <label class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="search" value="" aria-label="Search email records" placeholder="Search email records">
+          </label>
+          <select aria-label="Provider">
+            <option>All providers</option>
+            <option>Dr example</option>
+            <option>Clinic staff</option>
+          </select>
+          <select aria-label="Date">
+            <option>Last 12 months</option>
+            <option>Last 30 days</option>
+          </select>
+          <button class="secondary-action"><i class="fas fa-filter"></i><span>Filter</span></button>
+        </div>
+
+        <div class="empty-state" role="status">
+          <i class="fas fa-inbox" aria-hidden="true"></i>
+          <h2>No available email passwords</h2>
+          <p>Generated PDF passphrases appear here after Maple Creek Medical sends a portal-linked encrypted email.</p>
+          <button class="secondary-action" type="button"><i class="fas fa-phone"></i><span>Clinic help</span></button>
+        </div>
+
+        <footer class="pagination-bar" aria-label="Pagination">
+          <button class="secondary-action" disabled><i class="fas fa-chevron-left"></i><span>Previous</span></button>
+          <span>Page 1 of 1</span>
+          <button class="secondary-action" disabled><span>Next</span><i class="fas fa-chevron-right"></i></button>
+        </footer>
+      </section>
+
       <section class="portal-screen" id="account" aria-label="Account mock">
         <header class="patient-topbar session-topbar">
           <div class="brand-lockup">
@@ -467,7 +718,8 @@
     }
 
     document.querySelectorAll('[data-target]').forEach((button) => {
-      button.addEventListener('click', () => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
         showScreen(button.dataset.target);
       });
     });
@@ -487,11 +739,12 @@
 
     document.querySelectorAll('[data-mfa-method]').forEach((button) => {
       button.addEventListener('click', () => {
+        const screen = button.closest('.portal-screen');
         const panel = button.closest('.auth-panel');
         const destination = panel?.querySelector('[data-mfa-destination]');
         const destinationIcon = panel?.querySelector('[data-mfa-destination-icon]');
-        const rate = document.querySelector('[data-mfa-rate]');
-        document.querySelectorAll('[data-mfa-method]').forEach((option) => {
+        const rate = screen?.querySelector('[data-mfa-rate]');
+        screen?.querySelectorAll('[data-mfa-method]').forEach((option) => {
           const selected = option === button;
           option.classList.toggle('selected', selected);
           option.setAttribute('aria-pressed', selected ? 'true' : 'false');
