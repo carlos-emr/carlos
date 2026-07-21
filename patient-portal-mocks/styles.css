@@ -713,6 +713,10 @@ h2 {
   font-weight: bold;
 }
 
+.staff-user span {
+  white-space: nowrap;
+}
+
 .staff-workspace {
   grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
 }
