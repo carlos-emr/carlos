@@ -4,6 +4,11 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MeasurementTo1;
 
+/**
+ * Utility component for converting patient measurements.
+ * Provides functions to translate measurement values between different units
+ * (e.g., metric to imperial) and formats them for display in REST API responses.
+ */
 public class MeasurementConverter extends AbstractConverter<Measurement, MeasurementTo1> {
     @Override
     public Measurement getAsDomainObject(LoggedInInfo loggedInInfo, MeasurementTo1 t) throws ConversionException {

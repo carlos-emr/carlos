@@ -1,5 +1,10 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Enumeration defining the various types of documents supported in the system.
+ * Categorizes files (e.g., PDF, IMAGE, TEXT) to determine appropriate handling,
+ * preview, and storage strategies.
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

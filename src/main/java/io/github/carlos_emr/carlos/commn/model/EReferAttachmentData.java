@@ -8,6 +8,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Entity representing the binary data or content of an eReferral attachment.
+ * Separates the heavy binary payload from the metadata to optimize database
+ * querying and memory usage during referral processing.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")

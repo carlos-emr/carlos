@@ -6,6 +6,12 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
 
+/**
+ * Custom Jackson serializer for java.sql.Date objects.
+ * Serializes SQL dates into a JSON object with separate fields for year, month, day,
+ * hours, minutes, seconds, and milliseconds, which is required by specific
+ * frontend JavaScript date parsing components.
+ */
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 

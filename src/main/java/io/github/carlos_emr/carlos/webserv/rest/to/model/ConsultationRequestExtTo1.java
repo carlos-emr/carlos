@@ -2,6 +2,11 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+/**
+ * Transfer Object representing version 1 of the extended consultation request.
+ * Used by REST endpoints to serialize/deserialize complex consultation data
+ * structures for external API communication.
+ */
 public class ConsultationRequestExtTo1 {
     private Integer id;
     private Integer requestId;

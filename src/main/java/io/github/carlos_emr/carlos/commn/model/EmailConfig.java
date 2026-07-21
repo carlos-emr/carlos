@@ -5,6 +5,11 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * Entity representing the configuration for outgoing email services.
+ * Stores settings such as provider type (SMTP/API), sender details, and
+ * JSON-formatted credentials required to establish a connection with the mail server.
+ */
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {

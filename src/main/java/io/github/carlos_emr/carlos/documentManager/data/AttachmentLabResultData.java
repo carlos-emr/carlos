@@ -6,6 +6,11 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Data container for lab results that are provided as file attachments.
+ * Holds both the metadata of the lab result and a reference to the attached
+ * document containing the detailed findings.
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;

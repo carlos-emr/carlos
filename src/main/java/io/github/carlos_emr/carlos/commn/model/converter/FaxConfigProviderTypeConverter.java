@@ -3,6 +3,11 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig.ProviderType;
 import jakarta.persistence.Converter;
 
+/**
+ * JPA attribute converter for fax configuration provider types.
+ * Converts between the application's ProviderType enum (e.g., MIDDLEWARE, SRFAX)
+ * and its persistent database representation.
+ */
 @Converter
 public class FaxConfigProviderTypeConverter extends NullSafeEnumConverter<ProviderType> {
     public FaxConfigProviderTypeConverter() {

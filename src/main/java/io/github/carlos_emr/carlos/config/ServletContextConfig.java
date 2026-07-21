@@ -8,6 +8,11 @@ import jakarta.servlet.ServletContext;
 import org.springframework.web.context.ServletContextAware;
 
 @Configuration
+/**
+ * Configuration class for servlet context initialization.
+ * Responsible for registering and configuring servlets, filters, and listeners
+ * programmatically during the application startup phase.
+ */
 public class ServletContextConfig implements ServletContextAware {
 
     private ServletContext servletContext;

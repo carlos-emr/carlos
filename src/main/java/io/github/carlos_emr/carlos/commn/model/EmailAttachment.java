@@ -5,6 +5,11 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Entity representing a file attachment associated with an outgoing email.
+ * Maintains metadata and references to the actual document content to be
+ * included in the multipart message payload.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

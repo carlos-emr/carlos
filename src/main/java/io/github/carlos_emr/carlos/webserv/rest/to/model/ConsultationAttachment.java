@@ -5,6 +5,11 @@ import java.io.Serializable;
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
+/**
+ * Model representing a document attached to a consultation request.
+ * Associates a specific file or document ID with the consultation workflow,
+ * enabling specialists to review relevant clinical information.
+ */
 public class ConsultationAttachment implements Serializable {
     private Integer id;
     private String attachmentType;

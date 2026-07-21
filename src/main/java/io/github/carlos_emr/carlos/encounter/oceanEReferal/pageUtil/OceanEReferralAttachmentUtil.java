@@ -10,6 +10,11 @@ import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Utility class for handling file attachments in Ocean eReferrals.
+ * Provides helper methods to process, convert, and attach various document
+ * formats to outbound eReferral payloads.
+ */
 public class OceanEReferralAttachmentUtil {
     private static EReferAttachmentDataDaoImpl eReferAttachmentDataDao = SpringUtils.getBean(EReferAttachmentDataDaoImpl.class);
     private static EReferAttachmentDaoImpl eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDaoImpl.class);

@@ -13,6 +13,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Represents an attachment linked to a clinical document.
+ * Encapsulates details necessary for tracking and retrieving files that have
+ * been uploaded or attached to a patient's medical record.
+ */
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private final EFormDocsDao eFormDocsDao = SpringUtils.getBean(EFormDocsDao.class);

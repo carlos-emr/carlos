@@ -15,6 +15,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Local implementation of the SMTPEmailSender.
+ * Used primarily for development or restricted environments where emails are
+ * routed through a local SMTP server (e.g., localhost) without requiring external
+ * authentication.
+ */
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 
@@ -33,6 +39,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
             String port = jsonNode.get("port").asText();
 
             // SECURITY: Only allow localhost variations
+            // Restrict LocalSMTPEmailSender strictly to local interfaces to prevent relay abuse
             if (!isLocalhost(host)) {
                 throw new EmailSendingException("local provider can only use localhost, got: " + host);
             }

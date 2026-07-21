@@ -9,6 +9,11 @@ import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Utility class for encrypting PDF documents.
+ * Uses Apache PDFBox to apply standard protection policies (password protection
+ * and encryption) to PDF files, ensuring secure storage and transmission of PHI.
+ */
 public class PDFEncryptionUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
@@ -16,6 +21,7 @@ public class PDFEncryptionUtil {
         try (PDDocument pdDocument = Loader.loadPDF(pdfPath.toFile())) {
             StandardProtectionPolicy spp = new StandardProtectionPolicy(password, password, new AccessPermission());
             spp.setEncryptionKeyLength(256);
+            // Ensure 256-bit encryption is strictly applied to meet PHI compliance standards
             pdDocument.protect(spp);
             // createSecureTempFile applies OWNER-only permissions, so the encrypted PDF is not left
             // in the world-readable system temp directory with default perms (Sonar java:S5443).
