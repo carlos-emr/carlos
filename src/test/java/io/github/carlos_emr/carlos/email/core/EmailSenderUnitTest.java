@@ -120,6 +120,21 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should leave archive provider unset when SMTP provider is missing")
+    void shouldLeaveArchiveProviderUnset_whenSmtpProviderMissing() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        emailConfig.setEmailProvider(null);
+        EmailData emailData = emailData(List.of());
+        EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.FAILED);
+        injectDependency(emailLog, "id", 45);
+        EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+
+        OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+
+        assertThat(archiveRequest.getProviderName()).isNull();
+    }
+
+    @Test
     @DisplayName("should reject SMTP archive preparation when email privilege is missing")
     void shouldRejectSmtpArchivePreparation_whenEmailPrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);

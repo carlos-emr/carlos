@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
@@ -42,10 +43,14 @@ import static org.mockito.Mockito.when;
 @DisplayName("OutboundEmailArchiveDaoImpl")
 @Tag("unit")
 @Tag("dao")
-class OutboundEmailArchiveDaoImplUnitTest {
+class OutboundEmailArchiveDaoImplUnitTest extends CarlosUnitTestBase {
 
+    private static final String FIND_BY_EMAIL_LOG_ID_JPQL =
+            "SELECT archive FROM OutboundEmailArchive archive WHERE archive.emailLog.id = :emailLogId ORDER BY archive.archivedAt DESC, archive.id DESC";
     private static final String FIND_FOR_UPDATE_JPQL =
             "SELECT archive FROM OutboundEmailArchive archive WHERE archive.id = :archiveId";
+    private static final String FIND_BY_DEMOGRAPHIC_NO_JPQL =
+            "SELECT archive FROM OutboundEmailArchive archive WHERE archive.demographic.demographicNo = :demographicNo ORDER BY archive.archivedAt DESC, archive.id DESC";
 
     private OutboundEmailArchiveDaoImpl dao;
     private EntityManager entityManager;
@@ -58,6 +63,21 @@ class OutboundEmailArchiveDaoImplUnitTest {
         query = mock(TypedQuery.class);
 
         dao.entityManager = entityManager;
+    }
+
+    @Test
+    void shouldOrderArchivesNewestFirstWithIdTiebreaker_whenFindingByEmailLog() {
+        OutboundEmailArchive archive = new OutboundEmailArchive();
+        when(entityManager.createQuery(FIND_BY_EMAIL_LOG_ID_JPQL, OutboundEmailArchive.class)).thenReturn(query);
+        when(query.setParameter("emailLogId", 44)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(archive));
+
+        List<OutboundEmailArchive> result = dao.findByEmailLogId(44);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0)).isSameAs(archive);
+        verify(entityManager).createQuery(FIND_BY_EMAIL_LOG_ID_JPQL, OutboundEmailArchive.class);
+        verify(query).setParameter("emailLogId", 44);
     }
 
     @Test
@@ -90,5 +110,20 @@ class OutboundEmailArchiveDaoImplUnitTest {
     void shouldReturnNull_whenForUpdateArchiveIdIsNull() {
         assertThat(dao.findForUpdate(null)).isNull();
         verify(entityManager, never()).createQuery(FIND_FOR_UPDATE_JPQL, OutboundEmailArchive.class);
+    }
+
+    @Test
+    void shouldOrderArchivesNewestFirstWithIdTiebreaker_whenFindingByDemographic() {
+        OutboundEmailArchive archive = new OutboundEmailArchive();
+        when(entityManager.createQuery(FIND_BY_DEMOGRAPHIC_NO_JPQL, OutboundEmailArchive.class)).thenReturn(query);
+        when(query.setParameter("demographicNo", 123)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(archive));
+
+        List<OutboundEmailArchive> result = dao.findByDemographicNo(123);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0)).isSameAs(archive);
+        verify(entityManager).createQuery(FIND_BY_DEMOGRAPHIC_NO_JPQL, OutboundEmailArchive.class);
+        verify(query).setParameter("demographicNo", 123);
     }
 }

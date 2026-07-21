@@ -525,7 +525,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         boolean canDeleteEdoc = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null);
         if (!canDeleteEdoc) {
-            throw new SecurityException("missing required sec object (_admin.edocdelete w or _edoc w)");
+            throw new SecurityException("missing required sec object (_admin.edocdelete w)");
         }
         if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("not authorized for outbound email archive demographic");

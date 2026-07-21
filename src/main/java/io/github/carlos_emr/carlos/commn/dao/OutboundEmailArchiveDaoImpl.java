@@ -42,7 +42,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
     @Override
     public List<OutboundEmailArchive> findByEmailLogId(Integer emailLogId) {
         TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
-                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.emailLog.id = :emailLogId ORDER BY archive.archivedAt DESC",
+                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.emailLog.id = :emailLogId ORDER BY archive.archivedAt DESC, archive.id DESC",
                 OutboundEmailArchive.class);
         query.setParameter("emailLogId", emailLogId);
         return query.getResultList();
@@ -65,7 +65,7 @@ public class OutboundEmailArchiveDaoImpl extends AbstractDaoImpl<OutboundEmailAr
     @Override
     public List<OutboundEmailArchive> findByDemographicNo(Integer demographicNo) {
         TypedQuery<OutboundEmailArchive> query = entityManager.createQuery(
-                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.demographic.demographicNo = :demographicNo ORDER BY archive.archivedAt DESC",
+                "SELECT archive FROM OutboundEmailArchive archive WHERE archive.demographic.demographicNo = :demographicNo ORDER BY archive.archivedAt DESC, archive.id DESC",
                 OutboundEmailArchive.class);
         query.setParameter("demographicNo", demographicNo);
         return query.getResultList();

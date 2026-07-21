@@ -79,6 +79,11 @@ public class SMTPEmailSender {
     private MimeMessage preparedMessage;
     private List<PreparedAttachment> preparedAttachments = List.of();
 
+    /**
+     * Metadata captured for an attachment that has been embedded in a prepared SMTP message.
+     *
+     * @since 2026-07-20
+     */
     public static final class PreparedAttachment {
         private final EmailAttachment attachment;
         private final Path path;
@@ -173,11 +178,10 @@ public class SMTPEmailSender {
      * @return finalized RFC 822 message bytes suitable for outbound archive storage
      * @throws EmailSendingException if message construction, attachment reading, or serialization fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
+     * @since 2026-07-20
      */
     public byte[] prepareMessageBytes() throws EmailSendingException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_email)");
-        }
+        assertEmailWritePrivilege();
 
         javaMailSender = createTLSMailSender(emailConfig);
         preparedMessage = null;
@@ -205,8 +209,11 @@ public class SMTPEmailSender {
      * Sends the message previously finalized by {@link #prepareMessageBytes()}.
      *
      * @throws EmailSendingException if the message has not been prepared or transport delivery fails
+     * @throws SecurityException if the current user lacks the required "_email" write privilege
+     * @since 2026-07-20
      */
     public void sendPreparedMessage() throws EmailSendingException {
+        assertEmailWritePrivilege();
         if (preparedMessage == null) {
             throw new EmailSendingException("SMTP message must be prepared before sending");
         }
@@ -217,8 +224,20 @@ public class SMTPEmailSender {
         }
     }
 
+    /**
+     * Returns attachment metadata captured while preparing the current SMTP message.
+     *
+     * @return prepared attachment metadata, or an empty list when no message has been prepared
+     * @since 2026-07-20
+     */
     public List<PreparedAttachment> getPreparedAttachments() {
         return preparedAttachments;
+    }
+
+    private void assertEmailWritePrivilege() {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
     }
 
     /**

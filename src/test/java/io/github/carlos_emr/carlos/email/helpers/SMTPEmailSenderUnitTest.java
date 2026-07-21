@@ -107,6 +107,27 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject prepared send when email privilege is missing")
+    void shouldRejectPreparedSend_whenEmailPrivilegeMissing() throws Exception {
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(
+                loggedInInfo,
+                smtpEmailConfig(),
+                new String[]{"patient@example.test"},
+                "Snapshot test",
+                "Body text",
+                List.of(),
+                mailSender);
+        sender.prepareMessageBytes();
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
+
+        assertThatThrownBy(sender::sendPreparedMessage)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_email)");
+        assertThat(mailSender.getSentMessageBytes()).isNull();
+    }
+
+    @Test
     @DisplayName("should reject prepared send when message was not prepared")
     void shouldRejectPreparedSend_whenMessageWasNotPrepared() {
         SMTPEmailSender sender = new TestSMTPEmailSender(

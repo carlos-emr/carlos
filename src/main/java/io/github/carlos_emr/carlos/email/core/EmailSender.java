@@ -182,6 +182,7 @@ public class EmailSender {
      * Indicates whether this sender can prepare a durable outbound archive artifact.
      *
      * @return {@code true} for SMTP configurations, where the finalized RFC 822 message can be captured before transport
+     * @since 2026-07-20
      */
     public boolean supportsOutboundArchive() {
         return emailConfig.getEmailType() == EmailConfig.EmailType.SMTP;
@@ -197,6 +198,7 @@ public class EmailSender {
      * @return archive request containing the RFC 822 artifact and attachment metadata
      * @throws EmailSendingException if this configuration cannot be archived or message preparation fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
+     * @since 2026-07-20
      */
     public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
         assertEmailWritePrivilege();
@@ -214,7 +216,7 @@ public class EmailSender {
         archiveRequest.setContentType(RFC822_CONTENT_TYPE);
         archiveRequest.setArtifactType(OutboundEmailArchive.ARTIFACT_TYPE_SMTP_RFC822);
         archiveRequest.setTransportType(emailConfig.getEmailType().name());
-        archiveRequest.setProviderName(emailConfig.getEmailProvider().name());
+        archiveRequest.setProviderName(emailConfig.getEmailProvider() != null ? emailConfig.getEmailProvider().name() : null);
         archiveRequest.setAttachments(buildAttachmentArchiveMetadata(preparedSmtpSendHelper.getPreparedAttachments()));
         return archiveRequest;
     }
@@ -224,6 +226,7 @@ public class EmailSender {
      *
      * @throws EmailSendingException if no prepared SMTP message exists or transport delivery fails
      * @throws SecurityException if the current user lacks the required "_email" write privilege
+     * @since 2026-07-20
      */
     public void sendPrepared() throws EmailSendingException {
         assertEmailWritePrivilege();
