@@ -163,8 +163,16 @@ public class EmailManager {
             OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
             outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
         } catch (IOException | RuntimeException e) {
-            throw new EmailSendingException("Failed to archive outbound email", e);
+            throw new EmailSendingException(archiveFailureMessage(e), e);
         }
+    }
+
+    private String archiveFailureMessage(Exception e) {
+        String detail = e.getMessage();
+        if (detail == null || detail.isBlank()) {
+            return "Failed to archive outbound email";
+        }
+        return "Failed to archive outbound email: " + detail;
     }
 
     /**
