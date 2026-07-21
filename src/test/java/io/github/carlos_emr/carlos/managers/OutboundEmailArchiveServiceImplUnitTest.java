@@ -141,19 +141,37 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldLoadPersistedEmailLog_beforeDerivingArchiveDemographics() throws Exception {
         EmailLog requestedEmailLog = emailLog();
         requestedEmailLog.setDemographic(new Demographic(456));
+        requestedEmailLog.setProvider(new Provider("111111"));
+        EmailConfig requestedEmailConfig = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, "requested@example.com");
+        injectDependency(requestedEmailConfig, "id", 55);
+        requestedEmailLog.setEmailConfig(requestedEmailConfig);
         OutboundEmailArchiveDto request = archiveRequest(requestedEmailLog);
+
         EmailLog persistedEmailLog = emailLog();
+        EmailConfig persistedEmailConfig = new EmailConfig(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID, "persisted@example.com");
+        Provider persistedProvider = new Provider("222222");
+        injectDependency(persistedEmailConfig, "id", 66);
+        persistedEmailLog.setDemographic(new Demographic(789));
+        persistedEmailLog.setProvider(persistedProvider);
+        persistedEmailLog.setEmailConfig(persistedEmailConfig);
         Document savedDocument = savedDocument();
         when(emailLogDao.find((Object) Integer.valueOf(44))).thenReturn(persistedEmailLog);
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 789)).thenReturn(true);
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(789), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument);
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         verify(emailLogDao).find((Object) Integer.valueOf(44));
-        verify(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(789), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(loggedInInfo, 789);
+        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(loggedInInfo, 456);
         assertThat(archive.getEmailLog()).isSameAs(persistedEmailLog);
-        assertThat(archive.getDemographic().getDemographicNo()).isEqualTo(123);
+        assertThat(archive.getDemographic().getDemographicNo()).isEqualTo(789);
+        assertThat(archive.getProvider()).isSameAs(persistedProvider);
+        assertThat(archive.getEmailConfig()).isSameAs(persistedEmailConfig);
+        assertThat(archive.getTransportType()).isEqualTo("API");
+        assertThat(archive.getProviderName()).isEqualTo("SENDGRID");
     }
 
     @Test
@@ -252,6 +270,42 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 "archiveId=888 emailLogId=44 documentNo=321",
                 "123",
                 ""));
+    }
+
+    @Test
+    @DisplayName("should delete eDoc file when archive transaction rolls back")
+    void shouldDeleteEdocFile_whenArchiveTransactionRollsBack(@TempDir Path documentDir) throws Exception {
+        CarlosProperties props = CarlosProperties.getInstance();
+        boolean hadDocumentDir = props.containsKey("DOCUMENT_DIR");
+        Object originalDocumentDir = props.get("DOCUMENT_DIR");
+        props.setProperty("DOCUMENT_DIR", documentDir.toString());
+        TransactionSynchronizationManager.initSynchronization();
+
+        try {
+            EmailLog emailLog = emailLog();
+            OutboundEmailArchiveDto request = archiveRequest(emailLog);
+            Document savedDocument = savedDocument();
+            Path archivedFile = documentDir.resolve(savedDocument.getDocfilename());
+            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                    .thenAnswer(invocation -> {
+                        Files.write(archivedFile, RFC822_BYTES);
+                        return savedDocument;
+                    });
+
+            service.archive(loggedInInfo, request);
+
+            assertThat(archivedFile).exists();
+            logActionMock.verifyNoInteractions();
+            runAfterRollbackSynchronizations();
+            assertThat(archivedFile).doesNotExist();
+            logActionMock.verifyNoInteractions();
+        } finally {
+            if (hadDocumentDir) {
+                props.put("DOCUMENT_DIR", originalDocumentDir);
+            } else {
+                props.remove("DOCUMENT_DIR");
+            }
+        }
     }
 
     @Test
@@ -582,8 +636,36 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private void runAfterCommitSynchronizations() {
         List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
         assertThat(synchronizations).isNotEmpty();
-        for (TransactionSynchronization synchronization : synchronizations) {
-            synchronization.afterCommit();
+        try {
+            for (TransactionSynchronization synchronization : synchronizations) {
+                synchronization.beforeCommit(false);
+            }
+            for (TransactionSynchronization synchronization : synchronizations) {
+                synchronization.beforeCompletion();
+            }
+            for (TransactionSynchronization synchronization : synchronizations) {
+                synchronization.afterCommit();
+            }
+            for (TransactionSynchronization synchronization : synchronizations) {
+                synchronization.afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
+            }
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    private void runAfterRollbackSynchronizations() {
+        List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+        assertThat(synchronizations).isNotEmpty();
+        try {
+            for (TransactionSynchronization synchronization : synchronizations) {
+                synchronization.beforeCompletion();
+            }
+            for (TransactionSynchronization synchronization : synchronizations) {
+                synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            }
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
         }
     }
 
