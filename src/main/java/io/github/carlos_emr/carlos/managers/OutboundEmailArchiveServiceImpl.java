@@ -42,6 +42,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,11 +52,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -68,7 +66,6 @@ import java.util.UUID;
 @Service
 public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveService {
 
-    private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final String DOCUMENT_DOCTYPE = "email";
     private static final String DOCUMENT_SOURCE = "Outbound Email Archive";
@@ -152,6 +149,21 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
     }
 
+    /**
+     * Stores an exact outbound email artifact as an eDoc and persists archive metadata.
+     *
+     * <p>The supplied request must reference a persisted {@link EmailLog}. The service reloads
+     * that log, authorizes access to the target demographic, writes the artifact through
+     * {@link DocumentManager}, registers rollback cleanup for the eDoc file, and then persists the
+     * archive row and attachment metadata in the same transaction.</p>
+     *
+     * @param loggedInInfo current user context used for authorization, eDoc ownership, and audit logging
+     * @param request archive request containing artifact bytes, log linkage, content type, and metadata
+     * @return persisted outbound email archive metadata linked to the stored eDoc
+     * @throws IOException if writing the archive artifact through the document manager fails
+     * @throws IllegalArgumentException if required request, provider, email log, artifact, or demographic data is missing or invalid
+     * @throws SecurityException if the current user lacks access to archive the target demographic's document
+     */
     @Override
     @Transactional(rollbackFor = IOException.class)
     public OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException {
@@ -199,6 +211,21 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return archive;
     }
 
+    /**
+     * Marks an outbound email archive as deleted and records a permanent deletion tombstone.
+     *
+     * <p>The archive row is loaded with a write lock, validated against legal-hold and already
+     * deleted states, marked deleted in place, and paired with an immutable tombstone row that keeps
+     * the retained artifact identity and deletion reason for audit.</p>
+     *
+     * @param loggedInInfo current user context used for authorization and audit logging
+     * @param archiveId archive record identifier to mark as deleted
+     * @param deleteReason required human-readable reason retained with the tombstone
+     * @return persisted deletion tombstone for the controlled deletion
+     * @throws IllegalArgumentException if the user context, archive identifier, reason, or archive row is missing
+     * @throws IllegalStateException if the archive is on legal hold or has already been deleted
+     * @throws SecurityException if the current user lacks controlled-delete privileges for the archive
+     */
     @Override
     @Transactional
     public OutboundEmailArchiveDeletion recordControlledDeletion(LoggedInInfo loggedInInfo, Integer archiveId, String deleteReason) {
@@ -311,7 +338,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         archive.setContentType(truncate(buildContext.contentType(), 100));
         archive.setFileName(truncate(savedDocument.getDocfilename(), 255));
         archive.setOriginalFileName(truncate(originalFileName, 255));
-        archive.setSha256Hash(sha256Hex(artifactBytes));
+        archive.setSha256Hash(DigestUtils.sha256Hex(artifactBytes));
         archive.setByteSize((long) artifactBytes.length);
         archive.setStorageType(OutboundEmailArchive.STORAGE_TYPE_EDOC);
         archive.setRetentionPolicy(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
@@ -352,7 +379,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         String sha256Hash = request.getSha256Hash();
         Long byteSize = request.getByteSize();
         if (attachmentBytes != null) {
-            sha256Hash = sha256Hex(attachmentBytes);
+            sha256Hash = DigestUtils.sha256Hex(attachmentBytes);
             byteSize = (long) attachmentBytes.length;
         }
         sha256Hash = normalizeSha256Hex(sha256Hash);
@@ -553,6 +580,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         });
     }
 
+    // File name is validated as a single path component and rechecked inside DOCUMENT_DIR before deletion.
     @SuppressFBWarnings(
             value = "PATH_TRAVERSAL_IN",
             justification = "Archive eDoc cleanup validates the generated filename as a single path component and revalidates DOCUMENT_DIR containment before deletion.")
@@ -566,15 +594,6 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             Files.deleteIfExists(archiveFile.toPath());
         } catch (IOException | SecurityException e) {
             MiscUtils.getLogger().warn("Failed to delete rolled back outbound email archive eDoc file: {}", e.getClass().getSimpleName());
-        }
-    }
-
-    private String sha256Hex(byte[] input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HEX_FORMAT.formatHex(digest.digest(input));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 }

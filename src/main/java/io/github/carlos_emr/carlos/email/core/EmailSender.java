@@ -2,12 +2,11 @@ package io.github.carlos_emr.carlos.email.core;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -56,7 +55,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public class EmailSender {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final HexFormat HEX_FORMAT = HexFormat.of();
     private static final String JSON_CONTENT_TYPE = "application/json";
     private static final String PDF_CONTENT_TYPE = "application/pdf";
 
@@ -198,11 +196,33 @@ public class EmailSender {
         }
     }
 
+    /**
+     * Indicates whether this sender can prepare a durable outbound archive artifact before delivery.
+     *
+     * <p>Only SendGrid API delivery currently supports the archive-first flow because its JSON API
+     * payload can be prepared, archived, and then sent without rebuilding the transport body.</p>
+     *
+     * @return true when the configured email type is API and the provider is SendGrid; otherwise false
+     */
     public boolean supportsOutboundArchive() {
         return emailConfig.getEmailType() == EmailConfig.EmailType.API
                 && emailConfig.getEmailProvider() == EmailConfig.EmailProvider.SENDGRID;
     }
 
+    /**
+     * Builds and caches the exact outbound SendGrid payload that should be archived before sending.
+     *
+     * <p>This method enforces the same "_email" WRITE privilege required by {@link #send()},
+     * prepares the SendGrid API payload once, builds archive metadata for the message and
+     * attachments, and keeps the prepared SendGrid helper so {@link #sendPrepared()} can send the
+     * already-archived payload instead of rebuilding it.</p>
+     *
+     * @param emailLog persisted email log that the archive record will be linked to
+     * @return archive request containing the prepared artifact bytes and attachment metadata
+     * @throws SecurityException if the current user lacks the required "_email" WRITE privilege
+     * @throws EmailSendingException if the configured transport cannot be archived or the payload
+     *         cannot be prepared for archiving
+     */
     public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog emailLog) throws EmailSendingException {
         requireEmailWritePrivilege();
         if (!supportsOutboundArchive()) {
@@ -226,6 +246,16 @@ public class EmailSender {
         return archiveRequest;
     }
 
+    /**
+     * Sends the previously prepared outbound payload, or falls back to normal sending when archiving is unsupported.
+     *
+     * <p>For SendGrid archive-enabled sends, {@link #prepareOutboundArchive(EmailLog)} must be
+     * called successfully first so the sent payload matches the archived artifact. Non-archive
+     * configurations delegate to {@link #send()}.</p>
+     *
+     * @throws SecurityException if the current user lacks the required "_email" WRITE privilege
+     * @throws EmailSendingException if a supported archive send has not been prepared or if delivery fails
+     */
     public void sendPrepared() throws EmailSendingException {
         requireEmailWritePrivilege();
         if (preparedApiSendGridSendHelper == null) {
@@ -311,19 +341,10 @@ public class EmailSender {
         OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
         attachmentDto.setFileName(attachment.getFileName());
         attachmentDto.setContentType(PDF_CONTENT_TYPE);
-        attachmentDto.setSha256Hash(sha256Hex(attachmentBytes));
+        attachmentDto.setSha256Hash(DigestUtils.sha256Hex(attachmentBytes));
         attachmentDto.setByteSize((long) attachmentBytes.length);
         attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);
         attachmentDto.setSourceDocumentId(attachment.getDocumentId());
         return attachmentDto;
-    }
-
-    private String sha256Hex(byte[] input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HEX_FORMAT.formatHex(digest.digest(input));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
-        }
     }
 }

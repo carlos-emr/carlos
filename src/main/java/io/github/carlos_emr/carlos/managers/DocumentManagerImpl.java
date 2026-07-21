@@ -583,7 +583,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
 	public Integer addDocumentToQueue(LoggedInInfo loggedInInfo, Integer documentId, Integer queueId) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", "")) {
-			throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+			throw new SecurityException("missing required sec object (_edoc)");
 		}
 
 		if (queueId != null && queueId > 0) {

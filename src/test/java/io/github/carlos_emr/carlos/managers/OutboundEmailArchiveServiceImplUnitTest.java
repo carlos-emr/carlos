@@ -329,8 +329,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+        List<OutboundEmailArchiveAttachment> exposedAttachments = archive.getAttachments();
 
-        assertThatThrownBy(() -> archive.getAttachments().add(new OutboundEmailArchiveAttachment()))
+        assertThatThrownBy(() -> exposedAttachments.add(new OutboundEmailArchiveAttachment()))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
