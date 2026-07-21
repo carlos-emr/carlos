@@ -63,7 +63,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
         when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
         when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
-        when(emailPdfPasswordService.generatePassphrase()).thenReturn("alpha-bravo-charlie-delta-echo-foxtrot");
+        when(emailPdfPasswordService.generatePassphrase()).thenReturn("alpha-bravo-123-charlie-delta-456");
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
              LogCapture capture = LogCapture.forLogger(EmailCompose2Action.class)) {
@@ -74,7 +74,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
             assertThat(request.getAttribute("fid")).isNull();
-            assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
+            assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("alpha-bravo-123-charlie-delta-456");
             assertThat(request.getSession(false).getAttribute("emailPDFPassword")).isNull();
             assertThat(request.getSession(false).getAttribute("emailComposeSubmissionStates")).isNull();
             String emailPDFPasswordToken = (String) request.getAttribute("emailPDFPasswordToken");
@@ -82,7 +82,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
             EmailCompose2Action.EmailComposeSubmissionState composeState =
                     EmailCompose2Action.consumeEmailComposeSubmissionState(request);
-            assertThat(composeState.emailPDFPassword()).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
+            assertThat(composeState.emailPDFPassword()).isEqualTo("alpha-bravo-123-charlie-delta-456");
             verify(emailComposeManager, never()).createEmailPDFPassword(any(), anyInt());
             String logged = capture.messages().stream()
                     .filter(message -> message.startsWith("Invalid fid parameter received"))

@@ -115,7 +115,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("demographicId", "123");
-        setComposeToken(request, "alpha-bravo-charlie-delta-echo-foxtrot");
+        setComposeToken(request, "alpha-bravo-123-charlie-delta-456");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -125,7 +125,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
 
-        assertThat(emailData.getPassword()).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
+        assertThat(emailData.getPassword()).isEqualTo("alpha-bravo-123-charlie-delta-456");
         assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
         assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
         assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
@@ -149,7 +149,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("demographicId", "123");
         setComposeToken(
                 request,
-                "cedar-maple-spruce-birch-aspen-willow",
+                "cedar-maple-654-spruce-birch-321",
                 List.of(new EmailAttachment("lab.pdf", "/tmp/lab.pdf", DocumentType.LAB, 1)));
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
@@ -160,7 +160,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
 
-        assertThat(emailData.getPassword()).isEqualTo("cedar-maple-spruce-birch-aspen-willow");
+        assertThat(emailData.getPassword()).isEqualTo("cedar-maple-654-spruce-birch-321");
         assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
         assertThat(emailData.getIsEncrypted()).isTrue();
         assertThat(emailData.getIsAttachmentEncrypted()).isTrue();
@@ -187,7 +187,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("demographicId", "123");
         setComposeToken(
                 request,
-                "cedar-maple-spruce-birch-aspen-willow",
+                "cedar-maple-654-spruce-birch-321",
                 List.of(new EmailAttachment("lab.pdf", "/tmp/lab.pdf", DocumentType.LAB, 1)));
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 

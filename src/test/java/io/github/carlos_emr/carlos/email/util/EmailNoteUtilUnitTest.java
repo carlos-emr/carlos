@@ -47,7 +47,7 @@ class EmailNoteUtilUnitTest extends CarlosUnitTestBase {
         emailLog.setIsEncrypted(true);
         emailLog.setIsAttachmentEncrypted(true);
         emailLog.setEncryptedMessage("Encrypted message body");
-        emailLog.setPassword("alpha-bravo-charlie-delta-echo-foxtrot");
+        emailLog.setPassword("alpha-bravo-123-charlie-delta-456");
         emailLog.setPasswordClue("secret clue");
         emailLog.setChartDisplayOption(ChartDisplayOption.WITH_FULL_NOTE);
         emailLog.setInternalComment("");
@@ -57,7 +57,7 @@ class EmailNoteUtilUnitTest extends CarlosUnitTestBase {
         String note = emailNoteUtil.createNote();
 
         assertThat(note)
-                .doesNotContain("alpha-bravo-charlie-delta-echo-foxtrot")
+                .doesNotContain("alpha-bravo-123-charlie-delta-456")
                 .doesNotContain("secret clue")
                 .doesNotContain("Password:");
         assertThat(note).contains("PDF attachments were encrypted");

@@ -23,9 +23,10 @@ import org.springframework.stereotype.Service;
  * Generates server-assigned passphrases for password-protected patient email PDFs.
  *
  * <p>The wordlist is intentionally public. Security comes from uniformly selecting
- * enough words with {@link SecureRandom}, not from wordlist secrecy. The 4096-word
- * list contributes 12 bits per word, so the default seven-word passphrase provides
- * 84 bits of entropy.</p>
+ * enough words and digits with {@link SecureRandom}, not from wordlist secrecy.
+ * The 4096-word list contributes 12 bits per word, and the six random digits add
+ * nearly 20 bits, so the default two-word, three-digit, two-word, three-digit
+ * passphrase provides about 68 bits of entropy.</p>
  *
  * @since 2026-07-14
  */
@@ -33,7 +34,11 @@ import org.springframework.stereotype.Service;
 public class EmailPdfPasswordService {
     static final String WORDLIST_RESOURCE = "/email/patient_pdf_passphrase_wordlist.txt";
     static final int MIN_WORDLIST_SIZE = 4096;
-    static final int DEFAULT_WORD_COUNT = 7;
+    static final int DEFAULT_WORD_COUNT = 4;
+    static final int WORD_GROUP_COUNT = 2;
+    static final int DEFAULT_DIGIT_COUNT = 6;
+    static final int DIGIT_GROUP_COUNT = 3;
+    static final int DIGIT_BOUND = 10;
     static final String SEPARATOR = "-";
     static final Pattern WORD_PATTERN = Pattern.compile("[a-z]+");
 
@@ -58,17 +63,32 @@ public class EmailPdfPasswordService {
     }
 
     /**
-     * Generates a random seven-word PDF passphrase from the validated wordlist.
+     * Generates a random PDF passphrase from the validated wordlist and two three-digit groups.
      *
-     * @return hyphen-separated lowercase passphrase
+     * @return passphrase formatted as {@code word-word-###-word-word-###}
      * @since 2026-07-14
      */
     public String generatePassphrase() {
-        List<String> selectedWords = new ArrayList<>(DEFAULT_WORD_COUNT);
-        for (int i = 0; i < DEFAULT_WORD_COUNT; i++) {
-            selectedWords.add(words.get(secureRandom.nextInt(words.size())));
+        List<String> parts = new ArrayList<>(DEFAULT_WORD_COUNT + DEFAULT_DIGIT_COUNT / DIGIT_GROUP_COUNT);
+        addRandomWords(parts, WORD_GROUP_COUNT);
+        parts.add(generateDigitGroup(DIGIT_GROUP_COUNT));
+        addRandomWords(parts, WORD_GROUP_COUNT);
+        parts.add(generateDigitGroup(DIGIT_GROUP_COUNT));
+        return String.join(SEPARATOR, parts);
+    }
+
+    private void addRandomWords(List<String> parts, int count) {
+        for (int i = 0; i < count; i++) {
+            parts.add(words.get(secureRandom.nextInt(words.size())));
         }
-        return String.join(SEPARATOR, selectedWords);
+    }
+
+    private String generateDigitGroup(int count) {
+        StringBuilder digits = new StringBuilder(count);
+        for (int i = 0; i < count; i++) {
+            digits.append(secureRandom.nextInt(DIGIT_BOUND));
+        }
+        return digits.toString();
     }
 
     /**
@@ -88,7 +108,7 @@ public class EmailPdfPasswordService {
      * @since 2026-07-14
      */
     public double getEntropyBits() {
-        return calculateEntropyBits(words.size(), DEFAULT_WORD_COUNT);
+        return calculateEntropyBits(words.size(), DEFAULT_WORD_COUNT, DEFAULT_DIGIT_COUNT);
     }
 
     /**
@@ -104,6 +124,23 @@ public class EmailPdfPasswordService {
             throw new IllegalArgumentException("Word list size and word count must be positive");
         }
         return wordCount * (Math.log(wordListSize) / Math.log(2));
+    }
+
+    /**
+     * Calculates entropy for uniformly selected words plus uniformly selected decimal digits.
+     *
+     * @param wordListSize number of candidate words
+     * @param wordCount number of words selected for the passphrase
+     * @param digitCount number of decimal digits appended to the passphrase
+     * @return entropy bits for the given wordlist size, word count, and digit count
+     * @since 2026-07-21
+     */
+    public static double calculateEntropyBits(int wordListSize, int wordCount, int digitCount) {
+        if (digitCount < 0) {
+            throw new IllegalArgumentException("Digit count must not be negative");
+        }
+        return calculateEntropyBits(wordListSize, wordCount)
+                + digitCount * (Math.log(DIGIT_BOUND) / Math.log(2));
     }
 
     private static List<String> loadWordsFromResource(String resourcePath) {

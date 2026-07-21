@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.email.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -28,33 +29,35 @@ class EmailPdfPasswordServiceUnitTest {
             "/email/patient_unfriendly_review_words.txt";
 
     @Test
-    @DisplayName("should generate seven lowercase hyphen-separated words")
-    void shouldGeneratePassphrase_withSevenLowercaseHyphenSeparatedWords() {
+    @DisplayName("should generate two words, three digits, two words, and three digits")
+    void shouldGeneratePassphrase_withGroupedWordsAndDigits() {
         EmailPdfPasswordService service = new EmailPdfPasswordService();
 
         String passphrase = service.generatePassphrase();
 
-        assertThat(passphrase).matches("^[a-z]+(-[a-z]+){6}$");
-        assertThat(passphrase.split("-")).hasSize(7);
+        assertThat(passphrase).matches("^[a-z]+-[a-z]+-\\d{3}-[a-z]+-[a-z]+-\\d{3}$");
+        assertThat(passphrase.split("-")).hasSize(6);
     }
 
     @Test
-    @DisplayName("should use secure random indexes to select words")
-    void shouldUseSecureRandomIndexes_toSelectWords() {
-        EmailPdfPasswordService service = new EmailPdfPasswordService(testWords(4096), new FixedSecureRandom(0, 1, 2, 3, 4, 5, 6));
+    @DisplayName("should use secure random values to select words and digits")
+    void shouldUseSecureRandomValues_toSelectWordsAndDigits() {
+        EmailPdfPasswordService service = new EmailPdfPasswordService(
+                testWords(4096),
+                new FixedSecureRandom(0, 1, 0, 1, 2, 2, 3, 3, 4, 5));
 
         String passphrase = service.generatePassphrase();
 
-        assertThat(passphrase).isEqualTo("worda-wordb-wordc-wordd-worde-wordf-wordg");
+        assertThat(passphrase).isEqualTo("worda-wordb-012-wordc-wordd-345");
     }
 
     @Test
-    @DisplayName("should load a 4096 word resource wordlist with 84 bits of entropy")
+    @DisplayName("should load a 4096 word resource wordlist with about 68 bits of entropy")
     void shouldLoadLargeEnoughResourceWordlist_withExpectedEntropy() {
         EmailPdfPasswordService service = new EmailPdfPasswordService();
 
         assertThat(service.getWordListSize()).isEqualTo(4096);
-        assertThat(service.getEntropyBits()).isEqualTo(84.0);
+        assertThat(service.getEntropyBits()).isCloseTo(67.93, within(0.01));
     }
 
     @Test
@@ -66,11 +69,11 @@ class EmailPdfPasswordServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should calculate entropy from wordlist size and word count")
-    void shouldCalculateEntropy_fromWordlistSizeAndWordCount() {
-        double entropy = EmailPdfPasswordService.calculateEntropyBits(4096, 7);
+    @DisplayName("should calculate entropy from wordlist size, word count, and digit count")
+    void shouldCalculateEntropy_fromWordlistSizeWordCountAndDigitCount() {
+        double entropy = EmailPdfPasswordService.calculateEntropyBits(4096, 4, 6);
 
-        assertThat(entropy).isEqualTo(84.0);
+        assertThat(entropy).isCloseTo(67.93, within(0.01));
     }
 
     @Test

@@ -69,7 +69,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailData.setSubject("Subject");
         emailData.setBody("Body");
         emailData.setEncryptedMessage("Encrypted body");
-        emailData.setPassword("alpha-bravo-charlie-delta-echo-foxtrot");
+        emailData.setPassword("alpha-bravo-123-charlie-delta-456");
         emailData.setPasswordClue("Do not persist this instruction with a password");
         emailData.setIsEncrypted(true);
         emailData.setIsAttachmentEncrypted(false);
