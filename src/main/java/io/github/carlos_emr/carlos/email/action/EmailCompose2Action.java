@@ -94,6 +94,7 @@ public class EmailCompose2Action extends ActionSupport {
     public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
     private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
     static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
+    static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = 1024;
     static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
     private static final long PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS = 60L * 1000;
     private static final Object EMAIL_COMPOSE_SUBMISSION_STATES_LOCK = new Object();
@@ -101,6 +102,7 @@ public class EmailCompose2Action extends ActionSupport {
             PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = new LinkedHashMap<>();
     private static final AtomicReference<ScheduledExecutorService> EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER =
             new AtomicReference<>();
+    private static boolean emailComposeSubmissionStateCacheShutdown;
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", DEMOGRAPHIC_ID_KEY, "emailAttachmentList",
@@ -318,7 +320,8 @@ public class EmailCompose2Action extends ActionSupport {
      * <p>The returned token is bound to the current HTTP session id, while the generated
      * passphrase, delivery instruction, and attachment snapshot stay in a short-lived
      * server-side cache instead of the serializable HTTP session. Storing a new entry also
-     * prunes expired entries and caps the current session's pending compose states.</p>
+     * prunes expired entries, caps the current session's pending compose states, and
+     * rejects new sessions once the global cache is full.</p>
      *
      * @param request HttpServletRequest used to bind the token to the active session
      * @param emailPDFPassword generated PDF passphrase to use when sending
@@ -344,8 +347,8 @@ public class EmailCompose2Action extends ActionSupport {
             List<EmailAttachment> emailAttachmentList,
             long createdAtMillis
     ) {
-        ensureEmailComposeSubmissionStatePrunerStarted();
         HttpSession session = request.getSession();
+        String sessionId = session.getId();
         String token = UUID.randomUUID().toString();
         EmailComposeSubmissionState state = new EmailComposeSubmissionState(
                 emailPDFPassword,
@@ -354,10 +357,13 @@ public class EmailCompose2Action extends ActionSupport {
                 createdAtMillis);
 
         synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            ensureEmailComposeSubmissionStateCacheOpen();
             pruneExpiredEmailComposeSubmissionStates(createdAtMillis);
+            ensureEmailComposeSubmissionStateCapacity(sessionId);
+            ensureEmailComposeSubmissionStatePrunerStarted();
             PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.put(
-                    new EmailComposeSubmissionStateKey(session.getId(), token), state);
-            trimEmailComposeSubmissionStates(session.getId());
+                    new EmailComposeSubmissionStateKey(sessionId, token), state);
+            trimEmailComposeSubmissionStates(sessionId);
         }
         return token;
     }
@@ -417,11 +423,12 @@ public class EmailCompose2Action extends ActionSupport {
      * @since 2026-07-14
      */
     public static int shutdownEmailComposeSubmissionStateCache() {
-        ScheduledExecutorService pruner = EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.getAndSet(null);
-        if (pruner != null) {
-            pruner.shutdownNow();
-        }
         synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            emailComposeSubmissionStateCacheShutdown = true;
+            ScheduledExecutorService pruner = EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.getAndSet(null);
+            if (pruner != null) {
+                pruner.shutdownNow();
+            }
             int originalSize = PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size();
             PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.clear();
             return originalSize;
@@ -440,8 +447,21 @@ public class EmailCompose2Action extends ActionSupport {
                 PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS,
                 PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS,
                 TimeUnit.MILLISECONDS);
-        if (!EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.compareAndSet(null, pruner)) {
-            pruner.shutdownNow();
+        EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.set(pruner);
+    }
+
+    private static void ensureEmailComposeSubmissionStateCacheOpen() {
+        if (emailComposeSubmissionStateCacheShutdown) {
+            throw new IllegalStateException("Email compose submission state cache is shut down");
+        }
+    }
+
+    private static void ensureEmailComposeSubmissionStateCapacity(String sessionId) {
+        boolean addingNewGlobalEntry = emailComposeSubmissionStateCount(sessionId) < MAX_PENDING_EMAIL_COMPOSE_STATES;
+        if (addingNewGlobalEntry
+                && PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size()
+                >= MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES) {
+            throw new IllegalStateException("Email compose submission state cache is full");
         }
     }
 

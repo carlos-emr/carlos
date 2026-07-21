@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -98,24 +99,55 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         String oldestToken = null;
         List<String> tokens = new ArrayList<>();
-        for (int i = 0; i <= EmailCompose2Action.MAX_PENDING_EMAIL_COMPOSE_STATES; i++) {
-            String token = EmailCompose2Action.storeEmailComposeSubmissionState(
-                    request,
-                    "password" + i,
-                    EmailPdfPasswordService.DELIVERY_INSTRUCTION,
-                    List.of());
-            tokens.add(token);
-            if (i == 0) {
-                oldestToken = token;
+        try {
+            for (int i = 0; i <= EmailCompose2Action.MAX_PENDING_EMAIL_COMPOSE_STATES; i++) {
+                String token = EmailCompose2Action.storeEmailComposeSubmissionState(
+                        request,
+                        "password" + i,
+                        EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                        List.of());
+                tokens.add(token);
+                if (i == 0) {
+                    oldestToken = token;
+                }
             }
+
+            request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, oldestToken);
+
+            assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(request)).isNull();
+        } finally {
+            EmailCompose2Action.clearEmailComposeSubmissionStates(request.getSession().getId());
         }
+    }
 
-        request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, oldestToken);
+    @Test
+    @DisplayName("should reject new compose state when global cache is full")
+    void shouldRejectNewComposeState_whenGlobalCacheIsFull() {
+        List<MockHttpServletRequest> requests = new ArrayList<>();
+        try {
+            for (int i = 0; i < EmailCompose2Action.MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES; i++) {
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+                requests.add(request);
+                EmailCompose2Action.storeEmailComposeSubmissionState(
+                        request,
+                        "password" + i,
+                        EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                        List.of());
+            }
 
-        assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(request)).isNull();
-        for (String token : tokens) {
-            request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
-            EmailCompose2Action.consumeEmailComposeSubmissionState(request);
+            MockHttpServletRequest overflowRequest = new MockHttpServletRequest("GET", "/email/compose");
+
+            assertThatThrownBy(() -> EmailCompose2Action.storeEmailComposeSubmissionState(
+                    overflowRequest,
+                    "overflow-password",
+                    EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                    List.of()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Email compose submission state cache is full");
+        } finally {
+            for (MockHttpServletRequest request : requests) {
+                EmailCompose2Action.clearEmailComposeSubmissionStates(request.getSession().getId());
+            }
         }
     }
 
@@ -159,5 +191,6 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(firstRequest)).isNull();
         assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(secondRequest)).isNotNull();
+        EmailCompose2Action.clearEmailComposeSubmissionStates(secondRequest.getSession().getId());
     }
 }

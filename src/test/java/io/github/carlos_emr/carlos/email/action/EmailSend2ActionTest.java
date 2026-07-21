@@ -251,7 +251,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
                 "first-token-password",
                 EmailPdfPasswordService.DELIVERY_INSTRUCTION,
                 List.of());
-        String secondToken = EmailCompose2Action.storeEmailComposeSubmissionState(
+        EmailCompose2Action.storeEmailComposeSubmissionState(
                 request,
                 "second-token-password",
                 EmailPdfPasswordService.DELIVERY_INSTRUCTION,
@@ -267,8 +267,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
 
         assertThat(emailData.getPassword()).isEqualTo("first-token-password");
-        request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, secondToken);
-        EmailCompose2Action.consumeEmailComposeSubmissionState(request);
+        EmailCompose2Action.clearEmailComposeSubmissionStates(request.getSession().getId());
     }
 
     @Test
