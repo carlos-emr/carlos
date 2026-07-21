@@ -70,9 +70,20 @@
         <div class="auth-layout">
           <section class="auth-panel" aria-labelledby="mfa-title">
             <h1 id="mfa-title">Enter security code</h1>
-            <div class="destination-line">
-              <i class="fas fa-envelope"></i>
-              <span>Code sent to ja***@example.ca</span>
+            <div class="destination-line" aria-live="polite">
+              <i class="fas fa-envelope" data-mfa-destination-icon></i>
+              <span data-mfa-destination>Code sent to ja***@example.ca</span>
+            </div>
+            <div class="mfa-method-switch">
+              <span>Send code by</span>
+              <div class="segmented-control" role="group" aria-label="MFA delivery method">
+                <button class="selected" type="button" aria-pressed="true" data-mfa-method data-icon="fa-envelope" data-destination="Code sent to ja***@example.ca" data-rate="1 email code per minute">
+                  <i class="fas fa-envelope"></i><span>Email</span>
+                </button>
+                <button type="button" aria-pressed="false" data-mfa-method data-icon="fa-mobile-alt" data-destination="Code sent to ***-***-1284" data-rate="1 SMS code per 5 minutes">
+                  <i class="fas fa-mobile-alt"></i><span>SMS</span>
+                </button>
+              </div>
             </div>
             <div class="code-row" aria-label="Security code">
               <input inputmode="numeric" maxlength="1" value="4">
@@ -96,7 +107,7 @@
             </div>
             <div class="status-item warn">
               <i class="fas fa-hourglass-half"></i>
-              <span>1 email code per minute</span>
+              <span data-mfa-rate>1 email code per minute</span>
             </div>
           </section>
         </div>
@@ -465,6 +476,25 @@
         button.setAttribute('title', nextType === 'password' ? 'Show password' : 'Hide password');
         button.querySelector('i')?.classList.toggle('fa-eye', nextType === 'password');
         button.querySelector('i')?.classList.toggle('fa-eye-slash', nextType !== 'password');
+      });
+    });
+
+    document.querySelectorAll('[data-mfa-method]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const panel = button.closest('.auth-panel');
+        const destination = panel?.querySelector('[data-mfa-destination]');
+        const destinationIcon = panel?.querySelector('[data-mfa-destination-icon]');
+        const rate = document.querySelector('[data-mfa-rate]');
+        document.querySelectorAll('[data-mfa-method]').forEach((option) => {
+          const selected = option === button;
+          option.classList.toggle('selected', selected);
+          option.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+        if (destination) destination.textContent = button.dataset.destination;
+        if (rate) rate.textContent = button.dataset.rate;
+        if (destinationIcon) {
+          destinationIcon.className = `fas ${button.dataset.icon}`;
+        }
       });
     });
 

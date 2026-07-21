@@ -392,8 +392,55 @@ h2 {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   color: var(--muted);
+}
+
+.mfa-method-switch {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 268px);
+  border: 1px solid #9aa6bd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 10px;
+  color: var(--carlos-blue-dark);
+  background: #fff;
+  border: 0;
+  border-right: 1px solid #9aa6bd;
+  font-weight: bold;
+}
+
+.segmented-control button:last-child {
+  border-right: 0;
+}
+
+.segmented-control button.selected,
+.segmented-control button:hover {
+  color: #fff;
+  background: var(--carlos-blue);
+}
+
+.segmented-control button:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 .code-row {
