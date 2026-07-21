@@ -1,4 +1,4 @@
-# Patient email PDF passphrase wordlist.
+# Patient email PDF passphrase wordlist - English.
 # Noun-heavy 4096-word list generated from EFF passphrase words plus common concrete noun candidates.
 # Security comes from uniform random selection, not from keeping this public list secret.
 0000	aardvark
