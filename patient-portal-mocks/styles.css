@@ -868,6 +868,16 @@ h2 {
     flex-direction: column;
   }
 
+  .patient-topbar.mfa-topbar {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .mfa-topbar .topbar-button {
+    margin-left: auto;
+  }
+
   .patient-nav {
     margin-left: 0;
     width: 100%;
