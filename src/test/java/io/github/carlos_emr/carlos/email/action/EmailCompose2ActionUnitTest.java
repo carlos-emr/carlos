@@ -28,7 +28,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -83,7 +82,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             EmailCompose2Action.EmailComposeSubmissionState composeState =
                     EmailCompose2Action.consumeEmailComposeSubmissionState(request);
             assertThat(composeState.emailPDFPassword()).isEqualTo("alpha-bravo-123-charlie-delta-456");
-            verify(emailComposeManager, never()).createEmailPDFPassword(any(), anyInt());
+            verify(emailPdfPasswordService).generatePassphrase();
             String logged = capture.messages().stream()
                     .filter(message -> message.startsWith("Invalid fid parameter received"))
                     .findFirst()

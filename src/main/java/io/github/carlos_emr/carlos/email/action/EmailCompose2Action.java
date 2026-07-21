@@ -89,9 +89,10 @@ public class EmailCompose2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
-    private EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
+    private transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
+    private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
     static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
     private static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_CACHE_STATES = 1024;
     static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
@@ -103,7 +104,7 @@ public class EmailCompose2Action extends ActionSupport {
             new AtomicReference<>();
 
     private static final String[] EMAIL_SESSION_KEYS = {
-        "attachEFormItSelf", "fdid", "demographicId", "emailAttachmentList",
+        "attachEFormItSelf", "fdid", DEMOGRAPHIC_ID_KEY, "emailAttachmentList",
         "emailPDFPassword", "emailPDFPasswordClue",
         "attachedDocuments", "attachedLabs", "attachedForms",
         "attachedEForms", "attachedHRMDocuments",
@@ -231,7 +232,7 @@ public class EmailCompose2Action extends ActionSupport {
         Boolean attachEFormItSelfObj = (Boolean) session.getAttribute("attachEFormItSelf");
         boolean attachEFormItSelf = attachEFormItSelfObj != null && attachEFormItSelfObj;
         String fdid = attachEFormItSelf ? (String) session.getAttribute("fdid") : "";
-        String demographicId = (String) session.getAttribute("demographicId");
+        String demographicId = (String) session.getAttribute(DEMOGRAPHIC_ID_KEY);
         String fid = request.getParameter("fid");
         String[] attachedDocuments = (String[]) session.getAttribute("attachedDocuments");
         String[] attachedLabs = (String[]) session.getAttribute("attachedLabs");
@@ -295,7 +296,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("bodyEmail", bodyEmail);
         request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
-        request.setAttribute("demographicId", demographicId);
+        request.setAttribute(DEMOGRAPHIC_ID_KEY, demographicId);
         request.setAttribute("fdid", session.getAttribute("fdid"));
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
@@ -307,7 +308,7 @@ public class EmailCompose2Action extends ActionSupport {
         cleanupEmailSessionAttributes(request);
         String emailPDFPasswordToken = storeEmailComposeSubmissionState(
                 request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
-        request.setAttribute("emailPDFPasswordToken", emailPDFPasswordToken);
+        request.setAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
 
         return "compose";
     }

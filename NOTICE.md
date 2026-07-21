@@ -46,10 +46,14 @@ the GNU General Public License.
 
 ## Data Attribution
 
-- Email PDF passphrase generation uses a filtered copy of EFF's Long Wordlist
-  for dice-generated passphrases, published by the Electronic Frontier
-  Foundation. The local copy removes entries containing hyphens so hyphen can be
-  used as the passphrase word separator.
+- Email PDF passphrase generation uses an English wordlist derived in part from
+  EFF's Long Wordlist for dice-generated passphrases, published by the
+  Electronic Frontier Foundation.
+  Source: https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt
+  License: Creative Commons Attribution 3.0 United States (CC BY 3.0 US),
+  https://creativecommons.org/licenses/by/3.0/us/
+  Local changes include filtering for lowercase ASCII words, removing
+  patient-unfriendly terms, and reducing the list to 4096 entries.
 
 ## Trademark Notice
 

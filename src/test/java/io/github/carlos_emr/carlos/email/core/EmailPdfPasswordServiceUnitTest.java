@@ -64,8 +64,9 @@ class EmailPdfPasswordServiceUnitTest {
     @DisplayName("should not include patient-facing sensitive review words")
     void shouldExcludeSensitiveWords_fromWordlist() throws Exception {
         String[] blockedWords = resourceText(PATIENT_UNFRIENDLY_REVIEW_WORDS_RESOURCE).trim().split("\\s+");
+        List<String> words = resourceWords();
 
-        assertThat(resourceWords()).doesNotContain(blockedWords);
+        assertThat(words).isNotEmpty().doesNotContain(blockedWords);
     }
 
     @Test
@@ -79,7 +80,10 @@ class EmailPdfPasswordServiceUnitTest {
     @Test
     @DisplayName("should reject a wordlist below the minimum size")
     void shouldRejectWordlist_belowMinimumSize() {
-        assertThatThrownBy(() -> new EmailPdfPasswordService(testWords(4095), new FixedSecureRandom()))
+        List<String> words = testWords(4095);
+        SecureRandom secureRandom = new FixedSecureRandom();
+
+        assertThatThrownBy(() -> new EmailPdfPasswordService(words, secureRandom))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("at least 4096");
     }
@@ -89,8 +93,9 @@ class EmailPdfPasswordServiceUnitTest {
     void shouldRejectInvalidWords_whenLoading() {
         List<String> words = testWords(4096);
         words.set(100, "two-words");
+        SecureRandom secureRandom = new FixedSecureRandom();
 
-        assertThatThrownBy(() -> new EmailPdfPasswordService(words, new FixedSecureRandom()))
+        assertThatThrownBy(() -> new EmailPdfPasswordService(words, secureRandom))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("invalid word");
     }
@@ -100,8 +105,9 @@ class EmailPdfPasswordServiceUnitTest {
     void shouldRejectDuplicateWords_whenLoading() {
         List<String> words = testWords(4096);
         words.set(100, words.get(99));
+        SecureRandom secureRandom = new FixedSecureRandom();
 
-        assertThatThrownBy(() -> new EmailPdfPasswordService(words, new FixedSecureRandom()))
+        assertThatThrownBy(() -> new EmailPdfPasswordService(words, secureRandom))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("duplicate word");
     }

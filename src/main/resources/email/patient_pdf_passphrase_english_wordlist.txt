@@ -1,5 +1,8 @@
 # Patient email PDF passphrase wordlist - English.
 # Noun-heavy 4096-word list generated from EFF passphrase words plus common concrete noun candidates.
+# EFF Long Wordlist source: https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt
+# EFF-derived words are attributed to the Electronic Frontier Foundation under CC BY 3.0 US.
+# Local changes include filtering for lowercase ASCII words, removing patient-unfriendly terms, and reducing to 4096 entries.
 # Security comes from uniform random selection, not from keeping this public list secret.
 0000	aardvark
 0001	abacus

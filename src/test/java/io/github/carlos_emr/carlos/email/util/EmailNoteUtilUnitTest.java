@@ -57,9 +57,9 @@ class EmailNoteUtilUnitTest extends CarlosUnitTestBase {
         String note = emailNoteUtil.createNote();
 
         assertThat(note)
+                .contains("PDF attachments were encrypted")
                 .doesNotContain("alpha-bravo-123-charlie-delta-456")
                 .doesNotContain("secret clue")
                 .doesNotContain("Password:");
-        assertThat(note).contains("PDF attachments were encrypted");
     }
 }

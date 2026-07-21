@@ -64,6 +64,7 @@ public class EmailNoteUtil {
     private String DATE_FORMAT = "yyyy.MM.dd";
     private String TIME_FORMAT = "hh:mm a";
     private static final String SENT_DATE_FORMAT = "dd-MMM-yyyy H:mm";
+    private static final String ENCRYPTED_ATTACHMENT_MARKER = "Encrypted";
 
     private CommonLabResultData commonLabResultData;
     private EformDataManager eFormDataManager = SpringUtils.getBean(EformDataManager.class);
@@ -213,7 +214,7 @@ public class EmailNoteUtil {
             noteBuilder.append(getFormattedDate(eFormData.getFormDate())).append(" ");
             noteBuilder.append("(").append("ID: ").append(eFormData.getId()).append(") ");
             if (emailLog.getIsAttachmentEncrypted()) {
-                noteBuilder.append("Encrypted");
+                noteBuilder.append(ENCRYPTED_ATTACHMENT_MARKER);
             }
             noteBuilder.append("\n");
         }
@@ -226,7 +227,7 @@ public class EmailNoteUtil {
             noteBuilder.append(getFormattedDate(eDoc.getObservationDate(), "yyyy/MM/dd")).append(" ");
             noteBuilder.append("(").append("ID: ").append(eDoc.getDocId()).append(") ");
             if (emailLog.getIsAttachmentEncrypted()) {
-                noteBuilder.append("Encrypted");
+                noteBuilder.append(ENCRYPTED_ATTACHMENT_MARKER);
             }
             noteBuilder.append("\n");
         }
@@ -242,7 +243,7 @@ public class EmailNoteUtil {
             noteBuilder.append(getFormattedDate(lab.getDateObjFormated(), "yyyy-MM-dd")).append(" ");
             noteBuilder.append("(").append("ID: ").append(lab.getSegmentID()).append(") ");
             if (emailLog.getIsAttachmentEncrypted()) {
-                noteBuilder.append("Encrypted");
+                noteBuilder.append(ENCRYPTED_ATTACHMENT_MARKER);
             }
             noteBuilder.append("\n");
         }
@@ -255,7 +256,7 @@ public class EmailNoteUtil {
             noteBuilder.append(getFormattedDate(hrmDocument.getReportDate())).append(" ");
             noteBuilder.append("(").append("ID: ").append(hrmDocument.getId()).append(") ");
             if (emailLog.getIsAttachmentEncrypted()) {
-                noteBuilder.append("Encrypted");
+                noteBuilder.append(ENCRYPTED_ATTACHMENT_MARKER);
             }
             noteBuilder.append("\n");
         }
@@ -270,7 +271,7 @@ public class EmailNoteUtil {
             }
             noteBuilder.append("(").append("ID: ").append(form.getFormId()).append(") ");
             if (emailLog.getIsAttachmentEncrypted()) {
-                noteBuilder.append("Encrypted");
+                noteBuilder.append(ENCRYPTED_ATTACHMENT_MARKER);
             }
             noteBuilder.append("\n");
         }

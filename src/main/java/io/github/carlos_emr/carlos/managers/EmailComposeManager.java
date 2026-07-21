@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -74,9 +73,6 @@ public class EmailComposeManager {
     private PatientConsentManager patientConsentManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
-    @Autowired
-    private EmailPdfPasswordService emailPdfPasswordService;
-
     /**
      * Prepares an existing email for resending by retrieving its log entry.
      *
@@ -430,16 +426,6 @@ public class EmailComposeManager {
         }
 
         return new List<?>[]{validRecipients, invalidRecipients};
-    }
-
-    /**
-     * Creates a server-assigned random passphrase for encrypting PDF attachments.
-     *
-     * @deprecated Use {@link EmailPdfPasswordService#generatePassphrase()} directly.
-     */
-    @Deprecated(since = "2026-07")
-    public String createEmailPDFPassword(LoggedInInfo loggedInInfo, Integer demographicId) {
-        return emailPdfPasswordService.generatePassphrase();
     }
 
     /**

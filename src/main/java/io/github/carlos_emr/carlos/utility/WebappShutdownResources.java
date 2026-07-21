@@ -71,7 +71,7 @@ public final class WebappShutdownResources {
         });
         runStep(results, ShutdownStep.DROOLS_EXECUTORS, () -> DroolsShutdownResources.shutdownExecutors());
         runStep(results, ShutdownStep.EMAIL_COMPOSE_STATE_CACHE,
-                () -> EmailCompose2Action.shutdownEmailComposeSubmissionStateCache());
+                EmailCompose2Action::shutdownEmailComposeSubmissionStateCache);
         runStep(results, ShutdownStep.QUEUE_CACHE_TIMER, () -> {
             QueueCache.shutdownSharedTimer();
             return 0;

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -53,6 +54,7 @@ public class EmailPdfPasswordService {
      *
      * @since 2026-07-14
      */
+    @Autowired
     public EmailPdfPasswordService() {
         this(loadWordsFromResource(WORDLIST_RESOURCE), new SecureRandom());
     }

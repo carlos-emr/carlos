@@ -70,7 +70,7 @@ public class ManageEmails2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
+    private final transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     /**
      * Main entry point for the ManageEmails2Action, routing requests to appropriate handler methods.
@@ -280,7 +280,7 @@ public class ManageEmails2Action extends ActionSupport {
         EmailCompose2Action.cleanupEmailSessionAttributes(request);
         String emailPDFPasswordToken = EmailCompose2Action.storeEmailComposeSubmissionState(
                 request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
-        request.setAttribute("emailPDFPasswordToken", emailPDFPasswordToken);
+        request.setAttribute(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
 
         return "compose";
     }
