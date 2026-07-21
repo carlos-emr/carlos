@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
@@ -73,6 +74,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private final DocumentManager documentManager;
 
+    private final DocumentDao documentDao;
+
     private final EmailLogDao emailLogDao;
 
     private final OutboundEmailArchiveDao outboundEmailArchiveDao;
@@ -86,12 +89,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     @Autowired
     public OutboundEmailArchiveServiceImpl(
             DocumentManager documentManager,
+            DocumentDao documentDao,
             EmailLogDao emailLogDao,
             OutboundEmailArchiveDao outboundEmailArchiveDao,
             OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao,
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager) {
         this.documentManager = documentManager;
+        this.documentDao = documentDao;
         this.emailLogDao = emailLogDao;
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
         this.outboundEmailArchiveDeletionDao = outboundEmailArchiveDeletionDao;
@@ -215,8 +220,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      * Marks an outbound email archive as deleted and records a permanent deletion tombstone.
      *
      * <p>The archive row is loaded with a write lock, validated against legal-hold and already
-     * deleted states, marked deleted in place, and paired with an immutable tombstone row that keeps
-     * the retained artifact identity and deletion reason for audit.</p>
+     * deleted states, marked deleted in place, paired with an immutable tombstone row that keeps the
+     * retained artifact identity and deletion reason for audit, and the linked eDoc is soft-deleted
+     * through the normal document status field.</p>
      *
      * @param loggedInInfo current user context used for authorization and audit logging
      * @param archiveId archive record identifier to mark as deleted
@@ -248,6 +254,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         authorizeControlledDeletion(loggedInInfo, archive);
         String truncatedDeleteReason = truncate(deleteReason.trim(), 1000);
         archive.markDeleted(providerNo, truncatedDeleteReason);
+        softDeleteArchivedDocument(archive);
         OutboundEmailArchiveDeletion deletion = OutboundEmailArchiveDeletion.fromArchive(archive, providerNo, truncatedDeleteReason);
 
         outboundEmailArchiveDao.merge(archive);
@@ -545,11 +552,21 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         boolean canDeleteEdoc = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null);
         if (!canDeleteEdoc) {
-            throw new SecurityException("missing required sec object (_admin.edocdelete w or _edoc w)");
+            throw new SecurityException("missing required sec object (_admin.edocdelete or _edoc)");
         }
         if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
             throw new SecurityException("not authorized for outbound email archive demographic");
         }
+    }
+
+    private void softDeleteArchivedDocument(OutboundEmailArchive archive) {
+        Document document = archive.getDocument();
+        if (document == null || document.getId() == null) {
+            throw new IllegalStateException("Outbound email archive document is required");
+        }
+        document.setStatus(Document.STATUS_DELETED);
+        document.setUpdatedatetime(archive.getDeletedAt());
+        documentDao.merge(document);
     }
 
     private void registerRollbackCleanup(Document savedDocument) {

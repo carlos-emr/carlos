@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
@@ -79,6 +80,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private static final byte[] RFC822_BYTES = "Subject: Test\r\n\r\nBody".getBytes(StandardCharsets.UTF_8);
 
     private DocumentManager documentManager;
+    private DocumentDao documentDao;
     private EmailLogDao emailLogDao;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
@@ -90,13 +92,14 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         documentManager = mock(DocumentManager.class);
+        documentDao = mock(DocumentDao.class);
         emailLogDao = mock(EmailLogDao.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         outboundEmailArchiveDeletionDao = mock(OutboundEmailArchiveDeletionDao.class);
         ctlDocumentDao = mock(CtlDocumentDao.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, ctlDocumentDao, securityInfoManager);
+        service = new OutboundEmailArchiveServiceImpl(documentManager, documentDao, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, ctlDocumentDao, securityInfoManager);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
@@ -433,16 +436,20 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should mark archive deleted and persist tombstone")
     void shouldMarkArchiveDeletedAndPersistTombstone_whenDeletionAllowed() {
         OutboundEmailArchive archive = archiveForDeletion();
+        Document archivedDocument = archive.getDocument();
         when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
 
         OutboundEmailArchiveDeletion deletion = service.recordControlledDeletion(loggedInInfo, 888, "Patient requested cleanup");
 
         verify(outboundEmailArchiveDao).findForUpdate(888);
+        verify(documentDao).merge(archivedDocument);
         verify(outboundEmailArchiveDao).merge(archive);
         verify(outboundEmailArchiveDeletionDao).persist(deletion);
         assertThat(archive.isDeleted()).isTrue();
         assertThat(archive.getDeletedByProviderNo()).isEqualTo(PROVIDER_NO);
         assertThat(archive.getDeleteReason()).isEqualTo("Patient requested cleanup");
+        assertThat(archivedDocument.getStatus()).isEqualTo(Document.STATUS_DELETED);
+        assertThat(archivedDocument.getUpdatedatetime()).isEqualTo(archive.getDeletedAt());
         assertThat(deletion.getArchive()).isSameAs(archive);
         assertThat(deletion.getEmailLog()).isSameAs(archive.getEmailLog());
         assertThat(deletion.getDemographic()).isSameAs(archive.getDemographic());
