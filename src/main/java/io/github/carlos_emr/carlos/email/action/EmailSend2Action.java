@@ -292,7 +292,7 @@ public class EmailSend2Action extends ActionSupport {
         if (!StringUtils.isNullOrEmpty(composeState.emailPDFPassword())) {
             return composeState.emailPDFPassword();
         }
-        throw new IllegalStateException("Email PDF password is missing from session");
+        throw new IllegalStateException("Email PDF password is missing from compose state");
     }
 
     private String resolveEmailPdfPasswordClue(EmailCompose2Action.EmailComposeSubmissionState composeState) {

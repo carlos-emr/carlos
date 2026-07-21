@@ -94,7 +94,6 @@ public class EmailCompose2Action extends ActionSupport {
     public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
     private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
     static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
-    private static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_CACHE_STATES = 1024;
     static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
     private static final long PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS = 60L * 1000;
     private static final Object EMAIL_COMPOSE_SUBMISSION_STATES_LOCK = new Object();
@@ -319,7 +318,7 @@ public class EmailCompose2Action extends ActionSupport {
      * <p>The returned token is bound to the current HTTP session id, while the generated
      * passphrase, delivery instruction, and attachment snapshot stay in a short-lived
      * server-side cache instead of the serializable HTTP session. Storing a new entry also
-     * prunes expired entries and caps both the current session and the global cache.</p>
+     * prunes expired entries and caps the current session's pending compose states.</p>
      *
      * @param request HttpServletRequest used to bind the token to the active session
      * @param emailPDFPassword generated PDF passphrase to use when sending
@@ -359,7 +358,6 @@ public class EmailCompose2Action extends ActionSupport {
             PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.put(
                     new EmailComposeSubmissionStateKey(session.getId(), token), state);
             trimEmailComposeSubmissionStates(session.getId());
-            trimEmailComposeSubmissionStateCache();
         }
         return token;
     }
@@ -465,17 +463,6 @@ public class EmailCompose2Action extends ActionSupport {
     private static void trimEmailComposeSubmissionStates(String sessionId) {
         while (emailComposeSubmissionStateCount(sessionId) > MAX_PENDING_EMAIL_COMPOSE_STATES) {
             EmailComposeSubmissionStateKey oldestKey = oldestEmailComposeSubmissionStateKey(sessionId);
-            if (oldestKey == null) {
-                return;
-            }
-            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.remove(oldestKey);
-        }
-    }
-
-    private static void trimEmailComposeSubmissionStateCache() {
-        while (PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size()
-                > MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_CACHE_STATES) {
-            EmailComposeSubmissionStateKey oldestKey = oldestEmailComposeSubmissionStateKey(null);
             if (oldestKey == null) {
                 return;
             }

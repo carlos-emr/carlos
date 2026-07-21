@@ -100,7 +100,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should ignore submitted PDF password and use generated session password")
+    @DisplayName("should ignore submitted PDF password and use generated compose-state password")
     void shouldIgnorePassword_whenSubmittedPdfPasswordIsTampered() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("senderConfigId", "1");
@@ -132,8 +132,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should use generated session password when attachments are encrypted")
-    void shouldUseGeneratedSessionPassword_whenAttachmentsEncrypted() {
+    @DisplayName("should use generated compose-state password when attachments are encrypted")
+    void shouldUseGeneratedComposeStatePassword_whenAttachmentsEncrypted() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("senderConfigId", "1");
         request.setParameter("receiverEmailAddress", "patient@example.com");
@@ -206,8 +206,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fail when encrypted email is missing generated session password")
-    void shouldFail_whenEncryptedPdfPasswordMissingFromSession() {
+    @DisplayName("should fail when encrypted email is missing generated compose-state password")
+    void shouldFail_whenEncryptedPdfPasswordMissingFromComposeState() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("senderConfigId", "1");
         request.setParameter("receiverEmailAddress", "patient@example.com");
@@ -229,7 +229,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Email PDF password is missing from session");
+                .hasMessage("Email PDF password is missing from compose state");
     }
 
     @Test
