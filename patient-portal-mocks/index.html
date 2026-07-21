@@ -337,61 +337,67 @@
 
       <section class="portal-screen" id="staff" aria-label="Staff admin mock">
         <header class="staff-topbar">
-          <div class="staff-nav">
-            <span class="tiny-logo"><img src="../src/main/webapp/images/oscar_logo_small.png" alt=""></span>
+          <div class="staff-brand">
+            <img src="../src/main/webapp/images/oscar_logo_small.png" alt="">
+            <strong>CARLOS</strong>
+          </div>
+          <nav class="staff-nav" aria-label="CARLOS navigation">
             <a href="#">Schedule</a>
             <a href="#">Search</a>
             <a href="#">Inbox</a>
             <a href="#">Msg</a>
             <a href="#">eDoc</a>
             <a href="#">Administration</a>
-          </div>
+          </nav>
           <div class="staff-user"><i class="fas fa-user"></i><span>Dr example</span></div>
         </header>
 
         <div class="staff-workspace">
-          <section class="staff-panel">
+          <section class="staff-panel staff-account-panel">
             <div class="panel-titlebar">
-              <h1>Patient portal</h1>
-              <span>example patient · demographic_no 10234</span>
+              <div>
+                <h1>Patient portal</h1>
+                <span>example patient · demographic_no 10234</span>
+              </div>
+              <span class="pill good">Active</span>
             </div>
             <div class="staff-toolbar">
-              <button class="toolbar-link"><i class="fas fa-envelope"></i><span>Invite</span></button>
-              <button class="toolbar-link"><i class="fas fa-redo"></i><span>Resend</span></button>
-              <button class="toolbar-link"><i class="fas fa-unlock"></i><span>Unlock</span></button>
-              <button class="toolbar-link danger"><i class="fas fa-ban"></i><span>Revoke</span></button>
+              <button class="secondary-action"><i class="fas fa-envelope"></i><span>Invite</span></button>
+              <button class="secondary-action"><i class="fas fa-redo"></i><span>Resend</span></button>
+              <button class="secondary-action"><i class="fas fa-unlock"></i><span>Unlock</span></button>
+              <button class="secondary-action danger-action"><i class="fas fa-ban"></i><span>Revoke</span></button>
             </div>
-            <table class="staff-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Username</th>
-                  <th>MFA</th>
-                  <th>Last invite</th>
-                  <th>Audit</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><span class="pill good">Active</span></td>
-                  <td>patient.username</td>
-                  <td>Email</td>
-                  <td>Accepted Jul 10, 2026</td>
-                  <td>12 events</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="staff-detail-grid">
+              <div>
+                <span>Username</span>
+                <strong>patient.username</strong>
+              </div>
+              <div>
+                <span>MFA</span>
+                <strong>Email enabled</strong>
+              </div>
+              <div>
+                <span>Last invite</span>
+                <strong>Accepted Jul 10, 2026</strong>
+              </div>
+              <div>
+                <span>Audit</span>
+                <strong>12 events</strong>
+              </div>
+            </div>
           </section>
 
-          <section class="staff-panel">
+          <section class="staff-panel staff-preview-panel">
             <div class="panel-titlebar">
-              <h2>Masked patient-view preview</h2>
-              <span>Raw password hidden</span>
+              <div>
+                <h2>Masked patient-view preview</h2>
+                <span>Raw generated passphrase hidden</span>
+              </div>
             </div>
-            <article class="record-row staff-preview">
-              <div class="record-main">
-                <div class="record-title">Encrypted message from Maple Creek Medical</div>
-                <div class="record-meta">Patient sees date, sender, subject, and generated-passphrase status</div>
+            <article class="staff-preview">
+              <div>
+                <h3>Encrypted message from Maple Creek Medical</h3>
+                <p>Patient sees date, sender, subject, and generated-passphrase status.</p>
               </div>
               <div class="password-chip muted">•••••-•••••-•••-•••••-•••••-•••</div>
             </article>
