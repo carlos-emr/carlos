@@ -100,8 +100,12 @@ public class EmailManager {
     private ProviderManager2 providerManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    private final OutboundEmailArchiveService outboundEmailArchiveService;
+
     @Autowired
-    private OutboundEmailArchiveService outboundEmailArchiveService;
+    public EmailManager(OutboundEmailArchiveService outboundEmailArchiveService) {
+        this.outboundEmailArchiveService = outboundEmailArchiveService;
+    }
 
     /**
      * Sends an email with optional encryption and creates a corresponding email log entry.
