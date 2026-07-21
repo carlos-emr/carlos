@@ -25,4 +25,4 @@ Included screens:
 
 The mock takes visual cues from CARLOS/OSCAR: compact layout, blue selected states, light grey toolbars, table-like rows, small controls, and existing CARLOS/OSCAR logo assets.
 
-Saved screenshots are in `screenshots/`.
+Saved screenshots are in `screenshots/`. Each included screen has desktop and mobile screenshots.
