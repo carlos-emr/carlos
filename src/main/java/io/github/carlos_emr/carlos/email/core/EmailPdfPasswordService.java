@@ -32,7 +32,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class EmailPdfPasswordService {
-    static final String WORDLIST_RESOURCE = "/email/patient_pdf_passphrase_wordlist.txt";
+    static final String WORDLIST_RESOURCE = "/email/patient_pdf_passphrase_english_wordlist.txt";
     static final int MIN_WORDLIST_SIZE = 4096;
     static final int DEFAULT_WORD_COUNT = 4;
     static final int WORD_GROUP_COUNT = 2;
