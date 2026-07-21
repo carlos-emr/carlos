@@ -1,6 +1,15 @@
 # CARLOS Patient Portal Mocks
 
-Open `index.html` in a browser to switch between mock screens.
+Open `index.html` in a browser to view the sign-in screen.
+
+Other screens can be opened with `?screen=`:
+
+- `index.html?screen=mfa`
+- `index.html?screen=dashboard`
+- `index.html?screen=passwords`
+- `index.html?screen=account`
+- `index.html?screen=staff`
+- `index.html?screen=messages`
 
 Included screens:
 
@@ -11,8 +20,6 @@ Included screens:
 5. Account settings
 6. CARLOS staff invite/admin view
 7. Future patient messages concept
-
-The left screen rail is only for browsing the mock. It is not intended to be part of the patient portal UI.
 
 The mock takes visual cues from CARLOS/OSCAR: compact layout, blue selected states, light grey toolbars, table-like rows, small controls, and existing CARLOS/OSCAR logo assets.
 

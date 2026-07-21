@@ -53,74 +53,16 @@ a:hover {
   text-decoration: underline;
 }
 
-.mock-shell {
-  display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+.app-shell {
   min-height: 100vh;
+  padding: 14px;
+  background: #dfe7f7;
 }
 
-.screen-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px;
-  background: #f5f5f5;
-  border-right: 1px solid #c9ced8;
-}
-
-.rail-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  margin-bottom: 6px;
-  padding: 4px;
-  color: var(--carlos-blue-dark);
-  border-bottom: 1px solid var(--line);
-}
-
-.rail-brand span {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.rail-logo,
 .brand-logo {
   width: 34px;
   height: 34px;
   object-fit: contain;
-}
-
-.screen-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 6px 8px;
-  color: var(--carlos-blue-dark);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  text-align: left;
-  font-weight: bold;
-  font-size: 13px;
-}
-
-.screen-link i {
-  width: 18px;
-  text-align: center;
-}
-
-.screen-link:hover,
-.screen-link.active {
-  color: #fff;
-  background: var(--carlos-blue);
-}
-
-.screen-stage {
-  min-width: 0;
-  padding: 14px;
 }
 
 .portal-screen {
@@ -770,33 +712,6 @@ h2 {
 }
 
 @media (max-width: 920px) {
-  .mock-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .screen-rail {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-right: 0;
-    border-bottom: 1px solid #c9ced8;
-  }
-
-  .rail-brand {
-    grid-column: 1 / -1;
-    margin: 0;
-  }
-
-  .screen-link {
-    justify-content: center;
-  }
-
-  .screen-link span {
-    display: none;
-  }
-
   .auth-layout,
   .workspace,
   .settings-grid,
@@ -811,7 +726,7 @@ h2 {
 }
 
 @media (max-width: 640px) {
-  .screen-stage {
+  .app-shell {
     padding: 0;
   }
 

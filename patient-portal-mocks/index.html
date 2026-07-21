@@ -8,25 +8,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="mock-shell">
-    <aside class="screen-rail" aria-label="Mock screens">
-      <div class="rail-brand">
-        <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="rail-logo">
-        <div>
-          <strong>CARLOS</strong>
-          <span>Patient Portal</span>
-        </div>
-      </div>
-      <button class="screen-link active" data-screen="signin"><i class="fas fa-sign-in-alt"></i><span>Sign in</span></button>
-      <button class="screen-link" data-screen="mfa"><i class="fas fa-key"></i><span>MFA</span></button>
-      <button class="screen-link" data-screen="dashboard"><i class="fas fa-th-large"></i><span>Dashboard</span></button>
-      <button class="screen-link" data-screen="passwords"><i class="fas fa-lock"></i><span>Email passwords</span></button>
-      <button class="screen-link" data-screen="account"><i class="fas fa-user-cog"></i><span>Account</span></button>
-      <button class="screen-link" data-screen="staff"><i class="fas fa-user-md"></i><span>Staff admin</span></button>
-      <button class="screen-link" data-screen="messages"><i class="fas fa-comments"></i><span>Messages later</span></button>
-    </aside>
-
-    <main class="screen-stage">
+  <main class="app-shell">
       <section class="portal-screen active" id="signin" aria-label="Sign in mock">
         <header class="patient-topbar compact">
           <div class="brand-lockup">
@@ -57,7 +39,7 @@
                 <span>Password</span>
                 <input type="password" value="mockpassword" autocomplete="current-password">
               </label>
-              <button class="primary-action" type="button"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
+              <button class="primary-action" type="button" data-target="mfa"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
               <div class="form-links">
                 <a href="#">Forgot password</a>
                 <a href="#">Need help</a>
@@ -73,7 +55,7 @@
             <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
             <div>
               <strong>CARLOS Patient Portal</strong>
-              <span>North River Family Health</span>
+              <span>Maple Creek Medical</span>
             </div>
           </div>
           <button class="topbar-button"><i class="fas fa-question-circle"></i><span>Help</span></button>
@@ -95,7 +77,7 @@
               <input inputmode="numeric" maxlength="1" value="">
             </div>
             <div class="button-row">
-              <button class="primary-action" type="button"><i class="fas fa-check"></i><span>Verify</span></button>
+              <button class="primary-action" type="button" data-target="dashboard"><i class="fas fa-check"></i><span>Verify</span></button>
               <button class="secondary-action" type="button"><i class="fas fa-redo"></i><span>Resend</span></button>
             </div>
             <p class="quiet-line">Code expires at 10:42 AM</p>
@@ -120,13 +102,13 @@
             <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
             <div>
               <strong>CARLOS Patient Portal</strong>
-              <span>Jane Brook · North River Family Health</span>
+              <span>Jane Brook · Maple Creek Medical</span>
             </div>
           </div>
           <nav class="patient-nav" aria-label="Portal navigation">
-            <button class="selected">Dashboard</button>
-            <button>Email passwords</button>
-            <button>Account</button>
+            <button class="selected" data-target="dashboard">Dashboard</button>
+            <button data-target="passwords">Email passwords</button>
+            <button data-target="account">Account</button>
             <button>Help</button>
           </nav>
           <button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-power-off"></i></button>
@@ -134,12 +116,12 @@
 
         <div class="workspace">
           <section class="module-grid" aria-label="Portal modules">
-            <button class="module-tile">
+            <button class="module-tile" data-target="passwords">
               <i class="fas fa-lock"></i>
               <span>Email passwords</span>
               <small>3 available</small>
             </button>
-            <button class="module-tile">
+            <button class="module-tile" data-target="account">
               <i class="fas fa-user-cog"></i>
               <span>Account</span>
               <small>Password, contact, MFA</small>
@@ -179,13 +161,13 @@
             <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
             <div>
               <strong>Email passwords</strong>
-              <span>Jane Brook · North River Family Health</span>
+              <span>Jane Brook · Maple Creek Medical</span>
             </div>
           </div>
           <nav class="patient-nav" aria-label="Portal navigation">
-            <button>Dashboard</button>
-            <button class="selected">Email passwords</button>
-            <button>Account</button>
+            <button data-target="dashboard">Dashboard</button>
+            <button class="selected" data-target="passwords">Email passwords</button>
+            <button data-target="account">Account</button>
             <button>Help</button>
           </nav>
           <button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-power-off"></i></button>
@@ -212,7 +194,7 @@
           <article class="record-row">
             <div class="record-main">
               <div class="record-title">Bloodwork requisition follow-up</div>
-              <div class="record-meta">Jul 18, 2026 · Dr. A. Singh · North River Family Health</div>
+              <div class="record-meta">Jul 18, 2026 · Dr. A. Singh · Maple Creek Medical</div>
             </div>
             <div class="password-chip" aria-label="Unlock password">R7KQ-MP3X-9VTA-2NHD</div>
             <button class="icon-button" title="Copy password" aria-label="Copy password"><i class="fas fa-copy"></i></button>
@@ -228,7 +210,7 @@
           <article class="record-row unavailable">
             <div class="record-main">
               <div class="record-title">Insurance form copy</div>
-              <div class="record-meta">Jun 28, 2026 · Admin team · North River Family Health</div>
+              <div class="record-meta">Jun 28, 2026 · Admin team · Maple Creek Medical</div>
             </div>
             <div class="password-chip muted" aria-label="Unavailable">Unavailable</div>
             <button class="icon-button" title="Unavailable" aria-label="Unavailable" disabled><i class="fas fa-ban"></i></button>
@@ -248,13 +230,13 @@
             <img src="../src/main/webapp/images/oscar_logo_small.png" alt="" class="brand-logo">
             <div>
               <strong>Account</strong>
-              <span>jane.brook</span>
+              <span>patient.username</span>
             </div>
           </div>
           <nav class="patient-nav" aria-label="Portal navigation">
-            <button>Dashboard</button>
-            <button>Email passwords</button>
-            <button class="selected">Account</button>
+            <button data-target="dashboard">Dashboard</button>
+            <button data-target="passwords">Email passwords</button>
+            <button class="selected" data-target="account">Account</button>
             <button>Help</button>
           </nav>
           <button class="icon-button" title="Sign out" aria-label="Sign out"><i class="fas fa-power-off"></i></button>
@@ -264,7 +246,7 @@
           <section class="settings-panel">
             <h2>Profile</h2>
             <dl class="summary-list">
-              <div><dt>Username</dt><dd>jane.brook</dd></div>
+              <div><dt>Username</dt><dd>patient.username</dd></div>
               <div><dt>Email</dt><dd>ja***@example.ca</dd></div>
               <div><dt>Phone</dt><dd>***-***-1284</dd></div>
             </dl>
@@ -328,7 +310,7 @@
               <tbody>
                 <tr>
                   <td><span class="pill good">Active</span></td>
-                  <td>jane.brook</td>
+                  <td>patient.username</td>
                   <td>Email</td>
                   <td>Accepted Jul 10, 2026</td>
                   <td>12 events</td>
@@ -386,7 +368,7 @@
               <span class="pill warn">Not acknowledged</span>
             </div>
             <div class="message-bubble staff-message">
-              <div class="sender-line">North River Family Health</div>
+              <div class="sender-line">Maple Creek Medical</div>
               <p>Please review the attached document before your appointment.</p>
               <button class="secondary-action"><i class="fas fa-paperclip"></i><span>Referral package</span></button>
             </div>
@@ -397,21 +379,33 @@
           </section>
         </div>
       </section>
-    </main>
-  </div>
+  </main>
 
   <script>
-    const links = document.querySelectorAll('.screen-link');
     const screens = document.querySelectorAll('.portal-screen');
 
-    links.forEach((link) => {
-      link.addEventListener('click', () => {
-        links.forEach((item) => item.classList.remove('active'));
-        screens.forEach((screen) => screen.classList.remove('active'));
-        link.classList.add('active');
-        document.getElementById(link.dataset.screen).classList.add('active');
+    function showScreen(id, replaceUrl = true) {
+      const next = document.getElementById(id);
+      if (!next) return;
+      screens.forEach((screen) => screen.classList.remove('active'));
+      next.classList.add('active');
+      if (replaceUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('screen', id);
+        window.history.replaceState({}, '', url);
+      }
+    }
+
+    document.querySelectorAll('[data-target]').forEach((button) => {
+      button.addEventListener('click', () => {
+        showScreen(button.dataset.target);
       });
     });
+
+    const initialScreen = new URLSearchParams(window.location.search).get('screen')
+      || window.location.hash.replace('#', '')
+      || 'signin';
+    showScreen(initialScreen, false);
   </script>
 </body>
 </html>
