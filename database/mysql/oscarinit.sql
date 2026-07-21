@@ -7261,6 +7261,26 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`)
 ) ENGINE=InnoDB;
 
+DROP TRIGGER IF EXISTS `trg_outboundEmailArchive_prevent_delete`;
+DROP TRIGGER IF EXISTS `trg_outboundEmailArchiveDeletion_prevent_delete`;
+DELIMITER //
+CREATE TRIGGER `trg_outboundEmailArchive_prevent_delete`
+BEFORE DELETE ON `outboundEmailArchive`
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Outbound email archives must use controlled tombstone workflow';
+END //
+
+CREATE TRIGGER `trg_outboundEmailArchiveDeletion_prevent_delete`
+BEFORE DELETE ON `outboundEmailArchiveDeletion`
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Outbound email archive tombstones are immutable';
+END //
+DELIMITER ;
+
 
 CREATE TABLE IF NOT EXISTS `faxes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
