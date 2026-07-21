@@ -37,13 +37,19 @@
               </label>
               <label>
                 <span>Password</span>
-                <input type="password" value="mockpassword" autocomplete="current-password">
+                <div class="password-input-row">
+                  <input type="password" value="mockpassword" autocomplete="current-password">
+                  <button class="icon-button password-toggle" type="button" title="Show password" aria-label="Show password" data-toggle-password>
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </div>
               </label>
               <button class="primary-action" type="button" data-target="mfa"><i class="fas fa-arrow-right"></i><span>Continue</span></button>
               <div class="form-links">
-                <a href="#">Forgot password</a>
-                <a href="#">Need help</a>
+                <a href="#">Forgot your portal password?</a>
+                <a href="#">Activate your portal account</a>
               </div>
+              <p class="clinic-help-line"><i class="fas fa-phone"></i><span>Need help? <a href="#">Contact Maple Creek Medical</a></span></p>
             </form>
           </section>
         </div>
@@ -446,6 +452,19 @@
     document.querySelectorAll('[data-target]').forEach((button) => {
       button.addEventListener('click', () => {
         showScreen(button.dataset.target);
+      });
+    });
+
+    document.querySelectorAll('[data-toggle-password]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const input = button.closest('.password-input-row')?.querySelector('input');
+        if (!input) return;
+        const nextType = input.type === 'password' ? 'text' : 'password';
+        input.type = nextType;
+        button.setAttribute('aria-label', nextType === 'password' ? 'Show password' : 'Hide password');
+        button.setAttribute('title', nextType === 'password' ? 'Show password' : 'Hide password');
+        button.querySelector('i')?.classList.toggle('fa-eye', nextType === 'password');
+        button.querySelector('i')?.classList.toggle('fa-eye-slash', nextType !== 'password');
       });
     });
 

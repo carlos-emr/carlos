@@ -272,6 +272,21 @@ h2 {
   outline-offset: 1px;
 }
 
+.password-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
+  align-items: center;
+}
+
+.password-input-row input {
+  min-width: 0;
+}
+
+.password-toggle {
+  align-self: end;
+}
+
 .primary-action,
 .secondary-action,
 .icon-button,
@@ -324,6 +339,25 @@ h2 {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.form-links {
+  gap: 8px 14px;
+  line-height: 1.3;
+}
+
+.clinic-help-line {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.clinic-help-line i {
+  color: var(--carlos-blue);
 }
 
 .status-strip {
