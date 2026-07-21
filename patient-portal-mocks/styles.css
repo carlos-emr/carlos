@@ -878,6 +878,28 @@ h2 {
     margin-left: auto;
   }
 
+  .patient-topbar.session-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 8px 12px;
+    align-items: center;
+  }
+
+  .session-topbar .brand-lockup {
+    min-width: 0;
+  }
+
+  .session-topbar .patient-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .session-topbar > .icon-button {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
   .patient-nav {
     margin-left: 0;
     width: 100%;
