@@ -218,6 +218,11 @@ a:hover {
   padding: 0 18px;
 }
 
+.auth-layout.single {
+  grid-template-columns: minmax(280px, 420px);
+  justify-content: center;
+}
+
 .auth-panel,
 .side-panel,
 .settings-panel,
