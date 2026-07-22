@@ -53,7 +53,13 @@ public final class EformAssetContentType {
         if (fileName == null) {
             return Optional.empty();
         }
-        String extension = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0) {
+            // A dotless name has no extension; without this guard "png" (the whole name) would key
+            // the allowlist and type a dotless file as image/png.
+            return Optional.empty();
+        }
+        String extension = fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
         return Optional.ofNullable(BY_EXTENSION.get(extension));
     }
 
