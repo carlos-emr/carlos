@@ -242,9 +242,10 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                     "demographicNo", 17));
 
             // The ERROR job must be display-ready: CoverPage.jsp renders recipient/destination/
-            // statusString per job, and the pre-fix bare shell rendered as an empty row.
+            // statusString per job, and the pre-fix bare shell rendered as an empty row. The
+            // message must describe a STORAGE failure — the source file provably existed.
             assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
-            assertThat(faxJob.getStatusString()).contains("File missing");
+            assertThat(faxJob.getStatusString()).contains("could not be stored");
             assertThat(faxJob.getRecipient()).isEqualTo("Test Recipient");
             assertThat(faxJob.getDestination()).isEqualTo("1234567890");
             assertThat(Files.exists(tempPdf)).isTrue();
@@ -389,7 +390,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should clear the cache without attempting temp deletion for a document-directory source")
-    void shouldFlushCacheOnly_forDocumentDirectorySource() {
+    void shouldFlushCacheOnly_forDocumentDirectorySource() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
         // A DOCUMENT_DIR path (the fax cancel flow passes these) is not a CARLOS temp artifact:
         // pre-fix, deleteTempFile raised a SecurityException out of flush and broke fax-cancel.
@@ -459,6 +460,20 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             }
             Files.deleteIfExists(tempRoot);
         }
+    }
+
+    @Test
+    @DisplayName("should report flush failure when cached preview pages cannot be removed")
+    void shouldReturnFalse_whenCachedPreviewPagesCannotBeRemoved() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        // Cached preview pages are rendered images of the fax document (PHI): a removal failure
+        // must fail the flush, not report success with the images still on disk.
+        when(nioFileManager.removeCacheVersions(eq(loggedInInfo), any(String.class), any(String.class)))
+                .thenThrow(new IOException("2 preview cache page image(s) could not be removed"));
+
+        boolean flushed = manager.flush(loggedInInfo, "/var/lib/OscarDocument/carlos/document/some-fax.pdf");
+
+        assertThat(flushed).isFalse();
     }
 
     @Test

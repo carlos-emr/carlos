@@ -84,8 +84,12 @@ public interface NioFileManager {
      * @param sourceDirectory the directory the PDF was previewed from (its parent directory)
      * @param filename        the PDF filename
      * @return the number of cache page images removed
+     * @throws IOException when the cache directory cannot be enumerated, or when one or more
+     *         matching page images could not be removed after a best-effort pass over all of
+     *         them — cached preview pages are PHI-bearing, so a caller must not report a
+     *         successful flush while any remain on disk
      */
-    public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename);
+    public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) throws IOException;
 
     /**
      * Save a file to the temporary directory from ByteArrayOutputStream

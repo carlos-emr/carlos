@@ -409,7 +409,7 @@ public class NioFileManagerImpl implements NioFileManager {
     // PathValidationUtils.validateExistingPath before deletion; the source is validated to an allowed
     // preview location and the key derives from that validated path plus server config.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public final int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) {
+    public final int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) throws IOException {
         if (filename == null || filename.trim().isEmpty()) {
             return 0;
         }
@@ -431,6 +431,7 @@ public class NioFileManagerImpl implements NioFileManager {
         }
 
         int removed = 0;
+        int failedRemovals = 0;
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(normalizedCacheDir)) {
             for (Path entry : entries) {
                 String name = entry.getFileName().toString();
@@ -448,16 +449,24 @@ public class NioFileManagerImpl implements NioFileManager {
                         removed++;
                     }
                 } catch (SecurityException | IOException e) {
+                    failedRemovals++;
                     log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name), e);
                 }
             }
         } catch (IOException e) {
             log.error("Error while clearing source-scoped preview cache", e);
+            throw e;
         }
         if (removed > 0) {
             log.debug("Cleared {} preview cache page image(s) for {} (provider={})", removed,
                     LogSafe.sanitize(filename),
                     LogSafe.sanitize(loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo()));
+        }
+        // Every matching page was attempted above; failures were logged per entry. Throw AFTER the
+        // best-effort pass so the caller cannot report "flushed" while PHI-bearing preview images
+        // are still on disk.
+        if (failedRemovals > 0) {
+            throw new IOException(failedRemovals + " preview cache page image(s) could not be removed");
         }
         return removed;
     }

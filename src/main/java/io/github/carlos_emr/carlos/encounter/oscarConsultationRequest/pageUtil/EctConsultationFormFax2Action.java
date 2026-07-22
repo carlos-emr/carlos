@@ -168,6 +168,14 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             return "error";
         }
         String faxPdfPath = nioFileManager.copyFileToOscarDocuments(faxPdf.toString());
+        if (faxPdfPath == null) {
+            // Promotion into the document store failed (copy error or destination conflict) —
+            // details are in the server log. Surface it instead of NPE-ing on Paths.get(null).
+            logger.error("Consultation fax PDF could not be stored in the document directory; aborting fax");
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \\n\\nThe fax document could not be stored for sending; please retry or contact your administrator.");
+            return "error";
+        }
         faxPdf = Paths.get(faxPdfPath);
         Path pdfToFax;
         List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);

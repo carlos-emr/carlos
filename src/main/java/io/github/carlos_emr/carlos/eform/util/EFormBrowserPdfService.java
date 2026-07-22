@@ -690,8 +690,11 @@ public class EFormBrowserPdfService {
         try {
             service.stop();
         } catch (RuntimeException e) {
+            // WARN, not DEBUG: this backstop exists precisely because a wedged Chromium can
+            // survive quit(), and a leaked chromedriver+browser (holding a rendered PHI page in
+            // memory) must be visible at default log levels.
             // Same redaction rule as quitQuietly: never the raw throwable.
-            logger.debug("Unable to stop browser eForm renderer chromedriver service cleanly: type={} error={}",
+            logger.warn("Unable to stop browser eForm renderer chromedriver service cleanly: type={} error={}",
                     e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
         }
     }
@@ -702,11 +705,12 @@ public class EFormBrowserPdfService {
 
     /**
      * Best-effort network quiescence: poll the performance log until no new events arrive for the
-     * quiet window, capped, never failing the render on its own — mirroring the retired script's
-     * ignored-on-timeout {@code networkidle} wait. Drained entries are retained for the gates.
+     * quiet window, capped, never failing the render on its own (a quiet-window timeout is
+     * ignored). Drained entries are retained for the gates; a drain FAULT does fail the render —
+     * see {@link #drainPerformanceLog}.
      */
     private void awaitNetworkQuiet(ChromeDriver driver, List<LogEntry> performanceEntries, long deadlineNanos)
-            throws InterruptedException {
+            throws InterruptedException, PDFGenerationException {
         long quietSinceNanos = System.nanoTime();
         long waitDeadline = Math.min(deadlineNanos, System.nanoTime() + NETWORK_QUIET_MAX_WAIT.toNanos());
         while (System.nanoTime() < waitDeadline) {
@@ -876,7 +880,9 @@ public class EFormBrowserPdfService {
      * pattern is inspected; console text is still never logged.
      */
     static boolean isResourceLoadConsoleEntry(String message) {
-        return message != null && message.contains("Failed to load resource");
+        // Anchored to Chrome's own emission (phrase + colon) rather than a bare substring, so a
+        // form's console.error mentioning the words cannot reclassify its JS error as ignorable.
+        return message != null && message.contains("Failed to load resource:");
     }
 
     /**
@@ -890,7 +896,11 @@ public class EFormBrowserPdfService {
      * event replay regardless of what the console says.
      */
     static boolean isPolicyContainmentConsoleEntry(String message) {
-        return message != null && message.contains("Content Security Policy");
+        // Anchored to Chrome's full violation phrase, not a bare "Content Security Policy"
+        // substring: a form's own console.error would need to reproduce the exact enforcement
+        // wording to be reclassified, which only suppresses that form's own gate signal and
+        // bypasses nothing (egress remains gated by the dead proxy and network-event replay).
+        return message != null && message.contains("violates the following Content Security Policy directive");
     }
 
     /** Outcome of replaying Chrome's network events against the allowed loopback origin. */
@@ -970,7 +980,8 @@ public class EFormBrowserPdfService {
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources);
     }
 
-    private int drainPerformanceLog(ChromeDriver driver, List<LogEntry> performanceEntries) {
+    // Package-private for the unit test that pins the fail-closed behavior.
+    int drainPerformanceLog(ChromeDriver driver, List<LogEntry> performanceEntries) throws PDFGenerationException {
         try {
             int before = performanceEntries.size();
             for (LogEntry entry : driver.manage().logs().get(LogType.PERFORMANCE)) {
@@ -978,10 +989,14 @@ public class EFormBrowserPdfService {
             }
             return performanceEntries.size() - before;
         } catch (RuntimeException e) {
+            // Fail closed, mirroring the console gate: the performance log is the ONLY detector
+            // for failed render-critical subresources (the console gate delegates resource
+            // failures here), so a drain fault silently returning 0 would let a broken render
+            // pass every gate on truncated evidence.
             // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
-            logger.debug("Browser performance log unavailable for eForm render: type={} error={}",
+            logger.error("Browser performance log unavailable for eForm render: type={} error={}",
                     e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
-            return 0;
+            throw new PDFGenerationException("Browser rendering could not verify the page's network activity.");
         }
     }
 

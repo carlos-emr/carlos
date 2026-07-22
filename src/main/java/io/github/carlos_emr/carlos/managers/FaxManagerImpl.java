@@ -372,9 +372,11 @@ public class FaxManagerImpl implements FaxManager {
             // copyFileToOscarDocuments returns null when promotion fails. Follow the same controlled
             // error path as resolveAndValidateFilePath above — return an ERROR-status FaxJob rather
             // than passing null downstream (uncaught IllegalArgumentException → 500) or throwing.
+            // The source file provably existed (validated above), so this is a storage-side
+            // failure, not a missing file — say so, or the user checks the wrong thing.
             if (promoted == null || promoted.isBlank()) {
                 faxJob.setStatus(STATUS.ERROR);
-                faxJob.setStatusString("File missing on local storage or invalid file path.");
+                faxJob.setStatusString("The fax document could not be stored for sending. Please retry or contact your administrator.");
                 return faxJob;
             }
             faxDocument = Paths.get(promoted);
@@ -711,13 +713,20 @@ public class FaxManagerImpl implements FaxManager {
 
         // Preview page images are cached per source PDF as "<boundedName>_<sourceKey>_<page>.png", so
         // clearing them requires the same source-scoped prefix, not the raw PDF name — remove every page
-        // for this source. With the multi-page CoverPage preview this can be many PNGs. Best-effort:
-        // removeCacheVersions cannot distinguish "no cached pages" from "removal failed", so the page
-        // count is logged but does not decide the flush outcome.
+        // for this source. With the multi-page CoverPage preview this can be many PNGs. The cached
+        // pages are rendered images of the fax document (PHI): a removal failure must fail the
+        // flush, not be reported as success with the images still on disk.
         File previewSource = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
         int cachePagesRemoved = 0;
+        boolean cacheCleared = true;
         if (previewSource != null && previewSource.getParent() != null) {
-            cachePagesRemoved = nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName());
+            try {
+                cachePagesRemoved = nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName());
+            } catch (IOException e) {
+                // Per-page failures were already logged with their exceptions by removeCacheVersions.
+                logger.error("Fax preview cache flush left cached page image(s) on disk: {}", e.getMessage());
+                cacheCleared = false;
+            }
         }
 
         // Only a CARLOS-owned temp artifact is eligible for temp deletion here. Guarding on the
@@ -737,13 +746,14 @@ public class FaxManagerImpl implements FaxManager {
         boolean tempDeleted = tempExisted && nioFileManager.deleteTempFile(validatedTemp.getPath());
 
         if (logger.isDebugEnabled()) {
-            logger.debug("Fax preview flush: cachePagesRemoved={} tempExisted={} tempDeleted={}",
-                    cachePagesRemoved, tempExisted, tempDeleted);
+            logger.debug("Fax preview flush: cachePagesRemoved={} cacheCleared={} tempExisted={} tempDeleted={}",
+                    cachePagesRemoved, cacheCleared, tempExisted, tempDeleted);
         }
-        // Success means everything that existed was removed. "Nothing to clear" — the preview was
-        // never rendered, was already flushed, or the path is a DOCUMENT_DIR document with no temp
-        // artifact — is success, not an error for the fax-cancel flow to alarm the user about.
-        return !tempExisted || tempDeleted;
+        // Success means everything that existed was removed — cached PHI preview pages included.
+        // "Nothing to clear" — the preview was never rendered, was already flushed, or the path is
+        // a DOCUMENT_DIR document with no temp artifact — is success, not an error for the
+        // fax-cancel flow to alarm the user about.
+        return cacheCleared && (!tempExisted || tempDeleted);
     }
 
 

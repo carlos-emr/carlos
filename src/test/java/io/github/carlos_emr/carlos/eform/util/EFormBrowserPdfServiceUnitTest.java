@@ -573,6 +573,23 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should fail the render when the performance log cannot be drained")
+    void shouldFailRender_whenPerformanceLogUnavailable() {
+        // The performance log is the ONLY detector for failed render-critical subresources (the
+        // console gate delegates resource failures to it), so a drain fault must fail closed —
+        // returning 0 would let a broken render pass every gate on truncated evidence.
+        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
+        when(driver.manage().logs().get(org.openqa.selenium.logging.LogType.PERFORMANCE))
+                .thenThrow(new org.openqa.selenium.WebDriverException("perf log broke"));
+
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+
+        assertThatThrownBy(() -> service.drainPerformanceLog(driver, new java.util.ArrayList<>()))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("network activity");
+    }
+
+    @Test
     @DisplayName("should fail the render when the browser console log cannot be retrieved")
     void shouldFailRender_whenConsoleLogUnavailable() {
         // The console gate is the only defense against capturing a form whose background image
