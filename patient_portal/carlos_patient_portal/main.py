@@ -62,7 +62,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return
 
         scheme, _, supplied_token = (authorization or "").partition(" ")
-        expected_token = settings.internal_health_token.get_secret_value()
+        expected_token = settings.internal_health_token.get_secret_value().strip()
         if scheme.lower() != "bearer" or not compare_digest(supplied_token, expected_token):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
 

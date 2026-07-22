@@ -29,10 +29,15 @@
       <div class="auth-layout">
         <section class="auth-panel" aria-labelledby="signin-title">
           <h1 id="signin-title">Sign in</h1>
-          <form class="form-stack" method="post" action="/auth/login">
+          <form class="form-stack" method="post" action="{{ url_for('login_placeholder') }}">
             <label>
               <span>Username</span>
-              <input type="text" name="username" value="patient.username" autocomplete="username">
+              <input
+                type="text"
+                name="username"
+                placeholder="patient.username"
+                autocomplete="username"
+              >
             </label>
             <label>
               <span>Password</span>

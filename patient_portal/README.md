@@ -11,7 +11,7 @@ The first slice is intentionally small:
 - Minimal public `/health` liveness endpoint.
 - Internal `/internal/health/db` database readiness endpoint.
 - Server-rendered responsive sign-in shell.
-- Basic tests for app wiring, template rendering, and database health dependency override.
+- Basic tests for app wiring, template rendering, and database readiness behavior.
 
 ## Local Setup
 
@@ -19,13 +19,16 @@ The first slice is intentionally small:
 cd patient_portal
 python3 -m venv /tmp/carlos-patient-portal-venv
 . /tmp/carlos-patient-portal-venv/bin/activate
-pip install -e ".[dev]"
+pip install --require-hashes -r requirements.lock
+pip install --no-build-isolation --no-deps -e .
 ```
 
-Use the checked-in lock file when you need reproducible dependency versions:
+The lock file includes runtime, development, and build dependencies with package hashes. Refresh it
+after dependency changes with:
 
 ```bash
-pip install -c requirements.lock -e ".[dev]"
+pip-compile --extra dev --all-build-deps --generate-hashes --allow-unsafe --strip-extras \
+  --output-file requirements.lock pyproject.toml
 ```
 
 ## Run
@@ -64,6 +67,9 @@ curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
 
 Expose `/internal/health/db` only to trusted infrastructure such as a load balancer or orchestrator
 health probe.
+
+Production secrets must be non-default and at least 32 characters. `PATIENT_PORTAL_ENVIRONMENT`
+accepts `development`, `staging`, `test`, or `production`; `dev` and `prod` are normalized aliases.
 
 ## Migrations
 

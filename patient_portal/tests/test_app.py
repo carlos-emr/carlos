@@ -5,6 +5,10 @@ from pydantic import ValidationError
 from carlos_patient_portal import main
 from carlos_patient_portal.config import Settings
 
+PRODUCTION_SESSION_SECRET = "production-session-secret-0000000001"
+INTERNAL_HEALTH_TOKEN = "internal-health-token-0000000000001"
+WRONG_INTERNAL_HEALTH_TOKEN = "wrong-internal-health-token-0000000000"
+
 
 def test_health_endpoint_is_minimal() -> None:
     app = main.create_app(Settings(environment="staging"))
@@ -20,7 +24,8 @@ def test_index_renders_sign_in_shell() -> None:
 
     assert response.status_code == 200
     assert "CARLOS Patient Portal" in response.text
-    assert "patient.username" in response.text
+    assert 'placeholder="patient.username"' in response.text
+    assert 'value="patient.username"' not in response.text
     assert "Maple Creek Medical" in response.text
 
 
@@ -51,7 +56,7 @@ def test_internal_database_health_requires_configured_token() -> None:
     app = main.create_app(
         Settings(
             database_url="sqlite+pysqlite:///:memory:",
-            internal_health_token="health-token",
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
     client = TestClient(app)
@@ -59,11 +64,11 @@ def test_internal_database_health_requires_configured_token() -> None:
     assert client.get("/internal/health/db").status_code == 404
     assert client.get(
         "/internal/health/db",
-        headers={"Authorization": "Bearer wrong-token"},
+        headers={"Authorization": f"Bearer {WRONG_INTERNAL_HEALTH_TOKEN}"},
     ).status_code == 404
     assert client.get(
         "/internal/health/db",
-        headers={"Authorization": "Bearer health-token"},
+        headers={"Authorization": f"Bearer {INTERNAL_HEALTH_TOKEN}"},
     ).status_code == 200
 
 
@@ -88,8 +93,8 @@ def test_api_docs_are_disabled_in_production() -> None:
     app = main.create_app(
         Settings(
             environment="production",
-            session_secret="production-secret",
-            internal_health_token="health-token",
+            session_secret=PRODUCTION_SESSION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
 
@@ -98,14 +103,49 @@ def test_api_docs_are_disabled_in_production() -> None:
     assert TestClient(app).get("/api/redoc").status_code == 404
 
 
+def test_environment_aliases_are_normalized() -> None:
+    settings = Settings(
+        environment=" prod ",
+        session_secret=PRODUCTION_SESSION_SECRET,
+        internal_health_token=INTERNAL_HEALTH_TOKEN,
+    )
+
+    assert settings.environment == "production"
+    assert settings.is_production
+
+
+def test_invalid_environment_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="environment"):
+        Settings(environment="sandbox")
+
+
+def test_session_secret_must_not_be_blank() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_SESSION_SECRET"):
+        Settings(session_secret=" ")
+
+
 def test_production_rejects_default_session_secret() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_SESSION_SECRET"):
-        Settings(environment="production")
+        Settings(environment="production", internal_health_token=INTERNAL_HEALTH_TOKEN)
+
+
+def test_production_rejects_short_session_secret() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_SESSION_SECRET"):
+        Settings(
+            environment="production",
+            session_secret="short-production-secret",
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
 
 
 def test_production_rejects_missing_internal_health_token() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
-        Settings(environment="production", session_secret="production-secret")
+        Settings(environment="production", session_secret=PRODUCTION_SESSION_SECRET)
+
+
+def test_internal_health_token_must_be_long_when_configured() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
+        Settings(internal_health_token="short-token")
 
 
 def test_module_does_not_create_global_app_on_import() -> None:
