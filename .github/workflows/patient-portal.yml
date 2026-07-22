@@ -51,11 +51,11 @@ jobs:
       - name: Compile Python files
         run: python -m compileall carlos_patient_portal tests
 
-      - name: Check Alembic wiring
+      - name: Run migrations
         env:
           PATIENT_PORTAL_ENVIRONMENT: development
           PATIENT_PORTAL_DATABASE_URL: "sqlite+pysqlite:///:memory:"
-        run: alembic -c alembic.ini current
+        run: alembic -c alembic.ini upgrade head
 
       - name: Build wheel
         run: python -m build --wheel --no-isolation

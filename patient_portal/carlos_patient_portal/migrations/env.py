@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+import carlos_patient_portal.models  # noqa: F401
 from carlos_patient_portal.config import get_settings
 from carlos_patient_portal.database import Base
 

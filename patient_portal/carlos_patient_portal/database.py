@@ -2,6 +2,7 @@ from collections.abc import Generator
 
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 
 class Base(DeclarativeBase):
@@ -10,9 +11,12 @@ class Base(DeclarativeBase):
 
 def create_portal_engine(database_url: str) -> Engine:
     connect_args: dict[str, object] = {}
+    engine_options: dict[str, object] = {"pool_pre_ping": True}
     if database_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
-    return create_engine(database_url, pool_pre_ping=True, connect_args=connect_args)
+        if ":memory:" in database_url:
+            engine_options["poolclass"] = StaticPool
+    return create_engine(database_url, connect_args=connect_args, **engine_options)
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
@@ -21,7 +25,11 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def session_scope(session_factory: sessionmaker[Session]) -> Generator[Session, None, None]:
     with session_factory() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            session.rollback()
+            raise
 
 
 def check_database(session: Session) -> None:

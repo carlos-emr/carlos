@@ -7,11 +7,12 @@ The first slice is intentionally small:
 - FastAPI application factory.
 - Pydantic settings with `PATIENT_PORTAL_` environment variables.
 - SQLAlchemy session configuration.
-- Alembic migration scaffold.
+- Alembic migration scaffold and the initial invite table.
 - Minimal public `/health` liveness endpoint.
 - Internal `/internal/health/db` database readiness endpoint.
 - Server-rendered responsive sign-in shell.
-- Basic tests for app wiring, template rendering, and database readiness behavior.
+- Development-only staff invite API for creating, listing, resending, and revoking invites.
+- Basic tests for app wiring, template rendering, database readiness, and invite lifecycle behavior.
 
 ## Local Setup
 
@@ -99,8 +100,31 @@ Installed wheel deployments can run packaged migrations without a source checkou
 carlos-patient-portal-migrate
 ```
 
-This PR only adds the migration scaffold. Patient, invite, membership, audit, and unlock-secret
-tables should be added in later vertical slices.
+This PR adds the portal foundation and initial staff invite table. Patient accounts, membership,
+audit, and unlock-secret tables should be added in later vertical slices.
+
+## Development Invite API
+
+The staff invite skeleton is available only when `PATIENT_PORTAL_ENVIRONMENT=development`.
+It is intentionally hidden outside development until real CARLOS staff authentication is wired in.
+
+```bash
+curl -X POST http://127.0.0.1:8090/dev/admin/invites \
+  -H "Content-Type: application/json" \
+  -d '{"demographic_no":1234,"actor":"Dr example"}'
+
+curl http://127.0.0.1:8090/dev/admin/invites?demographic_no=1234
+
+curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/resend \
+  -H "Content-Type: application/json" \
+  -d '{"actor":"Dr example"}'
+
+curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
+  -H "Content-Type: application/json" \
+  -d '{"actor":"Dr example"}'
+```
+
+Invite tokens are shown only on create/resend responses. The database stores only the token hash.
 
 ## Tests
 

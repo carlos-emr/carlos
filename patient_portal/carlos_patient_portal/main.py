@@ -2,13 +2,14 @@ from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
 from hashlib import sha256
 from hmac import new as new_hmac
-from pathlib import Path
+from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
 from time import time
 from typing import Annotated
 from urllib.parse import parse_qs
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
+from fastapi import Path as PathParam
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import SQLAlchemyError
@@ -22,8 +23,23 @@ from carlos_patient_portal.database import (
     create_session_factory,
     session_scope,
 )
+from carlos_patient_portal.invites import (
+    InviteNotFoundError,
+    RevokedInviteError,
+    create_invite,
+    list_invites,
+    resend_invite,
+    revoke_invite,
+)
+from carlos_patient_portal.models import PatientPortalInvite
+from carlos_patient_portal.schemas import (
+    InviteCreateRequest,
+    InviteResponse,
+    InviteTokenResponse,
+    StaffActorRequest,
+)
 
-PACKAGE_DIR = Path(__file__).resolve().parent
+PACKAGE_DIR = FilePath(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
@@ -94,6 +110,28 @@ def is_valid_csrf_submission(
     if not compare_digest(form_token, cookie_token):
         return False
     return is_valid_csrf_token(form_token, secret)
+
+
+def invite_response_payload(
+    invite: PatientPortalInvite,
+    invite_token: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "id": invite.id,
+        "demographic_no": invite.demographic_no,
+        "status": invite.status,
+        "created_by": invite.created_by,
+        "created_at": invite.created_at,
+        "updated_at": invite.updated_at,
+        "sent_count": invite.sent_count,
+        "last_sent_at": invite.last_sent_at,
+        "last_sent_by": invite.last_sent_by,
+        "revoked_at": invite.revoked_at,
+        "revoked_by": invite.revoked_by,
+    }
+    if invite_token is not None:
+        payload["invite_token"] = invite_token
+    return payload
 
 
 async def read_limited_request_body(request: Request, max_bytes: int) -> bytes:
@@ -180,7 +218,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not request.url.path.startswith("/api/"):
             response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
 
-        if request.url.path in NO_STORE_PATHS or request.url.path.startswith("/internal/"):
+        if (
+            request.url.path in NO_STORE_PATHS
+            or request.url.path.startswith("/internal/")
+            or request.url.path.startswith("/dev/admin/")
+        ):
             response.headers.setdefault("Cache-Control", "no-store")
             response.headers.setdefault("Pragma", "no-cache")
 
@@ -257,5 +299,66 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
             raise HTTPException(status_code=403, detail="invalid CSRF token")
         raise HTTPException(status_code=501, detail="login is not implemented yet")
+
+    if settings.is_development:
+
+        @app.post(
+            "/dev/admin/invites",
+            response_model=InviteTokenResponse,
+            status_code=status.HTTP_201_CREATED,
+        )
+        def dev_create_invite(
+            payload: InviteCreateRequest,
+            session: Annotated[Session, Depends(get_app_database_session)],
+        ) -> dict[str, object]:
+            invite, invite_token = create_invite(
+                session,
+                payload.demographic_no,
+                payload.actor,
+            )
+            return invite_response_payload(invite, invite_token)
+
+        @app.get("/dev/admin/invites", response_model=list[InviteResponse])
+        def dev_list_invites(
+            session: Annotated[Session, Depends(get_app_database_session)],
+            demographic_no: Annotated[int | None, Query(gt=0)] = None,
+            limit: Annotated[int, Query(ge=1, le=100)] = 10,
+            offset: Annotated[int, Query(ge=0)] = 0,
+        ) -> list[dict[str, object]]:
+            return [
+                invite_response_payload(invite)
+                for invite in list_invites(
+                    session,
+                    demographic_no=demographic_no,
+                    limit=limit,
+                    offset=offset,
+                )
+            ]
+
+        @app.post("/dev/admin/invites/{invite_id}/resend", response_model=InviteTokenResponse)
+        def dev_resend_invite(
+            invite_id: Annotated[int, PathParam(gt=0)],
+            payload: StaffActorRequest,
+            session: Annotated[Session, Depends(get_app_database_session)],
+        ) -> dict[str, object]:
+            try:
+                invite, invite_token = resend_invite(session, invite_id, payload.actor)
+            except InviteNotFoundError as exc:
+                raise HTTPException(status_code=404, detail="invite not found") from exc
+            except RevokedInviteError as exc:
+                raise HTTPException(status_code=409, detail="invite has been revoked") from exc
+            return invite_response_payload(invite, invite_token)
+
+        @app.post("/dev/admin/invites/{invite_id}/revoke", response_model=InviteResponse)
+        def dev_revoke_invite(
+            invite_id: Annotated[int, PathParam(gt=0)],
+            payload: StaffActorRequest,
+            session: Annotated[Session, Depends(get_app_database_session)],
+        ) -> dict[str, object]:
+            try:
+                invite = revoke_invite(session, invite_id, payload.actor)
+            except InviteNotFoundError as exc:
+                raise HTTPException(status_code=404, detail="invite not found") from exc
+            return invite_response_payload(invite)
 
     return app

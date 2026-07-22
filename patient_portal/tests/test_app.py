@@ -11,6 +11,9 @@ from carlos_patient_portal.config import (
     MIN_PRODUCTION_SECRET_LENGTH,
     Settings,
 )
+from carlos_patient_portal.database import Base
+from carlos_patient_portal.invites import hash_invite_token
+from carlos_patient_portal.models import PatientPortalInvite
 
 NON_DEVELOPMENT_SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
 INTERNAL_HEALTH_TOKEN = "h" * MIN_PRODUCTION_SECRET_LENGTH
@@ -21,6 +24,12 @@ CSRF_TOKEN_PATTERN = re.compile(r'name="csrf_token" value="([^"]+)"')
 def development_settings(**overrides: object) -> Settings:
     values = {"environment": "development", **overrides}
     return Settings(**values)
+
+
+def migrated_development_app() -> main.FastAPI:
+    app = main.create_app(development_settings(database_url="sqlite+pysqlite:///:memory:"))
+    Base.metadata.create_all(app.state.database_engine)
+    return app
 
 
 def get_csrf_token(client: TestClient) -> str:
@@ -295,6 +304,110 @@ def test_api_docs_are_disabled_in_production() -> None:
     assert TestClient(app).get("/api/openapi.json").status_code == 404
     assert TestClient(app).get("/api/docs").status_code == 404
     assert TestClient(app).get("/api/redoc").status_code == 404
+
+
+def test_dev_admin_invite_lifecycle() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post(
+        "/dev/admin/invites",
+        json={"demographic_no": 1234, "actor": " Dr example "},
+    )
+
+    assert create_response.status_code == 201
+    created_invite = create_response.json()
+    invite_id = created_invite["id"]
+    invite_token = created_invite["invite_token"]
+    assert created_invite["demographic_no"] == 1234
+    assert created_invite["status"] == "pending"
+    assert created_invite["created_by"] == "Dr example"
+    assert created_invite["last_sent_by"] == "Dr example"
+    assert created_invite["sent_count"] == 1
+    assert create_response.headers["cache-control"] == "no-store"
+
+    with app.state.session_factory() as session:
+        persisted_invite = session.get(PatientPortalInvite, invite_id)
+        assert persisted_invite is not None
+        assert persisted_invite.token_hash == hash_invite_token(invite_token)
+        assert persisted_invite.token_hash != invite_token
+
+    list_response = client.get("/dev/admin/invites", params={"demographic_no": 1234})
+
+    assert list_response.status_code == 200
+    listed_invites = list_response.json()
+    assert len(listed_invites) == 1
+    assert listed_invites[0]["id"] == invite_id
+    assert "invite_token" not in listed_invites[0]
+    assert list_response.headers["cache-control"] == "no-store"
+
+    resend_response = client.post(
+        f"/dev/admin/invites/{invite_id}/resend",
+        json={"actor": "Admin example"},
+    )
+
+    assert resend_response.status_code == 200
+    resent_invite = resend_response.json()
+    resent_token = resent_invite["invite_token"]
+    assert resent_token != invite_token
+    assert resent_invite["sent_count"] == 2
+    assert resent_invite["last_sent_by"] == "Admin example"
+    assert resend_response.headers["cache-control"] == "no-store"
+
+    revoke_response = client.post(
+        f"/dev/admin/invites/{invite_id}/revoke",
+        json={"actor": "Admin example"},
+    )
+
+    assert revoke_response.status_code == 200
+    revoked_invite = revoke_response.json()
+    assert revoked_invite["status"] == "revoked"
+    assert revoked_invite["revoked_by"] == "Admin example"
+    assert "invite_token" not in revoked_invite
+
+    revoked_resend_response = client.post(
+        f"/dev/admin/invites/{invite_id}/resend",
+        json={"actor": "Admin example"},
+    )
+
+    assert revoked_resend_response.status_code == 409
+    assert revoked_resend_response.json()["detail"] == "invite has been revoked"
+
+
+def test_dev_admin_invites_are_hidden_outside_development() -> None:
+    app = main.create_app(
+        Settings(
+            environment="staging",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+    )
+    response = TestClient(app).post(
+        "/dev/admin/invites",
+        json={"demographic_no": 1234, "actor": "Dr example"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_dev_admin_invite_requires_positive_demographic_no() -> None:
+    app = migrated_development_app()
+    response = TestClient(app).post(
+        "/dev/admin/invites",
+        json={"demographic_no": 0, "actor": "Dr example"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_dev_admin_unknown_invite_returns_not_found() -> None:
+    app = migrated_development_app()
+    response = TestClient(app).post(
+        "/dev/admin/invites/999/resend",
+        json={"actor": "Dr example"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "invite not found"
 
 
 def test_environment_aliases_are_normalized() -> None:
