@@ -104,6 +104,8 @@ public class EForm extends EFormBase {
     private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[ \\t\\n\\f\\r/>])");
 
     private String runtimeContextPath;
+    /** True once the DOM normalization pass has run for the current formHtml content. */
+    private boolean runtimeAssetsNormalized;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
     private static final String VAR_NAME = "var_name";
@@ -420,6 +422,9 @@ public class EForm extends EFormBase {
                 ? contextPath.substring(0, contextPath.length() - 1)
                 : contextPath;
         this.runtimeContextPath = normalizedContextPath;
+        // This method writes formHtml directly (not via setFormHtml), so it must reset the
+        // normalization flag itself: the rewritten content needs a fresh DOM pass on next read.
+        this.runtimeAssetsNormalized = false;
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
         this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
         this.formHtml = injectLoadSigFallback(this.formHtml);
@@ -494,14 +499,26 @@ public class EForm extends EFormBase {
      */
     @Override
     public String getFormHtml() {
-        if (!StringUtils.isBlank(runtimeContextPath)) {
+        // The DOM pass runs once per content generation: the composer calls this getter several
+        // times per render, and re-running the (idempotent) jsoup parse + serialize on unchanged
+        // content was pure waste. setFormHtml/setContextPath reset the flag so changed content is
+        // always re-normalized; a failed pass leaves it unset and retries on the next read.
+        if (!StringUtils.isBlank(runtimeContextPath) && !runtimeAssetsNormalized) {
             try {
                 normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
+                runtimeAssetsNormalized = true;
             } catch (RuntimeException | LinkageError e) {
                 log.debug("Skipping DOM-based eForm runtime normalization; falling back to string-level HTML", e);
             }
         }
         return super.getFormHtml();
+    }
+
+    @Override
+    public void setFormHtml(String formHtml) {
+        // New content may (re)introduce legacy constructs; it must be re-normalized on next read.
+        runtimeAssetsNormalized = false;
+        super.setFormHtml(formHtml);
     }
 
     private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {

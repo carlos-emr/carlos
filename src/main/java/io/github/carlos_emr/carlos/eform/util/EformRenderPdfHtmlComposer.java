@@ -43,8 +43,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * stored-form HTML assembly — letter positioning, signature-image splicing, legacy image-path
  * rewriting, and render-token propagation onto asset URLs — lives in one testable place.</p>
  *
- * <p>All methods are stateless functions of their inputs; the class is a pure composer with no
- * request or session dependency.</p>
+ * <p>The class holds no state of its own and has no request or session dependency, so it is safe
+ * to call off a servlet thread. It is not, however, a pure function of its inputs:
+ * {@link #buildPdfHtmlForFdid} loads the eForm and its values from the database, and
+ * {@code buildPdfHtml} advances the passed {@link io.github.carlos_emr.carlos.eform.data.EForm}
+ * through an ordered set/get pipeline whose interleaved EForm mutators
+ * ({@code setImagePath}, {@code setNowDateTime}) make the step ordering load-bearing — later
+ * rewrites operate on URLs the earlier mutators inject.</p>
  */
 public final class EformRenderPdfHtmlComposer {
 
