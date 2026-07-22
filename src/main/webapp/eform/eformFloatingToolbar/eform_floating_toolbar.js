@@ -265,7 +265,11 @@ function addFormIfNotFound(form, demographicNo, delegate) {
         text: 'Preview',
         title: 'Preview'
     }).click(function () {
-        getPdf('FORM', formValue, 'method=renderFormPDF&formId=' + formValue + '&formName=' + formName + '&demographicNo=' + demographicNo);
+        const formPreviewParameters = 'method=renderFormPDF'
+            + '&formId=' + encodeURIComponent(formValue)
+            + '&formName=' + encodeURIComponent(formName)
+            + '&demographicNo=' + encodeURIComponent(demographicNo);
+        getPdf('FORM', formValue, formPreviewParameters);
     });
 
     const newLiFormElement = jQuery('<li>', {

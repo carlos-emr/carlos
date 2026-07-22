@@ -92,6 +92,11 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
     }
 
     @Override
+    public DigitalSignature getDigitalSignatureMetadata(int id) {
+        return this.digitalSignatureDao.findMetadataById(id);
+    }
+
+    @Override
     public DigitalSignature saveDigitalSignature(Integer facilityId, String providerNo, Integer demographicNo, byte[] imageData, ModuleType moduleType) {
         DigitalSignature digitalSignature = new DigitalSignature();
         digitalSignature.setDateSigned(new Date());
