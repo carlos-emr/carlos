@@ -64,6 +64,7 @@ jobs:
           mvn validate
 
       - name: Submit dependency graph
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/submit_maven_dependency_snapshot.py
+        uses: advanced-security/maven-dependency-submission-action@3a183dc11227df3dd6351cfffb472965b9265da1  # v5
+        with:
+          snapshot-include-file-name: false
+          snapshot-dependency-file-name: pom.xml
