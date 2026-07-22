@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.net.ssl.SSLContext;
@@ -14,10 +16,12 @@ import javax.net.ssl.SSLContext;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
@@ -43,7 +47,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * SSL/TLS encryption, and file attachments. All email operations are subject to
  * HIPAA/PIPEDA compliance requirements and require appropriate security permissions.
  *
- * The implementation uses Apache HttpClient with SSL context for secure communication
+ * The implementation uses Apache HttpClient with TLS for secure communication
  * with SendGrid's API endpoint. Email content is serialized to JSON format according
  * to SendGrid's API specification, supporting multiple recipients, HTML/plain text
  * content, and Base64-encoded file attachments.
@@ -51,7 +55,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Security considerations:
  * - Requires _email WRITE privilege for all send operations
  * - API keys are stored in EmailConfig and must be protected
- * - SSL client authentication is enabled for enhanced security
+ * - SendGrid API calls are made over HTTPS/TLS
  * - PHI data in email content must be appropriately secured
  *
  * @see EmailConfig
@@ -61,7 +65,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * @since 2026-01-24
  */
 public class APISendGridEmailSender {
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String DEFAULT_ENDPOINT = "https://api.sendgrid.com/v3/mail/send";
     private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     private LoggedInInfo loggedInInfo;
@@ -72,7 +77,6 @@ public class APISendGridEmailSender {
     private String subject;
     private String body;
     private String additionalParams;
-    private String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
     private List<EmailAttachment> attachments;
     private byte[] preparedPayloadBytes;
 
@@ -102,7 +106,7 @@ public class APISendGridEmailSender {
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
-        this.recipients = recipients;
+        this.recipients = safeRecipients(recipients);
         this.subject = subject;
         this.body = body;
         this.attachments = safeAttachments(attachments);
@@ -130,7 +134,7 @@ public class APISendGridEmailSender {
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, String additionalParams, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
-        this.recipients = recipients;
+        this.recipients = safeRecipients(recipients);
         this.subject = subject;
         this.body = body;
         this.additionalParams = additionalParams;
@@ -147,9 +151,8 @@ public class APISendGridEmailSender {
      * 4. Transmits the email via HTTP POST request with Bearer token authentication
      * 5. Validates the HTTP response status code
      *
-     * The method uses Apache HttpClient with custom SSL context configuration that
-     * enables client authentication for enhanced security. All attachments are
-     * Base64-encoded before transmission.
+     * The method uses Apache HttpClient with TLS. All attachments are Base64-encoded
+     * before transmission.
      *
      * HIPAA/PIPEDA Compliance Note: Ensure that any Protected Health Information (PHI)
      * included in email content is appropriately secured and that transmission is
@@ -180,9 +183,8 @@ public class APISendGridEmailSender {
         }
 
         try {
+            SendGridConfigDetails configDetails = readConfigDetails();
             SSLContext sslContext = SSLContexts.custom().build();
-            sslContext.getDefaultSSLParameters().setNeedClientAuth(true);
-            sslContext.getDefaultSSLParameters().setWantClientAuth(true);
 
             HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
                     .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
@@ -193,27 +195,29 @@ public class APISendGridEmailSender {
             try (CloseableHttpClient httpClient = HttpClients.custom()
                     .setConnectionManager(connectionManager).build()) {
 
-                HttpPost httpPost = new HttpPost(getEndPoint());
+                HttpPost httpPost = new HttpPost(configDetails.endpoint());
                 httpPost.setHeader("Content-Type", "application/json");
-                httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
+                httpPost.setHeader("Authorization", "Bearer " + configDetails.apiKey());
 
                 ByteArrayEntity entity = new ByteArrayEntity(preparedPayloadBytes, ContentType.APPLICATION_JSON);
                 httpPost.setEntity(entity);
-                var response = httpClient.execute(httpPost);
-                if (response.getCode() >= 400) {
-                    throw new EmailSendingException(response.getCode() + " " + response.getReasonPhrase()
-                            + "\n" + EntityUtils.toString(response.getEntity()));
+                try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+                    if (response.getCode() >= 400) {
+                        throw new EmailSendingException(response.getCode() + " " + response.getReasonPhrase()
+                                + "\n" + EntityUtils.toString(response.getEntity()));
+                    }
                 }
             }
         } catch (EmailSendingException e) {
             throw e;
-        } catch (Exception e) {
-            throw new EmailSendingException(e.getMessage(), e);
+        } catch (IOException | GeneralSecurityException | ParseException | IllegalArgumentException e) {
+            String message = e.getMessage() != null ? e.getMessage() : "Failed to send email using SendGrid";
+            throw new EmailSendingException(message, e);
         }
     }
 
     private String createEmailJSON() throws EmailSendingException {
-        ObjectNode emailJson = objectMapper.createObjectNode();
+        ObjectNode emailJson = OBJECT_MAPPER.createObjectNode();
         addTo(emailJson);
         addFrom(emailJson);
         addSubject(emailJson);
@@ -224,12 +228,12 @@ public class APISendGridEmailSender {
     }
 
     private void addTo(ObjectNode emailJson) {
-        ArrayNode personalizations = objectMapper.createArrayNode();
-        ObjectNode personalization = objectMapper.createObjectNode();
+        ArrayNode personalizations = OBJECT_MAPPER.createArrayNode();
+        ObjectNode personalization = OBJECT_MAPPER.createObjectNode();
 
-        ArrayNode toList = objectMapper.createArrayNode();
+        ArrayNode toList = OBJECT_MAPPER.createArrayNode();
         for (String recipient : recipients) {
-            ObjectNode to = objectMapper.createObjectNode();
+            ObjectNode to = OBJECT_MAPPER.createObjectNode();
             to.put("email", recipient);
             toList.add(to);
         }
@@ -241,7 +245,7 @@ public class APISendGridEmailSender {
     }
 
     private void addFrom(ObjectNode emailJson) {
-        ObjectNode from = objectMapper.createObjectNode();
+        ObjectNode from = OBJECT_MAPPER.createObjectNode();
         from.put("email", emailConfig.getSenderEmail());
         from.put("name", emailConfig.getSenderFullName());
         emailJson.put("from", from);
@@ -252,8 +256,8 @@ public class APISendGridEmailSender {
     }
 
     private void addBody(ObjectNode emailJson) {
-        ArrayNode content = objectMapper.createArrayNode();
-        ObjectNode contentObj = objectMapper.createObjectNode();
+        ArrayNode content = OBJECT_MAPPER.createArrayNode();
+        ObjectNode contentObj = OBJECT_MAPPER.createObjectNode();
         contentObj.put("type", "text/plain");
         contentObj.put("value", body);
         content.add(contentObj);
@@ -263,11 +267,11 @@ public class APISendGridEmailSender {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void addAttachments(ObjectNode emailJson) throws EmailSendingException {
-        ArrayNode jsonAttachments = objectMapper.createArrayNode();
+        ArrayNode jsonAttachments = OBJECT_MAPPER.createArrayNode();
         for (EmailAttachment attachment : attachments) {
             EmailAttachment emailAttachment = requireValidAttachment(attachment);
             try {
-                ObjectNode jsonAttachment = objectMapper.createObjectNode();
+                ObjectNode jsonAttachment = OBJECT_MAPPER.createObjectNode();
                 Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
                 jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
@@ -287,8 +291,12 @@ public class APISendGridEmailSender {
         }
     }
 
+    private String[] safeRecipients(String[] recipients) {
+        return recipients != null ? recipients.clone() : new String[0];
+    }
+
     private List<EmailAttachment> safeAttachments(List<EmailAttachment> attachments) {
-        return attachments != null ? attachments : List.of();
+        return attachments != null ? new ArrayList<EmailAttachment>(attachments) : List.of();
     }
 
     private EmailAttachment requireValidAttachment(EmailAttachment attachment) throws EmailSendingException {
@@ -305,30 +313,46 @@ public class APISendGridEmailSender {
     }
 
     private void addAdditionalParams(ObjectNode emailJson) throws EmailSendingException {
-        emailJson.put("additionalParams", additionalParams);
+        if (additionalParams != null && !additionalParams.isBlank()) {
+            emailJson.put("additionalParams", additionalParams);
+        }
     }
 
-    private String getAPIKey() throws EmailSendingException {
-        String apiKey;
+    private SendGridConfigDetails readConfigDetails() throws EmailSendingException {
+        String invalidCredentialsMessage = "Invalid credentials configured for " + emailConfig.getSenderEmail();
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            apiKey = jsonNode.get("api_key").asText();
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(emailConfig.getConfigDetailsJson());
+            JsonNode apiKeyNode = jsonNode.get("api_key");
+            if (apiKeyNode == null || apiKeyNode.asText().isBlank()) {
+                throw new EmailSendingException(invalidCredentialsMessage);
+            }
+
+            String endpoint = DEFAULT_ENDPOINT;
+            JsonNode endpointNode = jsonNode.get("end_point");
+            if (endpointNode != null && !endpointNode.asText().isBlank()) {
+                endpoint = endpointNode.asText().trim();
+            }
+            return new SendGridConfigDetails(apiKeyNode.asText().trim(), endpoint);
+        } catch (IOException | IllegalArgumentException e) {
+            throw new EmailSendingException(invalidCredentialsMessage, e);
         }
-        return apiKey;
     }
 
-    private String getEndPoint() throws EmailSendingException {
-        StringBuilder endPointBuilder = new StringBuilder();
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            endPointBuilder.append(jsonNode.get("end_point") != null ? jsonNode.get("end_point").asText() : DEFAULT_END_POINT);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+    private static final class SendGridConfigDetails {
+        private final String apiKey;
+        private final String endpoint;
+
+        private SendGridConfigDetails(String apiKey, String endpoint) {
+            this.apiKey = apiKey;
+            this.endpoint = endpoint;
         }
-        return endPointBuilder.toString();
+
+        private String apiKey() {
+            return apiKey;
+        }
+
+        private String endpoint() {
+            return endpoint;
+        }
     }
 }

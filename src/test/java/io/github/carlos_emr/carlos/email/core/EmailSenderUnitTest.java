@@ -80,6 +80,27 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject outbound archive preparation without persisted email log")
+    void shouldRejectOutboundArchivePreparation_withoutPersistedEmailLog() {
+        EmailConfig emailConfig = sendGridEmailConfig();
+        EmailData emailData = emailData(List.of());
+        EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.FAILED);
+        EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+
+        assertThatThrownBy(() -> emailSender.prepareOutboundArchive(emailLog))
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessage("Persisted EmailLog is required for outbound email archive");
+    }
+
+    @Test
+    @DisplayName("should report unsupported outbound archive when email config is missing")
+    void shouldReportUnsupportedOutboundArchive_whenEmailConfigMissing() {
+        EmailSender emailSender = new EmailSender(loggedInInfo, null, new String[]{"patient@example.test"}, "Test subject", "Body text", List.of());
+
+        assertThat(emailSender.supportsOutboundArchive()).isFalse();
+    }
+
+    @Test
     @DisplayName("should prepare SendGrid archive request from submitted JSON payload")
     void shouldPrepareSendGridArchiveRequest_fromSubmittedJsonPayload() throws Exception {
         Path attachmentPath = tempDir.resolve("attachment.pdf");
@@ -102,7 +123,10 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         assertThat(archiveRequest.getArtifactType()).isEqualTo(OutboundEmailArchive.ARTIFACT_TYPE_API_PAYLOAD);
         assertThat(archiveRequest.getTransportType()).isEqualTo("API");
         assertThat(archiveRequest.getProviderName()).isEqualTo("SENDGRID");
-        assertThat(payload).contains("\"subject\":\"Test subject\"").doesNotContain(API_KEY);
+        assertThat(payload)
+                .contains("\"subject\":\"Test subject\"")
+                .doesNotContain(API_KEY)
+                .doesNotContain("additionalParams");
         assertThat(archiveRequest.getAttachments()).singleElement().satisfies(attachmentDto -> {
             assertThat(attachmentDto.getFileName()).isEqualTo("attachment_001.pdf");
             assertThat(attachmentDto.getContentType()).isEqualTo("application/pdf");

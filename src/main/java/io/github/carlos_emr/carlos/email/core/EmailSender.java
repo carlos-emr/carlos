@@ -93,10 +93,10 @@ public class EmailSender {
     public EmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, EmailData emailData) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
-        this.recipients = emailData.getRecipients();
+        this.recipients = safeRecipients(emailData.getRecipients());
         this.subject = emailData.getSubject();
         this.body = emailData.getBody();
-        this.attachments = emailData.getAttachments();
+        this.attachments = safeAttachments(emailData.getAttachments());
         this.additionalParams = emailData.getAdditionalParams();
     }
 
@@ -117,10 +117,10 @@ public class EmailSender {
     public EmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
-        this.recipients = recipients;
+        this.recipients = safeRecipients(recipients);
         this.subject = subject;
         this.body = body;
-        this.attachments = attachments;
+        this.attachments = safeAttachments(attachments);
     }
 
     /**
@@ -142,10 +142,10 @@ public class EmailSender {
     public EmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, String additionalParams, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
-        this.recipients = recipients;
+        this.recipients = safeRecipients(recipients);
         this.subject = subject;
         this.body = body;
-        this.attachments = attachments;
+        this.attachments = safeAttachments(attachments);
         this.additionalParams = additionalParams;
     }
 
@@ -205,7 +205,8 @@ public class EmailSender {
      * @return true when the configured email type is API and the provider is SendGrid; otherwise false
      */
     public boolean supportsOutboundArchive() {
-        return emailConfig.getEmailType() == EmailConfig.EmailType.API
+        return emailConfig != null
+                && emailConfig.getEmailType() == EmailConfig.EmailType.API
                 && emailConfig.getEmailProvider() == EmailConfig.EmailProvider.SENDGRID;
     }
 
@@ -227,6 +228,9 @@ public class EmailSender {
         requireEmailWritePrivilege();
         if (!supportsOutboundArchive()) {
             throw new EmailSendingException("Outbound email archive is not supported for this email configuration");
+        }
+        if (emailLog == null || emailLog.getId() == null) {
+            throw new EmailSendingException("Persisted EmailLog is required for outbound email archive");
         }
 
         preparedApiSendGridSendHelper = null;
@@ -272,6 +276,14 @@ public class EmailSender {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
+    }
+
+    private String[] safeRecipients(String[] recipients) {
+        return recipients != null ? recipients.clone() : new String[0];
+    }
+
+    private List<EmailAttachment> safeAttachments(List<EmailAttachment> attachments) {
+        return attachments != null ? new ArrayList<EmailAttachment>(attachments) : List.of();
     }
 
     /**

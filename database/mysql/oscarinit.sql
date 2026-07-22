@@ -810,7 +810,7 @@ CREATE TABLE IF NOT EXISTS document (
   `sent_date_time` datetime DEFAULT NULL,
   PRIMARY KEY  (document_no),
   KEY `document_ikey` (`public1`,`doctype`,`status`,`updatedatetime`)
-) ;
+) ENGINE=InnoDB;
 
 --
 -- Table structure for table `drugs`
@@ -7140,7 +7140,7 @@ CREATE TABLE IF NOT EXISTS emailConfig (
     senderLastName VARCHAR(50),
     senderEmail VARCHAR(255),
     configDetails VARCHAR(1000)
-);
+) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS emailLog (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     configId BIGINT,
@@ -7163,7 +7163,7 @@ CREATE TABLE IF NOT EXISTS emailLog (
     providerNo varchar(6),
     additionalParams VARCHAR(1000),
     FOREIGN KEY (configId) REFERENCES emailConfig (id)
-);
+) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS emailAttachment (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     logId BIGINT,
@@ -7172,7 +7172,7 @@ CREATE TABLE IF NOT EXISTS emailAttachment (
     documentType VARCHAR(20),
     documentId INT,
     FOREIGN KEY (logId) REFERENCES emailLog (id)
-);
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `id` INT PRIMARY KEY AUTO_INCREMENT,
@@ -7263,6 +7263,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
 
 DROP TRIGGER IF EXISTS `trg_outboundEmailArchive_prevent_delete`;
 DROP TRIGGER IF EXISTS `trg_outboundEmailArchiveDeletion_prevent_delete`;
+DROP TRIGGER IF EXISTS `trg_outboundEmailArchiveDeletion_prevent_update`;
 DELIMITER //
 CREATE TRIGGER `trg_outboundEmailArchive_prevent_delete`
 BEFORE DELETE ON `outboundEmailArchive`
@@ -7274,6 +7275,14 @@ END //
 
 CREATE TRIGGER `trg_outboundEmailArchiveDeletion_prevent_delete`
 BEFORE DELETE ON `outboundEmailArchiveDeletion`
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Outbound email archive tombstones are immutable';
+END //
+
+CREATE TRIGGER `trg_outboundEmailArchiveDeletion_prevent_update`
+BEFORE UPDATE ON `outboundEmailArchiveDeletion`
 FOR EACH ROW
 BEGIN
     SIGNAL SQLSTATE '45000'

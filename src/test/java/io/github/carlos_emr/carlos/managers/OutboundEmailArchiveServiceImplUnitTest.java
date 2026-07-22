@@ -25,21 +25,28 @@ package io.github.carlos_emr.carlos.managers;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -85,6 +92,10 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
     private CtlDocumentDao ctlDocumentDao;
+    private EFormDataDao eFormDataDao;
+    private PatientLabRoutingDao patientLabRoutingDao;
+    private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
+    private FormsManager formsManager;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
     private OutboundEmailArchiveServiceImpl service;
@@ -97,9 +108,24 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         outboundEmailArchiveDeletionDao = mock(OutboundEmailArchiveDeletionDao.class);
         ctlDocumentDao = mock(CtlDocumentDao.class);
+        eFormDataDao = mock(EFormDataDao.class);
+        patientLabRoutingDao = mock(PatientLabRoutingDao.class);
+        hrmDocumentToDemographicDao = mock(HRMDocumentToDemographicDao.class);
+        formsManager = mock(FormsManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        service = new OutboundEmailArchiveServiceImpl(documentManager, documentDao, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, ctlDocumentDao, securityInfoManager);
+        service = new OutboundEmailArchiveServiceImpl(
+                documentManager,
+                documentDao,
+                emailLogDao,
+                outboundEmailArchiveDao,
+                outboundEmailArchiveDeletionDao,
+                ctlDocumentDao,
+                eFormDataDao,
+                patientLabRoutingDao,
+                hrmDocumentToDemographicDao,
+                formsManager,
+                securityInfoManager);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
@@ -375,6 +401,69 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(attachment.getDocument()).isNull();
         assertThat(attachment.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
         verifyNoInteractions(ctlDocumentDao);
+        verifyNoInteractions(eFormDataDao);
+        verifyNoInteractions(patientLabRoutingDao);
+        verifyNoInteractions(hrmDocumentToDemographicDao);
+        verifyNoInteractions(formsManager);
+    }
+
+    @Test
+    @DisplayName("should validate known attachment source metadata against archive demographic")
+    void shouldValidateKnownAttachmentSourceMetadata_againstArchiveDemographic() throws Exception {
+        byte[] attachmentBytes = "attachment bytes".getBytes(StandardCharsets.UTF_8);
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        request.addAttachment(attachmentMetadata("eform.pdf", "EFORM", 501, attachmentBytes));
+        request.addAttachment(attachmentMetadata("lab.pdf", "LAB", 502, attachmentBytes));
+        request.addAttachment(attachmentMetadata("hrm.pdf", "HRM", 503, attachmentBytes));
+        request.addAttachment(attachmentMetadata("form.pdf", "FORM", 504, attachmentBytes));
+
+        EFormData eFormData = new EFormData();
+        eFormData.setDemographicId(123);
+        HRMDocumentToDemographic hrmMapping = new HRMDocumentToDemographic();
+        hrmMapping.setDemographicNo(123);
+        when(eFormDataDao.findByFormDataId(501)).thenReturn(eFormData);
+        when(patientLabRoutingDao.findAllByLabNo(502)).thenReturn(List.of(new PatientLabRouting(502, "HL7", 123)));
+        when(hrmDocumentToDemographicDao.findByHrmDocumentId(503)).thenReturn(List.of(hrmMapping));
+        when(formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, 123, true, true))
+                .thenReturn(List.of(new PatientForm("formTable", "Form", 504, 123)));
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.getAttachments()).hasSize(4);
+    }
+
+    @Test
+    @DisplayName("should reject attachment source ID without source type")
+    void shouldRejectAttachmentSourceIdWithoutSourceType_beforeStoringEdoc() {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        OutboundEmailArchiveAttachmentDto attachmentRequest = attachmentMetadata("unknown.pdf", null, 501, "attachment bytes".getBytes(StandardCharsets.UTF_8));
+        request.addAttachment(attachmentRequest);
+
+        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("source document type");
+
+        verifyNoInteractions(documentManager);
+    }
+
+    @Test
+    @DisplayName("should reject document source metadata from a different demographic")
+    void shouldRejectDocumentSourceMetadataFromDifferentDemographic_beforeStoringEdoc() {
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        OutboundEmailArchiveAttachmentDto attachmentRequest = attachmentMetadata("document.pdf", "DOC", 777, "attachment bytes".getBytes(StandardCharsets.UTF_8));
+        request.addAttachment(attachmentRequest);
+        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(456, 777)));
+
+        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("source document");
+
+        verifyNoInteractions(documentManager);
     }
 
     @Test
@@ -730,6 +819,17 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         CtlDocument ctlDocument = new CtlDocument();
         ctlDocument.setId(new CtlDocumentPK("demographic", demographicNo, documentNo));
         return ctlDocument;
+    }
+
+    private OutboundEmailArchiveAttachmentDto attachmentMetadata(String fileName, String sourceDocumentType, Integer sourceDocumentId, byte[] attachmentBytes) {
+        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+        attachmentRequest.setFileName(fileName);
+        attachmentRequest.setContentType("application/pdf");
+        attachmentRequest.setSha256Hash(sha256Hex(attachmentBytes));
+        attachmentRequest.setByteSize((long) attachmentBytes.length);
+        attachmentRequest.setSourceDocumentType(sourceDocumentType);
+        attachmentRequest.setSourceDocumentId(sourceDocumentId);
+        return attachmentRequest;
     }
 
     private OutboundEmailArchive archiveForDeletion() {

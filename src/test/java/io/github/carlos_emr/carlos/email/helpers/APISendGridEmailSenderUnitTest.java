@@ -23,6 +23,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,11 +73,39 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
         JsonNode payloadJson = OBJECT_MAPPER.readTree(payload);
         assertThat(payload).doesNotContain(API_KEY);
         assertThat(payloadJson.has("apiKey")).isFalse();
+        assertThat(payloadJson.has("additionalParams")).isFalse();
         assertThat(payloadJson.at("/personalizations/0/to/0/email").asText()).isEqualTo("patient@example.test");
         assertThat(payloadJson.at("/from/email").asText()).isEqualTo("provider@example.test");
         assertThat(payloadJson.at("/subject").asText()).isEqualTo("Test subject");
         assertThat(payloadJson.at("/attachments/0/filename").asText()).isEqualTo("attachment_001.pdf");
         assertThat(payloadJson.at("/attachments/0/content").asText()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("should snapshot recipients and attachments before payload preparation")
+    void shouldSnapshotRecipientsAndAttachments_beforePayloadPreparation() throws Exception {
+        Path attachmentPath = tempDir.resolve("attachment.pdf");
+        Files.write(attachmentPath, "pdf-content".getBytes(StandardCharsets.UTF_8));
+        EmailAttachment attachment = new EmailAttachment("attachment_001.pdf", attachmentPath.toString(), DocumentType.DOC, 77);
+        String[] recipients = {"patient@example.test"};
+        List<EmailAttachment> attachments = new ArrayList<>();
+        attachments.add(attachment);
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                sendGridEmailConfig(),
+                recipients,
+                "Test subject",
+                "Body text",
+                null,
+                attachments);
+
+        recipients[0] = "changed@example.test";
+        attachments.clear();
+
+        JsonNode payloadJson = OBJECT_MAPPER.readTree(sender.preparePayloadBytes());
+
+        assertThat(payloadJson.at("/personalizations/0/to/0/email").asText()).isEqualTo("patient@example.test");
+        assertThat(payloadJson.at("/attachments/0/filename").asText()).isEqualTo("attachment_001.pdf");
     }
 
     @Test
@@ -94,6 +123,26 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
         JsonNode payloadJson = OBJECT_MAPPER.readTree(sender.preparePayloadBytes());
 
         assertThat(payloadJson.get("attachments")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject missing SendGrid API key without exposing credentials")
+    void shouldRejectMissingSendGridApiKey_withoutExposingCredentials() {
+        EmailConfig emailConfig = sendGridEmailConfig();
+        emailConfig.setConfigDetailsJson("{\"end_point\":\"https://api.sendgrid.test/v3/mail/send\"}");
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                emailConfig,
+                new String[]{"patient@example.test"},
+                "Test subject",
+                "Body text",
+                null,
+                null);
+
+        assertThatThrownBy(sender::sendPreparedPayload)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessage("Invalid credentials configured for provider@example.test")
+                .hasMessageNotContaining("api_key");
     }
 
     @Test

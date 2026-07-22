@@ -25,19 +25,26 @@ package io.github.carlos_emr.carlos.managers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveAttachment;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -56,6 +63,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -84,6 +92,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private final CtlDocumentDao ctlDocumentDao;
 
+    private final EFormDataDao eFormDataDao;
+
+    private final PatientLabRoutingDao patientLabRoutingDao;
+
+    private final HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
+
+    private final FormsManager formsManager;
+
     private final SecurityInfoManager securityInfoManager;
 
     @Autowired
@@ -94,6 +110,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             OutboundEmailArchiveDao outboundEmailArchiveDao,
             OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao,
             CtlDocumentDao ctlDocumentDao,
+            EFormDataDao eFormDataDao,
+            PatientLabRoutingDao patientLabRoutingDao,
+            HRMDocumentToDemographicDao hrmDocumentToDemographicDao,
+            FormsManager formsManager,
             SecurityInfoManager securityInfoManager) {
         this.documentManager = documentManager;
         this.documentDao = documentDao;
@@ -101,6 +121,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
         this.outboundEmailArchiveDeletionDao = outboundEmailArchiveDeletionDao;
         this.ctlDocumentDao = ctlDocumentDao;
+        this.eFormDataDao = eFormDataDao;
+        this.patientLabRoutingDao = patientLabRoutingDao;
+        this.hrmDocumentToDemographicDao = hrmDocumentToDemographicDao;
+        this.formsManager = formsManager;
         this.securityInfoManager = securityInfoManager;
     }
 
@@ -185,7 +209,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         String fileName = uniqueArchiveFileName(emailLog, contentType);
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
         authorizeArchiveAccess(loggedInInfo, demographicNo);
-        List<OutboundEmailArchiveAttachment> attachments = buildAttachments(request, providerNo, demographicNo);
+        List<OutboundEmailArchiveAttachment> attachments = buildAttachments(loggedInInfo, request, providerNo, demographicNo);
 
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
         Document savedDocument;
@@ -359,7 +383,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return archive;
     }
 
-    private List<OutboundEmailArchiveAttachment> buildAttachments(OutboundEmailArchiveDto request, String providerNo, Integer demographicNo) {
+    private List<OutboundEmailArchiveAttachment> buildAttachments(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request, String providerNo, Integer demographicNo) {
         List<OutboundEmailArchiveAttachmentDto> attachmentRequests = safeAttachmentList(request.getAttachments());
         if (attachmentRequests.isEmpty()) {
             return List.of();
@@ -367,12 +391,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         List<OutboundEmailArchiveAttachment> attachments = new ArrayList<>();
         for (OutboundEmailArchiveAttachmentDto attachmentRequest : attachmentRequests) {
-            attachments.add(buildAttachment(attachmentRequest, providerNo, demographicNo));
+            attachments.add(buildAttachment(loggedInInfo, attachmentRequest, providerNo, demographicNo));
         }
         return attachments;
     }
 
-    private OutboundEmailArchiveAttachment buildAttachment(OutboundEmailArchiveAttachmentDto request, String providerNo, Integer demographicNo) {
+    private OutboundEmailArchiveAttachment buildAttachment(LoggedInInfo loggedInInfo, OutboundEmailArchiveAttachmentDto request, String providerNo, Integer demographicNo) {
         if (request == null) {
             throw new IllegalArgumentException("Attachment request is required");
         }
@@ -383,6 +407,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             throw new IllegalArgumentException("Persisted attachment document is required when attachment bytes are supplied");
         }
         validateAttachmentDocumentDemographic(attachmentDocument, demographicNo);
+        validateAttachmentSourceMetadata(loggedInInfo, request, attachmentDocument, demographicNo);
         String sha256Hash = request.getSha256Hash();
         Long byteSize = request.getByteSize();
         if (attachmentBytes != null) {
@@ -424,6 +449,103 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             }
         }
         throw new SecurityException("attachment document is not linked to outbound email archive demographic");
+    }
+
+    private void validateAttachmentSourceMetadata(
+            LoggedInInfo loggedInInfo,
+            OutboundEmailArchiveAttachmentDto request,
+            Document attachmentDocument,
+            Integer demographicNo) {
+        Integer sourceDocumentId = request.getSourceDocumentId();
+        if (sourceDocumentId == null || sourceDocumentId <= 0) {
+            return;
+        }
+
+        String sourceDocumentType = normalizeSourceDocumentType(request.getSourceDocumentType());
+        if (sourceDocumentType.isEmpty()) {
+            throw new IllegalArgumentException("Attachment source document type is required when source document ID is supplied");
+        }
+
+        switch (sourceDocumentType) {
+            case "DOC":
+            case "DOCUMENT":
+            case "EDOC":
+                validateDocSourceMetadata(sourceDocumentId, attachmentDocument, demographicNo);
+                break;
+            case "EFORM":
+                validateEFormSourceMetadata(sourceDocumentId, demographicNo);
+                break;
+            case "LAB":
+                validateLabSourceMetadata(sourceDocumentId, demographicNo);
+                break;
+            case "HRM":
+                validateHrmSourceMetadata(sourceDocumentId, demographicNo);
+                break;
+            case "FORM":
+                validateFormSourceMetadata(loggedInInfo, sourceDocumentId, demographicNo);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void validateDocSourceMetadata(Integer sourceDocumentId, Document attachmentDocument, Integer demographicNo) {
+        if (attachmentDocument != null && sourceDocumentId.equals(attachmentDocument.getId())) {
+            return;
+        }
+        if (!isCtlDocumentLinkedToDemographic(sourceDocumentId, demographicNo)) {
+            throw new SecurityException("attachment source document is not linked to outbound email archive demographic");
+        }
+    }
+
+    private void validateEFormSourceMetadata(Integer sourceDocumentId, Integer demographicNo) {
+        EFormData eFormData = eFormDataDao.findByFormDataId(sourceDocumentId);
+        if (eFormData == null || !demographicNo.equals(eFormData.getDemographicId())) {
+            throw new SecurityException("attachment source eForm is not linked to outbound email archive demographic");
+        }
+    }
+
+    private void validateLabSourceMetadata(Integer sourceDocumentId, Integer demographicNo) {
+        for (PatientLabRouting routing : safePatientLabRoutingList(patientLabRoutingDao.findAllByLabNo(sourceDocumentId))) {
+            if (routing != null && demographicNo.equals(routing.getDemographicNo())) {
+                return;
+            }
+        }
+        throw new SecurityException("attachment source lab is not linked to outbound email archive demographic");
+    }
+
+    private void validateHrmSourceMetadata(Integer sourceDocumentId, Integer demographicNo) {
+        for (HRMDocumentToDemographic mapping : safeHrmDocumentToDemographicList(hrmDocumentToDemographicDao.findByHrmDocumentId(sourceDocumentId))) {
+            if (mapping != null && demographicNo.equals(mapping.getDemographicNo())) {
+                return;
+            }
+        }
+        throw new SecurityException("attachment source HRM document is not linked to outbound email archive demographic");
+    }
+
+    private void validateFormSourceMetadata(LoggedInInfo loggedInInfo, Integer sourceDocumentId, Integer demographicNo) {
+        for (PatientForm patientForm : safePatientFormList(formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true))) {
+            if (patientForm != null && sourceDocumentId.equals(patientForm.formId) && demographicNo.equals(patientForm.demographicId)) {
+                return;
+            }
+        }
+        throw new SecurityException("attachment source form is not linked to outbound email archive demographic");
+    }
+
+    private boolean isCtlDocumentLinkedToDemographic(Integer documentNo, Integer demographicNo) {
+        List<CtlDocument> ctlDocuments = ctlDocumentDao.findByDocumentNoAndModule(documentNo, CTL_DOCUMENT_MODULE_DEMOGRAPHIC);
+        for (CtlDocument ctlDocument : safeCtlDocumentList(ctlDocuments)) {
+            if (ctlDocument != null
+                    && ctlDocument.getId() != null
+                    && demographicNo.equals(ctlDocument.getId().getModuleId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalizeSourceDocumentType(String sourceDocumentType) {
+        return sourceDocumentType == null ? "" : sourceDocumentType.trim().toUpperCase(Locale.ROOT);
     }
 
     private String uniqueArchiveFileName(EmailLog emailLog, String contentType) {
@@ -482,6 +604,18 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private List<CtlDocument> safeCtlDocumentList(List<CtlDocument> ctlDocuments) {
         return ctlDocuments != null ? ctlDocuments : List.of();
+    }
+
+    private List<PatientLabRouting> safePatientLabRoutingList(List<PatientLabRouting> routings) {
+        return routings != null ? routings : List.of();
+    }
+
+    private List<HRMDocumentToDemographic> safeHrmDocumentToDemographicList(List<HRMDocumentToDemographic> mappings) {
+        return mappings != null ? mappings : List.of();
+    }
+
+    private List<PatientForm> safePatientFormList(List<PatientForm> patientForms) {
+        return patientForms != null ? patientForms : List.of();
     }
 
     private String defaultIfBlank(String value, String defaultValue) {

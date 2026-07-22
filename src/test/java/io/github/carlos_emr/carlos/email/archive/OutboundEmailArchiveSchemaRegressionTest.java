@@ -39,6 +39,8 @@ class OutboundEmailArchiveSchemaRegressionTest {
 
     private static final Path ARCHIVE_MIGRATION = Path.of(
             "database", "mysql", "updates", "update-2026-07-07-outbound-email-archive.sql");
+    private static final Path REFERENCE_ENGINE_MIGRATION = Path.of(
+            "database", "mysql", "updates", "update-2026-07-06-outbound-email-archive-reference-engines.sql");
     private static final Path FRESH_SCHEMA = Path.of("database", "mysql", "oscarinit.sql");
 
     @Test
@@ -53,6 +55,35 @@ class OutboundEmailArchiveSchemaRegressionTest {
         assertDeletePreventionTriggers(Files.readString(FRESH_SCHEMA, StandardCharsets.UTF_8));
     }
 
+    @Test
+    @DisplayName("should define immutable tombstone update trigger")
+    void shouldDefineImmutableTombstoneUpdateTrigger() throws IOException {
+        assertImmutableTombstoneUpdateTrigger(Files.readString(ARCHIVE_MIGRATION, StandardCharsets.UTF_8));
+        assertImmutableTombstoneUpdateTrigger(Files.readString(FRESH_SCHEMA, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("should pin archive foreign key table engines")
+    void shouldPinArchiveForeignKeyTableEngines() throws IOException {
+        String freshSchema = Files.readString(FRESH_SCHEMA, StandardCharsets.UTF_8);
+        String referenceEngineMigration = Files.readString(REFERENCE_ENGINE_MIGRATION, StandardCharsets.UTF_8);
+
+        assertThat(freshSchema)
+                .contains("CREATE TABLE IF NOT EXISTS document (")
+                .contains(") ENGINE=InnoDB;\n\n--\n-- Table structure for table `drugs`")
+                .contains("CREATE TABLE IF NOT EXISTS emailConfig (")
+                .contains("configDetails VARCHAR(1000)\n) ENGINE=InnoDB;")
+                .contains("CREATE TABLE IF NOT EXISTS emailLog (")
+                .contains("FOREIGN KEY (configId) REFERENCES emailConfig (id)\n) ENGINE=InnoDB;")
+                .contains("CREATE TABLE IF NOT EXISTS emailAttachment (")
+                .contains("FOREIGN KEY (logId) REFERENCES emailLog (id)\n) ENGINE=InnoDB;");
+        assertThat(referenceEngineMigration)
+                .contains("ALTER TABLE `document` ENGINE=InnoDB;")
+                .contains("ALTER TABLE `emailConfig` ENGINE=InnoDB;")
+                .contains("ALTER TABLE `emailLog` ENGINE=InnoDB;")
+                .contains("ALTER TABLE `emailAttachment` ENGINE=InnoDB;");
+    }
+
     private static void assertDeletePreventionTriggers(String sql) {
         assertThat(sql)
                 .contains("DROP TRIGGER IF EXISTS `trg_outboundEmailArchive_prevent_delete`")
@@ -62,6 +93,14 @@ class OutboundEmailArchiveSchemaRegressionTest {
                 .contains("DROP TRIGGER IF EXISTS `trg_outboundEmailArchiveDeletion_prevent_delete`")
                 .contains("CREATE TRIGGER `trg_outboundEmailArchiveDeletion_prevent_delete`")
                 .contains("BEFORE DELETE ON `outboundEmailArchiveDeletion`")
+                .contains("Outbound email archive tombstones are immutable");
+    }
+
+    private static void assertImmutableTombstoneUpdateTrigger(String sql) {
+        assertThat(sql)
+                .contains("DROP TRIGGER IF EXISTS `trg_outboundEmailArchiveDeletion_prevent_update`")
+                .contains("CREATE TRIGGER `trg_outboundEmailArchiveDeletion_prevent_update`")
+                .contains("BEFORE UPDATE ON `outboundEmailArchiveDeletion`")
                 .contains("Outbound email archive tombstones are immutable");
     }
 }

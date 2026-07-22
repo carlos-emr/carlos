@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
 
 DROP TRIGGER IF EXISTS `trg_outboundEmailArchive_prevent_delete`;
 DROP TRIGGER IF EXISTS `trg_outboundEmailArchiveDeletion_prevent_delete`;
+DROP TRIGGER IF EXISTS `trg_outboundEmailArchiveDeletion_prevent_update`;
 DELIMITER //
 CREATE TRIGGER `trg_outboundEmailArchive_prevent_delete`
 BEFORE DELETE ON `outboundEmailArchive`
@@ -102,6 +103,14 @@ END //
 
 CREATE TRIGGER `trg_outboundEmailArchiveDeletion_prevent_delete`
 BEFORE DELETE ON `outboundEmailArchiveDeletion`
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Outbound email archive tombstones are immutable';
+END //
+
+CREATE TRIGGER `trg_outboundEmailArchiveDeletion_prevent_update`
+BEFORE UPDATE ON `outboundEmailArchiveDeletion`
 FOR EACH ROW
 BEGIN
     SIGNAL SQLSTATE '45000'

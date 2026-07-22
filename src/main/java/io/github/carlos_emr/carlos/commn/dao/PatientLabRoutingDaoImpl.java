@@ -36,6 +36,7 @@ import java.util.Date;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import io.github.carlos_emr.carlos.commn.model.LabTestResults;
@@ -101,6 +102,14 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         Query q = entityManager.createQuery(query);
         q.setParameter(1, labNo);
         return this.getSingleResultOrNull(q);
+    }
+
+    @Override
+    public List<PatientLabRouting> findAllByLabNo(int labNo) {
+        String query = "select x from " + this.modelClass.getName() + " x where x.labNo=?1";
+        TypedQuery<PatientLabRouting> q = entityManager.createQuery(query, PatientLabRouting.class);
+        q.setParameter(1, labNo);
+        return q.getResultList();
     }
 
     @SuppressWarnings("unchecked")

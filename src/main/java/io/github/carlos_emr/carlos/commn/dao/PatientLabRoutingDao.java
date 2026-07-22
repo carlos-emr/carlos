@@ -50,6 +50,8 @@ public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting> {
 
     public PatientLabRouting findByLabNo(int labNo);
 
+    public List<PatientLabRouting> findAllByLabNo(int labNo);
+
     public List<PatientLabRouting> findByLabNoAndLabType(int labNo, String labType);
 
     public List<Object[]> findUniqueTestNames(Integer demoId, String labType);
