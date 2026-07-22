@@ -180,12 +180,16 @@ public class EformDataManagerImpl implements EformDataManager {
      * Path to a temp file is returned. Remember to change the .tmp filetype and to delete the tmp file when finished.
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+        EFormData eformData = eFormDataDao.find(fdid);
+        if (eformData == null) {
+            throw new PDFGenerationException("EForm PDF generation failed because the eForm was not found.");
         }
 
-        EFormData eformData = eFormDataDao.find(fdid);
+        String demographicId = eformData.getDemographicId() == null ? null : String.valueOf(eformData.getDemographicId());
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+
         Path path = null;
         try {
             path = ConvertToEdoc.saveAsTempPDF(eformData);
