@@ -49,18 +49,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * subresources under the same token — the main eForm document plus its {@code ${oscar_image_path}}
  * background/asset images (rendered via {@link EFormImageViewForPdfGenerationServlet}). Those
  * subresource fetches carry no HTTP session, so they authorize themselves by
- * {@link #peek(String)}ing the same grant. Redemption therefore does <em>not</em> remove the token;
- * instead the renderer {@link #invalidate(String)}s it in its {@code finally} block, and the
- * two-minute TTL bounds any leak. {@link #consume(String)} remains available for callers that want
- * atomic remove-on-read semantics.</p>
+ * {@link #peek(RenderToken)}ing the same grant. Redemption therefore does <em>not</em> remove the
+ * token; instead the renderer {@link #invalidate(RenderToken)}s it in its {@code finally} block,
+ * and the two-minute TTL bounds any leak. {@link #consume(RenderToken)} remains available for
+ * callers that want atomic remove-on-read semantics.</p>
  *
  * <p>Entries expire two minutes after issue — comfortably above the renderer's page budget and
  * far below any session lifetime.</p>
  */
 final class EFormRenderTokenService {
 
-    // The token value is a live capability reference and MUST NEVER be logged. These traces record
-    // grant lifecycle by fdid only (a PHI-correlating identifier, never clinical content).
+    // The token value is a live capability reference and MUST NEVER be logged. RenderToken's
+    // redacting toString() makes accidental "{}" formatting safe; these traces record grant
+    // lifecycle by fdid only (a PHI-correlating identifier, never clinical content).
     private static final Logger logger = MiscUtils.getLogger();
 
     private static final long MAX_SIZE = 1_000L;
@@ -71,6 +72,25 @@ final class EFormRenderTokenService {
 
     private final Cache<String, RenderGrant> cache;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    /**
+     * Opaque render-token value. The raw string is a live loopback render capability, so this
+     * wrapper redacts {@link #toString()} — a token can no longer leak through accidental log
+     * formatting anywhere it travels — and the URL splice points must ask for the value
+     * explicitly via {@link #queryValue()}.
+     */
+    record RenderToken(String queryValue) {
+
+        /** Wraps a request-supplied parameter value; null/empty (absent param) maps to null. */
+        static RenderToken fromRequestValue(String rawValue) {
+            return (rawValue == null || rawValue.isEmpty()) ? null : new RenderToken(rawValue);
+        }
+
+        @Override
+        public String toString() {
+            return "[render-token]";
+        }
+    }
 
     private EFormRenderTokenService() {
         this(Ticker.systemTicker());
@@ -96,11 +116,11 @@ final class EFormRenderTokenService {
      *        the caller has no provider context (signature blocks then render unscoped)
      * @return opaque URL-safe token to place on the renderer request
      */
-    String issue(int fdid, String providerNo) {
+    RenderToken issue(int fdid, String providerNo) {
         String token = generateToken();
         cache.put(token, new RenderGrant(fdid, providerNo));
         logger.debug("Render grant issued for fdid={} (grants live={})", fdid, cache.estimatedSize());
-        return token;
+        return new RenderToken(token);
     }
 
     /**
@@ -108,12 +128,12 @@ final class EFormRenderTokenService {
      *
      * @return the grant, or null when the token is unknown, expired, or already redeemed
      */
-    RenderGrant consume(String token) {
-        if (token == null || token.isEmpty()) {
+    RenderGrant consume(RenderToken token) {
+        if (token == null || token.queryValue().isEmpty()) {
             return null;
         }
         // Atomic remove so two concurrent redemption attempts cannot both observe the grant.
-        RenderGrant grant = cache.asMap().remove(token);
+        RenderGrant grant = cache.asMap().remove(token.queryValue());
         if (grant == null) {
             logger.debug("Render grant consume found no live grant (unknown/expired/already redeemed)");
         } else {
@@ -125,16 +145,16 @@ final class EFormRenderTokenService {
     /**
      * Returns a token's grant <em>without</em> removing it, so the same render can authorize the
      * eForm document and every loopback subresource it pulls (background/asset images) under one
-     * grant. The renderer bounds the lifetime by {@link #invalidate(String)}ing the token when the
-     * render finishes; the TTL is the backstop.
+     * grant. The renderer bounds the lifetime by {@link #invalidate(RenderToken)}ing the token when
+     * the render finishes; the TTL is the backstop.
      *
      * @return the grant, or null when the token is unknown, expired, or invalidated
      */
-    RenderGrant peek(String token) {
-        if (token == null || token.isEmpty()) {
+    RenderGrant peek(RenderToken token) {
+        if (token == null || token.queryValue().isEmpty()) {
             return null;
         }
-        RenderGrant grant = cache.getIfPresent(token);
+        RenderGrant grant = cache.getIfPresent(token.queryValue());
         // peek runs for every loopback subresource of a render (hot path), so only the miss is logged
         // — a rejected subresource fetch is the interesting event; a hit is the expected steady state.
         if (grant == null) {
@@ -144,14 +164,16 @@ final class EFormRenderTokenService {
     }
 
     /**
-     * Discards an unredeemed token, e.g. when a render fails before the browser ever fetched the
-     * surface. Safe for null/unknown/already-consumed tokens.
+     * Discards a token at end of render — success, failure, or never-redeemed. Under the
+     * render-scoped peek model this is the normal teardown for redeemed tokens too, not just
+     * cleanup of unredeemed ones; the TTL is only the backstop. Safe for null/unknown/
+     * already-consumed tokens.
      */
-    void invalidate(String token) {
-        if (token == null || token.isEmpty()) {
+    void invalidate(RenderToken token) {
+        if (token == null || token.queryValue().isEmpty()) {
             return;
         }
-        cache.invalidate(token);
+        cache.invalidate(token.queryValue());
         logger.debug("Render grant invalidated (render finished or aborted)");
     }
 

@@ -31,7 +31,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to convert an eform html page into a pdf file.
+ * Serves the token- or session-authorized eForm HTML surface that the loopback browser PDF
+ * renderer ({@link EFormBrowserPdfService}) navigates to and captures. It performs no PDF
+ * conversion itself.
  *
  * <p>This class owns only the HTTP concerns: the loopback-only remote-address gate, render-token
  * redemption (browser path) or session {@code _eform} authorization (session path), the
@@ -100,7 +102,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 providerId = grant.providerNo();
                 // Carry the grant forward onto the eForm's own asset URLs so the sessionless render
                 // browser can fetch its background/asset images under the same render-scoped token.
-                renderToken = request.getParameter(RENDER_TOKEN_PARAM);
+                EFormRenderTokenService.RenderToken token =
+                        EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM));
+                renderToken = token == null ? null : token.queryValue();
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
@@ -145,8 +149,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
      *         different saved eForm
      */
     static EFormRenderTokenService.RenderGrant redeemedRenderGrant(HttpServletRequest request, int formDataId) {
-        EFormRenderTokenService.RenderGrant grant =
-                EFormRenderTokenService.getInstance().peek(request.getParameter(RENDER_TOKEN_PARAM));
+        EFormRenderTokenService.RenderGrant grant = EFormRenderTokenService.getInstance().peek(
+                EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM)));
         if (grant == null || grant.fdid() != formDataId) {
             logger.warn("Renderer request rejected: missing, expired, or mismatched render token");
             return null;

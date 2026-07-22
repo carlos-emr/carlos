@@ -50,7 +50,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should stream a signature image for a loopback render carrying a valid grant")
     void shouldStreamSignature_withValidRenderGrant() throws Exception {
-        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
             byte[] imageBytes = new byte[] {5, 4, 3, 2, 1};
             DigitalSignature signature = new DigitalSignature();
@@ -65,7 +65,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -81,7 +81,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should stream a signature referenced with an HTML-escaped ampersand in stored markup")
     void shouldStreamSignature_whenReferenceIsHtmlEscaped() throws Exception {
-        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
             byte[] imageBytes = new byte[] {9, 8, 7};
             DigitalSignature signature = new DigitalSignature();
@@ -96,7 +96,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -111,7 +111,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return 404 when a referenced signature row no longer exists")
     void shouldReturnNotFound_whenSignatureRowIsMissing() throws Exception {
-        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             // The eForm references signature 42, but the row is gone (e.g. deleted): must be a
@@ -123,7 +123,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -137,7 +137,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject a signature id the render's eForm does not reference")
     void shouldRejectSignature_whenNotReferencedByRenderEform() throws Exception {
-        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             registerMock(DigitalSignatureManager.class, manager);
@@ -148,7 +148,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "99");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);

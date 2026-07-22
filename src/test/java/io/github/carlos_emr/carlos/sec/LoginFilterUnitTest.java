@@ -248,8 +248,9 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         void shouldPassUppercaseSavedEformPdfRoute_whenUnauthenticated()
                 throws ServletException, IOException {
             // Session-less renderer surface: the servlet itself enforces loopback plus a
-            // single-use render token (EFormRenderTokenService), so LoginFilter must let the
-            // token-bearing renderer request through without a session.
+            // render-scoped grant (EFormRenderTokenService — peek-repeatable within one render,
+            // invalidated at render end), so LoginFilter must let the token-bearing renderer
+            // request through without a session.
             MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/EFormViewForPdfGenerationServlet");
             MockHttpServletResponse response = new MockHttpServletResponse();
             MockFilterChain chain = new MockFilterChain();

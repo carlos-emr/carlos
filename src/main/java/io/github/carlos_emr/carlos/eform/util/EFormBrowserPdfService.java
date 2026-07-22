@@ -345,7 +345,7 @@ public class EFormBrowserPdfService {
         // Issued inside the try so the finally always invalidates it: if temp-root setup (or any
         // other pre-render step) throws, the grant must not linger in the bounded token cache for
         // its full TTL. invalidate(null) is a safe no-op if we fail before issuance.
-        String renderToken = null;
+        EFormRenderTokenService.RenderToken renderToken = null;
         Path outputDirectory = null;
         Path outputPdfPath = null;
         ChromeDriver driver = null;
@@ -1037,11 +1037,11 @@ public class EFormBrowserPdfService {
     // URL construction and validation
     // ---------------------------------------------------------------------------------------------
 
-    static String buildAppPath(int fdid, String renderToken) {
+    static String buildAppPath(int fdid, EFormRenderTokenService.RenderToken renderToken) {
         return "/EFormViewForPdfGenerationServlet?fdid=" + fdid
                 + "&browserRender=true"
                 + "&" + EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM + "="
-                + URLEncoder.encode(renderToken == null ? "" : renderToken, StandardCharsets.UTF_8);
+                + URLEncoder.encode(renderToken == null ? "" : renderToken.queryValue(), StandardCharsets.UTF_8);
     }
 
     static String buildDefaultBaseUrl(String projectHome) {

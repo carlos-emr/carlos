@@ -97,7 +97,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     @DisplayName("should stream a local eform background image for a sessionless render carrying a valid grant")
     void shouldStreamLocalEformImage_withValidRenderGrantAndNoSession() throws Exception {
         Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
-        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
             Path image = tempDir.resolve("bg.png");
             byte[] imageBytes = new byte[] {9, 8, 7, 6};
@@ -116,7 +116,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
                 MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
                 request.setRemoteAddr("127.0.0.1");
                 request.setParameter("imagefile", "bg.png");
-                request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+                request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
                 MockHttpServletResponse response = new MockHttpServletResponse();
 
                 new EFormImageViewForPdfGenerationServlet().doGet(request, response);

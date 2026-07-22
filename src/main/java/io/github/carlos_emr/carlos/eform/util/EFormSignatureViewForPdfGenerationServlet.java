@@ -33,7 +33,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to access eform signatures.
+ * Streams stored digital-signature images — PHI — to the loopback browser PDF renderer while it
+ * captures a saved eForm.
+ *
+ * <p>Contract: requests must originate from a loopback address (checked first) AND carry a live
+ * render-scoped grant minted by {@link EFormRenderTokenService}; there is no session alternative
+ * on this surface. The requested {@code digitalSignatureId} must additionally be referenced by
+ * the stored values of the grant's own eForm ({@code fdid} binding), so a leaked or concurrent
+ * grant cannot enumerate other patients' signature images. Misses are deterministic 404s; a
+ * malformed id is a 400.</p>
  */
 public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet {
 
@@ -63,7 +71,8 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         // (minted only after an _eform privilege check, invalidated when the render finishes). Require
         // that grant so this loopback endpoint is no longer a bare, always-open enumeration surface
         // for any local process. The grant rides the signature URL the render servlet emits.
-        String token = request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM);
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.RenderToken
+                .fromRequestValue(request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM));
         EFormRenderTokenService.RenderGrant grant = EFormRenderTokenService.getInstance().peek(token);
         if (grant == null) {
             logger.warn("Rejected EFormSignatureViewForPdfGenerationServlet request lacking a valid render grant");

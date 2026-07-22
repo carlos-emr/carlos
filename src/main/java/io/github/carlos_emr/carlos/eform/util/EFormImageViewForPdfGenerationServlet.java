@@ -40,7 +40,19 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to access eform images.
+ * Streams shared eForm template assets (background images, JS, CSS — plus the
+ * {@code vaccine-brands.json} data file) to the loopback browser PDF renderer and to
+ * authenticated in-app callers.
+ *
+ * <p>Contract: requests must originate from a loopback address (checked first), then satisfy ONE
+ * of two authorization regimes — an authenticated session holding {@code _eform} READ
+ * ({@code _prevention} READ is an accepted alternative for {@code vaccine-brands.json} only), or a
+ * live render-scoped grant minted by {@link EFormRenderTokenService} after the caller's
+ * {@code _eform} check (the sessionless render browser's path; the grant is deliberately not
+ * bound to the requested asset because these are shared templates, and grant-authorized fetches
+ * are logged with the grant's fdid for auditability). Filenames are validated as single path
+ * components against the eForm image directory, and content types come from the shared
+ * {@link EformAssetContentType} allowlist. No PHI is served by this servlet.</p>
  */
 public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
@@ -71,16 +83,22 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             if (loggedInInfo != null) {
                 enforceAssetReadPrivilege(loggedInInfo, fileName);
                 logger.debug("eForm asset request authorized via _eform session");
-            } else if (!hasValidRenderGrant(request)) {
-                // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
-                // by design (no session cookie ever enters the render browser). Such requests are
-                // authorized instead by a render-scoped grant that was minted only after an _eform
-                // privilege check, is loopback-only, and is invalidated when the render finishes.
-                logger.warn("eForm asset request rejected: no authenticated session and no valid render grant");
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-                return;
             } else {
-                logger.debug("eForm asset request authorized via render grant (sessionless render browser)");
+                EFormRenderTokenService.RenderGrant grant = liveRenderGrant(request);
+                if (grant == null) {
+                    // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
+                    // by design (no session cookie ever enters the render browser). Such requests are
+                    // authorized instead by a render-scoped grant that was minted only after an _eform
+                    // privilege check, is loopback-only, and is invalidated when the render finishes.
+                    logger.warn("eForm asset request rejected: no authenticated session and no valid render grant");
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                // Log the accepted grant's fdid: assets are shared templates, so the grant is
+                // deliberately not asset-bound — the fdid trail is what makes a cross-render
+                // asset fetch (any live grant reading the shared image directory) auditable.
+                logger.debug("eForm asset request authorized via render grant (sessionless render browser): fdid={}",
+                        grant.fdid());
             }
 
             File file = DisplayImage2Action.getImageFile(fileName);
@@ -116,13 +134,16 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     /**
-     * True when the request carries a live render-scoped grant. The grant authorizes the sessionless
-     * render browser to read shared eForm template assets (backgrounds, JS, CSS) over loopback for
-     * the duration of one render; it was issued only after an {@code _eform} privilege check.
+     * Returns the live render-scoped grant carried by the request, or null. The grant authorizes
+     * the sessionless render browser to read shared eForm template assets (backgrounds, JS, CSS)
+     * over loopback for the duration of one render; it was issued only after an {@code _eform}
+     * privilege check. Deliberately not bound to the requested asset — assets are shared
+     * templates, unlike the fdid-bound page and signature surfaces — so the caller logs the
+     * grant's fdid to keep cross-render asset access auditable.
      */
-    private static boolean hasValidRenderGrant(HttpServletRequest request) {
-        String token = request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM);
-        return EFormRenderTokenService.getInstance().peek(token) != null;
+    private static EFormRenderTokenService.RenderGrant liveRenderGrant(HttpServletRequest request) {
+        return EFormRenderTokenService.getInstance().peek(EFormRenderTokenService.RenderToken
+                .fromRequestValue(request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM)));
     }
 
     private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {

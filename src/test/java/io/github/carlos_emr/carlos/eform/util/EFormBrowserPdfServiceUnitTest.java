@@ -38,7 +38,8 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should build the dedicated browser-render servlet path carrying the render token")
     void shouldBuildAppPath_whenRenderingSavedEformPdf() {
-        String appPath = EFormBrowserPdfService.buildAppPath(187, "tok-abc_123");
+        String appPath = EFormBrowserPdfService.buildAppPath(187,
+                new EFormRenderTokenService.RenderToken("tok-abc_123"));
 
         assertThat(appPath)
                 .startsWith("/EFormViewForPdfGenerationServlet?")

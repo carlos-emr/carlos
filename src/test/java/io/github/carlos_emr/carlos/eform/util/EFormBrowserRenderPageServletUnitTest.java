@@ -54,9 +54,9 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should redeem a render grant repeatedly for the bound eForm within one render")
     void shouldRedeemRenderGrantRepeatedly_whenValidRenderTokenPresented() {
-        String token = EFormRenderTokenService.getInstance().issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(187, "999998");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
 
         EFormRenderTokenService.RenderGrant grant = EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 187);
 
@@ -84,9 +84,9 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should reject browser renderer requests when the token is bound to a different eForm")
     void shouldRejectBrowserRendererRequest_whenTokenBoundToDifferentEform() {
-        String token = EFormRenderTokenService.getInstance().issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(187, "999998");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
 
         assertThat(EFormBrowserRenderPageServlet.redeemedRenderGrant(request, 999)).isNull();
         // An fdid mismatch fails closed but does not burn the render-scoped token; the eForm it was

@@ -42,9 +42,10 @@ class EFormRenderTokenServiceUnitTest {
     void shouldIssueSingleUseToken_forBoundEform() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
-        String token = service.issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
 
-        assertThat(token).isNotBlank().matches("[A-Za-z0-9_-]{40,}");
+        assertThat(token.queryValue()).isNotBlank().matches("[A-Za-z0-9_-]{40,}");
+        assertThat(token).hasToString("[render-token]");
         EFormRenderTokenService.RenderGrant grant = service.consume(token);
         assertThat(grant).isNotNull();
         assertThat(grant.fdid()).isEqualTo(187);
@@ -58,8 +59,8 @@ class EFormRenderTokenServiceUnitTest {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
         assertThat(service.consume(null)).isNull();
-        assertThat(service.consume("")).isNull();
-        assertThat(service.consume("never-issued")).isNull();
+        assertThat(service.consume(new EFormRenderTokenService.RenderToken(""))).isNull();
+        assertThat(service.consume(new EFormRenderTokenService.RenderToken("never-issued"))).isNull();
     }
 
     @Test
@@ -67,7 +68,7 @@ class EFormRenderTokenServiceUnitTest {
     void shouldReturnGrantRepeatedly_whenPeeking() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
-        String token = service.issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
 
         // A render fetches the document plus several asset images under one grant, so peek must be
         // repeatable and must not remove the token.
@@ -89,8 +90,8 @@ class EFormRenderTokenServiceUnitTest {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
         assertThat(service.peek(null)).isNull();
-        assertThat(service.peek("")).isNull();
-        assertThat(service.peek("never-issued")).isNull();
+        assertThat(service.peek(new EFormRenderTokenService.RenderToken(""))).isNull();
+        assertThat(service.peek(new EFormRenderTokenService.RenderToken("never-issued"))).isNull();
     }
 
     @Test
@@ -99,7 +100,7 @@ class EFormRenderTokenServiceUnitTest {
         AtomicLong nowNanos = new AtomicLong(0);
         EFormRenderTokenService service = new EFormRenderTokenService(nowNanos::get);
 
-        String token = service.issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
         // Advance just past the two-minute TTL rather than an over-generous three minutes, so a
         // regression that widened the TTL (e.g. to 2m30s) would fail this test instead of passing.
         nowNanos.addAndGet(java.time.Duration.ofMinutes(2).plusSeconds(1).toNanos());
@@ -113,7 +114,7 @@ class EFormRenderTokenServiceUnitTest {
         AtomicLong nowNanos = new AtomicLong(0);
         EFormRenderTokenService service = new EFormRenderTokenService(nowNanos::get);
 
-        String token = service.issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
         // One second short of the two-minute TTL: the grant must still be redeemable, pinning the
         // lower edge of the contract so a regression that shortened the TTL would be caught too.
         nowNanos.addAndGet(java.time.Duration.ofSeconds(119).toNanos());
@@ -126,12 +127,12 @@ class EFormRenderTokenServiceUnitTest {
     void shouldDiscardGrant_whenInvalidatedBeforeRedemption() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
-        String token = service.issue(187, null);
+        EFormRenderTokenService.RenderToken token = service.issue(187, null);
         service.invalidate(token);
 
         assertThat(service.consume(token)).isNull();
         service.invalidate(null);
-        service.invalidate("unknown");
+        service.invalidate(new EFormRenderTokenService.RenderToken("unknown"));
     }
 
     @Test
