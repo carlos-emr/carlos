@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.nio.file.Path;
 
+import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
+import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -32,11 +34,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -55,6 +61,9 @@ class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+        // ConvertToEdoc resolves NioFileManager in a static-final initializer; register the mock
+        // BEFORE anything touches that class or its static init fails under instrumentation.
+        registerMock(NioFileManager.class, mock(NioFileManager.class));
         manager = new FaxDocumentManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "eformDataManager", eformDataManager);
@@ -81,15 +90,49 @@ class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return null when eForm PDF generation fails")
-    void shouldReturnNull_whenPdfGenerationFails() throws Exception {
+    @DisplayName("should propagate the render failure when eForm PDF generation fails")
+    void shouldPropagatePdfGenerationException_whenEformPdfGenerationFails() throws Exception {
         when(eformDataManager.createEformPDF(loggedInInfo, 77))
                 .thenThrow(new PDFGenerationException("boom"));
 
-        Path actualPath = manager.getEformFaxDocument(loggedInInfo, 77);
+        // Swallowing this and returning null used to detonate later as a context-free
+        // NullPointerException in consumers opening the returned path.
+        assertThatThrownBy(() -> manager.getEformFaxDocument(loggedInInfo, 77))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessage("boom");
 
-        assertThat(actualPath).isNull();
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
         verify(eformDataManager).createEformPDF(loggedInInfo, 77);
+    }
+
+    @Test
+    @DisplayName("should throw with the form name when form-to-PDF conversion produces no document")
+    void shouldThrowPdfGenerationException_whenFormConversionReturnsNull() {
+        FormTransportContainer formTransportContainer = mock(FormTransportContainer.class);
+        when(formTransportContainer.getFormName()).thenReturn("BCAR");
+
+        try (MockedStatic<ConvertToEdoc> convertToEdoc = Mockito.mockStatic(ConvertToEdoc.class)) {
+            convertToEdoc.when(() -> ConvertToEdoc.saveAsTempPDF(formTransportContainer)).thenReturn(null);
+
+            assertThatThrownBy(() -> manager.getFormFaxDocument(loggedInInfo, formTransportContainer))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessageContaining("BCAR");
+        }
+    }
+
+    @Test
+    @DisplayName("should return the converted form PDF path when conversion succeeds")
+    void shouldReturnConvertedFormPdfPath_whenFormConversionSucceeds() throws Exception {
+        FormTransportContainer formTransportContainer = mock(FormTransportContainer.class);
+        when(formTransportContainer.getFormName()).thenReturn("BCAR");
+        Path expectedPath = Path.of("/tmp/fax-form.pdf");
+
+        try (MockedStatic<ConvertToEdoc> convertToEdoc = Mockito.mockStatic(ConvertToEdoc.class)) {
+            convertToEdoc.when(() -> ConvertToEdoc.saveAsTempPDF(formTransportContainer)).thenReturn(expectedPath);
+
+            Path actualPath = manager.getFormFaxDocument(loggedInInfo, formTransportContainer);
+
+            assertThat(actualPath).isEqualTo(expectedPath);
+        }
     }
 }

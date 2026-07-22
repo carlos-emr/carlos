@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.fax.action;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -35,6 +36,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -43,10 +45,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -246,6 +252,48 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should render the preview with failure status without logging un-persisted ERROR jobs")
+    void shouldSkipFaxClientLog_forUnsavedErrorJobs() {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        // createAndSaveFaxJob returns validation-failure jobs un-persisted (no id); queue() must
+        // surface them on the preview but write no FaxClientLog row (there is no fax id to log).
+        FaxJob errorJob = new FaxJob();
+        errorJob.setStatus(FaxJob.STATUS.ERROR);
+        errorJob.setStatusString("File missing on local storage or invalid file path.");
+        when(faxManager.createAndSaveFaxJob(any(LoggedInInfo.class), anyMap()))
+                .thenReturn(List.of(errorJob));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath("/tmp/carlos-temp/fax.pdf");
+
+            String result = action.queue();
+
+            assertThat(result).isEqualTo("preview");
+            assertThat(request.getAttribute("faxSuccessful")).isEqualTo(false);
+            verify(faxManager, never()).logFaxJob(any(), any(), any(), anyInt());
         }
     }
 }

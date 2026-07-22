@@ -71,7 +71,7 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
     /*
      * Returns a temporary path to a PDF version of the given eformId.
      */
-    public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId) {
+    public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId) throws PDFGenerationException {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_fax)");
@@ -82,16 +82,15 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
         /*
          * For future code refactoring, the 'getEformFaxDocument' method is unnecessary.
          * Instead, developers should directly use 'EformDataManager.createEformPDF()'.
+         *
+         * PDFGenerationException propagates to the caller: swallowing it here and returning null
+         * used to detonate later as a context-free NullPointerException in consumers that opened
+         * the returned path, discarding the renderer's diagnosis.
          */
-        try {
-            return eformDataManager.createEformPDF(loggedInInfo, eformId);
-        } catch (PDFGenerationException e) {
-            MiscUtils.getLogger().error("An error occurred while creating the pdf of the eForm.", e);
-            return null;
-        }
+        return eformDataManager.createEformPDF(loggedInInfo, eformId);
     }
 
-    public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
+    public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_fax)");
         }
@@ -102,6 +101,8 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
             // would otherwise treat this silent failure as "no document" with no trace of why.
             logger.warn("Form-to-PDF conversion for fax returned no document (form={})",
                     LogSafe.sanitize(formTransportContainer.getFormName()));
+            throw new PDFGenerationException(
+                    "Form-to-PDF conversion produced no document for form " + formTransportContainer.getFormName());
         }
         return tempPdf;
     }

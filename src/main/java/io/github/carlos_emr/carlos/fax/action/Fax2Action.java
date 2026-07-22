@@ -252,7 +252,11 @@ public class Fax2Action extends ActionSupport {
 
         boolean success = true;
         for (FaxJob faxJob : faxJobList) {
-            faxManager.logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
+            // ERROR jobs come back un-persisted (no id): there is no queued fax to correlate a
+            // FaxClientLog row with, and logFaxJob would persist a null faxId.
+            if (faxJob.getId() != null) {
+                faxManager.logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
+            }
 
             /*
              * only one error will derail the entire fax job.

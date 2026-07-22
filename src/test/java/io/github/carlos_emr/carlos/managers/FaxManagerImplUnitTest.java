@@ -22,10 +22,12 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -49,9 +51,12 @@ import org.mockito.MockitoAnnotations;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -119,9 +124,9 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             // there so it satisfies the application-owned temp boundary the fax flow now enforces.
             Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
             Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
+            Path canonicalTempPdf = tempPdf.toRealPath();
             Path copiedPdf = Path.of("/var/lib/OscarDocument/oscar/document", tempPdf.getFileName().toString());
-            when(nioFileManager.copyFileToOscarDocuments(tempPdf.toString())).thenReturn(copiedPdf.toString());
-            doReturn(copiedPdf).when(manager).resolveAndValidateFilePath(copiedPdf.toString());
+            when(nioFileManager.copyFileToOscarDocuments(canonicalTempPdf.toString())).thenReturn(copiedPdf.toString());
 
             FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
                     "faxFilePath", tempPdf.toString(),
@@ -130,8 +135,10 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                     "senderFaxNumber", "1234567890",
                     "demographicNo", 17));
 
-            verify(nioFileManager).copyFileToOscarDocuments(tempPdf.toString());
-            verify(manager).resolveAndValidateFilePath(copiedPdf.toString());
+            // Validation runs on the ORIGINAL temp path first; only the validated canonical path is
+            // promoted, and only after every validation has passed (destructive step last).
+            verify(manager).resolveAndValidateFilePath(tempPdf.toString());
+            verify(nioFileManager).copyFileToOscarDocuments(canonicalTempPdf.toString());
             assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.WAITING);
             assertThat(faxJob.getFile_name()).isEqualTo(tempPdf.getFileName().toString());
         } finally {
@@ -212,6 +219,140 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             }
             Files.deleteIfExists(tempRoot);
         }
+    }
+
+    @Test
+    @DisplayName("should return a display-ready ERROR job and keep the temp source when promotion fails")
+    void shouldReturnPopulatedErrorJob_whenPromotionFails() throws Exception {
+        Path tempRoot = Files.createTempDirectory("fax-renderer-temp-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        try {
+            resetAllowedTempDirectoriesCache();
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
+            when(nioFileManager.copyFileToOscarDocuments(any(String.class))).thenReturn(null);
+
+            FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
+                    "faxFilePath", tempPdf.toString(),
+                    "recipient", "Test Recipient",
+                    "recipientFaxNumber", "123-456-7890",
+                    "senderFaxNumber", "1234567890",
+                    "demographicNo", 17));
+
+            // The ERROR job must be display-ready: CoverPage.jsp renders recipient/destination/
+            // statusString per job, and the pre-fix bare shell rendered as an empty row.
+            assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(faxJob.getStatusString()).contains("File missing");
+            assertThat(faxJob.getRecipient()).isEqualTo("Test Recipient");
+            assertThat(faxJob.getDestination()).isEqualTo("1234567890");
+            assertThat(Files.exists(tempPdf)).isTrue();
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should fail before the destructive promotion when the fax account is missing")
+    void shouldLeaveTempSourceIntact_whenFaxAccountMissing() throws Exception {
+        Path tempRoot = Files.createTempDirectory("fax-renderer-temp-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        try {
+            resetAllowedTempDirectoriesCache();
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
+            when(faxConfigDao.getActiveConfigByNumber("0000000000")).thenReturn(null);
+
+            FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
+                    "faxFilePath", tempPdf.toString(),
+                    "recipient", "Test Recipient",
+                    "recipientFaxNumber", "123-456-7890",
+                    "senderFaxNumber", "0000000000",
+                    "demographicNo", 17));
+
+            // Promotion deletes the temp source on success, so it must never have run: a retry
+            // after the operator fixes the fax account still has its preview document.
+            assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(faxJob.getRecipient()).isEqualTo("Test Recipient");
+            verify(nioFileManager, never()).copyFileToOscarDocuments(any(String.class));
+            assertThat(Files.exists(tempPdf)).isTrue();
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should fail before the destructive promotion when the file path is invalid")
+    void shouldLeaveTempSourceIntact_whenFilePathInvalid() {
+        FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
+                "faxFilePath", "/nonexistent/nowhere/missing.pdf",
+                "recipient", "Test Recipient",
+                "recipientFaxNumber", "123-456-7890",
+                "senderFaxNumber", "1234567890",
+                "demographicNo", 17));
+
+        assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(faxJob.getStatusString()).contains("File missing");
+        assertThat(faxJob.getRecipient()).isEqualTo("Test Recipient");
+        verify(nioFileManager, never()).copyFileToOscarDocuments(any(String.class));
+    }
+
+    @Test
+    @DisplayName("should return the un-persisted ERROR job instead of NPEing when a cover page was requested")
+    void shouldReturnUnsavedErrorJob_whenPrimaryJobFailsValidation() {
+        FaxJob errorJob = new FaxJob();
+        errorJob.setStatus(FaxJob.STATUS.ERROR);
+        errorJob.setStatusString("File missing on local storage or invalid file path.");
+        errorJob.setRecipient("Test Recipient");
+        doReturn(errorJob).when(manager).createFaxJob(eq(loggedInInfo), any());
+
+        // Pre-fix, coverpage=true ran Paths.get(errorJob.getFile_name()) -> NPE, and without a
+        // cover page the all-ERROR filter threw an unmapped RuntimeException. Both paths must now
+        // surface the job so the preview can render its per-job status.
+        List<FaxJob> result = manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                "coverpage", "true",
+                "copyToRecipients", new String[]{"{\"name\":\"Copy To\",\"fax\":\"1112223333\"}"}));
+
+        // Identity assertions: FaxJob.equals delegates to AbstractModel.getId(), which NPEs for
+        // un-persisted (id-less) jobs, so collection equality cannot be used here.
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0)).isSameAs(errorJob);
+        assertThat(errorJob.getId()).isNull();
+        verify(manager, never()).addRecipients(any(), any(), any(String[].class));
+        verify(manager, never()).saveFaxJob(eq(loggedInInfo), anyList());
+    }
+
+    @Test
+    @DisplayName("should return the cover-page-failure job un-persisted instead of dropping or throwing")
+    void shouldReturnCoverPageFailureJob_withoutThrowing() throws Exception {
+        FaxJob waitingJob = new FaxJob();
+        waitingJob.setStatus(FaxJob.STATUS.WAITING);
+        waitingJob.setFile_name("queued-fax.pdf");
+        waitingJob.setRecipient("Test Recipient");
+        doReturn(waitingJob).when(manager).createFaxJob(eq(loggedInInfo), any());
+        doThrow(new IOException("disk full")).when(manager)
+                .addCoverPage(eq(loggedInInfo), any(), any(), any(), any(Path.class));
+
+        List<FaxJob> result = manager.createAndSaveFaxJob(loggedInInfo, Map.of("coverpage", "true"));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0)).isSameAs(waitingJob);
+        assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(waitingJob.getStatusString()).contains("Cover page creation failed");
+        verify(manager, never()).saveFaxJob(eq(loggedInInfo), anyList());
     }
 
     private static void resetAllowedTempDirectoriesCache() throws Exception {

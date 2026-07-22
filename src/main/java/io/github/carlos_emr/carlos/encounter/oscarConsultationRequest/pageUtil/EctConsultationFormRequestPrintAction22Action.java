@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -157,7 +158,14 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             List<EFormData> eForms = consultationManager.getAttachedEForms(reqId);
 
             for (EFormData eFormItem : eForms) {
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
+                Path attachedForm;
+                try {
+                    attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
+                } catch (PDFGenerationException e) {
+                    // The renderer's message says why; only this loop knows which attachment.
+                    throw new PDFGenerationException(
+                            "Attached eForm \"" + eFormItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
+                }
                 alist.add(Files.newInputStream(attachedForm));
             }
 
@@ -247,7 +255,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
                 formTransportContainer.setFormName(formItem.getFormName());
                 formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
+                Path attachedForm;
+                try {
+                    attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
+                } catch (PDFGenerationException e) {
+                    throw new PDFGenerationException(
+                            "Attached form \"" + formItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
+                }
                 alist.add(Files.newInputStream(attachedForm));
             }
 
@@ -270,6 +284,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } catch (IOException ioe) {
             error = "IOException";
             exception = ioe;
+        } catch (PDFGenerationException pge) {
+            // Attachment render failures land here with the failing attachment named in the
+            // message (wrapped at the render call sites above) instead of the pre-fix behavior
+            // of a context-free NullPointerException from Files.newInputStream(null).
+            error = "PDFGenerationException";
+            exception = pge;
         } catch (ServletException e) {
             throw new RuntimeException(e);
         } finally {
