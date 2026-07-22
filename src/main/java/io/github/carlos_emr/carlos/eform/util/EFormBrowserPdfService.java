@@ -1190,9 +1190,26 @@ public class EFormBrowserPdfService {
             return configuredBaseUrl.trim().replaceAll("/$", "");
         }
         if (request != null) {
-            return buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
+            return buildLocalBaseUrl(deriveLoopbackScheme(request), request.getLocalPort(), request.getContextPath());
         }
         return buildDefaultBaseUrl(projectHome);
+    }
+
+    /**
+     * Scheme for the renderer's loopback hop. A proxy-rewritten request (RemoteIpValve /
+     * X-Forwarded-Proto) reports https while the local connector speaks plaintext; that state is
+     * detectable as scheme=https with serverPort != localPort (Tomcat-terminated TLS keeps them
+     * equal). Without the downgrade the derived base is https://127.0.0.1:<httpPort>, which fails
+     * every render. eform_pdf_browser_base_url overrides this derivation entirely.
+     */
+    static String deriveLoopbackScheme(HttpServletRequest request) {
+        String scheme = request.getScheme();
+        if (SCHEME_HTTPS.equalsIgnoreCase(scheme) && request.getServerPort() != request.getLocalPort()) {
+            logger.info("Renderer base URL: proxied TLS detected (serverPort={} localPort={}); using http for the loopback hop. Set {} to override.",
+                    request.getServerPort(), request.getLocalPort(), BASE_URL_PROPERTY);
+            return "http";
+        }
+        return scheme;
     }
 
     private String resolveChromiumPath() {

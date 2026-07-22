@@ -41,6 +41,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.logging.LogType;
 import org.openqa.selenium.remote.http.ClientConfig;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -190,6 +191,26 @@ class EFormBrowserPdfServiceUnitTest {
     void shouldBuildLocalBaseUrl_whenUsingTheActiveRequestContext() {
         assertThat(EFormBrowserPdfService.buildLocalBaseUrl("http", 8080, "/carlos"))
                 .isEqualTo("http://127.0.0.1:8080/carlos");
+    }
+
+    @Test
+    @DisplayName("should use http for the loopback hop when TLS terminated upstream")
+    void shouldDeriveHttpLoopbackScheme_whenProxyTerminatesTls() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setScheme("https");
+        request.setServerPort(443);
+        request.setLocalPort(8080);
+        assertThat(EFormBrowserPdfService.deriveLoopbackScheme(request)).isEqualTo("http");
+    }
+
+    @Test
+    @DisplayName("should keep https for the loopback hop when Tomcat terminates TLS")
+    void shouldKeepHttpsLoopbackScheme_whenTomcatTerminatesTls() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setScheme("https");
+        request.setServerPort(8443);
+        request.setLocalPort(8443);
+        assertThat(EFormBrowserPdfService.deriveLoopbackScheme(request)).isEqualTo("https");
     }
 
     @Test
