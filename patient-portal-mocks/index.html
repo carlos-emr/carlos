@@ -136,10 +136,42 @@
                 <span>Email</span>
                 <input type="email" value="patient@example.ca" autocomplete="email">
               </label>
-              <label>
-                <span>Date of birth</span>
-                <input type="text" value="1985-04-12" inputmode="numeric" autocomplete="bday">
-              </label>
+              <div class="dob-field">
+                <span class="field-label">Date of birth</span>
+                <input type="hidden" value="1985-04-12" autocomplete="bday" data-dob-value>
+                <div class="dob-scroll-picker" role="group" aria-label="Date of birth">
+                  <div class="dob-scroll-column">
+                    <span>Year</span>
+                    <div class="dob-wheel" role="listbox" aria-label="Birth year" tabindex="0" data-dob-wheel>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="year" data-dob-option data-dob-value="1983">1983</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="year" data-dob-option data-dob-value="1984">1984</button>
+                      <button type="button" role="option" aria-selected="true" class="dob-option selected" data-dob-part="year" data-dob-option data-dob-value="1985">1985</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="year" data-dob-option data-dob-value="1986">1986</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="year" data-dob-option data-dob-value="1987">1987</button>
+                    </div>
+                  </div>
+                  <div class="dob-scroll-column">
+                    <span>Month</span>
+                    <div class="dob-wheel" role="listbox" aria-label="Birth month" tabindex="0" data-dob-wheel>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="month" data-dob-option data-dob-value="03">Mar</button>
+                      <button type="button" role="option" aria-selected="true" class="dob-option selected" data-dob-part="month" data-dob-option data-dob-value="04">Apr</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="month" data-dob-option data-dob-value="05">May</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="month" data-dob-option data-dob-value="06">Jun</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="month" data-dob-option data-dob-value="07">Jul</button>
+                    </div>
+                  </div>
+                  <div class="dob-scroll-column">
+                    <span>Day</span>
+                    <div class="dob-wheel" role="listbox" aria-label="Birth day" tabindex="0" data-dob-wheel>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="day" data-dob-option data-dob-value="10">10</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="day" data-dob-option data-dob-value="11">11</button>
+                      <button type="button" role="option" aria-selected="true" class="dob-option selected" data-dob-part="day" data-dob-option data-dob-value="12">12</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="day" data-dob-option data-dob-value="13">13</button>
+                      <button type="button" role="option" aria-selected="false" class="dob-option" data-dob-part="day" data-dob-option data-dob-value="14">14</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <label>
                 <span>Health card</span>
                 <input type="text" value="•••• 0000" autocomplete="off">
@@ -719,6 +751,7 @@
         url.searchParams.set('screen', id);
         window.history.replaceState({}, '', url);
       }
+      centerDobSelections(next);
     }
 
     document.querySelectorAll('[data-target]').forEach((button) => {
@@ -738,6 +771,37 @@
         button.setAttribute('title', nextType === 'password' ? 'Show password' : 'Hide password');
         button.querySelector('i')?.classList.toggle('fa-eye', nextType === 'password');
         button.querySelector('i')?.classList.toggle('fa-eye-slash', nextType !== 'password');
+      });
+    });
+
+    function updateDobValue(field) {
+      const hidden = field?.querySelector('[data-dob-value]');
+      if (!hidden) return;
+      const parts = ['year', 'month', 'day'].map((part) => (
+        field.querySelector(`[data-dob-part="${part}"].selected`)?.dataset.dobValue
+      ));
+      if (parts.every(Boolean)) hidden.value = parts.join('-');
+    }
+
+    function centerDobSelections(scope = document) {
+      scope.querySelectorAll('[data-dob-wheel]').forEach((wheel) => {
+        const selected = wheel.querySelector('[data-dob-option].selected');
+        if (!selected) return;
+        const selectedTop = selected.offsetTop - wheel.offsetTop;
+        wheel.scrollTop = selectedTop - ((wheel.clientHeight - selected.offsetHeight) / 2);
+      });
+    }
+
+    document.querySelectorAll('[data-dob-option]').forEach((option) => {
+      option.addEventListener('click', () => {
+        const wheel = option.closest('[data-dob-wheel]');
+        wheel?.querySelectorAll('[data-dob-option]').forEach((item) => {
+          const selected = item === option;
+          item.classList.toggle('selected', selected);
+          item.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+        updateDobValue(option.closest('.dob-field'));
+        centerDobSelections(option.closest('.dob-field'));
       });
     });
 

@@ -246,12 +246,17 @@ h2 {
 }
 
 .form-stack label,
+.dob-field,
 .search-box {
   display: grid;
   gap: 4px;
   color: #1f2937;
   font-size: 13px;
   font-weight: bold;
+}
+
+.field-label {
+  display: block;
 }
 
 .form-stack input,
@@ -306,6 +311,77 @@ h2 {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.4;
+}
+
+.dob-scroll-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #aeb7c8;
+  border-radius: 3px;
+}
+
+.dob-scroll-column {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dob-scroll-column > span {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.dob-wheel {
+  max-height: 94px;
+  overflow-y: auto;
+  padding: 4px;
+  background: #f8f9fb;
+  border: 1px solid #d6dbe8;
+  border-radius: 3px;
+  scroll-snap-type: y mandatory;
+}
+
+.dob-wheel::-webkit-scrollbar {
+  width: 7px;
+}
+
+.dob-wheel::-webkit-scrollbar-track {
+  background: #eef2f8;
+}
+
+.dob-wheel::-webkit-scrollbar-thumb {
+  background: #9aa6bd;
+  border-radius: 4px;
+}
+
+.dob-wheel:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.dob-option {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 5px 6px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: center;
+  scroll-snap-align: center;
+}
+
+.dob-option:hover,
+.dob-option.selected {
+  color: #fff;
+  background: var(--carlos-blue);
 }
 
 .password-input-row {
