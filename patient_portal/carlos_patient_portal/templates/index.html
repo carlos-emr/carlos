@@ -29,7 +29,7 @@
       <div class="auth-layout">
         <section class="auth-panel" aria-labelledby="signin-title">
           <h1 id="signin-title">Sign in</h1>
-          <form class="form-stack" method="post" action="{{ url_for('login_placeholder') }}">
+          <form class="form-stack" method="post" action="{{ url_for('login_placeholder') }}"> <!-- nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed csrf_token field below. -->
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>
               <span>Username</span>
