@@ -12,6 +12,7 @@ The first slice is intentionally small:
 - Internal `/internal/health/db` database readiness endpoint.
 - Server-rendered responsive sign-in shell.
 - Development-only staff invite API for creating, listing, resending, and revoking invites.
+- Seven-day invite expiry metadata, refreshed on resend.
 - Basic tests for app wiring, template rendering, database readiness, and invite lifecycle behavior.
 
 ## Local Setup
@@ -101,7 +102,7 @@ carlos-patient-portal-migrate
 ```
 
 This PR adds the portal foundation and initial staff invite table. Patient accounts, membership,
-audit, and unlock-secret tables should be added in later vertical slices.
+audit, invite redemption, and unlock-secret tables should be added in later vertical slices.
 
 ## Development Invite API
 
@@ -125,6 +126,8 @@ curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
 ```
 
 Invite tokens are shown only on create/resend responses. The database stores only the token hash.
+Invites carry a seven-day `expires_at` timestamp so the future redemption endpoint has a clear
+server-side expiry boundary.
 
 ## Tests
 

@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +13,11 @@ from carlos_patient_portal.config import (
     Settings,
 )
 from carlos_patient_portal.database import Base
-from carlos_patient_portal.invites import hash_invite_token
+from carlos_patient_portal.invites import (
+    DEFAULT_INVITE_TTL,
+    create_invite,
+    hash_invite_token,
+)
 from carlos_patient_portal.models import PatientPortalInvite
 
 NON_DEVELOPMENT_SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
@@ -41,6 +46,10 @@ def get_csrf_token(client: TestClient) -> str:
     csrf_token = match.group(1)
     assert response.cookies.get(main.CSRF_COOKIE_NAME) == csrf_token
     return csrf_token
+
+
+def parse_response_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def test_health_endpoint_is_minimal() -> None:
@@ -323,6 +332,10 @@ def test_dev_admin_invite_lifecycle() -> None:
     assert created_invite["created_by"] == "Dr example"
     assert created_invite["last_sent_by"] == "Dr example"
     assert created_invite["sent_count"] == 1
+    created_expires_at = parse_response_datetime(created_invite["expires_at"])
+    created_at = parse_response_datetime(created_invite["created_at"])
+    assert DEFAULT_INVITE_TTL - timedelta(seconds=1) <= created_expires_at - created_at
+    assert created_expires_at - created_at <= DEFAULT_INVITE_TTL + timedelta(seconds=1)
     assert create_response.headers["cache-control"] == "no-store"
 
     with app.state.session_factory() as session:
@@ -330,6 +343,7 @@ def test_dev_admin_invite_lifecycle() -> None:
         assert persisted_invite is not None
         assert persisted_invite.token_hash == hash_invite_token(invite_token)
         assert persisted_invite.token_hash != invite_token
+        assert persisted_invite.expires_at is not None
 
     list_response = client.get("/dev/admin/invites", params={"demographic_no": 1234})
 
@@ -337,6 +351,7 @@ def test_dev_admin_invite_lifecycle() -> None:
     listed_invites = list_response.json()
     assert len(listed_invites) == 1
     assert listed_invites[0]["id"] == invite_id
+    assert listed_invites[0]["expires_at"] == created_invite["expires_at"]
     assert "invite_token" not in listed_invites[0]
     assert list_response.headers["cache-control"] == "no-store"
 
@@ -351,6 +366,7 @@ def test_dev_admin_invite_lifecycle() -> None:
     assert resent_token != invite_token
     assert resent_invite["sent_count"] == 2
     assert resent_invite["last_sent_by"] == "Admin example"
+    assert parse_response_datetime(resent_invite["expires_at"]) >= created_expires_at
     assert resend_response.headers["cache-control"] == "no-store"
 
     revoke_response = client.post(
@@ -408,6 +424,17 @@ def test_dev_admin_unknown_invite_returns_not_found() -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "invite not found"
+
+
+def test_invite_service_validates_future_carlos_callers() -> None:
+    app = migrated_development_app()
+    with app.state.session_factory() as session:
+        with pytest.raises(ValueError, match="demographic_no"):
+            create_invite(session, 0, "Dr example")
+        with pytest.raises(ValueError, match="actor"):
+            create_invite(session, 1234, " ")
+        with pytest.raises(ValueError, match="actor"):
+            create_invite(session, 1234, "x" * 129)
 
 
 def test_environment_aliases_are_normalized() -> None:

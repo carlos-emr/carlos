@@ -1,3 +1,4 @@
+from datetime import timedelta
 from hashlib import sha256
 from secrets import token_urlsafe
 
@@ -12,6 +13,8 @@ from carlos_patient_portal.models import (
 )
 
 INVITE_TOKEN_BYTES = 32
+DEFAULT_INVITE_TTL = timedelta(days=7)
+MAX_ACTOR_LENGTH = 128
 
 
 class InviteNotFoundError(Exception):
@@ -26,6 +29,20 @@ def create_invite_token() -> str:
     return token_urlsafe(INVITE_TOKEN_BYTES)
 
 
+def normalize_staff_actor(actor: str) -> str:
+    normalized_actor = actor.strip()
+    if not normalized_actor:
+        raise ValueError("actor must not be blank")
+    if len(normalized_actor) > MAX_ACTOR_LENGTH:
+        raise ValueError(f"actor must be {MAX_ACTOR_LENGTH} characters or fewer")
+    return normalized_actor
+
+
+def validate_demographic_no(demographic_no: int) -> None:
+    if demographic_no <= 0:
+        raise ValueError("demographic_no must be positive")
+
+
 def hash_invite_token(token: str) -> str:
     return sha256(token.encode("utf-8")).hexdigest()
 
@@ -35,18 +52,21 @@ def create_invite(
     demographic_no: int,
     actor: str,
 ) -> tuple[PatientPortalInvite, str]:
+    validate_demographic_no(demographic_no)
+    normalized_actor = normalize_staff_actor(actor)
     invite_token = create_invite_token()
     now = utc_now()
     invite = PatientPortalInvite(
         demographic_no=demographic_no,
         token_hash=hash_invite_token(invite_token),
         status=INVITE_STATUS_PENDING,
-        created_by=actor,
+        created_by=normalized_actor,
         created_at=now,
         updated_at=now,
         sent_count=1,
         last_sent_at=now,
-        last_sent_by=actor,
+        last_sent_by=normalized_actor,
+        expires_at=now + DEFAULT_INVITE_TTL,
     )
     session.add(invite)
     session.commit()
@@ -82,6 +102,7 @@ def resend_invite(
     invite_id: int,
     actor: str,
 ) -> tuple[PatientPortalInvite, str]:
+    normalized_actor = normalize_staff_actor(actor)
     invite = get_invite(session, invite_id)
     if invite.status == INVITE_STATUS_REVOKED:
         raise RevokedInviteError()
@@ -92,7 +113,8 @@ def resend_invite(
     invite.status = INVITE_STATUS_PENDING
     invite.sent_count += 1
     invite.last_sent_at = now
-    invite.last_sent_by = actor
+    invite.last_sent_by = normalized_actor
+    invite.expires_at = now + DEFAULT_INVITE_TTL
     invite.updated_at = now
     session.commit()
     session.refresh(invite)
@@ -104,12 +126,13 @@ def revoke_invite(
     invite_id: int,
     actor: str,
 ) -> PatientPortalInvite:
+    normalized_actor = normalize_staff_actor(actor)
     invite = get_invite(session, invite_id)
     if invite.status != INVITE_STATUS_REVOKED:
         now = utc_now()
         invite.status = INVITE_STATUS_REVOKED
         invite.revoked_at = now
-        invite.revoked_by = actor
+        invite.revoked_by = normalized_actor
         invite.updated_at = now
         session.commit()
         session.refresh(invite)

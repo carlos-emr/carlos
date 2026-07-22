@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Index, Integer, String
+from sqlalchemy import CheckConstraint, DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from carlos_patient_portal.database import Base
@@ -18,7 +18,20 @@ class PatientPortalInvite(Base):
 
     __tablename__ = "patient_portal_invites"
     __table_args__ = (
+        CheckConstraint(
+            "demographic_no > 0",
+            name="ck_patient_portal_invites_demographic_no_positive",
+        ),
+        CheckConstraint(
+            "sent_count >= 0",
+            name="ck_patient_portal_invites_sent_count_non_negative",
+        ),
+        CheckConstraint(
+            "status in ('pending', 'revoked')",
+            name="ck_patient_portal_invites_status",
+        ),
         Index("ix_patient_portal_invites_demographic_no", "demographic_no"),
+        Index("ix_patient_portal_invites_expires_at", "expires_at"),
         Index("ix_patient_portal_invites_status", "status"),
         Index("ux_patient_portal_invites_token_hash", "token_hash", unique=True),
     )
@@ -42,5 +55,6 @@ class PatientPortalInvite(Base):
     sent_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     last_sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_sent_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)

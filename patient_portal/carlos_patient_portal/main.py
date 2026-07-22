@@ -126,6 +126,7 @@ def invite_response_payload(
         "sent_count": invite.sent_count,
         "last_sent_at": invite.last_sent_at,
         "last_sent_by": invite.last_sent_by,
+        "expires_at": invite.expires_at,
         "revoked_at": invite.revoked_at,
         "revoked_by": invite.revoked_by,
     }

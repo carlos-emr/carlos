@@ -29,14 +29,33 @@ def upgrade() -> None:
         sa.Column("sent_count", sa.Integer(), nullable=False),
         sa.Column("last_sent_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("last_sent_by", sa.String(length=128), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revoked_by", sa.String(length=128), nullable=True),
+        sa.CheckConstraint(
+            "demographic_no > 0",
+            name="ck_patient_portal_invites_demographic_no_positive",
+        ),
+        sa.CheckConstraint(
+            "sent_count >= 0",
+            name="ck_patient_portal_invites_sent_count_non_negative",
+        ),
+        sa.CheckConstraint(
+            "status in ('pending', 'revoked')",
+            name="ck_patient_portal_invites_status",
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
         "ix_patient_portal_invites_demographic_no",
         "patient_portal_invites",
         ["demographic_no"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_patient_portal_invites_expires_at",
+        "patient_portal_invites",
+        ["expires_at"],
         unique=False,
     )
     op.create_index(
@@ -56,5 +75,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ux_patient_portal_invites_token_hash", table_name="patient_portal_invites")
     op.drop_index("ix_patient_portal_invites_status", table_name="patient_portal_invites")
+    op.drop_index("ix_patient_portal_invites_expires_at", table_name="patient_portal_invites")
     op.drop_index("ix_patient_portal_invites_demographic_no", table_name="patient_portal_invites")
     op.drop_table("patient_portal_invites")

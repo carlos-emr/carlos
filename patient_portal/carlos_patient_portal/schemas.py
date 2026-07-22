@@ -29,6 +29,7 @@ class InviteResponse(BaseModel):
     sent_count: int
     last_sent_at: datetime
     last_sent_by: str
+    expires_at: datetime
     revoked_at: datetime | None
     revoked_by: str | None
 
