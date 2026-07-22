@@ -68,6 +68,7 @@ import org.openqa.selenium.chromium.HasCdp;
 import org.openqa.selenium.logging.LogEntry;
 import org.openqa.selenium.logging.LogType;
 import org.openqa.selenium.logging.LoggingPreferences;
+import org.openqa.selenium.remote.http.ClientConfig;
 import org.springframework.stereotype.Service;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -107,11 +108,24 @@ public class EFormBrowserPdfService {
     private static final String REDACTED_PATH = "[redacted-path]";
 
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
-    private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(30);
-    private static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
+    // Package-private so the unit test can pin the "client read timeout stays above the in-band
+    // timeouts" invariant; production code treats them as private.
+    static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(30);
+    static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration NETWORK_QUIET_WINDOW = Duration.ofMillis(500);
     private static final Duration NETWORK_QUIET_MAX_WAIT = Duration.ofSeconds(10);
     private static final long SETTLE_DELAY_MILLIS = 1500;
+
+    /**
+     * Client-side HTTP read timeout for every WebDriver/CDP command sent to chromedriver
+     * (screenshots, script execution, quit). Aligned to the render budget — and deliberately 3x
+     * the 30s in-band {@link #PAGE_LOAD_TIMEOUT}/{@link #SCRIPT_TIMEOUT} so legitimate slow pages
+     * always hit the in-band timeout first — this replaces Selenium's ~180s default, which let a
+     * wedged Chromium hold one of the {@link #MAX_CONCURRENT_RENDERS} global render slots for
+     * ~6 minutes (blocked command + blocked quit) and starve all rendering.
+     */
+    static final Duration WEBDRIVER_COMMAND_READ_TIMEOUT = RENDER_TIMEOUT;
+    static final Duration WEBDRIVER_CONNECTION_TIMEOUT = Duration.ofSeconds(10);
 
     /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
     private static final int MAX_CONCURRENT_RENDERS = 2;
@@ -335,6 +349,7 @@ public class EFormBrowserPdfService {
         Path outputDirectory = null;
         Path outputPdfPath = null;
         ChromeDriver driver = null;
+        ChromeDriverService driverService = null;
         boolean success = false;
         long startNanos = System.nanoTime();
         long deadlineNanos = startNanos + RENDER_TIMEOUT.toNanos();
@@ -358,7 +373,9 @@ public class EFormBrowserPdfService {
                 logger.warn("Browser eForm renderer running WITHOUT Chromium's OS-level sandbox "
                         + "(EFORM_RENDER_ALLOW_UNSANDBOXED=true); OS-level containment is delegated to the container boundary.");
             }
-            driver = createDriver(buildChromeOptions(resolveChromiumPath(), allowUnsandboxed, allowedOrigin));
+            RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), allowUnsandboxed, allowedOrigin));
+            driver = browser.driver();
+            driverService = browser.service();
             logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
                     fdid, allowUnsandboxed ? "disabled" : "enabled");
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
@@ -423,18 +440,21 @@ public class EFormBrowserPdfService {
             // troubleshooting at debug only. Deliberately do NOT chain the raw exception as the
             // cause: a downstream handler that logs the throwable (FaxDocumentManagerImpl) would
             // otherwise re-emit the unredacted URL, defeating the renderer's PHI-safe logging.
-            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} error={}", fdid, baseUrl, redactUrls(String.valueOf(e.getMessage())));
-            // Do NOT pass the raw throwable even at debug: a WebDriver exception's message/stack can
-            // embed the loopback render URL (fdid + render token). Log the type and a redacted
-            // message so debug diagnostics never re-expose the render capability.
-            logger.debug("Browser eForm renderer failure detail: fdid={} type={} error={}",
-                    fdid, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+            // Type + frame-only stack summary at ERROR: a message-less exception (e.g. an NPE) used
+            // to log as the undiagnosable "error=null" with the type buried at DEBUG. Frames carry
+            // no URLs or PHI, so the summary is safe where the raw throwable is not.
+            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} type={} error={} at={}",
+                    fdid, baseUrl, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())), stackSummary(e));
             throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.");
         } finally {
             // The grant is render-scoped; invalidate it here so a token the browser never redeemed
             // (or is done with) cannot linger until its TTL.
             EFormRenderTokenService.getInstance().invalidate(renderToken);
             quitQuietly(driver);
+            // Belt-and-braces after quit: if the quit command timed out against a wedged Chromium,
+            // stopping the caller-owned chromedriver service is what actually tears the processes
+            // down before the render slot is released.
+            stopServiceQuietly(driverService);
             if (!success) {
                 deleteQuietly(outputPdfPath);
             }
@@ -526,11 +546,31 @@ public class EFormBrowserPdfService {
         return "true".equals(System.getenv(ENV_ALLOW_UNSANDBOXED));
     }
 
-    private ChromeDriver createDriver(ChromeOptions options) throws PDFGenerationException {
+    /**
+     * A started renderer browser plus the caller-owned chromedriver service behind it.
+     * {@code service} is non-null only on the pinned-chromedriver path; holding it lets the render
+     * {@code finally} stop the chromedriver process even when {@code quit()} times out against a
+     * wedged Chromium, so a hung render can never orphan a driver process.
+     */
+    record RendererBrowser(ChromeDriver driver, ChromeDriverService service) {
+    }
+
+    /**
+     * Per-command HTTP client configuration for the chromedriver connection. Bounds every blocking
+     * WebDriver/CDP call at {@link #WEBDRIVER_COMMAND_READ_TIMEOUT} instead of Selenium's ~180s
+     * default so a wedged Chromium cannot hold a render slot for minutes past the render budget.
+     */
+    static ClientConfig rendererClientConfig() {
+        return ClientConfig.defaultConfig()
+                .readTimeout(WEBDRIVER_COMMAND_READ_TIMEOUT)
+                .connectionTimeout(WEBDRIVER_CONNECTION_TIMEOUT);
+    }
+
+    private RendererBrowser createDriver(ChromeOptions options) throws PDFGenerationException {
         // Validate the configured chromedriver path (if any) BEFORE the sandbox-guarded start below,
         // so a bad eform_pdf_browser_chromedriver_path surfaces as a config-specific error instead of
         // being caught by the broad catch and misreported as a Chromium sandbox failure that sends
-        // operators to change user namespaces (cubic DGaq).
+        // operators to change user namespaces.
         File chromedriver = null;
         String chromedriverPath = resolveChromedriverPath();
         if (chromedriverPath != null) {
@@ -549,7 +589,7 @@ public class EFormBrowserPdfService {
                         .usingDriverExecutable(chromedriver)
                         .build();
                 try {
-                    return new ChromeDriver(service, options);
+                    return new RendererBrowser(new ChromeDriver(service, options, rendererClientConfig()), service);
                 } catch (RuntimeException e) {
                     // Selenium starts the caller-owned service before session creation but does not
                     // stop it if the ChromeDriver constructor throws (e.g. a sandboxed launch that
@@ -563,7 +603,8 @@ public class EFormBrowserPdfService {
             }
             // No pinned chromedriver: Selenium Manager resolves one matching the browser. Intended
             // for dev/CI; production deployments should pin eform_pdf_browser_chromedriver_path.
-            return new ChromeDriver(options);
+            // The driver owns its internal default service here, so there is none to hold.
+            return new RendererBrowser(new ChromeDriver(options, rendererClientConfig()), null);
         } catch (RuntimeException e) {
             if (!allowUnsandboxed()) {
                 // Fail closed: a sandboxed launch that cannot start (kernel without unprivileged
@@ -590,6 +631,47 @@ public class EFormBrowserPdfService {
             // Never pass the raw WebDriver throwable: its message/stack can embed the loopback render
             // URL (fdid + render token). Log the type and a redacted message only.
             logger.debug("Unable to quit browser eForm renderer driver cleanly: type={} error={}",
+                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+        }
+    }
+
+    /**
+     * Compact frame-only stack summary of the top frames (class.method:line, innermost first).
+     * Stack frames carry no URLs, messages, or PHI, so the summary is safe at ERROR level where
+     * the raw WebDriver throwable (whose message can embed the tokenized render URL) is not.
+     */
+    static String stackSummary(Throwable throwable) {
+        StackTraceElement[] frames = throwable.getStackTrace();
+        int limit = Math.min(frames.length, 8);
+        StringBuilder summary = new StringBuilder();
+        for (int i = 0; i < limit; i++) {
+            if (i > 0) {
+                summary.append(" < ");
+            }
+            StackTraceElement frame = frames[i];
+            summary.append(frame.getClassName()).append('.').append(frame.getMethodName())
+                    .append(':').append(frame.getLineNumber());
+        }
+        if (frames.length > limit) {
+            summary.append(" < ...");
+        }
+        return summary.toString();
+    }
+
+    /**
+     * Stops the caller-owned chromedriver service if {@code quit()} left it running (e.g. the quit
+     * command timed out against a wedged Chromium). Killing the service process is what guarantees
+     * the browser it launched is torn down before the render slot is released.
+     */
+    private static void stopServiceQuietly(ChromeDriverService service) {
+        if (service == null || !service.isRunning()) {
+            return;
+        }
+        try {
+            service.stop();
+        } catch (RuntimeException e) {
+            // Same redaction rule as quitQuietly: never the raw throwable.
+            logger.debug("Unable to stop browser eForm renderer chromedriver service cleanly: type={} error={}",
                     e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
         }
     }
@@ -716,7 +798,8 @@ public class EFormBrowserPdfService {
     // Render gates (fail-closed): main-document status, loopback-only egress, console errors
     // ---------------------------------------------------------------------------------------------
 
-    private void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
+    // Package-private for the unit test that pins the console-log-unavailable fail-closed branch.
+    void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
             Integer latchedMainStatus, String baseUrl, int fdid) throws PDFGenerationException {
         NetworkGateScan scan = scanNetworkEvents(
                 performanceEntries.stream().map(LogEntry::getMessage).toList(),
@@ -736,33 +819,48 @@ public class EFormBrowserPdfService {
                 }
             }
         } catch (RuntimeException e) {
+            // Fail closed: we explicitly enable BROWSER logging in goog:loggingPrefs, so retrieval
+            // failing is a WebDriver fault, not a capability gap — and a silently-empty console
+            // gate was the only defense against faxing a form whose background never painted.
             // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
-            logger.debug("Browser console log unavailable for eForm render gate: type={} error={}",
-                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+            logger.error("Browser console log unavailable for eForm render gate: fdid={} type={} error={}",
+                    fdid, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+            throw new PDFGenerationException(
+                    "Browser rendering could not verify the page's console error state.");
         }
 
         if (mainDocumentStatus == null || mainDocumentStatus != 200) {
             logger.error("Browser eForm renderer rejected main document: fdid={} status={}", fdid, mainDocumentStatus);
             throw new PDFGenerationException("Browser rendering did not receive a successful eForm page response. status=" + mainDocumentStatus);
         }
-        if (disallowedRequests > 0 || severeConsoleEntries > 0) {
+        if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
             // Counts only — never request URLs or console text, which can carry eForm content.
-            logger.error("Browser eForm renderer surfaced page errors: fdid={} disallowedRequests={} severeConsoleEntries={}",
-                    fdid, disallowedRequests, severeConsoleEntries);
+            logger.error("Browser eForm renderer surfaced page errors: fdid={} disallowedRequests={} severeConsoleEntries={} failedSubresources={}",
+                    fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources());
             throw new PDFGenerationException("Browser rendering surfaced page errors. disallowedRequests="
-                    + disallowedRequests + " consoleErrors=" + severeConsoleEntries);
+                    + disallowedRequests + " consoleErrors=" + severeConsoleEntries
+                    + " failedSubresources=" + scan.failedSubresources());
         }
     }
 
     /** Outcome of replaying Chrome's network events against the allowed loopback origin. */
-    record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus) {
+    record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources) {
     }
 
     /**
+     * CDP resource types whose failure visibly breaks the rendered form (a blank background, a
+     * missing signature iframe, an unstyled or script-broken page). Speculative loads Chrome makes
+     * on its own — favicons and other {@code Other}-typed requests, prefetches, pings — are
+     * deliberately excluded so they cannot fail a render whose visible content is intact.
+     */
+    private static final Set<String> RENDER_CRITICAL_RESOURCE_TYPES =
+            Set.of("Document", "Image", "Script", "Stylesheet", "Font", "Media", "XHR", "Fetch");
+
+    /**
      * Replays raw CDP performance-log messages: counts egress attempts to any origin other than
-     * the allowed loopback origin and records the status of the first main-frame document
-     * response. Later {@code Document} events belong to iframes (e.g. signature blocks) and are
-     * ignored.
+     * the allowed loopback origin, records the status of the first main-frame document response,
+     * and counts failed render-critical subresources. Later {@code Document} events belong to
+     * iframes (e.g. signature blocks) and are checked as subresources.
      *
      * <p>Egress is observed across all CDP channels a page can open, not just HTTP: WebSocket
      * ({@code Network.webSocketCreated}) and WebTransport ({@code Network.webTransportCreated})
@@ -772,10 +870,18 @@ public class EFormBrowserPdfService {
      * would otherwise pass the origin allowlist and slip a live bidirectional channel past the
      * gate. This keeps the "reject every non-allowlisted egress attempt" invariant whole even
      * though the dead proxy already blocks the external ones.</p>
+     *
+     * <p>Subresource failures are observed on both CDP legs: an HTTP error page arrives as
+     * {@code Network.responseReceived} with status &ge; 400 (a 404'd form background is otherwise
+     * visible only as a SEVERE console entry), while connection-level failures arrive as
+     * {@code Network.loadingFailed} ({@code canceled=true} events are benign navigation aborts).
+     * Both are restricted to {@link #RENDER_CRITICAL_RESOURCE_TYPES} so Chrome's own speculative
+     * requests cannot fail a visually-intact render.</p>
      */
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
         int disallowedRequests = 0;
         Integer mainDocumentStatus = null;
+        int failedSubresources = 0;
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -794,15 +900,24 @@ public class EFormBrowserPdfService {
                 // isDisallowedRendererRequestUrl (http(s) to the allowed origin) yet is still a live
                 // bidirectional egress channel the dead HTTP proxy does not cover.
                 disallowedRequests++;
-            } else if (mainDocumentStatus == null
-                    && "Network.responseReceived".equals(method)
-                    && "Document".equals(params.path("type").asText(""))
-                    && allowedOrigin != null
-                    && allowedOrigin.equals(originOf(params.path("response").path("url").asText("")))) {
-                mainDocumentStatus = params.path("response").path("status").asInt();
+            } else if ("Network.responseReceived".equals(method)) {
+                String resourceType = params.path("type").asText("");
+                if (mainDocumentStatus == null
+                        && "Document".equals(resourceType)
+                        && allowedOrigin != null
+                        && allowedOrigin.equals(originOf(params.path("response").path("url").asText("")))) {
+                    mainDocumentStatus = params.path("response").path("status").asInt();
+                } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
+                        && params.path("response").path("status").asInt() >= 400) {
+                    failedSubresources++;
+                }
+            } else if ("Network.loadingFailed".equals(method)
+                    && RENDER_CRITICAL_RESOURCE_TYPES.contains(params.path("type").asText(""))
+                    && !params.path("canceled").asBoolean(false)) {
+                failedSubresources++;
             }
         }
-        return new NetworkGateScan(disallowedRequests, mainDocumentStatus);
+        return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources);
     }
 
     private int drainPerformanceLog(ChromeDriver driver, List<LogEntry> performanceEntries) {

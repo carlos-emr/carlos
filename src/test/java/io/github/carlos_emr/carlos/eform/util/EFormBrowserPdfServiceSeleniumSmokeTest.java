@@ -204,7 +204,9 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
 
     private static ChromeDriver startDriverOrSkip(ChromeOptions options) {
         try {
-            return new ChromeDriver(options);
+            // Same per-command client timeouts as production createDriver, so the smoke run
+            // exercises the bounded-connection configuration against a real chromedriver.
+            return new ChromeDriver(options, EFormBrowserPdfService.rendererClientConfig());
         } catch (WebDriverException e) {
             // Skip ONLY when the driver/browser genuinely cannot start (offline host, no matching
             // chromedriver, missing binary). Any other WebDriver failure — a bad options build, a

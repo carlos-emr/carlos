@@ -90,14 +90,18 @@ Environment: the renderer is **sandboxed by default** (see "Security operations"
   script is contained by the egress lockdown, not the grant: a malicious form can read what its own
   render sees but cannot send it anywhere.
 - **Fresh browser per render.** No cookies, storage, or cache can bleed between renders or
-  users. `driver.quit()` in a `finally` block tears down chromedriver and Chromium.
+  users. `driver.quit()` in a `finally` block tears down chromedriver and Chromium, and the
+  caller-owned chromedriver service is stopped afterwards as a backstop when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
-  so rendering can never saturate Tomcat's request workers.
-- **Page gates.** The main-document status gate is **fail-closed**: a `null` or non-200 main
-  document fails the render. The severe-console-entry check is **best-effort** — it fails the
-  render when severe console entries are observed, but if the browser log itself cannot be read it
-  logs at debug and proceeds (fail-open on log-fetch failure) rather than blocking a good render on
-  a browser that does not expose console logs. Failures report counts, never page content.
+  so rendering can never saturate Tomcat's request workers. Every WebDriver/CDP HTTP command is
+  additionally client-bounded at 90s (vs Selenium's ~180s default), so a wedged Chromium cannot
+  hold a render slot for minutes past the render budget.
+- **Page gates.** All render gates are **fail-closed**: a `null` or non-200 main document, any
+  severe console entry, any failed render-critical subresource (an HTTP-error or
+  connection-failed image/script/stylesheet/font/iframe — Chrome's own speculative requests such
+  as favicons are excluded), and an unreadable browser console log all fail the render — the
+  console log is explicitly enabled via `goog:loggingPrefs`, so failing to read it is a WebDriver
+  fault, not a capability gap. Failures report counts, never page content.
 - **PHI-safe diagnostics.** Log lines carry fdid (a separate structured field), the loopback base
   URL (host + context path only — no PHI, and the fdid/token live in a separate path value not
   embedded in it), and counters. URLs inside WebDriver error messages are redacted before logging,

@@ -15,12 +15,20 @@ import java.util.concurrent.Semaphore;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.logging.LogType;
+import org.openqa.selenium.remote.http.ClientConfig;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("EFormBrowserPdfService unit tests")
 @Tag("unit")
@@ -425,6 +433,34 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.disallowedRequests()).isEqualTo(1);
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
+        // The later 404'd iframe Document is not the main document, so it counts as a failed
+        // render-critical subresource instead of overwriting the main status.
+        assertThat(scan.failedSubresources()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should count failed render-critical subresources from both CDP failure legs")
+    void shouldCountFailedSubresources_forHttpErrorAndConnectionFailures() {
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                // A 404'd form background arrives as an HTTP error response, not loadingFailed.
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":404}"),
+                // Connection-level failure of a render-critical resource.
+                cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_CONNECTION_REFUSED\",\"canceled\":false"),
+                // Benign: canceled loads are navigation aborts, not broken content.
+                cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_ABORTED\",\"canceled\":true"),
+                // Benign: Chrome's own speculative requests (favicon etc.) are typed Other.
+                cdpMessage("Network.responseReceived", "\"type\":\"Other\",\"response\":{\"url\":\"http://127.0.0.1:8080/favicon.ico\",\"status\":404}"),
+                cdpMessage("Network.loadingFailed", "\"type\":\"Other\",\"errorText\":\"net::ERR_FAILED\",\"canceled\":false"),
+                // Healthy subresource: not counted.
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=form.js\",\"status\":200}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.mainDocumentStatus()).isEqualTo(200);
+        assertThat(scan.disallowedRequests()).isZero();
+        assertThat(scan.failedSubresources()).isEqualTo(2);
     }
 
     @Test
@@ -484,6 +520,78 @@ class EFormBrowserPdfServiceUnitTest {
 
         Semaphore available = new Semaphore(1);
         assertThat(EFormBrowserPdfService.acquireRenderSlot(available, Duration.ofMillis(50))).isTrue();
+    }
+
+    @Test
+    @DisplayName("should bound every WebDriver command at the render budget instead of Selenium's default")
+    void shouldBoundDriverCommandReadTimeout_toRenderBudget() {
+        ClientConfig clientConfig = EFormBrowserPdfService.rendererClientConfig();
+
+        assertThat(clientConfig.readTimeout()).isEqualTo(Duration.ofSeconds(90));
+        assertThat(clientConfig.connectionTimeout()).isEqualTo(Duration.ofSeconds(10));
+    }
+
+    @Test
+    @DisplayName("should keep the client read timeout above the in-band page-load and script timeouts")
+    void shouldKeepReadTimeoutAboveInBandTimeouts_forDriverCommands() {
+        // Invariant: a legitimate slow page must always hit the in-band timeout (which chromedriver
+        // answers with a clean error) before the HTTP client gives up on the connection — otherwise
+        // slow-but-successful renders would start failing with transport errors.
+        assertThat(EFormBrowserPdfService.WEBDRIVER_COMMAND_READ_TIMEOUT)
+                .isGreaterThan(EFormBrowserPdfService.PAGE_LOAD_TIMEOUT)
+                .isGreaterThan(EFormBrowserPdfService.SCRIPT_TIMEOUT);
+    }
+
+    @Test
+    @DisplayName("should fail the render when the browser console log cannot be retrieved")
+    void shouldFailRender_whenConsoleLogUnavailable() {
+        // The console gate is the only defense against capturing a form whose background image
+        // never painted; an unreadable console must fail closed, not pass with a zero count.
+        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
+        when(driver.manage().logs().get(LogType.BROWSER))
+                .thenThrow(new org.openqa.selenium.WebDriverException("log retrieval broke"));
+
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, List.of(), 200, "http://127.0.0.1:8080/carlos", 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("console error state");
+    }
+
+    @Test
+    @DisplayName("should invalidate the render grant when the render fails before the browser starts")
+    void shouldInvalidateRenderGrant_whenRenderFailsBeforeBrowserStart(@TempDir Path tempDir) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String originalChromedriverPath = properties.getProperty("eform_pdf_browser_chromedriver_path");
+        String originalCatalinaBase = System.getProperty("catalina.base");
+        properties.setProperty("eform_pdf_browser_chromedriver_path",
+                tempDir.resolve("missing-chromedriver").toString());
+        System.setProperty("catalina.base", tempDir.toString());
+
+        EFormRenderTokenService tokenService = EFormRenderTokenService.getInstance();
+        long grantsBefore = tokenService.size();
+        try {
+            EFormBrowserPdfService service = new EFormBrowserPdfService();
+
+            assertThatThrownBy(() -> service.renderSavedEformPdf(424242, "999998"))
+                    .isInstanceOf(PDFGenerationException.class);
+
+            // The grant issued for this render must not linger for its TTL after the failure —
+            // a live token is a loopback render capability (the exact bug this pins).
+            assertThat(tokenService.size()).isEqualTo(grantsBefore);
+        } finally {
+            if (originalChromedriverPath == null) {
+                properties.remove("eform_pdf_browser_chromedriver_path");
+            } else {
+                properties.setProperty("eform_pdf_browser_chromedriver_path", originalChromedriverPath);
+            }
+            if (originalCatalinaBase == null) {
+                System.clearProperty("catalina.base");
+            } else {
+                System.setProperty("catalina.base", originalCatalinaBase);
+            }
+        }
     }
 
 }
