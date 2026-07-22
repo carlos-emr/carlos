@@ -35,6 +35,9 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
 }
 NO_STORE_PATHS = {"/", "/auth/login"}
+MAX_FORM_BODY_BYTES = 16 * 1024
+CSRF_COOKIE_NAME = "carlos_portal_csrf"
+CSRF_COOKIE_PATH = "/auth"
 CSRF_FORM_FIELD = "csrf_token"
 CSRF_TOKEN_TTL_SECONDS = 60 * 60
 CSRF_FUTURE_SKEW_SECONDS = 60
@@ -80,12 +83,43 @@ def is_valid_csrf_token(token: str | None, secret: str) -> bool:
     return compare_digest(supplied_signature, expected_signature)
 
 
-async def get_urlencoded_form_value(request: Request, field_name: str) -> str | None:
+def is_valid_csrf_submission(
+    form_token: str | None,
+    cookie_token: str | None,
+    secret: str,
+) -> bool:
+    if form_token is None or cookie_token is None:
+        return False
+    if not compare_digest(form_token, cookie_token):
+        return False
+    return is_valid_csrf_token(form_token, secret)
+
+
+async def read_limited_request_body(request: Request, max_bytes: int) -> bytes:
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="request body too large",
+            )
+        body.extend(chunk)
+    return bytes(body)
+
+
+async def get_urlencoded_form_value(
+    request: Request,
+    field_name: str,
+    max_body_bytes: int,
+) -> str | None:
     content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
     if content_type != "application/x-www-form-urlencoded":
         return None
 
-    body = (await request.body()).decode("utf-8", errors="replace")
+    body = (await read_limited_request_body(request, max_body_bytes)).decode(
+        "utf-8",
+        errors="replace",
+    )
     values = parse_qs(body, keep_blank_values=True).get(field_name)
     if not values:
         return None
@@ -164,16 +198,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/")
     def index(request: Request) -> Response:
-        return templates.TemplateResponse(
+        csrf_token = create_csrf_token(csrf_secret)
+        response = templates.TemplateResponse(
             request=request,
             name="index.html",
             context={
                 "request": request,
                 "clinic_name": settings.clinic_name,
-                "csrf_token": create_csrf_token(csrf_secret),
+                "csrf_token": csrf_token,
                 "service_name": settings.service_name,
             },
         )
+        response.set_cookie(
+            CSRF_COOKIE_NAME,
+            csrf_token,
+            httponly=True,
+            max_age=CSRF_TOKEN_TTL_SECONDS,
+            path=CSRF_COOKIE_PATH,
+            samesite="strict",
+            secure=settings.is_production,
+        )
+        return response
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -192,8 +237,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/auth/login")
     async def login_placeholder(request: Request) -> None:
-        csrf_token = await get_urlencoded_form_value(request, CSRF_FORM_FIELD)
-        if not is_valid_csrf_token(csrf_token, csrf_secret):
+        csrf_token = await get_urlencoded_form_value(
+            request,
+            CSRF_FORM_FIELD,
+            MAX_FORM_BODY_BYTES,
+        )
+        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+        if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
             raise HTTPException(status_code=403, detail="invalid CSRF token")
         raise HTTPException(status_code=501, detail="login is not implemented yet")
 

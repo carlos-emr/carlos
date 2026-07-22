@@ -45,6 +45,7 @@ pip-compile --extra dev --all-build-deps --generate-hashes --allow-unsafe --stri
 
 ```bash
 cd patient_portal
+export PATIENT_PORTAL_ENVIRONMENT=development
 uvicorn carlos_patient_portal.main:create_app --factory --reload --host 127.0.0.1 --port 8090
 ```
 
@@ -65,6 +66,9 @@ export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_p
 The default database URL targets local PostgreSQL because PostgreSQL is the intended MVP database.
 Tests pass a SQLite database URL into the app factory so the foundation test suite does not require a
 running PostgreSQL instance.
+
+The portal defaults to `production`, so deployments fail closed unless required secrets are set.
+Local development should explicitly set `PATIENT_PORTAL_ENVIRONMENT=development`.
 
 Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN` and
 `PATIENT_PORTAL_SESSION_SECRET`. The internal readiness endpoint expects the health token as a Bearer

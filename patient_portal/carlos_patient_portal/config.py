@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     """Runtime configuration for the patient portal service."""
 
     service_name: str = "CARLOS Patient Portal"
-    environment: Environment = "development"
+    environment: Environment = "production"
     clinic_name: str = "Maple Creek Medical"
     database_url: str = DEFAULT_DATABASE_URL
     session_secret: SecretStr | None = None

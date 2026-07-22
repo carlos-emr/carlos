@@ -1,0 +1,61 @@
+# GitHub Workflow: Check Patient Portal
+#
+# Description:
+# Runs the Python checks for the CARLOS patient portal package.
+
+name: Check Patient Portal
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - experimental
+      - staging/*
+      - hotfix/*
+      - community/*/develop
+      - community/*/staging/*
+    paths:
+      - ".github/workflows/patient-portal.yml"
+      - "patient_portal/**"
+
+permissions:
+  contents: read
+
+jobs:
+  patient-portal:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: patient_portal
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: patient_portal/requirements.lock
+
+      - name: Install dependencies
+        run: python -m pip install --require-hashes -r requirements.lock
+
+      - name: Run Ruff
+        run: python -m ruff check .
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Compile Python files
+        run: python -m compileall carlos_patient_portal tests
+
+      - name: Check Alembic wiring
+        env:
+          PATIENT_PORTAL_ENVIRONMENT: development
+          PATIENT_PORTAL_DATABASE_URL: "sqlite+pysqlite:///:memory:"
+        run: alembic -c alembic.ini current
+
+      - name: Build wheel
+        run: python -m build --wheel
