@@ -251,4 +251,44 @@ class EmailAttachmentSettingsTest {
             assertThat(EmailAttachmentSettings.validateChartOption("<script>alert(1)</script>")).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("attachment ID arrays")
+    class AttachmentIdArrays {
+
+        @Test
+        @DisplayName("should defensively copy array inputs and accessors")
+        void shouldDefensivelyCopyAttachmentArrays() {
+            String[] documents = {"10"};
+            EmailAttachmentSettings settings = new EmailAttachmentSettings(
+                    "1",
+                    "123",
+                    null,
+                    documents,
+                    null,
+                    null,
+                    null,
+                    true,
+                    false,
+                    true,
+                    true,
+                    false,
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "addFullNote");
+
+            documents[0] = "99";
+            String[] returnedDocuments = settings.attachedDocuments();
+            returnedDocuments[0] = "42";
+
+            assertThat(settings.attachedDocuments()).containsExactly("10");
+            assertThat(settings.attachedEForms()).isEmpty();
+            assertThat(settings.attachedLabs()).isEmpty();
+            assertThat(settings.attachedHRMDocuments()).isEmpty();
+            assertThat(settings.attachedForms()).isEmpty();
+        }
+    }
 }

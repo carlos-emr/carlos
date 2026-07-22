@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -455,6 +456,10 @@ public class EmailManager {
      * @throws EmailSendingException if PDF encryption fails
      */
     private void encryptEmail(EmailData emailData) throws EmailSendingException {
+        if (StringUtils.isNullOrEmpty(emailData.getPassword())) {
+            throw new EmailSendingException("PDF encryption password is required");
+        }
+
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
         if (!StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
@@ -575,7 +580,7 @@ public class EmailManager {
             LocalDateTime localDateTime = localDate.atTime(localTime);
             return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
         } catch (DateTimeParseException e) {
-            logger.error("UNPARSEABLE DATE " + date);
+            logger.error("UNPARSEABLE DATE {}", LogSafe.sanitize(date));
             return null;
         }
     }

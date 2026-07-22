@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -229,5 +230,23 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(firstRequest)).isNull();
         assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(secondRequest)).isNotNull();
         EmailCompose2Action.clearEmailComposeSubmissionStates(secondRequest.getSession().getId());
+    }
+
+    @Test
+    @DisplayName("should defensively copy compose submission attachment list")
+    void shouldDefensivelyCopyAttachmentList_whenComposeSubmissionStateCreated() {
+        List<EmailAttachment> attachments = new ArrayList<>();
+        EmailCompose2Action.EmailComposeSubmissionState state =
+                new EmailCompose2Action.EmailComposeSubmissionState(
+                        "password",
+                        EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                        attachments,
+                        System.currentTimeMillis());
+
+        attachments.add(mock(EmailAttachment.class));
+
+        assertThat(state.emailAttachmentList()).isEmpty();
+        assertThatThrownBy(() -> state.emailAttachmentList().add(mock(EmailAttachment.class)))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 }

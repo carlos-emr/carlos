@@ -6,12 +6,15 @@
 package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
@@ -23,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.DisplayName;
@@ -87,5 +91,22 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         EmailLog persistedLog = emailLogCaptor.getValue();
         assertThat(persistedLog.getPassword()).isEmpty();
         assertThat(persistedLog.getPasswordClue()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should fail closed when PDF encryption password is missing")
+    void shouldFailClosed_whenPdfEncryptionPasswordIsMissing() throws Exception {
+        EmailManager emailManager = new EmailManager();
+        EmailData emailData = new EmailData();
+        emailData.setEncryptedMessage("Protected message");
+        emailData.setPassword("");
+
+        Method encryptEmail = EmailManager.class.getDeclaredMethod("encryptEmail", EmailData.class);
+        encryptEmail.setAccessible(true);
+
+        assertThatThrownBy(() -> encryptEmail.invoke(emailManager, emailData))
+                .isInstanceOf(InvocationTargetException.class)
+                .hasCauseInstanceOf(EmailSendingException.class)
+                .hasRootCauseMessage("PDF encryption password is required");
     }
 }

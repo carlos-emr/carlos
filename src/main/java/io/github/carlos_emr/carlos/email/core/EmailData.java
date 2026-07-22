@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.email.core;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -8,7 +10,6 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Data Transfer Object (DTO) for email composition and transmission in the OpenO EMR system.
@@ -135,7 +136,7 @@ public class EmailData {
      * @return String[] array of recipient email addresses, or empty array if not set
      */
     public String[] getRecipients() {
-        return recipients;
+        return recipients == null ? new String[0] : Arrays.copyOf(recipients, recipients.length);
     }
 
     /**
@@ -144,7 +145,7 @@ public class EmailData {
      * @param recipients String[] array of recipient email addresses; null values are converted to empty array
      */
     public void setRecipients(String[] recipients) {
-        this.recipients = recipients != null ? recipients : new String[0];
+        this.recipients = recipients == null ? new String[0] : Arrays.copyOf(recipients, recipients.length);
     }
 
     /**
@@ -327,13 +328,13 @@ public class EmailData {
      * @param chartDisplayOption String "doNotAddAsNote" to exclude from chart, 
      *                          any other value (including null) defaults to WITH_FULL_NOTE
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setChartDisplayOption(String chartDisplayOption) {
         if (chartDisplayOption == null) {
-            chartDisplayOption = "addFullNote";
+            chartDisplayOption = ChartDisplayOption.WITH_FULL_NOTE.getValue();
         }
-        this.chartDisplayOption = "doNotAddAsNote".equalsIgnoreCase(chartDisplayOption) ? ChartDisplayOption.WITHOUT_NOTE : ChartDisplayOption.WITH_FULL_NOTE;
+        this.chartDisplayOption = equalsAsciiIgnoreCase(chartDisplayOption, ChartDisplayOption.WITHOUT_NOTE.getValue())
+                ? ChartDisplayOption.WITHOUT_NOTE
+                : ChartDisplayOption.WITH_FULL_NOTE;
     }
 
     /**
@@ -381,26 +382,17 @@ public class EmailData {
      * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
      *                       (including null) which defaults to DIRECT
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setTransactionType(String transactionType) {
         if (transactionType == null) {
-            transactionType = "DIRECT";
+            transactionType = TransactionType.DIRECT.name();
         }
-        switch (transactionType.toUpperCase()) {
-            case "EFORM":
-                this.transactionType = TransactionType.EFORM;
-                break;
-            case "CONSULTATION":
-                this.transactionType = TransactionType.CONSULTATION;
-                break;
-            case "TICKLER":
-                this.transactionType = TransactionType.TICKLER;
-                break;
-            default:
-                this.transactionType = TransactionType.DIRECT;
-                break;
+        for (TransactionType candidate : TransactionType.values()) {
+            if (equalsAsciiIgnoreCase(transactionType, candidate.name())) {
+                this.transactionType = candidate;
+                return;
+            }
         }
+        this.transactionType = TransactionType.DIRECT;
     }
 
     /**
@@ -475,7 +467,7 @@ public class EmailData {
      * @return List&lt;EmailAttachment&gt; the list of attachments, or empty list if none are attached
      */
     public List<EmailAttachment> getAttachments() {
-        return attachments;
+        return attachments == null ? Collections.emptyList() : Collections.unmodifiableList(attachments);
     }
 
     /**
@@ -484,7 +476,25 @@ public class EmailData {
      * @param attachments List&lt;EmailAttachment&gt; the list of attachments; null values are converted to empty list
      */
     public void setAttachments(List<EmailAttachment> attachments) {
-        this.attachments = attachments != null ? attachments : Collections.emptyList();
+        this.attachments = attachments == null ? Collections.emptyList() : new ArrayList<>(attachments);
+    }
+
+    private static boolean equalsAsciiIgnoreCase(String first, String second) {
+        if (first.length() != second.length()) {
+            return false;
+        }
+        for (int i = 0; i < first.length(); i++) {
+            if (toAsciiLower(first.charAt(i)) != toAsciiLower(second.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static char toAsciiLower(char value) {
+        if (value >= 'A' && value <= 'Z') {
+            return (char) (value + ('a' - 'A'));
+        }
+        return value;
     }
 }
-

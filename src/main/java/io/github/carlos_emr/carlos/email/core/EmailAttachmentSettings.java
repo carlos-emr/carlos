@@ -63,6 +63,13 @@ public record EmailAttachmentSettings(
     String encryptedMessageEmail,
     String emailPatientChartOption
 ) {
+    public EmailAttachmentSettings {
+        attachedEForms = copyOrEmpty(attachedEForms);
+        attachedDocuments = copyOrEmpty(attachedDocuments);
+        attachedLabs = copyOrEmpty(attachedLabs);
+        attachedHRMDocuments = copyOrEmpty(attachedHRMDocuments);
+        attachedForms = copyOrEmpty(attachedForms);
+    }
 
     /** Simple email format validation pattern. */
     private static final Pattern EMAIL_PATTERN =
@@ -131,6 +138,31 @@ public record EmailAttachmentSettings(
         );
     }
 
+    @Override
+    public String[] attachedEForms() {
+        return copyOrEmpty(attachedEForms);
+    }
+
+    @Override
+    public String[] attachedDocuments() {
+        return copyOrEmpty(attachedDocuments);
+    }
+
+    @Override
+    public String[] attachedLabs() {
+        return copyOrEmpty(attachedLabs);
+    }
+
+    @Override
+    public String[] attachedHRMDocuments() {
+        return copyOrEmpty(attachedHRMDocuments);
+    }
+
+    @Override
+    public String[] attachedForms() {
+        return copyOrEmpty(attachedForms);
+    }
+
     /**
      * Validates an email address against a simple format pattern and RFC 5321 length limit.
      * Returns null (fall back to default sender) if the address is invalid or too long.
@@ -195,17 +227,7 @@ public record EmailAttachmentSettings(
         return value;
     }
 
-    /**
-     * Validates that the chart option is one of the known allowed values.
-     * Returns null for unrecognized values to prevent unexpected behavior.
-     *
-     * @param value the raw input, may be null
-     * @return the value if it matches a known option, or null otherwise
-     */
-    private static String sanitizeChartOption(String value) {
-        if (value == null) {
-            return null;
-        }
-        return VALID_CHART_OPTIONS.contains(value) ? value : null;
+    private static String[] copyOrEmpty(String[] values) {
+        return values == null ? new String[0] : Arrays.copyOf(values, values.length);
     }
 }

@@ -555,6 +555,9 @@ public class EmailCompose2Action extends ActionSupport {
             List<EmailAttachment> emailAttachmentList,
             long createdAtMillis
     ) {
+        public EmailComposeSubmissionState {
+            emailAttachmentList = List.copyOf(emailAttachmentList != null ? emailAttachmentList : List.of());
+        }
     }
 
     /**
