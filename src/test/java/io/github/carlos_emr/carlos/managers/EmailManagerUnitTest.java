@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
@@ -25,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -108,5 +110,29 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(InvocationTargetException.class)
                 .hasCauseInstanceOf(EmailSendingException.class)
                 .hasRootCauseMessage("PDF encryption password is required");
+    }
+
+    @Test
+    @DisplayName("should parse valid dates and sanitize invalid date logs")
+    void shouldParseValidDatesAndSanitizeInvalidDateLogs() throws Exception {
+        EmailManager emailManager = new EmailManager();
+        Method parseDate = EmailManager.class.getDeclaredMethod(
+                "parseDate", String.class, String.class, String.class);
+        parseDate.setAccessible(true);
+
+        assertThat(parseDate.invoke(emailManager, null, "yyyy-MM-dd", null)).isNull();
+        assertThat((Date) parseDate.invoke(emailManager, "2026-07-22", "yyyy-MM-dd", null)).isNotNull();
+        assertThat((Date) parseDate.invoke(emailManager, "2026-07-22", "yyyy-MM-dd", "09:30:00")).isNotNull();
+
+        try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+            assertThat(parseDate.invoke(emailManager, "2026-99-99\r\nforged", "yyyy-MM-dd", null)).isNull();
+
+            String logged = capture.messages().stream()
+                    .filter(message -> message.startsWith("UNPARSEABLE DATE"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains("2026-99-99\\r\\nforged");
+        }
     }
 }

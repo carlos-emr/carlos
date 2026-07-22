@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,6 +40,52 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("email")
 @DisplayName("EmailAttachmentSettings validation")
 class EmailAttachmentSettingsTest {
+
+    @Test
+    @DisplayName("should create settings from request with sanitized values")
+    void shouldCreateSettingsFromRequest_withSanitizedValues() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("attachEFormToEmail", "false");
+        request.setParameter("openEFormAfterSendingEmail", "true");
+        request.setParameter("enableEmailEncryption", "true");
+        request.setParameter("encryptEmailAttachments", "false");
+        request.setParameter("autoSendEmail", "true");
+        request.setParameter("deleteEFormAfterSendingEmail", "true");
+        request.setParameter("senderEmail", "sender@example.com");
+        request.setParameter("subjectEmail", "Subject\r\nBcc: attacker@example.com");
+        request.setParameter("bodyEmail", "B".repeat(10005));
+        request.setParameter("encryptedMessageEmail", "Encrypted".repeat(1500));
+        request.setParameter("emailPatientChartOption", "doNotAddAsNote");
+
+        EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                request,
+                "12",
+                "123",
+                new String[]{"1"},
+                new String[]{"2"},
+                new String[]{"3"},
+                new String[]{"4"},
+                new String[]{"5"});
+
+        assertThat(settings.fdid()).isEqualTo("12");
+        assertThat(settings.demographicNo()).isEqualTo("123");
+        assertThat(settings.attachedEForms()).containsExactly("1");
+        assertThat(settings.attachedDocuments()).containsExactly("2");
+        assertThat(settings.attachedLabs()).containsExactly("3");
+        assertThat(settings.attachedHRMDocuments()).containsExactly("4");
+        assertThat(settings.attachedForms()).containsExactly("5");
+        assertThat(settings.attachEFormItSelf()).isFalse();
+        assertThat(settings.openAfterEmail()).isTrue();
+        assertThat(settings.isEmailEncrypted()).isTrue();
+        assertThat(settings.isEmailAttachmentEncrypted()).isFalse();
+        assertThat(settings.isEmailAutoSend()).isTrue();
+        assertThat(settings.deleteEFormAfterEmail()).isTrue();
+        assertThat(settings.senderEmail()).isEqualTo("sender@example.com");
+        assertThat(settings.subjectEmail()).isEqualTo("SubjectBcc: attacker@example.com");
+        assertThat(settings.bodyEmail()).hasSize(10000);
+        assertThat(settings.encryptedMessageEmail()).hasSize(10000);
+        assertThat(settings.emailPatientChartOption()).isEqualTo("doNotAddAsNote");
+    }
 
     @Nested
     @DisplayName("validateEmail")
