@@ -92,7 +92,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
             }
 
             String providerId;
-            String renderToken = null;
+            EFormRenderTokenService.RenderToken renderToken = null;
             if (browserRender) {
                 EFormRenderTokenService.RenderGrant grant = redeemedRenderGrant(request, formDataId);
                 if (grant == null) {
@@ -102,9 +102,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 providerId = grant.providerNo();
                 // Carry the grant forward onto the eForm's own asset URLs so the sessionless render
                 // browser can fetch its background/asset images under the same render-scoped token.
-                EFormRenderTokenService.RenderToken token =
-                        EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM));
-                renderToken = token == null ? null : token.queryValue();
+                // Kept as the redacting RenderToken wrapper all the way into the composer — only
+                // appendRenderTokenToAssetUrls unwraps it via queryValue().
+                renderToken = EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM));
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
@@ -119,10 +119,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
             response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Security-Policy", buildContentSecurityPolicy(browserRender));
 
-            boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
-
             String html = EformRenderPdfHtmlComposer.buildPdfHtmlForFdid(
-                    formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, prepareForFax, renderToken);
+                    formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, renderToken);
 
             HtmlResponse.of(HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET, html).writeTo(response);
         } catch (IOException e) {

@@ -72,14 +72,14 @@ public final class EformRenderPdfHtmlComposer {
      * @param contextPath current servlet context path used for local asset URLs
      * @param userAgent renderer user agent used by existing signature setup logic
      * @param providerId provider number used for provider-scoped signature rendering
-     * @param prepareForFax true when fax preview positioning wrappers are required
      * @param renderToken render-scoped grant appended to local asset URLs so the sessionless
      *        render browser can fetch its images; null for the session-authenticated path
      * @return normalized HTML ready for the browser renderer
-     * @throws IllegalStateException if a stored, non-blank signature cannot be spliced into the
-     *         form HTML; a signed document must never render (and so fax/archive) unsigned
+     * @throws IllegalStateException if the fdid has no stored form HTML, or a stored, non-blank
+     *         signature cannot be spliced into the form HTML; a signed document must never render
+     *         (and so fax/archive) unsigned
      */
-    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, boolean prepareForFax, String renderToken) {
+    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, EFormRenderTokenService.RenderToken renderToken) {
         EForm eForm = new EForm(String.valueOf(formDataId));
         eForm.setSignatureCode(contextPath, userAgent, eForm.getDemographicNo(), providerId);
         eForm.setContextPath(contextPath);
@@ -90,12 +90,12 @@ public final class EformRenderPdfHtmlComposer {
 
         if (logger.isDebugEnabled()) {
             // fdid + value count only; never the render token or any stored eForm field value.
-            logger.debug("Composing eForm PDF render HTML: fdid={} storedValues={} prepareForFax={}",
-                    formDataId, eFormValues == null ? 0 : eFormValues.size(), prepareForFax);
+            logger.debug("Composing eForm PDF render HTML: fdid={} storedValues={}",
+                    formDataId, eFormValues == null ? 0 : eFormValues.size());
         }
 
         try {
-            return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax, renderToken);
+            return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, renderToken);
         } catch (IllegalStateException e) {
             // fdid is a PHI-correlating identifier (joins back to the patient's saved eForm data);
             // sanitize it before logging alongside the (already PHI-free) failure reason.
@@ -117,11 +117,20 @@ public final class EformRenderPdfHtmlComposer {
      * @param renderToken render-scoped grant spliced onto asset URLs, or null for the
      *        session-authenticated (non-browser) path
      * @return the normalized HTML ready for capture
+     * @throws IllegalStateException if the fdid has no stored form HTML (defined contract in place
+     *         of the NPE the legacy code would otherwise throw on the first rewrite below), or a
+     *         stored, non-blank signature cannot be spliced into it
      */
     // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.
     @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
-    static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax, String renderToken) {
-        applyLetterHtml(eForm, eFormValues, prepareForFax);
+    static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, EFormRenderTokenService.RenderToken renderToken) {
+        applyLetterHtml(eForm, eFormValues);
+        if (eForm.getFormHtml() == null) {
+            // No stored Letter value ever reached applyLetterHtml, or the loaded eForm otherwise
+            // carries no form HTML for this fdid — the legacy code NPE'd on the first html.replace
+            // below instead of failing with a caller-diagnosable reason.
+            throw new IllegalStateException("eForm render failed: no stored form HTML for the requested fdid");
+        }
         applySignatureHtml(eForm, eFormValues, contextPath);
 
         String html = eForm.getFormHtml();
@@ -153,17 +162,21 @@ public final class EformRenderPdfHtmlComposer {
      * fetch each subresource under the same grant. Every such URL has been normalized to
      * {@code .../<servlet>?<params>} by this point, so one insertion at the {@code ?} boundary covers
      * all forms ({@code ${oscar_image_path}}, {@code /eform/displayImage}, and the signature path).
-     * No-op on the session-authenticated path (null token). The token is a request parameter, so it
-     * is URI-component encoded before it is spliced into the asset URLs (which live inside HTML
-     * {@code src} attributes): a well-formed URL-safe-base64 grant passes through unchanged, while any
-     * injected metacharacter is neutralized for both the query-string and HTML-attribute contexts.
+     * No-op on the session-authenticated path (null token). The token is unwrapped to its raw
+     * request-parameter value only here — everywhere else it travels as the redacting
+     * {@link EFormRenderTokenService.RenderToken} wrapper so an accidental {@code logger.debug("{}",
+     * renderToken)} anywhere upstream prints {@code [render-token]}, never the live capability value.
+     * The unwrapped value is URI-component encoded before it is spliced into the asset URLs (which
+     * live inside HTML {@code src} attributes): a well-formed URL-safe-base64 grant passes through
+     * unchanged, while any injected metacharacter is neutralized for both the query-string and
+     * HTML-attribute contexts.
      */
-    private static String appendRenderTokenToAssetUrls(String html, String renderToken) {
-        if (renderToken == null || renderToken.isEmpty()) {
+    private static String appendRenderTokenToAssetUrls(String html, EFormRenderTokenService.RenderToken renderToken) {
+        if (renderToken == null || renderToken.queryValue().isEmpty()) {
             return html;
         }
         String tokenPrefix = "?" + EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM
-                + "=" + SafeEncode.forUriComponent(renderToken) + "&";
+                + "=" + SafeEncode.forUriComponent(renderToken.queryValue()) + "&";
         // Render-grant path only: note that the grant is being carried onto asset URLs. NEVER log the
         // token value itself — only that splicing occurred.
         logger.debug("Splicing render grant onto eForm asset URLs for browser render");
@@ -174,19 +187,22 @@ public final class EformRenderPdfHtmlComposer {
 
     /**
      * Replaces the form body with the stored {@code Letter} content, remapping its legacy
-     * signature-render path and, for fax preview, wrapping it in the absolute-positioned offset the
-     * fax cover page expects. No-op when the form has no {@code Letter} value.
+     * signature-render path. No-op when the form has no {@code Letter} value.
+     *
+     * <p>No longer wraps the content in a fax-preview absolute-position offset:
+     * {@code buildAppPath} (the only production URL builder for the headless render browser) never
+     * appended a {@code prepareForFax} flag, so that wrapper was unreachable on every real render.
+     * It was also obsolete by design — the fax cover page is prepended as its own PDF page by
+     * {@code ConcatPDF} ({@code FaxManagerImpl.addCoverPage}), so no in-page offset is needed to
+     * make room for it.</p>
      */
-    private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues, boolean prepareForFax) {
+    private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues) {
         for (EFormValue value : eFormValues) {
             if (!"Letter".equals(value.getVarName())) {
                 continue;
             }
             String html = value.getVarValue();
             html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
-            if (prepareForFax) {
-                html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
-            }
             eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
             return;
         }

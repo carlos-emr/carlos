@@ -100,8 +100,8 @@ class EformRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
-    @DisplayName("should build fax-ready HTML from the stored letter content")
-    void shouldBuildFaxReadyHtml_whenPreparingPdfHtml() {
+    @DisplayName("should build render-ready HTML from the stored letter content")
+    void shouldBuildRenderReadyHtml_whenPreparingPdfHtml() {
         EForm eForm = mock(EForm.class);
         AtomicReference<String> htmlRef = new AtomicReference<>("<div id=\"signatureDisplay\"></div>");
         when(eForm.getDemographicNo()).thenReturn("1");
@@ -120,11 +120,9 @@ class EformRenderPdfHtmlComposerUnitTest {
                 List.of(letter),
                 "/carlos",
                 "carlos",
-                true,
                 null);
 
         assertThat(html)
-                .contains("position:absolute; margin-top:35px;")
                 .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
                 .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
                 .contains("<body style='width:640px;'>");
@@ -148,7 +146,6 @@ class EformRenderPdfHtmlComposerUnitTest {
                 List.of(),
                 "/carlos",
                 "carlos",
-                false,
                 null);
 
         // Relative "../share/..." resolves against the /eform/ viewer base in normal use, but
@@ -182,8 +179,7 @@ class EformRenderPdfHtmlComposerUnitTest {
                 List.of(letter),
                 "/carlos",
                 "carlos",
-                false,
-                "grant-abc123");
+                EFormRenderTokenService.RenderToken.fromRequestValue("grant-abc123"));
 
         // Both the /eform/displayImage form and the ${oscar_image_path} form carry the grant so the
         // sessionless render browser can fetch each asset image.
@@ -215,8 +211,7 @@ class EformRenderPdfHtmlComposerUnitTest {
                 List.of(letter),
                 "/carlos",
                 "carlos",
-                false,
-                "\"><script>alert(1)</script>");
+                EFormRenderTokenService.RenderToken.fromRequestValue("\"><script>alert(1)</script>"));
 
         assertThat(html)
                 .doesNotContain("<script>alert(1)</script>")
@@ -247,7 +242,6 @@ class EformRenderPdfHtmlComposerUnitTest {
                 List.of(signature, letter),
                 "/carlos",
                 "carlos",
-                false,
                 null);
 
         assertThat(html)
@@ -262,7 +256,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         EForm eForm = mockEformWithHtml("<html>signatureControl.initialize({eform:true, height:80, width:200, top:10, left:20})<div id=\"signatureDisplay\"></div></html>");
         EFormValue sig = eformValue("signatureValue", "https://evil.example/steal.png");
 
-        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", false, null))
+        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("signature");
     }
@@ -273,7 +267,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         EForm eForm = mockEformWithHtml("<html><div id=\"signatureDisplay\"></div></html>"); // no initialize(...) call
         EFormValue sig = eformValue("signatureValue", "/carlos/imageRenderingServlet?digitalSignatureId=42");
 
-        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", false, null))
+        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("signature");
     }
@@ -284,8 +278,18 @@ class EformRenderPdfHtmlComposerUnitTest {
         EForm eForm = mockEformWithHtml("<html><div id=\"signatureDisplay\"></div></html>");
         EFormValue sig = eformValue("signatureValue", "   ");
 
-        assertThatCode(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", false, null))
+        assertThatCode(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should throw a defined error when the fdid has no stored form HTML")
+    void shouldThrowIllegalState_whenFormHtmlMissing() {
+        EForm eForm = mockEformWithHtml(null);
+
+        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(), "/carlos", "carlos", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("form HTML");
     }
 
     /**
