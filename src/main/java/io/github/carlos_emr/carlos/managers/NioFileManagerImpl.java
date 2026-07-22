@@ -37,7 +37,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -299,10 +301,28 @@ public class NioFileManagerImpl implements NioFileManager {
                 // Note: jpedal uses 1-based page indexing, PDFBox uses 0-based
                 BufferedImage image_to_save = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
 
-                // Check ImageIO.write success (returns false on failure)
-                if (!ImageIO.write(image_to_save, "png", cacheFilePath.toFile())) {
-                    log.error("Failed to write PNG image to cache file: {}", LogSafe.sanitize(String.valueOf(cacheFilePath)));
-                    return null;
+                // Render to a same-directory temp file and move it into place atomically: writing
+                // straight to the final cache path let a concurrent request's hasCacheVersion2 see
+                // the half-written file as a cache hit and serve a truncated PNG, and let a
+                // concurrent flush delete the file out from under this writer. The ".tmp" suffix
+                // keeps partials invisible to the page-suffix pattern removeCacheVersions matches.
+                Path partialFile = Files.createTempFile(normalizedCacheDir, scopedCacheName + "_", ".png.tmp");
+                try {
+                    // Check ImageIO.write success (returns false on failure)
+                    if (!ImageIO.write(image_to_save, "png", partialFile.toFile())) {
+                        log.error("Failed to write PNG image to cache file: {}", LogSafe.sanitize(String.valueOf(cacheFilePath)));
+                        return null;
+                    }
+                    try {
+                        Files.move(partialFile, cacheFilePath, StandardCopyOption.ATOMIC_MOVE);
+                    } catch (AtomicMoveNotSupportedException e) {
+                        // Same-directory rename is atomic on POSIX; this fallback only exists for
+                        // filesystems that cannot promise atomicity, where a brief window is still
+                        // better than always writing in place.
+                        Files.move(partialFile, cacheFilePath, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } finally {
+                    Files.deleteIfExists(partialFile);
                 }
 
                 image_to_save.flush();
@@ -794,8 +814,25 @@ public class NioFileManagerImpl implements NioFileManager {
             // Validate destination path using PathValidationUtils
             destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
 
-            // Perform the copy operation
-            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            // Never overwrite an existing document: DOCUMENT_DIR filenames are referenced by
+            // persisted records, so a basename collision (two promotions reusing one name) must
+            // yield a fresh unique name rather than silently replacing another document's content
+            // — and the copy below deliberately omits REPLACE_EXISTING so a race still fails
+            // closed instead of clobbering.
+            if (destinationFile.exists()) {
+                String uniquifiedName = FilenameUtils.getBaseName(sanitizedFileName)
+                        + "-" + System.currentTimeMillis()
+                        + (FilenameUtils.getExtension(sanitizedFileName).isEmpty()
+                                ? "" : "." + FilenameUtils.getExtension(sanitizedFileName));
+                destinationFile = PathValidationUtils.validatePath(uniquifiedName, documentDir);
+            }
+
+            try {
+                Files.copy(sourceFile.toPath(), destinationFile.toPath());
+            } catch (FileAlreadyExistsException e) {
+                log.error("Refusing to overwrite existing document {}", LogSafe.sanitize(destinationFile.getName()), e);
+                return null;
+            }
 
             if (destinationFile.exists()) {
                 try {

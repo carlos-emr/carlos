@@ -380,9 +380,17 @@ public class Fax2Action extends ActionSupport {
                 logger.debug("Streamed fax preview to client");
             } catch (IOException e) {
                 logger.error("Error reading or writing file", e);
+                // The file vanished or broke mid-stream. If nothing has been committed yet, tell
+                // the client instead of ending with an empty 200 it will render as a broken image.
+                if (!response.isCommitted()) {
+                    sendErrorQuietly(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to stream fax preview");
+                }
             }
         } else {
-            logger.debug("Fax preview produced no servable file; nothing streamed");
+            // No servable preview (e.g. the source PDF is gone — already warned server-side). An
+            // empty 200 left the user staring at a broken image with no signal; a 404 lets the
+            // preview page distinguish "not available" from "still loading".
+            sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "Preview not available");
         }
     }
 

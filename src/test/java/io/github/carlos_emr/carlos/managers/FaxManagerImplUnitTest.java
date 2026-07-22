@@ -59,6 +59,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("FaxManagerImpl")
@@ -353,6 +354,120 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
         assertThat(waitingJob.getStatusString()).contains("Cover page creation failed");
         verify(manager, never()).saveFaxJob(eq(loggedInInfo), anyList());
+    }
+
+    @Test
+    @DisplayName("should clear the preview cache and delete an existing CARLOS temp artifact on flush")
+    void shouldFlushCacheAndDeleteTempArtifact_whenPreviewSourceIsApplicationTemp() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path tempRoot = Files.createTempDirectory("fax-flush-temp-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        try {
+            resetAllowedTempDirectoriesCache();
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
+            when(nioFileManager.removeCacheVersions(rendererDir.toString(), tempPdf.getFileName().toString())).thenReturn(2);
+            when(nioFileManager.deleteTempFile(tempPdf.toString())).thenReturn(true);
+
+            boolean flushed = manager.flush(loggedInInfo, tempPdf.toString());
+
+            assertThat(flushed).isTrue();
+            verify(nioFileManager).removeCacheVersions(rendererDir.toString(), tempPdf.getFileName().toString());
+            verify(nioFileManager).deleteTempFile(tempPdf.toString());
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should clear the cache without attempting temp deletion for a document-directory source")
+    void shouldFlushCacheOnly_forDocumentDirectorySource() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        // A DOCUMENT_DIR path (the fax cancel flow passes these) is not a CARLOS temp artifact:
+        // pre-fix, deleteTempFile raised a SecurityException out of flush and broke fax-cancel.
+        String documentPath = "/var/lib/OscarDocument/carlos/document/some-fax.pdf";
+        when(nioFileManager.removeCacheVersions("/var/lib/OscarDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
+
+        boolean flushed = manager.flush(loggedInInfo, documentPath);
+
+        assertThat(flushed).isTrue();
+        verify(nioFileManager).removeCacheVersions("/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
+        verify(nioFileManager, never()).deleteTempFile(any(String.class));
+    }
+
+    @Test
+    @DisplayName("should treat an already-clean preview as flush success, not an error")
+    void shouldReturnTrue_whenNothingLeftToClear() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path tempRoot = Files.createTempDirectory("fax-flush-clean-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        try {
+            resetAllowedTempDirectoriesCache();
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            // The preview artifact is already gone (never rendered, or flushed once before): the
+            // fax-cancel flow must not show "Failed to clear fax preview cache" for that.
+            Path missingPdf = rendererDir.resolve("already-flushed.pdf");
+
+            boolean flushed = manager.flush(loggedInInfo, missingPdf.toString());
+
+            assertThat(flushed).isTrue();
+            verify(nioFileManager, never()).deleteTempFile(any(String.class));
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should report flush failure when an existing temp artifact cannot be deleted")
+    void shouldReturnFalse_whenExistingTempArtifactCannotBeDeleted() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path tempRoot = Files.createTempDirectory("fax-flush-fail-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        try {
+            resetAllowedTempDirectoriesCache();
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
+            when(nioFileManager.deleteTempFile(tempPdf.toString())).thenReturn(false);
+
+            boolean flushed = manager.flush(loggedInInfo, tempPdf.toString());
+
+            // A PHI-bearing preview PDF that exists but could not be removed is a real failure the
+            // user (and operator, via the logs) must hear about.
+            assertThat(flushed).isFalse();
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should require the fax read security object for flush")
+    void shouldRejectFlush_whenFaxReadPrivilegeMissing() {
+        // setUp only grants _fax WRITE; the unstubbed READ check returns false.
+        assertThatThrownBy(() -> manager.flush(loggedInInfo, "/tmp/carlos-temp/fax.pdf"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("missing required sec object (_fax)");
+        verifyNoInteractions(nioFileManager);
     }
 
     private static void resetAllowedTempDirectoriesCache() throws Exception {

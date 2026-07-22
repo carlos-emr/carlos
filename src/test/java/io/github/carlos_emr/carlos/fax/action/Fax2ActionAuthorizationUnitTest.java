@@ -256,6 +256,75 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return 404 instead of an empty 200 when no preview image is available")
+    void shouldReturnNotFound_whenPreviewImageUnavailable() throws Exception {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+        // The source PDF is gone: getFaxPreviewImage warns server-side and returns null. An empty
+        // 200 left the CoverPage user staring at a broken image with no signal.
+        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq("/tmp/carlos-temp/fax.pdf"), eq(1)))
+                .thenReturn(null);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        request.setParameter("showAs", "image");
+        request.setParameter("pageNumber", "1");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should return 500 when the resolved preview file cannot be streamed")
+    void shouldReturnServerError_whenPreviewStreamingFails() throws Exception {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+        // The file vanished between path resolution and streaming (e.g. concurrent flush): the
+        // response must say so while uncommitted, not end as an empty 200.
+        when(faxManager.resolveAndValidateFilePath("/tmp/carlos-temp/fax.pdf"))
+                .thenReturn(Path.of("/tmp/carlos-temp/vanished-fax.pdf"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Test
     @DisplayName("should render the preview with failure status without logging un-persisted ERROR jobs")
     void shouldSkipFaxClientLog_forUnsavedErrorJobs() {
         FaxManager faxManager = mock(FaxManager.class);

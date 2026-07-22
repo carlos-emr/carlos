@@ -709,24 +709,32 @@ public class FaxManagerImpl implements FaxManager {
 
         // Preview page images are cached per source PDF as "<boundedName>_<sourceKey>_<page>.png", so
         // clearing them requires the same source-scoped prefix, not the raw PDF name — remove every page
-        // for this source (copilot SI8_2). With the multi-page CoverPage preview this can be many PNGs.
+        // for this source. With the multi-page CoverPage preview this can be many PNGs. Best-effort:
+        // removeCacheVersions cannot distinguish "no cached pages" from "removal failed", so the page
+        // count is logged but does not decide the flush outcome.
         File previewSource = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
-        boolean cache = previewSource != null
-                && previewSource.getParent() != null
-                && nioFileManager.removeCacheVersions(previewSource.getParent(), previewSource.getName()) > 0;
+        int cachePagesRemoved = 0;
+        if (previewSource != null && previewSource.getParent() != null) {
+            cachePagesRemoved = nioFileManager.removeCacheVersions(previewSource.getParent(), previewSource.getName());
+        }
 
         // Only a CARLOS-owned temp artifact is eligible for temp deletion here. Guarding on the
         // application temp boundary keeps a non-temp filePath (e.g. a DOCUMENT_DIR path passed by the
         // fax cancel flow) from raising a SecurityException out of deleteTempFile.
         File tempTarget = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
-        boolean temp = tempTarget != null
+        boolean tempExisted = tempTarget != null
                 && PathValidationUtils.isInApplicationTempDirectory(tempTarget)
-                && nioFileManager.deleteTempFile(filePath);
+                && tempTarget.exists();
+        boolean tempDeleted = tempExisted && nioFileManager.deleteTempFile(filePath);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("Fax preview flush: cacheCleared={} tempDeleted={}", cache, temp);
+            logger.debug("Fax preview flush: cachePagesRemoved={} tempExisted={} tempDeleted={}",
+                    cachePagesRemoved, tempExisted, tempDeleted);
         }
-        return cache || temp;
+        // Success means everything that existed was removed. "Nothing to clear" — the preview was
+        // never rendered, was already flushed, or the path is a DOCUMENT_DIR document with no temp
+        // artifact — is success, not an error for the fax-cancel flow to alarm the user about.
+        return !tempExisted || tempDeleted;
     }
 
 

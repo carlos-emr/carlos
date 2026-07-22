@@ -475,6 +475,77 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("Leaves no partial temp files behind after rendering a preview page")
+    void shouldLeaveNoPartialFiles_afterCacheRender() throws IOException {
+        allowedTempDir = createApplicationTempDirectory("nio-cache-atomic-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside a CARLOS-owned temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("fax-preview-unique.pdf");
+        createSinglePagePdf(sourcePdf);
+
+        Path cacheVersion = null;
+        try {
+            cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+
+            assertThat(cacheVersion).isNotNull().exists();
+            // The atomic write path renders to "<name>_....png.tmp" and moves into place; a leftover
+            // .tmp would mean the move or its cleanup regressed.
+            try (var cacheEntries = Files.list(getDocumentCacheDirectory())) {
+                assertThat(cacheEntries.filter(entry -> entry.getFileName().toString().endsWith(".tmp")))
+                        .isEmpty();
+            }
+        } finally {
+            if (cacheVersion != null) {
+                Files.deleteIfExists(cacheVersion);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Uniquifies the promoted document name instead of overwriting an existing document")
+    void shouldUniquifyPromotedDocument_whenBasenameCollides() throws IOException {
+        Path firstSource = createApplicationTempDirectory("nio-promote-collide-a-");
+        Path secondSource = createApplicationTempDirectory("nio-promote-collide-b-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(firstSource.toFile())
+                        && PathValidationUtils.isInApplicationTempDirectory(secondSource.toFile()),
+                "test temp directories must resolve inside a CARLOS-owned temp directory");
+        // Point DOCUMENT_DIR at an isolated destination: getDocumentDirectory() prefers it over the
+        // <BASE_DOCUMENT_DIR>/document fallback, and this test must never write to a real store.
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        Path documentDir = tempDir.resolve("document");
+        Files.createDirectories(documentDir);
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        String sharedFilename = "promoted-collision.pdf";
+        try {
+            Files.writeString(firstSource.resolve(sharedFilename), "first document body");
+            Files.writeString(secondSource.resolve(sharedFilename), "second document body");
+
+            String firstPromoted = nioFileManager.copyFileToOscarDocuments(firstSource.resolve(sharedFilename).toString());
+            String secondPromoted = nioFileManager.copyFileToOscarDocuments(secondSource.resolve(sharedFilename).toString());
+
+            assertThat(firstPromoted).isNotNull();
+            assertThat(secondPromoted).isNotNull();
+            // DOCUMENT_DIR filenames are referenced by persisted records: the second promotion must
+            // land under a fresh name, leaving the first document's content untouched.
+            assertThat(secondPromoted).isNotEqualTo(firstPromoted);
+            assertThat(Files.readString(Path.of(firstPromoted))).isEqualTo("first document body");
+            assertThat(Files.readString(Path.of(secondPromoted))).isEqualTo("second document body");
+        } finally {
+            deleteQuietly(firstSource.resolve(sharedFilename));
+            deleteQuietly(secondSource.resolve(sharedFilename));
+            deleteQuietly(firstSource);
+            deleteQuietly(secondSource);
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+        }
+    }
+
     private static Path createApplicationTempDirectory(String prefix) throws IOException {
         Path applicationParent = Files.createDirectories(
                 Path.of(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
