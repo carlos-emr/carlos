@@ -78,6 +78,7 @@ public class WCBAction22Action extends ActionSupport {
     /**
      * Execute the specific WCB action workflow.
      */
+    @Override
     public String execute() throws Exception {
         // Process specialized WCB actions like follow-up claims.
         return save();

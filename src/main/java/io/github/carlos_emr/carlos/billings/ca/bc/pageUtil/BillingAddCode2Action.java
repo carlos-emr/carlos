@@ -56,6 +56,7 @@ public final class BillingAddCode2Action extends ActionSupport {
     /**
      * Process adding a new billing code.
      */
+    @Override
     public String execute() {
         // Validate the code and add it to the current encounter.
         if (request.getSession().getAttribute("user") == null) {
