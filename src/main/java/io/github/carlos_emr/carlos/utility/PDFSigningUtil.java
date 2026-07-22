@@ -105,10 +105,12 @@ public final class PDFSigningUtil {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "keystore path is server-side configuration validated with PathValidationUtils.validateConfiguredFile")
     private static SigningMaterial loadSigningMaterial(PDFSigningConfig config) throws IOException {
         File keystoreFile = PathValidationUtils.validateConfiguredFile(config.getKeystorePath(), "PDF signing keystore");
+        char[] keystorePassword = null;
+        char[] keyPassword = null;
         try (InputStream input = Files.newInputStream(keystoreFile.toPath())) {
             KeyStore keyStore = KeyStore.getInstance(config.getKeystoreType());
-            char[] keystorePassword = config.getKeystorePassword();
-            char[] keyPassword = config.getKeyPassword();
+            keystorePassword = config.getKeystorePassword();
+            keyPassword = config.getKeyPassword();
             keyStore.load(input, keystorePassword);
 
             String alias = config.getKeyAlias();
@@ -129,6 +131,9 @@ public final class PDFSigningUtil {
             return new SigningMaterial(privateKey, certificates);
         } catch (GeneralSecurityException e) {
             throw new IOException("Failed to load PDF signing key material", e);
+        } finally {
+            clearPassword(keystorePassword);
+            clearPassword(keyPassword);
         }
     }
 
@@ -145,6 +150,12 @@ public final class PDFSigningUtil {
             certificates[i] = x509Certificate;
         }
         return certificates;
+    }
+
+    private static void clearPassword(char[] password) {
+        if (password != null) {
+            Arrays.fill(password, '\0');
+        }
     }
 
     private static void ensureBouncyCastleProvider() {

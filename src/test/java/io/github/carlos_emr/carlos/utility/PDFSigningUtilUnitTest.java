@@ -138,6 +138,20 @@ class PDFSigningUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should sign unencrypted PDF when a password is supplied")
+    void shouldSignUnencryptedPdf_whenPasswordIsSupplied() throws Exception {
+        Path signed = PDFSigningUtil.signPDF(
+                writeSinglePagePdf(), createSigningFixture().config(), "unused-password");
+        generatedOutputs.add(signed);
+
+        try (PDDocument document = Loader.loadPDF(signed.toFile())) {
+            assertThat(document.isEncrypted()).isFalse();
+            assertThat(document.getSignatureDictionaries()).hasSize(1);
+        }
+        assertThat(verifySignature(signed)).isTrue();
+    }
+
+    @Test
     @DisplayName("should fail closed when enabled config is incomplete")
     void shouldFailClosed_whenEnabledConfigIsIncomplete() throws IOException {
         Path source = writeSinglePagePdf();

@@ -62,15 +62,15 @@ public final class PDFSigningConfig {
         CarlosProperties properties = CarlosProperties.getInstance();
         return new PDFSigningConfig(
                 properties.isPropertyActive(ENABLED_PROPERTY),
-                properties.getProperty(KEYSTORE_PATH_PROPERTY, ""),
-                properties.getProperty(KEYSTORE_TYPE_PROPERTY, DEFAULT_KEYSTORE_TYPE),
-                toPassword(properties.getProperty(KEYSTORE_PASSWORD_PROPERTY, "")),
-                properties.getProperty(KEY_ALIAS_PROPERTY, ""),
-                toOptionalPassword(properties.getProperty(KEY_PASSWORD_PROPERTY, "")),
-                properties.getProperty(SIGNER_NAME_PROPERTY, DEFAULT_SIGNER_NAME),
-                properties.getProperty(REASON_PROPERTY, DEFAULT_REASON),
-                properties.getProperty(LOCATION_PROPERTY, ""),
-                properties.getProperty(CONTACT_PROPERTY, "")
+                configuredProperty(properties, KEYSTORE_PATH_PROPERTY, ""),
+                configuredProperty(properties, KEYSTORE_TYPE_PROPERTY, DEFAULT_KEYSTORE_TYPE),
+                toPassword(configuredProperty(properties, KEYSTORE_PASSWORD_PROPERTY, "")),
+                configuredProperty(properties, KEY_ALIAS_PROPERTY, ""),
+                toOptionalPassword(configuredProperty(properties, KEY_PASSWORD_PROPERTY, "")),
+                configuredProperty(properties, SIGNER_NAME_PROPERTY, DEFAULT_SIGNER_NAME),
+                configuredProperty(properties, REASON_PROPERTY, DEFAULT_REASON),
+                configuredProperty(properties, LOCATION_PROPERTY, ""),
+                configuredProperty(properties, CONTACT_PROPERTY, "")
         );
     }
 
@@ -129,6 +129,12 @@ public final class PDFSigningConfig {
 
     private static char[] toPassword(String value) {
         return value == null ? new char[0] : value.toCharArray();
+    }
+
+    private static String configuredProperty(CarlosProperties properties, String key, String defaultValue) {
+        // Optional signing keys are commonly commented out; avoid CarlosProperties missing-key warnings.
+        Object value = properties.get(key);
+        return value == null ? defaultValue : value.toString();
     }
 
     private static char[] toOptionalPassword(String value) {
