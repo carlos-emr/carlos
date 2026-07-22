@@ -55,6 +55,7 @@ public final class PDFSigningUtil {
         return signPDF(pdfPath, config, null);
     }
 
+    @SuppressWarnings("java:S2143") // PDFBox requires a Calendar-compatible value for PDF signature dates.
     public static Path signPDF(Path pdfPath, PDFSigningConfig config, String ownerPassword) throws IOException {
         if (pdfPath == null) {
             throw new IOException("PDF path is required for signing");
@@ -86,8 +87,7 @@ public final class PDFSigningUtil {
             if (config.getContact() != null) {
                 signature.setContactInfo(config.getContact());
             }
-            // PDFBox requires a Calendar-compatible value.
-            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now())); // NOSONAR java:S2143
+            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now()));
 
             document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
             document.saveIncremental(output);
@@ -236,6 +236,7 @@ public final class PDFSigningUtil {
         return true;
     }
 
+    @SuppressWarnings("java:S6206") // Mutable certificate chain array requires defensive copies.
     private static final class SigningMaterial {
         private final PrivateKey privateKey;
         private final X509Certificate[] certificateChain;
