@@ -168,6 +168,10 @@ public class EmailManager {
      * @return EmailLog the persisted email log entry ready for transmission
      * @throws RuntimeException if user lacks _email WRITE privilege
      */
+    @SuppressFBWarnings(
+            value = "HARD_CODE_PASSWORD",
+            justification = "Email PDF passphrases are intentionally not persisted; empty strings clear the log fields."
+    )
     public EmailLog prepareEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");

@@ -1,13 +1,13 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.util.Arrays;
-import java.util.Locale;
 
 import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Configuration for certificate-backed PDF signatures.
  */
+@SuppressWarnings("java:S6206") // Mutable credential arrays require defensive copies.
 public final class PDFSigningConfig {
     static final String ENABLED_PROPERTY = "pdf.signing.enabled";
     static final String KEYSTORE_PATH_PROPERTY = "pdf.signing.keystore.path";
@@ -35,6 +35,7 @@ public final class PDFSigningConfig {
     private final String location;
     private final String contact;
 
+    @SuppressWarnings("java:S107") // Mirrors the signing properties.
     public PDFSigningConfig(
             boolean enabled,
             String keystorePath,
@@ -139,8 +140,26 @@ public final class PDFSigningConfig {
     }
 
     private static boolean configuredBooleanProperty(CarlosProperties properties, String key) {
-        String value = configuredProperty(properties, key, "").trim().toLowerCase(Locale.ROOT);
-        return "true".equals(value) || "yes".equals(value) || "on".equals(value);
+        String value = configuredProperty(properties, key, "").trim();
+        return equalsAsciiIgnoreCase(value, "true")
+                || equalsAsciiIgnoreCase(value, "yes")
+                || equalsAsciiIgnoreCase(value, "on");
+    }
+
+    private static boolean equalsAsciiIgnoreCase(String candidate, String expectedLowerCase) {
+        if (candidate.length() != expectedLowerCase.length()) {
+            return false;
+        }
+        for (int i = 0; i < candidate.length(); i++) {
+            char candidateChar = candidate.charAt(i);
+            if (candidateChar >= 'A' && candidateChar <= 'Z') {
+                candidateChar = (char) (candidateChar + ('a' - 'A'));
+            }
+            if (candidateChar != expectedLowerCase.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static char[] toOptionalPassword(String value) {

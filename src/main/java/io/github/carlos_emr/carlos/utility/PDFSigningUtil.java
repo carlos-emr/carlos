@@ -17,9 +17,9 @@ import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.ZonedDateTime;
 import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Locale;
+import java.util.GregorianCalendar;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.pdfbox.Loader;
@@ -86,7 +86,8 @@ public final class PDFSigningUtil {
             if (config.getContact() != null) {
                 signature.setContactInfo(config.getContact());
             }
-            signature.setSignDate(Calendar.getInstance());
+            // PDFBox requires a Calendar-compatible value.
+            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now())); // NOSONAR java:S2143
 
             document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
             document.saveIncremental(output);
@@ -209,15 +210,52 @@ public final class PDFSigningUtil {
     }
 
     private static String signatureAlgorithm(PrivateKey privateKey) {
-        String keyAlgorithm = privateKey.getAlgorithm().toUpperCase(Locale.ROOT);
-        return switch (keyAlgorithm) {
-            case "RSA" -> "SHA256withRSA";
-            case "EC", "ECDSA" -> "SHA256withECDSA";
-            default -> throw new IllegalArgumentException("Unsupported PDF signing key algorithm: " + keyAlgorithm);
-        };
+        String keyAlgorithm = privateKey.getAlgorithm();
+        if (equalsAsciiIgnoreCase(keyAlgorithm, "rsa")) {
+            return "SHA256withRSA";
+        }
+        if (equalsAsciiIgnoreCase(keyAlgorithm, "ec") || equalsAsciiIgnoreCase(keyAlgorithm, "ecdsa")) {
+            return "SHA256withECDSA";
+        }
+        throw new IllegalArgumentException("Unsupported PDF signing key algorithm: " + keyAlgorithm);
     }
 
-    private record SigningMaterial(PrivateKey privateKey, X509Certificate[] certificateChain) {
+    private static boolean equalsAsciiIgnoreCase(String candidate, String expectedLowerCase) {
+        if (candidate.length() != expectedLowerCase.length()) {
+            return false;
+        }
+        for (int i = 0; i < candidate.length(); i++) {
+            char candidateChar = candidate.charAt(i);
+            if (candidateChar >= 'A' && candidateChar <= 'Z') {
+                candidateChar = (char) (candidateChar + ('a' - 'A'));
+            }
+            if (candidateChar != expectedLowerCase.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static final class SigningMaterial {
+        private final PrivateKey privateKey;
+        private final X509Certificate[] certificateChain;
+
+        private SigningMaterial(PrivateKey privateKey, X509Certificate[] certificateChain) {
+            this.privateKey = privateKey;
+            this.certificateChain = Arrays.copyOf(certificateChain, certificateChain.length);
+        }
+
+        private PrivateKey privateKey() {
+            return privateKey;
+        }
+
+        private X509Certificate signingCertificate() {
+            return certificateChain[0];
+        }
+
+        private X509Certificate[] certificateChain() {
+            return Arrays.copyOf(certificateChain, certificateChain.length);
+        }
     }
 
     private static final class CmsDetachedSignature implements SignatureInterface {
@@ -230,7 +268,7 @@ public final class PDFSigningUtil {
         @Override
         public byte[] sign(InputStream content) throws IOException {
             try {
-                X509Certificate signingCertificate = signingMaterial.certificateChain()[0];
+                X509Certificate signingCertificate = signingMaterial.signingCertificate();
                 ContentSigner signer = new JcaContentSignerBuilder(signatureAlgorithm(signingMaterial.privateKey()))
                         .setProvider(PROVIDER_NAME)
                         .build(signingMaterial.privateKey());

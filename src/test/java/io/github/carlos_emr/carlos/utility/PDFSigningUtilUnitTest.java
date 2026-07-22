@@ -173,8 +173,9 @@ class PDFSigningUtilUnitTest {
         KeyPair certificateKeyPair = createKeyPair();
         SigningFixture signingFixture = createSigningFixture(
                 privateKeyPair.getPrivate(), createSelfSignedCertificate(certificateKeyPair));
+        Path source = writeSinglePagePdf();
 
-        assertThatThrownBy(() -> PDFSigningUtil.signPDF(writeSinglePagePdf(), signingFixture.config()))
+        assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, signingFixture.config()))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Failed to load PDF signing key material")
                 .hasRootCauseInstanceOf(SignatureException.class);
@@ -186,8 +187,9 @@ class PDFSigningUtilUnitTest {
         KeyPair keyPair = createKeyPair("DSA", 2048);
         SigningFixture signingFixture = createSigningFixture(
                 keyPair.getPrivate(), createSelfSignedCertificate(keyPair, "SHA256withDSA"));
+        Path source = writeSinglePagePdf();
 
-        assertThatThrownBy(() -> PDFSigningUtil.signPDF(writeSinglePagePdf(), signingFixture.config()))
+        assertThatThrownBy(() -> PDFSigningUtil.signPDF(source, signingFixture.config()))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Failed to load PDF signing key material")
                 .hasRootCauseInstanceOf(IllegalArgumentException.class);

@@ -309,9 +309,8 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
         Object isEmailEncrypted = session.getAttribute("isEmailEncrypted");
-        Object isEmailAttachmentEncrypted = isTrue(isEmailEncrypted)
-                ? session.getAttribute("isEmailAttachmentEncrypted")
-                : false;
+        boolean isEmailAttachmentEncrypted = isTrue(isEmailEncrypted)
+                && isTrue(session.getAttribute("isEmailAttachmentEncrypted"));
         request.setAttribute("isEmailEncrypted", isEmailEncrypted);
         request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
         request.setAttribute(
