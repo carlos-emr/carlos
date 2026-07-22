@@ -116,6 +116,11 @@ public final class EformRenderPdfHtmlComposer {
 
         String html = eForm.getFormHtml();
         html = html.replace("../eform/displayImage", imageViewServletBase(projectHome, contextPath));
+        // Legacy eForms reference the calendar widget relative to the /eform/ viewer base
+        // ("../share/..." -> /<context>/share/...); on the render servlet's path that same
+        // reference resolves to the origin ROOT and 404s, leaving date-picker forms unstyled and
+        // failing the render gates. Anchor it to the context explicitly.
+        html = html.replace("../share/", contextPath + "/share/");
         html = html.replace("${oscar_image_path}", imageViewServletImagePrefix(projectHome, contextPath));
         html = html.replace("$%7Boscar_image_path%7D", imageViewServletImagePrefix(projectHome, contextPath));
         html = html.replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;");

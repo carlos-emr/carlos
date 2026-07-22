@@ -129,6 +129,36 @@ class EformRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should anchor legacy relative share references to the context path")
+    void shouldAnchorLegacyShareReferences_toContextPath() {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>(
+                "<link href=\"../share/calendar/calendar.css\"/><script src=\"../share/calendar/calendar.js\"></script>");
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+
+        String html = EformRenderPdfHtmlComposer.buildPdfHtml(
+                eForm,
+                List.of(),
+                "/carlos",
+                "carlos",
+                false,
+                null);
+
+        // Relative "../share/..." resolves against the /eform/ viewer base in normal use, but
+        // against the origin ROOT on the render servlet's path — where it 404s and fails the
+        // render gates. The composer must anchor these to the context explicitly.
+        assertThat(html)
+                .contains("href=\"/carlos/share/calendar/calendar.css\"")
+                .contains("src=\"/carlos/share/calendar/calendar.js\"")
+                .doesNotContain("../share/");
+    }
+
+    @Test
     @DisplayName("should append the render grant to image asset URLs when rendering")
     void shouldAppendRenderToken_whenBrowserRenderingImageBearingForm() {
         EForm eForm = mock(EForm.class);

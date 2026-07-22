@@ -98,11 +98,14 @@ Environment: the renderer is **sandboxed by default** (see "Security operations"
   additionally client-bounded at 90s (vs Selenium's ~180s default), so a wedged Chromium cannot
   hold a render slot for minutes past the render budget.
 - **Page gates.** All render gates are **fail-closed**: a `null` or non-200 main document, any
-  severe console entry, any failed render-critical subresource (an HTTP-error or
-  connection-failed image/script/stylesheet/font/iframe — Chrome's own speculative requests such
-  as favicons are excluded), and an unreadable browser console log all fail the render — the
-  console log is explicitly enabled via `goog:loggingPrefs`, so failing to read it is a WebDriver
-  fault, not a capability gap. Failures report counts, never page content.
+  severe console entry that is neither a resource-load report nor a CSP containment notice
+  (JavaScript errors — resource failures are gated type-aware by the network scan instead, so
+  headless Chrome's speculative origin-root `/favicon.ico` 404 cannot fail an intact render, and
+  a CSP block is the surface's own containment working, fail-safe by construction), any failed
+  render-critical subresource (an HTTP-error or connection-failed
+  image/script/stylesheet/font/iframe), and an unreadable browser console log all fail the
+  render — the console log is explicitly enabled via `goog:loggingPrefs`, so failing to read it
+  is a WebDriver fault, not a capability gap. Failures report counts, never page content.
 - **PHI-safe diagnostics.** Log lines carry fdid (a separate structured field), the loopback base
   URL (host + context path only — no PHI, and the fdid/token live in a separate path value not
   embedded in it), and counters. URLs inside WebDriver error messages are redacted before logging,

@@ -834,7 +834,9 @@ public class EFormBrowserPdfService {
         int severeConsoleEntries = 0;
         try {
             for (LogEntry entry : driver.manage().logs().get(LogType.BROWSER)) {
-                if (entry.getLevel().intValue() >= Level.SEVERE.intValue()) {
+                if (entry.getLevel().intValue() >= Level.SEVERE.intValue()
+                        && !isResourceLoadConsoleEntry(entry.getMessage())
+                        && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
                     severeConsoleEntries++;
                 }
             }
@@ -861,6 +863,34 @@ public class EFormBrowserPdfService {
                     + disallowedRequests + " consoleErrors=" + severeConsoleEntries
                     + " failedSubresources=" + scan.failedSubresources());
         }
+    }
+
+    /**
+     * True for Chrome console entries reporting a resource load failure ("Failed to load
+     * resource: ..."). Resource failures are gated <em>type-aware</em> by the network scan
+     * ({@link NetworkGateScan#failedSubresources()} — render-critical types fail the render,
+     * speculative loads such as favicons deliberately do not), so counting them in the console
+     * gate too made every render fail on the origin-root {@code /favicon.ico} 404 that headless
+     * Chrome's own speculative fetch produces. The console gate's remaining job is what the
+     * network events cannot see: JavaScript errors on the render surface. Only the message
+     * pattern is inspected; console text is still never logged.
+     */
+    static boolean isResourceLoadConsoleEntry(String message) {
+        return message != null && message.contains("Failed to load resource");
+    }
+
+    /**
+     * True for Chrome console entries reporting that the render surface's own Content-Security-
+     * Policy blocked something ("... violates the following Content Security Policy directive
+     * ..."). A CSP block is the containment WORKING — the offending content was refused, which is
+     * fail-safe by construction — and the normal in-app eForm viewer emits the identical notices
+     * for the same stored content while displaying the form fine. Failing the render on them
+     * would turn the surface's own defense into a denial of service for legacy forms carrying
+     * embedded objects. Actual egress attempts remain gated by the dead proxy and the network
+     * event replay regardless of what the console says.
+     */
+    static boolean isPolicyContainmentConsoleEntry(String message) {
+        return message != null && message.contains("Content Security Policy");
     }
 
     /** Outcome of replaying Chrome's network events against the allowed loopback origin. */

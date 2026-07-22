@@ -544,6 +544,35 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should classify only resource-load console entries as network-gated")
+    void shouldClassifyResourceLoadConsoleEntries_forConsoleGateExclusion() {
+        // Resource failures are handled type-aware by the network scan; the console gate must not
+        // double-count them — headless Chrome's speculative /favicon.ico fetch 404s at the origin
+        // root on every render, and counting that severe entry failed every real render.
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
+                "http://127.0.0.1:8080/favicon.ico - Failed to load resource: the server responded with a status of 404 ()")).isTrue();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
+                "http://127.0.0.1:8080/carlos/x.png - Failed to load resource: net::ERR_CONNECTION_REFUSED")).isTrue();
+        // JavaScript errors remain the console gate's job and must still fail the render.
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(
+                "http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet 12:3 Uncaught ReferenceError: loadSig is not defined")).isFalse();
+        assertThat(EFormBrowserPdfService.isResourceLoadConsoleEntry(null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should classify CSP containment notices as policy-blocked, not render failures")
+    void shouldClassifyCspContainmentEntries_forConsoleGateExclusion() {
+        // A CSP block is the render surface's own containment working (the content was refused,
+        // fail-safe by construction); the normal viewer emits the identical notices while
+        // displaying the form fine, so the render must not fail on them.
+        assertThat(EFormBrowserPdfService.isPolicyContainmentConsoleEntry(
+                "Loading plugin data from 'data:text/plain,x' violates the following Content Security Policy directive: \"object-src 'none'\". The action has been blocked.")).isTrue();
+        assertThat(EFormBrowserPdfService.isPolicyContainmentConsoleEntry(
+                "Uncaught TypeError: cannot read properties of undefined")).isFalse();
+        assertThat(EFormBrowserPdfService.isPolicyContainmentConsoleEntry(null)).isFalse();
+    }
+
+    @Test
     @DisplayName("should fail the render when the browser console log cannot be retrieved")
     void shouldFailRender_whenConsoleLogUnavailable() {
         // The console gate is the only defense against capturing a form whose background image

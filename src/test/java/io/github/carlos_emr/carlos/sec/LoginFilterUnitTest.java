@@ -292,6 +292,39 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should pass static calendar widget assets when unauthenticated")
+        void shouldPassCalendarWidgetAssets_whenUnauthenticated()
+                throws ServletException, IOException {
+            // Legacy eForms load the calendar widget, and the sessionless browser-PDF renderer
+            // must fetch it like the already-exempt /share/css/ assets (static, no PHI).
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/share/calendar/calendar.js");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass flatpickr assets the calendar shim loads when unauthenticated")
+        void shouldPassFlatpickrAssets_whenUnauthenticated()
+                throws ServletException, IOException {
+            // The /share/calendar/ shim dynamically loads flatpickr; without this exemption the
+            // sessionless render browser received the login page as text/html for the script and
+            // stylesheet, breaking every date-picker eForm render on MIME checking.
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/library/flatpickr/flatpickr.min.js");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
         @DisplayName("should audit rejected token authentication")
         void shouldAuditRejectedTokenAuthentication_whenTokenManagerRejects()
                 throws ServletException, IOException {
