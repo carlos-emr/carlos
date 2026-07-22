@@ -13,11 +13,14 @@ import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.Security;
+import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -59,7 +62,7 @@ class PDFSigningUtilUnitTest {
     @TempDir
     Path tempDir;
 
-    private final List<Path> generatedOutputs = new java.util.ArrayList<>();
+    private final List<Path> generatedOutputs = new ArrayList<>();
 
     @AfterEach
     void cleanUp() throws IOException {
@@ -163,6 +166,33 @@ class PDFSigningUtilUnitTest {
                 .hasMessageContaining("pdf.signing.keystore.path");
     }
 
+    @Test
+    @DisplayName("should fail closed when private key does not match certificate")
+    void shouldFailClosed_whenPrivateKeyDoesNotMatchCertificate() throws Exception {
+        KeyPair privateKeyPair = createKeyPair();
+        KeyPair certificateKeyPair = createKeyPair();
+        SigningFixture signingFixture = createSigningFixture(
+                privateKeyPair.getPrivate(), createSelfSignedCertificate(certificateKeyPair));
+
+        assertThatThrownBy(() -> PDFSigningUtil.signPDF(writeSinglePagePdf(), signingFixture.config()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Failed to load PDF signing key material")
+                .hasRootCauseInstanceOf(SignatureException.class);
+    }
+
+    @Test
+    @DisplayName("should fail closed when signing key algorithm is unsupported")
+    void shouldFailClosed_whenSigningKeyAlgorithmIsUnsupported() throws Exception {
+        KeyPair keyPair = createKeyPair("DSA", 2048);
+        SigningFixture signingFixture = createSigningFixture(
+                keyPair.getPrivate(), createSelfSignedCertificate(keyPair, "SHA256withDSA"));
+
+        assertThatThrownBy(() -> PDFSigningUtil.signPDF(writeSinglePagePdf(), signingFixture.config()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Failed to load PDF signing key material")
+                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+    }
+
     private Path writeSinglePagePdf() throws IOException {
         Path pdf = tempDir.resolve("sample-" + System.nanoTime() + ".pdf");
         try (PDDocument document = new PDDocument()) {
@@ -174,14 +204,29 @@ class PDFSigningUtilUnitTest {
 
     private SigningFixture createSigningFixture() throws Exception {
         ensureBouncyCastleProvider();
+        KeyPair keyPair = createKeyPair();
+        return createSigningFixture(keyPair.getPrivate(), createSelfSignedCertificate(keyPair));
+    }
 
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-        keyPairGenerator.initialize(2048);
-        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+    private KeyPair createKeyPair() throws Exception {
+        return createKeyPair("RSA", 2048);
+    }
 
+    private KeyPair createKeyPair(String algorithm, int keySize) throws Exception {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(algorithm);
+        keyPairGenerator.initialize(keySize);
+        return keyPairGenerator.generateKeyPair();
+    }
+
+    private X509Certificate createSelfSignedCertificate(KeyPair keyPair) throws Exception {
+        return createSelfSignedCertificate(keyPair, "SHA256withRSA");
+    }
+
+    private X509Certificate createSelfSignedCertificate(KeyPair keyPair, String signingAlgorithm) throws Exception {
+        ensureBouncyCastleProvider();
         X500Name subject = new X500Name("CN=CARLOS Test Signer");
         Instant now = Instant.now();
-        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+        ContentSigner signer = new JcaContentSignerBuilder(signingAlgorithm)
                 .setProvider(BC_PROVIDER)
                 .build(keyPair.getPrivate());
         X509CertificateHolder certificateHolder = new JcaX509v3CertificateBuilder(
@@ -196,11 +241,14 @@ class PDFSigningUtilUnitTest {
                 .setProvider(BC_PROVIDER)
                 .getCertificate(certificateHolder);
         certificate.verify(keyPair.getPublic());
+        return certificate;
+    }
 
+    private SigningFixture createSigningFixture(PrivateKey privateKey, X509Certificate certificate) throws Exception {
         Path keystorePath = tempDir.resolve("pdf-signing.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         keyStore.load(null, KEYSTORE_PASSWORD);
-        keyStore.setKeyEntry(KEY_ALIAS, keyPair.getPrivate(), KEYSTORE_PASSWORD, new Certificate[]{certificate});
+        keyStore.setKeyEntry(KEY_ALIAS, privateKey, KEYSTORE_PASSWORD, new Certificate[]{certificate});
         try (OutputStream output = Files.newOutputStream(keystorePath)) {
             keyStore.store(output, KEYSTORE_PASSWORD);
         }

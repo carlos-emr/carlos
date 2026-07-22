@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
@@ -11,7 +12,10 @@ import java.security.Key;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Security;
+import java.security.Signature;
+import java.security.SignatureException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -88,7 +92,7 @@ public final class PDFSigningUtil {
             document.saveIncremental(output);
             return signedPDFPath;
         } catch (IOException e) {
-            Files.deleteIfExists(signedPDFPath);
+            deletePartialSignedPDF(signedPDFPath, e);
             throw new IOException("Failed to sign PDF document", e);
         }
     }
@@ -128,8 +132,9 @@ public final class PDFSigningUtil {
                 chain = certificate == null ? new Certificate[0] : new Certificate[]{certificate};
             }
             X509Certificate[] certificates = toX509CertificateChain(chain);
+            validateSigningCertificate(privateKey, certificates[0]);
             return new SigningMaterial(privateKey, certificates);
-        } catch (GeneralSecurityException e) {
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
             throw new IOException("Failed to load PDF signing key material", e);
         } finally {
             clearPassword(keystorePassword);
@@ -152,9 +157,48 @@ public final class PDFSigningUtil {
         return certificates;
     }
 
+    private static void validateSigningCertificate(PrivateKey privateKey, X509Certificate certificate)
+            throws GeneralSecurityException {
+        certificate.checkValidity();
+        validateKeyUsage(certificate);
+
+        byte[] challenge = "CARLOS PDF signing certificate validation".getBytes(StandardCharsets.UTF_8);
+        Signature signer = Signature.getInstance(signatureAlgorithm(privateKey));
+        signer.initSign(privateKey);
+        signer.update(challenge);
+        byte[] signedChallenge = signer.sign();
+
+        signer.initVerify(certificate.getPublicKey());
+        signer.update(challenge);
+        if (!signer.verify(signedChallenge)) {
+            throw new SignatureException("PDF signing private key does not match certificate");
+        }
+    }
+
+    private static void validateKeyUsage(X509Certificate certificate) throws CertificateException {
+        boolean[] keyUsage = certificate.getKeyUsage();
+        if (keyUsage == null) {
+            return;
+        }
+
+        boolean digitalSignature = keyUsage.length > 0 && keyUsage[0];
+        boolean contentCommitment = keyUsage.length > 1 && keyUsage[1];
+        if (!digitalSignature && !contentCommitment) {
+            throw new CertificateException("PDF signing certificate is not valid for digital signatures");
+        }
+    }
+
     private static void clearPassword(char[] password) {
         if (password != null) {
             Arrays.fill(password, '\0');
+        }
+    }
+
+    private static void deletePartialSignedPDF(Path signedPDFPath, IOException signingFailure) {
+        try {
+            Files.deleteIfExists(signedPDFPath);
+        } catch (IOException deleteFailure) {
+            signingFailure.addSuppressed(deleteFailure);
         }
     }
 
@@ -162,6 +206,15 @@ public final class PDFSigningUtil {
         if (Security.getProvider(PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
+    }
+
+    private static String signatureAlgorithm(PrivateKey privateKey) {
+        String keyAlgorithm = privateKey.getAlgorithm().toUpperCase(Locale.ROOT);
+        return switch (keyAlgorithm) {
+            case "RSA" -> "SHA256withRSA";
+            case "EC", "ECDSA" -> "SHA256withECDSA";
+            default -> throw new IllegalArgumentException("Unsupported PDF signing key algorithm: " + keyAlgorithm);
+        };
     }
 
     private record SigningMaterial(PrivateKey privateKey, X509Certificate[] certificateChain) {
@@ -193,15 +246,6 @@ public final class PDFSigningUtil {
             } catch (CMSException | GeneralSecurityException | IllegalArgumentException | OperatorCreationException e) {
                 throw new IOException("Failed to create detached PDF signature", e);
             }
-        }
-
-        private static String signatureAlgorithm(PrivateKey privateKey) {
-            String keyAlgorithm = privateKey.getAlgorithm().toUpperCase(Locale.ROOT);
-            return switch (keyAlgorithm) {
-                case "RSA" -> "SHA256withRSA";
-                case "EC", "ECDSA" -> "SHA256withECDSA";
-                default -> throw new IllegalArgumentException("Unsupported PDF signing key algorithm: " + keyAlgorithm);
-            };
         }
     }
 

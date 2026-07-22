@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -61,7 +62,7 @@ public final class PDFSigningConfig {
     public static PDFSigningConfig fromCarlosProperties() {
         CarlosProperties properties = CarlosProperties.getInstance();
         return new PDFSigningConfig(
-                properties.isPropertyActive(ENABLED_PROPERTY),
+                configuredBooleanProperty(properties, ENABLED_PROPERTY),
                 configuredProperty(properties, KEYSTORE_PATH_PROPERTY, ""),
                 configuredProperty(properties, KEYSTORE_TYPE_PROPERTY, DEFAULT_KEYSTORE_TYPE),
                 toPassword(configuredProperty(properties, KEYSTORE_PASSWORD_PROPERTY, "")),
@@ -135,6 +136,11 @@ public final class PDFSigningConfig {
         // Optional signing keys are commonly commented out; avoid CarlosProperties missing-key warnings.
         Object value = properties.get(key);
         return value == null ? defaultValue : value.toString();
+    }
+
+    private static boolean configuredBooleanProperty(CarlosProperties properties, String key) {
+        String value = configuredProperty(properties, key, "").trim().toLowerCase(Locale.ROOT);
+        return "true".equals(value) || "yes".equals(value) || "on".equals(value);
     }
 
     private static char[] toOptionalPassword(String value) {
