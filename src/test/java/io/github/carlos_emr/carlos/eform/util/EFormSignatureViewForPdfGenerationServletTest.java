@@ -180,6 +180,28 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should answer bad request for an over-range numeric digitalSignatureId")
+    void shouldSendBadRequest_whenDigitalSignatureIdExceedsIntegerRange() throws Exception {
+        // The \d+ pattern admits digit strings that overflow Integer; before the fix Integer.parseInt
+        // threw NumberFormatException, which fell through to the generic catch and answered 500 — an
+        // over-range id is a client error (400), not a server error.
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "99999999999999999999");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
     @DisplayName("should answer not found when the referenced signature row has no image bytes")
     void shouldSendNotFound_whenSignatureImageBytesMissing() throws Exception {
         EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");

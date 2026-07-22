@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * live render-scoped grant minted by {@link EFormRenderTokenService} after the caller's
  * {@code _eform} check (the sessionless render browser's path; the grant is deliberately not
  * bound to the requested asset because these are shared templates, and grant-authorized fetches
- * are logged with the grant's fdid for auditability). Filenames are validated as single path
+ * are logged with the grant's fdid at DEBUG for troubleshooting). Filenames are validated as single path
  * components against the eForm image directory, and content types come from the shared
  * {@link EformAssetContentType} allowlist. No PHI is served by this servlet.</p>
  */
@@ -89,8 +89,8 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                     return;
                 }
                 // Log the accepted grant's fdid: assets are shared templates, so the grant is
-                // deliberately not asset-bound — the fdid trail is what makes a cross-render
-                // asset fetch (any live grant reading the shared image directory) auditable.
+                // deliberately not asset-bound — the fdid trail is logged at DEBUG for troubleshooting
+                // a cross-render asset fetch (any live grant reading the shared image directory).
                 logger.debug("eForm asset request authorized via render grant (sessionless render browser): fdid={}",
                         grant.fdid());
             }

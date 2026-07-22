@@ -93,7 +93,15 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
                 return;
             }
-            int digitalSignatureId = Integer.parseInt(signatureIdParam);
+            final int digitalSignatureId;
+            try {
+                digitalSignatureId = Integer.parseInt(signatureIdParam);
+            } catch (NumberFormatException e) {
+                // \d+ admits digit strings beyond Integer range; an over-range id is a bad request,
+                // not a server error.
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
+                return;
+            }
             // Bind the fetch to the render's own eForm: a grant is minted for one fdid, so it may only
             // retrieve a signature that eForm actually references. Without this, a valid render token
             // (or any local process holding one) could enumerate arbitrary signature ids and pull an
