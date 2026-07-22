@@ -17,6 +17,7 @@ import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.GregorianCalendar;
@@ -44,6 +45,7 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 /**
  * Applies certificate-backed detached signatures to PDF files.
  */
+@SuppressWarnings("java:S2143") // PDFBox signature APIs require java.util.Calendar-compatible sign dates.
 public final class PDFSigningUtil {
     private static final String PROVIDER_NAME = BouncyCastleProvider.PROVIDER_NAME;
     private static final int PREFERRED_SIGNATURE_SIZE = 32768;
@@ -55,7 +57,6 @@ public final class PDFSigningUtil {
         return signPDF(pdfPath, config, null);
     }
 
-    @SuppressWarnings("java:S2143") // PDFBox requires a Calendar-compatible value for PDF signature dates.
     public static Path signPDF(Path pdfPath, PDFSigningConfig config, String ownerPassword) throws IOException {
         if (pdfPath == null) {
             throw new IOException("PDF path is required for signing");
@@ -87,7 +88,7 @@ public final class PDFSigningUtil {
             if (config.getContact() != null) {
                 signature.setContactInfo(config.getContact());
             }
-            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now()));
+            signature.setSignDate(GregorianCalendar.from(ZonedDateTime.now(ZoneId.systemDefault())));
 
             document.addSignature(signature, new CmsDetachedSignature(signingMaterial), signatureOptions);
             document.saveIncremental(output);
