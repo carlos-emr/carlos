@@ -50,7 +50,6 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import org.owasp.encoder.Encode;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -117,7 +116,10 @@ public class Fax2Action extends ActionSupport {
                 if (logger.isErrorEnabled()) {
                     logger.error("Failed to clear fax preview cache or temporary file: {}", LogSafe.sanitize(faxFilePath, 1024));
                 }
-                addActionError("Failed to clear fax preview cache. Please try again or contact your system administrator.");
+                // Do not redirect: a redirect discards the action error and the user believes the
+                // cancel (and PHI cleanup) succeeded. Render the preview page with the failure.
+                request.setAttribute("faxCleanupFailed", Boolean.TRUE);
+                return "preview";
             }
         }
 
@@ -204,9 +206,15 @@ public class Fax2Action extends ActionSupport {
                         String jsonString = "{" + copyRecipient + "}";
                         ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
                         String faxNumber = json.has("fax") ? json.get("fax").asText() : null;
-                        if (faxNumber != null && !faxNumber.trim().isEmpty()) {
-                            faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + i + "]");
+                        if (faxNumber == null || faxNumber.trim().isEmpty()) {
+                            // An empty/absent fax number on a copy-to recipient used to slip past
+                            // validation entirely (only the format was checked when present),
+                            // silently dropping that recipient at send time. Reject it up front,
+                            // same as the primary recipient fax number requirement above.
+                            addActionError("Copy-to recipient fax number is required");
+                            throw new SecurityException("Copy-to recipient fax number is required at index " + i);
                         }
+                        faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + i + "]");
                     } catch (Exception e) {
                         logger.error("Failed to parse copy-to recipient JSON at index {}: {}", i, LogSafe.sanitize(copyRecipient), e);
                         throw new SecurityException("Invalid copy-to recipient format at index " + i);
@@ -234,18 +242,19 @@ public class Fax2Action extends ActionSupport {
 
         TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase());
 
-        // Sanitize text inputs to prevent injection attacks
-        String sanitizedRecipient = recipient != null ? Encode.forHtml(recipient) : null;
-        String sanitizedComments = comments != null ? Encode.forHtml(comments) : null;
-
-        // Build fax job parameters using builder pattern
+        // recipient/comments are persisted and rendered raw (encode-at-output, not
+        // encode-at-write): pre-encoding here with Encode.forHtml produced literal HTML entities
+        // on the faxed PDF cover page (PdfCoverPageCreator writes raw text into a PDF Phrase, not
+        // HTML) and double-encoding on the Manage Faxes / CoverPage.jsp screens, which already
+        // encode at render time via <carlos:encode>/${carlos:forHtml()}. The XSS screen in
+        // validateFaxInputs (recipient <script/javascript:/onerror= check) still runs above.
         FaxJobParams params = FaxJobParams.builder()
                 .faxFilePath(faxFilePath)
-                .recipient(sanitizedRecipient)
+                .recipient(recipient)
                 .recipientFaxNumber(recipientFaxNumber)
                 .senderFaxNumber(senderFaxNumber)
                 .demographicNo(demographicNo)
-                .comments(sanitizedComments)
+                .comments(comments)
                 .coverpage(coverpage)
                 .copyToRecipients(copyToRecipients)
                 .build();

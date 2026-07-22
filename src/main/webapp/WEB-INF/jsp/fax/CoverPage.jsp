@@ -123,7 +123,7 @@
     <%--
         Action return flashy confirmation messages.
     --%>
-    <c:if test="${ not empty faxSuccessful }">
+    <c:if test="${ not empty faxSuccessful and faxSuccessful }">
         <script type="text/javascript">
             $(document).ready(function () {
                 $("#page-body").slideUp("slow");
@@ -475,7 +475,7 @@
             <c:forEach items="${ faxJobList }" var="faxJob">
                 <c:choose>
                     <c:when test="${ faxJob.status eq 'ERROR' }">
-                        <div class="alert alert-success" role="alert">
+                        <div class="alert alert-danger" role="alert">
                             Failed to add fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)} ${carlos:forHtml(faxJob.status)}: ${carlos:forHtml(faxJob.statusString)}
                         </div>
                     </c:when>
@@ -487,6 +487,17 @@
                 </c:choose>
             </c:forEach>
             <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
+        </c:if>
+
+        <%-- item 22: cancel() no longer redirects (and silently discards the message) when
+             faxManager.flush fails to clear the preview cache / temporary file; render the
+             failure here instead so the user knows the cleanup (and PHI removal) did not
+             complete. --%>
+        <c:if test="${ not empty faxCleanupFailed }">
+            <div class="alert alert-danger" role="alert">
+                The fax was cancelled, but the preview cache or temporary file could not be fully removed.
+                Please retry Cancel or contact your system administrator.
+            </div>
         </c:if>
     </div>
 </div>
@@ -540,7 +551,18 @@
             .addClass("img-fluid border rounded bg-white")
             .css("background-image", "url('" + ctx + "/images/loader.gif')")
             .css("background-position", "50% 50%")
-            .css("background-repeat", "no-repeat");
+            .css("background-repeat", "no-repeat")
+            // A user without the _edoc privilege gets a 403 from getPreview for every page image
+            // (item 9): without this handler each broken <img> sits on the page captioned
+            // "Showing N pages", which reads as a successful preview instead of a degraded one.
+            .on("error", function () {
+                $(this).remove();
+                var previewStatus = $("#previewStatus");
+                if (!previewStatus.data("degraded")) {
+                    previewStatus.data("degraded", true)
+                        .text("Preview images are not available for your role or this document. Use Open PDF to review the generated fax document.");
+                }
+            });
 
         $("<div />")
             .addClass("mb-3")
