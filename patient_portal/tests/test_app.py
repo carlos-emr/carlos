@@ -100,6 +100,24 @@ def test_production_responses_include_hsts() -> None:
     )
 
 
+def test_non_development_csrf_cookie_is_secure() -> None:
+    app = main.create_app(
+        Settings(
+            environment="staging",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+    )
+    response = TestClient(app).get("/")
+    set_cookie = response.headers["set-cookie"]
+
+    assert f"{main.CSRF_COOKIE_NAME}=" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Path=/auth" in set_cookie
+    assert "SameSite=strict" in set_cookie
+    assert "Secure" in set_cookie
+
+
 def test_internal_database_health_uses_app_database_settings() -> None:
     app = main.create_app(development_settings(database_url="sqlite+pysqlite:///:memory:"))
     response = TestClient(app).get("/internal/health/db")
@@ -212,6 +230,37 @@ def test_login_route_rejects_oversized_form_body() -> None:
 
     assert response.status_code == 413
     assert response.json()["detail"] == "request body too large"
+
+
+def test_login_route_rejects_malformed_urlencoded_form_body() -> None:
+    app = main.create_app(development_settings())
+    client = TestClient(app)
+    get_csrf_token(client)
+    response = client.post(
+        "/auth/login",
+        content="csrf_token",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid form body"
+
+
+def test_login_route_rejects_too_many_form_fields() -> None:
+    app = main.create_app(development_settings())
+    client = TestClient(app)
+    get_csrf_token(client)
+    form_body = "&".join(
+        f"field{field_number}=x" for field_number in range(main.MAX_FORM_FIELD_COUNT + 1)
+    )
+    response = client.post(
+        "/auth/login",
+        content=form_body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid form body"
 
 
 def test_api_docs_are_available_in_development() -> None:

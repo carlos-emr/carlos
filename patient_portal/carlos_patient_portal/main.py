@@ -36,6 +36,7 @@ SECURITY_HEADERS = {
 }
 NO_STORE_PATHS = {"/", "/auth/login"}
 MAX_FORM_BODY_BYTES = 16 * 1024
+MAX_FORM_FIELD_COUNT = 20
 CSRF_COOKIE_NAME = "carlos_portal_csrf"
 CSRF_COOKIE_PATH = "/auth"
 CSRF_FORM_FIELD = "csrf_token"
@@ -107,23 +108,31 @@ async def read_limited_request_body(request: Request, max_bytes: int) -> bytes:
     return bytes(body)
 
 
-async def get_urlencoded_form_value(
+async def get_urlencoded_form_values(
     request: Request,
-    field_name: str,
     max_body_bytes: int,
-) -> str | None:
+    max_fields: int,
+) -> dict[str, list[str]]:
     content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
     if content_type != "application/x-www-form-urlencoded":
-        return None
+        return {}
 
     body = (await read_limited_request_body(request, max_body_bytes)).decode(
         "utf-8",
         errors="replace",
     )
-    values = parse_qs(body, keep_blank_values=True).get(field_name)
-    if not values:
-        return None
-    return values[0]
+    try:
+        return parse_qs(
+            body,
+            keep_blank_values=True,
+            max_num_fields=max_fields,
+            strict_parsing=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="invalid form body",
+        ) from exc
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -216,7 +225,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             max_age=CSRF_TOKEN_TTL_SECONDS,
             path=CSRF_COOKIE_PATH,
             samesite="strict",
-            secure=settings.is_production,
+            secure=not settings.is_development,
         )
         return response
 
@@ -237,11 +246,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/auth/login")
     async def login_placeholder(request: Request) -> None:
-        csrf_token = await get_urlencoded_form_value(
+        form_values = await get_urlencoded_form_values(
             request,
-            CSRF_FORM_FIELD,
             MAX_FORM_BODY_BYTES,
+            MAX_FORM_FIELD_COUNT,
         )
+        csrf_values = form_values.get(CSRF_FORM_FIELD)
+        csrf_token = csrf_values[0] if csrf_values else None
         csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
         if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
             raise HTTPException(status_code=403, detail="invalid CSRF token")

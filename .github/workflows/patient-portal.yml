@@ -58,4 +58,4 @@ jobs:
         run: alembic -c alembic.ini current
 
       - name: Build wheel
-        run: python -m build --wheel
+        run: python -m build --wheel --no-isolation
