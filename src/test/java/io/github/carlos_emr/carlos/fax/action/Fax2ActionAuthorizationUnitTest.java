@@ -300,10 +300,15 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
             document.save(pdf.toFile());
         }
-        when(faxManager.resolveAndValidateFilePath(pdf.toString())).thenReturn(pdf);
+        // The request parameter itself must satisfy the application-temp-workspace guard (no jobId
+        // means the path came directly from the caller); the real PDF bytes live under the JUnit
+        // @TempDir and are supplied via the mocked resolution below, mirroring how the direct-path
+        // CoverPage.jsp flow only ever names a carlos-temp artifact.
+        String requestFaxFilePath = "/tmp/carlos-temp/fax-page-count.pdf";
+        when(faxManager.resolveAndValidateFilePath(requestFaxFilePath)).thenReturn(pdf);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", pdf.toString());
+        request.setParameter("faxFilePath", requestFaxFilePath);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -363,10 +368,13 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         // A corrupt (non-PDF) file is a realistic input in a fax pipeline; PDFBox throws IOException.
         Path corrupt = tempDir.resolve("corrupt.pdf");
         Files.writeString(corrupt, "this is not a pdf");
-        when(faxManager.resolveAndValidateFilePath(corrupt.toString())).thenReturn(corrupt);
+        // Request parameter must satisfy the application-temp-workspace guard (no jobId); the real
+        // (corrupt) file lives under the JUnit @TempDir and is supplied via the mocked resolution.
+        String requestFaxFilePath = "/tmp/carlos-temp/fax-corrupt.pdf";
+        when(faxManager.resolveAndValidateFilePath(requestFaxFilePath)).thenReturn(corrupt);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", corrupt.toString());
+        request.setParameter("faxFilePath", requestFaxFilePath);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -381,6 +389,38 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             new Fax2Action().getPageCount();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a document-store path supplied directly as faxFilePath for page count")
+    void shouldSend403_whenPageCountPathParamTargetsDocumentStore() throws Exception {
+        // No jobId is supplied, so this path is taken at face value as a direct request-parameter
+        // path. Manage Faxes only ever sends jobId for stored documents; a DOCUMENT_DIR path
+        // supplied directly must be rejected before FaxManager ever sees it.
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq(SecurityInfoManager.READ), isNull()))
+                .thenReturn(true);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", "/var/lib/OscarDocument/oscar/document/123.pdf");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new Fax2Action().getPageCount();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            verify(faxManager, never()).resolveAndValidateFilePath(any());
         }
     }
 
@@ -450,6 +490,166 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             action.getPreview();
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a document-store path supplied directly as faxFilePath for preview")
+    void shouldSend403_whenPreviewPathParamTargetsDocumentStore() throws Exception {
+        // No jobId is supplied, so getPreview treats faxFilePath as a direct request-parameter
+        // path. CoverPage.jsp (the only direct-path caller) only ever names a freshly minted
+        // carlos-temp artifact; a DOCUMENT_DIR path supplied directly must be rejected before
+        // FaxManager ever sees it, closing the pre-existing arbitrary-document-read exposure.
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", "/var/lib/OscarDocument/oscar/document/123.pdf");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            verify(faxManager, never()).resolveAndValidateFilePath(any());
+            verify(faxManager, never()).getFaxPreviewImage(any(LoggedInInfo.class), any(String.class), anyInt());
+        }
+    }
+
+    @Test
+    @DisplayName("should serve preview for a carlos-temp path supplied as faxFilePath")
+    void shouldServePreview_whenPathParamIsApplicationTemp(@TempDir Path tempDir) throws Exception {
+        // No jobId: faxFilePath is a direct request-parameter path, but it names a CARLOS-owned
+        // temp artifact (the CoverPage.jsp pre-send flow), so it must still stream successfully.
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        Path tempPdf = tempDir.resolve("fax-temp-preview.pdf");
+        byte[] pdfBytes = {'%', 'P', 'D', 'F', '-', '1', '.', '4'};
+        Files.write(tempPdf, pdfBytes);
+        String requestFaxFilePath = "/tmp/carlos-temp/fax-temp-preview.pdf";
+        when(faxManager.resolveAndValidateFilePath(requestFaxFilePath)).thenReturn(tempPdf);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", requestFaxFilePath);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getContentAsByteArray()).isEqualTo(pdfBytes);
+        }
+    }
+
+    @Test
+    @DisplayName("should serve preview through a job binding for stored documents")
+    void shouldServePreview_whenJobIdResolvesStoredDocument(@TempDir Path tempDir) throws Exception {
+        // jobId resolves a FaxJob whose file_name lives in the document store (DOCUMENT_DIR); the
+        // job binds that stored document to a queued fax this user is permitted to see, so it must
+        // stream successfully even though the resolved path is outside the temp workspace.
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(true);
+
+        Path storedDoc = tempDir.resolve("stored-fax.pdf");
+        byte[] pdfBytes = {'%', 'P', 'D', 'F', '-', '1', '.', '4'};
+        Files.write(storedDoc, pdfBytes);
+
+        FaxJob faxJob = new FaxJob();
+        faxJob.setFile_name("/var/lib/OscarDocument/oscar/document/stored-fax.pdf");
+        faxJob.setDemographicNo(42);
+        when(faxManager.getFaxJob(any(LoggedInInfo.class), eq(77))).thenReturn(faxJob);
+        when(faxManager.resolveAndValidateFilePath(faxJob.getFile_name())).thenReturn(storedDoc);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("jobId", "77");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getContentAsByteArray()).isEqualTo(pdfBytes);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a stored document served through a job bound to another patient's record")
+    void shouldSend403_whenJobDemographicDeniesPatientAccess() throws Exception {
+        // The job binds the file to a queued fax, but that fax carries a demographic outside this
+        // provider's circle of care; job binding alone must not bypass the patient-record check
+        // validateFaxInputs enforces on the send path.
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(99)))
+                .thenReturn(false);
+
+        FaxJob faxJob = new FaxJob();
+        faxJob.setFile_name("/var/lib/OscarDocument/oscar/document/other-patient-fax.pdf");
+        faxJob.setDemographicNo(99);
+        when(faxManager.getFaxJob(any(LoggedInInfo.class), eq(88))).thenReturn(faxJob);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("jobId", "88");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            verify(faxManager, never()).resolveAndValidateFilePath(any());
         }
     }
 

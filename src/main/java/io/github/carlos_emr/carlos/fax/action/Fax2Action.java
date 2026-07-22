@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
@@ -55,6 +56,7 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLEncoder;
@@ -303,6 +305,18 @@ public class Fax2Action extends ActionSupport {
         }
 
         if (faxJob != null) {
+            // A resolved job binds the file to a queued fax this user is permitted to see
+            // (getFaxJob already gated on _fax read); when the job also carries a demographic
+            // (set from the queue params by createFaxJob), enforce circle-of-care access the same
+            // way validateFaxInputs does for the send path (:164), so _fax-read alone cannot expose
+            // another provider's patient's queued fax.
+            if (faxJob.getDemographicNo() != null
+                    && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, faxJob.getDemographicNo())) {
+                logger.warn("Unauthorized access attempt to fax job preview by provider {}",
+                        LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo()));
+                sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                return;
+            }
             requestedFaxFilePath = faxJob.getFile_name();
         }
 
@@ -321,6 +335,17 @@ public class Fax2Action extends ActionSupport {
          * and when viewing it in the fax records (Manage Faxes), it is shown as images.
          */
         if (requestedFaxFilePath != null && !requestedFaxFilePath.isEmpty()) {
+            // No jobId: the path came directly from the request parameter, not a resolved FaxJob.
+            // CoverPage.jsp (the only direct-path caller) always supplies a freshly minted
+            // carlos-temp artifact; Manage Faxes only ever supplies jobId. A stored document
+            // (DOCUMENT_DIR) may therefore only be previewed through its job binding above — direct
+            // paths outside the CARLOS-owned temp workspace are rejected before any use.
+            boolean pathFromRequestParam = (faxJob == null);
+            if (pathFromRequestParam && !PathValidationUtils.isInApplicationTempDirectory(new File(requestedFaxFilePath))) {
+                logger.warn("Rejected fax preview for a non-temp path supplied directly as faxFilePath");
+                sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                return;
+            }
             if (showAs != null && showAs.equals("image")) {
                 // The faxManager.getFaxPreviewImage method already handles path validation.
                 // Own the error response here: preview image generation goes through
@@ -504,6 +529,14 @@ public class Fax2Action extends ActionSupport {
             }
         }
         if (requestedFaxFilePath == null || requestedFaxFilePath.isEmpty()) {
+            return 0;
+        }
+        // No jobId: same direct-path exposure as getPreview. A stored document (DOCUMENT_DIR) may
+        // only be paged through its job binding; direct paths are scoped to the CARLOS-owned temp
+        // workspace before any use.
+        if (!PathValidationUtils.isInApplicationTempDirectory(new File(requestedFaxFilePath))) {
+            logger.warn("Rejected fax page count for a non-temp path supplied directly as faxFilePath");
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             return 0;
         }
         try {
