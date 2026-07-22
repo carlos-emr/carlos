@@ -1675,6 +1675,7 @@
                        --add-opens java.base/java.util=ALL-UNNAMED
                        -Djdk.attach.allowAttachSelf=true
                        -XX:+EnableDynamicAgentLoading
+                       -Djava.awt.headless=true
                      </argLine>
                     <!-- Test filtering by groups when specified -->
                     <groups>${groups}</groups>
