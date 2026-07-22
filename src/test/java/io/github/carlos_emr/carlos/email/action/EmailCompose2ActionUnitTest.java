@@ -94,6 +94,45 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should disable auto-send when encryption requires separate password delivery")
+    void shouldDisableAutoSend_whenEmailEncryptionEnabled() throws Exception {
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
+        EmailPdfPasswordService emailPdfPasswordService = mock(EmailPdfPasswordService.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(DemographicManager.class, demographicManager);
+        registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("isEmailAutoSend", true);
+        request.getSession(false).setAttribute("isEmailEncrypted", true);
+        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
+        when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
+        when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of("patient@example.com"), List.of()});
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
+        when(emailComposeManager.prepareEFormAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareEDocAttachments(any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
+        when(emailPdfPasswordService.generatePassphrase()).thenReturn("alpha-bravo-123-charlie-delta-456");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            EmailCompose2Action action = new EmailCompose2Action();
+
+            assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
+            assertThat(request.getAttribute("isEmailAutoSend")).isEqualTo(false);
+            EmailCompose2Action.clearEmailComposeSubmissionStates(request.getSession().getId());
+        }
+    }
+
+    @Test
     @DisplayName("should cap pending compose submission states")
     void shouldCapPendingComposeSubmissionStates_whenMaxExceeded() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");

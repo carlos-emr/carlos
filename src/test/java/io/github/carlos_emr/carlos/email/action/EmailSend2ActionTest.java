@@ -100,6 +100,26 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should show compose state error when token is missing during send")
+    void shouldShowComposeStateError_whenTokenMissingDuringSend() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("isEmailEncrypted", "true");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.sendDirectEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute("emailErrorMessage"))
+                .isEqualTo(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+    }
+
+    @Test
     @DisplayName("should ignore submitted PDF password and use generated compose-state password")
     void shouldIgnorePassword_whenSubmittedPdfPasswordIsTampered() {
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -228,8 +248,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         action.response = response;
 
         assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Email PDF password is missing from compose state");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
     }
 
     @Test
@@ -295,8 +315,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
 
         assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Email compose session is missing or expired");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
     }
 
     private static void setComposeToken(MockHttpServletRequest request, String emailPDFPassword) {

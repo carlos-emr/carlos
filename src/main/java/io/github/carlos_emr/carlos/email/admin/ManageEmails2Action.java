@@ -277,9 +277,19 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
+        String emailPDFPasswordToken;
+        try {
+            emailPDFPasswordToken = EmailCompose2Action.storeEmailComposeSubmissionState(
+                    request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to prepare resend email compose submission state", e);
+            request.setAttribute("emailPDFPassword", "");
+            request.setAttribute("emailPDFPasswordClue", "");
+            request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+            request.setAttribute("isEmailError", true);
+            return "compose";
+        }
         EmailCompose2Action.cleanupEmailSessionAttributes(request);
-        String emailPDFPasswordToken = EmailCompose2Action.storeEmailComposeSubmissionState(
-                request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
         request.setAttribute(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
 
         return "compose";

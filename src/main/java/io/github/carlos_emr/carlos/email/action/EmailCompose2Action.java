@@ -92,6 +92,12 @@ public class EmailCompose2Action extends ActionSupport {
     private transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
+    public static final String EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE =
+            "This email compose window has expired or is no longer valid. "
+                    + "Please reopen the email compose window and try again.";
+    public static final String EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE =
+            "This email compose window could not be prepared. "
+                    + "Please close other open email compose windows and try again.";
     private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
     static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
     static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = 1024;
@@ -302,16 +308,36 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
-        request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
-        request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
+        Object isEmailEncrypted = session.getAttribute("isEmailEncrypted");
+        Object isEmailAttachmentEncrypted = isTrue(isEmailEncrypted)
+                ? session.getAttribute("isEmailAttachmentEncrypted")
+                : false;
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
+        request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
+        request.setAttribute(
+                "isEmailAutoSend",
+                shouldAutoSendEmail(session.getAttribute("isEmailAutoSend"), isEmailEncrypted));
 
+        String emailPDFPasswordToken;
+        try {
+            emailPDFPasswordToken = storeEmailComposeSubmissionState(
+                    request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to prepare email compose submission state", e);
+            return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+        }
         cleanupEmailSessionAttributes(request);
-        String emailPDFPasswordToken = storeEmailComposeSubmissionState(
-                request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
         request.setAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
 
         return "compose";
+    }
+
+    private static boolean shouldAutoSendEmail(Object autoSendValue, Object encryptedValue) {
+        return isTrue(autoSendValue) && !isTrue(encryptedValue);
+    }
+
+    private static boolean isTrue(Object value) {
+        return Boolean.TRUE.equals(value) || "true".equals(value);
     }
 
     /**

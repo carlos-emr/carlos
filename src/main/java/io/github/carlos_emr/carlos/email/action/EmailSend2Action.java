@@ -114,7 +114,12 @@ public class EmailSend2Action extends ActionSupport {
         boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        EmailLog emailLog = sendEmail(request);
+        EmailLog emailLog;
+        try {
+            emailLog = sendEmail(request);
+        } catch (EmailComposeStateException e) {
+            return handleEmailComposeStateError(e);
+        }
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
@@ -143,10 +148,22 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
     public String sendDirectEmail() {
-        EmailLog emailLog = sendEmail(request);
+        EmailLog emailLog;
+        try {
+            emailLog = sendEmail(request);
+        } catch (EmailComposeStateException e) {
+            return handleEmailComposeStateError(e);
+        }
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
+        return SUCCESS;
+    }
+
+    private String handleEmailComposeStateError(EmailComposeStateException e) {
+        logger.warn(e.getMessage());
+        request.setAttribute("isEmailError", true);
+        request.setAttribute("emailErrorMessage", e.getMessage());
         return SUCCESS;
     }
 
@@ -276,7 +293,7 @@ public class EmailSend2Action extends ActionSupport {
         EmailCompose2Action.EmailComposeSubmissionState composeState =
                 EmailCompose2Action.consumeEmailComposeSubmissionState(request);
         if (composeState == null) {
-            throw new IllegalStateException("Email compose session is missing or expired");
+            throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
         return composeState;
     }
@@ -292,7 +309,7 @@ public class EmailSend2Action extends ActionSupport {
         if (!StringUtils.isNullOrEmpty(composeState.emailPDFPassword())) {
             return composeState.emailPDFPassword();
         }
-        throw new IllegalStateException("Email PDF password is missing from compose state");
+        throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
     }
 
     private String resolveEmailPdfPasswordClue(EmailCompose2Action.EmailComposeSubmissionState composeState) {
@@ -306,5 +323,11 @@ public class EmailSend2Action extends ActionSupport {
         EmailData emailData = new EmailData();
         emailData.setTransactionType(transactionType);
         return emailData.getTransactionType();
+    }
+
+    private static final class EmailComposeStateException extends RuntimeException {
+        private EmailComposeStateException(String message) {
+            super(message);
+        }
     }
 }
