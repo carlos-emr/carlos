@@ -80,7 +80,7 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
             .thenReturn(true);
     }
 
-    private Hl7TextMessage createTestHl7Message(int id) {
+    private Hl7TextMessage createTestHl7Message() {
         Hl7TextMessage msg = new Hl7TextMessage();
         msg.setType("HL7");
         msg.setServiceName("TestLab");
@@ -95,7 +95,7 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with lab messages as JSON")
         void shouldReturn200WithLabMessages_whenLabsExist() {
-            Hl7TextMessage testMsg = createTestHl7Message(1);
+            Hl7TextMessage testMsg = createTestHl7Message();
             when(mockLabManager.getHl7Messages(any(LoggedInInfo.class), eq(123), eq(0), eq(10)))
                 .thenReturn(List.of(testMsg));
 
@@ -131,9 +131,9 @@ class LabServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return multiple lab messages in JSON response")
         void shouldReturnMultipleMessages_whenMultipleLabsExist() {
             List<Hl7TextMessage> messages = List.of(
-                createTestHl7Message(1),
-                createTestHl7Message(2),
-                createTestHl7Message(3)
+                createTestHl7Message(),
+                createTestHl7Message(),
+                createTestHl7Message()
             );
             when(mockLabManager.getHl7Messages(any(LoggedInInfo.class), eq(789), eq(0), eq(20)))
                 .thenReturn(messages);

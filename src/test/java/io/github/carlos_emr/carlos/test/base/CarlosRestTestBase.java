@@ -31,12 +31,14 @@ import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntr
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.util.SmartDateModule;
 
 import jakarta.ws.rs.core.MediaType;
 
 import org.apache.cxf.endpoint.Server;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
 import org.apache.cxf.jaxrs.client.WebClient;
+import org.apache.cxf.jaxrs.provider.JAXBElementProvider;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
@@ -141,10 +143,10 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
      * Returns the local transport address for the test server. Override to
      * customize (e.g., to avoid address conflicts in parallel tests).
      *
-     * @return the local transport address (default: {@code "local://rest-test"})
+     * @return a local transport address unique to the concrete test class
      */
     protected String getServiceAddress() {
-        return "local://rest-test";
+        return "local://rest-" + getClass().getName().replaceAll("[^A-Za-z0-9]", "-");
     }
 
     /**
@@ -163,20 +165,19 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         // Both locations are needed: AbstractServiceImpl.getLoggedInInfo() reads
         // from session first, but falls back to request attributes when the session
         // value has a null loggedInProvider (which mocks do by default).
-        String key = new LoggedInInfo().LOGGED_IN_INFO_KEY;
+        String key = LoggedInInfo.LOGGED_IN_INFO_KEY;
         mockServletRequest.setAttribute(key, mockLoggedInInfo);
         mockSession.setAttribute(key, mockLoggedInInfo);
 
         JAXRSServerFactoryBean sf = new JAXRSServerFactoryBean();
         sf.setAddress(getServiceAddress());
         sf.setServiceBean(getServiceBean());
-        sf.setProviders(List.of(new JacksonJsonProvider(createTestObjectMapper())));
+        sf.setProviders(createProviders());
         sf.getInInterceptors().add(new TestAuthenticationInterceptor(mockServletRequest));
         sf.setTransportId(LocalTransportFactory.TRANSPORT_ID);
         server = sf.create();
 
-        client = WebClient.create(getServiceAddress(),
-                List.of(new JacksonJsonProvider(createTestObjectMapper())))
+        client = WebClient.create(getServiceAddress(), createProviders())
             .accept(MediaType.APPLICATION_JSON)
             .type(MediaType.APPLICATION_JSON);
     }
@@ -221,7 +222,15 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
                 new JakartaXmlBindAnnotationIntrospector(TypeFactory.defaultInstance())
             )
         );
+        mapper.registerModule(new SmartDateModule());
         return mapper;
+    }
+
+    private List<Object> createProviders() {
+        JAXBElementProvider<Object> jaxbProvider = new JAXBElementProvider<>();
+        jaxbProvider.setProduceMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
+        jaxbProvider.setConsumeMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
+        return List.of(new JacksonJsonProvider(createTestObjectMapper()), jaxbProvider);
     }
 
     /**

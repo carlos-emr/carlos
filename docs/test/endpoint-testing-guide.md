@@ -171,7 +171,7 @@ make install --run-unit-tests
 
 ## Architecture
 
-```
+```text
 CarlosUnitTestBase              (SpringUtils mocking, no Spring context)
   ├── CarlosRestTestBase        (CXF JAX-RS server + WebClient)
   │     └── *EndpointTest.java  (REST endpoint tests)
