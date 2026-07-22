@@ -23,10 +23,19 @@ pip install --require-hashes -r requirements.lock
 pip install --no-build-isolation --no-deps -e .
 ```
 
-The lock file includes runtime, development, and build dependencies with package hashes. Refresh it
-after dependency changes with:
+The local lock file includes runtime, development, and build dependencies with package hashes.
+Production deployments should install a prebuilt portal wheel with the runtime-only lock file:
 
 ```bash
+pip install --require-hashes -r requirements-runtime.lock
+pip install --no-deps dist/carlos_patient_portal-0.1.0-py3-none-any.whl
+```
+
+Refresh the lock files after dependency changes with:
+
+```bash
+pip-compile --generate-hashes --strip-extras \
+  --output-file requirements-runtime.lock pyproject.toml
 pip-compile --extra dev --all-build-deps --generate-hashes --allow-unsafe --strip-extras \
   --output-file requirements.lock pyproject.toml
 ```
@@ -56,9 +65,9 @@ The default database URL targets local PostgreSQL because PostgreSQL is the inte
 Tests pass a SQLite database URL into the app factory so the foundation test suite does not require a
 running PostgreSQL instance.
 
-Production deployments must also set `PATIENT_PORTAL_SESSION_SECRET` and
-`PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`. The internal readiness endpoint expects the health token as a
-Bearer token:
+Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`; production deployments
+must also set `PATIENT_PORTAL_SESSION_SECRET`. The internal readiness endpoint expects the health
+token as a Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \

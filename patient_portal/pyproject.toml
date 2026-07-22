@@ -34,6 +34,10 @@ carlos_patient_portal = [
   "static/*.css",
   "static/*.svg",
   "templates/*.html",
+  "migrations/README",
+  "migrations/script.py.mako",
+  "migrations/versions/*.py",
+  "migrations/versions/.gitkeep",
 ]
 
 [tool.pytest.ini_options]

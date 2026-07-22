@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from secrets import compare_digest
@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from starlette.responses import Response
 
 from carlos_patient_portal.config import Settings, get_settings
 from carlos_patient_portal.database import (
@@ -21,6 +22,16 @@ from carlos_patient_portal.database import (
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
+    "object-src 'none'"
+)
+SECURITY_HEADERS = {
+    "Referrer-Policy": "same-origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+}
+NO_STORE_PATHS = {"/", "/auth/login"}
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -51,6 +62,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         StaticFiles(directory=str(PACKAGE_DIR / "static")),
         name="static",
     )
+
+    @app.middleware("http")
+    async def add_security_headers(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        response = await call_next(request)
+        for header, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(header, value)
+        if not request.url.path.startswith("/api/"):
+            response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+
+        if request.url.path in NO_STORE_PATHS or request.url.path.startswith("/internal/"):
+            response.headers.setdefault("Cache-Control", "no-store")
+            response.headers.setdefault("Pragma", "no-cache")
+
+        if settings.is_production:
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
 
     def get_app_database_session() -> Generator[Session, None, None]:
         yield from session_scope(session_factory)

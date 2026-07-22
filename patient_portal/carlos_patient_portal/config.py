@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.environment == "production"
 
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
+
     @field_validator("environment", mode="before")
     @classmethod
     def normalize_environment(cls, value: object) -> object:
@@ -69,8 +73,10 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_SESSION_SECRET must be a non-default value with at least "
                 f"{MIN_PRODUCTION_SECRET_LENGTH} characters in production"
             )
-        if self.is_production and self.internal_health_token is None:
-            raise ValueError("PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN must be set in production")
+        if not self.is_development and self.internal_health_token is None:
+            raise ValueError(
+                "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN must be set outside development"
+            )
         return self
 
 

@@ -11,7 +11,9 @@ WRONG_INTERNAL_HEALTH_TOKEN = "wrong-internal-health-token-0000000000"
 
 
 def test_health_endpoint_is_minimal() -> None:
-    app = main.create_app(Settings(environment="staging"))
+    app = main.create_app(
+        Settings(environment="staging", internal_health_token=INTERNAL_HEALTH_TOKEN)
+    )
     response = TestClient(app).get("/health")
 
     assert response.status_code == 200
@@ -36,6 +38,36 @@ def test_static_logo_asset_is_served() -> None:
     assert response.status_code == 200
     assert "image/svg+xml" in response.headers["content-type"]
     assert "<svg" in response.text
+
+
+def test_sign_in_shell_uses_security_headers() -> None:
+    app = main.create_app()
+    response = TestClient(app).get("/")
+
+    assert response.headers["content-security-policy"] == (
+        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
+        "object-src 'none'"
+    )
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["referrer-policy"] == "same-origin"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["pragma"] == "no-cache"
+
+
+def test_production_responses_include_hsts() -> None:
+    app = main.create_app(
+        Settings(
+            environment="production",
+            session_secret=PRODUCTION_SESSION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+    )
+    response = TestClient(app).get("/")
+
+    assert response.headers["strict-transport-security"] == (
+        "max-age=31536000; includeSubDomains"
+    )
 
 
 def test_internal_database_health_uses_app_database_settings() -> None:
@@ -141,6 +173,11 @@ def test_production_rejects_short_session_secret() -> None:
 def test_production_rejects_missing_internal_health_token() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
         Settings(environment="production", session_secret=PRODUCTION_SESSION_SECRET)
+
+
+def test_non_development_rejects_missing_internal_health_token() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
+        Settings(environment="staging")
 
 
 def test_internal_health_token_must_be_long_when_configured() -> None:
