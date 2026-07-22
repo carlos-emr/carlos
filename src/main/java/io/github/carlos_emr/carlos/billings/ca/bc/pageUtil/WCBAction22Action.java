@@ -57,7 +57,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * - Save and Close.
  * - Print ( this is just an hl7 print right now)
  *
- * @author jaygallagher
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -66,6 +65,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Secondary action for handling WCB logic.
+ */
 
 public class WCBAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -73,7 +75,12 @@ public class WCBAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    public String execute() throws Exception {        return save();
+    /**
+     * Execute the specific WCB action workflow.
+     */
+    public String execute() throws Exception {
+        // Process specialized WCB actions like follow-up claims.
+        return save();
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.

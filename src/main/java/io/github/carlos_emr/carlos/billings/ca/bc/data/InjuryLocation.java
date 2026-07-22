@@ -28,6 +28,9 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
+/**
+ * Data model representing the location of an injury.
+ */
 
 public class InjuryLocation {
     private String sidetype;

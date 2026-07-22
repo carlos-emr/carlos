@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
  */
 public class TeleplanResponseDAO {
 
@@ -44,7 +43,12 @@ public class TeleplanResponseDAO {
     public TeleplanResponseDAO() {
     }
 
+    /**
+     * Stores the teleplan response details into the database.
+     */
     public void save(TeleplanResponse tr) {
+        // Persist the teleplan response data securely via ORM layer.
+
         TeleplanResponseLog t = new TeleplanResponseLog();
         t.setTransactionNo(tr.getTransactionNo());
         t.setResult(tr.getResult());

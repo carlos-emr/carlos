@@ -43,6 +43,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Data object holding comprehensive billing form details.
+ */
 
 public class BillingFormData {
 

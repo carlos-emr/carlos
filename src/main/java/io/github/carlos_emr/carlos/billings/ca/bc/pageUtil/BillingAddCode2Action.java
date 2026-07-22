@@ -44,13 +44,21 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Action for adding billing codes.
+ */
 
 public final class BillingAddCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
 
-    public String execute() {        if (request.getSession().getAttribute("user") == null) {
+    /**
+     * Process adding a new billing code.
+     */
+    public String execute() {
+        // Validate the code and add it to the current encounter.
+        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 

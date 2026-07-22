@@ -49,6 +49,9 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Bean representing the billing view.
+ */
 
 public class BillingViewBean {
 
@@ -101,7 +104,12 @@ public class BillingViewBean {
     private String paymentMethod;
     private String defaultPayeeInfo;
 
+    /**
+     * Load the billing view details.
+     */
     public void loadBilling(String billing_no) {
+        // Fetch demographic and billing history for the view.
+
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         for (Object[] i : dao.findBillings(ConversionUtils.fromIntString(billing_no))) {
             Billingmaster bm = (Billingmaster) i[0];

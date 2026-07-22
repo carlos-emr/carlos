@@ -53,6 +53,9 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Action for viewing user billing preferences.
+ */
 
 public class ViewBillingPreferences2Action
         extends ActionSupport {
@@ -65,7 +68,12 @@ public class ViewBillingPreferences2Action
     private final PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
     private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
+    /**
+     * Load billing preferences view.
+     */
     public String execute() {
+        // Load and display the billing preferences for the provider.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(servletRequest);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

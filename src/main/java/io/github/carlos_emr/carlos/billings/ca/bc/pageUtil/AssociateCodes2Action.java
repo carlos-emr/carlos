@@ -42,7 +42,6 @@ import jakarta.servlet.http.HttpServletResponse;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
@@ -54,6 +53,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Action for associating multiple billing codes.
+ */
 
 public class AssociateCodes2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -63,7 +65,12 @@ public class AssociateCodes2Action extends ActionSupport {
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    /**
+     * Process code associations.
+     */
     public String execute() {
+        // Link related billing codes together for combined claims.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

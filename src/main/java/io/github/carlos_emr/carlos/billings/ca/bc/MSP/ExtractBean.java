@@ -57,6 +57,9 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+/**
+ * Bean responsible for extracting billing data.
+ */
 
 
 public class ExtractBean extends Object implements Serializable {
@@ -114,7 +117,12 @@ public class ExtractBean extends Object implements Serializable {
     }
 
 
+    /**
+     * Execute database query for extraction.
+     */
     public synchronized void dbQuery() {
+        // Construct and execute SQL to extract the billing records.
+
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         if (HasBillingItemsToSubmit()) {
 

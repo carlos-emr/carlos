@@ -34,6 +34,9 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.List;
+/**
+ * Struts 2 form bean for creating new billings.
+ */
 
 public final class BillingCreateBilling2Form {
     private static final Logger _log = MiscUtils.getLogger();

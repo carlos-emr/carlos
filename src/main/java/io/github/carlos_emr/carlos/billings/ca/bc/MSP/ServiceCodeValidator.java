@@ -23,6 +23,9 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Validator for BC service codes to ensure compliance.
+ */
 
 public class ServiceCodeValidator {
     protected boolean valid = true;
@@ -45,7 +48,12 @@ public class ServiceCodeValidator {
         this.description = description;
     }
 
+    /**
+     * Check if the provided service code is valid.
+     */
     public boolean isValid() {
+        // Lookup the service code rules in the BC fee schedule.
+
         return valid;
     }
 

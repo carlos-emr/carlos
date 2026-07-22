@@ -35,6 +35,9 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Data Access Object for Teleplan submission links.
+ */
 
 public class TeleplanSubmissionLinkDAO {
 
@@ -44,7 +47,12 @@ public class TeleplanSubmissionLinkDAO {
     public TeleplanSubmissionLinkDAO() {
     }
 
+    /**
+     * Save the provided submission link entity.
+     */
     public void save(int billActId, List billingMasterList) {
+        // Persist the submission link using Hibernate.
+
         for (int i = 0; i < billingMasterList.size(); i++) {
             String bi = (String) billingMasterList.get(i);
             int b = Integer.parseInt(bi);

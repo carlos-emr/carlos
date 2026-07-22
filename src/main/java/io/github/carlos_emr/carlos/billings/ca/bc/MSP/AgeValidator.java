@@ -28,6 +28,9 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Validator utility to ensure age rules for BC MSP billing are met.
+ */
 
 
 public class AgeValidator
@@ -72,7 +75,12 @@ public class AgeValidator
         return inputAge;
     }
 
+    /**
+     * Validate age based on provided criteria.
+     */
     public boolean isValid() {
+        // Check if the patient age falls within the required limits.
+
         return (this.inputAge >= minAge && this.inputAge <= maxAge);
     }
 }

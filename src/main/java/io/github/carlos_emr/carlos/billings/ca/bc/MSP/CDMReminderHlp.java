@@ -36,6 +36,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
+/**
+ * Helper utility for CDM (Chronic Disease Management) reminders.
+ */
 
 public class CDMReminderHlp {
     public CDMReminderHlp() {

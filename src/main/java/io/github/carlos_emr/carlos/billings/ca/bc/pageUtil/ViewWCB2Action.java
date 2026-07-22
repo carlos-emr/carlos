@@ -57,13 +57,15 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
  * <p>Description: Coordinates data retrieval and configuration parameters for rendering either</p>
  * <p>a new or existing WCB form
  *
- * @author Joel Legris
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+/**
+ * Action for viewing WCB (Workers' Compensation Board) details.
+ */
 
 public class ViewWCB2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -74,7 +76,12 @@ public class ViewWCB2Action extends ActionSupport {
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Load the WCB view page.
+     */
     public String execute() {
+        // Load WCB claim details for the patient.
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }

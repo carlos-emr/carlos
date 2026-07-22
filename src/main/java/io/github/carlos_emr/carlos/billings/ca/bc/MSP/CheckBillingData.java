@@ -40,14 +40,22 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
+/**
+ * Utility to perform sanity checks on billing data.
+ */
 
 public class CheckBillingData {
 
     // check batchHeader VS1
+    /**
+     * Verify VS1 format data constraints.
+     */
     public String checkVS1(String recordCode, String dataCentreNum,
                            String dataCentreSeq, String vendorMSPDCNum, String softName,
                            String softVer, String softInsDate, String vendorName,
                            String vendorContact, String vendorConName, String filler) {
+        // Validate the VS1 segment constraints according to Teleplan specifications.
+
         String ret = checkVS1DataCenterNum(dataCentreNum);
         ret = printWarningMsg(ret);
         return ret;

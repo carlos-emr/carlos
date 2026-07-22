@@ -37,6 +37,9 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.List;
+/**
+ * Form bean representing WCB data entry.
+ */
 
 public final class WCBForm {
 
@@ -869,7 +872,12 @@ public final class WCBForm {
         return w_reportype;
     }
 
+    /**
+     * Check whether the claim has not been billed yet.
+     */
     public boolean isNotBilled() {
+        // Check the claim status flag to ensure it is unbilled.
+
 
         return notBilled;
     }

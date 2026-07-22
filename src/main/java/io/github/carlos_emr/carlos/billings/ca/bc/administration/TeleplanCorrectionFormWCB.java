@@ -42,6 +42,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Form bean for WCB Teleplan corrections.
+ */
 
 public class TeleplanCorrectionFormWCB {
 

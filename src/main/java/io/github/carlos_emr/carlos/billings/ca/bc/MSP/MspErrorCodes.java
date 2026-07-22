@@ -45,6 +45,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+/**
+ * Utility to manage and load MSP error codes.
+ */
 
 public class MspErrorCodes extends Properties {
 
@@ -63,7 +66,12 @@ public class MspErrorCodes extends Properties {
         }
     }
 
+    /**
+     * Open input stream to read the error codes file.
+     */
     private InputStream openErrorCodesStream() throws Exception {
+        // Load the error codes properties file from classpath.
+
         String configuredPath = CarlosProperties.getInstance().getProperty("msp_error_codes");
         if (configuredPath != null) {
             try {

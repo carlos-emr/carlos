@@ -59,6 +59,9 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Utility for reconciling MSP billing data.
+ */
 
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();

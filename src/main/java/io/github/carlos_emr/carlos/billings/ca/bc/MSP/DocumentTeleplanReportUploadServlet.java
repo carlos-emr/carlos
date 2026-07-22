@@ -50,12 +50,20 @@ import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Servlet for uploading Teleplan report documents.
+ */
 
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
+    /**
+     * Handle incoming service requests for document upload.
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        // Parse the multipart upload and save the report document.
+
 
         String foldername = "", fileheader = "", forwardTo = "";
 
