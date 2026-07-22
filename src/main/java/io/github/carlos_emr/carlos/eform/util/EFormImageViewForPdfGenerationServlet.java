@@ -161,7 +161,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             // validatePathComponent signals malformed/blank/traversal input with a
             // FileValidationException (a SecurityException). Translate it to IllegalArgumentException so
             // doGet answers 400 (client error) instead of the 403 the SecurityException handler would
-            // emit — a bad imagefile is a bad request, not an authorization failure (cubic Fc2c/SIZkT).
+            // emit — a bad imagefile is a bad request, not an authorization failure.
             throw new IllegalArgumentException("Invalid imagefile parameter", e);
         }
     }

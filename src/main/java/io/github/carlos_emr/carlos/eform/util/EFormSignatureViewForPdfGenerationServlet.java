@@ -51,7 +51,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
     // Accept the reference as a first query parameter ("?digitalSignatureId="), a raw subsequent
     // parameter ("&digitalSignatureId="), or its HTML-escaped form ("&amp;digitalSignatureId=").
     // The "amp;" is scoped to the "&" branch only, so a malformed "?amp;digitalSignatureId=" (neither
-    // a raw parameter nor a valid escape) is NOT accepted (cubic HOdU/SIt57).
+    // a raw parameter nor a valid escape) is NOT accepted.
     private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;)?)digitalSignatureId=(\\d+)");
 
     @Override
@@ -130,7 +130,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             // The id is referenced by the render's eForm but no signature row exists for it (e.g. the
             // signature was deleted). Fail deterministically with 404 rather than falling through to an
             // empty 200, so the renderer sees a clear missing-resource result and logs are unambiguous
-            // (copilot SJD9p).
+            //.
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Signature not found");
         } catch (IOException e) {
             throw e;

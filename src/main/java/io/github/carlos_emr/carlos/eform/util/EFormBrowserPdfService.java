@@ -141,8 +141,8 @@ public class EFormBrowserPdfService {
     /**
      * Dead proxy plus a port-scoped loopback bypass: only the application's own loopback origin
      * escapes the dead proxy, so a request to any other host — or any other loopback port — is
-     * blocked before it is ever sent. Together with the performance-log gate this reproduces the
-     * previous renderer's pre-send route aborts at two independent layers.
+     * blocked before it is ever sent. Together with the performance-log gate, egress attempts are
+     * therefore stopped at two independent layers: pre-send (proxy) and post-hoc (event replay).
      */
     static final String DEAD_PROXY = "http://127.0.0.1:1";
 
@@ -160,8 +160,9 @@ public class EFormBrowserPdfService {
     private static final double MAX_CAPTURE_TOTAL_PIXELS = 300_000_000d;
 
     // ---------------------------------------------------------------------------------------------
-    // Browser-side JS, ported verbatim from the retired Playwright renderer script so capture
-    // fidelity is unchanged. These run inside the same Chromium engine as before.
+    // Browser-side JS. Each script owns one capture guarantee: STABILIZE_ASYNC_JS waits until
+    // fonts and images have settled, PREPARE_CAPTURE_JS applies print-cleanup styling and page
+    // flattening, and COMPUTE_REGIONS_JS derives the page capture rectangles from the form's DOM.
     // ---------------------------------------------------------------------------------------------
 
     /** Async settle: fonts ready, pending images resolved, two animation frames. */
@@ -1350,8 +1351,8 @@ public class EFormBrowserPdfService {
      * caller, which owns cleanup, so this window is deliberately far larger than any possible request
      * lifetime (a single render is capped at {@link #RENDER_TIMEOUT} = 90s and callers consume the PDF
      * synchronously within the same request). At 24h the age sweep cannot intersect a still-in-use
-     * output — even a long multi-attachment workflow (cubic SI8TZ) — while still bounding disk use if a
-     * caller dies mid-consumption and never cleans up (cubic SIzm2).
+     * output — even a long multi-attachment workflow — while still bounding disk use if a
+     * caller dies mid-consumption and never cleans up.
      */
     private static final Duration STALE_RENDERER_OUTPUT_TTL = Duration.ofHours(24);
 
@@ -1362,7 +1363,7 @@ public class EFormBrowserPdfService {
      * consumed a returned output. Directories are reclaimed after {@link #STALE_RENDERER_DIR_TTL} and
      * caller-owned output PDFs only after the much longer {@link #STALE_RENDERER_OUTPUT_TTL}, so an
      * in-flight render — and a returned, not-yet-consumed output — is never touched. Never throws — a
-     * sweep failure must not fail the render (cubic CQP1).
+     * sweep failure must not fail the render.
      */
     static void sweepStaleRendererRoots(Path managedRoot) {
         if (managedRoot == null || !Files.isDirectory(managedRoot)) {
@@ -1373,11 +1374,11 @@ public class EFormBrowserPdfService {
         long outputCutoffMillis = now - STALE_RENDERER_OUTPUT_TTL.toMillis();
         // The render's output .pdf sits directly under the managed root with the same prefix and is
         // RETURNED by renderSavedEformPdf for caller-owned cleanup, so it is age-gated on the long
-        // output window that no live request can reach (SIt6F fresh-output-safe, SIzm2 bounded-growth,
-        // SI8TZ never-sweeps-an-in-use-output). Capture dirs are always caller-detached, so a short
+        // output window that no live request can reach (fresh outputs are never swept, an
+        // in-use output cannot be reached, and growth stays bounded). Capture dirs are always caller-detached, so a short
         // window reclaims them. Catch unchecked failures too (e.g. DirectoryIteratorException) so a
         // traversal/permission error can never turn this best-effort cleanup into a render prerequisite
-        // (cubic SIt6C).
+        //.
         int reclaimed = 0;
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
             for (Path entry : entries) {

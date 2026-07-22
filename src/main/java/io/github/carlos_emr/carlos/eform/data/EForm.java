@@ -100,7 +100,7 @@ public class EForm extends EFormBase {
     // HTML spec recognizes (space, tab, LF, FF, CR), "/", or ">" — so ordinary identifiers like
     // "</scriptable" are left untouched. Java's "\s" is deliberately NOT used: it also matches the
     // vertical tab (U+000B), which HTML does not treat as a tag delimiter, so "</script..." must
-    // stay untouched (cubic HOdZ). (Case-insensitive.)
+    // stay untouched. (Case-insensitive.)
     private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[ \\t\\n\\f\\r/>])");
 
     private String runtimeContextPath;

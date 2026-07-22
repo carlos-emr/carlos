@@ -184,7 +184,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject imagefile parameters containing NUL bytes as a bad request")
-    void shouldRejectImagefileContainingNullBytes() throws Exception {
+    void shouldRejectImagefile_withNullBytes() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("127.0.0.1");
@@ -195,7 +195,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         new EFormImageViewForPdfGenerationServlet().doGet(request, response);
 
         // A malformed imagefile is a client error (400), not an authorization failure (403) — the
-        // filename is validated before the privilege check (cubic Fc2c/SIZkT).
+        // filename is validated before the privilege check.
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
     }
 
@@ -219,7 +219,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject requests without an authenticated session")
-    void shouldRejectRequestsWithoutAuthenticatedSession() throws Exception {
+    void shouldRejectRequest_withoutAuthenticatedSession() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("127.0.0.1");
@@ -233,7 +233,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject non-local requests")
-    void shouldRejectNonLocalRequests() throws Exception {
+    void shouldRejectRequest_fromNonLocalAddress() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("10.0.0.5");

@@ -828,12 +828,12 @@ public final class ConvertToEdoc {
         } else if (path.regionMatches(true, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED.length())) {
             // A percent-encoded token implies a percent-encoded filename too; decode the remainder so
             // encoded eForm background images still resolve into the PDF instead of being dropped
-            // (cubic CQPt). Fall back to the raw remainder if it is not validly encoded.
+            // Fall back to the raw remainder if it is not validly encoded.
             String encodedRemainder = path.substring(OSCAR_IMAGE_PATH_TOKEN_ENCODED.length());
             try {
                 // Protect a literal '+' (percent-encode it) before decoding: URLDecoder applies form
                 // semantics and would otherwise turn '+' into a space, dropping a valid filename that
-                // legitimately contains '+' (cubic SIt50). '%20' still decodes to a real space.
+                // legitimately contains '+'. '%20' still decodes to a real space.
                 filename = URLDecoder.decode(encodedRemainder.replace("+", "%2B"), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException e) {
                 filename = encodedRemainder;

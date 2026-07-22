@@ -35,8 +35,9 @@ script on a rendered eForm can act as no one. Authorization is anchored at the m
   required for air-gapped hosts): install it alongside Chromium and pin
   `eform_pdf_browser_chromedriver_path`. Without the property, Selenium Manager downloads a
   matching chromedriver at first use — acceptable for dev/CI, not recommended for clinics.
-- **No Node.js.** The previous Playwright-based renderer required Node + npm modules on the
-  host; that requirement is gone.
+- **No Node.js.** The renderer runs entirely in the JVM (Selenium driving Chromium); no Node
+  runtime or npm modules are required on the host. (The dev/CI Playwright check scripts under
+  `scripts/` are separate test tooling, not part of the renderer.)
 
 ## Configuration properties (`carlos.properties` / override file)
 

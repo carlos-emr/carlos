@@ -347,7 +347,7 @@ public class Fax2Action extends ActionSupport {
                     // Inline (not attachment): this PNG is the in-page fax preview rendered in an
                     // <img>, so browsers that honour Content-Disposition on embedded resources must
                     // render it rather than download it. The explicit "Open PDF" link uses the
-                    // separate application/pdf branch below (cubic CQQU).
+                    // separate application/pdf branch below.
                     response.setHeader("Content-Disposition", "inline; filename=\"" + encodedFilename + "\"");
                 }
             } else {

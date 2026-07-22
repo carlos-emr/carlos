@@ -885,7 +885,7 @@ public class FaxManagerImpl implements FaxManager {
 
         File file = new File(filePath);
         // Accept CARLOS-owned temp previews only, not the entire shared temp root, so a caller
-        // cannot name an unrelated temp file for preview/fax (cubic SCQPk).
+        // cannot name an unrelated temp file for preview/fax.
         if (PathValidationUtils.isInApplicationTempDirectory(file)) {
             return;
         }
@@ -917,7 +917,7 @@ public class FaxManagerImpl implements FaxManager {
 
         File file = new File(filePath);
         Path resolvedPath;
-        // Accept CARLOS-owned temp previews only, not the entire shared temp root (cubic SCQPk).
+        // Accept CARLOS-owned temp previews only, not the entire shared temp root.
         if (PathValidationUtils.isInApplicationTempDirectory(file)) {
             resolvedPath = file.getCanonicalFile().toPath();
         } else {

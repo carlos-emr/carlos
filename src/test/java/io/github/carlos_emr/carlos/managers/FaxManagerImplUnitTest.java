@@ -206,7 +206,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         try {
             resetAllowedTempDirectoriesCache();
             // A file directly under the shared temp root (not under a carlos-owned subtree) must be
-            // rejected even though it is inside an allowed temp root (cubic SCQPk).
+            // rejected even though it is inside an allowed temp root.
             Path foreignPdf = Files.createTempFile(tempRoot, "foreign-", ".pdf");
 
             assertThatThrownBy(() -> manager.resolveAndValidateFilePath(foreignPdf.toString()))

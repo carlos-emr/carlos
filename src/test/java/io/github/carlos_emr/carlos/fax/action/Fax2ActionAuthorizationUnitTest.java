@@ -256,6 +256,135 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should terminate execute with NONE for the direct-response preview methods")
+    void shouldReturnNone_whenExecuteDispatchesDirectResponseMethods() {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("method", "getPreview");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            // Direct-response contract: streaming methods must resolve to NONE, never a named
+            // result or bare null that would let Struts write HTML into the binary download.
+            assertThat(new Fax2Action().execute()).isEqualTo(org.apache.struts2.action.Action.NONE);
+
+            // Fresh response per dispatch: the first sendError commits the mock response.
+            MockHttpServletResponse secondResponse = new MockHttpServletResponse();
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(secondResponse);
+            request.setParameter("method", "getPageCount");
+            assertThat(new Fax2Action().execute()).isEqualTo(org.apache.struts2.action.Action.NONE);
+        }
+    }
+
+    @Test
+    @DisplayName("should resolve the page count from a validated fax file path")
+    void shouldResolvePageCount_fromValidatedFaxFilePath(@TempDir Path tempDir) throws Exception {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq(SecurityInfoManager.READ), isNull()))
+                .thenReturn(true);
+        Path pdf = tempDir.resolve("fax.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(pdf.toFile());
+        }
+        when(faxManager.resolveAndValidateFilePath(pdf.toString())).thenReturn(pdf);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", pdf.toString());
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new Fax2Action().getPageCount();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString()).contains("\"pageCount\":1");
+        }
+    }
+
+    @Test
+    @DisplayName("should answer 403 when page-count path validation raises a security exception")
+    void shouldReturnForbidden_whenPageCountPathValidationFails() throws Exception {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq(SecurityInfoManager.READ), isNull()))
+                .thenReturn(true);
+        when(faxManager.resolveAndValidateFilePath("/etc/passwd"))
+                .thenThrow(new SecurityException("Path traversal attempt"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", "/etc/passwd");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new Fax2Action().getPageCount();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        }
+    }
+
+    @Test
+    @DisplayName("should answer 404 when the page-count target is not a readable PDF")
+    void shouldReturnNotFound_whenPageCountTargetNotReadablePdf(@TempDir Path tempDir) throws Exception {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq(SecurityInfoManager.READ), isNull()))
+                .thenReturn(true);
+        // A corrupt (non-PDF) file is a realistic input in a fax pipeline; PDFBox throws IOException.
+        Path corrupt = tempDir.resolve("corrupt.pdf");
+        Files.writeString(corrupt, "this is not a pdf");
+        when(faxManager.resolveAndValidateFilePath(corrupt.toString())).thenReturn(corrupt);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("faxFilePath", corrupt.toString());
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            new Fax2Action().getPageCount();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        }
+    }
+
+    @Test
     @DisplayName("should return 404 instead of an empty 200 when no preview image is available")
     void shouldReturnNotFound_whenPreviewImageUnavailable() throws Exception {
         FaxManager faxManager = mock(FaxManager.class);

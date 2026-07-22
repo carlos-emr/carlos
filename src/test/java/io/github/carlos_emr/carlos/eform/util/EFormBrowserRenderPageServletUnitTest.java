@@ -111,6 +111,44 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject render page requests from non-local addresses")
+    void shouldRejectRenderPageRequest_fromNonLocalAddress() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("192.168.1.20");
+        request.setParameter("fdid", "123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormBrowserRenderPageServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("should answer bad request when the fdid parameter is missing")
+    void shouldSendBadRequest_whenFdidParameterMissing() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormBrowserRenderPageServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("should answer bad request when the fdid parameter is not numeric")
+    void shouldSendBadRequest_whenFdidParameterNotNumeric() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("fdid", "not-a-number");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormBrowserRenderPageServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+    }
+
+    @Test
     @DisplayName("should reject saved eForm PDF requests without an authenticated session")
     void shouldRejectSavedEformPdfRequest_whenNoAuthenticatedSessionExists() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");

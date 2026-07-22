@@ -115,7 +115,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         try {
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             // The eForm references signature 42, but the row is gone (e.g. deleted): must be a
-            // deterministic 404, not an empty 200 fall-through (copilot SJD9p).
+            // deterministic 404, not an empty 200 fall-through.
             when(manager.getDigitalSignature(42)).thenReturn(null);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
@@ -160,6 +160,51 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should answer bad request for a non-numeric digitalSignatureId")
+    void shouldSendBadRequest_whenDigitalSignatureIdNotNumeric() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42-or-1=1");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should answer not found when the referenced signature row has no image bytes")
+    void shouldSendNotFound_whenSignatureImageBytesMissing() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            // The row exists and the eForm references it, but the image column is empty — the
+            // pre-fix empty-200 fall-through left an untraceable blank signature in the PDF.
+            DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
+            when(manager.getDigitalSignature(42)).thenReturn(new DigitalSignature());
+            registerMock(DigitalSignatureManager.class, manager);
+            registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
     private static EFormValueDao eFormValueDaoReferencing(int fdid, String signatureId) {
         EFormValue signatureValue = new EFormValue();
         signatureValue.setVarName("signatureValue");
@@ -196,7 +241,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject non-local signature requests")
-    void shouldRejectNonLocalSignatureRequests() throws Exception {
+    void shouldRejectSignatureRequest_fromNonLocalAddress() throws Exception {
         registerMock(DigitalSignatureManager.class, mock(DigitalSignatureManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
         request.setRemoteAddr("10.0.0.5");

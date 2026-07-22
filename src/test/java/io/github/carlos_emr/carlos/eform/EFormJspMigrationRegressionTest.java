@@ -312,7 +312,7 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("eForm editor should navigate current window to eForm library after save, not the opener window")
-    void shouldNavigateCurrentWindow_notOpener_afterSave() throws IOException {
+    void shouldNavigateCurrentWindow_afterSave() throws IOException {
         String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
 
         // window.opener.location navigates the main CARLOS window (opener of the admin popup),

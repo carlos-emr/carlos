@@ -97,7 +97,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         // regression back to WRITE pass every test here.
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.READ), eq(""))).thenReturn(true);
         // The Servlet API returns a non-root context path WITH a leading slash; mirror that contract
-        // so the test exercises the same input the production resolver strips (copilot HXQl, cubic HYt6).
+        // so the test exercises the same input the production resolver strips .
         when(servletContext.getContextPath()).thenReturn("/carlos");
 
         ReflectionTestUtils.setField(nioFileManager, "securityInfoManager", securityInfoManager);
@@ -111,7 +111,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             Files.deleteIfExists(allowedTempDir.resolve("fax-preview-unique.pdf"));
             // The generated cache files carry the source-scoped key (<name>_<key>_<page>.png), so a
             // fixed-name delete never matches; the cache lives under the @TempDir document root and is
-            // auto-removed. Each cache test deletes its own returned path (copilot HDGA).
+            // auto-removed. Each cache test deletes its own returned path.
             Files.deleteIfExists(allowedTempDir);
         }
         if (symlink != null) {
@@ -250,7 +250,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
                 "test temp directory must resolve inside a CARLOS-owned temp directory");
         Files.createDirectories(getDocumentCacheDirectory());
         // A 200-char base name is a valid file component but would blow past the 255-char limit once
-        // the "_<sourceKey>_<page>.png" suffix is appended, unless the cache name is bounded (HmTc).
+        // the "_<sourceKey>_<page>.png" suffix is appended, unless the cache name is bounded.
         String longName = "a".repeat(200) + ".pdf";
         Path sourcePdf = allowedTempDir.resolve(longName);
         createSinglePagePdf(sourcePdf);
@@ -359,7 +359,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(pageOne).isNotNull().exists();
 
         // Now simulate a user with _fax READ but not _edoc READ (the fax-cancel/flush caller): removal
-        // must still succeed rather than throwing before the temp artifact can be cleaned up (SJD9t).
+        // must still succeed rather than throwing before the temp artifact can be cleaned up.
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(false);
         try {
             int removed = nioFileManager.removeCacheVersions(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString());
@@ -416,7 +416,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("Refuses to clear preview cache for a source outside the allowed preview locations")
     void shouldNotRemovePreviewPages_forDisallowedSource() throws Exception {
         // A directory under the shared temp root but NOT CARLOS-owned (and not the document root) is not
-        // a valid preview source, so cache cleanup keyed on it must be a no-op (SJD9x/SJNuK).
+        // a valid preview source, so cache cleanup keyed on it must be a no-op.
         Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-flush-");
         assumeTrue(!PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),
                 "foreign dir must not resolve inside a CARLOS-owned temp directory");
@@ -426,7 +426,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         // Seed a cache file that would match the prefix removeCacheVersions computes IF it processed
         // this foreign source. If the guard were bypassed, this file would be deleted; asserting it
         // survives (and removed == 0) proves the guard rejected the source, not merely that no files
-        // matched (cubic SJNuK). The prefix mirrors createCacheVersion2's naming.
+        // matched. The prefix mirrors createCacheVersion2's naming.
         String fileName = "whatever.pdf";
         String wouldBePrefix = fileName + "_" + sourceKeyOf(foreignDir) + "_";
         Path wouldBeCache = Files.createFile(cacheDir.resolve(wouldBePrefix + "1.png"));
@@ -460,7 +460,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     void shouldReturnNull_whenSourceIsInSharedTempButNotApplicationOwned() throws IOException {
         // A directory directly under java.io.tmpdir (not under carlos-temp) is inside the broad
         // allowed temp root but is NOT a CARLOS-owned preview area — an unrelated file another
-        // process could leave there must not be renderable via the fax-preview path (cubic SCQPk).
+        // process could leave there must not be renderable via the fax-preview path.
         Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-temp-");
         assumeTrue(PathValidationUtils.isInAllowedTempDirectory(foreignDir.toFile())
                         && !PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),

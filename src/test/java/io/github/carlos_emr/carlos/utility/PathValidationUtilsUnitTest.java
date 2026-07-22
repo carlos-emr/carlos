@@ -658,7 +658,7 @@ class PathValidationUtilsUnitTest {
 
         @Test
         @DisplayName("should report null file as not in an application temp directory")
-        void shouldReturnFalse_forApplicationTemp_whenFileIsNull() {
+        void shouldReturnFalse_whenApplicationTempFileIsNull() {
             assertThat(PathValidationUtils.isInApplicationTempDirectory(null)).isFalse();
         }
 

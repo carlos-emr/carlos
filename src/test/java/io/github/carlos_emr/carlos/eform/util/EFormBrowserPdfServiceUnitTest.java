@@ -317,8 +317,8 @@ class EFormBrowserPdfServiceUnitTest {
             EFormBrowserPdfService.sweepStaleRendererRoots(root);
 
             assertThat(Files.exists(staleDir)).as("stale render capture dir removed").isFalse();
-            // A caller-owned output is reclaimed only long past any request lifetime (SIzm2), never while
-            // a workflow could still hold it (SIt6F/SI8TZ).
+            // A caller-owned output is reclaimed only long past any request lifetime, never while
+            // a workflow could still hold it.
             assertThat(Files.exists(orphanedOutputPdf)).as("output orphaned past 24h swept").isFalse();
             assertThat(Files.exists(recentOutputPdf)).as("recently-returned output pdf kept").isTrue();
             assertThat(Files.exists(freshDir)).as("fresh render dir kept").isTrue();

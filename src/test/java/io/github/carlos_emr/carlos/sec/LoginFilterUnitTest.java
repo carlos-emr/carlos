@@ -262,6 +262,36 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should pass the signature renderer route when unauthenticated")
+        void shouldPassSignatureRendererRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            // Same session-less renderer surface: loopback + a mandatory render grant are enforced
+            // by the servlet itself, so the exemption must hold for the signature route too.
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/EFormSignatureViewForPdfGenerationServlet");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("should pass the asset image renderer route when unauthenticated")
+        void shouldPassAssetImageRendererRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/EFormImageViewForPdfGenerationServlet");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
         @DisplayName("should audit rejected token authentication")
         void shouldAuditRejectedTokenAuthentication_whenTokenManagerRejects()
                 throws ServletException, IOException {
