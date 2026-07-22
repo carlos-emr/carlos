@@ -150,6 +150,19 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
+    @DisplayName("should treat a whitespace-only context path as root context")
+    void shouldNormalizeLegacyAssets_forWhitespaceContextPath() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<script src=\"jquery-1.12.0.min.js\"></script>");
+
+        eform.setContextPath("   ");
+
+        assertThat(eform.getFormHtml())
+                .contains("src=\"/eform/displayImage?imagefile=jquery-1.12.0.min.js\"")
+                .doesNotContain("   /eform/displayImage");
+    }
+
+    @Test
     @DisplayName("should rewrite legacy string timers only inside inline script content")
     void shouldRewriteLegacyStringTimers_onlyInsideInlineScripts() {
         EForm eform = new EForm();

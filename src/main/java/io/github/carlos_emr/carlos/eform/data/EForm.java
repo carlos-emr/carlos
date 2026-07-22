@@ -412,10 +412,15 @@ public class EForm extends EFormBase {
      * timer calls inside inline scripts into function callbacks.</p>
      *
      * <p>A {@code null} context path (no servlet environment) is a no-op. An empty string ({@code ""})
-     * is a valid root-context (ROOT.war) deployment and is normalized like any other context path.</p>
+     * is a valid root-context (ROOT.war) deployment and is normalized like any other context path.
+     * Leading/trailing whitespace is stripped before use, so a whitespace-only value (never produced
+     * by {@code HttpServletRequest.getContextPath()}, which only returns {@code ""} or {@code "/path"},
+     * but defended against here regardless) collapses to {@code ""} and is treated as root context
+     * rather than being spliced raw into a browser-facing asset URL.</p>
      *
      * @param contextPath servlet context path used to build browser-facing runtime asset URLs;
-     *                     {@code ""} for a root-context deployment, {@code null} to skip normalization
+     *                     {@code ""} (or a whitespace-only value) for a root-context deployment,
+     *                     {@code null} to skip normalization
      */
     public void setContextPath(String contextPath) {
         // Only a null context (no servlet environment) skips normalization. An empty string ("")
@@ -427,9 +432,14 @@ public class EForm extends EFormBase {
         // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
         // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
         // path validation on it (which would inject OS separators and reject some valid context paths).
-        String normalizedContextPath = contextPath.endsWith("/")
-                ? contextPath.substring(0, contextPath.length() - 1)
-                : contextPath;
+        // Defensively strip whitespace before the trailing-slash normalization below: a whitespace-only
+        // context path (not producible by HttpServletRequest.getContextPath(), which only ever returns
+        // "" or "/path", but reachable via any other caller) must collapse to "" (treated as root
+        // context) rather than being spliced raw into a browser-facing asset URL like " /eform/...".
+        String strippedContextPath = contextPath.strip();
+        String normalizedContextPath = strippedContextPath.endsWith("/")
+                ? strippedContextPath.substring(0, strippedContextPath.length() - 1)
+                : strippedContextPath;
         this.runtimeContextPath = normalizedContextPath;
         // This method writes formHtml directly (not via setFormHtml), so it must reset the
         // normalization flag itself: the rewritten content needs a fresh DOM pass on next read.
