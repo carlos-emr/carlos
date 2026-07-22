@@ -29,6 +29,7 @@ Production deployments should install a prebuilt portal wheel with the runtime-o
 ```bash
 pip install --require-hashes -r requirements-runtime.lock
 pip install --no-deps dist/carlos_patient_portal-0.1.0-py3-none-any.whl
+carlos-patient-portal-migrate
 ```
 
 Refresh the lock files after dependency changes with:
@@ -65,9 +66,9 @@ The default database URL targets local PostgreSQL because PostgreSQL is the inte
 Tests pass a SQLite database URL into the app factory so the foundation test suite does not require a
 running PostgreSQL instance.
 
-Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`; production deployments
-must also set `PATIENT_PORTAL_SESSION_SECRET`. The internal readiness endpoint expects the health
-token as a Bearer token:
+Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN` and
+`PATIENT_PORTAL_SESSION_SECRET`. The internal readiness endpoint expects the health token as a Bearer
+token:
 
 ```bash
 curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
@@ -77,14 +78,21 @@ curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
 Expose `/internal/health/db` only to trusted infrastructure such as a load balancer or orchestrator
 health probe.
 
-Production secrets must be non-default and at least 32 characters. `PATIENT_PORTAL_ENVIRONMENT`
-accepts `development`, `staging`, `test`, or `production`; `dev` and `prod` are normalized aliases.
+Non-development secrets must be non-default and at least 32 characters.
+`PATIENT_PORTAL_ENVIRONMENT` accepts `development`, `staging`, `test`, or `production`; `dev` and
+`prod` are normalized aliases.
 
 ## Migrations
 
 ```bash
 cd patient_portal
 alembic -c alembic.ini upgrade head
+```
+
+Installed wheel deployments can run packaged migrations without a source checkout:
+
+```bash
+carlos-patient-portal-migrate
 ```
 
 This PR only adds the migration scaffold. Patient, invite, membership, audit, and unlock-secret

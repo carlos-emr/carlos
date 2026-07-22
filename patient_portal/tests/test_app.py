@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from carlos_patient_portal import main
+from carlos_patient_portal import cli, main
 from carlos_patient_portal.config import Settings
 
 PRODUCTION_SESSION_SECRET = "production-session-secret-0000000001"
@@ -12,7 +12,11 @@ WRONG_INTERNAL_HEALTH_TOKEN = "wrong-internal-health-token-0000000000"
 
 def test_health_endpoint_is_minimal() -> None:
     app = main.create_app(
-        Settings(environment="staging", internal_health_token=INTERNAL_HEALTH_TOKEN)
+        Settings(
+            environment="staging",
+            session_secret=PRODUCTION_SESSION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
     )
     response = TestClient(app).get("/health")
 
@@ -115,10 +119,24 @@ def test_login_route_is_explicitly_not_implemented() -> None:
     assert response.json()["detail"] == "login is not implemented yet"
 
 
-def test_api_docs_are_available_outside_production() -> None:
+def test_api_docs_are_available_in_development() -> None:
     app = main.create_app(Settings(environment="development"))
 
     assert TestClient(app).get("/api/openapi.json").status_code == 200
+
+
+def test_api_docs_are_disabled_outside_development() -> None:
+    app = main.create_app(
+        Settings(
+            environment="staging",
+            session_secret=PRODUCTION_SESSION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+    )
+
+    assert TestClient(app).get("/api/openapi.json").status_code == 404
+    assert TestClient(app).get("/api/docs").status_code == 404
+    assert TestClient(app).get("/api/redoc").status_code == 404
 
 
 def test_api_docs_are_disabled_in_production() -> None:
@@ -161,6 +179,11 @@ def test_production_rejects_default_session_secret() -> None:
         Settings(environment="production", internal_health_token=INTERNAL_HEALTH_TOKEN)
 
 
+def test_non_development_rejects_default_session_secret() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_SESSION_SECRET"):
+        Settings(environment="staging", internal_health_token=INTERNAL_HEALTH_TOKEN)
+
+
 def test_production_rejects_short_session_secret() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_SESSION_SECRET"):
         Settings(
@@ -177,7 +200,7 @@ def test_production_rejects_missing_internal_health_token() -> None:
 
 def test_non_development_rejects_missing_internal_health_token() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
-        Settings(environment="staging")
+        Settings(environment="staging", session_secret=PRODUCTION_SESSION_SECRET)
 
 
 def test_internal_health_token_must_be_long_when_configured() -> None:
@@ -187,3 +210,32 @@ def test_internal_health_token_must_be_long_when_configured() -> None:
 
 def test_module_does_not_create_global_app_on_import() -> None:
     assert not hasattr(main, "app")
+
+
+def test_packaged_migration_command_upgrades_to_head_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    upgraded: dict[str, str] = {}
+
+    monkeypatch.setattr(
+        cli,
+        "get_settings",
+        lambda: Settings(database_url="sqlite+pysqlite:///:memory:"),
+    )
+    monkeypatch.setattr(
+        cli.command,
+        "upgrade",
+        lambda config, revision: upgraded.update(
+            revision=revision,
+            script_location=config.get_main_option("script_location"),
+            database_url=config.get_main_option("sqlalchemy.url"),
+        ),
+    )
+
+    cli.migrate([])
+
+    assert upgraded == {
+        "revision": "head",
+        "script_location": "carlos_patient_portal:migrations",
+        "database_url": "sqlite+pysqlite:///:memory:",
+    }

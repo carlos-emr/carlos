@@ -68,10 +68,10 @@ class Settings(BaseSettings):
 
         is_default_secret = session_secret_value == DEFAULT_SESSION_SECRET
         is_short_secret = len(session_secret_value) < MIN_PRODUCTION_SECRET_LENGTH
-        if self.is_production and (is_default_secret or is_short_secret):
+        if not self.is_development and (is_default_secret or is_short_secret):
             raise ValueError(
                 "PATIENT_PORTAL_SESSION_SECRET must be a non-default value with at least "
-                f"{MIN_PRODUCTION_SECRET_LENGTH} characters in production"
+                f"{MIN_PRODUCTION_SECRET_LENGTH} characters outside development"
             )
         if not self.is_development and self.internal_health_token is None:
             raise ValueError(

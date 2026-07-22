@@ -17,6 +17,9 @@ dependencies = [
   "uvicorn[standard]>=0.32,<1",
 ]
 
+[project.scripts]
+carlos-patient-portal-migrate = "carlos_patient_portal.cli:migrate"
+
 [project.optional-dependencies]
 dev = [
   "httpx>=0.27,<1",
