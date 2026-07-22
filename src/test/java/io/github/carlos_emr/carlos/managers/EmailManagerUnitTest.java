@@ -69,8 +69,8 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should preserve archive failure detail when archive fails")
-    void shouldPreserveArchiveFailureDetail_whenArchiveFails() throws Exception {
+    @DisplayName("should persist sanitized archive failure when archive fails")
+    void shouldPersistSanitizedArchiveFailure_whenArchiveFails() throws Exception {
         EmailData emailData = sendGridEmailData();
         EmailConfig emailConfig = sendGridEmailConfig();
         when(emailConfigDao.findActiveEmailConfigById(7)).thenReturn(emailConfig);
@@ -86,7 +86,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
 
-        String expectedMessage = "Failed to archive outbound email: missing required sec object (_edoc)";
+        String expectedMessage = "Failed to archive outbound email";
         assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
         assertThat(emailLog.getErrorMessage()).isEqualTo(expectedMessage);
         verify(emailLogDao).updateEmailStatus(eq(44), eq(EmailLog.EmailStatus.FAILED), eq(expectedMessage), any(Date.class));
