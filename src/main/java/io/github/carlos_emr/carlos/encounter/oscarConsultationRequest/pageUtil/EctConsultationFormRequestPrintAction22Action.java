@@ -166,7 +166,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     throw new PDFGenerationException(
                             "Attached eForm \"" + eFormItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
                 }
-                alist.add(Files.newInputStream(attachedForm));
+                // Register in streams so the finally block below closes it; previously this
+                // stream was created but never added to the cleanup list, leaking one file
+                // descriptor per attached eForm on every print (see attached-forms site below
+                // for the matching leak).
+                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                streams.add(attachedFormStream);
+                alist.add(attachedFormStream);
             }
 
             //attached docs
@@ -262,7 +268,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     throw new PDFGenerationException(
                             "Attached form \"" + formItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
                 }
-                alist.add(Files.newInputStream(attachedForm));
+                // Register in streams so the finally block below closes it (see attached-eForms
+                // site above for the matching leak fix).
+                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                streams.add(attachedFormStream);
+                alist.add(attachedFormStream);
             }
 
             if (alist.size() > 0) {

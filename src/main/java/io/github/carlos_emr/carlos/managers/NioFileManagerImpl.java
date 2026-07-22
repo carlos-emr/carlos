@@ -174,10 +174,15 @@ public class NioFileManagerImpl implements NioFileManager {
      * {@link #getDocumentCacheDirectory} wraps this behind an {@code _edoc} READ gate; the fax-preview
      * flush path reaches it through {@link #removeCacheVersions}, which is authorized by its own caller's
      * {@code _fax} READ and must not require {@code _edoc}.
+     *
+     * <p>Package-private (rather than {@code private}) so {@link ApplicationTempPurgeJob}, a
+     * same-package background sweep with no per-request {@link LoggedInInfo} to authorize, can resolve
+     * the cache directory path without duplicating this derivation or requiring a privilege check of its
+     * own — the purge job only stats/deletes expired PNGs, it does not read document content.</p>
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private Path resolveDocumentCacheDirectory() {
+    Path resolveDocumentCacheDirectory() {
         // context.getContextPath() is "/carlos" (leading slash) in production. Paths.get(String,
         // String...) JOINS its segments and collapses redundant separators — it does NOT re-anchor on
         // a leading slash the way Path.resolve("/carlos") would — so baseDocumentDir() is preserved
