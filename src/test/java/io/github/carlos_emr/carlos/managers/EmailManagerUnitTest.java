@@ -15,12 +15,14 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 
 import java.util.Date;
 import java.util.List;
@@ -29,7 +31,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -69,6 +73,35 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("should send prepared payload after archive succeeds")
+    void shouldSendPreparedPayload_afterArchiveSucceeds() throws Exception {
+        EmailData emailData = sendGridEmailData();
+        EmailConfig emailConfig = sendGridEmailConfig();
+        OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
+        stubPreparedOutbox(emailConfig);
+
+        try (MockedConstruction<EmailSender> mockedEmailSenders = mockConstruction(EmailSender.class, (emailSender, context) -> {
+            when(emailSender.supportsOutboundArchive()).thenReturn(true);
+            when(emailSender.prepareOutboundArchive(any(EmailLog.class))).thenReturn(archiveRequest);
+        })) {
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+            assertThat(emailLog.getErrorMessage()).isEmpty();
+            assertThat(mockedEmailSenders.constructed()).hasSize(1);
+
+            EmailSender emailSender = mockedEmailSenders.constructed().get(0);
+            var inOrder = inOrder(emailSender, outboundEmailArchiveService);
+            inOrder.verify(emailSender).supportsOutboundArchive();
+            inOrder.verify(emailSender).prepareOutboundArchive(any(EmailLog.class));
+            inOrder.verify(outboundEmailArchiveService).archive(loggedInInfo, archiveRequest);
+            inOrder.verify(emailSender).sendPrepared();
+            verify(emailSender, never()).send();
+            verify(emailLogDao).updateEmailStatus(eq(44), eq(EmailLog.EmailStatus.SUCCESS), eq(""), any(Date.class));
+        }
     }
 
     @Test
