@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -220,9 +221,22 @@ public class FaxManagerImpl implements FaxManager {
      * copyToRecipients (as String[])
      * <p>
      * The FaxJob list that is returned contains persisted FaxJob Objects
+     * <p>
+     * This method is {@code @Transactional} so that the per-recipient {@code faxJobDao.persist}
+     * calls in the loop below commit atomically: if persisting recipient N throws, recipients
+     * 1..N-1 are rolled back rather than left as orphaned WAITING rows that {@code FaxSender}
+     * could pick up and transmit while the caller only sees an error page for the batch.
+     * <p>
+     * <b>Filesystem side effects are NOT covered by this transaction.</b> Temp-file promotion
+     * (see {@link #createFaxJob}) and cover-page file creation (see {@link #addCoverPage(byte[],
+     * Path)}) write directly to disk and are not undone by a JPA rollback. An aborted queue can
+     * therefore leave orphaned files on disk with no corresponding transmittable row; the T16
+     * orphan-file purge and the permanent document store are the intended backstops for those,
+     * not this transaction boundary.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    @Transactional
     @Override
     public List<FaxJob> createAndSaveFaxJob(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap) {
 
@@ -548,6 +562,16 @@ public class FaxManagerImpl implements FaxManager {
             documentList.add(coverPageStream);
             documentList.add(currentDocumentStream);
             ConcatPDF.concat(documentList, newDocumentStream);
+        } catch (IOException | RuntimeException e) {
+            // The cover target lives in the permanent document store; a failed concat must not
+            // leave a partial PHI-bearing Cover_* file behind.
+            try {
+                Files.deleteIfExists(newCurrentDocument);
+            } catch (IOException cleanupFailure) {
+                logger.warn("Unable to remove partial cover page after failed concat: {}",
+                        LogSafe.sanitize(newCurrentDocument.getFileName().toString()), cleanupFailure);
+            }
+            throw e;
         }
         return newCurrentDocument;
     }

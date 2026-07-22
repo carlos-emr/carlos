@@ -23,9 +23,12 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +51,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,6 +61,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -355,6 +361,109 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
         assertThat(waitingJob.getStatusString()).contains("Cover page creation failed");
         verify(manager, never()).saveFaxJob(eq(loggedInInfo), anyList());
+    }
+
+    @Test
+    @DisplayName("should persist only the WAITING job and skip the null-file-name ERROR job in a mixed recipient batch")
+    void shouldPersistWaitingJobOnly_whenBatchHasMixedWaitingAndErrorJobs() throws Exception {
+        // The primary job is a normal WAITING job with a real file to cover.
+        FaxJob waitingJob = new FaxJob();
+        waitingJob.setStatus(FaxJob.STATUS.WAITING);
+        waitingJob.setFile_name("queued-fax.pdf");
+        waitingJob.setRecipient("Primary Recipient");
+        waitingJob.setNumPages(1);
+        doReturn(waitingJob).when(manager).createFaxJob(eq(loggedInInfo), any());
+
+        // A copy-to duplicate that failed recipient validation: ERROR status, file_name left null.
+        // The cover-page loop's `if (STATUS.ERROR...) continue;` guard must skip this job rather
+        // than NPE on Paths.get(null), and it must never reach saveFaxJob.
+        FaxJob copyErrorJob = new FaxJob();
+        copyErrorJob.setStatus(FaxJob.STATUS.ERROR);
+        copyErrorJob.setStatusString("Invalid fax number for copy-to recipient.");
+        copyErrorJob.setRecipient("Copy Recipient");
+        String[] copyToRecipients = new String[]{"{\"name\":\"Copy Recipient\",\"fax\":\"9998887777\"}"};
+        doReturn(List.of(copyErrorJob)).when(manager)
+                .addRecipients(eq(loggedInInfo), eq(waitingJob), eq(copyToRecipients));
+
+        Path coveredDocument = Paths.get("Cover_test-uuid_queued-fax.pdf");
+        doReturn(coveredDocument).when(manager)
+                .addCoverPage(eq(loggedInInfo), any(), any(), any(), eq(Paths.get("queued-fax.pdf")));
+        doReturn(List.of(waitingJob)).when(manager).saveFaxJob(eq(loggedInInfo), anyList());
+
+        List<FaxJob> result = manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                "coverpage", "true",
+                "comments", "See attached",
+                "copyToRecipients", copyToRecipients));
+
+        assertThat(result).hasSize(2);
+        // The WAITING job got its cover page prepended...
+        assertThat(waitingJob.getFile_name()).isEqualTo(coveredDocument.getFileName().toString());
+        assertThat(waitingJob.getNumPages()).isEqualTo(2);
+        // ...while the ERROR job was skipped entirely and stayed un-persisted.
+        assertThat(copyErrorJob.getFile_name()).isNull();
+        assertThat(copyErrorJob.getId()).isNull();
+        // The ERROR job's null file_name means Paths.get(...) is never reached for it, so
+        // addCoverPage is invoked exactly once - for the WAITING job.
+        verify(manager).addCoverPage(eq(loggedInInfo), any(), any(), any(), any(Path.class));
+        verify(manager).saveFaxJob(eq(loggedInInfo), eq(List.of(waitingJob)));
+    }
+
+    @Test
+    @DisplayName("should be annotated @Transactional so a mid-batch persist failure rolls back prior recipients")
+    void shouldBeTransactional_soMidBatchPersistFailureRollsBackPriorRecipients() throws Exception {
+        // A pure unit test cannot exercise real Spring-proxy rollback without a container/DB (see
+        // T21 for the end-to-end coverage). This pins the annotation itself so the atomicity
+        // contract cannot silently regress: without @Transactional on this exact method, the
+        // Spring AOP proxy created by <tx:annotation-driven proxy-target-class="true"/> would not
+        // wrap the per-recipient faxJobDao.persist calls in a single transaction at all.
+        Method createAndSaveFaxJob = FaxManagerImpl.class.getMethod(
+                "createAndSaveFaxJob", LoggedInInfo.class, Map.class);
+
+        assertThat(createAndSaveFaxJob.isAnnotationPresent(Transactional.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should delete the orphaned Cover_* file when PDF concatenation fails")
+    void shouldDeleteOrphanCoverFile_whenConcatFails() throws Exception {
+        FaxDocumentManager faxDocumentManager = mock(FaxDocumentManager.class);
+        injectDependency(manager, "faxDocumentManager", faxDocumentManager);
+        when(faxDocumentManager.createCoverPage(eq(loggedInInfo), any(), eq(1))).thenReturn("cover-page-bytes".getBytes());
+
+        // A real temp directory stands in for the permanent document store: the private
+        // addCoverPage(byte[], Path) creates its Cover_* file as a sibling of currentDocument, so
+        // nioFileManager.getOscarDocument is stubbed to resolve into this fixture directory rather
+        // than the real DOCUMENT_DIR.
+        Path docStoreDir = Files.createTempDirectory("fax-doc-store-");
+        try {
+            Path currentDocument = docStoreDir.resolve("queued-fax.pdf");
+            Files.write(currentDocument, "not a real pdf, but readable bytes".getBytes());
+            when(nioFileManager.getOscarDocument(any(Path.class))).thenReturn(currentDocument);
+
+            try (MockedStatic<ConcatPDF> concatPdfMock = Mockito.mockStatic(ConcatPDF.class)) {
+                // Force the merge step itself to fail. ConcatPDF.concat(List, OutputStream) does not
+                // declare a checked exception - it catches PDFMergerUtility's IOException internally
+                // and wraps it as a RuntimeException (see ConcatPDF source) - so a RuntimeException is
+                // the faithful stand-in here. This exercises the catch block under test, not PDFBox's
+                // own corrupt-input skip-and-continue behavior (merely-corrupt bytes are silently
+                // skipped by ConcatPDF and never throw at all).
+                concatPdfMock.when(() -> ConcatPDF.concat(anyList(), any(OutputStream.class)))
+                        .thenThrow(new RuntimeException("simulated PDF merge failure"));
+
+                assertThatThrownBy(() -> manager.addCoverPage(loggedInInfo, "See attached", currentDocument))
+                        .isInstanceOf(RuntimeException.class)
+                        .hasMessage("simulated PDF merge failure");
+            }
+
+            try (Stream<Path> entries = Files.list(docStoreDir)) {
+                assertThat(entries.filter(p -> p.getFileName().toString().startsWith("Cover_")))
+                        .isEmpty();
+            }
+        } finally {
+            try (Stream<Path> paths = Files.walk(docStoreDir)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+        }
     }
 
     @Test
