@@ -84,8 +84,38 @@ public class Fax2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    /**
+     * Dispatches on the {@code method} request parameter, gating mutations behind a
+     * verb check first.
+     *
+     * <p>{@code queue()} persists {@link FaxJob} rows and promotes files into the fax
+     * queue; {@code cancel()} -- including this method's own no-{@code method}
+     * fall-through -- deletes temporary files and PHI preview caches. Both are
+     * mutations and must never execute on GET/HEAD. {@code getPreview}, {@code
+     * getPageCount}, and {@code prepareFax} stay verb-open: {@code CoverPage.jsp}
+     * builds {@code <img src>}/link GETs for {@code getPreview} and polls {@code
+     * getPageCount}, and {@code AddEForm2Action.redirectToPreparedFax()} issues a
+     * server-side {@code sendRedirect()} to {@code prepareFax} that the browser
+     * always follows with a GET -- rejecting GET there would break the eForm fax
+     * flow. {@code prepareFax} itself only renders an ephemeral temp PDF for review
+     * (via {@link DocumentAttachmentManager#renderEFormWithAttachments}); it does not
+     * persist a queued fax job or any permanent record.
+     *
+     * @return the Struts result name for the dispatched operation, or {@link #NONE}
+     *         after a direct-response write or a 405 rejection
+     */
     public String execute() {
         String method = request.getParameter("method");
+        boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method) || "prepareFax".equals(method);
+        String httpMethod = request.getMethod();
+        if (!readOnly && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+            // queue() persists fax jobs and promotes files; cancel() (also the no-method
+            // fall-through below) deletes temp files and PHI preview caches -- mutations must
+            // not ride a GET/HEAD. CoverPage.jsp submits both via <form method="post">, so no UI
+            // change is required.
+            sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            return NONE;
+        }
         if ("queue".equals(method)) {
             return queue();
         } else if ("prepareFax".equals(method)) {
