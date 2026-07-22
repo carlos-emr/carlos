@@ -59,6 +59,7 @@
 <!DOCTYPE html>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <%
 // Retrieve the patient demographic number from request

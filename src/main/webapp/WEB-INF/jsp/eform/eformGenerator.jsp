@@ -90,6 +90,7 @@ and other liscences (MIT, LGPL etc) as indicated
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="eFormGenerator.title"/></title>
 
     <style type="text/css" media="print">
@@ -1911,7 +1912,7 @@ and other liscences (MIT, LGPL etc) as indicated
 
 
 <!-- this form  used for injecting html in to Edit E-Form  efmformmanageredit -->
-<form method="post" action="efmformmanageredit" id="toSave">
+<form method="post" action="<%=request.getContextPath()%>/eform/efmformmanageredit" id="toSave">
     <input type="hidden" name="formHtmlName" id="formHtmlName"/>
     <input type="hidden" name="formHtmlG" id="formHtmlG"/>
 </form>

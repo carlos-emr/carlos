@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -96,8 +96,8 @@ public class GenerateRaSummaryViewModelAssembler {
         GenerateRaSummaryViewModel.Builder b = GenerateRaSummaryViewModel.builder().raNo(nullToEmpty(raNoStr));
         if (raNo == null) {
             if (raNoStr != null && !raNoStr.trim().isEmpty()) {
-                MiscUtils.getLogger().warn("GenerateRaSummary: invalid RA number [{}]",
-                        LogSanitizer.sanitize(raNoStr));
+                MiscUtils.getLogger().warn("GenerateRaSummary: invalid RA number [{}]", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                        LogSafe.sanitize(raNoStr));
                 b.raFileIncomplete(true)
                         .raFileWarning("Invalid RA number; no RA summary file was loaded.");
             }
@@ -277,8 +277,8 @@ public class GenerateRaSummaryViewModelAssembler {
         try {
             return Integer.parseInt(s);
         } catch (NumberFormatException | NullPointerException e) {
-            MiscUtils.getLogger().warn("GenerateRaSummary: invalid integer [{}]; using 0",
-                    LogSanitizer.sanitize(s), e);
+            MiscUtils.getLogger().warn("GenerateRaSummary: invalid integer [{}]; using 0", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(s), e);
             return 0;
         }
     }

@@ -28,7 +28,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Immutable Ontario billing money value with CAD currency invariants,
@@ -71,12 +71,12 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         if (trimmed.startsWith("-")) {
             throw new BillingValidationException(
                     "BillingMoney: " + fieldName + " cannot be negative ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         if (!trimmed.matches("\\d+")) {
             throw new BillingValidationException(
                     "BillingMoney: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         BigDecimal cents = new BigDecimal(trimmed);
         return cad(cents.movePointLeft(MONEY_SCALE));
@@ -244,12 +244,12 @@ public record BillingMoney(BigDecimal amount, Currency currency) implements Comp
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
                     "BillingMoney: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
         if (value.signum() < 0) {
             throw new BillingValidationException(
                     "BillingMoney: " + fieldName + " cannot be negative ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         return value;
     }

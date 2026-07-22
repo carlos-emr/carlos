@@ -61,7 +61,6 @@ public class OscarUsernameTokenValidator extends UsernameTokenValidator {
     @Override
     protected void verifyPlaintextPassword(UsernameToken usernameToken, RequestData data) throws WSSecurityException {
         logger.debug("userIdString=" + usernameToken.getName());
-        logger.debug("password=" + usernameToken.getPassword());
 
         try {
             Integer securityUserId = Integer.parseInt(usernameToken.getName());

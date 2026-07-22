@@ -62,6 +62,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>JSP Page</title>
     <style type="text/css">
         a:hover {

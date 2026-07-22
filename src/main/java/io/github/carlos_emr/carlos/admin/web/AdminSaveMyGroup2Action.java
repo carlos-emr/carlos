@@ -30,11 +30,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Security gate for the Admin Save My Group page.
  *
- * <p>Requires {@code _admin.misc} write privilege.
+ * <p>Requires {@code _admin.schedule.groupCreate} write privilege.
  * POST method is enforced; non-POST requests receive HTTP 405.
  * All group save logic is handled by the JSP.</p>
  *
@@ -44,6 +45,8 @@ public class AdminSaveMyGroup2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -51,8 +54,8 @@ public class AdminSaveMyGroup2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin.misc)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.schedule.groupCreate", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.schedule.groupCreate)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

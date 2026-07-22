@@ -27,7 +27,7 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.InrBillingUpdateViewModel;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -96,7 +96,7 @@ public class InrBillingUpdateViewModelAssembler {
             return Integer.parseInt(raw);
         } catch (NumberFormatException nfe) {
             throw new NumberFormatException("invalid " + fieldName + " ["
-                    + LogSanitizer.sanitize(raw) + "]");
+                    + LogSafe.sanitize(raw) + "]");
         }
     }
 }

@@ -47,6 +47,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title></title>
 </head>
@@ -55,6 +56,8 @@
 <%@ page import="io.github.carlos_emr.*,java.text.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.BillingItemBean" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <jsp:useBean id="billing" scope="session" class="io.github.carlos_emr.BillingBean"/>
 <jsp:useBean id="billingItem" scope="page" class="io.github.carlos_emr.BillingItemBean"/>
 <jsp:useBean id="billingDataBean" class="io.github.carlos_emr.BillingDataBean"

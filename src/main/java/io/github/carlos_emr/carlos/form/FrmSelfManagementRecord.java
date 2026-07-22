@@ -40,83 +40,84 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmSelfManagementRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID)
             throws SQLException {
         Properties props = new Properties();
 
-
-        ResultSet rs;
         String sql;
 
         if (existingID <= 0) {
             sql = "SELECT demographic_no, sex, year_of_birth, month_of_birth, date_of_birth, phone FROM demographic WHERE demographic_no = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
-            if (rs.next()) {
-                java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
-                props.setProperty(
-                        "demographic_no",
-                        Misc.getString(rs, "demographic_no"));
-                props.setProperty(
-                        "formCreated",
-                        UtilDateUtilities.DateToString(
-                                new Date(),
-                                _dateFormat));
-                props.setProperty("dob", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
-                props.setProperty("sex", Misc.getString(rs, "sex"));
-                props.setProperty("phone", Misc.getString(rs, "phone"));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
+                    props.setProperty(
+                            "demographic_no",
+                            Misc.getString(rs, "demographic_no"));
+                    props.setProperty(
+                            "formCreated",
+                            UtilDateUtilities.DateToString(
+                                    new Date(),
+                                    _dateFormat));
+                    props.setProperty("dob", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
+                    props.setProperty("sex", Misc.getString(rs, "sex"));
+                    props.setProperty("phone", Misc.getString(rs, "phone"));
+                }
             }
-            rs.close();
             sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
-            if (rs.next()) {
-                props.setProperty("studyID", Misc.getString(rs, "studyID"));
-            } else {
-                props.setProperty("studyID", "N/A");
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    props.setProperty("studyID", Misc.getString(rs, "studyID"));
+                } else {
+                    props.setProperty("studyID", "N/A");
+                }
             }
-            rs.close();
         } else {
             sql =
                     "SELECT * FROM formSelfManagement WHERE demographic_no = ? AND ID = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID)) {
 
-            if (rs.next()) {
-                MiscUtils.getLogger().debug("getting metaData");
-                ResultSetMetaData md = rs.getMetaData();
+                if (rs.next()) {
+                    MiscUtils.getLogger().debug("getting metaData");
+                    ResultSetMetaData md = rs.getMetaData();
 
-                for (int i = 1; i <= md.getColumnCount(); i++) {
-                    String name = md.getColumnName(i);
+                    for (int i = 1; i <= md.getColumnCount(); i++) {
+                        String name = md.getColumnName(i);
 
-                    String value;
-                    MiscUtils.getLogger().debug(" name = " + name + " type = " + md.getColumnTypeName(i) + " scale = " + md.getScale(i));
-                    if (md.getColumnTypeName(i).equalsIgnoreCase("TINY")) {
+                        String value;
+                        MiscUtils.getLogger().debug(" name = " + name + " type = " + md.getColumnTypeName(i) + " scale = " + md.getScale(i));
+                        if (md.getColumnTypeName(i).equalsIgnoreCase("TINY")) {
 
-                        if (rs.getInt(i) == 1) {
-                            value = "checked='checked'";
-                            MiscUtils.getLogger().debug("checking " + name);
+                            if (rs.getInt(i) == 1) {
+                                value = "checked='checked'";
+                                MiscUtils.getLogger().debug("checking " + name);
+                            } else {
+                                value = "";
+                                MiscUtils.getLogger().debug("not checking " + name);
+                            }
                         } else {
-                            value = "";
-                            MiscUtils.getLogger().debug("not checking " + name);
+                            if (md.getColumnTypeName(i).equalsIgnoreCase("date")) {
+                                value = UtilDateUtilities.DateToString(rs.getDate(i), "yyyy/MM/dd");
+                            } else {
+                                value = Misc.getString(rs, i);
+                            }
                         }
-                    } else {
-                        if (md.getColumnTypeName(i).equalsIgnoreCase("date")) {
-                            value = UtilDateUtilities.DateToString(rs.getDate(i), "yyyy/MM/dd");
-                        } else {
-                            value = Misc.getString(rs, i);
-                        }
-                    }
 
-                    if (value != null) {
-                        props.setProperty(name, value);
+                        if (value != null) {
+                            props.setProperty(name, value);
+                        }
                     }
                 }
             }
-            rs.close();
         }
         return props;
     }

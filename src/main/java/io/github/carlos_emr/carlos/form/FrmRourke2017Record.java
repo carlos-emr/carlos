@@ -66,6 +66,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPrint {
     private final Logger logger = LoggerFactory.getLogger(FrmRourke2017Record.class);
@@ -170,6 +171,8 @@ public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPri
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isFemale(LoggedInInfo loggedInInfo, int demoNo) {
         boolean retval = false;
         Demographic demo = demographicManager.getDemographic(loggedInInfo, demoNo);

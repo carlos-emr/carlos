@@ -53,6 +53,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="AddReaction.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -95,7 +96,7 @@
                     onsetOfReaction = a.getOnsetOfReaction() != null ? a.getOnsetOfReaction() : "";
                     nonDrug = a.isNonDrug();
                 }
-                if (a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
+                if (a != null && a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
             } else {
                 if (nkdaId != null) allergyToArchive = nkdaId;
             }

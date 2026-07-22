@@ -40,18 +40,17 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * JSP performed inline. Add/Edit/Delete writes are handled by the action and
  * passed in as a typed mutation result before rendering.
  *
- * <p>HTML fragments emitted in the legacy {@code msg} contained {@code
- * <font color='red'>...</font>} markup; those have been preserved as-is
- * so the rendered text matches byte-for-byte. The JSP outputs the message
- * with {@code escapeXml="false"} to honour that intentional inline markup.</p>
- *
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Service
 public class BillingOnFavouriteViewModelAssembler {
 
-    private static final String SUFFIX_TYPE_TO_SEARCH =
-            "Type in a name and search first to see if it is available.";
+    private static final String KEY_TYPE_TO_SEARCH = "billing.billingOnFavourite.msgTypeToSearch";
+    private static final String KEY_PLEASE_TYPE_NAME = "billing.billingOnFavourite.msgPleaseTypeName";
+    private static final String KEY_CAN_EDIT = "billing.billingOnFavourite.msgCanEdit";
+    private static final String KEY_IS_NEW_NAME = "billing.billingOnFavourite.msgIsNewName";
+    private static final String LEVEL_INFO = "info";
+    private static final String LEVEL_WARNING = "warning";
 
     private final BillingOnLookupService lookupService;
 
@@ -69,17 +68,23 @@ public class BillingOnFavouriteViewModelAssembler {
     public BillingOnFavouriteViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo,
                                                 BillingOnLookupService.FavouriteMutationResult mutationResult) {
         Map<String, String> formFields = new HashMap<>();
-        String msg = SUFFIX_TYPE_TO_SEARCH;
+        String messageKey = KEY_TYPE_TO_SEARCH;
+        String messageName = null;
+        String messageLevel = LEVEL_INFO;
         String action = "search";
 
         String submit = request.getParameter("submit");
         if (mutationResult != null) {
-            msg = mutationResult.message();
+            messageKey = mutationResult.messageKey();
+            messageName = mutationResult.messageName();
+            messageLevel = mutationResult.messageLevel();
             action = mutationResult.action();
             formFields.putAll(mutationResult.formFields());
         } else if ("Search".equals(submit)) {
             FormResult r = handleSearch(request, lookupService, formFields);
-            msg = r.msg;
+            messageKey = r.messageKey;
+            messageName = r.messageName;
+            messageLevel = r.messageLevel;
             action = r.action;
         }
 
@@ -94,7 +99,9 @@ public class BillingOnFavouriteViewModelAssembler {
         }
 
         return BillingOnFavouriteViewModel.builder()
-                .message(msg)
+                .messageKey(messageKey)
+                .messageName(messageName)
+                .messageLevel(messageLevel)
                 .action(action)
                 .names(nameList)
                 .formFields(formFields)
@@ -105,7 +112,7 @@ public class BillingOnFavouriteViewModelAssembler {
     private FormResult handleSearch(HttpServletRequest request, BillingOnLookupService lookupService,
                                     Map<String, String> formFields) {
         if (request.getParameter("name") == null) {
-            return new FormResult("Please type in a right name.", "search");
+            return new FormResult(KEY_PLEASE_TYPE_NAME, null, LEVEL_WARNING, "search");
         }
         String name = request.getParameter("name");
         @SuppressWarnings("rawtypes")
@@ -132,11 +139,11 @@ public class BillingOnFavouriteViewModelAssembler {
                     }
                 }
             }
-            return new FormResult("You can edit the name.", "edit" + name);
+            return new FormResult(KEY_CAN_EDIT, null, LEVEL_INFO, "edit" + name);
         }
         formFields.put("name", name);
-        return new FormResult("It is a NEW name. You can add it.", "add" + name);
+        return new FormResult(KEY_IS_NEW_NAME, null, LEVEL_INFO, "add" + name);
     }
 
-    private record FormResult(String msg, String action) { }
+    private record FormResult(String messageKey, String messageName, String messageLevel, String action) { }
 }

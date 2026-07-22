@@ -56,7 +56,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.GstSettingsService" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.GstReport" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -161,6 +161,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key='billing.billingCorrection.title'/></title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css"
           title="win2k-cold-1"/>
@@ -227,10 +228,10 @@
 
         function ScriptAttach(elementName) {
             var d = elementName;
-            t0 = escape(document.forms['reprocessBilling'].elements[d].value);
-            t1 = escape("");
-            t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingDigNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElement=' + d + '&formName=reprocessBilling', 820, 660, 1);
+            var t0 = encodeURIComponent(document.forms['reprocessBilling'].elements[d].value);
+            var t1 = encodeURIComponent("");
+            var t2 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingDigNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElement=' + encodeURIComponent(d) + '&formName=reprocessBilling', 820, 660, 1);
             awnd.focus();
         }
 
@@ -238,26 +239,26 @@
             var code = codeElementName;
             var form = formName;
             var price = priceElementName;
-            t0 = escape(document.forms[form].elements[code].value);
-            t1 = escape("");
-            t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingGetPriceCode"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElementCode=' + t0 + '&formName=' + form + '&formElementPrice=' + price + '&formNothing=blank', 820, 660, 1);
+            var t0 = encodeURIComponent(document.forms[form].elements[code].value);
+            var t1 = encodeURIComponent("");
+            var t2 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingGetPriceCode" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formElementCode=' + t0 + '&formName=' + encodeURIComponent(form) + '&formElementPrice=' + encodeURIComponent(price) + '&formNothing=blank', 820, 660, 1);
             awnd.focus();
         }
 
         function OtherScriptAttach() {
-            t0 = escape(document.forms['reprocessBilling'].service_code.value);
-            t1 = escape("");
-            t2 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formName=reprocessBilling&formElement=service_code', 820, 660, 1);
+            var t0 = encodeURIComponent(document.forms['reprocessBilling'].service_code.value);
+            var t1 = encodeURIComponent("");
+            var t2 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=&formName=reprocessBilling&formElement=service_code', 820, 660, 1);
             awnd.focus();
         }
 
         function ReferralScriptAttach(elementName) {
             var d = elementName;
-            t0 = escape(document.forms['reprocessBilling'].elements[d].value);
-            t1 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=reprocessBilling', 600, 600, 1);
+            var t0 = encodeURIComponent(document.forms['reprocessBilling'].elements[d].value);
+            var t1 = encodeURIComponent("");
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + encodeURIComponent(d) + '&formName=reprocessBilling', 600, 600, 1);
             awnd.focus();
         }
 
@@ -355,7 +356,13 @@
             var serviceDate = document.getElementById('serviceDate').value;
             var str = document.forms[form].elements[field].value;
             var providerNo = document.getElementById('providerNo').value;
-            var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem"/>' + '?form=' + form + '&field=' + field + '&feeField=billingAmount&corrections=1&searchStr=' + str + '&serviceDate=' + serviceDate + '&providerNo=' + providerNo;
+            var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem" context="javaScriptBlock"/>'
+                + '?form=' + encodeURIComponent(form)
+                + '&field=' + encodeURIComponent(field)
+                + '&feeField=billingAmount&corrections=1'
+                + '&searchStr=' + encodeURIComponent(str)
+                + '&serviceDate=' + encodeURIComponent(serviceDate)
+                + '&providerNo=' + encodeURIComponent(providerNo);
             var windowName = field;
             popup(height, width, url, windowName);
         }
@@ -534,7 +541,7 @@
     }
 
 %>
-<form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
+<form name="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
     <input type="hidden" name="update_date" value="<carlos:encode value='<%= UpdateDate %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="demoNo" value="<carlos:encode value='<%= DemoNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="billNumber" value="<carlos:encode value='<%= allFields.getProperty("billingNo", "") %>' context="htmlAttribute"/>"/>

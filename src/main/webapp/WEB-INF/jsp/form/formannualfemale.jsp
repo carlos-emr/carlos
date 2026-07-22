@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key='encounter.formFemaleAnnual.title'/></title>
         <link rel="stylesheet" type="text/css" href="annualStyle.css">

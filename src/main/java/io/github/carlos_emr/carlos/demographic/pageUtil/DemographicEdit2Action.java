@@ -65,7 +65,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -75,6 +75,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that loads all data needed by the demographic edit page
@@ -98,6 +99,8 @@ public class DemographicEdit2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -123,13 +126,19 @@ public class DemographicEdit2Action extends ActionSupport {
             addActionError("demographic_no is required");
             return ERROR;
         }
+        String trimmedDemographicNo = demographic_no.trim();
         try {
-            Integer.parseInt(demographic_no.trim());
+            Integer.parseInt(trimmedDemographicNo);
         } catch (NumberFormatException e) {
-            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", LogSanitizer.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'",
+                    LogSafe.sanitize(trimmedDemographicNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        demographic_no = trimmedDemographicNo;
 
         CarlosProperties oscarProps = CarlosProperties.getInstance();
         String prov = StringUtils.trimToEmpty(oscarProps.getProperty("billregion", "")).toUpperCase();
@@ -139,7 +148,7 @@ public class DemographicEdit2Action extends ActionSupport {
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         Demographic demographic = demographicDao.getDemographic(demographic_no);
         if (demographic == null) {
-            logger.warn("DemographicEdit2Action: demographic_no={} not found", LogSanitizer.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.warn("DemographicEdit2Action: demographic_no={} not found", LogSafe.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             addActionError("Patient record not found for demographic_no: " + demographic_no);
             return ERROR;
         }

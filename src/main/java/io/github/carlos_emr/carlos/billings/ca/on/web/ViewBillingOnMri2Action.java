@@ -21,16 +21,24 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 
 /**
  * View gate for {@code billing/CA/ON/billingONMRI.jsp}, the "Generate OHIP
@@ -45,6 +53,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewMode
  * @since 2026-04-13
  */
 public class ViewBillingOnMri2Action extends ActionSupport {
+    private static final Logger LOGGER = MiscUtils.getLogger();
+
     private final SecurityInfoManager securityInfoManager;
     private final BillingOnMriViewModelAssembler billingONMRIAssembler;
     public ViewBillingOnMri2Action(SecurityInfoManager securityInfoManager,
@@ -56,19 +66,50 @@ public class ViewBillingOnMri2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
         // dereferences loggedInInfo and emits an internal ERROR log on null, which
         // pollutes the log signal for real privilege denials.
         if (loggedInInfo == null) {
-            throw new SecurityException("missing session");
+            try {
+                UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+            } catch (IOException e) {
+                LOGGER.warn(
+                        "Unable to reject unauthenticated billing MRI request: method={}, uri={}, remote={}",
+                        LogSafe.sanitize(request.getMethod()),
+                        LogSafe.sanitizeUri(request.getRequestURI()),
+                        LogSafe.sanitize(request.getRemoteAddr()),
+                        e);
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } else {
+                    LOGGER.error(
+                            "Unable to reject unauthenticated billing MRI request after response commit: "
+                                    + "method={}, uri={}, remote={}",
+                            LogSafe.sanitize(request.getMethod()),
+                            LogSafe.sanitizeUri(request.getRequestURI()),
+                            LogSafe.sanitize(request.getRemoteAddr()),
+                            e);
+                }
+            }
+            return NONE;
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingOnMriViewModel model = billingONMRIAssembler.assemble(request, loggedInInfo);
+        BillingOnMriViewModel model;
+        try {
+            model = billingONMRIAssembler.assemble(request, loggedInInfo);
+        } catch (SecurityException | BillingDataLoadException e) {
+            // Preserve security failures and already-classified load failures so Struts and the
+            // error page keep their established audit and user-facing contracts.
+            throw e;
+        } catch (RuntimeException e) {
+            throw new BillingDataLoadException("Failed to load OHIP report view model", e);
+        }
         request.setAttribute("mriModel", model);
 
         // Replicates the legacy session-attribute the JSP scriptlet set so the

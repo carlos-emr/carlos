@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.appointment.search.AppointmentType;
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.appointment.search.Provider;
 import io.github.carlos_emr.carlos.appointment.search.filters.AvailableTimeSlotFilter;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -157,7 +157,7 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                     for (FilterDefinition className : filterClassNames) {
                         String filterClassName = className.getFilterClassName();
                         if (!FilterRegistry.isKnown(filterClassName)) {
-                            String sanitizedName = LogSanitizer.sanitize(filterClassName);
+                            String sanitizedName = LogSafe.sanitize(filterClassName);
                             logger.error("Unknown AvailableTimeSlotFilter key in search configuration: {}",
                                     sanitizedName);
                             throw new AppointmentSearchManager.AppointmentSearchException(

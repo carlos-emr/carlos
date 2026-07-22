@@ -26,9 +26,11 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.tickler.TicklerUnitTestBase;
 
+import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.*;
@@ -116,14 +118,17 @@ public class TicklerDaoUnitTest extends TicklerUnitTestBase {
 
     @Test
     @DisplayName("should eagerly load tickler updates when finding by ID")
-    void shouldEagerlyLoadUpdates_whenFindingById() {
+    void shouldEagerlyLoadUpdates_whenFindingById(@Mock TypedQuery<Tickler> mockTypedQuery) {
         // Given
         Integer ticklerId = 789;
         Tickler mockTickler = mock(Tickler.class);
         Set<TicklerUpdate> mockUpdates = new HashSet<>();
         mockUpdates.add(new TicklerUpdate());
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
 
-        when(mockEntityManager.find(Tickler.class, ticklerId)).thenReturn(mockTickler);
+        when(mockEntityManager.createQuery(queryCaptor.capture(), eq(Tickler.class))).thenReturn(mockTypedQuery);
+        when(mockTypedQuery.setParameter("id", ticklerId)).thenReturn(mockTypedQuery);
+        when(mockTypedQuery.getResultList()).thenReturn(List.of(mockTickler));
         when(mockTickler.getUpdates()).thenReturn(mockUpdates);
 
         // When
@@ -131,6 +136,11 @@ public class TicklerDaoUnitTest extends TicklerUnitTestBase {
 
         // Then - Verify eager loading pattern
         assertThat(result).isEqualTo(mockTickler);
+        assertThat(queryCaptor.getValue())
+            .contains("left join fetch t.comments")
+            .contains("left join fetch t.demographic")
+            .contains("where t.id = :id")
+            .doesNotContain("left join fetch t.updates");
         verify(mockTickler).getUpdates();
         // The DAO calls .size() to force eager loading
         assertThat(mockUpdates.size()).isEqualTo(1);

@@ -47,10 +47,12 @@
 
 
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.admin.manageCodeStyles"/></title>
     <meta charset="UTF-8">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -272,7 +274,7 @@
             <select name="selectedStyle" id="style">
                 <option value="-1"><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                 <c:forEach items="${styles}" var="style">
-                    <option value="${style.style}">${style.name}</option>
+                    <option value="${carlos:forHtmlAttribute(style.style)}">${carlos:forHtml(style.name)}</option>
                 </c:forEach>
             </select>
 

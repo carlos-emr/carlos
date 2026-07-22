@@ -30,6 +30,9 @@ package io.github.carlos_emr.carlos.PMmodule.model;
 import java.io.Serializable;
 import java.util.Date;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "programSignature")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ProgramSignature implements Serializable {
     public Integer id;
     public Integer programId;
@@ -43,6 +46,7 @@ public class ProgramSignature implements Serializable {
     public ProgramSignature() {
 
     }
+    @jakarta.persistence.Column(name = "caisiRoleName", length = 255)
 
     public String getCaisiRoleName() {
         return caisiRoleName;
@@ -51,6 +55,11 @@ public class ProgramSignature implements Serializable {
     public void setCaisiRoleName(String caisiRoleName) {
         this.caisiRoleName = caisiRoleName;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "id")
 
     public Integer getId() {
         return id;
@@ -59,6 +68,7 @@ public class ProgramSignature implements Serializable {
     public void setId(Integer id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "programId", nullable = false)
 
     public Integer getProgramId() {
         return programId;
@@ -67,6 +77,7 @@ public class ProgramSignature implements Serializable {
     public void setProgramId(Integer programId) {
         this.programId = programId;
     }
+    @jakarta.persistence.Column(name = "programName", length = 70, nullable = false)
 
     public String getProgramName() {
         return programName;
@@ -75,6 +86,7 @@ public class ProgramSignature implements Serializable {
     public void setProgramName(String programName) {
         this.programName = programName;
     }
+    @jakarta.persistence.Column(name = "providerId", length = 6, nullable = false)
 
     public String getProviderId() {
         return providerId;
@@ -83,6 +95,7 @@ public class ProgramSignature implements Serializable {
     public void setProviderId(String providerId) {
         this.providerId = providerId;
     }
+    @jakarta.persistence.Column(name = "providerName", length = 60, nullable = false)
 
     public String getProviderName() {
         return providerName;
@@ -91,6 +104,9 @@ public class ProgramSignature implements Serializable {
     public void setProviderName(String providerName) {
         this.providerName = providerName;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+
+    @jakarta.persistence.Column(name = "updateDate")
 
     public java.util.Date getUpdateDate() {
         return updateDate;

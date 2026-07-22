@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -56,7 +56,7 @@ public final class BillingOnHistoryBalanceService {
             if (bCh1 == null || bCh1.getTotal() == null) {
                 MiscUtils.getLogger().warn(
                         "BillingOnHistory: bill id [{}] has no claim header total; rendering partial balance=0.00",
-                        LogSanitizer.sanitize(billingId));
+                        LogSafe.sanitize(billingId));
                 return new BillingOnHistoryBalanceCalculator.Result(BigDecimal.ZERO.setScale(2), true);
             }
             BigDecimal sumOfPay = BigDecimal.ZERO;
@@ -74,7 +74,7 @@ public final class BillingOnHistoryBalanceService {
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().warn(
                     "BillingOnHistory: bill id [{}] is not numeric; rendering balance=0.00",
-                    LogSanitizer.sanitize(billingId), e);
+                    LogSafe.sanitize(billingId), e);
             return new BillingOnHistoryBalanceCalculator.Result(BigDecimal.ZERO.setScale(2), true);
         }
     }

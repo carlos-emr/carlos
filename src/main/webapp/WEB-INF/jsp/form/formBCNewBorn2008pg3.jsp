@@ -92,6 +92,7 @@
     <% response.setHeader("Cache-Control", "no-cache");%>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <title><fmt:message key='form.bcnewborn.title2008Page3'/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>

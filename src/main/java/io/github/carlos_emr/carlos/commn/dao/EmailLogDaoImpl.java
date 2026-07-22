@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -57,8 +58,8 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      *
      * <p>This method executes a complex JPQL query joining EmailLog with related entities
      * (EmailConfig, Demographic, Provider) to provide comprehensive filtering capabilities.
-     * Filter parameters use IFNULL semantics, meaning null values are treated as wildcards
-     * that match all records for that criterion.</p>
+     * Optional filter parameters treat null, blank, and invalid demographic/status values as
+     * wildcards that match all records for that criterion.</p>
      *
      * <p>Primary use case: Administrative email management interface at
      * 'Admin > Emails > Manage Emails' for troubleshooting failed deliveries,
@@ -75,31 +76,59 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      *
      * @param dateBegin Date the start date for filtering email logs (required, matches DATE portion only)
      * @param dateEnd Date the end date for filtering email logs (required, matches DATE portion only)
-     * @param demographicNo String the demographic number for filtering by patient (null matches all)
+     * @param demographicNo String the demographic number for filtering by patient (null, blank, or invalid matches all)
      * @param senderEmailAddress String the sender email address for filtering (null matches all)
-     * @param emailStatus String the email status for filtering (SUCCESS/FAILED/RESOLVED, null matches all)
+     * @param emailStatus String the email status for filtering (SUCCESS/FAILED/RESOLVED; null, blank, or invalid matches all)
      * @return List&lt;EmailLog&gt; list of email logs matching the specified filters, ordered by timestamp descending;
      *         empty list if no matches found
      */
     @Override
     @SuppressWarnings("unchecked")
     public List<EmailLog> getEmailStatusByDateDemographicSenderStatus(Date dateBegin, Date dateEnd, String demographicNo, String senderEmailAddress, String emailStatus) {
-        String hql = "SELECT el FROM EmailLog el JOIN el.emailConfig ec JOIN el.demographic d JOIN el.provider p " +
+        String hql = "SELECT el FROM EmailLog el LEFT JOIN el.emailConfig ec LEFT JOIN el.demographic d LEFT JOIN el.provider p " +
                 "WHERE 1=1 " +
-                "AND el.demographic.DemographicNo = IFNULL(?1, el.demographic.DemographicNo) " +
-                "AND el.status = IFNULL(?2, el.status) " +
-                "AND el.fromEmail = IFNULL(?3, el.fromEmail) " +
-                "AND DATE(el.timestamp) BETWEEN DATE(?4) AND DATE(?5) " +
+                "AND (?1 IS NULL OR d.demographicNo = ?1) " +
+                "AND (?2 IS NULL OR el.status = ?2) " +
+                "AND (?3 IS NULL OR el.fromEmail = ?3) " +
+                "AND el.timestamp >= ?4 AND el.timestamp < ?5 " +
                 "ORDER BY el.timestamp DESC";
 
+        Date startDate = org.apache.commons.lang3.time.DateUtils.truncate(dateBegin, Calendar.DAY_OF_MONTH);
+        Date exclusiveEndDate = org.apache.commons.lang3.time.DateUtils.addDays(
+                org.apache.commons.lang3.time.DateUtils.truncate(dateEnd, Calendar.DAY_OF_MONTH), 1);
+        Integer demographicId = parseDemographicNo(demographicNo);
+        EmailLog.EmailStatus status = parseEmailStatus(emailStatus);
+
         Query query = entityManager.createQuery(hql);
-        query.setParameter(4, dateBegin);
-        query.setParameter(5, dateEnd);
-        query.setParameter(1, demographicNo);
-        query.setParameter(2, emailStatus);
+        query.setParameter(1, demographicId);
+        query.setParameter(2, status);
         query.setParameter(3, senderEmailAddress);
+        query.setParameter(4, startDate);
+        query.setParameter(5, exclusiveEndDate);
 
         return query.getResultList();
+    }
+
+    private Integer parseDemographicNo(String demographicNo) {
+        if (demographicNo == null || demographicNo.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(demographicNo.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private EmailLog.EmailStatus parseEmailStatus(String emailStatus) {
+        if (emailStatus == null || emailStatus.isBlank()) {
+            return null;
+        }
+        try {
+            return EmailLog.EmailStatus.valueOf(emailStatus.trim());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**

@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -111,7 +112,7 @@ public class AssignTickler2Action extends ActionSupport {
         }
 
         try {
-            response.getWriter().write(jsonObject.toString());
+            JsonResponseWriter.write(response, jsonObject);
         } catch (IOException e) {
             MiscUtils.getLogger().error("JSON response failed", e);
             return "error";

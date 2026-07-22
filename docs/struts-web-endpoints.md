@@ -11,7 +11,7 @@ This is the default pattern for login pages, forms, eForms, provider views, and 
 - Struts actions are extensionless. Use `/login`, `/index`, `/form/setupSelect`, `/eform/efmshowform_data`, not `.do`.
 - Public JSPs are not the endpoint contract. JSPs under `WEB-INF` are internal views only.
 - `struts.xml` is the parent config. Add new actions to the appropriate `struts-*.xml` module file, not to the parent file.
-- The root app path is handled by `RootEntryRedirectFilter`, which forwards `/context/` to the public `index` action. Users should not need to browse to `/index` directly.
+- The root app path is handled by `RootEntryRedirectFilter`, which forwards `/context/` and `/index` directly to the internal login JSP before Struts executes. Users should not need to browse to `/index` directly.
 - Struts request processing in `web.xml` is split into `StrutsPrepareFilter` and `StrutsExecuteFilter`, with `LoggedInUserFilter` between them to rebuild authenticated request context before action execution.
 - Migrated section-home pages that used to rely on public `index.jsp` resolution may need a small allowlisted compatibility filter to preserve clean directory URLs such as `/administration/`.
 

@@ -26,7 +26,7 @@
     Contains action mappings for internal messaging, message composition, attachments, group administration, and demographic messaging.
 -->
 <struts>
-    <package name="messenger" namespace="/" extends="struts-default">
+    <package name="messenger" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
             <result name="success">/messenger/ViewMessage</result>

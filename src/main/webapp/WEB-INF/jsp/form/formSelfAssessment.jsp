@@ -86,6 +86,7 @@
     <% response.setHeader("Cache-Control", "no-cache");%>
 
     <HEAD>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
 
         <TITLE><fmt:message key="form.selfAssessment.title"/></TITLE>

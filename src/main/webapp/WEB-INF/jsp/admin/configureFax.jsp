@@ -96,6 +96,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.configureFax.title"/></title>
 
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -372,7 +373,7 @@
 
 
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <div class="container-fluid fax-page">
     <form id="configFrm" method="post">
         <input type="hidden" name="method" value="configure"/>

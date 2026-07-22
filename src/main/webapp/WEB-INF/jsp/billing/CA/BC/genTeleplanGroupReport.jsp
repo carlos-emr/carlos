@@ -56,6 +56,8 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.ExtractBean" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     BillActivityDao billActivityDao = SpringUtils.getBean(BillActivityDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

@@ -42,6 +42,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
@@ -100,11 +101,11 @@
                 <c:when test="${ not empty sanitizedFileName }">
                     // Delay redirect so user can see the sanitized filename
                     setTimeout(function() {
-                        window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                        window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
                     }, 2500);
                 </c:when>
                 <c:otherwise>
-                    window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                    window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
                 </c:otherwise>
             </c:choose>
         </script>

@@ -75,6 +75,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="eform.edithtml.msgEditEform"/></title>
 
@@ -111,12 +112,12 @@
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             if (elementExists == null) {
-                window.opener.location.href = '<%=request.getContextPath()%>/administration/?show=Forms';
+                window.location.href = '<%=request.getContextPath()%>/eform/efmformmanager';
             }
             <%}%>
         </script>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<%@ include file="eformBootstrapScript.jspf" %>
 
     </head>
 

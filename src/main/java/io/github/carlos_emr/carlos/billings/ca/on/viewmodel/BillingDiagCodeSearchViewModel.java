@@ -29,7 +29,7 @@ import java.util.List;
  * (ICD-9) search popup.
  *
  * <p>Captures the search-result rows + auto-select state. Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler#assemble}.
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler}.
  * The legacy JSP scriptlet ran a complex code-vs-text dispatcher;
  * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler}
  * encapsulates that decision and produces a flat row list here.</p>

@@ -33,6 +33,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <fmt:setBundle basename="oscarResources"/>
     <title><fmt:message key="encounter.billing.title"/></title>

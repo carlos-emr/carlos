@@ -46,8 +46,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 import io.github.carlos_emr.carlos.model.FieldDefValue;
@@ -61,6 +61,7 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.query.NativeQuery;
 import org.hibernate.type.StandardBasicTypes;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Transactional
 public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
@@ -93,6 +94,8 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         return lkv;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List LoadCodeList(String tableId, boolean activeOnly, String parentCode, String code, String codeDesc) {
         String pCd = parentCode;
@@ -438,6 +441,8 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         return String.join("", "select max(", idFieldName, ") from ", tableName);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String SaveCodeValue(boolean isNew, LookupTableDefValue tableDef, List fieldDefList) throws SQLException {
         String id = "";
@@ -797,8 +802,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
 
     @Override
     public void runProcedure(String procName, String[] params) throws SQLException {
-        DBPreparedHandler db = new DBPreparedHandler();
-        db.procExecute(procName, params);
+        LegacyJdbcQuery.procExecute(procName, params);
     }
 
     @Override
@@ -852,7 +856,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
     /**
      * Binds a {@link DBPreparedHandlerParam} typed value to a JPA {@link Query} at a
      * 1-based position, preserving the type-aware dispatch the legacy
-     * {@code DBPreparedHandler} performed (String / int / Date / Timestamp).
+     * prepared-query binding performed (String / int / Date / Timestamp).
      *
      * @param query the JPA query to bind on
      * @param position 1-based positional parameter index

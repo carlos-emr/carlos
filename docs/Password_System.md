@@ -22,6 +22,10 @@ CARLOS maintains backward compatibility with legacy SHA hashes:
 - **Format**: Concatenated byte values (e.g., `-51-282443-97-5-9410489-60-1021-45-127-12435464-32`)
 - **Usage**: Existing passwords only, automatically upgraded when user logs in
 - **Status**: Deprecated, will be upgraded to BCrypt on next login
+- **Write policy**: New SHA/SHA-1 password hashes must not be created; all new password writes use
+  `PasswordHashHelper`/`EncryptionUtils.hash()` and produce `{bcrypt}` hashes.
+- **Static-analysis handling**: The remaining SHA-1 digest call is intentionally limited to the legacy
+  password verifier and carries FindSecBugs/Semgrep/Sonar suppressions with justification.
 
 ## Database Schema
 
@@ -73,7 +77,7 @@ VALUES (129, 'legacy_user', '-51-282443-97-5-9410489-60-1021-45-127-12435464-32'
 ### Password Validation Flow
 
 ```java
-// Authentication process
+// Illustrative authentication process. See SecurityManager.java for the live implementation.
 public boolean validatePassword(CharSequence rawPassword, Security security) {
     boolean isValid = this.matchesPassword(rawPassword, security.getPassword());
     
@@ -155,6 +159,12 @@ done
 2. **Force Password Reset**:
    - Set `forcePasswordReset = 1` for new accounts
    - Set for temporary/default passwords
+   - Forced reset is a multi-step login flow: the first successful credential check stages an
+     opaque server-side credential-cache token, and the password update POST consumes that token
+     only after old-password, confirmation, complexity, and CSRF validation pass.
+   - Browser JavaScript provides immediate feedback, but direct POSTs are still validated
+     server-side against `password_min_length`, `password_min_groups`, group character sets, and
+     `IGNORE_PASSWORD_REQUIREMENTS`.
 
 3. **PIN Requirements**:
    - Separate PIN for additional security layer
@@ -165,12 +175,22 @@ done
 Password policies can be configured in `carlos.properties`:
 
 ```properties
-# Previous passwords to check (prevent reuse)
-password.pastPasswordsToNotUse=5
+# Password-history policy uses the legacy password.* namespace.
+# Previous passwords to check (prevent reuse); shipped default is 0.
+password.pastPasswordsToNotUse=0
 
-# Password expiration (if enabled)
-password.forcePasswordReset=true
-password.expirationDays=90
+# Forced-reset routing and complexity use legacy underscore-separated keys.
+# Server-side forced password reset gate (enabled by default).
+# Accepted true values are true/yes/on/1; unrecognized values fail secure as enabled.
+mandatory_password_reset=true
+
+# Forced-reset complexity policy
+password_min_length = 8
+password_min_groups = 3
+password_group_lower_chars = abcdefghijklmnopqrstuvwxyz
+password_group_upper_chars = ABCDEFGHIJKLMNOPQRSTUVWXYZ
+password_group_digits = 0123456789
+password_group_special = \! @\#$%^&*()_+|~-\=\\`{}[]\:";'<>?,./
 ```
 
 ## Default Credentials

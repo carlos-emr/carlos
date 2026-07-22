@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.fax.dto.FaxJobParams;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -63,6 +64,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FilenameUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Fax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -91,6 +93,9 @@ public class Fax2Action extends ActionSupport {
         return cancel();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @SuppressWarnings("unused")
     public String cancel() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -98,11 +103,13 @@ public class Fax2Action extends ActionSupport {
 
         if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {
             faxManager.validateFilePath(faxFilePath);
+            if (!faxManager.flush(loggedInInfo, faxFilePath)) {
+                if (logger.isErrorEnabled()) {
+                    logger.error("Failed to clear fax preview cache or temporary file: {}", LogSafe.sanitize(faxFilePath, 1024));
+                }
+                addActionError("Failed to clear fax preview cache. Please try again or contact your system administrator.");
+            }
         }
-        faxManager.flush(loggedInInfo, faxFilePath);
-
-
-
 
         if (TransactionType.CONSULTATION.name().equalsIgnoreCase(transactionType)) {
             try {
@@ -203,6 +210,8 @@ public class Fax2Action extends ActionSupport {
      * This action assumes that the fax has already been produced and reviewed
      * by the user.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String queue() {
 
@@ -346,6 +355,8 @@ public class Fax2Action extends ActionSupport {
      * Prepare a PDF of the given parameters an then return a path to
      * the for the user to review and add a cover page before sending final.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String prepareFax() {
 

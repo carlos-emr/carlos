@@ -33,9 +33,11 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Security gate for the Admin New Group page.
  *
- * <p>Requires {@code _admin.misc} read privilege before forwarding to the JSP.
- * The JSP handles the display form and group member deletion. New group creation
- * POSTs to the separate {@code AdminSaveMyGroup} action endpoint.</p>
+ * <p>Requires {@code _admin.schedule.groupCreate} write privilege before forwarding to the JSP.
+ * Opening this form exposes the create workflow, so it intentionally uses the
+ * same write-scoped object as the save action. The JSP handles the display form
+ * and group member deletion. New group creation POSTs to the separate
+ * {@code AdminSaveMyGroup} action endpoint.</p>
  *
  * @since 2026-04-05
  */
@@ -48,8 +50,8 @@ public class AdminNewGroup2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin.misc)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.schedule.groupCreate", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.schedule.groupCreate)");
         }
 
         return SUCCESS;

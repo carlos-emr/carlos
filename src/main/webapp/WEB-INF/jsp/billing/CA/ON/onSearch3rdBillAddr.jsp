@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>Add/Edit 3rd Bill Address</title>
         <link rel="stylesheet" type="text/css" href="billingON.css"/>

@@ -33,11 +33,10 @@
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logoutPage");
     String curUser_no = (String) session.getAttribute("user");
-  MessageDigest md = MessageDigest.getInstance("SHA");
 %>
 
 <%@ page
-        import="java.lang.*, java.util.*, java.text.*,java.security.*, io.github.carlos_emr.*"
+        import="java.lang.*, java.util.*, java.text.*, io.github.carlos_emr.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -140,6 +139,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key='provider.updatePassword.title'/></title>
     <script language='javascript'>self.close();</script>
 </head>

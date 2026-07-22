@@ -42,6 +42,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
 

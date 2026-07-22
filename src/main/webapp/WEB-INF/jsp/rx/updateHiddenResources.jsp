@@ -30,9 +30,11 @@
 --%>
 
 <%@page import="java.util.*" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String hr = request.getParameter("hiddenResources");
-    if (hr.length() == 0) {
+    if (hr == null || hr.length() == 0) {
         Hashtable ht = new Hashtable();
         session.setAttribute("hideResources", ht);
     }

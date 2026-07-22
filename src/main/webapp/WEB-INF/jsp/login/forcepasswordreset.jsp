@@ -29,20 +29,24 @@
 
 --%>
 
-<%
-    //Make sure user has logged in first and username is in the session
+<%--
+    Forced password reset view.
 
-    if (session.getAttribute("userName") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
+    This JSP provides client-side password policy feedback only. The authoritative policy,
+    old-password check, CSRF validation, and credential-token consumption are enforced
+    by Login2Action on /forcepasswordresetSubmit. Keep this page GET-rendered and avoid adding
+    password-changing scriptlets here.
+--%>
+
+<%
     String errormsg = "";
-    if (request.getParameter("errormsg") != null) {
-        errormsg = request.getParameter("errormsg");
+    if (request.getAttribute("errormsg") != null) {
+        errormsg = String.valueOf(request.getAttribute("errormsg"));
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.springframework.web.util.JavaScriptUtils" %>
 <%@ page
@@ -52,10 +56,24 @@
 
 <%!
     CarlosProperties op = CarlosProperties.getInstance();
+
+    private int passwordPolicyInt(String key, int fallback) {
+        try {
+            return Integer.parseInt(op.getProperty(key, String.valueOf(fallback)).trim());
+        } catch (RuntimeException e) {
+            return fallback;
+        }
+    }
+%>
+
+<%
+    int passwordMinLength = passwordPolicyInt("password_min_length", 8);
+    int passwordMinGroups = passwordPolicyInt("password_min_groups", 3);
 %>
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="provider.providerchangepassword.title"/></title>
 
         <script type="text/javascript">
@@ -89,65 +107,8 @@
 
             function validatePassword(pwd) {
 
-                var password_min_length = <%=op.getProperty("password_min_length")%>;
-                var password_min_groups = <%=op.getProperty("password_min_groups")%>;
-                var password_group_lower_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_lower_chars"))%>";
-                var password_group_upper_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_upper_chars"))%>";
-                var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
-                var password_group_special = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_special"))%>";
-
-                <%
-                if (!Boolean.parseBoolean(op.getProperty("IGNORE_PASSWORD_REQUIREMENTS")))
-                {
-                    %>
-                if (pwd.length < password_min_length) {
-                    alert('<fmt:message key="password.policy.violation.msgPasswordLengthError"/> ' +
-                        password_min_length + ' <fmt:message key="password.policy.violation.msgSymbols"/>');
-                    return false;
-                }
-
-                var lower = false;
-                var upper = false;
-                var digits = false;
-                var special = false;
-
-                for (var i = 0; i < pwd.length; i++) {
-                    var s = pwd.charAt(i);
-
-                    if (!lower && password_group_lower_chars.indexOf(s) > -1) {
-                        lower = true;
-                    }
-
-                    if (!upper && password_group_upper_chars.indexOf(s) > -1) {
-                        upper = true;
-                    }
-
-                    if (!digits && password_group_digits.indexOf(s) > -1) {
-                        digits = true;
-                    }
-
-                    if (!special && password_group_special.indexOf(s) > -1) {
-                        special = true;
-                    }
-                }
-
-                var groups_used = parseInt(lower ? 1 : 0) + parseInt(upper ? 1 : 0) + parseInt(digits ? 1 : 0) + parseInt(special ? 1 : 0);
-                if (groups_used < password_min_groups) {
-                    alert('<fmt:message key="password.policy.violation.msgPasswordStrengthError"/> ' +
-                        password_min_groups + ' <fmt:message key="password.policy.violation.msgPasswordGroups"/>');
-                    return false;
-                }
-                <%
-            }
-            %>
-
-                return true;
-            }
-
-            function validatePassword(pwd) {
-
-                var password_min_length = <%=op.getProperty("password_min_length")%>;
-                var password_min_groups = <%=op.getProperty("password_min_groups")%>;
+                var password_min_length = <%=passwordMinLength%>;
+                var password_min_groups = <%=passwordMinGroups%>;
                 var password_group_lower_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_lower_chars"))%>";
                 var password_group_upper_chars = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_upper_chars"))%>";
                 var password_group_digits = "<%=JavaScriptUtils.javaScriptEscape(op.getProperty("password_group_digits"))%>";
@@ -227,7 +188,7 @@
     </head>
 
     <body onLoad="setfocus('oldPassword')" topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" action="${pageContext.request.contextPath}/login" onsubmit="return checkPwdPolicy();">
+    <form method="post" action="${pageContext.request.contextPath}/forcepasswordresetSubmit" onsubmit="return checkPwdPolicy();">
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#486ebd">
                 <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="provider.providerchangepassword.description"/></font></th>
@@ -255,13 +216,13 @@
                     <td width="50%" align="right"><font face="arial"><fmt:message key="provider.providerchangepassword.msgChooseNew"/> &nbsp; <b><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</b></font></td>
                     <td><input type=password name="newPassword" value="" size=20
                                maxlength=32> <font size="-2">(<fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
+                        <%=passwordMinLength%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
                 </tr>
                 <tr>
                     <td width="50%" align="right"><font face="arial"><fmt:message key="provider.providerchangepassword.msgConfirm"/> &nbsp; <b><fmt:message key="provider.providerchangepassword.formNewPassword"/>:</b></font></td>
                     <td><input type=password name="confirmPassword" value="" size=20
                                maxlength=32> <font size="-2">(<fmt:message key="provider.providerchangepassword.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
+                        <%=passwordMinLength%> <fmt:message key="provider.providerchangepassword.msgSymbols"/>)</font></td>
                 </tr>
             </table>
         </center>
@@ -275,6 +236,7 @@
         </table>
 
         <input type=hidden name='forcedpasswordchange' value='true'/>
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
     </form>
     </body>

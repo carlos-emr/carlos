@@ -123,6 +123,7 @@ if(scope != null && "clinic".equals(scope)) {
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>Update Flowsheet <carlos:encode value='<%= flowsheet %>' context="html"/> <oscar:nameage demographicNo="<%=demographic%>"/></title><!--I18n-->
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">

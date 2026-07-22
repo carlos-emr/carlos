@@ -38,7 +38,11 @@ import javax.sql.rowset.serial.SerialBlob;
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "client_image")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ClientImage extends BaseObject {
     public static final String imageMissingPlaceholderUrl = "/images/defaultR_img.jpg";
     public static final String imagePresentPlaceholderUrl = "/images/default_img.jpg";
@@ -52,6 +56,7 @@ public class ClientImage extends BaseObject {
     public ClientImage() {
         update_date = new Date();
     }
+    @jakarta.persistence.Column(name = "demographic_no")
 
     public int getDemographic_no() {
         return demographic_no;
@@ -60,6 +65,11 @@ public class ClientImage extends BaseObject {
     public void setDemographic_no(int demographic_no) {
         this.demographic_no = demographic_no;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "image_id")
 
     public Long getId() {
         return id;
@@ -68,6 +78,7 @@ public class ClientImage extends BaseObject {
     public void setId(Long id) {
         this.id = id;
     }
+    @jakarta.persistence.Transient
 
     public byte[] getImage_data() {
         return image_data;
@@ -76,6 +87,7 @@ public class ClientImage extends BaseObject {
     public void setImage_data(byte[] image_data) {
         this.image_data = image_data;
     }
+    @jakarta.persistence.Column(name = "image_type")
 
     public String getImage_type() {
         return image_type;
@@ -84,6 +96,8 @@ public class ClientImage extends BaseObject {
     public void setImage_type(String image_type) {
         this.image_type = image_type;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+    @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {
         return update_date;
@@ -100,6 +114,8 @@ public class ClientImage extends BaseObject {
      * @return String the normalized renderable subtype ({@code "jpeg"} or {@code "gif"}),
      *         or {@code null} when the value is unsupported
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getRenderableImageType(String imageType) {
         if (imageType == null) {
             return null;
@@ -118,6 +134,10 @@ public class ClientImage extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+    @jakarta.persistence.Lob
+    @jakarta.persistence.Basic(fetch = jakarta.persistence.FetchType.LAZY)
+
+    @jakarta.persistence.Column(name = "contents")
 
     public Blob getImage_contents() {
         if (image_data == null) {

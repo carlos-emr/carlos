@@ -92,14 +92,14 @@
         eForm = new EForm(fdid);
         eForm.setContextPath(request.getContextPath());
         eForm.setOscarOPEN(request.getRequestURI());
+        eForm.setImagePath(request.getContextPath());
 
         if (fdid != null) {
             eForm.setFdid(fdid);
         }
 
-        // FP for java/Sqli: appointmentNo validated numeric at line 89;
-        // EForm.replaceAllFields additionally sanitizes placeholders at SQL-substitution time.
-        if (appointmentNo != null) eForm.setAppointmentNo(appointmentNo); // lgtm[java/sql-injection]
+        // appointmentNo is validated numeric above and re-validated before binding into DatabaseAP SQL.
+        if (appointmentNo != null) eForm.setAppointmentNo(appointmentNo);
         if (eformLink != null) eForm.setEformLink(eformLink);
 
         String parentAjaxId = request.getParameter("parentAjaxId");
@@ -112,7 +112,7 @@
         eForm = new EForm(fid, "-1"); //form cannot be submitted, demographic_no "-1" indicate this specialty
         eForm.setContextPath(request.getContextPath());
         eForm.setOscarOPEN(request.getRequestURI());
-        eForm.setImagePath();
+        eForm.setImagePath(request.getContextPath());
         eForm.setFdid("");
     }
 
@@ -142,8 +142,9 @@
     eForm.addHiddenInputElement("fid", eForm.getFid());
 
     // Add EForm error message
-    eForm.addHiddenInputElement("error", request.getParameter("error"));
+    eForm.addHiddenInputElement("error", request.getParameter("error") != null ? request.getParameter("error") : (String) request.getAttribute("error"));
     eForm.addHiddenInputElement("errorMessage", (String) request.getAttribute("errorMessage"));
+    eForm.addHiddenInputElement("warningMessage", (String) request.getAttribute("warningMessage"));
 
     // Add EForm properties for handling download operation
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));

@@ -78,6 +78,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>
         <fmt:message key="oscarMDS.index.title"/>
     </title>
@@ -127,7 +128,7 @@
 </head>
 
 <body vlink="#0000FF">
-<jsp:include page="/images/spinner.jsp"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf"/>
 <div id="inbox_wrapper">
     <form name="reassignForm" method="post" action="ReportReassign" id="lab_form">
         <table>
@@ -169,7 +170,7 @@ MDS.index.btnSearch"/>"
                                                      <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
            <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/insideLabUpload')"
+                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/ViewInsideLabUpload')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
                                 <% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
                                 <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/ViewHtml5AddDocuments')"
@@ -395,6 +396,8 @@ MDS.index.btnSearch"/>"
             src="${pageContext.servletContext.contextPath}/js/jquery.tablesorter.widgets.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript"
+            src="${pageContext.servletContext.contextPath}/js/carlosAutocomplete.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>

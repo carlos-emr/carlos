@@ -82,8 +82,9 @@ class WaitingListJspMigrationRegressionTest {
         String jsp = Files.readString(DISPLAY_PATIENT_WAITING_LIST_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("/waitinglist/RemoveFromWaitingList");
-        assertThat(jsp).contains("id=\"csrfForm\"");
-        assertThat(jsp).contains("method=\"post\" style=\"display:none;\"");
+        assertThat(jsp).contains("<%@ include file=\"/WEB-INF/jspf/csrf-token.jspf\" %>");
+        assertThat(jsp).contains("var form = document.createElement('form');");
+        assertThat(jsp).contains("form.method = 'post';");
         assertThat(jsp).contains("input[name=\"CSRF-TOKEN\"]");
         assertThat(jsp).contains("csrfInput.name = 'CSRF-TOKEN'");
         assertThat(jsp).doesNotContain("RemoveFromWaitingList.jsp");

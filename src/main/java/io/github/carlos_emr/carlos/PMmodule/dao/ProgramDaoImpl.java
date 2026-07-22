@@ -653,7 +653,7 @@ public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramD
     public void resetHoldingTank() {
         List<Program> programs = this.getAllPrograms();
         for (Program p : programs) {
-            if (p.getHoldingTank()) {
+            if (p.isHoldingTank()) {
                 p.setHoldingTank(false);
                 this.saveProgram(p);
             }
@@ -812,9 +812,8 @@ public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramD
      */
     @Override
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date) {
-        // Provider.hbm.xml uses PascalCase ProviderNo (and camelCase
-        // lastUpdateDate); HQL must match each property's mapped name exactly.
-        String queryStr = "SELECT DISTINCT p.ProviderNo FROM Provider p WHERE p.lastUpdateDate > ?1";
+        // Provider is annotation-mapped with JavaBean property names; HQL must use providerNo and lastUpdateDate.
+        String queryStr = "SELECT DISTINCT p.providerNo FROM Provider p WHERE p.lastUpdateDate > ?1";
         TypedQuery<String> query = entityManager.createQuery(queryStr, String.class);
         query.setParameter(1, date);
 

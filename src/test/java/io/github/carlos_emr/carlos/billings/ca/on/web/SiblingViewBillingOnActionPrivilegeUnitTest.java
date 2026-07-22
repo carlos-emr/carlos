@@ -63,7 +63,7 @@ import static org.mockito.Mockito.when;
  *
  * <p>Parameterised across the five actions; each test asserts:
  * <ul>
- *   <li>null session → {@code SecurityException("missing session")}</li>
+ *   <li>null session → explicit missing-session rejection before privilege checks</li>
  *   <li>missing {@code _billing r} → {@code SecurityException}</li>
  *   <li>authorised → {@code SUCCESS}</li>
  * </ul>
@@ -159,9 +159,15 @@ class SiblingViewBillingOnActionPrivilegeUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0} — sessionless throws SecurityException")
     @MethodSource("actions")
-    void shouldThrowSecurityException_whenSessionMissing(String name, Callable<String> exec) {
+    void shouldThrowSecurityException_whenSessionMissing(String name, Callable<String> exec) throws Exception {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(null);
+
+        if ("ViewBillingOnMri2Action".equals(name)) {
+            assertThat(exec.call()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/logoutPage");
+            return;
+        }
 
         assertThatThrownBy(exec::call)
                 .isInstanceOf(SecurityException.class)

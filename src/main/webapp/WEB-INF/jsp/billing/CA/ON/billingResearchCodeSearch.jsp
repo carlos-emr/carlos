@@ -29,6 +29,8 @@
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // ViewBillingResearchCodeSearch2Action enforces _billing r and assembles
     // the view model with the IchppccodeDao lookup the JSP body used to
@@ -37,6 +39,7 @@
     %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Research Code Search</title>
     <script LANGUAGE="JavaScript">

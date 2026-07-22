@@ -21,17 +21,16 @@ package io.github.carlos_emr.carlos.commn.dao.projection;
  * One billing-report-eligible provider — joined from
  * {@code (ReportProvider r, Provider p)} by
  * {@code ReportProviderDao.search_reportprovider}, projected to the only
- * three fields the three consumers ({@code BillingReportControlViewModelAssembler},
- * {@code BillingOnNewReportViewModelAssembler}) actually read. The
- * {@code ReportProvider} half of the join was returned but never read by the
- * legacy scriptlets — dropped here.
+ * provider fields used by the billing-report consumers, plus the report-provider
+ * team used by the visit-report JSP for grouping.
  *
  * @since 2026-05-01
  */
-public record ReporterRow(String providerNo, String firstName, String lastName) {
+public record ReporterRow(String providerNo, String firstName, String lastName, String team) {
     public ReporterRow {
         providerNo = providerNo == null ? "" : providerNo;
         firstName = firstName == null ? "" : firstName;
         lastName = lastName == null ? "" : lastName;
+        team = team == null ? "" : team;
     }
 }

@@ -111,6 +111,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="report.reportdaysheet.title"/></title>
         <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->

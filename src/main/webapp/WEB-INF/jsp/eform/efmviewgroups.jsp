@@ -95,7 +95,7 @@
         <security:oscarSec roleName="<%=roleName$%>"
                            objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>">
             <a href="#"
-               onclick="popup(600, 1200, '<%= request.getContextPath() %>/administration/?show=Forms&load=Groups', 'editGroups')"
+               onclick="popup(600, 1200, '<%= request.getContextPath() %>/administration?show=Forms&load=Groups', 'editGroups')"
                style="color: #835921;"><fmt:message key="eform.showmyform.msgEditGroups"/></a>
         </security:oscarSec></div>
 </form>

@@ -188,7 +188,7 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
 
     @Override
     public List<Object[]> findProviderAndLabRoutingById(Integer id) {
-        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.ProviderNo = providerLabRouting.providerNo AND providerLabRouting.id = ?1 ";
+        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.providerNo = providerLabRouting.providerNo AND providerLabRouting.id = ?1 ";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         return query.getResultList();
@@ -291,7 +291,7 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
 
     @Override
     public List<Object[]> findProviderAndLabRoutingByIdAndLabType(Integer id, String labType) {
-        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.ProviderNo = providerLabRouting.providerNo AND providerLabRouting.labNo = ?1 AND providerLabRouting.labType = ?2";
+        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.providerNo = providerLabRouting.providerNo AND providerLabRouting.labNo = ?1 AND providerLabRouting.labType = ?2";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         query.setParameter(2, labType);

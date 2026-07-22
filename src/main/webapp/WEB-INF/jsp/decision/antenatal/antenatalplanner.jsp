@@ -55,6 +55,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Antenatal Planner</title>
     <script type="text/javascript" language="Javascript">
         function onExit() {
