@@ -8,9 +8,11 @@ package io.github.carlos_emr.carlos.managers;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -28,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,14 +76,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     void shouldPersistSanitizedArchiveFailure_whenArchiveFails() throws Exception {
         EmailData emailData = sendGridEmailData();
         EmailConfig emailConfig = sendGridEmailConfig();
-        when(emailConfigDao.findActiveEmailConfigById(7)).thenReturn(emailConfig);
-        when(demographicManager.getDemographic(loggedInInfo, 123)).thenReturn(new Demographic(123));
-        when(providerManager.getProvider(loggedInInfo, PROVIDER_NO)).thenReturn(new Provider(PROVIDER_NO));
-        doAnswer(invocation -> {
-            EmailLog emailLog = invocation.getArgument(0);
-            injectDependency(emailLog, "id", 44);
-            return null;
-        }).when(emailLogDao).persist(any(EmailLog.class));
+        stubPreparedOutbox(emailConfig);
         when(outboundEmailArchiveService.archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class)))
                 .thenThrow(new SecurityException("missing required sec object (_edoc)"));
 
@@ -90,6 +86,34 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
         assertThat(emailLog.getErrorMessage()).isEqualTo(expectedMessage);
         verify(emailLogDao).updateEmailStatus(eq(44), eq(EmailLog.EmailStatus.FAILED), eq(expectedMessage), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should persist sanitized archive failure when payload preparation fails")
+    void shouldPersistSanitizedArchiveFailure_whenPayloadPreparationFails() throws Exception {
+        EmailData emailData = sendGridEmailData();
+        emailData.setAttachments(List.of(new EmailAttachment("sensitive-report.pdf", null, DocumentType.DOC, 77)));
+        EmailConfig emailConfig = sendGridEmailConfig();
+        stubPreparedOutbox(emailConfig);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        String expectedMessage = "Failed to archive outbound email";
+        assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+        assertThat(emailLog.getErrorMessage()).isEqualTo(expectedMessage);
+        verify(emailLogDao).updateEmailStatus(eq(44), eq(EmailLog.EmailStatus.FAILED), eq(expectedMessage), any(Date.class));
+        verify(outboundEmailArchiveService, never()).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+    }
+
+    private void stubPreparedOutbox(EmailConfig emailConfig) {
+        when(emailConfigDao.findActiveEmailConfigById(7)).thenReturn(emailConfig);
+        when(demographicManager.getDemographic(loggedInInfo, 123)).thenReturn(new Demographic(123));
+        when(providerManager.getProvider(loggedInInfo, PROVIDER_NO)).thenReturn(new Provider(PROVIDER_NO));
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 44);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
     }
 
     private EmailData sendGridEmailData() {

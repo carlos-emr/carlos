@@ -102,6 +102,12 @@ public class EmailManager {
     private SecurityInfoManager securityInfoManager;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
 
+    /**
+     * Constructs an EmailManager with the outbound email archive service used by archive-supported sends.
+     *
+     * @param outboundEmailArchiveService service that persists outbound email archive artifacts before transport
+     * @since 2026-07-20
+     */
     @Autowired
     public EmailManager(OutboundEmailArchiveService outboundEmailArchiveService) {
         this.outboundEmailArchiveService = outboundEmailArchiveService;
@@ -162,7 +168,7 @@ public class EmailManager {
         try {
             OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
             outboundEmailArchiveService.archive(loggedInInfo, archiveRequest);
-        } catch (IOException | RuntimeException e) {
+        } catch (EmailSendingException | IOException | RuntimeException e) {
             logger.warn("Outbound email archive failed: {}", e.getClass().getSimpleName());
             throw new EmailSendingException("Failed to archive outbound email");
         }
