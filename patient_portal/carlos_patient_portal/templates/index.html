@@ -30,6 +30,7 @@
         <section class="auth-panel" aria-labelledby="signin-title">
           <h1 id="signin-title">Sign in</h1>
           <form class="form-stack" method="post" action="{{ url_for('login_placeholder') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>
               <span>Username</span>
               <input

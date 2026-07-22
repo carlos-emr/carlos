@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -13,6 +15,16 @@ from carlos_patient_portal.config import (
 NON_DEVELOPMENT_SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
 INTERNAL_HEALTH_TOKEN = "h" * MIN_PRODUCTION_SECRET_LENGTH
 WRONG_INTERNAL_HEALTH_TOKEN = "w" * MIN_PRODUCTION_SECRET_LENGTH
+CSRF_TOKEN_PATTERN = re.compile(r'name="csrf_token" value="([^"]+)"')
+
+
+def get_csrf_token(client: TestClient) -> str:
+    response = client.get("/")
+    match = CSRF_TOKEN_PATTERN.search(response.text)
+
+    assert response.status_code == 200
+    assert match is not None
+    return match.group(1)
 
 
 def test_health_endpoint_is_minimal() -> None:
@@ -37,6 +49,7 @@ def test_index_renders_sign_in_shell() -> None:
     assert "CARLOS Patient Portal" in response.text
     assert 'placeholder="patient.username"' in response.text
     assert 'value="patient.username"' not in response.text
+    assert 'name="csrf_token"' in response.text
     assert "Maple Creek Medical" in response.text
 
 
@@ -115,13 +128,47 @@ def test_internal_database_health_requires_configured_token() -> None:
 
 def test_login_route_is_explicitly_not_implemented() -> None:
     app = main.create_app()
+    client = TestClient(app)
+    csrf_token = get_csrf_token(client)
+    response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.username",
+            "password": "unused",
+        },
+    )
+
+    assert response.status_code == 501
+    assert response.json()["detail"] == "login is not implemented yet"
+
+
+def test_login_route_rejects_missing_csrf_token() -> None:
+    app = main.create_app()
     response = TestClient(app).post(
         "/auth/login",
         data={"username": "patient.username", "password": "unused"},
     )
 
-    assert response.status_code == 501
-    assert response.json()["detail"] == "login is not implemented yet"
+    assert response.status_code == 403
+    assert response.json()["detail"] == "invalid CSRF token"
+
+
+def test_login_route_rejects_tampered_csrf_token() -> None:
+    app = main.create_app()
+    client = TestClient(app)
+    csrf_token = get_csrf_token(client)
+    response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": f"{csrf_token}0",
+            "username": "patient.username",
+            "password": "unused",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "invalid CSRF token"
 
 
 def test_api_docs_are_available_in_development() -> None:

@@ -1,11 +1,14 @@
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
+from hashlib import sha256
+from hmac import new as new_hmac
 from pathlib import Path
-from secrets import compare_digest
+from secrets import compare_digest, token_urlsafe
+from time import time
 from typing import Annotated
+from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import SQLAlchemyError
@@ -32,10 +35,70 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
 }
 NO_STORE_PATHS = {"/", "/auth/login"}
+CSRF_FORM_FIELD = "csrf_token"
+CSRF_TOKEN_TTL_SECONDS = 60 * 60
+CSRF_FUTURE_SKEW_SECONDS = 60
+
+
+def create_csrf_token(secret: str) -> str:
+    issued_at = str(int(time()))
+    nonce = token_urlsafe(24)
+    message = f"{issued_at}.{nonce}"
+    signature = sign_csrf_token(message, secret)
+    return f"{message}.{signature}"
+
+
+def sign_csrf_token(message: str, secret: str) -> str:
+    return new_hmac(
+        secret.encode("utf-8"),
+        message.encode("utf-8"),
+        sha256,
+    ).hexdigest()
+
+
+def is_valid_csrf_token(token: str | None, secret: str) -> bool:
+    if token is None:
+        return False
+
+    issued_at_value, separator, signed_part = token.partition(".")
+    nonce, separator_2, supplied_signature = signed_part.partition(".")
+    if not separator or not separator_2 or not nonce or not supplied_signature:
+        return False
+
+    try:
+        issued_at = int(issued_at_value)
+    except ValueError:
+        return False
+
+    current_time = int(time())
+    if issued_at > current_time + CSRF_FUTURE_SKEW_SECONDS:
+        return False
+    if current_time - issued_at > CSRF_TOKEN_TTL_SECONDS:
+        return False
+
+    expected_signature = sign_csrf_token(f"{issued_at_value}.{nonce}", secret)
+    return compare_digest(supplied_signature, expected_signature)
+
+
+async def get_urlencoded_form_value(request: Request, field_name: str) -> str | None:
+    content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+    if content_type != "application/x-www-form-urlencoded":
+        return None
+
+    body = (await request.body()).decode("utf-8", errors="replace")
+    values = parse_qs(body, keep_blank_values=True).get(field_name)
+    if not values:
+        return None
+    return values[0]
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    csrf_secret = (
+        settings.session_secret.get_secret_value()
+        if settings.session_secret is not None
+        else token_urlsafe(32)
+    )
     database_engine = create_portal_engine(settings.database_url)
     session_factory = create_session_factory(database_engine)
 
@@ -99,14 +162,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if scheme.lower() != "bearer" or not compare_digest(supplied_token, expected_token):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
 
-    @app.get("/", response_class=HTMLResponse)
-    def index(request: Request) -> HTMLResponse:
+    @app.get("/")
+    def index(request: Request) -> Response:
         return templates.TemplateResponse(
             request=request,
             name="index.html",
             context={
                 "request": request,
                 "clinic_name": settings.clinic_name,
+                "csrf_token": create_csrf_token(csrf_secret),
                 "service_name": settings.service_name,
             },
         )
@@ -127,7 +191,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok", "database": "ok"}
 
     @app.post("/auth/login")
-    def login_placeholder() -> None:
+    async def login_placeholder(request: Request) -> None:
+        csrf_token = await get_urlencoded_form_value(request, CSRF_FORM_FIELD)
+        if not is_valid_csrf_token(csrf_token, csrf_secret):
+            raise HTTPException(status_code=403, detail="invalid CSRF token")
         raise HTTPException(status_code=501, detail="login is not implemented yet")
 
     return app
