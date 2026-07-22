@@ -45,7 +45,6 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 /**
  * Applies certificate-backed detached signatures to PDF files.
  */
-@SuppressWarnings("java:S2143") // PDFBox signature APIs require java.util.Calendar-compatible sign dates.
 public final class PDFSigningUtil {
     private static final String PROVIDER_NAME = BouncyCastleProvider.PROVIDER_NAME;
     private static final int PREFERRED_SIGNATURE_SIZE = 32768;
