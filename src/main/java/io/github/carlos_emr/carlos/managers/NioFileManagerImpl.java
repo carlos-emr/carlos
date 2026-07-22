@@ -417,8 +417,7 @@ public class NioFileManagerImpl implements NioFileManager {
         // this removes only that preview's own regenerable page-image cache. Requiring _edoc here broke
         // the fax-cancel/flush flow for users holding _fax READ but not _edoc READ, throwing before the
         // approved temp file could be deleted. The source is validated to the same allowed
-        // preview locations the writer accepts, so a caller cannot target caches for arbitrary paths
-        //.
+        // preview locations the writer accepts, so a caller cannot target caches for arbitrary paths.
         Path normalizedSourceDir = resolveAllowedPreviewSourceDir(sourceDirectory);
         if (normalizedSourceDir == null) {
             return 0;
@@ -580,8 +579,7 @@ public class NioFileManagerImpl implements NioFileManager {
      * unrelated file another process left in {@code java.io.tmpdir} or Tomcat work.
      *
      * <p>Shared between {@link #createCacheVersion2} and {@link #removeCacheVersions} so the remover
-     * cannot clean caches for arbitrary caller-supplied paths and both derive the key identically
-     *.</p>
+     * cannot clean caches for arbitrary caller-supplied paths and both derive the key identically.</p>
      *
      * @return the canonicalized source directory (falling back to normalized-absolute only when
      *         canonicalization fails; the document branch is additionally containment-validated),
@@ -873,12 +871,11 @@ public class NioFileManagerImpl implements NioFileManager {
      * {@link NioFileManager#DOCUMENT_DIRECTORY} snapshot, so the document root stays consistent with
      * the live {@link #baseDocumentDir()} that {@link #createCacheVersion2} and
      * {@link #getDocumentCacheDirectory} validate against — a runtime {@code BASE_DOCUMENT_DIR} change
-     * can no longer split document storage and cache/source validation across two different roots
-     *.</p>
+     * can no longer split document storage and cache/source validation across two different roots.</p>
      */
     // FindSecBugs PATH_TRAVERSAL_IN: both resolved paths derive from trusted server configuration
     // (CarlosProperties DOCUMENT_DIR and the BASE_DOCUMENT_DIR system property), never user input;
-    // the value is a directory root the deployment owns, not a request-supplied filename (SI3Hn/SI3Hq).
+    // the value is a directory root the deployment owns, not a request-supplied filename.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private String getDocumentDirectory() {
         // Resolve live, but keep the legacy recovery: if the configured document dir is stale or

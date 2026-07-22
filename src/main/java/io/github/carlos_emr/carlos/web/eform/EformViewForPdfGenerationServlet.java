@@ -49,7 +49,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to convert an html page into a pdf file in a manner similar to viewing a pdf with a browser and selecting print to file
+ * Session-gated loopback entry for the legacy renderer URL: verifies the authenticated provider
+ * matches the requested providerId, then forwards to /eform/efmshowform_data with the canonical
+ * session-verified provider id. Conversion itself happens in the browser renderer
+ * (EFormBrowserPdfService).
  */
 public final class EformViewForPdfGenerationServlet extends HttpServlet {
 

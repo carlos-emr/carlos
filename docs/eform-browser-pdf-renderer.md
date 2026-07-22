@@ -92,7 +92,8 @@ Environment: the renderer is **sandboxed by default** (see "Security operations"
   render sees but cannot send it anywhere.
 - **Fresh browser per render.** No cookies, storage, or cache can bleed between renders or
   users. `driver.quit()` in a `finally` block tears down chromedriver and Chromium, and the
-  caller-owned chromedriver service is stopped afterwards as a backstop when quit times out.
+  caller-owned chromedriver service (pinned-chromedriver path) is stopped afterwards as a backstop
+  when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
   so rendering can never saturate Tomcat's request workers. Every WebDriver/CDP HTTP command is
   additionally client-bounded at 90s (vs Selenium's ~180s default), so a wedged Chromium cannot

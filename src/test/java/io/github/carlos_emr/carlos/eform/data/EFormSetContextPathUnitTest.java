@@ -202,7 +202,7 @@ class EFormSetContextPathUnitTest {
         EForm eform = new EForm();
         // Decoded timer body: var a='</script>'  (real close — must be neutralized to <\/script>)
         //                     var b='</scriptx'  (vertical tab after 'script' — NOT an HTML tag
-        //                     delimiter, so it must be left intact; Java \s wrongly matched it, HOdZ).
+        //                     delimiter, so it must be left intact; Java \s wrongly matched it).
         eform.setFormHtml("<html><body>"
                 + "<script>setTimeout(\"var a='<\\/script>'; var b='<\\/script\\vx'\", 100);</script>"
                 + "</body></html>");

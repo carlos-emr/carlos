@@ -330,6 +330,10 @@ public class EFormBrowserPdfService {
      * Renders a saved eForm by loading the token-authorized local servlet route in headless
      * Chromium, capturing page regions, and assembling those captures into a PDF.
      *
+     * <p>Callers MUST have passed an {@code _eform} privilege check (today:
+     * {@code EformDataManagerImpl.createEformPDF}) before calling; this service mints the render
+     * grant without a privilege check of its own.
+     *
      * @param fdid saved eForm data identifier
      * @param providerId provider number the render surface is scoped to; carried inside the
      *        render grant, never on the URL
@@ -1422,8 +1426,7 @@ public class EFormBrowserPdfService {
         // output window that no live request can reach (fresh outputs are never swept, an
         // in-use output cannot be reached, and growth stays bounded). Capture dirs are always caller-detached, so a short
         // window reclaims them. Catch unchecked failures too (e.g. DirectoryIteratorException) so a
-        // traversal/permission error can never turn this best-effort cleanup into a render prerequisite
-        //.
+        // traversal/permission error can never turn this best-effort cleanup into a render prerequisite.
         int reclaimed = 0;
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
             for (Path entry : entries) {

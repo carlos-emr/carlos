@@ -132,8 +132,8 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
      * the sessionless render browser to read shared eForm template assets (backgrounds, JS, CSS)
      * over loopback for the duration of one render; it was issued only after an {@code _eform}
      * privilege check. Deliberately not bound to the requested asset — assets are shared
-     * templates, unlike the fdid-bound page and signature surfaces — so the caller logs the
-     * grant's fdid to keep cross-render asset access auditable.
+     * templates, unlike the fdid-bound page and signature surfaces — so the grant's fdid is
+     * logged at DEBUG for troubleshooting.
      */
     private static EFormRenderTokenService.RenderGrant liveRenderGrant(HttpServletRequest request) {
         return EFormRenderTokenService.getInstance().peek(EFormRenderTokenService.RenderToken

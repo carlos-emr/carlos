@@ -112,8 +112,7 @@ final class EFormRenderTokenService {
      * Issues a token authorizing one render of the given saved eForm.
      *
      * @param fdid saved eForm data identifier the grant is bound to
-     * @param providerNo provider number the render surface should be scoped to; may be null when
-     *        the caller has no provider context (signature blocks then render unscoped)
+     * @param providerNo nullable; propagated into the grant for provider-scoped signature rendering.
      * @return opaque URL-safe token to place on the renderer request
      */
     RenderToken issue(int fdid, String providerNo) {
