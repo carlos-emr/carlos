@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
+
+    @model_validator(mode="after")
+    def reject_development_secret_in_production(self) -> "Settings":
+        is_default_secret = self.session_secret.get_secret_value() == "change-me-in-development"
+        if self.is_production and is_default_secret:
+            raise ValueError("PATIENT_PORTAL_SESSION_SECRET must be set in production")
+        return self
 
 
 @lru_cache

@@ -15,14 +15,14 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 
 
-def create_app() -> FastAPI:
-    settings = get_settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
     app = FastAPI(
         title=settings.service_name,
         version="0.1.0",
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
-        openapi_url="/api/openapi.json",
+        docs_url=None if settings.is_production else "/api/docs",
+        redoc_url=None if settings.is_production else "/api/redoc",
+        openapi_url=None if settings.is_production else "/api/openapi.json",
     )
     app.mount(
         "/static",
@@ -65,6 +65,3 @@ def create_app() -> FastAPI:
         raise HTTPException(status_code=501, detail="login is not implemented yet")
 
     return app
-
-
-app = create_app()

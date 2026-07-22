@@ -31,6 +31,7 @@ include = ["carlos_patient_portal*"]
 [tool.setuptools.package-data]
 carlos_patient_portal = [
   "static/*.css",
+  "static/*.svg",
   "templates/*.html",
 ]
 
