@@ -18,8 +18,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Locale;
-import java.util.Map;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -58,10 +56,6 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
-    // Shared with DisplayImage2Action via EformAssetContentType so the two eForm asset-streaming
-    // paths cannot drift on the MIME allowlist (cubic CQQa). Header hardening (sanitizeHeaderValue)
-    // stays per-class.
-    private static final Map<String, String> CONTENT_TYPES = EformAssetContentType.BY_EXTENSION;
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -173,20 +167,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private static String resolveContentType(File file) {
-        String extension = extension(file.getName()).toLowerCase(Locale.ROOT);
-        String contentType = CONTENT_TYPES.get(extension);
-        if (contentType == null) {
-            throw new IllegalArgumentException("Unsupported eform asset type");
-        }
-        return contentType;
-    }
-
-    private static String extension(String fileName) {
-        int dot = fileName.lastIndexOf('.');
-        if (dot < 0 || dot == fileName.length() - 1) {
-            return "";
-        }
-        return fileName.substring(dot + 1);
+        // Shared with DisplayImage2Action: EformAssetContentType owns the allowlist AND the
+        // extension parsing/lowercasing, so the two asset-streaming paths cannot drift on either.
+        return EformAssetContentType.forFilename(file.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
     }
 
     private static String sanitizeHeaderValue(String value) {

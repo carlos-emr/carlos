@@ -265,11 +265,13 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 sourceFile = PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
                 if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInApplicationTempDirectory(sourceFile.toFile())) {
-                    log.error("Source file is outside allowed temp path");
+                    // Security-relevant event: keep the sanitized filename so it can be correlated
+                    // with the request that supplied it.
+                    log.error("Source file is outside allowed temp path: {}", LogSafe.sanitize(sanitizedFilename));
                     return null;
                 }
             } catch (SecurityException e) {
-                log.error("Path traversal attempt in source file");
+                log.error("Path traversal attempt in source file: {}", LogSafe.sanitize(sanitizedFilename), e);
                 return null;
             }
 
@@ -407,7 +409,7 @@ public class NioFileManagerImpl implements NioFileManager {
     // PathValidationUtils.validateExistingPath before deletion; the source is validated to an allowed
     // preview location and the key derives from that validated path plus server config.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public final int removeCacheVersions(String sourceDirectory, String filename) {
+    public final int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) {
         if (filename == null || filename.trim().isEmpty()) {
             return 0;
         }
@@ -446,14 +448,16 @@ public class NioFileManagerImpl implements NioFileManager {
                         removed++;
                     }
                 } catch (SecurityException | IOException e) {
-                    log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name));
+                    log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name), e);
                 }
             }
         } catch (IOException e) {
             log.error("Error while clearing source-scoped preview cache", e);
         }
         if (removed > 0) {
-            log.debug("Cleared {} preview cache page image(s) for {}", removed, LogSafe.sanitize(filename));
+            log.debug("Cleared {} preview cache page image(s) for {} (provider={})", removed,
+                    LogSafe.sanitize(filename),
+                    LogSafe.sanitize(loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo()));
         }
         return removed;
     }
@@ -570,8 +574,9 @@ public class NioFileManagerImpl implements NioFileManager {
      * cannot clean caches for arbitrary caller-supplied paths and both derive the key identically
      * (cubic SJD9x).</p>
      *
-     * @return the normalized source directory (temp branch: normalized-absolute; document branch:
-     *         canonical), or {@code null} if it is not an allowed, existing preview source
+     * @return the canonicalized source directory (falling back to normalized-absolute only when
+     *         canonicalization fails; the document branch is additionally containment-validated),
+     *         or {@code null} if it is not an allowed, existing preview source
      */
     // FindSecBugs PATH_TRAVERSAL_IN: baseDocumentDir() is trusted server config, and the caller-supplied
     // sourceDirectory is confined to a CARLOS-owned temp subtree or the document root before use; the

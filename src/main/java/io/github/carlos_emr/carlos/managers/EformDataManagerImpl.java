@@ -215,7 +215,12 @@ public class EformDataManagerImpl implements EformDataManager {
         logger.debug("Generating eForm PDF via browser renderer: fdid={}", fdid);
         Path path;
         try {
-            path = eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
+            // Ownership transfer, not try-with-resources: this method's contract hands the raw
+            // Path (and its cleanup responsibility) to OUR caller, so the handle is deliberately
+            // unwrapped without close() — closing here would delete the file being returned.
+            EFormBrowserPdfService.RenderedEformPdf rendered =
+                    eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
+            path = rendered == null ? null : rendered.path();
         } catch (PDFGenerationException e) {
             // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
             // The renderer already logged a redacted cause; record which fdid failed here for correlation.

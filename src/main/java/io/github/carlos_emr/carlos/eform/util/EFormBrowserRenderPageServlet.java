@@ -128,7 +128,11 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            logger.error("Unexpected error in EFormBrowserRenderPageServlet", e);
+            // Same redaction rule as the renderer: this route's request URL carries the fdid and
+            // render token, and container/machinery exceptions can embed the request URI — log
+            // the type and a redacted message, never the raw throwable.
+            logger.error("Unexpected error in EFormBrowserRenderPageServlet: type={} error={}",
+                    e.getClass().getName(), EFormBrowserPdfService.redactUrls(String.valueOf(e.getMessage())));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");

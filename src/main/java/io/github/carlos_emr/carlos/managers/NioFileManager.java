@@ -77,11 +77,15 @@ public interface NioFileManager {
      * the PDF's path (e.g. the fax-preview flush) cannot clear them with the single-file
      * {@link #removeCacheVersion}; this rebuilds the same source-scoped prefix and removes all pages.
      *
+     * @param loggedInInfo caller identity, recorded for auditability (symmetry with
+     *                     {@link #removeCacheVersion}); this method applies no privilege gate of
+     *                     its own — the caller's gate (e.g. the fax flow's {@code _fax} READ) is
+     *                     the authorization boundary
      * @param sourceDirectory the directory the PDF was previewed from (its parent directory)
      * @param filename        the PDF filename
      * @return the number of cache page images removed
      */
-    public int removeCacheVersions(String sourceDirectory, String filename);
+    public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename);
 
     /**
      * Save a file to the temporary directory from ByteArrayOutputStream

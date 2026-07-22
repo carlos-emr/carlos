@@ -877,32 +877,55 @@ public final class PathValidationUtils {
      * @return true if the file is within a CARLOS-owned temp subtree, false otherwise
      */
     public static boolean isInApplicationTempDirectory(File file) {
-        if (file == null) {
+        try {
+            validateApplicationTempPath(file);
+            return true;
+        } catch (SecurityException e) {
             return false;
+        }
+    }
+
+    /**
+     * Validates that a file lies within a CARLOS-owned temp subtree and returns its canonicalized
+     * form for further use — the parse-don't-validate companion to
+     * {@link #isInApplicationTempDirectory(File)}. Prefer this method whenever the file will be
+     * read, streamed, or deleted after the check: operating on the returned canonical file closes
+     * the check-vs-use gap the boolean guard leaves open (checking one path object, then using the
+     * original, possibly symlinked, one).
+     *
+     * @param file the file to validate; need not exist (the boundary is purely path-based)
+     * @return the canonicalized file, guaranteed to be inside a CARLOS-owned temp subtree
+     * @throws SecurityException when the file is null, cannot be canonicalized, or lies outside
+     *         every CARLOS-owned temp subtree
+     */
+    public static File validateApplicationTempPath(File file) {
+        if (file == null) {
+            throw new SecurityException("Temp path is null");
         }
 
+        String canonicalPath;
         try {
-            String canonicalPath = file.getCanonicalPath();
-            for (Map.Entry<String, Set<String>> root : getApplicationTempRoots().entrySet()) {
-                String prefix = root.getKey() + File.separator;
-                if (!canonicalPath.startsWith(prefix)) {
-                    continue;
-                }
-                String remainder = canonicalPath.substring(prefix.length());
-                int separatorIndex = remainder.indexOf(File.separatorChar);
-                String firstSegment = separatorIndex >= 0 ? remainder.substring(0, separatorIndex) : remainder;
-                // Accept only the CARLOS-owned first segment that belongs to *this* root, so a
-                // segment valid under one root (e.g. carlos-temp under java.io.tmpdir) is not honoured
-                // under another (e.g. Tomcat work).
-                if (root.getValue().contains(firstSegment)) {
-                    return true;
-                }
-            }
-            return false;
+            canonicalPath = file.getCanonicalPath();
         } catch (IOException e) {
             logger.error("Error validating application temp path", e);
-            return false;
+            throw new SecurityException("Cannot resolve temp path");
         }
+        for (Map.Entry<String, Set<String>> root : getApplicationTempRoots().entrySet()) {
+            String prefix = root.getKey() + File.separator;
+            if (!canonicalPath.startsWith(prefix)) {
+                continue;
+            }
+            String remainder = canonicalPath.substring(prefix.length());
+            int separatorIndex = remainder.indexOf(File.separatorChar);
+            String firstSegment = separatorIndex >= 0 ? remainder.substring(0, separatorIndex) : remainder;
+            // Accept only the CARLOS-owned first segment that belongs to *this* root, so a
+            // segment valid under one root (e.g. carlos-temp under java.io.tmpdir) is not honoured
+            // under another (e.g. Tomcat work).
+            if (root.getValue().contains(firstSegment)) {
+                return new File(canonicalPath);
+            }
+        }
+        throw new SecurityException("Path is outside every CARLOS-owned temp subtree");
     }
 
     // ========================================================================

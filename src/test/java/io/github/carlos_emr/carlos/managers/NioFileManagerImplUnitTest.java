@@ -92,7 +92,10 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         ServletContext servletContext = mock(ServletContext.class);
 
-        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(true);
+        // Stub the READ level exactly: the WRITE->READ downgrade on the preview-cache gate is the
+        // enabling change for _fax-only preview, and an anyString() level stub would let a
+        // regression back to WRITE pass every test here.
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.READ), eq(""))).thenReturn(true);
         // The Servlet API returns a non-root context path WITH a leading slash; mirror that contract
         // so the test exercises the same input the production resolver strips (copilot HXQl, cubic HYt6).
         when(servletContext.getContextPath()).thenReturn("/carlos");
@@ -327,7 +330,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         Path otherSourcePage = Files.createFile(cacheDir.resolve("other-source_0123456789abcdef_1.png"));
 
         try {
-            int removed = nioFileManager.removeCacheVersions(
+            int removed = nioFileManager.removeCacheVersions(loggedInInfo, 
                     allowedTempDir.toString(), sourcePdf.getFileName().toString());
 
             assertThat(removed).as("both pages of this source removed").isEqualTo(2);
@@ -359,7 +362,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         // must still succeed rather than throwing before the temp artifact can be cleaned up (SJD9t).
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(false);
         try {
-            int removed = nioFileManager.removeCacheVersions(allowedTempDir.toString(), sourcePdf.getFileName().toString());
+            int removed = nioFileManager.removeCacheVersions(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString());
 
             assertThat(removed).as("preview page removed without _edoc").isEqualTo(1);
             assertThat(Files.exists(pageOne)).isFalse();
@@ -398,7 +401,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         try {
             // Flush via the symlinked dir path — the remove side must resolve to the same canonical
             // source and clear the page image.
-            int removed = nioFileManager.removeCacheVersions(symlinkDir.toString(), sourcePdf.getFileName().toString());
+            int removed = nioFileManager.removeCacheVersions(loggedInInfo, symlinkDir.toString(), sourcePdf.getFileName().toString());
 
             assertThat(removed).as("preview page removed even when the source dir is reached via a symlink").isEqualTo(1);
             assertThat(Files.exists(pageOne)).isFalse();
@@ -428,7 +431,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         String wouldBePrefix = fileName + "_" + sourceKeyOf(foreignDir) + "_";
         Path wouldBeCache = Files.createFile(cacheDir.resolve(wouldBePrefix + "1.png"));
         try {
-            int removed = nioFileManager.removeCacheVersions(foreignDir.toString(), fileName);
+            int removed = nioFileManager.removeCacheVersions(loggedInInfo, foreignDir.toString(), fileName);
 
             assertThat(removed).as("no cache removed for a disallowed source").isZero();
             assertThat(Files.exists(wouldBeCache)).as("a disallowed source's would-be cache is left intact").isTrue();
@@ -473,6 +476,16 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             deleteQuietly(foreignPdf);
             deleteQuietly(foreignDir);
         }
+    }
+
+    @Test
+    @DisplayName("Denies the preview cache to callers without _edoc READ using the paren-form message")
+    void shouldThrowSecurityException_whenEdocReadPrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.READ), eq(""))).thenReturn(false);
+
+        assertThatThrownBy(() -> nioFileManager.hasCacheVersion2(loggedInInfo, "fax-preview.pdf", 1))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_edoc)");
     }
 
     @Test

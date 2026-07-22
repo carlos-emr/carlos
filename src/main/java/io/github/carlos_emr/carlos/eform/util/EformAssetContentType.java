@@ -21,21 +21,44 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Single source of truth for the eForm asset MIME allowlist shared by the browser-PDF image route
  * ({@link EFormImageViewForPdfGenerationServlet}) and the normal eForm image display action
- * ({@code io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action}). Keeping the allowlist in
- * one place stops the two streaming paths from drifting when asset types change (cubic CQQa).
+ * ({@code io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action}). Keeping the allowlist —
+ * and the extension parsing/lowercasing that keys into it — in one place stops the streaming paths
+ * from drifting when asset types change.
  */
 public final class EformAssetContentType {
 
     private static final String IMAGE_JPEG = "image/jpeg";
     private static final String TEXT_HTML = "text/html";
 
+    /**
+     * Resolves the allowlisted content type for an eForm asset filename. Owns the extension
+     * parsing and locale-safe lowercasing so consumers cannot re-implement (and drift on) either.
+     *
+     * @param fileName plain filename such as {@code background.PNG}; null-safe
+     * @return the MIME type, or empty when the extension is not on the allowlist
+     */
+    // IMPROPER_UNICODE: lowercases a literal file extension to key the MIME allowlist; a
+    // case-folding surprise can only miss the allowlist (deny), never widen it.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case folds a literal file extension for a MIME allowlist lookup; a fold surprise can only fail closed, and this is not an authorization decision")
+    public static Optional<String> forFilename(String fileName) {
+        if (fileName == null) {
+            return Optional.empty();
+        }
+        String extension = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
+        return Optional.ofNullable(BY_EXTENSION.get(extension));
+    }
+
     /** Lowercase file extension → MIME content type for the assets the eForm routes may stream. */
-    public static final Map<String, String> BY_EXTENSION = Map.ofEntries(
+    private static final Map<String, String> BY_EXTENSION = Map.ofEntries(
             Map.entry("png", "image/png"),
             Map.entry("jpeg", IMAGE_JPEG),
             Map.entry("jpe", IMAGE_JPEG),

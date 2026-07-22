@@ -298,6 +298,10 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     }
 
     private void deploySampleLabCompatibilityAssets(File targetDir) {
+        // NOT a copy-paste bug: legacy sample-lab eForms reference the literal filename
+        // "jquery-3.1.0.min.js" in their stored HTML, so the WAR's current jQuery bundle
+        // (JQUERY_RESOURCE_PATH, 3.7.1) is deliberately deployed UNDER the legacy filename to
+        // keep those forms working without editing every stored form.
         deployAssetFromPath("jquery-3.1.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
         for (Map.Entry<String, String> entry : SAMPLE_LAB_COMPATIBILITY_SCRIPTS.entrySet()) {
             deployGeneratedAsset(entry.getKey(), targetDir, entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));

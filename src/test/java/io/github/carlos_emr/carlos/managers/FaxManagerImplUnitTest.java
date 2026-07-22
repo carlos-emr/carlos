@@ -367,14 +367,15 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             resetAllowedTempDirectoriesCache();
             Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
             Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
-            when(nioFileManager.removeCacheVersions(rendererDir.toString(), tempPdf.getFileName().toString())).thenReturn(2);
-            when(nioFileManager.deleteTempFile(tempPdf.toString())).thenReturn(true);
+            when(nioFileManager.removeCacheVersions(loggedInInfo, rendererDir.toString(), tempPdf.getFileName().toString())).thenReturn(2);
+            // flush deletes the VALIDATED canonical path (check-vs-use closure), not the raw input.
+            when(nioFileManager.deleteTempFile(tempPdf.toRealPath().toString())).thenReturn(true);
 
             boolean flushed = manager.flush(loggedInInfo, tempPdf.toString());
 
             assertThat(flushed).isTrue();
-            verify(nioFileManager).removeCacheVersions(rendererDir.toString(), tempPdf.getFileName().toString());
-            verify(nioFileManager).deleteTempFile(tempPdf.toString());
+            verify(nioFileManager).removeCacheVersions(loggedInInfo, rendererDir.toString(), tempPdf.getFileName().toString());
+            verify(nioFileManager).deleteTempFile(tempPdf.toRealPath().toString());
         } finally {
             System.setProperty("java.io.tmpdir", originalTmpDir);
             resetAllowedTempDirectoriesCache();
@@ -393,12 +394,12 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         // A DOCUMENT_DIR path (the fax cancel flow passes these) is not a CARLOS temp artifact:
         // pre-fix, deleteTempFile raised a SecurityException out of flush and broke fax-cancel.
         String documentPath = "/var/lib/OscarDocument/carlos/document/some-fax.pdf";
-        when(nioFileManager.removeCacheVersions("/var/lib/OscarDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
+        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
 
         boolean flushed = manager.flush(loggedInInfo, documentPath);
 
         assertThat(flushed).isTrue();
-        verify(nioFileManager).removeCacheVersions("/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
+        verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
         verify(nioFileManager, never()).deleteTempFile(any(String.class));
     }
 

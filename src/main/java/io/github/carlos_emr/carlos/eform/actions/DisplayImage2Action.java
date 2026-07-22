@@ -37,8 +37,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Locale;
-import java.util.Map;
 
 import io.github.carlos_emr.carlos.eform.util.EformAssetContentType;
 
@@ -81,10 +79,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DisplayImage2Action extends ActionSupport {
     private static final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
-    // Shared with EFormImageViewForPdfGenerationServlet via EformAssetContentType so the two eForm
-    // asset-streaming paths cannot drift on the MIME allowlist (cubic CQQa). Header hardening
-    // (sanitizeHeaderValue) stays per-class.
-    private static final Map<String, String> OVERRIDDEN_CONTENT_TYPES = EformAssetContentType.BY_EXTENSION;
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -189,13 +183,10 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     private String resolveContentType(File file) {
-        String extension = extension(file.getName()).toLowerCase(Locale.ROOT);
-        String overriddenContentType = OVERRIDDEN_CONTENT_TYPES.get(extension);
-        if (overriddenContentType != null) {
-            return overriddenContentType;
-        }
-
-        throw new IllegalArgumentException("Unsupported eform asset type");
+        // Shared with EFormImageViewForPdfGenerationServlet: EformAssetContentType owns the
+        // allowlist AND the extension parsing/lowercasing, so the paths cannot drift on either.
+        return EformAssetContentType.forFilename(file.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
     }
 
     /**
@@ -224,17 +215,6 @@ public class DisplayImage2Action extends ActionSupport {
         }
         
         return sanitized;
-    }
-
-    /**
-     * Gets the file extension from a given filename.
-     *
-     * @param f the filename (e.g., example.jpeg)
-     * @return the file extension
-     */
-    public String extension(String f) {
-        int dot = f.lastIndexOf(".");
-        return f.substring(dot + 1);
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use

@@ -599,8 +599,10 @@ public class FaxManagerImpl implements FaxManager {
             outfile = nioFileManager.createCacheVersion2(loggedInInfo, filePath.getParent().toString(), filePath.getFileName().toString(), pageNumber);
         } else {
             // No source PDF on disk means no preview can be generated; surface it rather than returning
-            // a silent null the caller may render as a broken image.
-            logger.warn("Fax preview source is missing; no preview image generated (page {})", pageNumber);
+            // a silent null the caller may render as a broken image. The basename (a server-generated
+            // temp/document name, not PHI) is what lets a busy system correlate this with its request.
+            logger.warn("Fax preview source is missing; no preview image generated (file {}, page {})",
+                    LogSafe.sanitize(filePath == null ? null : filePath.getFileName().toString()), pageNumber);
         }
         return outfile;
     }
@@ -715,17 +717,24 @@ public class FaxManagerImpl implements FaxManager {
         File previewSource = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
         int cachePagesRemoved = 0;
         if (previewSource != null && previewSource.getParent() != null) {
-            cachePagesRemoved = nioFileManager.removeCacheVersions(previewSource.getParent(), previewSource.getName());
+            cachePagesRemoved = nioFileManager.removeCacheVersions(loggedInInfo, previewSource.getParent(), previewSource.getName());
         }
 
         // Only a CARLOS-owned temp artifact is eligible for temp deletion here. Guarding on the
         // application temp boundary keeps a non-temp filePath (e.g. a DOCUMENT_DIR path passed by the
-        // fax cancel flow) from raising a SecurityException out of deleteTempFile.
-        File tempTarget = (filePath == null || filePath.isBlank()) ? null : new File(filePath);
-        boolean tempExisted = tempTarget != null
-                && PathValidationUtils.isInApplicationTempDirectory(tempTarget)
-                && tempTarget.exists();
-        boolean tempDeleted = tempExisted && nioFileManager.deleteTempFile(filePath);
+        // fax cancel flow) from raising a SecurityException out of deleteTempFile. The validated
+        // canonical path is what gets deleted, so the checked file and the deleted file cannot
+        // diverge through a symlink.
+        File validatedTemp = null;
+        if (filePath != null && !filePath.isBlank()) {
+            try {
+                validatedTemp = PathValidationUtils.validateApplicationTempPath(new File(filePath));
+            } catch (SecurityException e) {
+                // Not a CARLOS temp artifact (e.g. a DOCUMENT_DIR document): nothing to delete here.
+            }
+        }
+        boolean tempExisted = validatedTemp != null && validatedTemp.exists();
+        boolean tempDeleted = tempExisted && nioFileManager.deleteTempFile(validatedTemp.getPath());
 
         if (logger.isDebugEnabled()) {
             logger.debug("Fax preview flush: cachePagesRemoved={} tempExisted={} tempDeleted={}",

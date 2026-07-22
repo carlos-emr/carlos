@@ -88,7 +88,8 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         Path pdfPath = Files.createTempFile("eform-rendered-", ".pdf");
         try {
             Files.write(pdfPath, new byte[] {1, 2, 3, 4});
-            when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998")).thenReturn(pdfPath);
+            when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998"))
+                .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
 
             Path actualPath = manager.createEformPDF(loggedInInfo, 77);
 
@@ -106,7 +107,8 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         // regardless of any files other processes may have left in the shared temp directory.
         Path pdfPath = Files.createTempFile("eform-rendered-missing-", ".pdf");
         Files.deleteIfExists(pdfPath);
-        when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998")).thenReturn(pdfPath);
+        when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998"))
+                .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
                 .isInstanceOf(PDFGenerationException.class)

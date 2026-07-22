@@ -312,18 +312,33 @@ public class EFormBrowserPdfService {
             + "return fallback ? [fallback] : [];";
 
     /**
+     * A rendered eForm PDF whose on-disk lifetime the holder owns: {@link #close()} deletes the
+     * file (quietly; the 24h stale-output sweep remains the backstop for holders that die before
+     * closing). Hold it in try-with-resources when the bytes are consumed in-request; call
+     * {@link #path()} and skip close only when ownership genuinely transfers onward (e.g. the fax
+     * flow promoting the file into the document store).
+     */
+    public record RenderedEformPdf(Path path) implements AutoCloseable {
+        @Override
+        public void close() {
+            deleteQuietly(path);
+        }
+    }
+
+    /**
      * Renders a saved eForm by loading the token-authorized local servlet route in headless
      * Chromium, capturing page regions, and assembling those captures into a PDF.
      *
      * @param fdid saved eForm data identifier
      * @param providerId provider number the render surface is scoped to; carried inside the
      *        render grant, never on the URL
-     * @return readable temporary PDF path; caller owns cleanup
+     * @return handle to a readable temporary PDF; the holder owns cleanup via
+     *         {@link RenderedEformPdf#close()}
      * @throws PDFGenerationException when no render slot is available, the browser cannot start,
      *         the page fails its gates (bad status, blocked egress, console errors), the render
      *         times out, or no readable PDF is produced
      */
-    public Path renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
+    public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
         if (!acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT)) {
             // Load-shed: all render slots were busy for the full wait. Log so a maintainer can see the
             // renderer is saturated (fdid only — no PHI, no render URL/token).
@@ -332,7 +347,7 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.");
         }
         try {
-            return renderWithSlot(fdid, providerId);
+            return new RenderedEformPdf(renderWithSlot(fdid, providerId));
         } finally {
             RENDER_SLOTS.release();
         }
@@ -412,14 +427,18 @@ public class EFormBrowserPdfService {
                 throw new PDFGenerationException("Browser rendering completed without producing any page captures.");
             }
             convertCapturesToPdf(captureFiles, outputPdfPath);
-            if (!Files.isReadable(outputPdfPath) || Files.size(outputPdfPath) == 0) {
+            // Capture the size once, before declaring success: a second Files.size inside the
+            // success log could race an external sweep and turn a completed render into a
+            // misreported failure with the finished PDF orphaned.
+            long outputPdfBytes = Files.isReadable(outputPdfPath) ? Files.size(outputPdfPath) : 0;
+            if (outputPdfBytes == 0) {
                 throw new PDFGenerationException("Browser rendering completed without producing a readable eForm PDF.");
             }
             success = true;
             // Success record: fdid, region count, output size and elapsed time give operators an
             // end-to-end render trace. No PHI, no render URL/token — origin/counts/bytes only.
             logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={}",
-                    fdid, regions.size(), Files.size(outputPdfPath),
+                    fdid, regions.size(), outputPdfBytes,
                     (System.nanoTime() - startNanos) / 1_000_000L);
             return outputPdfPath;
         } catch (PDFGenerationException e) {
@@ -1287,7 +1306,10 @@ public class EFormBrowserPdfService {
         try {
             Files.deleteIfExists(outputPath);
         } catch (IOException e) {
-            logger.debug("Unable to delete temporary browser-rendered PDF {}", outputPath, e);
+            // WARN, not DEBUG: an undeletable rendered PDF is PHI accumulating on disk, and at
+            // default log levels an operator must learn the sweep is papering over a real
+            // filesystem/permission problem. The path is a managed temp path, not PHI.
+            logger.warn("Unable to delete temporary browser-rendered PDF {}", outputPath, e);
         }
     }
 
@@ -1295,11 +1317,24 @@ public class EFormBrowserPdfService {
         if (directory == null) {
             return;
         }
+        // Per-entry failures stay at DEBUG so one undeletable tree cannot spam WARN per file;
+        // the aggregate below surfaces the problem once at WARN.
+        int failedEntries = 0;
         try (var stream = Files.walk(directory)) {
-            stream.sorted(Comparator.reverseOrder())
-                    .forEach(EFormBrowserPdfService::deleteQuietly);
+            for (Path entry : stream.sorted(Comparator.reverseOrder()).toList()) {
+                try {
+                    Files.deleteIfExists(entry);
+                } catch (IOException e) {
+                    failedEntries++;
+                    logger.debug("Unable to delete renderer capture entry {}", entry, e);
+                }
+            }
         } catch (IOException e) {
-            logger.debug("Unable to delete temporary browser-rendered capture directory {}", directory, e);
+            logger.warn("Unable to delete temporary browser-rendered capture directory {}", directory, e);
+        }
+        if (failedEntries > 0) {
+            logger.warn("Unable to delete {} entries under renderer capture directory {}; PHI capture images may be accumulating",
+                    failedEntries, directory);
         }
     }
 
@@ -1365,7 +1400,8 @@ public class EFormBrowserPdfService {
                 }
             }
         } catch (IOException | RuntimeException e) {
-            logger.debug("Unable to sweep stale renderer temp roots under {}", managedRoot, e);
+            // WARN: a sweep that cannot run leaves orphaned PHI captures on disk indefinitely.
+            logger.warn("Unable to sweep stale renderer temp roots under {}", managedRoot, e);
         }
         if (reclaimed > 0) {
             logger.debug("Swept {} stale renderer artifact(s) under the managed temp root", reclaimed);
