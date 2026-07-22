@@ -759,25 +759,54 @@ public class FaxManagerImpl implements FaxManager {
         // canonical path is what gets deleted, so the checked file and the deleted file cannot
         // diverge through a symlink.
         File validatedTemp = null;
+        boolean tempResolutionFailed = false;
         if (filePath != null && !filePath.isBlank()) {
+            File candidateTemp = new File(filePath);
             try {
-                validatedTemp = PathValidationUtils.validateApplicationTempPath(new File(filePath));
+                validatedTemp = PathValidationUtils.validateApplicationTempPath(candidateTemp);
             } catch (SecurityException e) {
-                // Not a CARLOS temp artifact (e.g. a DOCUMENT_DIR document): nothing to delete here.
+                // validateApplicationTempPath folds two different failures into the same
+                // SecurityException type: (a) a path legitimately outside every CARLOS-owned temp
+                // subtree (e.g. a DOCUMENT_DIR document — nothing to delete here, safe to report
+                // success) versus (b) a canonicalization failure (e.g. a broken/looping symlink) on
+                // a path that could be a REAL temp artifact we simply could not verify. Reporting
+                // success for (b) would leave PHI on disk. File.exists() cannot distinguish these:
+                // a DOCUMENT_DIR fax source is a real, persisted patient document and routinely
+                // exists on disk, so "does the file exist" would misclassify the common, benign
+                // case (a) as an unverifiable artifact and fail every such flush. Re-resolving the
+                // canonical path here — independent of validateApplicationTempPath's internal
+                // prefix check — tells us which failure actually occurred: if it succeeds now, the
+                // original failure was the boundary check (a); if it also throws, canonicalization
+                // itself is the problem (b).
+                boolean canonicalizes;
+                try {
+                    candidateTemp.getCanonicalPath();
+                    canonicalizes = true;
+                } catch (IOException canonicalizationError) {
+                    canonicalizes = false;
+                }
+                if (!canonicalizes) {
+                    tempResolutionFailed = true;
+                    logger.warn("Fax flush could not canonicalize a path to verify it as a temp artifact: {}", e.getMessage());
+                } else {
+                    logger.debug("Fax flush skipped non-temp path: {}", e.getMessage());
+                }
             }
         }
         boolean tempExisted = validatedTemp != null && validatedTemp.exists();
         boolean tempDeleted = tempExisted && nioFileManager.deleteTempFile(validatedTemp.getPath());
 
         if (logger.isDebugEnabled()) {
-            logger.debug("Fax preview flush: cachePagesRemoved={} cacheCleared={} tempExisted={} tempDeleted={}",
-                    cachePagesRemoved, cacheCleared, tempExisted, tempDeleted);
+            logger.debug("Fax preview flush: cachePagesRemoved={} cacheCleared={} tempExisted={} tempDeleted={} tempResolutionFailed={}",
+                    cachePagesRemoved, cacheCleared, tempExisted, tempDeleted, tempResolutionFailed);
         }
         // Success means everything that existed was removed — cached PHI preview pages included.
         // "Nothing to clear" — the preview was never rendered, was already flushed, or the path is
         // a DOCUMENT_DIR document with no temp artifact — is success, not an error for the
-        // fax-cancel flow to alarm the user about.
-        return cacheCleared && (!tempExisted || tempDeleted);
+        // fax-cancel flow to alarm the user about. But a still-existing path we could not verify as
+        // a temp artifact must NOT report success: that would leave an unverified PHI preview image
+        // on disk while telling the caller the flush succeeded.
+        return cacheCleared && !tempResolutionFailed && (!tempExisted || tempDeleted);
     }
 
 

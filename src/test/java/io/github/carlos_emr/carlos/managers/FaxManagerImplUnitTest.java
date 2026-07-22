@@ -39,9 +39,11 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -511,6 +513,110 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(flushed).isTrue();
         verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
         verify(nioFileManager, never()).deleteTempFile(any(String.class));
+    }
+
+    @Test
+    @DisplayName("should log at DEBUG (not WARN) when skipping a non-temp path outside the boundary")
+    void shouldLogDebug_whenSkippingNonTempPathOutsideBoundary() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        String documentPath = "/var/lib/OscarDocument/carlos/document/some-fax.pdf";
+        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf")).thenReturn(1);
+
+        try (LogCapture logCapture = LogCapture.forLogger(FaxManagerImpl.class)) {
+            boolean flushed = manager.flush(loggedInInfo, documentPath);
+
+            assertThat(flushed).isTrue();
+            assertThat(logCapture.events())
+                    .noneMatch(event -> event.getLevel() == Level.WARN)
+                    .anySatisfy(event -> {
+                        assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("Fax flush skipped non-temp path");
+                    });
+        }
+    }
+
+    @Test
+    @DisplayName("should still report success for a real, existing file that is legitimately outside the temp boundary")
+    void shouldReturnTrue_whenExistingFileIsLegitimatelyOutsideTempBoundary() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        // A DOCUMENT_DIR-style fax source is a real, persisted patient document — it routinely
+        // EXISTS on disk. This pins that the fix's distinguishing check does not regress that common
+        // case: `File.exists()` alone cannot tell "legitimately outside the boundary" apart from
+        // "could not canonicalize", because an existing, boundary-rejected document and a still-
+        // existing, unverifiable temp artifact both satisfy `exists() == true`. The fix instead
+        // re-resolves the canonical path independently to see whether canonicalization itself
+        // succeeded (see FaxManagerImpl.flush) — for a plain existing file with no symlink cycle,
+        // it does, so this must still report success.
+        Path outsideRoot = Files.createTempDirectory("fax-flush-outside-boundary-");
+        try {
+            Path existingDocument = outsideRoot.resolve("some-fax.pdf");
+            Files.write(existingDocument, "not a real pdf, but readable bytes".getBytes());
+            when(nioFileManager.removeCacheVersions(loggedInInfo, outsideRoot.toString(), "some-fax.pdf")).thenReturn(1);
+
+            boolean flushed = manager.flush(loggedInInfo, existingDocument.toString());
+
+            assertThat(flushed).isTrue();
+            verify(nioFileManager, never()).deleteTempFile(any(String.class));
+        } finally {
+            try (Stream<Path> paths = Files.walk(outsideRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should report flush failure and warn when a path cannot be canonicalized to verify it as a temp artifact")
+    void shouldReturnFalseAndWarn_whenPathCannotBeCanonicalized() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path tempRoot = Files.createTempDirectory("fax-flush-canon-fail-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        try {
+            resetAllowedTempDirectoriesCache();
+            Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
+            // A two-node symlink cycle makes File.getCanonicalPath() throw
+            // "IOException: Too many levels of symbolic links" (ELOOP) — a real, deterministic,
+            // portable-on-Linux way to force the exact canonicalization failure
+            // PathValidationUtils.validateApplicationTempPath() wraps as
+            // SecurityException("Cannot resolve temp path"), without mocking the static utility.
+            // Note this is ALSO why File.exists() cannot be the distinguishing signal: a symlink
+            // loop makes File.exists() return false too (both operations resolve the same broken
+            // chain), so an existence check alone would silently miscategorize this exact case as
+            // "outside boundary" instead of "unverifiable temp artifact".
+            Path loopA = rendererDir.resolve("loopA");
+            Path loopB = rendererDir.resolve("loopB");
+            Files.createSymbolicLink(loopA, loopB);
+            Files.createSymbolicLink(loopB, loopA);
+            String unresolvablePath = loopA.resolve("child.pdf").toString();
+
+            try (LogCapture logCapture = LogCapture.forLogger(FaxManagerImpl.class)) {
+                boolean flushed = manager.flush(loggedInInfo, unresolvablePath);
+
+                // A path we could not verify as (non-)temp must NOT report success: reporting
+                // success here would leave an unverified, possibly PHI-bearing artifact on disk
+                // while telling the caller the flush succeeded.
+                assertThat(flushed).isFalse();
+                assertThat(logCapture.events())
+                        .anySatisfy(event -> {
+                            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                            assertThat(event.getMessage().getFormattedMessage())
+                                    .contains("could not canonicalize a path to verify it as a temp artifact");
+                        });
+            }
+            verify(nioFileManager, never()).deleteTempFile(any(String.class));
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            // Files.walk does not follow symlinks by default, so the loop is visited as two leaf
+            // entries (not traversed into) and deleting each path object removes the link itself.
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
     }
 
     @Test

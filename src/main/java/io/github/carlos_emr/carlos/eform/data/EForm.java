@@ -106,6 +106,15 @@ public class EForm extends EFormBase {
     private String runtimeContextPath;
     /** True once the DOM normalization pass has run for the current formHtml content. */
     private boolean runtimeAssetsNormalized;
+    /**
+     * True once a WARN has been emitted for a normalization failure on the current formHtml
+     * content. Normalization is retried on every {@link #getFormHtml()} call while it keeps
+     * failing (see {@link #runtimeAssetsNormalized}), which previously meant an operator had no
+     * way to learn that a class of forms persistently fails DOM normalization: the exception was
+     * only ever logged at DEBUG. This flag caps the operator-visible WARN to once per content
+     * generation while the full stack trace still logs at DEBUG on every retry.
+     */
+    private boolean normalizationFailureLogged;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
     private static final String VAR_NAME = "var_name";
@@ -511,7 +520,10 @@ public class EForm extends EFormBase {
      *
      * <p>Normalization is best-effort: any {@link RuntimeException} or {@link LinkageError} is caught
      * and logged at debug, and the method falls back to the string-level HTML already produced by
-     * {@link #setContextPath(String)}. When no context path is set the DOM pass is skipped entirely.</p>
+     * {@link #setContextPath(String)}. When no context path is set the DOM pass is skipped entirely.
+     * The first failure for the current content also logs a WARN (with the exception type, not the
+     * full stack) so an operator can discover a persistently-failing class of forms instead of the
+     * failure being silently re-swallowed at DEBUG on every read.</p>
      *
      * @return the normalized eForm HTML; never {@code null} (an unknown form yields the literal
      *         {@code "No Such Form in Database"} placeholder)
@@ -529,6 +541,11 @@ public class EForm extends EFormBase {
                 normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
                 runtimeAssetsNormalized = true;
             } catch (RuntimeException | LinkageError e) {
+                if (!normalizationFailureLogged) {
+                    normalizationFailureLogged = true;
+                    log.warn("DOM-based eForm runtime normalization failed ({}); using string-level HTML fallback for this form",
+                            e.getClass().getSimpleName());
+                }
                 log.debug("Skipping DOM-based eForm runtime normalization; falling back to string-level HTML", e);
             }
         }
@@ -537,8 +554,10 @@ public class EForm extends EFormBase {
 
     @Override
     public void setFormHtml(String formHtml) {
-        // New content may (re)introduce legacy constructs; it must be re-normalized on next read.
+        // New content may (re)introduce legacy constructs; it must be re-normalized on next read,
+        // and a fresh WARN is warranted if normalization fails again for this new content.
         runtimeAssetsNormalized = false;
+        normalizationFailureLogged = false;
         super.setFormHtml(formHtml);
     }
 

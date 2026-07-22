@@ -21,16 +21,22 @@
  */
 package io.github.carlos_emr.carlos.eform.data;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Pins the caching contract of {@link EForm#getFormHtml()}'s DOM normalization pass: it runs once
@@ -72,6 +78,86 @@ class EFormRuntimeNormalizationCacheUnitTest extends CarlosUnitTestBase {
         assertThat(eform.getFormHtml())
                 .contains("/carlos/eform/displayImage?imagefile=jquery-1.12.0.min.js")
                 .doesNotContain("src=\"/eform/jquery-1.12.0.min.js\"");
+    }
+
+    @Test
+    @DisplayName("should log exactly one WARN across repeated getFormHtml() calls while DOM normalization keeps failing")
+    void shouldLogWarnOnce_acrossRepeatedReadsWhenNormalizationKeepsFailing() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body><script src=\"jquery-1.12.0.min.js\"></script></body></html>");
+        eform.setContextPath("/carlos");
+
+        // ConvertToEdoc.parseDocument is the real forcing point for the RuntimeException/LinkageError
+        // catch in getFormHtml(): getDocument() delegates to it directly, so a forced RuntimeException
+        // here reliably drives the exact catch block under test - unlike relying on a genuine jsoup
+        // parse failure (hard to construct) or on ConvertToEdoc's static-init LinkageError (whose
+        // occurrence depends on JVM class-loading order across the whole Surefire fork; see the class
+        // javadoc). registerConvertToEdocDependencies() above already registered the NioFileManager
+        // mock, so ConvertToEdoc's static initializer has already run successfully before this
+        // mockStatic() call - only its instance methods are stubbed to throw here.
+        try (LogCapture logCapture = LogCapture.forLogger(EForm.class);
+             MockedStatic<ConvertToEdoc> convertToEdoc = Mockito.mockStatic(ConvertToEdoc.class)) {
+            convertToEdoc.when(() -> ConvertToEdoc.parseDocument(anyString()))
+                    .thenThrow(new IllegalStateException("forced jsoup parse failure for this test"));
+
+            // The DOM pass is retried on every read while it keeps failing (runtimeAssetsNormalized
+            // never gets set), so both calls fall back to the string-level HTML.
+            String first = eform.getFormHtml();
+            String second = eform.getFormHtml();
+
+            assertThat(first).isEqualTo(second);
+            long warnCount = logCapture.events().stream()
+                    .filter(event -> event.getLevel() == Level.WARN)
+                    .count();
+            assertThat(warnCount)
+                    .describedAs("WARN must fire exactly once per content generation, not on every retried read")
+                    .isEqualTo(1);
+            long debugCount = logCapture.events().stream()
+                    .filter(event -> event.getLevel() == Level.DEBUG)
+                    .count();
+            assertThat(debugCount)
+                    .describedAs("the full stack trace must still log at DEBUG on every retry")
+                    .isEqualTo(2);
+            LogEvent warnEvent = logCapture.events().stream()
+                    .filter(event -> event.getLevel() == Level.WARN)
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(warnEvent.getMessage().getFormattedMessage())
+                    .contains("DOM-based eForm runtime normalization failed")
+                    .contains("IllegalStateException");
+        }
+    }
+
+    @Test
+    @DisplayName("should re-arm the WARN-once flag when setFormHtml replaces the content")
+    void shouldRearmWarnOnceFlag_whenSetFormHtmlReplacesContent() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body><script src=\"jquery-1.12.0.min.js\"></script></body></html>");
+        eform.setContextPath("/carlos");
+
+        try (LogCapture logCapture = LogCapture.forLogger(EForm.class);
+             MockedStatic<ConvertToEdoc> convertToEdoc = Mockito.mockStatic(ConvertToEdoc.class)) {
+            convertToEdoc.when(() -> ConvertToEdoc.parseDocument(anyString()))
+                    .thenThrow(new IllegalStateException("forced jsoup parse failure for this test"));
+
+            // First content generation: exactly one WARN, no matter how many reads follow.
+            eform.getFormHtml();
+            eform.getFormHtml();
+
+            // setFormHtml resets both runtimeAssetsNormalized AND normalizationFailureLogged, so new
+            // content that also fails to normalize earns its OWN WARN rather than staying silent
+            // because a previous, unrelated content generation already logged one.
+            eform.setFormHtml("<html><body><script src=\"/eform/jquery-1.12.0.min.js\"></script></body></html>");
+            eform.getFormHtml();
+            eform.getFormHtml();
+
+            long warnCount = logCapture.events().stream()
+                    .filter(event -> event.getLevel() == Level.WARN)
+                    .count();
+            assertThat(warnCount)
+                    .describedAs("a fresh WARN is owed once per content generation, not once per EForm instance")
+                    .isEqualTo(2);
+        }
     }
 
 }
