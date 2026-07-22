@@ -32,6 +32,8 @@ import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -252,6 +254,63 @@ class EformRenderPdfHtmlComposerUnitTest {
                 .contains("/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42")
                 .contains("position:absolute;left:20;top:10;width:120;height:40;")
                 .doesNotContain("<div id=\"signatureDisplay\"></div>");
+    }
+
+    @Test
+    @DisplayName("should fail the render when a stored signature URL cannot be normalized")
+    void shouldThrow_whenStoredSignatureUrlInvalid() {
+        EForm eForm = mockEformWithHtml("<html>signatureControl.initialize({eform:true, height:80, width:200, top:10, left:20})<div id=\"signatureDisplay\"></div></html>");
+        EFormValue sig = eformValue("signatureValue", "https://evil.example/steal.png");
+
+        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", false, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("signature");
+    }
+
+    @Test
+    @DisplayName("should fail the render when the signature geometry cannot be located in the form")
+    void shouldThrow_whenSignatureGeometryUnmatched() {
+        EForm eForm = mockEformWithHtml("<html><div id=\"signatureDisplay\"></div></html>"); // no initialize(...) call
+        EFormValue sig = eformValue("signatureValue", "/carlos/imageRenderingServlet?digitalSignatureId=42");
+
+        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", false, null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("signature");
+    }
+
+    @Test
+    @DisplayName("should skip splicing silently for a blank signature value")
+    void shouldSkipSplice_forBlankSignatureValue() {
+        EForm eForm = mockEformWithHtml("<html><div id=\"signatureDisplay\"></div></html>");
+        EFormValue sig = eformValue("signatureValue", "   ");
+
+        assertThatCode(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", false, null))
+                .doesNotThrowAnyException();
+    }
+
+    /**
+     * Builds a mocked {@link EForm} backed by an {@link AtomicReference}-held HTML buffer, reusing
+     * the get/set idiom used throughout this test class so {@code buildPdfHtml}'s interleaved
+     * {@code getFormHtml}/{@code setFormHtml} calls observe a consistent, mutable HTML string.
+     */
+    private static EForm mockEformWithHtml(String initialHtml) {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>(initialHtml);
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+        return eForm;
+    }
+
+    /** Builds an {@link EFormValue} with the given stored variable name/value pair. */
+    private static EFormValue eformValue(String varName, String varValue) {
+        EFormValue value = new EFormValue();
+        value.setVarName(varName);
+        value.setVarValue(varValue);
+        return value;
     }
 
     private static Stream<String> invalidSignatureUrls() {

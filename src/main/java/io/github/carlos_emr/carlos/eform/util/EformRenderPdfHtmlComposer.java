@@ -31,6 +31,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -75,6 +76,8 @@ public final class EformRenderPdfHtmlComposer {
      * @param renderToken render-scoped grant appended to local asset URLs so the sessionless
      *        render browser can fetch its images; null for the session-authenticated path
      * @return normalized HTML ready for the browser renderer
+     * @throws IllegalStateException if a stored, non-blank signature cannot be spliced into the
+     *         form HTML; a signed document must never render (and so fax/archive) unsigned
      */
     public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, boolean prepareForFax, String renderToken) {
         EForm eForm = new EForm(String.valueOf(formDataId));
@@ -91,7 +94,14 @@ public final class EformRenderPdfHtmlComposer {
                     formDataId, eFormValues == null ? 0 : eFormValues.size(), prepareForFax);
         }
 
-        return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax, renderToken);
+        try {
+            return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax, renderToken);
+        } catch (IllegalStateException e) {
+            // fdid is a PHI-correlating identifier (joins back to the patient's saved eForm data);
+            // sanitize it before logging alongside the (already PHI-free) failure reason.
+            logger.error("eForm PDF composition failed: fdid={} reason={}", LogSafe.sanitize(String.valueOf(formDataId)), e.getMessage());
+            throw e;
+        }
     }
 
     /**
@@ -185,33 +195,48 @@ public final class EformRenderPdfHtmlComposer {
     /**
      * Splices a stored signature image in place of the JS signature pad's {@code signatureDisplay}
      * target, reusing the geometry declared in the form's {@code signatureControl.initialize(...)}
-     * call. Logs a warning and skips the signature when the stored URL fails
-     * {@link #normalizePdfSignatureUrl} validation.
+     * call.
+     *
+     * <p>A blank/whitespace {@code signatureValue} means the form was never signed and is skipped
+     * silently. But a <em>present, non-blank</em> stored signature that cannot be spliced — because
+     * its URL fails {@link #normalizePdfSignatureUrl} validation, or the form HTML no longer carries
+     * the {@code signatureControl.initialize(...)} geometry — must fail the render rather than
+     * silently produce an unsigned PDF: a clinician-signed document must never fax/archive without
+     * its signature. The caller ({@link #buildPdfHtmlForFdid}) attaches the fdid to this failure.</p>
+     *
+     * @throws IllegalStateException if a non-blank stored signature cannot be placed in the form HTML
      */
     // MODIFICATION_AFTER_VALIDATION: the regex match on the form HTML only extracts signature-pad
     // geometry; the security validation is on the signature URL (normalizePdfSignatureUrl returns
-    // null → skip), and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.
+    // null → throw), and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.
     @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "the html.replace only substitutes a fixed placeholder div; the signature URL is validated by normalizePdfSignatureUrl and encoded by buildSignatureImageMarkup before insertion")
     private static void applySignatureHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath) {
         for (EFormValue value : eFormValues) {
             if (!"signatureValue".equals(value.getVarName())) {
                 continue;
             }
+            String storedSignature = value.getVarValue();
+            if (storedSignature == null || storedSignature.isBlank()) {
+                // An unsigned form legitimately carries a blank signatureValue; nothing to splice.
+                continue;
+            }
             String html = eForm.getFormHtml();
             String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
-            Pattern pattern = Pattern.compile(signatureInit);
-            Matcher matcher = pattern.matcher(html);
-            boolean matchFound = matcher.find();
-            if (matchFound && matcher.groupCount() == 4) {
-                String sign = normalizePdfSignatureUrl(value.getVarValue(), contextPath);
-                if (sign == null) {
-                    logger.warn("Skipping invalid signature URL while preparing eForm PDF");
-                    continue;
-                }
-                String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
-                eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
-                        buildSignatureImageMarkup(sign, left, top, width, height)));
+            Matcher matcher = Pattern.compile(signatureInit).matcher(html);
+            if (!matcher.find() || matcher.groupCount() != 4) {
+                // A present signature that cannot be placed is a render failure, not a cosmetic skip:
+                // a clinician-signed document must never fax/archive without its signature.
+                logger.error("eForm PDF render failed: signed form's geometry (signatureControl.initialize) not found; fdid logged by caller");
+                throw new IllegalStateException("Signed eForm cannot be rendered: signature placement not found in form HTML");
             }
+            String sign = normalizePdfSignatureUrl(storedSignature, contextPath);
+            if (sign == null) {
+                logger.error("eForm PDF render failed: stored signature URL rejected by normalization");
+                throw new IllegalStateException("Signed eForm cannot be rendered: stored signature URL is invalid");
+            }
+            String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
+            eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
+                    buildSignatureImageMarkup(sign, left, top, width, height)));
         }
     }
 
