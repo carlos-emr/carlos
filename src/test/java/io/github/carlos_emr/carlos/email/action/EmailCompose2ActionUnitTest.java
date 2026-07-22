@@ -246,7 +246,10 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         attachments.add(mock(EmailAttachment.class));
 
         assertThat(state.emailAttachmentList()).isEmpty();
-        assertThatThrownBy(() -> state.emailAttachmentList().add(mock(EmailAttachment.class)))
+        List<EmailAttachment> stateAttachments = state.emailAttachmentList();
+        EmailAttachment newAttachment = mock(EmailAttachment.class);
+
+        assertThatThrownBy(() -> stateAttachments.add(newAttachment))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 }
