@@ -108,21 +108,64 @@ class ApplicationTempPurgeJobUnitTest {
     }
 
     @Test
-    @DisplayName("Retains a stale directory that does not match the tempPDF* prefix")
-    void shouldRetainDirectory_whenNameDoesNotMatchTempPdfPrefix() throws IOException {
+    @DisplayName("Removes an expired tempDirectory* directory (createTempFile's output shape) and its nested content")
+    void shouldRemoveExpiredDirectory_whenNameMatchesTempDirectoryPrefix() throws IOException {
         Instant now = Instant.now();
         Instant old = now.minus(48, ChronoUnit.HOURS);
         Instant cutoff = now.minus(24, ChronoUnit.HOURS);
 
-        Path unrelatedOldDir = Files.createDirectory(tempRoot.resolve("some-other-directory"));
-        setLastModified(unrelatedOldDir, old);
+        // NioFileManagerImpl.createTempFile stages multi-patient demographic import files under
+        // tempDirectory<ts> subdirectories (see ImportDemographicDataAction42Action). Pre-fix, the
+        // tempPDF*-only filter never matched this prefix, so these directories were retained forever.
+        Path oldTempDirectoryDir = Files.createDirectory(tempRoot.resolve("tempDirectory1700000000000"));
+        Path nestedImportFile = Files.createFile(oldTempDirectoryDir.resolve("import-batch.csv"));
+        setLastModified(nestedImportFile, old);
+        setLastModified(oldTempDirectoryDir, old);
 
         PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(tempRoot, cutoff);
 
-        assertThat(Files.exists(unrelatedOldDir))
-                .as("only tempPDF*-prefixed directories are purge candidates")
+        assertThat(Files.exists(oldTempDirectoryDir))
+                .as("expired tempDirectory* directory should be removed recursively")
+                .isFalse();
+        assertThat(Files.exists(nestedImportFile))
+                .as("contents of the removed tempDirectory* directory should be gone too")
+                .isFalse();
+        assertThat(outcome.removed()).isEqualTo(1);
+        assertThat(outcome.skipped()).isZero();
+        assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Removes an expired directory of any other name and its nested content; retains a fresh one")
+    void shouldRemoveExpiredDirectory_whenNameDoesNotMatchAnyKnownPrefix() throws IOException {
+        Instant now = Instant.now();
+        Instant old = now.minus(48, ChronoUnit.HOURS);
+        Instant fresh = now.minus(1, ChronoUnit.HOURS);
+        Instant cutoff = now.minus(24, ChronoUnit.HOURS);
+
+        // carlos-temp is exclusively CARLOS-owned, so any direct child older than the cutoff is a
+        // purgeable orphan regardless of name -- not just the two known writer prefixes.
+        Path oldArbitraryDir = Files.createDirectory(tempRoot.resolve("some-other-directory"));
+        Path nestedStrayFile = Files.createFile(oldArbitraryDir.resolve("stray.tmp"));
+        setLastModified(nestedStrayFile, old);
+        setLastModified(oldArbitraryDir, old);
+
+        Path freshArbitraryDir = Files.createDirectory(tempRoot.resolve("another-directory"));
+        setLastModified(freshArbitraryDir, fresh);
+
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(tempRoot, cutoff);
+
+        assertThat(Files.exists(oldArbitraryDir))
+                .as("expired directory of any name should be removed recursively")
+                .isFalse();
+        assertThat(Files.exists(nestedStrayFile))
+                .as("contents of the removed arbitrarily-named directory should be gone too")
+                .isFalse();
+        assertThat(Files.exists(freshArbitraryDir))
+                .as("fresh directory of any name should be retained")
                 .isTrue();
-        assertThat(outcome.removed()).isZero();
+
+        assertThat(outcome.removed()).isEqualTo(1);
         assertThat(outcome.skipped()).isZero();
         assertThat(outcome.failed()).isZero();
     }

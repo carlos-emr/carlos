@@ -55,8 +55,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * <ol>
  *   <li><b>Application temp root</b> ({@code <java.io.tmpdir>/carlos-temp}, see
  *       {@link PathValidationUtils#APPLICATION_TEMP_ROOT_NAME}) &mdash; the root
- *       {@code NioFileManagerImpl.saveTempFile}/{@code createTempFile} write generated PDFs under.
- *       Files and {@code tempPDF*} subdirectories older than the configured max age are removed.</li>
+ *       {@code NioFileManagerImpl.saveTempFile} (which writes {@code tempPDF*} subdirectories) and
+ *       {@code createTempFile} (which writes {@code tempDirectory*} subdirectories, used by
+ *       {@code ImportDemographicDataAction42Action} to stage multi-patient demographic import files)
+ *       write generated output under. This root is exclusively CARLOS-owned, so every direct child
+ *       (file or directory, regardless of name) older than the configured max age is removed.</li>
  *   <li><b>Document preview cache</b> ({@code document_cache}, see
  *       {@link NioFileManagerImpl#resolveDocumentCacheDirectory()}) &mdash; the backstop for the
  *       flush-vs-writer race: a cancelled preview whose render lands after a successful
@@ -93,8 +96,6 @@ public class ApplicationTempPurgeJob {
     // not sweeping synchronously from @PostConstruct.
     private static final long INITIAL_DELAY_MS = 3000L;
 
-    /** Directory-name prefix for the temp-PDF subdirectories {@code NioFileManagerImpl#saveTempFile} creates. */
-    private static final String TEMP_PDF_DIR_PREFIX = "tempPDF";
     private static final String CACHE_IMAGE_SUFFIX = ".png";
 
     private final NioFileManagerImpl nioFileManagerImpl;
@@ -246,8 +247,12 @@ public class ApplicationTempPurgeJob {
     // ========================================================================
 
     /**
-     * Sweeps the direct children of {@code root} for expired files and {@code tempPDF*}
-     * subdirectories, deleting entries whose last-modified time is strictly before {@code cutoff}.
+     * Sweeps the direct children of {@code root} &mdash; the CARLOS-owned application temp root
+     * &mdash; deleting every expired file or directory whose last-modified time is strictly before
+     * {@code cutoff}, regardless of name. This covers both {@code NioFileManagerImpl.saveTempFile}'s
+     * {@code tempPDF*} output and {@code createTempFile}'s {@code tempDirectory*} output, plus any
+     * stray file, without gating on a name prefix: since the root is exclusively application-owned,
+     * any direct child old enough to be expired is a purgeable orphan.
      *
      * <p>Symlinked children are never followed or deleted &mdash; they are counted as
      * {@link PurgeOutcome#skipped()} and logged at WARN, regardless of age, since a symlink under an
@@ -258,7 +263,8 @@ public class ApplicationTempPurgeJob {
      * entry). Never logs file contents; filenames are sanitized with {@link LogSafe}.</p>
      *
      * @param root application temp root to sweep (only its direct children are considered as
-     *             deletion candidates; {@code tempPDF*} subdirectories are removed recursively as a unit)
+     *             deletion candidates; expired subdirectories of any name are removed recursively as
+     *             a unit)
      * @param cutoff entries last modified strictly before this instant are removed
      * @return counts of entries removed, skipped (symlinks), and failed (validation/deletion errors)
      */
@@ -279,8 +285,13 @@ public class ApplicationTempPurgeJob {
     }
 
     private static boolean isTempRootCandidate(Path entry) {
-        return Files.isRegularFile(entry)
-                || (Files.isDirectory(entry) && entry.getFileName().toString().startsWith(TEMP_PDF_DIR_PREFIX));
+        // carlos-temp is exclusively application-owned (see PathValidationUtils.APPLICATION_TEMP_ROOT_NAME):
+        // NioFileManagerImpl.saveTempFile writes tempPDF* subdirectories and createTempFile writes
+        // tempDirectory* subdirectories, both directly under this root, with no other legitimate writer.
+        // Gating directories on a name prefix therefore only creates purge blind spots for other
+        // CARLOS-owned output shapes; every direct child (file or directory) older than the cutoff is a
+        // purgeable orphan regardless of name.
+        return Files.isRegularFile(entry) || Files.isDirectory(entry);
     }
 
     private static boolean isCacheImageCandidate(Path entry) {
@@ -341,9 +352,10 @@ public class ApplicationTempPurgeJob {
     }
 
     /**
-     * Deletes a single already-validated file, or a {@code tempPDF*} directory recursively.
+     * Deletes a single already-validated file, or an expired directory recursively (regardless of
+     * name &mdash; covers both {@code tempPDF*} and {@code tempDirectory*} output shapes).
      * {@link Files#walk(Path, java.nio.file.FileVisitOption...)} does not follow symlinks by default,
-     * so a symlink nested inside a temp-PDF subdirectory has its link removed but its target left
+     * so a symlink nested inside a purged subdirectory has its link removed but its target left
      * untouched &mdash; consistent with the top-level symlink handling in {@link #sweep}.
      */
     private static boolean deleteEntry(Path path) {
@@ -410,9 +422,9 @@ public class ApplicationTempPurgeJob {
     }
 
     /**
-     * Per-cycle sweep counts for one directory. {@code removed} counts files and {@code tempPDF*}
-     * directories actually deleted; {@code skipped} counts symlinked children left untouched;
-     * {@code failed} counts entries that were expired but could not be validated or deleted.
+     * Per-cycle sweep counts for one directory. {@code removed} counts files and directories
+     * actually deleted; {@code skipped} counts symlinked children left untouched; {@code failed}
+     * counts entries that were expired but could not be validated or deleted.
      */
     record PurgeOutcome(int removed, int skipped, int failed) {
         static final PurgeOutcome EMPTY = new PurgeOutcome(0, 0, 0);
