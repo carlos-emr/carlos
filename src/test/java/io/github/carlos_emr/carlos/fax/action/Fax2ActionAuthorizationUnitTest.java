@@ -61,6 +61,12 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
 
+    // Fax2Action's production guard (PathValidationUtils.isInApplicationTempDirectory) resolves its
+    // allowed root from java.io.tmpdir at runtime, not a hardcoded "/tmp". Fixtures that must satisfy
+    // that guard derive their root the same way so the suite passes regardless of the JVM's tmpdir.
+    private static final String APP_TEMP_ROOT =
+            java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "carlos-temp").toString();
+
     @Test
     @DisplayName("should reject getPageCount when fax read privilege is missing")
     void shouldRejectGetPageCount_whenFaxReadPrivilegeMissing() {
@@ -189,11 +195,11 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
 
         Path previewPng = tempDir.resolve("fax-preview-page.png");
         Files.write(previewPng, new byte[] {(byte) 0x89, 'P', 'N', 'G'});
-        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq("/tmp/carlos-temp/fax.pdf"), eq(1)))
+        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq(APP_TEMP_ROOT + "/fax.pdf"), eq(1)))
                 .thenReturn(previewPng);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        request.setParameter("faxFilePath", APP_TEMP_ROOT + "/fax.pdf");
         request.setParameter("showAs", "image");
         request.setParameter("pageNumber", "1");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
@@ -229,11 +235,11 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
                 .thenReturn(true);
-        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq("/tmp/carlos-temp/fax.pdf"), eq(1)))
+        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq(APP_TEMP_ROOT + "/fax.pdf"), eq(1)))
                 .thenThrow(new SecurityException("missing required sec object (_edoc)"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        request.setParameter("faxFilePath", APP_TEMP_ROOT + "/fax.pdf");
         request.setParameter("showAs", "image");
         request.setParameter("pageNumber", "1");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
@@ -304,7 +310,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         // means the path came directly from the caller); the real PDF bytes live under the JUnit
         // @TempDir and are supplied via the mocked resolution below, mirroring how the direct-path
         // CoverPage.jsp flow only ever names a carlos-temp artifact.
-        String requestFaxFilePath = "/tmp/carlos-temp/fax-page-count.pdf";
+        String requestFaxFilePath = APP_TEMP_ROOT + "/fax-page-count.pdf";
         when(faxManager.resolveAndValidateFilePath(requestFaxFilePath)).thenReturn(pdf);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -370,7 +376,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         Files.writeString(corrupt, "this is not a pdf");
         // Request parameter must satisfy the application-temp-workspace guard (no jobId); the real
         // (corrupt) file lives under the JUnit @TempDir and is supplied via the mocked resolution.
-        String requestFaxFilePath = "/tmp/carlos-temp/fax-corrupt.pdf";
+        String requestFaxFilePath = APP_TEMP_ROOT + "/fax-corrupt.pdf";
         when(faxManager.resolveAndValidateFilePath(requestFaxFilePath)).thenReturn(corrupt);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -434,11 +440,11 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         // The source PDF is gone: getFaxPreviewImage warns server-side and returns null. An empty
         // 200 left the CoverPage user staring at a broken image with no signal.
-        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq("/tmp/carlos-temp/fax.pdf"), eq(1)))
+        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq(APP_TEMP_ROOT + "/fax.pdf"), eq(1)))
                 .thenReturn(null);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        request.setParameter("faxFilePath", APP_TEMP_ROOT + "/fax.pdf");
         request.setParameter("showAs", "image");
         request.setParameter("pageNumber", "1");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
@@ -470,11 +476,11 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         // The file vanished between path resolution and streaming (e.g. concurrent flush): the
         // response must say so while uncommitted, not end as an empty 200.
-        when(faxManager.resolveAndValidateFilePath("/tmp/carlos-temp/fax.pdf"))
-                .thenReturn(Path.of("/tmp/carlos-temp/vanished-fax.pdf"));
+        when(faxManager.resolveAndValidateFilePath(APP_TEMP_ROOT + "/fax.pdf"))
+                .thenReturn(Path.of(APP_TEMP_ROOT + "/vanished-fax.pdf"));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("faxFilePath", "/tmp/carlos-temp/fax.pdf");
+        request.setParameter("faxFilePath", APP_TEMP_ROOT + "/fax.pdf");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -542,7 +548,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         Path tempPdf = tempDir.resolve("fax-temp-preview.pdf");
         byte[] pdfBytes = {'%', 'P', 'D', 'F', '-', '1', '.', '4'};
         Files.write(tempPdf, pdfBytes);
-        String requestFaxFilePath = "/tmp/carlos-temp/fax-temp-preview.pdf";
+        String requestFaxFilePath = APP_TEMP_ROOT + "/fax-temp-preview.pdf";
         when(faxManager.resolveAndValidateFilePath(requestFaxFilePath)).thenReturn(tempPdf);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -685,7 +691,7 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             Fax2Action action = new Fax2Action();
             action.setTransactionType("EFORM");
             action.setRecipientFaxNumber("1234567890");
-            action.setFaxFilePath("/tmp/carlos-temp/fax.pdf");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
 
             String result = action.queue();
 
