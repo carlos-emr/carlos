@@ -411,10 +411,19 @@ public class EForm extends EFormBase {
      * asset references, injects a {@code loadSig} fallback when needed, and converts legacy string-based
      * timer calls inside inline scripts into function callbacks.</p>
      *
-     * @param contextPath servlet context path used to build browser-facing runtime asset URLs
+     * <p>A {@code null} context path (no servlet environment) is a no-op. An empty string ({@code ""})
+     * is a valid root-context (ROOT.war) deployment and is normalized like any other context path.</p>
+     *
+     * @param contextPath servlet context path used to build browser-facing runtime asset URLs;
+     *                     {@code ""} for a root-context deployment, {@code null} to skip normalization
      */
     public void setContextPath(String contextPath) {
-        if (StringUtils.isBlank(contextPath)) return;
+        // Only a null context (no servlet environment) skips normalization. An empty string ("")
+        // is a valid root-context (ROOT.war) deployment - request.getContextPath() returns "" there,
+        // not null - and must still get the marker rewrite and legacy-asset normalization below; the
+        // trailing-slash check just below already handles "" correctly ("".endsWith("/") is false, so
+        // it passes through unchanged, while "/" normalizes to "").
+        if (contextPath == null) return;
         // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
         // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
         // path validation on it (which would inject OS separators and reject some valid context paths).
@@ -503,7 +512,9 @@ public class EForm extends EFormBase {
         // times per render, and re-running the (idempotent) jsoup parse + serialize on unchanged
         // content was pure waste. setFormHtml/setContextPath reset the flag so changed content is
         // always re-normalized; a failed pass leaves it unset and retries on the next read.
-        if (!StringUtils.isBlank(runtimeContextPath) && !runtimeAssetsNormalized) {
+        // runtimeContextPath is null only when setContextPath() has never run (no servlet
+        // environment); "" is the valid root-context deployment value and must still be normalized.
+        if (runtimeContextPath != null && !runtimeAssetsNormalized) {
             try {
                 normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
                 runtimeAssetsNormalized = true;
