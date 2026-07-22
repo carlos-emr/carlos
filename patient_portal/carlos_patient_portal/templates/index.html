@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen" aria-label="Sign in">
+      <header class="patient-topbar">
+        <div class="brand-lockup">
+          <img src="/static/carlos-placeholder.svg" alt="" class="brand-logo">
+          <div>
+            <strong>{{ service_name }}</strong>
+            <span>{{ clinic_name }}</span>
+          </div>
+        </div>
+        <div class="language-switch" aria-label="Language">
+          <button class="text-tab selected" type="button">EN</button>
+          <button class="text-tab" type="button">FR</button>
+          <button class="text-tab" type="button">ES</button>
+          <button class="text-tab" type="button">PL</button>
+          <button class="text-tab" type="button">PT-BR</button>
+        </div>
+      </header>
+
+      <div class="auth-layout">
+        <section class="auth-panel" aria-labelledby="signin-title">
+          <h1 id="signin-title">Sign in</h1>
+          <form class="form-stack" method="post" action="/auth/login">
+            <label>
+              <span>Username</span>
+              <input type="text" name="username" value="patient.username" autocomplete="username">
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" name="password" autocomplete="current-password">
+            </label>
+            <button class="primary-action" type="submit">Continue</button>
+            <p class="clinic-help-line">Need help? Contact {{ clinic_name }}</p>
+          </form>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
