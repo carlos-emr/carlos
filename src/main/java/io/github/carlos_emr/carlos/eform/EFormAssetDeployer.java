@@ -303,6 +303,11 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         // (JQUERY_RESOURCE_PATH, 3.7.1) is deliberately deployed UNDER the legacy filename to
         // keep those forms working without editing every stored form.
         deployAssetFromPath("jquery-3.1.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
+        // Same deliberate aliasing for the older legacy generation: EForm's runtime normalization
+        // rewrites stored references to jquery-1.12.0.min.js to the displayImage asset route, so the
+        // current bundle must also be deployed under that legacy filename or those forms 404 (and the
+        // 404'd Script subresource fails the whole browser PDF render).
+        deployAssetFromPath("jquery-1.12.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
         for (Map.Entry<String, String> entry : SAMPLE_LAB_COMPATIBILITY_SCRIPTS.entrySet()) {
             deployGeneratedAsset(entry.getKey(), targetDir, entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
