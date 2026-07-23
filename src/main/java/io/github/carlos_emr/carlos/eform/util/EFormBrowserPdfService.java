@@ -43,8 +43,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 
 import javax.imageio.ImageIO;
@@ -127,6 +132,18 @@ public class EFormBrowserPdfService {
      */
     static final Duration WEBDRIVER_COMMAND_READ_TIMEOUT = RENDER_TIMEOUT;
     static final Duration WEBDRIVER_CONNECTION_TIMEOUT = Duration.ofSeconds(10);
+
+    /**
+     * Dedicated fast bound on browser-session creation (the "new session" command that launches
+     * Chromium). A doomed launch — a missing/incompatible Chromium or chromedriver, or (when the OS
+     * sandbox is opted in) a sandbox that cannot start — otherwise blocks on chromedriver's internal
+     * browser-start timeout (~60s), and the fax-with-attachments flow renders serially, so each doomed
+     * render stacks that wait into the multi-minute "faxing page never loads" the tester reported. A
+     * real Chromium launch completes in a few seconds; this budget fails a doomed one fast and frees
+     * the render slot. Kept independent of {@link #WEBDRIVER_COMMAND_READ_TIMEOUT} because a legitimate
+     * render command (navigation up to {@link #PAGE_LOAD_TIMEOUT}) needs the longer per-command read.
+     */
+    static final Duration DRIVER_START_TIMEOUT = Duration.ofSeconds(30);
 
     /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
     private static final int MAX_CONCURRENT_RENDERS = 2;
@@ -779,16 +796,7 @@ public class EFormBrowserPdfService {
                 ChromeDriverService service = new ChromeDriverService.Builder()
                         .usingDriverExecutable(chromedriver)
                         .build();
-                try {
-                    return new RendererBrowser(new ChromeDriver(service, options, rendererClientConfig()), service);
-                } catch (RuntimeException e) {
-                    // Selenium starts the caller-owned service before session creation but does not
-                    // stop it if the ChromeDriver constructor throws (e.g. a sandboxed launch that
-                    // cannot start). Stop quietly so a teardown failure can never REPLACE the real
-                    // launch failure — the redacted detail log below is the diagnostic record.
-                    stopServiceQuietly(service);
-                    throw e;
-                }
+                return new RendererBrowser(startSessionWithinBudget(service, options), service);
             }
             // No pinned chromedriver: Selenium Manager resolves one when the driver starts (the
             // DriverFinder consults it for an executable-less service). Build a caller-owned
@@ -798,16 +806,7 @@ public class EFormBrowserPdfService {
             // Intended for dev/CI; production deployments should still pin
             // eform_pdf_browser_chromedriver_path.
             ChromeDriverService managerResolvedService = new ChromeDriverService.Builder().build();
-            try {
-                return new RendererBrowser(
-                        new ChromeDriver(managerResolvedService, options, rendererClientConfig()), managerResolvedService);
-            } catch (RuntimeException e) {
-                // Mirror the pinned path: Selenium starts the caller-owned service before session
-                // creation but does not stop it if the ChromeDriver constructor throws. Stop
-                // quietly so a teardown failure can never REPLACE the real launch failure.
-                stopServiceQuietly(managerResolvedService);
-                throw e;
-            }
+            return new RendererBrowser(startSessionWithinBudget(managerResolvedService, options), managerResolvedService);
         } catch (RuntimeException e) {
             // The redacted detail line below is the ONLY place the underlying startup failure (a
             // version mismatch, a missing shared library, a sandbox that cannot start) surfaces:
@@ -818,6 +817,50 @@ public class EFormBrowserPdfService {
             logger.error("Chromium startup failure detail: type={} error={} at={}",
                     e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
             throw chromiumStartupFailure(!sandboxEnabled());
+        }
+    }
+
+    /**
+     * Creates the Chromium session on a bounded background thread so a doomed launch fails within
+     * {@link #DRIVER_START_TIMEOUT} instead of blocking on chromedriver's internal ~60s browser-start
+     * timeout. On timeout the pending session is cancelled and the caller-owned {@code service} is
+     * stopped — killing chromedriver, which unblocks the doomed constructor so it cannot leak a
+     * browser process. The service is likewise stopped on a synchronous launch failure, so the caller
+     * never has to (mirrors the previous inline cleanup). The completed {@link ChromeDriver} is handed
+     * back to the render thread through {@link Future#get}, which establishes the needed happens-before.
+     */
+    private ChromeDriver startSessionWithinBudget(ChromeDriverService service, ChromeOptions options) {
+        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "eform-render-driver-start");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            Future<ChromeDriver> pending = starter.submit(
+                    () -> new ChromeDriver(service, options, rendererClientConfig()));
+            try {
+                return pending.get(DRIVER_START_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException timeout) {
+                pending.cancel(true);
+                stopServiceQuietly(service);
+                throw new IllegalStateException(
+                        "Chromium session creation exceeded the " + DRIVER_START_TIMEOUT.toSeconds()
+                        + "s startup budget", timeout);
+            } catch (ExecutionException failure) {
+                stopServiceQuietly(service);
+                Throwable cause = failure.getCause();
+                if (cause instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new IllegalStateException("Chromium session creation failed", cause);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                pending.cancel(true);
+                stopServiceQuietly(service);
+                throw new IllegalStateException("Interrupted while starting the Chromium renderer", interrupted);
+            }
+        } finally {
+            starter.shutdownNow();
         }
     }
 

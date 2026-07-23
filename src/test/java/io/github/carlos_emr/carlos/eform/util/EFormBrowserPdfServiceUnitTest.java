@@ -324,6 +324,17 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should bound session creation well below the per-command render budget so a doomed launch fails fast")
+    void shouldBoundDriverStart_belowRenderBudget() {
+        // A doomed browser launch is bounded by DRIVER_START_TIMEOUT (a dedicated watchdog on session
+        // creation), which must be shorter than the per-command read budget so it fails fast instead of
+        // waiting chromedriver's internal ~60s browser-start timeout and stacking across the fax flow.
+        assertThat(EFormBrowserPdfService.DRIVER_START_TIMEOUT)
+                .isPositive()
+                .isLessThan(EFormBrowserPdfService.WEBDRIVER_COMMAND_READ_TIMEOUT);
+    }
+
+    @Test
     @DisplayName("should reject a base URL carrying user-info, query, or fragment components")
     void shouldRejectBaseUrl_withUserInfoQueryOrFragment() {
         // Servlet paths are appended verbatim to the base; a query/fragment would swallow them
