@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.eform.util;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,6 +59,8 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -872,6 +876,58 @@ class EFormBrowserPdfServiceUnitTest {
                 properties.setProperty("eform_pdf_browser_base_url", originalBaseUrl);
             }
         }
+    }
+
+    @Test
+    @DisplayName("should throw a plain IllegalArgumentException, not a base-URL diagnosis, "
+            + "when a captured screenshot payload is corrupt base64")
+    void shouldThrowIllegalArgumentException_whenCaptureScreenshotPayloadIsCorruptBase64(@TempDir Path tempDir)
+            throws Exception {
+        // Regression pin for the review finding on this task: a corrupt CDP screenshot payload
+        // makes Base64.getDecoder().decode(encoded) inside captureRegions() throw a plain
+        // IllegalArgumentException. Before this fix, renderWithSlot's IllegalArgumentException
+        // catch wrapped the ENTIRE render body, so this downstream IAE was misreported as
+        // "Browser renderer base URL configuration is invalid: Illegal base64 character..." even
+        // though the base URL was perfectly valid.
+        //
+        // renderWithSlot() itself cannot be driven end-to-end in a pure unit test past this point:
+        // captureRegions() runs only after createDriver()/buildChromeOptions() launch a real
+        // Chromium via chromedriver, which a unit test does not have available (see
+        // EFormBrowserPdfServiceSeleniumSmokeTest for the real-browser, full-pipeline coverage
+        // that assumeTrue()-skips when no Chromium/chromedriver is present). So this test pins the
+        // downstream failure at its source instead: captureRegions() (invoked here directly via
+        // reflection, since it is private) throws a raw IllegalArgumentException — never a
+        // PDFGenerationException naming "configuration" — for corrupt capture data.
+        //
+        // The structural half of the guarantee is verified by reading renderWithSlot(): the
+        // catch (IllegalArgumentException e) block is now lexically scoped to ONLY the
+        // validateRendererBaseUrl(resolveBaseUrl(...)) call in its own try/catch, which executes
+        // and completes (successfully, on the normal path) before the main try block — and
+        // therefore before captureRegions() — ever runs. There is no catch (IllegalArgumentException
+        // e) around the main try any more, so an IAE raised here necessarily falls through to
+        // catch (RuntimeException e) and gets the honest generic "Browser rendering failed..."
+        // message instead of a false base-URL configuration diagnosis.
+        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
+        when(driver.executeCdpCommand(eq("Page.captureScreenshot"), anyMap()))
+                .thenReturn(Map.of("data", "!!!not-valid-base64!!!"));
+        List<EFormBrowserPdfService.CaptureRegion> regions =
+                List.of(new EFormBrowserPdfService.CaptureRegion(0, 0, 100, 100));
+        long deadlineNanos = System.nanoTime() + Duration.ofMinutes(1).toNanos();
+
+        Method captureRegionsMethod = EFormBrowserPdfService.class.getDeclaredMethod(
+                "captureRegions", ChromeDriver.class, List.class, Path.class, long.class);
+        captureRegionsMethod.setAccessible(true);
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+
+        assertThatThrownBy(() -> {
+            try {
+                captureRegionsMethod.invoke(service, driver, regions, tempDir, deadlineNanos);
+            } catch (InvocationTargetException e) {
+                throw e.getCause();
+            }
+        }).isInstanceOf(IllegalArgumentException.class)
+                .isNotInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("Illegal base64 character");
     }
 
     @Test

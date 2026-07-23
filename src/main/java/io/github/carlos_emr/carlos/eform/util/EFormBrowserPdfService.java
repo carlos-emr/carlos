@@ -385,11 +385,27 @@ public class EFormBrowserPdfService {
         // Declared before the try (validated to non-null inside it) so the catch-block diagnostics can
         // reference it AND so an invalid base-URL configuration is reported as a checked
         // PDFGenerationException rather than letting an IllegalArgumentException escape this method's
-        // throws contract — see the IllegalArgumentException catch below.
+        // throws contract — see the narrow try/catch immediately below.
         String baseUrl = null;
-        // The render token is issued inside the try so the finally always invalidates it: if base-URL
-        // validation (or any other pre-render step) throws, the grant must not linger in the bounded
-        // token cache for its full TTL. invalidate(null) is a safe no-op if we fail before issuance.
+        // Scoped to ONLY this validation call, deliberately OUTSIDE the main try/finally below:
+        // an IllegalArgumentException thrown later in the render (e.g.
+        // Base64.getDecoder().decode(...) on a corrupt CDP screenshot payload inside
+        // captureRegions) must never be misattributed to base-URL configuration. Keeping this
+        // catch lexically scoped to only the validateRendererBaseUrl(...) call means any other
+        // IllegalArgumentException raised further down falls through to the main try's
+        // catch (RuntimeException e) below instead, which reports the honest generic
+        // "Browser rendering failed..." diagnosis rather than a false configuration diagnosis.
+        try {
+            baseUrl = validateRendererBaseUrl(resolveBaseUrl(projectHome, currentRequest));
+        } catch (IllegalArgumentException e) {
+            String reason = redactUrls(String.valueOf(e.getMessage()));
+            logger.error("Browser eForm renderer rejected its base-URL configuration: {}", reason);
+            throw new PDFGenerationException("Browser renderer base URL configuration is invalid: " + reason);
+        }
+        // The render token is issued inside the try so the finally always invalidates it: if
+        // renderToken issuance (or any other pre-render step) throws, the grant must not linger in
+        // the bounded token cache for its full TTL. invalidate(null) is a safe no-op if we fail
+        // before issuance.
         EFormRenderTokenService.RenderToken renderToken = null;
         Path outputDirectory = null;
         Path outputPdfPath = null;
@@ -400,7 +416,6 @@ public class EFormBrowserPdfService {
         long deadlineNanos = startNanos + RENDER_TIMEOUT.toNanos();
 
         try {
-            baseUrl = validateRendererBaseUrl(resolveBaseUrl(projectHome, currentRequest));
             renderToken = EFormRenderTokenService.getInstance().issue(fdid, providerId);
             String appPath = validateRendererAppPath(buildAppPath(fdid, renderToken));
             logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
@@ -485,15 +500,16 @@ public class EFormBrowserPdfService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new PDFGenerationException("Browser rendering was interrupted while generating the eForm PDF.", e);
-        } catch (IllegalArgumentException e) {
-            // Base-URL (or other configuration) validation rejected the resolved renderer target.
-            // This is a checked-contract configuration failure, not a transient render error: surface
-            // it as a PDFGenerationException so callers never have to catch an unchecked IAE that
-            // would otherwise escape this method's throws clause. Redacted — the message text is a
-            // fixed validation reason, but redactUrls guards against any future URL-bearing message.
-            logger.error("Browser eForm renderer rejected its base-URL configuration: {}", redactUrls(String.valueOf(e.getMessage())));
-            throw new PDFGenerationException("Browser renderer base URL configuration is invalid: " + e.getMessage());
         } catch (RuntimeException e) {
+            // Deliberately no catch (IllegalArgumentException e) here: that would re-widen this
+            // handler back over the whole render body and risk mislabeling an unrelated IAE (e.g.
+            // Base64.getDecoder().decode(...) on a corrupt CDP screenshot payload inside
+            // captureRegions) as a base-URL configuration failure. The only IAE this method
+            // converts to a configuration diagnosis is the one from validateRendererBaseUrl(...)
+            // above, in its own narrowly-scoped try/catch before this try block even starts. Any
+            // other IllegalArgumentException (a RuntimeException subtype) is caught here and gets
+            // the honest generic diagnosis below.
+            //
             // WebDriver exception messages can embed the loopback render URL (which carries the fdid
             // and render token). Log a redacted message at error, and keep the full exception for
             // troubleshooting at debug only. Deliberately do NOT chain the raw exception as the
