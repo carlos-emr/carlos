@@ -94,6 +94,9 @@ public class ApplicationTempPurgeJob {
 
     private static final long DEFAULT_INTERVAL_MS = 3_600_000L; // hourly
     private static final long DEFAULT_MAX_AGE_HOURS = 24L;
+    // Ten years in hours: generous for any real retention need, small enough that the
+    // Instant.minus(hours) cutoff computation can never overflow.
+    private static final long MAX_AGE_HOURS_CEILING = 24L * 365 * 10;
     // First run happens shortly after Spring finishes wiring, matching FaxSchedulerJob's pattern of
     // not sweeping synchronously from @PostConstruct.
     private static final long INITIAL_DELAY_MS = 3000L;
@@ -345,8 +348,8 @@ public class ApplicationTempPurgeJob {
                     if (deleteEntry(validatedTarget.toPath())) {
                         removed++;
                     } else {
+                        // deleteEntry logged the failure with its cause at the failure site.
                         failed++;
-                        logger.warn("Failed to purge expired temp entry: {}", safeName);
                     }
                 } catch (IOException e) {
                     failed++;
@@ -354,6 +357,9 @@ public class ApplicationTempPurgeJob {
                 }
             }
         } catch (IOException e) {
+            // A scan that could not even list the directory must count as failed work: a cycle
+            // summary of failed=0 would otherwise read as healthy for a sweep that swept nothing.
+            failed++;
             logger.warn("Error scanning directory for purge: {}", LogSafe.sanitize(root.toString(), 1024), e);
         }
 
@@ -377,6 +383,10 @@ public class ApplicationTempPurgeJob {
             }
             return Files.deleteIfExists(path);
         } catch (IOException e) {
+            // Log the cause here, at the failure site: why a PHI-bearing temp entry cannot be
+            // deleted (permissions, immutable attribute, read-only mount) is the actionable part.
+            logger.warn("Failed to purge expired temp entry: {}",
+                    LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()), e);
             return false;
         }
     }
@@ -386,11 +396,12 @@ public class ApplicationTempPurgeJob {
             Files.deleteIfExists(path);
         } catch (IOException e) {
             logger.warn("Failed to delete nested entry while purging temp directory: {}",
-                    LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()));
+                    LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()), e);
         }
     }
 
-    private long readIntervalMs() {
+    // Package-private for direct configuration-parsing tests.
+    long readIntervalMs() {
         String configured = (String) CarlosProperties.getInstance().get(INTERVAL_MS_PROPERTY_KEY);
         if (configured == null || configured.trim().isEmpty()) {
             return DEFAULT_INTERVAL_MS;
@@ -410,16 +421,20 @@ public class ApplicationTempPurgeJob {
         }
     }
 
-    private long readMaxAgeHours() {
+    // Package-private for direct configuration-parsing tests.
+    long readMaxAgeHours() {
         String configured = (String) CarlosProperties.getInstance().get(MAX_AGE_HOURS_PROPERTY_KEY);
         if (configured == null || configured.trim().isEmpty()) {
             return DEFAULT_MAX_AGE_HOURS;
         }
         try {
             long parsed = Long.parseLong(configured.trim());
-            if (parsed <= 0) {
-                logger.warn("{} must be positive, got {}. Using default: {} hours",
-                        MAX_AGE_HOURS_PROPERTY_KEY, parsed, DEFAULT_MAX_AGE_HOURS);
+            if (parsed <= 0 || parsed > MAX_AGE_HOURS_CEILING) {
+                // The ceiling keeps Instant.minus(hours) overflow-free: an absurd value used to
+                // throw ArithmeticException in every cycle before either sweep ran, silently
+                // disabling all cleanup until the property was fixed.
+                logger.warn("{} must be between 1 and {}, got {}. Using default: {} hours",
+                        MAX_AGE_HOURS_PROPERTY_KEY, MAX_AGE_HOURS_CEILING, parsed, DEFAULT_MAX_AGE_HOURS);
                 return DEFAULT_MAX_AGE_HOURS;
             }
             return parsed;

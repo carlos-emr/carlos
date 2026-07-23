@@ -23,20 +23,28 @@ package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumSet;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJob.PurgeOutcome;
 
 /**
@@ -237,5 +245,47 @@ class ApplicationTempPurgeJobUnitTest {
         assertThat(outcome.removed()).isEqualTo(1);
         assertThat(outcome.skipped()).isZero();
         assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Falls back to the default max age when the configured value would overflow the cutoff computation")
+    void shouldFallBackToDefaultMaxAge_whenConfiguredValueOverflows() {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.get(ApplicationTempPurgeJob.MAX_AGE_HOURS_PROPERTY_KEY))
+                .thenReturn("9223372036854775807");
+
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+
+            ApplicationTempPurgeJob job = new ApplicationTempPurgeJob(mock(NioFileManagerImpl.class));
+
+            // Long.MAX_VALUE hours overflows Instant.minus, which used to kill every cycle
+            // before either sweep ran; the ceiling keeps the documented default instead.
+            assertThat(job.readMaxAgeHours()).isEqualTo(24L);
+        }
+    }
+
+    @Test
+    @DisplayName("Counts a scan failure when the swept directory cannot be listed")
+    void shouldCountScanFailure_whenDirectoryUnreadable() throws IOException {
+        // Root ignores POSIX permission bits, so an unreadable directory is only reproducible as
+        // a non-root user (the devcontainer runs as root and skips this); the production change —
+        // a scan abort counts as at least one failure so the cycle summary can never report
+        // failed=0 for a cycle that listed nothing — is a single reviewed line.
+        assumeTrue(!"root".equals(System.getProperty("user.name")),
+                "POSIX permission bits are ignored when running as root");
+
+        Path unreadable = tempRoot.resolve("unreadable");
+        Files.createDirectory(unreadable);
+        Set<PosixFilePermission> original = Files.getPosixFilePermissions(unreadable);
+        try {
+            Files.setPosixFilePermissions(unreadable, EnumSet.noneOf(PosixFilePermission.class));
+
+            PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(unreadable, Instant.now());
+
+            assertThat(outcome.failed()).isGreaterThanOrEqualTo(1);
+        } finally {
+            Files.setPosixFilePermissions(unreadable, original);
+        }
     }
 }
