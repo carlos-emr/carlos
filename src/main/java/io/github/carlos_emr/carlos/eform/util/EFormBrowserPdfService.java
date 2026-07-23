@@ -1013,6 +1013,15 @@ public class EFormBrowserPdfService {
                     "Browser rendering could not verify the page's console error state.");
         }
 
+        if (scan.parseFailures() > 0) {
+            // Same philosophy as the drain-fault gate in drainPerformanceLog: an unparseable
+            // network event is egress evidence the replay could not account for, and silently
+            // skipping it would let a broken render pass every gate on truncated evidence.
+            // Counts only — never the raw entries, which can carry URLs.
+            logger.error("Browser eForm renderer could not parse {} network event(s): fdid={}",
+                    scan.parseFailures(), fdid);
+            throw new PDFGenerationException("Browser rendering could not verify the page's network activity.");
+        }
         if (mainDocumentStatus == null || mainDocumentStatus != 200) {
             logger.error("Browser eForm renderer rejected main document: fdid={} status={}", fdid, mainDocumentStatus);
             throw new PDFGenerationException("Browser rendering did not receive a successful eForm page response. status=" + mainDocumentStatus);
@@ -1061,8 +1070,13 @@ public class EFormBrowserPdfService {
         return message != null && message.contains("violates the following Content Security Policy directive");
     }
 
-    /** Outcome of replaying Chrome's network events against the allowed loopback origin. */
-    record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources) {
+    /**
+     * Outcome of replaying Chrome's network events against the allowed loopback origin.
+     * {@code parseFailures} counts entries the replay could not parse — evidence the egress gate
+     * could not account for, which {@link #enforceRenderGates} fails closed on.
+     */
+    record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources,
+            int parseFailures) {
     }
 
     /**
@@ -1100,9 +1114,13 @@ public class EFormBrowserPdfService {
         int disallowedRequests = 0;
         Integer mainDocumentStatus = null;
         int failedSubresources = 0;
+        int parseFailures = 0;
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
+                // Count, never log the raw entry (it can carry URLs): a skipped entry is network
+                // evidence the gate did not see, and the gate fails closed on a nonzero count.
+                parseFailures++;
                 continue;
             }
             String method = message.path("method").asText("");
@@ -1135,7 +1153,7 @@ public class EFormBrowserPdfService {
                 failedSubresources++;
             }
         }
-        return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources);
+        return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources, parseFailures);
     }
 
     // Package-private for the unit test that pins the fail-closed behavior.

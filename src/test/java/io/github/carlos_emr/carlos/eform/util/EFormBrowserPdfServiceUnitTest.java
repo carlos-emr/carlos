@@ -511,6 +511,9 @@ class EFormBrowserPdfServiceUnitTest {
         // The later 404'd iframe Document is not the main document, so it counts as a failed
         // render-critical subresource instead of overwriting the main status.
         assertThat(scan.failedSubresources()).isEqualTo(1);
+        // The "not-json" entry is evidence the replay could not account for; it must be counted,
+        // not silently skipped, so the gate can fail closed on truncated evidence.
+        assertThat(scan.parseFailures()).isEqualTo(1);
     }
 
     @Test
@@ -755,6 +758,24 @@ class EFormBrowserPdfServiceUnitTest {
                 driver, entries, 200, GATE_BASE_URL, 42))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("failedSubresources=1");
+    }
+
+    @Test
+    @DisplayName("should fail the render when a performance entry cannot be parsed")
+    void shouldFailRender_whenPerformanceEntryUnparseable() {
+        // Same philosophy as the drain-fault gate: an unparseable network event is egress
+        // evidence the replay could not account for — passing on truncated evidence would let a
+        // broken render through every gate.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry("not-json"));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("network activity");
     }
 
     @Test
