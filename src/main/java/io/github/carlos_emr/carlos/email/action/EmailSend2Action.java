@@ -211,7 +211,7 @@ public class EmailSend2Action extends ActionSupport {
     }
 
     private static boolean isTrueParameter(HttpServletRequest request, String parameterName) {
-        return "true".equalsIgnoreCase(request.getParameter(parameterName));
+        return "true".equals(request.getParameter(parameterName));
     }
 
     /**

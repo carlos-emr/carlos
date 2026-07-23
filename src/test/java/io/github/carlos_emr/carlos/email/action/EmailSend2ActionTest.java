@@ -131,6 +131,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("fdid", "<script>alert(1)</script>");
         request.setParameter("openEFormAfterEmail", "true");
         request.setParameter("deleteEFormAfterEmail", "not-a-boolean");
+        request.setParameter("isEmailAttachmentEncrypted", "TRUE");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -150,6 +151,8 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("fdid")).isEqualTo("");
         assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
         assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(false);
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(false);
     }
 
     @Test
