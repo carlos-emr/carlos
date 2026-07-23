@@ -124,11 +124,14 @@ heuristic.
 
 ## Security model
 
-- **Loopback-only egress, enforced twice — scoped to the application's own port.** Chromium
-  launches with a dead proxy (`--proxy-server=http://127.0.0.1:1`) whose bypass list is exactly
-  the app's own loopback `host:port` (`127.0.0.1:<port>;localhost:<port>;[::1]:<port>`), so the
-  browser physically cannot reach non-loopback hosts *or other local services on different
-  ports* — such requests are blocked before they are sent. Independently, the renderer replays
+- **Loopback-only egress, enforced twice — scoped to the exact render origin.** Chromium
+  launches with a dead proxy (`--proxy-server=http://127.0.0.1:1`) whose bypass list is
+  `<-loopback>;<host>:<port>` — the exact render origin only. The `<-loopback>` sentinel is
+  load-bearing: it disables Chromium's *implicit* loopback proxy exemption, without which every
+  loopback host and port would silently skip the proxy regardless of the explicit list. With it,
+  the browser physically cannot reach non-loopback hosts, other loopback aliases (e.g.
+  `localhost` when the origin is `127.0.0.1`), *or other local services on different ports* —
+  such requests are blocked before they are sent. Independently, the renderer replays
   Chrome's network log and **fails the render** if any request targeted an origin other than the
   configured loopback base — a form whose content tries (or needs) to fetch elsewhere is never
   silently faxed.

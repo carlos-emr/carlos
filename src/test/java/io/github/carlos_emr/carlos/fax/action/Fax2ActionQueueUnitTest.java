@@ -50,7 +50,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link Fax2Action#queue()} covering the copy-to recipient fax-number
- * requirement (item 26a). A copy-to recipient with an empty or absent fax number must be
+ * requirement. A copy-to recipient with an empty or absent fax number must be
  * rejected up front by {@code validateFaxInputs}, instead of silently proceeding to queue a
  * recipient that can never actually receive the fax.
  */

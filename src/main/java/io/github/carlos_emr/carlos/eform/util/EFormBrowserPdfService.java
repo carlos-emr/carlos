@@ -770,11 +770,9 @@ public class EFormBrowserPdfService {
                 } catch (RuntimeException e) {
                     // Selenium starts the caller-owned service before session creation but does not
                     // stop it if the ChromeDriver constructor throws (e.g. a sandboxed launch that
-                    // cannot start). Stop it here so a repeatedly-failing host cannot orphan
-                    // chromedriver processes.
-                    if (service.isRunning()) {
-                        service.stop();
-                    }
+                    // cannot start). Stop quietly so a teardown failure can never REPLACE the real
+                    // launch failure — the redacted detail log below is the diagnostic record.
+                    stopServiceQuietly(service);
                     throw e;
                 }
             }
@@ -791,10 +789,9 @@ public class EFormBrowserPdfService {
                         new ChromeDriver(managerResolvedService, options, rendererClientConfig()), managerResolvedService);
             } catch (RuntimeException e) {
                 // Mirror the pinned path: Selenium starts the caller-owned service before session
-                // creation but does not stop it if the ChromeDriver constructor throws.
-                if (managerResolvedService.isRunning()) {
-                    managerResolvedService.stop();
-                }
+                // creation but does not stop it if the ChromeDriver constructor throws. Stop
+                // quietly so a teardown failure can never REPLACE the real launch failure.
+                stopServiceQuietly(managerResolvedService);
                 throw e;
             }
         } catch (RuntimeException e) {
@@ -1538,6 +1535,11 @@ public class EFormBrowserPdfService {
             return in.readNBytes(header, 0, 4) == 4
                     && header[0] == '%' && header[1] == 'P' && header[2] == 'D' && header[3] == 'F';
         } catch (IOException e) {
+            // Fail closed, but say why: a permissions/mount fault on the renderer temp root would
+            // otherwise be indistinguishable from a garbage capture and send the operator chasing
+            // the Chromium pipeline. Redacted message per this file's convention.
+            logger.warn("Could not read rendered PDF header at the success gate: type={} error={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
             return false;
         }
     }

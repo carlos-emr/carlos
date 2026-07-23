@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.DirectoryIteratorException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -286,7 +288,8 @@ public class ApplicationTempPurgeJob {
     }
 
     /**
-     * Sweeps the direct children of {@code cacheDir} for expired {@code *.png} preview-cache images.
+     * Sweeps the direct children of {@code cacheDir} for expired {@code *.png} preview-cache page
+     * images and {@code *.png.tmp} atomic-move partials.
      * Same symlink/validation/logging contract as {@link #purgeExpiredEntries(Path, Instant)}.
      *
      * @param cacheDir document preview cache directory to sweep
@@ -366,6 +369,12 @@ public class ApplicationTempPurgeJob {
             // summary of failed=0 would otherwise read as healthy for a sweep that swept nothing.
             failed++;
             logger.warn("Error scanning directory for purge: {}", LogSafe.sanitize(root.toString(), 1024), e);
+        } catch (DirectoryIteratorException e) {
+            // The DirectoryStream iterator wraps mid-iteration I/O errors in this
+            // RuntimeException; without this arm it escaped to runCycle, skipped the remaining
+            // sweeps and the cycle summary, and repeated every cycle at the same entry.
+            failed++;
+            logger.warn("Error iterating directory for purge: {}", LogSafe.sanitize(root.toString(), 1024), e.getCause());
         }
 
         return new PurgeOutcome(removed, skipped, failed);
@@ -392,6 +401,13 @@ public class ApplicationTempPurgeJob {
             // deleted (permissions, immutable attribute, read-only mount) is the actionable part.
             logger.warn("Failed to purge expired temp entry: {}",
                     LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()), e);
+            return false;
+        } catch (UncheckedIOException e) {
+            // Files.walk throws this (not IOException) when a nested directory becomes unopenable
+            // mid-traversal; letting it escape aborted the whole sweep and turned the failed
+            // subtree into a permanent purge blind spot for every entry sorted after it.
+            logger.warn("Failed to purge expired temp entry: {}",
+                    LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()), e.getCause());
             return false;
         }
     }

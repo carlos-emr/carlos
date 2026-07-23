@@ -339,6 +339,22 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should fail fast when a parseable copy-to recipient lacks a usable fax number")
+    void shouldFailFast_whenCopyToRecipientLacksFaxNumber() {
+        // The null-safe FaxRecipient constructor must not quietly void the fail-fast contract:
+        // an entry that parses but carries no fax number would otherwise become a WAITING job
+        // with a null destination (or a post-promotion persist failure).
+        assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                "coverpage", "false",
+                "copyToRecipients", new String[] {"\"name\":\"No Fax\""})))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Failed to parse");
+
+        verify(manager, never()).createFaxJob(any(LoggedInInfo.class), anyMap());
+        verifyNoInteractions(nioFileManager);
+    }
+
+    @Test
     @DisplayName("should return the un-persisted ERROR job instead of NPEing when a cover page was requested")
     void shouldReturnUnsavedErrorJob_whenPrimaryJobFailsValidation() {
         FaxJob errorJob = new FaxJob();

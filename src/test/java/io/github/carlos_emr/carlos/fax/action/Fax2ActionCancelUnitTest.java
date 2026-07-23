@@ -48,7 +48,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link Fax2Action#cancel()} covering the flush-failure UX fix (item 22).
+ * Unit tests for {@link Fax2Action#cancel()} covering the flush-failure UX fix.
  *
  * <p>Before the fix, a failed {@code faxManager.flush(...)} call only recorded an
  * {@code addActionError} and then redirected away from the preview page — the redirect discarded

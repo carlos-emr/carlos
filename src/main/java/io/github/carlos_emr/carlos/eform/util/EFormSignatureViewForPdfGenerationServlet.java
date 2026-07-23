@@ -121,7 +121,15 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             // comparison below: the signature row must belong to the same patient as the eForm
             // being rendered. Fail closed on any null (an unprovable binding must not stream PHI).
             EFormData renderEform = SpringUtils.getBean(EFormDataDao.class).findByFormDataId(grant.fdid());
-            Integer renderDemographic = renderEform == null ? null : renderEform.getDemographicId();
+            if (renderEform == null) {
+                // Distinct from the mismatch below: the eForm row vanished between grant mint and
+                // fetch (delete race) — an unprovable binding, not a merge-tooling symptom.
+                logger.warn("Rejected signature fetch: render eForm row no longer exists: fdid={}",
+                        LogSafe.sanitize(String.valueOf(grant.fdid())));
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+            Integer renderDemographic = renderEform.getDemographicId();
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature digitalSignature = digitalSignatureManager
 					.getDigitalSignature(digitalSignatureId);

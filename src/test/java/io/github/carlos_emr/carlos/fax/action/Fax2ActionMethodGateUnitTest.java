@@ -49,7 +49,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link Fax2Action#execute()}'s HTTP-method gate (item 32 / task T17).
+ * Unit tests for {@link Fax2Action#execute()}'s HTTP-method gate.
  *
  * <p>{@code queue} persists {@link io.github.carlos_emr.carlos.commn.model.FaxJob} rows and
  * promotes files into the outgoing fax queue; {@code cancel} -- including the no-{@code method}

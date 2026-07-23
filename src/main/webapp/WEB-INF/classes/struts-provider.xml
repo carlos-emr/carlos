@@ -30,12 +30,17 @@
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
-            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
+        <!-- Deliberately narrower than the clinical/demographic/admin packages: only
+             SecurityException is mapped (validation/privilege denials render securityError.jsp
+             with the action's bridged actionErrors). A generic java.lang.Exception mapping is
+             NOT declared because the Struts ExceptionMappingInterceptor forwards without
+             servlet error attributes and logs nothing by default — every unexpected NPE/DAO
+             failure would become an unlogged HTTP 200 "CARLOS Error: 0" page. Unmapped
+             exceptions keep the web.xml error path: HTTP 500, logged with full stack. -->
         <global-exception-mappings>
             <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
-            <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
         <action name="web/inboxhub/Inboxhub" class="io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2Action" method="execute">

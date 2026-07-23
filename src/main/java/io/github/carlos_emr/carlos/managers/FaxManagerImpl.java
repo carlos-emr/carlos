@@ -231,7 +231,8 @@ public class FaxManagerImpl implements FaxManager {
      * (see {@link #createFaxJob}) and cover-page file creation (see {@link #addCoverPage(byte[],
      * Path)}) write directly to disk and are not undone by a JPA rollback. An aborted queue can
      * therefore leave orphaned files on disk with no corresponding transmittable row. Temp-side
-     * orphans are swept by {@code ApplicationTempPurgeJob}; a promoted document, and a
+     * orphans are swept by {@code ApplicationTempPurgeJob} (carlos-temp sources) or the eForm
+     * renderer's own stale-output sweep (renderer temp roots); a promoted document, and a
      * {@code Cover_*} file whose concat succeeded before the rollback, land in DOCUMENT_DIR —
      * which no automated sweep covers — so those are bounded only by {@code addCoverPage}'s
      * failed-concat cleanup and manual housekeeping, not by any backstop.
@@ -450,6 +451,15 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 ObjectNode copytoRecipientJson = (ObjectNode) objectMapper.readTree(copytoRecipient);
                 FaxRecipient faxRecipient = new FaxRecipient(copytoRecipientJson);
+                if (faxRecipient.getFax() == null || faxRecipient.getFax().isEmpty()) {
+                    // A parseable entry without a usable fax number is a shape failure too:
+                    // letting it through would build a WAITING job with a null destination (or
+                    // fail at persist, after the destructive promotion) — the dropped-recipient
+                    // bug this fail-fast exists to prevent.
+                    logger.error("Fax recipient entry has no usable fax number - Recipient will be SKIPPED");
+                    failedRecipients.add(copytoRecipient);
+                    continue;
+                }
                 faxRecipientArray.add(faxRecipient);
             } catch (Exception e) {
                 logger.error("Failed to parse fax recipient JSON: {} - Recipient will be SKIPPED", LogSafe.sanitize(copytoRecipient), e);
