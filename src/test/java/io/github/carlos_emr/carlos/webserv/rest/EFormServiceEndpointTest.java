@@ -84,7 +84,7 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
             EForm eform = new EForm();
             eform.setFormName("Test Form");
             eform.setFormHtml("<html></html>");
-            when(mockEFormDao.findById(eq(1))).thenReturn(eform);
+            when(mockEFormDao.findById(1)).thenReturn(eform);
 
             Response response = request().path("/eform/1").get();
 
@@ -94,7 +94,7 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with error when eForm not found")
         void shouldReturn200WithError_whenEFormNotFound() {
-            when(mockEFormDao.findById(eq(999))).thenReturn(null);
+            when(mockEFormDao.findById(999)).thenReturn(null);
 
             Response response = request().path("/eform/999").get();
 

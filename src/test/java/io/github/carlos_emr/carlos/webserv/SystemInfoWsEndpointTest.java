@@ -70,8 +70,9 @@ class SystemInfoWsEndpointTest extends CarlosSoapTestBase {
 
             String result = proxy.helloWorld();
 
-            assertThat(result).startsWith("Hello World!");
-            assertThat(result).contains("configuration works");
+            assertThat(result)
+                .startsWith("Hello World!")
+                .contains("configuration works");
         }
     }
 

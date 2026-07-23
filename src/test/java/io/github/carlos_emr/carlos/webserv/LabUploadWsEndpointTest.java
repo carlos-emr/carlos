@@ -127,8 +127,9 @@ class LabUploadWsEndpointTest extends CarlosSoapTestBase {
             LabUploadWs proxy = createClient(LabUploadWs.class);
             String result = proxy.uploadCLS("test_lab.hl7", "MSH|content", "999");
 
-            assertThat(result).contains("\"success\":1");
-            assertThat(result).contains("audit-info");
+            assertThat(result)
+                .contains("\"success\":1")
+                .contains("audit-info");
         }
 
         @Test

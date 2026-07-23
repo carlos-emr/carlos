@@ -26,7 +26,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -99,7 +98,7 @@ class DocumentWsEndpointTest extends CarlosSoapTestBase {
         @Test
         @Disabled("TODO: DocumentTransfer.toTransfer reads file contents from disk via getDocumentFileContentsAsBytes()")
         @DisplayName("should return document transfer when found")
-        void shouldReturnDocumentTransfer_whenFound() throws IOException {
+        void shouldReturnDocumentTransfer_whenFound() {
             Document document = new Document();
             document.setDocumentNo(50);
             CtlDocument ctlDocument = new CtlDocument();

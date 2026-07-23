@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -87,14 +88,7 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
     void setUpSecurity() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
-        registerMock(UserPropertyDAO.class, org.mockito.Mockito.mock(UserPropertyDAO.class));
-    }
-
-    private Tickler createTestTickler(int id, String message) {
-        Tickler tickler = new Tickler();
-        tickler.setId(id);
-        tickler.setMessage(message);
-        return tickler;
+        registerMock(UserPropertyDAO.class, mock(UserPropertyDAO.class));
     }
 
     /** Tests for POST /tickler/search endpoint. */

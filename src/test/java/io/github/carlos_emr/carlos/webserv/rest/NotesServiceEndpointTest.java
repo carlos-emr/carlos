@@ -22,16 +22,13 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
-import java.util.List;
 
 import jakarta.ws.rs.core.Response;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -129,9 +126,9 @@ class NotesServiceEndpointTest extends CarlosRestTestBase {
             when(mockSecUserRoleDao.getUserRoles("100")).thenReturn(Collections.emptyList());
 
             // Client is NOT in the program domain
-            when(mockCaseManagementMgr.isClientInProgramDomain(eq("100"), eq("123")))
+            when(mockCaseManagementMgr.isClientInProgramDomain("100", "123"))
                 .thenReturn(false);
-            when(mockCaseManagementMgr.isClientReferredInProgramDomain(eq("100"), eq("123")))
+            when(mockCaseManagementMgr.isClientReferredInProgramDomain("100", "123"))
                 .thenReturn(false);
 
             ObjectNode body = objectMapper.createObjectNode();
@@ -158,7 +155,7 @@ class NotesServiceEndpointTest extends CarlosRestTestBase {
             when(mockSecUserRoleDao.getUserRoles("100")).thenReturn(Collections.emptyList());
 
             // Client IS in program domain but no role means early return
-            when(mockCaseManagementMgr.isClientInProgramDomain(eq("100"), eq("456")))
+            when(mockCaseManagementMgr.isClientInProgramDomain("100", "456"))
                 .thenReturn(true);
 
             ProgramProvider pp = new ProgramProvider();

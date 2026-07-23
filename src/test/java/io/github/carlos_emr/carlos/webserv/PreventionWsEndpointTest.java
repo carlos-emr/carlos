@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
-import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.test.base.CarlosSoapTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

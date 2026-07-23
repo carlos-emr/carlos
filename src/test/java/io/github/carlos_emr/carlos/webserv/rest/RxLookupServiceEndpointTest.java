@@ -21,11 +21,8 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import java.util.List;
 
 import jakarta.ws.rs.core.Response;
@@ -75,7 +72,7 @@ class RxLookupServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with drug search results")
         void shouldReturn200_whenDrugsFound() {
             DrugSearchTo1 drug = new DrugSearchTo1();
-            when(mockDrugLookUpManager.search(eq("aspirin"))).thenReturn(List.of(drug));
+            when(mockDrugLookUpManager.search("aspirin")).thenReturn(List.of(drug));
 
             Response response = request().path("/rxlookup/search")
                 .query("string", "aspirin")
@@ -87,7 +84,7 @@ class RxLookupServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with failure when no drugs found")
         void shouldReturn200WithFailure_whenNoDrugsFound() {
-            when(mockDrugLookUpManager.search(eq("nonexistent"))).thenReturn(null);
+            when(mockDrugLookUpManager.search("nonexistent")).thenReturn(null);
 
             Response response = request().path("/rxlookup/search")
                 .query("string", "nonexistent")
@@ -105,7 +102,7 @@ class RxLookupServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with drug details")
         void shouldReturn200_whenDrugFound() throws Exception {
             DrugSearchTo1 drug = new DrugSearchTo1();
-            when(mockDrugLookUpManager.details(eq("12345"))).thenReturn(drug);
+            when(mockDrugLookUpManager.details("12345")).thenReturn(drug);
 
             Response response = request().path("/rxlookup/details")
                 .query("id", "12345")
@@ -117,7 +114,7 @@ class RxLookupServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with failure when drug not found")
         void shouldReturn200WithFailure_whenDrugNotFound() throws Exception {
-            when(mockDrugLookUpManager.details(eq("99999"))).thenReturn(null);
+            when(mockDrugLookUpManager.details("99999")).thenReturn(null);
 
             Response response = request().path("/rxlookup/details")
                 .query("id", "99999")

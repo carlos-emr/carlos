@@ -47,9 +47,6 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
-import io.github.carlos_emr.carlos.webserv.rest.to.model.EncounterFormTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.FormListTo1;
 
 /**

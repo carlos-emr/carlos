@@ -22,12 +22,10 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -91,7 +89,7 @@ class InboxServiceEndpointTest extends CarlosRestTestBase {
             inboxResponse.setLabdocs(Collections.emptyList());
             when(mockInboxManager.getInboxResults(any(LoggedInInfo.class), any(InboxManagerQuery.class)))
                 .thenReturn(inboxResponse);
-            when(mockProviderLabRoutingDao.findByProviderNo(eq("999998"), eq("N")))
+            when(mockProviderLabRoutingDao.findByProviderNo("999998", "N"))
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/inbox/mine")
@@ -110,7 +108,7 @@ class InboxServiceEndpointTest extends CarlosRestTestBase {
         @Disabled("TODO: Requires mock setup for internal SpringUtils.getBean() calls in InboxService on CXF thread")
         @DisplayName("should return 200 with count")
         void shouldReturn200_withCount() {
-            when(mockProviderLabRoutingDao.findByProviderNo(eq("999998"), eq("N")))
+            when(mockProviderLabRoutingDao.findByProviderNo("999998", "N"))
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/inbox/mine/count").get();

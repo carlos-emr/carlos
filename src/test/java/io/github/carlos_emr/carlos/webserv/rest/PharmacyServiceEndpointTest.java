@@ -22,7 +22,6 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -100,7 +99,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             PharmacyInfo pharmacy = new PharmacyInfo();
             pharmacy.setId(1);
             pharmacy.setName("Downtown Pharmacy");
-            when(mockPharmacyInfoDao.find(eq((Object) 1))).thenReturn(pharmacy);
+            when(mockPharmacyInfoDao.find((Object) 1)).thenReturn(pharmacy);
 
             Response response = request().path("/pharmacies/1").get();
 
@@ -118,7 +117,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             PharmacyInfo pharmacy = new PharmacyInfo();
             pharmacy.setId(1);
             pharmacy.setName("Old Pharmacy");
-            when(mockPharmacyInfoDao.find(eq((Object) 1))).thenReturn(pharmacy);
+            when(mockPharmacyInfoDao.find((Object) 1)).thenReturn(pharmacy);
             when(mockPharmacyInfoDao.saveEntity(any(PharmacyInfo.class))).thenReturn(pharmacy);
 
             Response response = request().path("/pharmacies/1").delete();

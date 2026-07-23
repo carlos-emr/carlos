@@ -22,7 +22,6 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -54,9 +53,7 @@ import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
-import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 
 /**
  * HTTP-level endpoint tests for {@link DemographicService} using CXF local transport.
@@ -187,7 +184,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
                 .thenReturn(Collections.emptyList());
             when(mockDemographicManager.getDemographicCust(any(LoggedInInfo.class), eq(42)))
                 .thenReturn(null);
-            when(mockWaitingListDao.search_wlstatus(eq(42)))
+            when(mockWaitingListDao.search_wlstatus(42))
                 .thenReturn(Collections.emptyList());
             when(mockWaitingListNameDao.findAll(any(), any()))
                 .thenReturn(Collections.emptyList());

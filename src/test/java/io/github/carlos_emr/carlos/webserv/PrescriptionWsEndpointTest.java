@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
-import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.test.base.CarlosSoapTestBase;

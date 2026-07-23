@@ -21,8 +21,6 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -44,7 +42,6 @@ import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsentTypeTo1;
 
 /**
@@ -125,7 +122,7 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
             ct.setId(1);
             ct.setName("Test Consent");
             ct.setActive(true);
-            when(mockPatientConsentManager.getConsentTypeByConsentTypeId(eq(1))).thenReturn(ct);
+            when(mockPatientConsentManager.getConsentTypeByConsentTypeId(1)).thenReturn(ct);
 
             Response response = request().path("/consentService/consentType/1").get();
 
@@ -135,7 +132,7 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 404 when consent type not found")
         void shouldReturn404_whenConsentTypeNotFound() {
-            when(mockPatientConsentManager.getConsentTypeByConsentTypeId(eq(999))).thenReturn(null);
+            when(mockPatientConsentManager.getConsentTypeByConsentTypeId(999)).thenReturn(null);
 
             Response response = request().path("/consentService/consentType/999").get();
 

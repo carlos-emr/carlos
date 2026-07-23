@@ -41,7 +41,6 @@ import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;

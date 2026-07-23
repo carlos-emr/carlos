@@ -25,7 +25,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
-import java.util.List;
 
 import jakarta.ws.rs.core.Response;
 

@@ -43,7 +43,6 @@ import io.github.carlos_emr.carlos.managers.AppointmentSearchManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.test.base.CarlosSoapTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * SOAP-level endpoint tests for {@link BookingWs} using CXF local transport.
