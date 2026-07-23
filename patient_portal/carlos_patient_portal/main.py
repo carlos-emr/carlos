@@ -678,6 +678,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.audit_hash_secret is not None
         else token_urlsafe(32)
     )
+    unlock_secret_encryption_secret = (
+        settings.unlock_secret_encryption_secret.get_secret_value()
+        if settings.unlock_secret_encryption_secret is not None
+        else token_urlsafe(32)
+    )
     database_engine = create_portal_engine(settings.database_url)
     session_factory = create_session_factory(database_engine)
     activation_rate_limit = ActivationRateLimit(
@@ -705,6 +710,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.database_engine = database_engine
     app.state.session_factory = session_factory
+    app.state.unlock_secret_encryption_secret = unlock_secret_encryption_secret
     app.mount(
         "/static",
         StaticFiles(directory=str(PACKAGE_DIR / "static")),

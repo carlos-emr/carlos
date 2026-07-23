@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     session_secret: SecretStr | None = None
     identity_proof_secret: SecretStr | None = None
     audit_hash_secret: SecretStr | None = None
+    unlock_secret_encryption_secret: SecretStr | None = None
     internal_health_token: SecretStr | None = None
     trusted_client_ip_header: TrustedClientIpHeader | None = None
     activation_failure_window_seconds: int = Field(default=3600, ge=60, le=86400)
@@ -87,6 +88,7 @@ class Settings(BaseSettings):
         "session_secret",
         "identity_proof_secret",
         "audit_hash_secret",
+        "unlock_secret_encryption_secret",
         "internal_health_token",
         "dev_admin_token",
         mode="before",
@@ -147,6 +149,17 @@ class Settings(BaseSettings):
                     f"{MIN_PRODUCTION_SECRET_LENGTH} characters when set"
                 )
 
+        unlock_secret_encryption_secret_value: str | None = None
+        if self.unlock_secret_encryption_secret is not None:
+            unlock_secret_encryption_secret_value = (
+                self.unlock_secret_encryption_secret.get_secret_value().strip()
+            )
+            if len(unlock_secret_encryption_secret_value) < MIN_PRODUCTION_SECRET_LENGTH:
+                raise ValueError(
+                    "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET must be at least "
+                    f"{MIN_PRODUCTION_SECRET_LENGTH} characters when set"
+                )
+
         if not self.is_development and session_secret_value is None:
             raise ValueError("PATIENT_PORTAL_SESSION_SECRET must be set outside development")
 
@@ -169,6 +182,10 @@ class Settings(BaseSettings):
             )
         if not self.is_development and audit_hash_secret_value is None:
             raise ValueError("PATIENT_PORTAL_AUDIT_HASH_SECRET must be set outside development")
+        if not self.is_development and unlock_secret_encryption_secret_value is None:
+            raise ValueError(
+                "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET must be set outside development"
+            )
         return self
 
 

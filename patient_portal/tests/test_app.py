@@ -16,6 +16,7 @@ from carlos_patient_portal.config import (
     MIN_PRODUCTION_SECRET_LENGTH,
     Settings,
 )
+from carlos_patient_portal.credentials import validate_password
 from carlos_patient_portal.database import (
     Base,
     create_portal_engine,
@@ -55,6 +56,9 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
     AUDIT_EVENT_PASSWORD_RESET_REQUEST,
     AUDIT_EVENT_SESSION_LOGOUT,
+    AUDIT_EVENT_UNLOCK_SECRET_CREATE,
+    AUDIT_EVENT_UNLOCK_SECRET_READ,
+    AUDIT_EVENT_UNLOCK_SECRET_REVOKE,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
     AUDIT_OUTCOME_THROTTLED,
@@ -62,18 +66,33 @@ from carlos_patient_portal.models import (
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
     MFA_DELIVERY_METHOD_SMS,
+    UNLOCK_SECRET_NONCE_LENGTH,
+    UNLOCK_SECRET_STATUS_REVOKED,
+    UNLOCK_SECRET_TYPE_EMAIL,
     PatientPortalAccount,
     PatientPortalAuditEvent,
     PatientPortalInvite,
     PatientPortalMfaChallenge,
     PatientPortalPasswordResetToken,
     PatientPortalSession,
+    PatientPortalUnlockSecret,
     utc_now,
+)
+from carlos_patient_portal.unlock_secrets import (
+    UnlockSecretDecryptionError,
+    UnlockSecretNotFoundError,
+    UnlockSecretRevokedError,
+    create_unlock_secret,
+    generate_unlock_secret_value,
+    list_unlock_secrets,
+    read_unlock_secret,
+    revoke_unlock_secret,
 )
 
 NON_DEVELOPMENT_SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
 IDENTITY_PROOF_SECRET = "i" * MIN_PRODUCTION_SECRET_LENGTH
 AUDIT_HASH_SECRET = "a" * MIN_PRODUCTION_SECRET_LENGTH
+UNLOCK_SECRET_ENCRYPTION_SECRET = "u" * MIN_PRODUCTION_SECRET_LENGTH
 INTERNAL_HEALTH_TOKEN = "h" * MIN_PRODUCTION_SECRET_LENGTH
 WRONG_INTERNAL_HEALTH_TOKEN = "w" * MIN_PRODUCTION_SECRET_LENGTH
 DEV_ADMIN_TOKEN = "d" * MIN_PRODUCTION_SECRET_LENGTH
@@ -100,6 +119,7 @@ def migrated_development_app(**overrides: object) -> main.FastAPI:
         "dev_admin_token": DEV_ADMIN_TOKEN,
         "identity_proof_secret": IDENTITY_PROOF_SECRET,
         "audit_hash_secret": AUDIT_HASH_SECRET,
+        "unlock_secret_encryption_secret": UNLOCK_SECRET_ENCRYPTION_SECRET,
         **overrides,
     }
     app = main.create_app(development_settings(**settings_values))
@@ -277,6 +297,7 @@ def test_health_endpoint_is_minimal() -> None:
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -330,6 +351,7 @@ def test_production_responses_include_hsts() -> None:
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -347,6 +369,7 @@ def test_non_development_csrf_cookie_is_secure() -> None:
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -1056,6 +1079,7 @@ def test_api_docs_are_disabled_outside_development() -> None:
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -1072,6 +1096,7 @@ def test_api_docs_are_disabled_in_production() -> None:
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -1655,6 +1680,7 @@ def test_dev_admin_invites_are_hidden_outside_development() -> None:
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -1983,6 +2009,196 @@ def test_invite_identity_proof_hashes_are_salted_per_invite() -> None:
         assert first_invite.proof_health_card_hash != second_invite.proof_health_card_hash
 
 
+def test_generated_unlock_secret_value_meets_password_policy() -> None:
+    ambiguous_characters = set("0O1Il")
+
+    for _ in range(25):
+        generated_secret = generate_unlock_secret_value()
+
+        assert len(generated_secret) == 12
+        assert not ambiguous_characters.intersection(generated_secret)
+        assert validate_password(generated_secret) == generated_secret
+
+
+def test_unlock_secret_lifecycle_encrypts_decrypts_revokes_and_audits() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    raw_secret = "UnlockEmail9!"
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            created = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="Email password",
+                source_reference="message-3135",
+            )
+            unlock_secret_id = created.unlock_secret.id
+            stored_secret = session.get(PatientPortalUnlockSecret, unlock_secret_id)
+
+            assert created.secret == raw_secret
+            assert stored_secret is not None
+            assert stored_secret.encrypted_secret != raw_secret.encode("utf-8")
+            assert raw_secret.encode("utf-8") not in stored_secret.encrypted_secret
+            assert len(stored_secret.encryption_nonce) == UNLOCK_SECRET_NONCE_LENGTH
+            assert stored_secret.account_id == account_id
+
+            listed_secrets = list_unlock_secrets(
+                session,
+                clinic_id="default",
+                account_id=account_id,
+            )
+            with pytest.raises(ValueError, match="account_id or demographic_no"):
+                list_unlock_secrets(session, clinic_id="default")
+            with pytest.raises(ValueError, match="limit"):
+                list_unlock_secrets(
+                    session,
+                    clinic_id="default",
+                    account_id=account_id,
+                    limit=0,
+                )
+            with pytest.raises(ValueError, match="offset"):
+                list_unlock_secrets(
+                    session,
+                    clinic_id="default",
+                    account_id=account_id,
+                    offset=-1,
+                )
+            with pytest.raises(UnlockSecretNotFoundError):
+                read_unlock_secret(
+                    session,
+                    unlock_secret_id,
+                    clinic_id="default",
+                    account_id=account_id,
+                    demographic_no=5678,
+                    actor_type="patient",
+                    actor="patient.user",
+                    encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                )
+            decrypted_secret = read_unlock_secret(
+                session,
+                unlock_secret_id,
+                clinic_id="default",
+                account_id=account_id,
+                actor_type="patient",
+                actor="patient.user",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+            )
+            revoked_secret = revoke_unlock_secret(
+                session,
+                unlock_secret_id,
+                clinic_id="default",
+                demographic_no=1234,
+                revoked_by="Dr example",
+                reason="staff_requested",
+            )
+
+            assert [secret.id for secret in listed_secrets] == [unlock_secret_id]
+            assert decrypted_secret == raw_secret
+            assert revoked_secret.status == UNLOCK_SECRET_STATUS_REVOKED
+            assert revoked_secret.last_viewed_at is not None
+
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(
+                    PatientPortalAuditEvent.event_type.in_(
+                        [
+                            AUDIT_EVENT_UNLOCK_SECRET_CREATE,
+                            AUDIT_EVENT_UNLOCK_SECRET_READ,
+                            AUDIT_EVENT_UNLOCK_SECRET_REVOKE,
+                        ]
+                    )
+                )
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+        stored_secret = session.get(PatientPortalUnlockSecret, unlock_secret_id)
+
+        assert [(event.event_type, event.outcome) for event in audit_events] == [
+            (AUDIT_EVENT_UNLOCK_SECRET_CREATE, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_UNLOCK_SECRET_READ, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_UNLOCK_SECRET_REVOKE, AUDIT_OUTCOME_SUCCESS),
+        ]
+        assert stored_secret is not None
+        table_text = "|".join(
+            str(value or "")
+            for value in [
+                stored_secret.label,
+                stored_secret.source_reference,
+                stored_secret.encryption_algorithm,
+                stored_secret.encryption_key_id,
+                stored_secret.status,
+                stored_secret.created_by,
+                stored_secret.revoked_by,
+                stored_secret.revoke_reason,
+            ]
+        )
+        audit_text = "|".join(
+            str(value or "")
+            for event in audit_events
+            for value in [
+                event.event_type,
+                event.outcome,
+                event.actor_type,
+                event.actor,
+                event.invite_token_hash,
+                event.client_reference_hash,
+                event.reason,
+            ]
+        )
+        assert raw_secret not in table_text
+        assert raw_secret not in audit_text
+
+    with app.state.session_factory() as session:
+        with pytest.raises(UnlockSecretRevokedError):
+            read_unlock_secret(
+                session,
+                unlock_secret_id,
+                clinic_id="default",
+                account_id=account_id,
+                actor_type="patient",
+                actor="patient.user",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+            )
+
+
+def test_unlock_secret_decryption_rejects_wrong_encryption_secret() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            created = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_id,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+            )
+            unlock_secret_id = created.unlock_secret.id
+
+        with pytest.raises(UnlockSecretDecryptionError):
+            read_unlock_secret(
+                session,
+                unlock_secret_id,
+                clinic_id="default",
+                account_id=account_id,
+                actor_type="patient",
+                actor="patient.user",
+                encryption_secret="wrong" * 8,
+            )
+
+
 def test_interop_helpers_build_valid_fhir_r4_and_hl7_v251_patient_identity() -> None:
     identity = PortalPatientInteroperabilityIdentity(
         clinic_id="default",
@@ -2076,6 +2292,7 @@ def test_environment_aliases_are_normalized() -> None:
         session_secret=NON_DEVELOPMENT_SESSION_SECRET,
         identity_proof_secret=IDENTITY_PROOF_SECRET,
         audit_hash_secret=AUDIT_HASH_SECRET,
+        unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
         internal_health_token=INTERNAL_HEALTH_TOKEN,
     )
 
@@ -2184,6 +2401,17 @@ def test_non_development_rejects_missing_audit_hash_secret() -> None:
         )
 
 
+def test_non_development_rejects_missing_unlock_secret_encryption_secret() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET"):
+        Settings(
+            environment="staging",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+
+
 def test_internal_health_token_must_be_long_when_configured() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
         development_settings(internal_health_token="short")
@@ -2197,6 +2425,11 @@ def test_identity_proof_secret_must_be_long_when_configured() -> None:
 def test_audit_hash_secret_must_be_long_when_configured() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_AUDIT_HASH_SECRET"):
         development_settings(audit_hash_secret="short")
+
+
+def test_unlock_secret_encryption_secret_must_be_long_when_configured() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET"):
+        development_settings(unlock_secret_encryption_secret="short")
 
 
 def test_dev_admin_token_must_be_long_when_configured() -> None:
@@ -2234,6 +2467,7 @@ def test_auth_policy_settings_are_bounded() -> None:
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
             require_mfa=False,
         )

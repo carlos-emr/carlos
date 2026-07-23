@@ -7,6 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     UniqueConstraint,
     text,
@@ -35,6 +36,9 @@ AUDIT_EVENT_MFA_VERIFY = "mfa.verify"
 AUDIT_EVENT_PASSWORD_RESET_COMPLETE = "password_reset.complete"
 AUDIT_EVENT_PASSWORD_RESET_REQUEST = "password_reset.request"
 AUDIT_EVENT_SESSION_LOGOUT = "session.logout"
+AUDIT_EVENT_UNLOCK_SECRET_CREATE = "unlock_secret.create"
+AUDIT_EVENT_UNLOCK_SECRET_READ = "unlock_secret.read"
+AUDIT_EVENT_UNLOCK_SECRET_REVOKE = "unlock_secret.revoke"
 AUDIT_OUTCOME_FAILURE = "failure"
 AUDIT_OUTCOME_SUCCESS = "success"
 AUDIT_OUTCOME_THROTTLED = "throttled"
@@ -48,6 +52,10 @@ PASSWORD_RESET_STATUS_REVOKED = "revoked"
 PASSWORD_RESET_STATUS_USED = "used"
 SESSION_REVOKED_REASON_LOGOUT = "logout"
 SESSION_REVOKED_REASON_PASSWORD_RESET = "password_reset"
+UNLOCK_SECRET_STATUS_ACTIVE = "active"
+UNLOCK_SECRET_STATUS_REVOKED = "revoked"
+UNLOCK_SECRET_TYPE_EMAIL = "email"
+UNLOCK_SECRET_TYPE_PDF = "pdf"
 MAX_CLINIC_ID_LENGTH = 64
 MAX_EMAIL_LENGTH = 254
 MAX_PHONE_NUMBER_LENGTH = 32
@@ -60,6 +68,15 @@ MAX_AUDIT_EVENT_TYPE_LENGTH = 64
 MAX_AUDIT_OUTCOME_LENGTH = 16
 MAX_AUDIT_ACTOR_TYPE_LENGTH = 16
 MAX_AUDIT_REASON_LENGTH = 64
+MAX_UNLOCK_SECRET_LABEL_LENGTH = 128
+MAX_UNLOCK_SECRET_SOURCE_REFERENCE_LENGTH = 128
+MAX_UNLOCK_SECRET_ACTOR_LENGTH = 128
+MAX_UNLOCK_SECRET_STATUS_LENGTH = 16
+MAX_UNLOCK_SECRET_TYPE_LENGTH = 16
+MAX_UNLOCK_SECRET_ALGORITHM_LENGTH = 32
+MAX_UNLOCK_SECRET_KEY_ID_LENGTH = 64
+MAX_UNLOCK_SECRET_REVOKE_REASON_LENGTH = 64
+UNLOCK_SECRET_NONCE_LENGTH = 12
 
 
 def utc_now() -> datetime:
@@ -477,6 +494,151 @@ class PatientPortalInvite(Base):
     )
 
 
+class PatientPortalUnlockSecret(Base):
+    """Encrypted generated password for a patient email or PDF."""
+
+    __tablename__ = "patient_portal_unlock_secrets"
+    __table_args__ = (
+        CheckConstraint(
+            f"length(clinic_id) between 1 and {MAX_CLINIC_ID_LENGTH}",
+            name="ck_patient_portal_unlock_secrets_clinic_id_length",
+        ),
+        CheckConstraint(
+            "demographic_no > 0",
+            name="ck_patient_portal_unlock_secrets_demographic_no_positive",
+        ),
+        CheckConstraint(
+            "account_id is null or account_id > 0",
+            name="ck_patient_portal_unlock_secrets_account_id_positive",
+        ),
+        CheckConstraint(
+            "secret_type in ('email', 'pdf')",
+            name="ck_patient_portal_unlock_secrets_secret_type",
+        ),
+        CheckConstraint(
+            "status in ('active', 'revoked')",
+            name="ck_patient_portal_unlock_secrets_status",
+        ),
+        CheckConstraint(
+            "label is null or length(label) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_label_length",
+        ),
+        CheckConstraint(
+            "source_reference is null or length(source_reference) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_source_reference_length",
+        ),
+        CheckConstraint(
+            "length(created_by) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_created_by_length",
+        ),
+        CheckConstraint(
+            "length(encryption_algorithm) between 1 and 32",
+            name="ck_patient_portal_unlock_secrets_algorithm_length",
+        ),
+        CheckConstraint(
+            "length(encryption_key_id) between 1 and 64",
+            name="ck_patient_portal_unlock_secrets_key_id_length",
+        ),
+        CheckConstraint(
+            f"length(encryption_nonce) = {UNLOCK_SECRET_NONCE_LENGTH}",
+            name="ck_patient_portal_unlock_secrets_nonce_length",
+        ),
+        CheckConstraint(
+            "length(encrypted_secret) > 0",
+            name="ck_patient_portal_unlock_secrets_ciphertext_present",
+        ),
+        CheckConstraint(
+            "revoked_by is null or length(revoked_by) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_revoked_by_length",
+        ),
+        CheckConstraint(
+            "revoke_reason is null or length(revoke_reason) between 1 and 64",
+            name="ck_patient_portal_unlock_secrets_revoke_reason_length",
+        ),
+        CheckConstraint(
+            "status = 'revoked' or "
+            "(revoked_at is null and revoked_by is null and revoke_reason is null)",
+            name="ck_patient_portal_unlock_secrets_nonrevoked_fields_null",
+        ),
+        CheckConstraint(
+            "status != 'revoked' or (revoked_at is not null and revoked_by is not null)",
+            name="ck_patient_portal_unlock_secrets_revoked_fields_present",
+        ),
+        Index(
+            "ix_patient_portal_unlock_secrets_clinic_patient_status_created",
+            "clinic_id",
+            "demographic_no",
+            "status",
+            "created_at",
+        ),
+        Index(
+            "ix_patient_portal_unlock_secrets_account_created",
+            "account_id",
+            "created_at",
+        ),
+        Index(
+            "ix_patient_portal_unlock_secrets_key_id",
+            "encryption_key_id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_id: Mapped[str] = mapped_column(String(MAX_CLINIC_ID_LENGTH), nullable=False)
+    demographic_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("patient_portal_accounts.id"),
+        nullable=True,
+    )
+    secret_type: Mapped[str] = mapped_column(String(MAX_UNLOCK_SECRET_TYPE_LENGTH), nullable=False)
+    status: Mapped[str] = mapped_column(String(MAX_UNLOCK_SECRET_STATUS_LENGTH), nullable=False)
+    label: Mapped[str | None] = mapped_column(
+        String(MAX_UNLOCK_SECRET_LABEL_LENGTH),
+        nullable=True,
+    )
+    source_reference: Mapped[str | None] = mapped_column(
+        String(MAX_UNLOCK_SECRET_SOURCE_REFERENCE_LENGTH),
+        nullable=True,
+    )
+    encrypted_secret: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    encryption_nonce: Mapped[bytes] = mapped_column(
+        LargeBinary(UNLOCK_SECRET_NONCE_LENGTH),
+        nullable=False,
+    )
+    encryption_algorithm: Mapped[str] = mapped_column(
+        String(MAX_UNLOCK_SECRET_ALGORITHM_LENGTH),
+        nullable=False,
+    )
+    encryption_key_id: Mapped[str] = mapped_column(
+        String(MAX_UNLOCK_SECRET_KEY_ID_LENGTH),
+        nullable=False,
+    )
+    created_by: Mapped[str] = mapped_column(String(MAX_UNLOCK_SECRET_ACTOR_LENGTH), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
+    last_viewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(
+        String(MAX_UNLOCK_SECRET_ACTOR_LENGTH),
+        nullable=True,
+    )
+    revoke_reason: Mapped[str | None] = mapped_column(
+        String(MAX_UNLOCK_SECRET_REVOKE_REASON_LENGTH),
+        nullable=True,
+    )
+
+
 class PatientPortalAuditEvent(Base):
     """Security-relevant event trail for portal-owned workflows."""
 
@@ -496,7 +658,8 @@ class PatientPortalAuditEvent(Base):
                 "('activation', 'account.lock', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
-                "'password_reset.complete', 'password_reset.request', 'session.logout')"
+                "'password_reset.complete', 'password_reset.request', 'session.logout', "
+                "'unlock_secret.create', 'unlock_secret.read', 'unlock_secret.revoke')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),

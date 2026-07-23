@@ -368,6 +368,113 @@ def upgrade() -> None:
         postgresql_where=sa.text("status = 'pending'"),
     )
     op.create_table(
+        "patient_portal_unlock_secrets",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("clinic_id", sa.String(length=64), nullable=False),
+        sa.Column("demographic_no", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=True),
+        sa.Column("secret_type", sa.String(length=16), nullable=False),
+        sa.Column("status", sa.String(length=16), nullable=False),
+        sa.Column("label", sa.String(length=128), nullable=True),
+        sa.Column("source_reference", sa.String(length=128), nullable=True),
+        sa.Column("encrypted_secret", sa.LargeBinary(), nullable=False),
+        sa.Column("encryption_nonce", sa.LargeBinary(length=12), nullable=False),
+        sa.Column("encryption_algorithm", sa.String(length=32), nullable=False),
+        sa.Column("encryption_key_id", sa.String(length=64), nullable=False),
+        sa.Column("created_by", sa.String(length=128), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("last_viewed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("revoked_by", sa.String(length=128), nullable=True),
+        sa.Column("revoke_reason", sa.String(length=64), nullable=True),
+        sa.CheckConstraint(
+            "length(clinic_id) between 1 and 64",
+            name="ck_patient_portal_unlock_secrets_clinic_id_length",
+        ),
+        sa.CheckConstraint(
+            "demographic_no > 0",
+            name="ck_patient_portal_unlock_secrets_demographic_no_positive",
+        ),
+        sa.CheckConstraint(
+            "account_id is null or account_id > 0",
+            name="ck_patient_portal_unlock_secrets_account_id_positive",
+        ),
+        sa.CheckConstraint(
+            "secret_type in ('email', 'pdf')",
+            name="ck_patient_portal_unlock_secrets_secret_type",
+        ),
+        sa.CheckConstraint(
+            "status in ('active', 'revoked')",
+            name="ck_patient_portal_unlock_secrets_status",
+        ),
+        sa.CheckConstraint(
+            "label is null or length(label) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_label_length",
+        ),
+        sa.CheckConstraint(
+            "source_reference is null or length(source_reference) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_source_reference_length",
+        ),
+        sa.CheckConstraint(
+            "length(created_by) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_created_by_length",
+        ),
+        sa.CheckConstraint(
+            "length(encryption_algorithm) between 1 and 32",
+            name="ck_patient_portal_unlock_secrets_algorithm_length",
+        ),
+        sa.CheckConstraint(
+            "length(encryption_key_id) between 1 and 64",
+            name="ck_patient_portal_unlock_secrets_key_id_length",
+        ),
+        sa.CheckConstraint(
+            "length(encryption_nonce) = 12",
+            name="ck_patient_portal_unlock_secrets_nonce_length",
+        ),
+        sa.CheckConstraint(
+            "length(encrypted_secret) > 0",
+            name="ck_patient_portal_unlock_secrets_ciphertext_present",
+        ),
+        sa.CheckConstraint(
+            "revoked_by is null or length(revoked_by) between 1 and 128",
+            name="ck_patient_portal_unlock_secrets_revoked_by_length",
+        ),
+        sa.CheckConstraint(
+            "revoke_reason is null or length(revoke_reason) between 1 and 64",
+            name="ck_patient_portal_unlock_secrets_revoke_reason_length",
+        ),
+        sa.CheckConstraint(
+            "status = 'revoked' or "
+            "(revoked_at is null and revoked_by is null and revoke_reason is null)",
+            name="ck_patient_portal_unlock_secrets_nonrevoked_fields_null",
+        ),
+        sa.CheckConstraint(
+            "status != 'revoked' or (revoked_at is not null and revoked_by is not null)",
+            name="ck_patient_portal_unlock_secrets_revoked_fields_present",
+        ),
+        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "ix_patient_portal_unlock_secrets_account_created",
+        "patient_portal_unlock_secrets",
+        ["account_id", "created_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_patient_portal_unlock_secrets_clinic_patient_status_created",
+        "patient_portal_unlock_secrets",
+        ["clinic_id", "demographic_no", "status", "created_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_patient_portal_unlock_secrets_key_id",
+        "patient_portal_unlock_secrets",
+        ["encryption_key_id"],
+        unique=False,
+    )
+    op.create_table(
         "patient_portal_audit_events",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("clinic_id", sa.String(length=64), nullable=True),
@@ -395,7 +502,8 @@ def upgrade() -> None:
                 "event_type in ('activation', 'account.lock', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
-                "'password_reset.complete', 'password_reset.request', 'session.logout')"
+                "'password_reset.complete', 'password_reset.request', 'session.logout', "
+                "'unlock_secret.create', 'unlock_secret.read', 'unlock_secret.revoke')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),
@@ -467,6 +575,19 @@ def downgrade() -> None:
         table_name="patient_portal_audit_events",
     )
     op.drop_table("patient_portal_audit_events")
+    op.drop_index(
+        "ix_patient_portal_unlock_secrets_key_id",
+        table_name="patient_portal_unlock_secrets",
+    )
+    op.drop_index(
+        "ix_patient_portal_unlock_secrets_clinic_patient_status_created",
+        table_name="patient_portal_unlock_secrets",
+    )
+    op.drop_index(
+        "ix_patient_portal_unlock_secrets_account_created",
+        table_name="patient_portal_unlock_secrets",
+    )
+    op.drop_table("patient_portal_unlock_secrets")
     op.drop_index(
         "ux_patient_portal_invites_one_pending_per_patient",
         table_name="patient_portal_invites",

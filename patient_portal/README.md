@@ -18,10 +18,11 @@ The first slice is intentionally small:
 - Patient login with Argon2id password verification, MFA challenge/verify, opaque bearer sessions,
   logout, password reset, lockout, staff unlock, and forced reset after unlock.
 - Authenticated dashboard shell with Account, Email passwords, and Help modules.
+- Encrypted unlock-secret storage service for generated email/PDF passphrases.
 - Minimal FHIR R4 Patient and HL7 v2.5.1 patient-registration validation helpers for the MVP
   CARLOS integration contract.
 - Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
-  activation/auth behavior.
+  activation/auth/unlock-secret behavior.
 
 ## Local Setup
 
@@ -78,6 +79,8 @@ export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_p
 # seeded invites must survive app restarts.
 # Set PATIENT_PORTAL_AUDIT_HASH_SECRET to a separate 32+ character random value
 # when activation throttling/audit hashes must survive app restarts.
+# Set PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET to a separate 32+ character
+# random value when encrypted unlock secrets must survive app restarts.
 ```
 
 The default database URL targets local PostgreSQL because PostgreSQL is the intended MVP database.
@@ -94,8 +97,8 @@ hyphens, and 20 characters or fewer.
 
 Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`,
 `PATIENT_PORTAL_SESSION_SECRET`, `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`, and
-`PATIENT_PORTAL_AUDIT_HASH_SECRET`. The internal readiness endpoint expects the health token as a
-Bearer token:
+`PATIENT_PORTAL_AUDIT_HASH_SECRET`, and `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET`.
+The internal readiness endpoint expects the health token as a Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
@@ -157,8 +160,8 @@ carlos-patient-portal-migrate
 ```
 
 This PR adds the portal foundation, initial staff invite table, initial patient account table, and
-initial audit event table. It also adds portal-owned session, MFA challenge, and password reset token
-tables. Unlock-secret tables should be added in later vertical slices.
+initial audit event table. It also adds portal-owned session, MFA challenge, password reset token,
+and encrypted unlock-secret tables.
 
 ## Development Invite API
 
@@ -305,12 +308,24 @@ Dashboard routes:
 
 - `/portal` and `/portal/account` show the Account module shell.
 - `/portal/email-passwords` shows the Email passwords module shell with an empty table until the
-  unlock-secret slice is implemented.
+  unlock-secret read route is wired into the dashboard.
 - `/portal/help` shows clinic help details.
 - `POST /portal/logout` clears the portal session cookie and writes a logout audit event.
 
 The dashboard is server-rendered and responsive. Desktop uses a left module rail; mobile uses a
 horizontal module bar with logout kept in the top-right header area.
+
+## Unlock Secret Storage
+
+`carlos_patient_portal.unlock_secrets` owns generated passphrase storage for CARLOS emails/PDFs.
+It provides service functions to generate, create, list, read/decrypt, and revoke secrets. Stored
+passphrases use AES-256-GCM with a key derived from
+`PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET`; audit events record create/read/revoke without
+storing the raw passphrase.
+
+The service functions require clinic scope and either account or demographic scope for reads and
+revokes. Patient-facing routes should pass the authenticated account id; staff/CARLOS-side routes
+can use the clinic id plus `demographic_no`.
 
 ## Interoperability Contract
 
