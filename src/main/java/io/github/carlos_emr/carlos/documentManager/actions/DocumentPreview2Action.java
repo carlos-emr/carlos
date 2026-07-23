@@ -406,25 +406,34 @@ public class DocumentPreview2Action extends ActionSupport {
                 return;
             }
             
-            // Define allowed directories based on OSCAR configuration
-            String[] allowedBasePaths = {
-                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
-                CarlosProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
-                CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
-                System.getProperty("java.io.tmpdir")
-            };
+            // Fast-path: accept CARLOS-owned temp artifacts (the eForm browser renderer writes its
+            // output under <catalina.base>/work/carlos/eform-browser-pdf-temp or
+            // <java.io.tmpdir>/carlos-eform-browser-pdf-temp), which are NOT among the document-store
+            // base paths below. Without this, a freshly-rendered eForm/attachment temp PDF previewed
+            // through this endpoint (e.g. the email-compose attachment <object>) was rejected against
+            // DOCUMENT_DIR and 403'd silently. Mirrors the fax preview path
+            // (FaxManagerImpl.resolveAndValidateFilePath / validateFilePath).
+            boolean isValidPath = PathValidationUtils.isInApplicationTempDirectory(canonicalPdfPath.toFile());
 
-            boolean isValidPath = false;
-            for (String basePath : allowedBasePaths) {
-                if (basePath != null && !basePath.isEmpty()) {
-                    java.io.File baseDir = new java.io.File(basePath);
-                    if (baseDir.exists()) {
-                        try {
-                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
-                            isValidPath = true;
-                            break;
-                        } catch (SecurityException e) {
-                            // File not in this directory, try next
+            if (!isValidPath) {
+                // Define allowed document-store directories based on OSCAR configuration
+                String[] allowedBasePaths = {
+                    CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
+                    CarlosProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
+                    CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
+                    System.getProperty("java.io.tmpdir")
+                };
+                for (String basePath : allowedBasePaths) {
+                    if (basePath != null && !basePath.isEmpty()) {
+                        java.io.File baseDir = new java.io.File(basePath);
+                        if (baseDir.exists()) {
+                            try {
+                                canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
+                                isValidPath = true;
+                                break;
+                            } catch (SecurityException e) {
+                                // File not in this directory, try next
+                            }
                         }
                     }
                 }
