@@ -170,8 +170,24 @@ public class APISendGridEmailSender {
         sendPreparedPayload();
     }
 
+    /**
+     * Prepares (and caches) the exact SendGrid JSON payload that will later be transmitted.
+     *
+     * <p>The transport credentials and endpoint are validated here, before the payload bytes are
+     * built and returned. This lets callers that archive the prepared payload before sending fail
+     * on a missing API key or a non-HTTPS/malformed endpoint <em>before</em> any durable archive
+     * artifact is written, rather than after.</p>
+     *
+     * @return a defensive copy of the prepared SendGrid payload bytes
+     * @throws SecurityException if the current user lacks the required "_email" WRITE privilege
+     * @throws EmailSendingException if the transport credentials/endpoint are invalid or the payload
+     *         cannot be built
+     */
     public byte[] preparePayloadBytes() throws EmailSendingException {
         requireEmailWritePrivilege();
+        // Validate transport credentials and endpoint up front so an archive-first caller fails
+        // before writing a durable eDoc for an email that could never have been sent.
+        readConfigDetails();
 
         preparedPayloadBytes = createEmailJSON().getBytes(StandardCharsets.UTF_8);
         return preparedPayloadBytes.clone();
