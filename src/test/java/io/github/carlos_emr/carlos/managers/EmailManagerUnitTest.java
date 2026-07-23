@@ -24,6 +24,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
+
 import java.util.Date;
 import java.util.List;
 
@@ -31,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -136,6 +139,29 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(emailLog.getErrorMessage()).isEqualTo(expectedMessage);
         verify(emailLogDao).updateEmailStatus(eq(44), eq(EmailLog.EmailStatus.FAILED), eq(expectedMessage), any(Date.class));
         verify(outboundEmailArchiveService, never()).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+    }
+
+    @Test
+    @DisplayName("should bound stored error message when send failure detail is oversized")
+    void shouldBoundStoredErrorMessage_whenSendFailureDetailIsOversized() throws Exception {
+        EmailData emailData = sendGridEmailData();
+        EmailConfig emailConfig = sendGridEmailConfig();
+        OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
+        stubPreparedOutbox(emailConfig);
+        String oversizedDetail = "x".repeat(5000);
+
+        try (MockedConstruction<EmailSender> mockedEmailSenders = mockConstruction(EmailSender.class, (emailSender, context) -> {
+            when(emailSender.supportsOutboundArchive()).thenReturn(true);
+            when(emailSender.prepareOutboundArchive(any(EmailLog.class))).thenReturn(archiveRequest);
+            doThrow(new EmailSendingException(oversizedDetail)).when(emailSender).sendPrepared();
+        })) {
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).hasSize(1000);
+            assertThat(emailLog.getErrorMessage()).isEqualTo(oversizedDetail.substring(0, 1000));
+            verify(emailLogDao).updateEmailStatus(eq(44), eq(EmailLog.EmailStatus.FAILED), eq(oversizedDetail.substring(0, 1000)), any(Date.class));
+        }
     }
 
     private void stubPreparedOutbox(EmailConfig emailConfig) {

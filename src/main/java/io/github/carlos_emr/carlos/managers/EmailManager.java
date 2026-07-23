@@ -82,6 +82,9 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 @Service
 public class EmailManager {
+    /** Maximum stored failure-message length; matches the {@code emailLog.errorMessage} column width. */
+    private static final int MAX_ERROR_MESSAGE_LENGTH = 1000;
+
     private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -158,10 +161,27 @@ public class EmailManager {
                 addEmailNote(loggedInInfo, emailLog);
             }
         } catch (EmailSendingException e) {
-            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, e.getMessage());
+            updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, boundedErrorMessage(e.getMessage()));
             logger.error("Failed to send email", e);
         }
         return emailLog;
+    }
+
+    /**
+     * Bounds a failure message to the width of the {@code emailLog.errorMessage} column.
+     *
+     * <p>Transport failures can carry an arbitrarily long provider response body; storing it
+     * unbounded risks a truncation or insert error on the fixed-width column. The message is
+     * capped defensively before persistence.</p>
+     *
+     * @param message raw failure message, may be null
+     * @return a non-null message no longer than {@link #MAX_ERROR_MESSAGE_LENGTH} characters
+     */
+    private String boundedErrorMessage(String message) {
+        if (message == null) {
+            return "";
+        }
+        return message.length() <= MAX_ERROR_MESSAGE_LENGTH ? message : message.substring(0, MAX_ERROR_MESSAGE_LENGTH);
     }
 
     private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {
