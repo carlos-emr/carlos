@@ -140,7 +140,7 @@
 				// opener is a foreign origin (external-site link opened in a new tab), so the
 				// whole access is wrapped in try/catch to fail closed rather than throw.
 				try {
-					if (parentAjaxId !== "null" && window.opener && !window.opener.closed
+					if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
 							&& window.opener.document && window.opener.document.forms['encForm']) {
 						window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 						window.opener.updateNeeded = true;
