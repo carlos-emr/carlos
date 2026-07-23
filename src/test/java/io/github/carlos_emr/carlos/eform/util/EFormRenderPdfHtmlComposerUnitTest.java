@@ -46,6 +46,30 @@ import static org.mockito.Mockito.when;
 class EFormRenderPdfHtmlComposerUnitTest {
 
     @Test
+    @DisplayName("should normalize project_home slashes when building the image servlet base")
+    void shouldNormalizeProjectHomeSlashes_whenBuildingImageServletBase() {
+        // A configured project_home may legitimately carry slashes (buildDefaultBaseUrl strips a
+        // leading one too); "/" + "/oscar" would emit a protocol-relative //oscar/... URL that
+        // Chromium resolves to host "oscar" — the dead proxy then blocks every asset.
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/oscar", "/carlos"))
+                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("oscar", "/carlos"))
+                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/oscar/", "/carlos"))
+                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("oscar/", "/carlos"))
+                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+        // Blank/null project_home falls back to the servlet context path (existing behavior).
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("", "/carlos"))
+                .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase(null, "/carlos"))
+                .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
+        // A slashes-only value normalizes to empty and must fall back too, never emit "//".
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/", "/carlos"))
+                .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
+    }
+
+    @Test
     @DisplayName("should normalize a valid stored signature URL under the current context path")
     void shouldNormalizeValidStoredSignatureUrl_whenContextScoped() {
         String normalized = EFormRenderPdfHtmlComposer.normalizePdfSignatureUrl(

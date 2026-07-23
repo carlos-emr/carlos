@@ -319,14 +319,30 @@ public final class EFormRenderPdfHtmlComposer {
         return false;
     }
 
-    private static String imageViewServletBase(String projectHome, String contextPath) {
+    // Package-private for the slash-normalization unit test.
+    static String imageViewServletBase(String projectHome, String contextPath) {
         // Prefer the configured project_home. When it is blank/unset, fall back to the servlet
         // context path so a non-root deployment (e.g. /carlos) still resolves — never emit a leading
         // "//…" (a protocol-relative URL to an external host) or drop the context prefix entirely.
-        String base = (projectHome == null || projectHome.isBlank())
+        // project_home may legitimately carry a leading slash (buildDefaultBaseUrl strips one too);
+        // "/" + "/oscar" would be exactly the protocol-relative //oscar/... this guards against.
+        String normalizedProjectHome = projectHome == null ? "" : stripSlashes(projectHome.trim());
+        String base = normalizedProjectHome.isEmpty()
                 ? normalizeContextPath(contextPath)
-                : "/" + projectHome.trim();
+                : "/" + normalizedProjectHome;
         return base + "/" + IMAGE_VIEW_SERVLET_NAME;
+    }
+
+    private static String stripSlashes(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && value.charAt(start) == '/') {
+            start++;
+        }
+        while (end > start && value.charAt(end - 1) == '/') {
+            end--;
+        }
+        return value.substring(start, end);
     }
 
     private static String imageViewServletImagePrefix(String projectHome, String contextPath) {
