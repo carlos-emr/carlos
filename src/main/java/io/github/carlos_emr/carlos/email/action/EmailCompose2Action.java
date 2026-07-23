@@ -1,7 +1,14 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,12 +19,14 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -48,7 +57,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * This action is part of OpenO EMR's secure patient communication system, ensuring that Protected Health
  * Information (PHI) is transmitted with appropriate encryption, consent verification, and audit logging.
  * It supports PIPEDA/HIPAA compliance by enforcing patient consent for email communications and providing
- * password-protected PDF attachments based on patient demographic data.
+ * password-protected PDF attachments with server-generated random passphrases.
  *
  * Session Management:
  * The action retrieves email composition parameters from the HTTP session (allowing for redirect-based
@@ -59,7 +68,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * <ul>
  *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
  *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
- *   <li>Generates patient-specific PDF passwords based on demographic information</li>
+ *   <li>Generates random PDF passphrases without using patient demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
  * </ul>
@@ -80,9 +89,29 @@ public class EmailCompose2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+    private transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
+
+    public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
+    public static final String EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE =
+            "This email compose window has expired or is no longer valid. "
+                    + "Please reopen the email compose window and try again.";
+    public static final String EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE =
+            "This email compose window could not be prepared. "
+                    + "Please close other open email compose windows and try again.";
+    private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
+    static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
+    static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = 1024;
+    static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
+    private static final long PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS = 60L * 1000;
+    private static final Object EMAIL_COMPOSE_SUBMISSION_STATES_LOCK = new Object();
+    private static final Map<EmailComposeSubmissionStateKey, EmailComposeSubmissionState>
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = new LinkedHashMap<>();
+    private static final AtomicReference<ScheduledExecutorService> EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER =
+            new AtomicReference<>();
+    private static boolean emailComposeSubmissionStateCacheShutdown;
 
     private static final String[] EMAIL_SESSION_KEYS = {
-        "attachEFormItSelf", "fdid", "demographicId",
+        "attachEFormItSelf", "fdid", DEMOGRAPHIC_ID_KEY, "emailAttachmentList",
         "emailPDFPassword", "emailPDFPasswordClue",
         "attachedDocuments", "attachedLabs", "attachedForms",
         "attachedEForms", "attachedHRMDocuments",
@@ -124,7 +153,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>Fetches patient demographic information for recipient name display</li>
      *   <li>Retrieves and validates recipient email addresses (separates valid/invalid)</li>
      *   <li>Loads available sender email account configurations</li>
-     *   <li>Generates PDF password encryption based on patient demographics if not already set</li>
+     *   <li>Generates a server-assigned random PDF passphrase</li>
      *   <li>Prepares all attachment types: eForms, eDocuments, labs, forms, HRM documents</li>
      *   <li>Sanitizes attachment filenames for security</li>
      *   <li>Transfers session data to request attributes for JSP rendering</li>
@@ -136,8 +165,8 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>attachEFormItSelf (Boolean) - whether to attach the eForm itself</li>
      *   <li>fdid (String) - form data ID for the eForm</li>
      *   <li>demographicId (String) - patient demographic identifier (required)</li>
-     *   <li>emailPDFPassword (String) - password for PDF encryption</li>
-     *   <li>emailPDFPasswordClue (String) - hint for PDF password</li>
+     *   <li>emailPDFPassword (String) - ignored legacy session value; replaced with a generated passphrase</li>
+     *   <li>emailPDFPasswordClue (String) - ignored legacy session value; replaced with a delivery instruction</li>
      *   <li>attachedDocuments (String[]) - array of document IDs to attach</li>
      *   <li>attachedLabs (String[]) - array of lab result IDs to attach</li>
      *   <li>attachedForms (String[]) - array of form IDs to attach</li>
@@ -164,23 +193,24 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>receiverEmailList (List) - list of valid recipient email addresses</li>
      *   <li>invalidReceiverEmailList (List) - list of invalid email addresses</li>
      *   <li>senderAccounts (List&lt;EmailConfig&gt;) - available sender account configurations</li>
-     *   <li>emailPDFPassword (String) - generated or existing PDF password</li>
-     *   <li>emailPDFPasswordClue (String) - password hint for recipient</li>
+     *   <li>emailPDFPassword (String) - generated PDF passphrase shown once for separate delivery</li>
+     *   <li>emailPDFPasswordClue (String) - provider delivery instruction</li>
+     *   <li>emailPDFPasswordToken (String) - per-compose token used to consume prepared submission state</li>
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
      * </ul>
      *
-     * Session Attributes Set:
+     * Server-Side State Stored:
      * <ul>
-     *   <li>emailAttachmentList (List&lt;EmailAttachment&gt;) - prepared and sanitized attachments</li>
+     *   <li>tokenized prepared compose state keyed by session id and emailPDFPasswordToken</li>
      * </ul>
      *
      * Security Features:
      * <ul>
      *   <li>Validates fid parameter with regex pattern to ensure numeric format only</li>
      *   <li>Logs warnings for invalid fid values using OWASP-encoded output</li>
-     *   <li>Generates patient-specific PDF passwords: YYYYMMDD (DOB) + 10-digit HIN</li>
+     *   <li>Generates server-assigned random passphrases without patient identifiers</li>
      *   <li>Sanitizes all attachment filenames to prevent path traversal attacks</li>
      *   <li>Verifies patient email consent before allowing composition</li>
      *   <li>Cleans up session attributes after transfer to prevent information leakage</li>
@@ -195,7 +225,7 @@ public class EmailCompose2Action extends ActionSupport {
      *         "eFormError" if PDF generation fails for any attachment
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
-     * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#createEmailPDFPassword(LoggedInInfo, Integer)
+     * @see io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService#generatePassphrase()
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#prepareEFormAttachments(LoggedInInfo, String, String[])
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#sanitizeAttachments(List)
      * @see #cleanupEmailSessionAttributes(HttpServletRequest)
@@ -209,10 +239,8 @@ public class EmailCompose2Action extends ActionSupport {
         Boolean attachEFormItSelfObj = (Boolean) session.getAttribute("attachEFormItSelf");
         boolean attachEFormItSelf = attachEFormItSelfObj != null && attachEFormItSelfObj;
         String fdid = attachEFormItSelf ? (String) session.getAttribute("fdid") : "";
-        String demographicId = (String) session.getAttribute("demographicId");
+        String demographicId = (String) session.getAttribute(DEMOGRAPHIC_ID_KEY);
         String fid = request.getParameter("fid");
-        String emailPDFPassword = (String) session.getAttribute("emailPDFPassword");
-        String emailPDFPasswordClue = (String) session.getAttribute("emailPDFPasswordClue");
         String[] attachedDocuments = (String[]) session.getAttribute("attachedDocuments");
         String[] attachedLabs = (String[]) session.getAttribute("attachedLabs");
         String[] attachedForms = (String[]) session.getAttribute("attachedForms");
@@ -243,10 +271,8 @@ public class EmailCompose2Action extends ActionSupport {
 
         List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
 
-        if (emailPDFPassword == null) {
-            emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, Integer.parseInt(demographicId));
-            emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
-        }
+        String emailPDFPassword = emailPdfPasswordService.generatePassphrase();
+        String emailPDFPasswordClue = EmailPdfPasswordService.DELIVERY_INSTRUCTION;
 
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
@@ -271,24 +297,267 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("senderAccounts", senderAccounts);
         request.setAttribute("emailPDFPassword", emailPDFPassword);
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
+        request.setAttribute("emailAttachmentList", emailAttachmentList);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
         request.setAttribute("bodyEmail", bodyEmail);
         request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
-        request.setAttribute("demographicId", demographicId);
+        request.setAttribute(DEMOGRAPHIC_ID_KEY, demographicId);
         request.setAttribute("fdid", session.getAttribute("fdid"));
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
-        request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
-        request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
+        Object isEmailEncrypted = session.getAttribute("isEmailEncrypted");
+        boolean isEmailAttachmentEncrypted = isTrue(isEmailEncrypted)
+                && isTrue(session.getAttribute("isEmailAttachmentEncrypted"));
+        request.setAttribute("isEmailEncrypted", isEmailEncrypted);
+        request.setAttribute("isEmailAttachmentEncrypted", isEmailAttachmentEncrypted);
+        request.setAttribute(
+                "isEmailAutoSend",
+                shouldAutoSendEmail(session.getAttribute("isEmailAutoSend"), isEmailEncrypted));
 
+        String emailPDFPasswordToken;
+        try {
+            emailPDFPasswordToken = storeEmailComposeSubmissionState(
+                    request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to prepare email compose submission state", e);
+            return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+        }
         cleanupEmailSessionAttributes(request);
+        request.setAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
 
         return "compose";
+    }
+
+    private static boolean shouldAutoSendEmail(Object autoSendValue, Object encryptedValue) {
+        return isTrue(autoSendValue) && !isTrue(encryptedValue);
+    }
+
+    private static boolean isTrue(Object value) {
+        return Boolean.TRUE.equals(value) || "true".equals(value);
+    }
+
+    /**
+     * Stores generated PDF passphrase state for one compose form submission.
+     *
+     * <p>The returned token is bound to the current HTTP session id, while the generated
+     * passphrase, delivery instruction, and attachment snapshot stay in a short-lived
+     * server-side cache instead of the serializable HTTP session. Storing a new entry also
+     * prunes expired entries, caps the current session's pending compose states, and
+     * rejects new sessions once the global cache is full.</p>
+     *
+     * @param request HttpServletRequest used to bind the token to the active session
+     * @param emailPDFPassword generated PDF passphrase to use when sending
+     * @param emailPDFPasswordClue delivery instruction displayed with the compose page
+     * @param emailAttachmentList prepared attachment list to bind to the compose token
+     * @return opaque token that must be submitted back with the compose form
+     * @since 2026-07-14
+     */
+    public static String storeEmailComposeSubmissionState(
+            HttpServletRequest request,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList
+    ) {
+        return storeEmailComposeSubmissionState(
+                request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, System.currentTimeMillis());
+    }
+
+    static String storeEmailComposeSubmissionState(
+            HttpServletRequest request,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList,
+            long createdAtMillis
+    ) {
+        HttpSession session = request.getSession();
+        String sessionId = session.getId();
+        String token = UUID.randomUUID().toString();
+        EmailComposeSubmissionState state = new EmailComposeSubmissionState(
+                emailPDFPassword,
+                emailPDFPasswordClue,
+                List.copyOf(emailAttachmentList != null ? emailAttachmentList : List.of()),
+                createdAtMillis);
+
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            ensureEmailComposeSubmissionStateCacheOpen();
+            pruneExpiredEmailComposeSubmissionStates(createdAtMillis);
+            ensureEmailComposeSubmissionStateCapacity(sessionId);
+            ensureEmailComposeSubmissionStatePrunerStarted();
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.put(
+                    new EmailComposeSubmissionStateKey(sessionId, token), state);
+            trimEmailComposeSubmissionStates(sessionId);
+        }
+        return token;
+    }
+
+    /**
+     * Consumes the generated compose state for the submitted token.
+     *
+     * <p>Consumption is one-time: a valid token is removed from the server-side cache before
+     * returning its state. Missing, blank, expired, cross-session, or reused tokens return
+     * {@code null}. Each consume attempt also prunes expired cached entries.</p>
+     *
+     * @param request HttpServletRequest containing the compose token parameter
+     * @return generated compose state for the current session and token, or {@code null}
+     * @since 2026-07-14
+     */
+    public static EmailComposeSubmissionState consumeEmailComposeSubmissionState(HttpServletRequest request) {
+        String token = request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            pruneExpiredEmailComposeSubmissionStates(System.currentTimeMillis());
+            return PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.remove(
+                    new EmailComposeSubmissionStateKey(session.getId(), token));
+        }
+    }
+
+    /**
+     * Clears all pending compose submission states for a destroyed HTTP session.
+     *
+     * @param sessionId HTTP session id whose pending compose states should be removed
+     * @return number of pending compose states removed
+     * @since 2026-07-14
+     */
+    public static int clearEmailComposeSubmissionStates(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return 0;
+        }
+
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            int originalSize = PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size();
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.keySet().removeIf(key -> key.sessionId().equals(sessionId));
+            return originalSize - PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size();
+        }
+    }
+
+    /**
+     * Stops the background compose state pruner and clears the remaining cache.
+     *
+     * @return number of pending compose states removed from the cache
+     * @since 2026-07-14
+     */
+    public static int shutdownEmailComposeSubmissionStateCache() {
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            emailComposeSubmissionStateCacheShutdown = true;
+            ScheduledExecutorService pruner = EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.getAndSet(null);
+            if (pruner != null) {
+                pruner.shutdownNow();
+            }
+            int originalSize = PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size();
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.clear();
+            return originalSize;
+        }
+    }
+
+    private static void ensureEmailComposeSubmissionStatePrunerStarted() {
+        if (EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.get() != null) {
+            return;
+        }
+
+        ScheduledExecutorService pruner = Executors.newSingleThreadScheduledExecutor(new DeamonThreadFactory(
+                "EmailComposeSubmissionStatePruner", Thread.NORM_PRIORITY));
+        pruner.scheduleAtFixedRate(
+                EmailCompose2Action::pruneExpiredEmailComposeSubmissionStates,
+                PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS,
+                PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS,
+                TimeUnit.MILLISECONDS);
+        EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.set(pruner);
+    }
+
+    private static void ensureEmailComposeSubmissionStateCacheOpen() {
+        if (emailComposeSubmissionStateCacheShutdown) {
+            throw new IllegalStateException("Email compose submission state cache is shut down");
+        }
+    }
+
+    private static void ensureEmailComposeSubmissionStateCapacity(String sessionId) {
+        boolean addingNewGlobalEntry = emailComposeSubmissionStateCount(sessionId) < MAX_PENDING_EMAIL_COMPOSE_STATES;
+        if (addingNewGlobalEntry
+                && PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size()
+                >= MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES) {
+            throw new IllegalStateException("Email compose submission state cache is full");
+        }
+    }
+
+    private static void pruneExpiredEmailComposeSubmissionStates() {
+        try {
+            synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+                pruneExpiredEmailComposeSubmissionStates(System.currentTimeMillis());
+            }
+        } catch (RuntimeException e) {
+            logger.warn("Failed to prune expired email compose submission states", e);
+        }
+    }
+
+    private static void pruneExpiredEmailComposeSubmissionStates(long now) {
+        PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.entrySet().removeIf(entry ->
+                now - entry.getValue().createdAtMillis() > PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS);
+    }
+
+    private static void trimEmailComposeSubmissionStates(String sessionId) {
+        while (emailComposeSubmissionStateCount(sessionId) > MAX_PENDING_EMAIL_COMPOSE_STATES) {
+            EmailComposeSubmissionStateKey oldestKey = oldestEmailComposeSubmissionStateKey(sessionId);
+            if (oldestKey == null) {
+                return;
+            }
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.remove(oldestKey);
+        }
+    }
+
+    private static int emailComposeSubmissionStateCount(String sessionId) {
+        int count = 0;
+        for (EmailComposeSubmissionStateKey key : PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.keySet()) {
+            if (key.sessionId().equals(sessionId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static EmailComposeSubmissionStateKey oldestEmailComposeSubmissionStateKey(String sessionId) {
+        EmailComposeSubmissionStateKey oldestKey = null;
+        long oldestCreatedAt = Long.MAX_VALUE;
+        for (Map.Entry<EmailComposeSubmissionStateKey, EmailComposeSubmissionState> entry
+                : PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.entrySet()) {
+            if (sessionId != null && !entry.getKey().sessionId().equals(sessionId)) {
+                continue;
+            }
+            if (entry.getValue().createdAtMillis() < oldestCreatedAt) {
+                oldestKey = entry.getKey();
+                oldestCreatedAt = entry.getValue().createdAtMillis();
+            }
+        }
+        return oldestKey;
+    }
+
+    private record EmailComposeSubmissionStateKey(String sessionId, String token) {
+    }
+
+    /**
+     * Generated compose state associated with one opaque compose token.
+     *
+     * @since 2026-07-14
+     */
+    public record EmailComposeSubmissionState(
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList,
+            long createdAtMillis
+    ) {
+        public EmailComposeSubmissionState {
+            emailAttachmentList = List.copyOf(emailAttachmentList != null ? emailAttachmentList : List.of());
+        }
     }
 
     /**
@@ -298,7 +567,7 @@ public class EmailCompose2Action extends ActionSupport {
      * @param request the HTTP servlet request containing the session to clean up
      * @since 2025-01-18
      */
-    protected static void cleanupEmailSessionAttributes(HttpServletRequest request) {
+    public static void cleanupEmailSessionAttributes(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
             return;

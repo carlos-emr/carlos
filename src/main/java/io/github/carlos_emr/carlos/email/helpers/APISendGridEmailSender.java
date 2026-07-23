@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.net.ssl.SSLContext;
@@ -60,6 +61,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class APISendGridEmailSender {
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
 
     private LoggedInInfo loggedInInfo;
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -69,7 +71,6 @@ public class APISendGridEmailSender {
     private String subject;
     private String body;
     private String additionalParams;
-    private String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
     private List<EmailAttachment> attachments;
 
     /**
@@ -98,10 +99,10 @@ public class APISendGridEmailSender {
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
-        this.recipients = recipients;
+        this.recipients = copyRecipients(recipients);
         this.subject = subject;
         this.body = body;
-        this.attachments = attachments;
+        this.attachments = copyAttachments(attachments);
     }
 
     /**
@@ -126,11 +127,11 @@ public class APISendGridEmailSender {
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, String additionalParams, List<EmailAttachment> attachments) {
         this.loggedInInfo = loggedInInfo;
         this.emailConfig = emailConfig;
-        this.recipients = recipients;
+        this.recipients = copyRecipients(recipients);
         this.subject = subject;
         this.body = body;
         this.additionalParams = additionalParams;
-        this.attachments = attachments;
+        this.attachments = copyAttachments(attachments);
     }
 
     /**
@@ -203,7 +204,6 @@ public class APISendGridEmailSender {
         addBody(emailJson);
         addAttachments(emailJson);
         addAdditionalParams(emailJson);
-        addApiKey(emailJson);
         return emailJson.toString();
     }
 
@@ -268,10 +268,6 @@ public class APISendGridEmailSender {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private void addApiKey(ObjectNode emailJson) throws EmailSendingException {
-        emailJson.put("apiKey", getAPIKey());
-    }
-
     private String getAPIKey() throws EmailSendingException {
         String apiKey;
         try {
@@ -294,5 +290,13 @@ public class APISendGridEmailSender {
             throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
         }
         return endPointBuilder.toString();
+    }
+
+    private static String[] copyRecipients(String[] recipients) {
+        return recipients == null ? new String[0] : Arrays.copyOf(recipients, recipients.length);
+    }
+
+    private static List<EmailAttachment> copyAttachments(List<EmailAttachment> attachments) {
+        return attachments == null ? List.of() : List.copyOf(attachments);
     }
 }

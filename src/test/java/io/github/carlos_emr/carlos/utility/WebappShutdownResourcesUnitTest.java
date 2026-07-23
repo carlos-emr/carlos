@@ -41,6 +41,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.carlos.drools.DroolsShutdownResources;
+import io.github.carlos_emr.carlos.email.action.EmailCompose2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -196,18 +197,55 @@ public class WebappShutdownResourcesUnitTest {
              MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
              MockedStatic<DroolsShutdownResources> droolsShutdown = mockStatic(DroolsShutdownResources.class);
+             MockedStatic<EmailCompose2Action> emailCompose = mockStatic(EmailCompose2Action.class);
              MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
             dbConnections.when(DbConnectionFilter::releaseAllKnownDbResources)
                     .thenThrow(new AssertionError("db cleanup failed"));
 
             WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
 
-            assertThat(report.results()).hasSize(7);
+            assertThat(report.results()).hasSize(8);
             assertThat(report.results().get(0).successful()).isFalse();
+            assertThat(report.successful()).isFalse();
             assertThat(report.failureCount()).isEqualTo(1);
+            assertThat(report.deregisteredDriverCount()).isZero();
             tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
             logAction.verify(LogAction::shutdownExecutorService);
             droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
+            emailCompose.verify(EmailCompose2Action::shutdownEmailComposeSubmissionStateCache);
+            queueCache.verify(QueueCache::shutdownSharedTimer);
+        }
+    }
+
+    @Test
+    void shouldReportSuccessfulShutdown_whenAllStepsSucceed() {
+        ClassLoader unrelatedClassLoader = new ClassLoader(null) {
+        };
+
+        try (MockedStatic<DbConnectionFilter> dbConnections = mockStatic(DbConnectionFilter.class);
+             MockedStatic<OscarTrackingBasicDataSource> tracking = mockStatic(OscarTrackingBasicDataSource.class);
+             MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
+             MockedStatic<DroolsShutdownResources> droolsShutdown = mockStatic(DroolsShutdownResources.class);
+             MockedStatic<EmailCompose2Action> emailCompose = mockStatic(EmailCompose2Action.class);
+             MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
+
+            WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
+
+            assertThat(report.results())
+                    .extracting(WebappShutdownResources.ShutdownStepResult::step)
+                    .containsExactly(WebappShutdownResources.ShutdownStep.values());
+            assertThat(report.results()).allSatisfy(result -> {
+                assertThat(result.successful()).isTrue();
+                assertThat(result.failure()).isNull();
+            });
+            assertThat(report.successful()).isTrue();
+            assertThat(report.failureCount()).isZero();
+            assertThat(report.deregisteredDriverCount()).isZero();
+            dbConnections.verify(DbConnectionFilter::releaseAllKnownDbResources);
+            tracking.verify(OscarTrackingBasicDataSource::clearTrackingState);
+            logAction.verify(LogAction::shutdownExecutorService);
+            droolsShutdown.verify(DroolsShutdownResources::shutdownExecutors);
+            emailCompose.verify(EmailCompose2Action::shutdownEmailComposeSubmissionStateCache);
             queueCache.verify(QueueCache::shutdownSharedTimer);
         }
     }

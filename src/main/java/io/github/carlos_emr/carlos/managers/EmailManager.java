@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,10 +39,13 @@ import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
+import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,10 +133,13 @@ public class EmailManager {
 
         sanitizeEmailFields(emailData);
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        // Temp PDFs created while encrypting/signing carry PHI; delete them once the send completes.
+        List<Path> disposableTempFiles = new ArrayList<>();
         try {
             if (emailData.getIsEncrypted()) {
-                encryptEmail(emailData);
+                encryptEmail(emailData, disposableTempFiles);
             }
+            signAttachments(emailData, disposableTempFiles);
             EmailSender emailSender = new EmailSender(loggedInInfo, emailLog.getEmailConfig(), emailData);
             emailSender.send();
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.SUCCESS, "");
@@ -142,6 +149,8 @@ public class EmailManager {
         } catch (EmailSendingException e) {
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, e.getMessage());
             logger.error("Failed to send email", e);
+        } finally {
+            deleteDisposableTempFiles(disposableTempFiles);
         }
         return emailLog;
     }
@@ -165,6 +174,10 @@ public class EmailManager {
      * @return EmailLog the persisted email log entry ready for transmission
      * @throws RuntimeException if user lacks _email WRITE privilege
      */
+    @SuppressFBWarnings(
+            value = "HARD_CODE_PASSWORD",
+            justification = "Email PDF passphrases are intentionally not persisted; empty strings clear the log fields."
+    )
     public EmailLog prepareEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_email)");
@@ -183,8 +196,8 @@ public class EmailManager {
         EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.FAILED);
         setEmailAttachments(emailLog, emailData.getAttachments());
         emailLog.setEncryptedMessage(emailData.getEncryptedMessage());
-        emailLog.setPassword(emailData.getPassword());
-        emailLog.setPasswordClue(emailData.getPasswordClue());
+        emailLog.setPassword("");
+        emailLog.setPasswordClue("");
         emailLog.setIsEncrypted(emailData.getIsEncrypted());
         emailLog.setIsAttachmentEncrypted(emailData.getIsAttachmentEncrypted());
         emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
@@ -436,29 +449,32 @@ public class EmailManager {
      * Encrypts the email message and/or attachments as password-protected PDFs.
      *
      * This method handles encryption of PHI content for secure transmission. It converts
-     * the encrypted message to a PDF attachment and encrypts selected attachments, then
-     * appends the password clue to the email body.
+     * the encrypted message to a PDF attachment and encrypts selected attachments.
      *
      * Encryption workflow:
      * 1. Convert encrypted message text to PDF attachment (if present)
      * 2. Collect attachments to encrypt based on isAttachmentEncrypted flag
      * 3. Encrypt all selected attachments with the provided password
      * 4. Update email attachments list with encrypted files
-     * 5. Append password clue to email body
      *
      * @param emailData EmailData the email data containing content to encrypt
+     * @param disposableTempFiles collector for temp PDFs created here so the caller can delete them after sending
      * @throws EmailSendingException if PDF encryption fails
      */
-    private void encryptEmail(EmailData emailData) throws EmailSendingException {
+    private void encryptEmail(EmailData emailData, List<Path> disposableTempFiles) throws EmailSendingException {
+        if (StringUtils.isNullOrEmpty(emailData.getPassword())) {
+            throw new EmailSendingException("PDF encryption password is required");
+        }
+
         // Encrypt message and attachment
         List<EmailAttachment> encryptableAttachments = new ArrayList<>();
         if (!StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
-            encryptableAttachments.add(createMessageAttachment(emailData));
+            encryptableAttachments.add(createMessageAttachment(emailData, disposableTempFiles));
         }
         if (emailData.getIsAttachmentEncrypted() && !emailData.getAttachments().isEmpty()) {
             encryptableAttachments.addAll(emailData.getAttachments());
         }
-        encryptAttachments(encryptableAttachments, emailData.getPassword());
+        encryptAttachments(encryptableAttachments, emailData.getPassword(), disposableTempFiles);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
         emailAttachments.addAll(encryptableAttachments);
@@ -466,9 +482,6 @@ public class EmailManager {
             emailAttachments.addAll(emailData.getAttachments());
         }
         emailData.setAttachments(emailAttachments);
-
-        //append password clue
-        emailData.setBody(emailData.getBody() + "\n\n*****\n" + emailData.getPasswordClue().trim() + "\n*****\n");
     }
 
     /**
@@ -478,15 +491,17 @@ public class EmailManager {
      * The text is OWASP-encoded for security and newlines are converted to HTML breaks.
      *
      * @param emailData EmailData containing the encrypted message text
+     * @param disposableTempFiles collector for the generated message PDF temp file
      * @return EmailAttachment a new attachment with the message PDF, or null if message is empty
      */
-    private EmailAttachment createMessageAttachment(EmailData emailData) {
+    private EmailAttachment createMessageAttachment(EmailData emailData, List<Path> disposableTempFiles) {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
             return null;
         }
         String htmlSafeMessage = Encode.forHtmlContent(emailData.getEncryptedMessage()).replace("\n", "<br>");
         emailData.setEncryptedMessage(htmlSafeMessage);
         Path encryptedMessagePDF = ConvertToEdoc.saveAsTempPDF(emailData);
+        disposableTempFiles.add(encryptedMessagePDF);
         EmailAttachment emailAttachment = new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
         return emailAttachment;
     }
@@ -500,19 +515,82 @@ public class EmailManager {
      *
      * @param encryptableAttachments List&lt;EmailAttachment&gt; the attachments to encrypt
      * @param password String the password to protect the PDFs with
+     * @param disposableTempFiles collector for the encrypted temp PDFs so the caller can delete them after sending
      * @throws EmailSendingException if PDF encryption fails for any attachment
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password) throws EmailSendingException {
+    private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password, List<Path> disposableTempFiles) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
             try {
                 Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
                 attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, password);
+                disposableTempFiles.add(attachmentPDFPath);
                 attachment.setFilePath(attachmentPDFPath.toString());
             } catch (IOException e) {
                 logger.error("Failed to create encrypted email attachments", e);
                 throw new EmailSendingException("Failed to create encrypted email attachments", e);
+            }
+        }
+    }
+
+    /**
+     * Cryptographically signs outgoing PDF attachments when PDF signing is configured.
+     *
+     * <p>The signing step runs after optional password encryption. This preserves the
+     * signature over the exact bytes sent to the patient.</p>
+     *
+     * <p>Every attachment on {@code emailData} is expected to be a signable PDF. Signing is
+     * fail-closed: if signing is enabled and any single attachment cannot be signed, the whole
+     * send is aborted rather than delivering a partially or unsigned set of attachments.</p>
+     *
+     * @param emailData EmailData containing the final attachment list
+     * @param disposableTempFiles collector for the signed temp PDFs so the caller can delete them after sending
+     * @throws EmailSendingException if signing is enabled but an attachment cannot be signed
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    private void signAttachments(EmailData emailData, List<Path> disposableTempFiles) throws EmailSendingException {
+        PDFSigningConfig signingConfig = PDFSigningConfig.fromCarlosProperties();
+        List<EmailAttachment> attachments = emailData.getAttachments();
+        if (!signingConfig.isEnabled() || attachments == null || attachments.isEmpty()) {
+            return;
+        }
+
+        String ownerPassword = emailData.getIsEncrypted() ? emailData.getPassword() : null;
+        for (EmailAttachment attachment : attachments) {
+            try {
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
+                attachmentPDFPath = PDFSigningUtil.signPDF(attachmentPDFPath, signingConfig, ownerPassword);
+                disposableTempFiles.add(attachmentPDFPath);
+                attachment.setFilePath(attachmentPDFPath.toString());
+            } catch (IOException | IllegalStateException | SecurityException e) {
+                logger.error("Failed to sign email PDF attachment {}", LogSafe.sanitize(attachment.getFileName()), e);
+                throw new EmailSendingException("Failed to sign email PDF attachment", e);
+            }
+        }
+    }
+
+    /**
+     * Deletes the temporary PDFs produced while encrypting and signing outbound attachments.
+     *
+     * <p>Only files inside an allowed temp directory are removed, so the original
+     * document-store files referenced when encryption and signing are disabled are never
+     * deleted. Deletion failures are logged and swallowed so they never mask the send result.</p>
+     *
+     * @param disposableTempFiles temp PDF paths created during this send
+     */
+    private void deleteDisposableTempFiles(List<Path> disposableTempFiles) {
+        for (Path tempFile : disposableTempFiles) {
+            if (tempFile == null) {
+                continue;
+            }
+            try {
+                if (PathValidationUtils.isInAllowedTempDirectory(tempFile.toFile())) {
+                    Files.deleteIfExists(tempFile);
+                }
+            } catch (IOException e) {
+                logger.warn("Failed to delete temporary email PDF file", e);
             }
         }
     }
@@ -542,7 +620,7 @@ public class EmailManager {
             LocalDateTime localDateTime = localDate.atTime(localTime);
             return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
         } catch (DateTimeParseException e) {
-            logger.error("UNPARSEABLE DATE " + date);
+            logger.error("UNPARSEABLE DATE {}", LogSafe.sanitize(date));
             return null;
         }
     }
@@ -563,7 +641,7 @@ public class EmailManager {
             EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
                     emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
                     demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
-                    result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+                    result.getIsEncrypted(), "", result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

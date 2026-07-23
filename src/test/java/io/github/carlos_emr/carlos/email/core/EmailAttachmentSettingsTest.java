@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,6 +40,52 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("email")
 @DisplayName("EmailAttachmentSettings validation")
 class EmailAttachmentSettingsTest {
+
+    @Test
+    @DisplayName("should create settings from request with sanitized values")
+    void shouldCreateSettingsFromRequest_withSanitizedValues() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("attachEFormToEmail", "false");
+        request.setParameter("openEFormAfterSendingEmail", "true");
+        request.setParameter("enableEmailEncryption", "true");
+        request.setParameter("encryptEmailAttachments", "false");
+        request.setParameter("autoSendEmail", "true");
+        request.setParameter("deleteEFormAfterSendingEmail", "true");
+        request.setParameter("senderEmail", "sender@example.com");
+        request.setParameter("subjectEmail", "Subject\r\nBcc: attacker@example.com");
+        request.setParameter("bodyEmail", "B".repeat(10005));
+        request.setParameter("encryptedMessageEmail", "Encrypted".repeat(1500));
+        request.setParameter("emailPatientChartOption", "doNotAddAsNote");
+
+        EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                request,
+                "12",
+                "123",
+                new String[]{"1"},
+                new String[]{"2"},
+                new String[]{"3"},
+                new String[]{"4"},
+                new String[]{"5"});
+
+        assertThat(settings.fdid()).isEqualTo("12");
+        assertThat(settings.demographicNo()).isEqualTo("123");
+        assertThat(settings.attachedEForms()).containsExactly("1");
+        assertThat(settings.attachedDocuments()).containsExactly("2");
+        assertThat(settings.attachedLabs()).containsExactly("3");
+        assertThat(settings.attachedHRMDocuments()).containsExactly("4");
+        assertThat(settings.attachedForms()).containsExactly("5");
+        assertThat(settings.attachEFormItSelf()).isFalse();
+        assertThat(settings.openAfterEmail()).isTrue();
+        assertThat(settings.isEmailEncrypted()).isTrue();
+        assertThat(settings.isEmailAttachmentEncrypted()).isFalse();
+        assertThat(settings.isEmailAutoSend()).isTrue();
+        assertThat(settings.deleteEFormAfterEmail()).isTrue();
+        assertThat(settings.senderEmail()).isEqualTo("sender@example.com");
+        assertThat(settings.subjectEmail()).isEqualTo("SubjectBcc: attacker@example.com");
+        assertThat(settings.bodyEmail()).hasSize(10000);
+        assertThat(settings.encryptedMessageEmail()).hasSize(10000);
+        assertThat(settings.emailPatientChartOption()).isEqualTo("doNotAddAsNote");
+    }
 
     @Nested
     @DisplayName("validateEmail")
@@ -104,7 +151,7 @@ class EmailAttachmentSettingsTest {
         @Test
         @DisplayName("should return email when at RFC 5321 length limit")
         void shouldReturnEmail_whenAtMaxLength() {
-            String local = "a".repeat(241);
+            String local = "a".repeat(242);
             String email = local + "@example.com";
             assertThat(email.length()).isEqualTo(254);
             assertThat(EmailAttachmentSettings.validateEmail(email)).isEqualTo(email);
@@ -180,50 +227,6 @@ class EmailAttachmentSettingsTest {
     }
 
     @Nested
-    @DisplayName("sanitizePassword")
-    class SanitizePassword {
-
-        @Test
-        @DisplayName("should return password when valid input")
-        void shouldReturnPassword_whenValidInput() {
-            assertThat(EmailAttachmentSettings.sanitizePassword("MyP@ssw0rd!")).isEqualTo("MyP@ssw0rd!");
-        }
-
-        @Test
-        @DisplayName("should return null when null input")
-        void shouldReturnNull_whenNullInput() {
-            assertThat(EmailAttachmentSettings.sanitizePassword(null)).isNull();
-        }
-
-        @Test
-        @DisplayName("should strip control characters")
-        void shouldStripControlChars_whenPresent() {
-            assertThat(EmailAttachmentSettings.sanitizePassword("pass\u0000word\u0007")).isEqualTo("password");
-        }
-
-        @Test
-        @DisplayName("should strip tab and newline control characters")
-        void shouldStripTabAndNewline_whenPresent() {
-            assertThat(EmailAttachmentSettings.sanitizePassword("pass\tword\n")).isEqualTo("password");
-        }
-
-        @Test
-        @DisplayName("should truncate when exceeding max length")
-        void shouldTruncate_whenExceedingMaxLength() {
-            String longPassword = "A".repeat(150);
-            String result = EmailAttachmentSettings.sanitizePassword(longPassword);
-            assertThat(result).hasSize(100);
-        }
-
-        @Test
-        @DisplayName("should not truncate when within max length")
-        void shouldNotTruncate_whenWithinMaxLength() {
-            String password = "A".repeat(100);
-            assertThat(EmailAttachmentSettings.sanitizePassword(password)).hasSize(100);
-        }
-    }
-
-    @Nested
     @DisplayName("truncate")
     class Truncate {
 
@@ -293,6 +296,46 @@ class EmailAttachmentSettingsTest {
         @DisplayName("should return null when script injection attempt")
         void shouldReturnNull_whenScriptInjection() {
             assertThat(EmailAttachmentSettings.validateChartOption("<script>alert(1)</script>")).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("attachment ID arrays")
+    class AttachmentIdArrays {
+
+        @Test
+        @DisplayName("should defensively copy array inputs and accessors")
+        void shouldDefensivelyCopyAttachmentArrays() {
+            String[] documents = {"10"};
+            EmailAttachmentSettings settings = new EmailAttachmentSettings(
+                    "1",
+                    "123",
+                    null,
+                    documents,
+                    null,
+                    null,
+                    null,
+                    true,
+                    false,
+                    true,
+                    true,
+                    false,
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "addFullNote");
+
+            documents[0] = "99";
+            String[] returnedDocuments = settings.attachedDocuments();
+            returnedDocuments[0] = "42";
+
+            assertThat(settings.attachedDocuments()).containsExactly("10");
+            assertThat(settings.attachedEForms()).isEmpty();
+            assertThat(settings.attachedLabs()).isEmpty();
+            assertThat(settings.attachedHRMDocuments()).isEmpty();
+            assertThat(settings.attachedForms()).isEmpty();
         }
     }
 }

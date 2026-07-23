@@ -11,6 +11,8 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.action.EmailCompose2Action;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -68,6 +70,7 @@ public class ManageEmails2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     /**
      * Main entry point for the ManageEmails2Action, routing requests to appropriate handler methods.
@@ -215,9 +218,10 @@ public class ManageEmails2Action extends ActionSupport {
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
-     * All email data including encryption settings, password protection, chart display options,
-     * and additional parameters are preserved from the original email for potential modification
-     * before resending.
+     * Email data including encryption settings, chart display options, and additional
+     * parameters are preserved from the original email for potential modification before
+     * resending. A new PDF passphrase and delivery instruction are generated for each
+     * resend instead of reusing the original email's password values.
      *
      * @return String Struts2 result name "compose" to display the email composition page, or null if validation fails
      * @see EmailComposeManager#prepareEmailForResend
@@ -250,6 +254,8 @@ public class ManageEmails2Action extends ActionSupport {
         String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
         List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
         List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
+        String emailPDFPassword = emailPdfPasswordService.generatePassphrase();
+        String emailPDFPasswordClue = EmailPdfPasswordService.DELIVERY_INSTRUCTION;
 
         request.setAttribute("demographicId", demographicNo);
         request.setAttribute("transactionType", TransactionType.DIRECT);
@@ -264,13 +270,27 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("subjectEmail", emailLog.getSubject());
         request.setAttribute("bodyEmail", emailLog.getBody());
         request.setAttribute("encryptedMessageEmail", emailLog.getEncryptedMessage());
-        request.setAttribute("emailPDFPassword", emailLog.getPassword());
-        request.setAttribute("emailPDFPasswordClue", emailLog.getPasswordClue());
+        request.setAttribute("emailPDFPassword", emailPDFPassword);
+        request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
+        request.setAttribute("emailAttachmentList", emailAttachmentList);
         request.setAttribute("isEmailEncrypted", emailLog.getIsEncrypted());
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        String emailPDFPasswordToken;
+        try {
+            emailPDFPasswordToken = EmailCompose2Action.storeEmailComposeSubmissionState(
+                    request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to prepare resend email compose submission state", e);
+            request.setAttribute("emailPDFPassword", "");
+            request.setAttribute("emailPDFPasswordClue", "");
+            request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
+            request.setAttribute("isEmailError", true);
+            return "compose";
+        }
+        EmailCompose2Action.cleanupEmailSessionAttributes(request);
+        request.setAttribute(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
 
         return "compose";
     }
