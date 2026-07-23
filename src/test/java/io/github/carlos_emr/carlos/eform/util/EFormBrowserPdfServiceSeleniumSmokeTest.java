@@ -123,7 +123,7 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
             }
 
             Path pdfPath = tempDir.resolve("test-pattern.pdf");
-            EFormBrowserPdfService.convertCapturesToPdf(captures, pdfPath);
+            EFormBrowserPdfService.convertCapturesToPdf(captures, pdfPath, tempDir);
 
             byte[] header = new byte[4];
             try (var in = Files.newInputStream(pdfPath)) {

@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -32,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
+
+import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -176,6 +180,27 @@ class EFormBrowserPdfServiceUnitTest {
         } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(root);
+        }
+    }
+
+    @Test
+    @DisplayName("should assemble captures into a PDF using a file-backed scratch under the managed workspace")
+    void shouldAssemblePdf_withFileBackedScratch(@TempDir Path tempDir) throws Exception {
+        Path capture = tempDir.resolve("page-001.png");
+        ImageIO.write(new BufferedImage(120, 80, BufferedImage.TYPE_INT_RGB), "png", capture.toFile());
+        Path out = tempDir.resolve("out.pdf");
+        Path scratch = Files.createDirectory(tempDir.resolve("scratch"));
+
+        EFormBrowserPdfService.convertCapturesToPdf(List.of(capture), out, scratch);
+
+        assertThat(out).exists();
+        assertThat(Files.size(out)).isGreaterThan(0);
+        try (var reader = Files.newInputStream(out)) {
+            byte[] head = reader.readNBytes(4);
+            assertThat(new String(head, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        }
+        try (var entries = Files.list(scratch)) {
+            assertThat(entries).isEmpty(); // scratch reclaimed on document close
         }
     }
 

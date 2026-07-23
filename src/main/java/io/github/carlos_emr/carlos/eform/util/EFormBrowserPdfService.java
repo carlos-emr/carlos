@@ -53,6 +53,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -155,7 +156,11 @@ public class EFormBrowserPdfService {
     private static final int MAX_CAPTURE_REGIONS = 200;
     private static final double MAX_CAPTURE_DIMENSION = 20_000;
     // Peak decoded-image memory is one region at a time (~4 bytes/pixel); 64M px ≈ 256 MB, generous
-    // vs. any real eForm page yet far below a single 20000×20000 (1.6 GB) region.
+    // vs. any real eForm page yet far below a single 20000×20000 (1.6 GB) region. This is now also
+    // the effective ceiling on *retained* JVM memory across the whole render: convertCapturesToPdf
+    // uses a file-backed PDDocument stream cache, so the Flate-compressed page-image streams that
+    // would otherwise accumulate on-heap up to MAX_CAPTURE_TOTAL_PIXELS (times MAX_CONCURRENT_RENDERS
+    // concurrent renders) are spilled to a scratch file under the managed render workspace instead.
     private static final double MAX_CAPTURE_REGION_PIXELS = 64_000_000d;
     private static final double MAX_CAPTURE_TOTAL_PIXELS = 300_000_000d;
 
@@ -431,7 +436,10 @@ public class EFormBrowserPdfService {
             if (captureFiles.isEmpty()) {
                 throw new PDFGenerationException("Browser rendering completed without producing any page captures.");
             }
-            convertCapturesToPdf(captureFiles, outputPdfPath);
+            // outputDirectory is the per-render workspace (created 0700, recursively deleted in the
+            // finally below), so routing the PDF assembly stream cache there keeps scratch storage
+            // inside the same managed, single-render-scoped lifecycle as the page capture PNGs.
+            convertCapturesToPdf(captureFiles, outputPdfPath, outputDirectory);
             // Capture the size once, before declaring success: a second Files.size inside the
             // success log could race an external sweep and turn a completed render into a
             // misreported failure with the finished PDF orphaned.
@@ -1328,8 +1336,13 @@ public class EFormBrowserPdfService {
         }
     }
 
-    static void convertCapturesToPdf(List<Path> captureFiles, Path outputPdfPath) throws PDFGenerationException {
-        try (PDDocument document = new PDDocument()) {
+    static void convertCapturesToPdf(List<Path> captureFiles, Path outputPdfPath, Path scratchDirectory) throws PDFGenerationException {
+        // File-backed stream cache: Flate-compressed page-image streams otherwise accumulate
+        // on-heap in the PDDocument until save() — up to the full MAX_CAPTURE_TOTAL_PIXELS budget
+        // per render, times MAX_CONCURRENT_RENDERS. Spilling to a scratch file under the managed
+        // render workspace bounds retained JVM memory to one decoded region regardless of form size.
+        try (PDDocument document = new PDDocument(
+                MemoryUsageSetting.setupTempFileOnly().setTempDir(scratchDirectory.toFile()).streamCache)) {
             for (Path captureFile : captureFiles) {
                 BufferedImage image = ImageIO.read(captureFile.toFile());
                 if (image == null) {
