@@ -436,11 +436,12 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should be annotated @Transactional so a mid-batch persist failure rolls back prior recipients")
     void shouldBeTransactional_soMidBatchPersistFailureRollsBackPriorRecipients() throws Exception {
-        // A pure unit test cannot exercise real Spring-proxy rollback without a container/DB (see
-        // T21 for the end-to-end coverage). This pins the annotation itself so the atomicity
-        // contract cannot silently regress: without @Transactional on this exact method, the
-        // Spring AOP proxy created by <tx:annotation-driven proxy-target-class="true"/> would not
-        // wrap the per-recipient faxJobDao.persist calls in a single transaction at all.
+        // A pure unit test cannot exercise real Spring-proxy rollback without a container/DB —
+        // FaxManagerImplTransactionIntegrationTest covers the end-to-end mid-batch rollback
+        // against H2. This pins the annotation itself so the atomicity contract cannot silently
+        // regress: without @Transactional on this exact method, the Spring AOP proxy created by
+        // <tx:annotation-driven proxy-target-class="true"/> would not wrap the per-recipient
+        // faxJobDao.persist calls in a single transaction at all.
         Method createAndSaveFaxJob = FaxManagerImpl.class.getMethod(
                 "createAndSaveFaxJob", LoggedInInfo.class, Map.class);
 
