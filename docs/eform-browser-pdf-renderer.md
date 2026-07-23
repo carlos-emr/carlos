@@ -27,7 +27,33 @@ The token replaces any session forwarding: the browser never holds a user's sess
 script on a rendered eForm can act as no one. Authorization is anchored at the manager's
 `SecurityInfoManager.hasPrivilege(_eform)` check, which is the only place tokens are minted.
 
+### Why region capture instead of native print-to-PDF
+
+Chromium exposes a native print pipeline (`Page.printToPDF`, Selenium's
+`driver.print(PrintOptions)`) that produces text-layer PDFs. The renderer deliberately does not
+use it: legacy eForms are absolutely-positioned documents built from `page1..pageN` divs sized in
+CSS pixels over background images, and native print paginates by **paper geometry** — it would
+split or rescale those authored page boundaries wherever a div does not fit the paper size. The
+region-capture approach reproduces each authored page exactly as the form designer laid it out,
+which is the compatibility contract the legacy form corpus depends on. Fax transmission — the
+primary consumer — is raster end-to-end regardless, so nothing is lost on that path.
+
+Native print was **not** prototyped against the legacy form corpus when this pipeline was built.
+If a future need for text-layer archive PDFs arises (searchability, accessibility), that
+prototype — measuring how `printToPDF` paginates representative `page1..N` forms — is the first
+step; a hybrid (native print for forms that declare compatible geometry) would be the likely
+shape.
+
 ## Deployment requirements
+
+> **Runbook: provision the browser BEFORE deploying.** Because the startup gate below defaults to
+> `required`, deployment ordering matters: install Chromium and a matching chromedriver (and set
+> `eform_pdf_browser_chromium_path` / `eform_pdf_browser_chromedriver_path`) **before** the webapp
+> deploys, or Tomcat will refuse to deploy CARLOS at all. That refusal is the deliberate
+> deployment decision — an EMR whose eForm fax/archive pipeline is known-broken must not start.
+> Verify a new host by deploying to a staging slot with `eform_pdf_browser_startup_check=required`
+> and confirming `eForm browser renderer startup check passed.` in the log. `warn`/`off` are
+> explicit, logged opt-outs for staged rollouts only — never a steady-state configuration.
 
 > **Upgrade notice: Chromium + a matching chromedriver are now required.** The browser renderer is
 > the **only** path that produces saved-eForm fax/archive PDFs — there is no legacy fallback — and
@@ -214,6 +240,11 @@ These are inherited from the original browser-render feature (PR #3164) and are 
 **not** changed here, because a code change would be either behavior-breaking for rendering or an
 operational configuration matter:
 
+- **Output is raster-only.** Captured pages become images inside the PDF: no selectable or
+  searchable text, no accessibility tags, and larger files than a text-layer PDF of the same
+  content. Acceptable for fax (raster end-to-end anyway); a real trade-off for archived eDocs —
+  see "Why region capture instead of native print-to-PDF" above for the compatibility rationale
+  and the prototype that would precede any change.
 - **eForm HTML rewrites run on display and save, not only on render.** `EForm.setContextPath()` /
   `getFormHtml()` normalize asset URLs on the ordinary display and save paths as well as the render
   path, so saving can persist transformed HTML and perturb the `sameform` de-duplication. The render
