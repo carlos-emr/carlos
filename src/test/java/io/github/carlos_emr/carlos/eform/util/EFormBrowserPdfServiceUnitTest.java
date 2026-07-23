@@ -282,7 +282,7 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(args)
                 .contains("--headless=new")
                 .contains("--proxy-server=" + EFormBrowserPdfService.DEAD_PROXY)
-                .contains("--proxy-bypass-list=127.0.0.1:8080;localhost:8080;[::1]:8080")
+                .contains("--proxy-bypass-list=<-loopback>;127.0.0.1:8080")
                 .contains("--remote-debugging-pipe")
                 .contains("--disable-file-system")
                 // WebRTC (UDP) would bypass the HTTP proxy and the CDP gate — force all WebRTC UDP
@@ -329,15 +329,22 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should scope the proxy bypass to the application's own loopback port")
-    void shouldScopeProxyBypass_toApplicationLoopbackPort() {
+    @DisplayName("should bypass the dead proxy only for the exact render origin, disabling the implicit loopback exemption")
+    void shouldScopeProxyBypass_toExactRenderOrigin() {
+        // "<-loopback>" is load-bearing: without it Chromium's implicit bypass rules exempt EVERY
+        // loopback host and port from the dead proxy, so the explicit entries were advisory only.
+        // Its position is load-bearing too: the sentinel must precede the explicit entry, or the
+        // subtraction removes that entry as well and dead-proxies the render origin itself
+        // (verified empirically against Chromium 148).
         assertThat(EFormBrowserPdfService.proxyBypassListFor("http://127.0.0.1:8080"))
-                .isEqualTo("127.0.0.1:8080;localhost:8080;[::1]:8080");
+                .isEqualTo("<-loopback>;127.0.0.1:8080");
         // Default ports are made explicit so other loopback ports never match the bypass.
-        assertThat(EFormBrowserPdfService.proxyBypassListFor("http://127.0.0.1"))
-                .isEqualTo("127.0.0.1:80;localhost:80;[::1]:80");
+        assertThat(EFormBrowserPdfService.proxyBypassListFor("http://localhost"))
+                .isEqualTo("<-loopback>;localhost:80");
+        assertThat(EFormBrowserPdfService.proxyBypassListFor("https://[::1]:8443"))
+                .isEqualTo("<-loopback>;[::1]:8443");
         assertThat(EFormBrowserPdfService.proxyBypassListFor("https://127.0.0.1"))
-                .isEqualTo("127.0.0.1:443;localhost:443;[::1]:443");
+                .isEqualTo("<-loopback>;127.0.0.1:443");
     }
 
     @Test

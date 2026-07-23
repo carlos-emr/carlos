@@ -147,10 +147,13 @@ public class EFormBrowserPdfService {
     private static final String ENV_ALLOW_UNSANDBOXED = "EFORM_RENDER_ALLOW_UNSANDBOXED";
 
     /**
-     * Dead proxy plus a port-scoped loopback bypass: only the application's own loopback origin
-     * escapes the dead proxy, so a request to any other host — or any other loopback port — is
-     * blocked before it is ever sent. Together with the performance-log gate, egress attempts are
-     * therefore stopped at two independent layers: pre-send (proxy) and post-hoc (event replay).
+     * Dead proxy plus the exact-origin bypass built by {@link #proxyBypassListFor}: only the
+     * application's own render origin escapes the dead proxy, so a request to any other host —
+     * or any other loopback host/port — is blocked before it is ever sent. This holds ONLY
+     * because the bypass list carries {@code <-loopback>}: Chromium's implicit rules otherwise
+     * exempt all loopback traffic from proxying entirely. Together with the performance-log
+     * gate, egress attempts are stopped at two independent layers: pre-send (proxy) and
+     * post-hoc (event replay).
      */
     static final String DEAD_PROXY = "http://127.0.0.1:1";
 
@@ -657,9 +660,16 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Builds the port-scoped proxy bypass for the validated loopback origin. Only the
-     * application's own {@code host:port} escapes the dead proxy; other loopback ports stay
-     * behind it, so a malicious form cannot even send one-shot requests at other local services.
+     * Builds the proxy bypass for the validated loopback origin: exactly the render origin's
+     * {@code host:port}, plus the {@code <-loopback>} sentinel that disables Chromium's
+     * <em>implicit</em> bypass rules. Without the sentinel Chromium exempts every loopback host
+     * and port from the proxy regardless of this list — the previous explicit alias entries were
+     * advisory only, and a malicious form could dispatch one-shot requests at
+     * {@code http://localhost:<port>} (or any other loopback port) with only the post-hoc
+     * network gate noticing after the request had been sent. With it, only the exact origin the
+     * render navigates escapes the dead proxy, so those requests are now blocked pre-dispatch.
+     * INVARIANT: never remove {@code <-loopback>} as a "simplification" — it is what makes the
+     * dead proxy apply to loopback at all.
      */
     // IMPROPER_UNICODE: equalsIgnoreCase here classifies the literal URI scheme ("https") to pick a
     // default port; a case-insensitive protocol-name compare, not an authorization decision.
@@ -670,7 +680,11 @@ public class EFormBrowserPdfService {
         if (port == -1) {
             port = SCHEME_HTTPS.equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
         }
-        return "127.0.0.1:" + port + ";localhost:" + port + ";[::1]:" + port;
+        // URI.getHost() keeps IPv6 brackets ("[::1]"), so the entry is emitted as-is.
+        // ORDER IS LOAD-BEARING (verified empirically against Chromium 148): the sentinel must
+        // precede the explicit entry — "entry;<-loopback>" subtracts the earlier explicit
+        // loopback entry too and dead-proxies the render origin itself, failing every render.
+        return "<-loopback>;" + uri.getHost() + ":" + port;
     }
 
     /**
