@@ -240,6 +240,14 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public List<FaxJob> createAndSaveFaxJob(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap) {
 
+        // Parse and fail fast BEFORE createFaxJob: the promotion inside createFaxJob deletes
+        // the temp preview source, so a recipient-shape failure after it destroys the user's
+        // only copy and strands an orphan PDF in the document store.
+        String[] copytoRecipients = (String[]) faxJobMap.get("copyToRecipients");
+        List<FaxRecipient> parsedRecipients = (copytoRecipients != null && copytoRecipients.length > 0)
+                ? parseFaxRecipients(copytoRecipients)
+                : List.of();
+
         FaxJob faxJob = createFaxJob(loggedInInfo, faxJobMap);
         List<FaxJob> faxJobList = new ArrayList<FaxJob>();
         boolean isCoverpage = Boolean.parseBoolean((String) faxJobMap.get("coverpage"));
@@ -255,9 +263,8 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         // Duplicate the fax job for each copy-to recipient; the original receiver is already in the list.
-        String[] copytoRecipients = (String[]) faxJobMap.get("copyToRecipients");
-        if (copytoRecipients != null && copytoRecipients.length > 0) {
-            List<FaxJob> faxJobRecipients = addRecipients(loggedInInfo, faxJob, copytoRecipients);
+        if (!parsedRecipients.isEmpty()) {
+            List<FaxJob> faxJobRecipients = addRecipients(loggedInInfo, faxJob, parsedRecipients);
             faxJobList.addAll(faxJobRecipients);
         }
 
@@ -411,11 +418,31 @@ public class FaxManagerImpl implements FaxManager {
      */
     @Override
     public List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, String[] faxRecipients) {
+        return addRecipients(loggedInInfo, faxJob, parseFaxRecipients(faxRecipients));
+    }
+
+    /**
+     * Parses the indexed JSON recipient entries, failing fast when any entry is null, blank, or
+     * unparseable — a partial recipient list must never be silently sent. Deliberately free of
+     * side effects so {@link #createAndSaveFaxJob} can run it BEFORE the destructive temp-file
+     * promotion in {@link #createFaxJob}.
+     *
+     * @throws IllegalArgumentException naming the failed entry count when any entry cannot be
+     *         parsed into a {@link FaxRecipient}
+     */
+    private List<FaxRecipient> parseFaxRecipients(String[] faxRecipients) {
 
         List<FaxRecipient> faxRecipientArray = new ArrayList<FaxRecipient>();
         List<String> failedRecipients = new ArrayList<String>();
 
         for (String copytoRecipient : faxRecipients) {
+            // Null/blank entries (e.g. a sparse Struts index array) are shape failures too:
+            // silently skipping one is exactly the dropped-recipient bug the fail-fast below
+            // exists to prevent.
+            if (copytoRecipient == null || copytoRecipient.trim().isEmpty()) {
+                failedRecipients.add(String.valueOf(copytoRecipient));
+                continue;
+            }
             // Assumes that the recipient entry is a JSONObject
             copytoRecipient = "{" + copytoRecipient + "}";
             try {
@@ -440,7 +467,7 @@ public class FaxManagerImpl implements FaxManager {
                             failedRecipients.size(), preview)
             );
         }
-        return addRecipients(loggedInInfo, faxJob, faxRecipientArray);
+        return faxRecipientArray;
     }
 
     /**

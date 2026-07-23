@@ -231,35 +231,40 @@ public class Fax2Action extends ActionSupport {
         if (copyToRecipients != null && copyToRecipients.length > 0) {
             for (int i = 0; i < copyToRecipients.length; i++) {
                 String copyRecipient = copyToRecipients[i];
-                if (copyRecipient != null && !copyRecipient.trim().isEmpty()) {
-                    // Parse JSON to extract fax number for validation. Only the parse itself is
-                    // guarded: the deliberate rejections below must propagate with their own
-                    // honest messages instead of being caught here and re-labeled (and re-logged)
-                    // as a parse failure.
-                    String copyToFaxNumber;
-                    try {
-                        String jsonString = "{" + copyRecipient + "}";
-                        ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
-                        copyToFaxNumber = json.has("fax") ? json.get("fax").asText() : null;
-                    } catch (JsonProcessingException | ClassCastException e) {
-                        logger.error("Failed to parse copy-to recipient JSON at index {}: {}", i, LogSafe.sanitize(copyRecipient), e);
-                        addActionError("Copy-to recipient entry " + (i + 1) + " is not in a valid format");
-                        throw new SecurityException("Invalid copy-to recipient format at index " + i);
-                    }
-                    if (copyToFaxNumber == null || copyToFaxNumber.trim().isEmpty()) {
-                        // An empty/absent fax number on a copy-to recipient used to slip past
-                        // validation entirely (only the format was checked when present),
-                        // silently dropping that recipient at send time. Reject it up front,
-                        // same as the primary recipient fax number requirement above.
-                        addActionError("Copy-to recipient fax number is required");
-                        throw new SecurityException("Copy-to recipient fax number is required at index " + i);
-                    }
-                    try {
-                        faxManager.validateFaxNumber(copyToFaxNumber, "copy-to recipient fax number [" + i + "]");
-                    } catch (SecurityException e) {
-                        addActionError("Copy-to recipient fax number is invalid at entry " + (i + 1));
-                        throw e;
-                    }
+                if (copyRecipient == null || copyRecipient.trim().isEmpty()) {
+                    // A blank entry used to skip validation entirely and then fail inside
+                    // createAndSaveFaxJob — after the preview had already been destructively
+                    // promoted out of temp storage, losing the user's only copy.
+                    addActionError("Copy-to recipient entry " + (i + 1) + " is empty");
+                    throw new SecurityException("Copy-to recipient entry is blank at index " + i);
+                }
+                // Parse JSON to extract fax number for validation. Only the parse itself is
+                // guarded: the deliberate rejections below must propagate with their own
+                // honest messages instead of being caught here and re-labeled (and re-logged)
+                // as a parse failure.
+                String copyToFaxNumber;
+                try {
+                    String jsonString = "{" + copyRecipient + "}";
+                    ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
+                    copyToFaxNumber = json.has("fax") ? json.get("fax").asText() : null;
+                } catch (JsonProcessingException | ClassCastException e) {
+                    logger.error("Failed to parse copy-to recipient JSON at index {}: {}", i, LogSafe.sanitize(copyRecipient), e);
+                    addActionError("Copy-to recipient entry " + (i + 1) + " is not in a valid format");
+                    throw new SecurityException("Invalid copy-to recipient format at index " + i);
+                }
+                if (copyToFaxNumber == null || copyToFaxNumber.trim().isEmpty()) {
+                    // An empty/absent fax number on a copy-to recipient used to slip past
+                    // validation entirely (only the format was checked when present),
+                    // silently dropping that recipient at send time. Reject it up front,
+                    // same as the primary recipient fax number requirement above.
+                    addActionError("Copy-to recipient fax number is required");
+                    throw new SecurityException("Copy-to recipient fax number is required at index " + i);
+                }
+                try {
+                    faxManager.validateFaxNumber(copyToFaxNumber, "copy-to recipient fax number [" + i + "]");
+                } catch (SecurityException e) {
+                    addActionError("Copy-to recipient fax number is invalid at entry " + (i + 1));
+                    throw e;
                 }
             }
         }

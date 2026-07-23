@@ -59,6 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
@@ -322,6 +323,22 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should fail fast before any file promotion when a copy-to recipient entry is unparseable")
+    void shouldFailFast_beforePromotionWhenCopyToRecipientUnparseable() {
+        assertThatThrownBy(() -> manager.createAndSaveFaxJob(loggedInInfo, Map.of(
+                "coverpage", "false",
+                "copyToRecipients", new String[] {"NOT-JSON"})))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Failed to parse");
+
+        // Recipient parsing must precede createFaxJob: createFaxJob's temp->document promotion
+        // deletes the preview source, so a recipient-shape failure after it destroys the user's
+        // only copy and strands an orphan PDF in the document store.
+        verify(manager, never()).createFaxJob(any(LoggedInInfo.class), anyMap());
+        verifyNoInteractions(nioFileManager);
+    }
+
+    @Test
     @DisplayName("should return the un-persisted ERROR job instead of NPEing when a cover page was requested")
     void shouldReturnUnsavedErrorJob_whenPrimaryJobFailsValidation() {
         FaxJob errorJob = new FaxJob();
@@ -333,16 +350,19 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         // Pre-fix, coverpage=true ran Paths.get(errorJob.getFile_name()) -> NPE, and without a
         // cover page the all-ERROR filter threw an unmapped RuntimeException. Both paths must now
         // surface the job so the preview can render its per-job status.
+        // Entry is brace-less: production wraps each entry in braces before parsing, and the
+        // hoisted parse now runs even when the primary job errors, so a double-braced fixture
+        // would fail parsing before the behavior under test.
         List<FaxJob> result = manager.createAndSaveFaxJob(loggedInInfo, Map.of(
                 "coverpage", "true",
-                "copyToRecipients", new String[]{"{\"name\":\"Copy To\",\"fax\":\"1112223333\"}"}));
+                "copyToRecipients", new String[]{"\"name\":\"Copy To\",\"fax\":\"1112223333\""}));
 
         // Identity assertions: FaxJob.equals delegates to AbstractModel.getId(), which NPEs for
         // un-persisted (id-less) jobs, so collection equality cannot be used here.
         assertThat(result).hasSize(1);
         assertThat(result.get(0)).isSameAs(errorJob);
         assertThat(errorJob.getId()).isNull();
-        verify(manager, never()).addRecipients(any(), any(), any(String[].class));
+        verify(manager, never()).addRecipients(any(), any(), anyList());
         verify(manager, never()).saveFaxJob(eq(loggedInInfo), anyList());
     }
 
@@ -384,9 +404,11 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         copyErrorJob.setStatus(FaxJob.STATUS.ERROR);
         copyErrorJob.setStatusString("Invalid fax number for copy-to recipient.");
         copyErrorJob.setRecipient("Copy Recipient");
-        String[] copyToRecipients = new String[]{"{\"name\":\"Copy Recipient\",\"fax\":\"9998887777\"}"};
+        // Brace-less entry (production adds the braces); the stub targets the List overload
+        // because createAndSaveFaxJob now parses entries itself and passes FaxRecipient objects.
+        String[] copyToRecipients = new String[]{"\"name\":\"Copy Recipient\",\"fax\":\"9998887777\""};
         doReturn(List.of(copyErrorJob)).when(manager)
-                .addRecipients(eq(loggedInInfo), eq(waitingJob), eq(copyToRecipients));
+                .addRecipients(eq(loggedInInfo), eq(waitingJob), anyList());
 
         Path coveredDocument = Paths.get("Cover_test-uuid_queued-fax.pdf");
         doReturn(coveredDocument).when(manager)

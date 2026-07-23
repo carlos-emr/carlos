@@ -140,6 +140,32 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject queue when a copy-to recipient entry is blank")
+    void shouldRejectQueue_whenCopyToRecipientEntryBlank() {
+        setUpCommonMocks();
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+            action.setCopyToRecipients(new String[] {"   "});
+
+            // A blank entry used to skip validation entirely and then fail inside
+            // createAndSaveFaxJob — after the preview had been destructively promoted.
+            assertThatThrownBy(action::queue)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("blank");
+
+            assertThat(action.getActionErrors()).contains("Copy-to recipient entry 1 is empty");
+            verify(faxManager, never()).createAndSaveFaxJob(any(LoggedInInfo.class), anyMap());
+        }
+    }
+
+    @Test
     @DisplayName("should reject queue when a copy-to recipient entry is not parseable JSON")
     void shouldRejectQueue_whenCopyToRecipientJsonMalformed() {
         setUpCommonMocks();
