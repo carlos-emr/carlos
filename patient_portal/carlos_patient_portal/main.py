@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 from hashlib import sha256
 from hmac import new as new_hmac
+from http.cookies import SimpleCookie
 from ipaddress import ip_address
 from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
@@ -215,18 +216,21 @@ def set_csrf_cookie(
 
 def set_portal_session_cookie(
     response: Response,
-    session_token: str,
+    session_cookie_value: str,
     *,
     settings: Settings,
 ) -> None:
-    response.set_cookie(
-        PORTAL_SESSION_COOKIE_NAME,
-        session_token,
-        httponly=True,
-        max_age=settings.session_ttl_seconds,
-        path=PORTAL_SESSION_COOKIE_PATH,
-        samesite="strict",
-        secure=not settings.is_development,
+    portal_cookie = SimpleCookie()
+    portal_cookie[PORTAL_SESSION_COOKIE_NAME] = session_cookie_value
+    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["httponly"] = True
+    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["max-age"] = str(settings.session_ttl_seconds)
+    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["path"] = PORTAL_SESSION_COOKIE_PATH
+    portal_cookie[PORTAL_SESSION_COOKIE_NAME]["samesite"] = "strict"
+    if not settings.is_development:
+        portal_cookie[PORTAL_SESSION_COOKIE_NAME]["secure"] = True
+    response.headers.append(
+        "set-cookie",
+        portal_cookie[PORTAL_SESSION_COOKIE_NAME].OutputString(),
     )
 
 
@@ -237,6 +241,24 @@ def clear_portal_session_cookie(response: Response, *, settings: Settings) -> No
         secure=not settings.is_development,
         httponly=True,
         samesite="strict",
+    )
+
+
+def is_portal_path(path: str) -> bool:
+    return path == PORTAL_SESSION_COOKIE_PATH or path.startswith(
+        f"{PORTAL_SESSION_COOKIE_PATH}/"
+    )
+
+
+def is_json_request(request: Request) -> bool:
+    return request.headers.get("content-type", "").partition(";")[0].strip().lower() == (
+        "application/json"
+    )
+
+
+def is_urlencoded_form_request(request: Request) -> bool:
+    return request.headers.get("content-type", "").partition(";")[0].strip().lower() == (
+        "application/x-www-form-urlencoded"
     )
 
 
@@ -353,6 +375,40 @@ def password_reset_request_response_payload(
     return payload
 
 
+def index_template_context(
+    request: Request,
+    *,
+    settings: Settings,
+    csrf_token: str,
+    error_message: str | None = None,
+) -> dict[str, object]:
+    return {
+        "request": request,
+        "clinic_name": settings.clinic_name,
+        "csrf_token": csrf_token,
+        "error_message": error_message,
+        "service_name": settings.service_name,
+    }
+
+
+def mfa_template_context(
+    request: Request,
+    *,
+    settings: Settings,
+    delivery: MfaChallengeDelivery,
+    csrf_token: str,
+) -> dict[str, object]:
+    return {
+        "request": request,
+        "clinic_name": settings.clinic_name,
+        "csrf_token": csrf_token,
+        "development_mfa_code": delivery.code if settings.is_development else None,
+        "mfa_challenge_token": delivery.challenge_token,
+        "mfa_delivery_method": delivery.delivery_method,
+        "service_name": settings.service_name,
+    }
+
+
 def portal_modules(active_module: str) -> tuple[dict[str, object], ...]:
     return tuple(
         {
@@ -442,6 +498,43 @@ async def get_mfa_verify_request(request: Request) -> MfaVerifyRequest:
     )
 
 
+async def get_mfa_verify_request_from_request(
+    request: Request,
+    csrf_secret: str,
+) -> MfaVerifyRequest:
+    if is_json_request(request):
+        return await get_mfa_verify_request(request)
+
+    if not is_urlencoded_form_request(request):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="MFA verification requires an application/json or form request body",
+        )
+
+    form_values = await get_urlencoded_form_values(
+        request,
+        MAX_FORM_BODY_BYTES,
+        MAX_FORM_FIELD_COUNT,
+    )
+    csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
+    csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+    if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
+        raise HTTPException(status_code=403, detail="invalid CSRF token")
+
+    try:
+        return MfaVerifyRequest.model_validate(
+            {
+                "mfa_challenge_token": first_form_value(
+                    form_values,
+                    "mfa_challenge_token",
+                ),
+                "code": first_form_value(form_values, "code"),
+            }
+        )
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
+
 async def get_mfa_resend_request(request: Request) -> MfaResendRequest:
     return await get_json_request_model(
         request,
@@ -501,15 +594,14 @@ def first_form_value(form_values: dict[str, list[str]], field_name: str) -> str 
 
 
 async def get_login_request_from_request(request: Request, csrf_secret: str) -> LoginRequest:
-    content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
-    if content_type == "application/json":
+    if is_json_request(request):
         return await get_json_request_model(
             request,
             LoginRequest,
             "login requires an application/json request body",
         )
 
-    if content_type != "application/x-www-form-urlencoded":
+    if not is_urlencoded_form_request(request):
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="login requires an application/json or form request body",
@@ -643,7 +735,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if (
             request.url.path in NO_STORE_PATHS
             or request.url.path.startswith("/auth/")
-            or request.url.path.startswith("/portal")
+            or is_portal_path(request.url.path)
             or request.url.path.startswith("/internal/")
             or request.url.path.startswith("/dev/admin/")
         ):
@@ -692,21 +784,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="invalid staff actor") from exc
 
-    @app.get("/")
-    def index(request: Request) -> Response:
+    def render_index_response(
+        request: Request,
+        *,
+        status_code: int = status.HTTP_200_OK,
+        error_message: str | None = None,
+    ) -> Response:
         csrf_token = create_csrf_token(csrf_secret)
         response = templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={
-                "request": request,
-                "clinic_name": settings.clinic_name,
-                "csrf_token": csrf_token,
-                "service_name": settings.service_name,
-            },
+            context=index_template_context(
+                request,
+                settings=settings,
+                csrf_token=csrf_token,
+                error_message=error_message,
+            ),
+            status_code=status_code,
         )
         set_csrf_cookie(response, csrf_token, settings=settings, path=CSRF_COOKIE_PATH)
         return response
+
+    @app.get("/")
+    def index(request: Request) -> Response:
+        return render_index_response(request)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -766,7 +867,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             authenticated_session = get_authenticated_portal_cookie_session(request, session)
         except (PortalSessionInvalidError, ValueError):
-            return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+            clear_portal_session_cookie(response, settings=settings)
+            return response
 
         csrf_token = create_csrf_token(csrf_secret)
         response = templates.TemplateResponse(
@@ -791,9 +894,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
         request: Request,
-        response: Response,
         session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> dict[str, object] | JSONResponse:
+    ) -> dict[str, object] | Response:
+        is_browser_form = is_urlencoded_form_request(request)
         payload = await get_login_request_from_request(request, csrf_secret)
         client_reference_hash = hash_sensitive_reference(
             audit_hash_secret,
@@ -812,27 +915,74 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 delivery_method=payload.mfa_delivery_method,
             )
         except InvalidCredentialsError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    error_message="Sign-in could not be completed.",
+                )
             return JSONResponse(
                 status_code=401,
                 content={"detail": "sign-in could not be completed"},
             )
         except AccountLockedError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_423_LOCKED,
+                    error_message="Account access is locked; contact the clinic for help.",
+                )
             return JSONResponse(
                 status_code=status.HTTP_423_LOCKED,
                 content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    error_message="Password reset is required before sign-in.",
+                )
             return JSONResponse(
                 status_code=403,
                 content={"status": "password_reset_required"},
             )
         except MfaDeliveryUnavailableError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message="MFA delivery method is unavailable.",
+                )
             return JSONResponse(
                 status_code=400,
                 content={"detail": "MFA delivery method is unavailable"},
             )
-        if result.session_token is not None:
-            set_portal_session_cookie(response, result.session_token, settings=settings)
+        if is_browser_form and result.mfa_challenge is not None:
+            csrf_token = create_csrf_token(csrf_secret)
+            response = templates.TemplateResponse(
+                request=request,
+                name="mfa.html",
+                context=mfa_template_context(
+                    request,
+                    settings=settings,
+                    delivery=result.mfa_challenge,
+                    csrf_token=csrf_token,
+                ),
+            )
+            set_csrf_cookie(response, csrf_token, settings=settings, path=CSRF_COOKIE_PATH)
+            return response
+        if is_browser_form and result.session_token is not None:
+            redirect_response = RedirectResponse(
+                "/portal",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+            set_portal_session_cookie(
+                redirect_response,
+                result.session_token,
+                settings=settings,
+            )
+            return redirect_response
         return login_response_payload(result, settings=settings)
 
     @app.post("/auth/mfa/resend", response_model=MfaChallengeResponse)
@@ -875,11 +1025,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return mfa_challenge_response_payload(delivery, settings=settings)
 
     @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)
-    def verify_mfa(
-        response: Response,
-        payload: Annotated[MfaVerifyRequest, Depends(get_mfa_verify_request)],
+    async def verify_mfa(
+        request: Request,
         session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> dict[str, str] | JSONResponse:
+    ) -> dict[str, str] | Response:
+        is_browser_form = is_urlencoded_form_request(request)
+        payload = await get_mfa_verify_request_from_request(request, csrf_secret)
         try:
             session_token = verify_mfa_challenge(
                 session,
@@ -890,20 +1041,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 code_secret=csrf_secret,
             )
         except InvalidMfaCodeError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    error_message="MFA could not be verified.",
+                )
             return JSONResponse(status_code=401, content={"detail": "MFA could not be verified"})
         except (MfaChallengeNotFoundError, ValueError):
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message="MFA could not be verified.",
+                )
             return JSONResponse(status_code=400, content={"detail": "MFA could not be verified"})
         except AccountLockedError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_423_LOCKED,
+                    error_message="Account access is locked; contact the clinic for help.",
+                )
             return JSONResponse(
                 status_code=status.HTTP_423_LOCKED,
                 content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    error_message="Password reset is required before sign-in.",
+                )
             return JSONResponse(
                 status_code=403,
                 content={"status": "password_reset_required"},
             )
-        set_portal_session_cookie(response, session_token, settings=settings)
+        if is_browser_form:
+            redirect_response = RedirectResponse(
+                "/portal",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+            set_portal_session_cookie(redirect_response, session_token, settings=settings)
+            return redirect_response
         return {"status": "signed_in", "session_token": session_token}
 
     @app.post(
@@ -1027,7 +1208,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
         response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
         if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
-            return response
+            raise HTTPException(status_code=403, detail="logout could not be completed")
 
         session_token = request.cookies.get(PORTAL_SESSION_COOKIE_NAME)
         if session_token is not None:

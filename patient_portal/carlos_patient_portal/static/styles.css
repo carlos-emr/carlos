@@ -163,6 +163,17 @@ h1 {
   line-height: 1.35;
 }
 
+.form-error {
+  margin: 0;
+  padding: 8px 10px;
+  color: #7a1f1f;
+  background: #fff1f1;
+  border: 1px solid #e3a8a8;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .dashboard-screen {
   display: flex;
   flex-direction: column;

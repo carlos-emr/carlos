@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen" aria-label="MFA verification">
+      <header class="patient-topbar">
+        <div class="brand-lockup">
+          <img src="{{ url_for('static', path='/carlos-placeholder.svg') }}" alt="" class="brand-logo">
+          <div>
+            <strong>{{ service_name }}</strong>
+            <span>{{ clinic_name }}</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="auth-layout">
+        <section class="auth-panel" aria-labelledby="mfa-title">
+          <h1 id="mfa-title">Verification code</h1>
+          {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
+          <form class="form-stack" method="post" action="{{ url_for('verify_mfa') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">
+            <label>
+              <span>Code</span>
+              <input
+                type="text"
+                name="code"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="16"
+              >
+            </label>
+            <button class="primary-action" type="submit">Continue</button>
+            <p class="clinic-help-line">Sent by {{ mfa_delivery_method|upper }}</p>
+            {% if development_mfa_code %}
+              <p class="clinic-help-line">Development MFA code: {{ development_mfa_code }}</p>
+            {% endif %}
+          </form>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

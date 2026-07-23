@@ -79,6 +79,8 @@ WRONG_INTERNAL_HEALTH_TOKEN = "w" * MIN_PRODUCTION_SECRET_LENGTH
 DEV_ADMIN_TOKEN = "d" * MIN_PRODUCTION_SECRET_LENGTH
 WRONG_DEV_ADMIN_TOKEN = "x" * MIN_PRODUCTION_SECRET_LENGTH
 CSRF_TOKEN_PATTERN = re.compile(r'name="csrf_token" value="([^"]+)"')
+DEVELOPMENT_MFA_CODE_PATTERN = re.compile(r"Development MFA code: (\d{6})")
+MFA_CHALLENGE_TOKEN_PATTERN = re.compile(r'name="mfa_challenge_token" value="([^"]+)"')
 SEEDED_INVITE_EMAIL = "example.patient@example.com"
 SEEDED_INVITE_DOB = "1980-05-20"
 SEEDED_INVITE_HCN = "ABCD 1234-5678"
@@ -225,29 +227,47 @@ def activate_seeded_patient_account(
     return account_id
 
 
-def sign_in_seeded_patient(app: main.FastAPI, client: TestClient) -> tuple[int, str]:
+def browser_sign_in_seeded_patient(app: main.FastAPI, client: TestClient) -> int:
     account_id = activate_seeded_patient_account(app, client)
+    csrf_token = get_csrf_token(client)
     login_response = client.post(
         "/auth/login",
-        json={"username": "patient.user", "password": STRONG_PASSWORD},
-    )
-    assert login_response.status_code == 200
-    login_payload = login_response.json()
-    verify_response = client.post(
-        "/auth/mfa/verify",
-        json={
-            "mfa_challenge_token": login_payload["mfa_challenge_token"],
-            "code": login_payload["development_mfa_code"],
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
         },
     )
-    assert verify_response.status_code == 200
+
+    assert login_response.status_code == 200
+    assert "Verification code" in login_response.text
+    assert main.PORTAL_SESSION_COOKIE_NAME not in login_response.cookies
+    mfa_challenge_token_match = MFA_CHALLENGE_TOKEN_PATTERN.search(login_response.text)
+    mfa_code_match = DEVELOPMENT_MFA_CODE_PATTERN.search(login_response.text)
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(login_response.text)
+    assert mfa_challenge_token_match is not None
+    assert mfa_code_match is not None
+    assert csrf_token_match is not None
+
+    verify_response = client.post(
+        "/auth/mfa/verify",
+        data={
+            "csrf_token": csrf_token_match.group(1),
+            "mfa_challenge_token": mfa_challenge_token_match.group(1),
+            "code": mfa_code_match.group(1),
+        },
+        follow_redirects=False,
+    )
+
+    assert verify_response.status_code == 303
+    assert verify_response.headers["location"] == "/portal"
     set_cookie_header = verify_response.headers.get("set-cookie", "")
     assert main.PORTAL_SESSION_COOKIE_NAME in verify_response.cookies
     assert f"{main.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
     assert "HttpOnly" in set_cookie_header
     assert "Path=/portal" in set_cookie_header
     assert "SameSite=strict" in set_cookie_header
-    return account_id, verify_response.json()["session_token"]
+    return account_id
 
 
 def test_health_endpoint_is_minimal() -> None:
@@ -404,6 +424,7 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
     assert verify_response.status_code == 200
     session_token = verify_response.json()["session_token"]
     assert session_token
+    assert main.PORTAL_SESSION_COOKIE_NAME not in verify_response.cookies
 
     session_response = client.get(
         "/auth/session",
@@ -460,6 +481,64 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
         ]
 
 
+def test_form_login_error_renders_sign_in_page() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    csrf_token = get_csrf_token(client)
+
+    response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": "wrong",
+        },
+    )
+
+    assert response.status_code == 401
+    assert "Sign in" in response.text
+    assert "Sign-in could not be completed." in response.text
+    assert response.headers["content-type"].startswith("text/html")
+
+
+def test_form_mfa_error_renders_sign_in_page() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    csrf_token = get_csrf_token(client)
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+        },
+    )
+    mfa_challenge_token_match = MFA_CHALLENGE_TOKEN_PATTERN.search(login_response.text)
+    mfa_code_match = DEVELOPMENT_MFA_CODE_PATTERN.search(login_response.text)
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(login_response.text)
+    assert login_response.status_code == 200
+    assert mfa_challenge_token_match is not None
+    assert mfa_code_match is not None
+    assert csrf_token_match is not None
+    invalid_mfa_code = "000000" if mfa_code_match.group(1) != "000000" else "111111"
+
+    response = client.post(
+        "/auth/mfa/verify",
+        data={
+            "csrf_token": csrf_token_match.group(1),
+            "mfa_challenge_token": mfa_challenge_token_match.group(1),
+            "code": invalid_mfa_code,
+        },
+    )
+
+    assert response.status_code == 401
+    assert "Sign in" in response.text
+    assert "MFA could not be verified." in response.text
+    assert response.headers["content-type"].startswith("text/html")
+
+
 def test_dashboard_shell_requires_session_cookie() -> None:
     app = migrated_development_app()
     response = TestClient(app).get("/portal", follow_redirects=False)
@@ -472,7 +551,7 @@ def test_dashboard_shell_requires_session_cookie() -> None:
 def test_dashboard_shell_navigation_and_cookie_logout() -> None:
     app = migrated_development_app()
     client = TestClient(app)
-    account_id, _ = sign_in_seeded_patient(app, client)
+    account_id = browser_sign_in_seeded_patient(app, client)
 
     dashboard_response = client.get("/portal")
 
@@ -548,7 +627,7 @@ def test_dashboard_shell_navigation_and_cookie_logout() -> None:
 def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
     app = migrated_development_app()
     client = TestClient(app)
-    account_id, _ = sign_in_seeded_patient(app, client)
+    account_id = browser_sign_in_seeded_patient(app, client)
 
     dashboard_response = client.get("/portal")
     logout_response = client.post(
@@ -559,8 +638,8 @@ def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
     still_authenticated_response = client.get("/portal")
 
     assert dashboard_response.status_code == 200
-    assert logout_response.status_code == 303
-    assert logout_response.headers["location"] == "/"
+    assert logout_response.status_code == 403
+    assert logout_response.json()["detail"] == "logout could not be completed"
     assert still_authenticated_response.status_code == 200
     with app.state.session_factory() as session:
         portal_session = session.scalar(
@@ -575,6 +654,37 @@ def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
         assert portal_session is not None
         assert portal_session.revoked_reason is None
         assert logout_event is None
+
+
+def test_dashboard_clears_invalid_session_cookie() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    with app.state.session_factory() as session:
+        portal_session = session.scalar(
+            select(PatientPortalSession).where(PatientPortalSession.account_id == account_id)
+        )
+        assert portal_session is not None
+        portal_session.revoked_at = utc_now()
+        portal_session.revoked_reason = "test"
+        session.commit()
+
+    response = client.get("/portal", follow_redirects=False)
+    set_cookie_header = response.headers.get("set-cookie", "")
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert f"{main.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
+    assert "Max-Age=0" in set_cookie_header
+    assert "Path=/portal" in set_cookie_header
+
+
+def test_non_portal_prefix_does_not_receive_portal_cache_rule() -> None:
+    app = migrated_development_app()
+    response = TestClient(app).get("/portalfoo")
+
+    assert response.status_code == 404
+    assert "cache-control" not in response.headers
 
 
 def test_dashboard_styles_include_desktop_and_mobile_navigation_rules() -> None:

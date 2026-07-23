@@ -238,7 +238,9 @@ client address values. Client address hashes use `PATIENT_PORTAL_AUDIT_HASH_SECR
 
 ## Patient Auth API
 
-Login accepts either the server-rendered form with CSRF or JSON:
+Login accepts either the server-rendered form with CSRF or JSON. Browser form submissions render the
+MFA form when MFA is required, or redirect to `/portal` when sign-in is complete. JSON clients receive
+the same opaque challenge/session tokens in the response body and should use the bearer token API.
 
 ```bash
 curl -X POST http://127.0.0.1:8090/auth/login \
@@ -287,9 +289,10 @@ integration should send those values through the configured email/SMS provider w
 The database stores keyed hashes of MFA codes, reset tokens, and session tokens. Sign-in, MFA,
 reset, lockout, unlock, and logout write audit events.
 
-Successful login/MFA responses also set an HttpOnly portal session cookie scoped to `/portal` so the
-server-rendered dashboard can be used without putting bearer tokens in page scripts. API clients may
-still use the returned bearer `session_token`.
+Successful browser login/MFA form submissions set an HttpOnly portal session cookie scoped to
+`/portal` so the server-rendered dashboard can be used without putting bearer tokens in page scripts.
+JSON API responses do not set that cookie; API clients should use the returned bearer
+`session_token`.
 
 ## Patient Dashboard
 

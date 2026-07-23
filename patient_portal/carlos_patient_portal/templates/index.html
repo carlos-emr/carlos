@@ -32,6 +32,9 @@
           {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
           <form class="form-stack" method="post" action="{{ url_for('login') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {% if error_message %}
+              <p class="form-error" role="alert">{{ error_message }}</p>
+            {% endif %}
             <label>
               <span>Username</span>
               <input
