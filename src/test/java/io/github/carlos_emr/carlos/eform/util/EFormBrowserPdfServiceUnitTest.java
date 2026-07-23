@@ -314,6 +314,25 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should detect PDF magic bytes for the rendered output gate")
+    void shouldDetectPdfMagicBytes_forRenderedOutputGate(@TempDir Path dir) throws IOException {
+        Path pdf = dir.resolve("ok.pdf");
+        Files.write(pdf, "%PDF-1.7 rest".getBytes(StandardCharsets.US_ASCII));
+        Path notPdf = dir.resolve("bad.pdf");
+        Files.write(notPdf, new byte[] {1, 2, 3, 4, 5});
+        Path tooShort = dir.resolve("short.pdf");
+        Files.write(tooShort, "%PD".getBytes(StandardCharsets.US_ASCII));
+
+        // The success gate must reject a nonempty-but-garbage output (a crashed assembly, a
+        // stray file) instead of handing it to the fax/eDoc pipeline; an unreadable path is
+        // equally a failed render, never an exception.
+        assertThat(EFormBrowserPdfService.hasPdfMagicBytes(pdf)).isTrue();
+        assertThat(EFormBrowserPdfService.hasPdfMagicBytes(notPdf)).isFalse();
+        assertThat(EFormBrowserPdfService.hasPdfMagicBytes(tooShort)).isFalse();
+        assertThat(EFormBrowserPdfService.hasPdfMagicBytes(dir.resolve("absent.pdf"))).isFalse();
+    }
+
+    @Test
     @DisplayName("should never chain a raw WebDriver cause into the Chromium startup failure")
     void shouldNotChainRawWebDriverCause_intoChromiumStartupFailure() {
         // The raw WebDriver throwable can embed local filesystem paths; a downstream handler

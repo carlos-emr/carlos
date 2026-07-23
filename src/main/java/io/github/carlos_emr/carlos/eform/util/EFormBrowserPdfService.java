@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.eform.util;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -333,6 +334,12 @@ public class EFormBrowserPdfService {
      * closing). Hold it in try-with-resources when the bytes are consumed in-request; call
      * {@link #path()} and skip close only when ownership genuinely transfers onward (e.g. the fax
      * flow promoting the file into the document store).
+     *
+     * <p>Guard scope: the compact constructor enforces the renderer output <em>name</em> (the
+     * delete-safety invariant for {@link #close()}); content validity is enforced at the render
+     * success gate ({@code hasPdfMagicBytes}), and containment under the managed temp root is
+     * structural — every production path is created via {@code createSecureTempFile} under
+     * {@code resolveRendererTempRoot()}.</p>
      */
     public record RenderedEformPdf(Path path) implements AutoCloseable {
         /**
@@ -509,7 +516,9 @@ public class EFormBrowserPdfService {
             // success log could race an external sweep and turn a completed render into a
             // misreported failure with the finished PDF orphaned.
             long outputPdfBytes = Files.isReadable(outputPdfPath) ? Files.size(outputPdfPath) : 0;
-            if (outputPdfBytes == 0) {
+            // Magic-byte check per the direct-response guidance: the fax/eDoc pipeline must never
+            // receive a nonempty-but-not-PDF output (a crashed assembly, a stray file).
+            if (outputPdfBytes == 0 || !hasPdfMagicBytes(outputPdfPath)) {
                 throw new PDFGenerationException("Browser rendering completed without producing a readable eForm PDF.");
             }
             success = true;
@@ -1489,6 +1498,21 @@ public class EFormBrowserPdfService {
             logger.debug("Assembled {} eForm capture(s) into a {}-page PDF", captureFiles.size(), document.getNumberOfPages());
         } catch (IOException e) {
             throw new PDFGenerationException("Unable to assemble the browser-rendered eForm captures into a PDF.", e);
+        }
+    }
+
+    /**
+     * True when {@code path} starts with the {@code %PDF} magic bytes. Read failures (including a
+     * missing file) return false — at the success gate, "cannot prove it is a PDF" and "is not a
+     * PDF" both mean the render failed.
+     */
+    static boolean hasPdfMagicBytes(Path path) {
+        byte[] header = new byte[4];
+        try (InputStream in = Files.newInputStream(path)) {
+            return in.readNBytes(header, 0, 4) == 4
+                    && header[0] == '%' && header[1] == 'P' && header[2] == 'D' && header[3] == 'F';
+        } catch (IOException e) {
+            return false;
         }
     }
 
