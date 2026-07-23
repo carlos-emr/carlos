@@ -182,20 +182,24 @@ heuristic.
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.
 - **Page gates.** The render gates split into two tiers. **Always hard fail-closed:** a `null` or
-  non-200 same-origin main document, a WebSocket/WebTransport creation (a live bidirectional channel
-  that bypasses the dead HTTP proxy and is never opened by a real render), unparseable network
-  evidence, and an unreadable browser console log (explicitly enabled via `goog:loggingPrefs`, so
-  failing to read it is a WebDriver fault, not a capability gap). **Advisory by default** (logged at
-  WARN, render proceeds — set `eform_pdf_browser_strict_network_gate=true` to make them hard again):
-  an off-origin HTTP request (already physically blocked by the dead proxy), a failed render-critical
-  subresource (HTTP-error or connection-failed image/script/stylesheet/font/iframe), and a severe
-  page-script console error (a JavaScript error, as opposed to a resource-load report or a CSP
-  containment notice — both of which are excluded from the count anyway). These three were demoted
-  because the legacy eForm corpus routinely references off-origin assets, 404s optional helper scripts
-  (`faxControl.js`, `onBodyLoad_*.js`, `jSignature.min.js`), and emits benign JS errors — none of
-  which blank the form, and all of which the in-app eForm viewer already tolerates; failing the render
-  on them denied the fax for every form that was not perfectly self-contained. Failures report counts,
-  never page content.
+  non-200 same-origin main document; a WebSocket/WebTransport creation (a live bidirectional channel
+  that bypasses the dead HTTP proxy and is never opened by a real render); unparseable network
+  evidence; an unreadable browser console log (explicitly enabled via `goog:loggingPrefs`, so failing
+  to read it is a WebDriver fault, not a capability gap); and **a failed *same-origin* (CARLOS)
+  render-critical *visual* subresource** — an `Image`, secondary `Document` iframe (the signature
+  block), `Stylesheet`, or `Font` served by the EMR that returns an HTTP 4xx/5xx. That last one is the
+  "our own eForm content failed to render" case (a missing signature or form image): the captured PDF
+  is genuinely wrong, so it must not be faxed. **Advisory by default** (logged at WARN, render proceeds
+  — set `eform_pdf_browser_strict_network_gate=true` to make them hard again): an off-origin HTTP
+  request (already physically blocked by the dead proxy); a failed *off-origin* subresource or a
+  failed *non-visual* same-origin subresource (a helper `Script`/`XHR`/`Fetch`/`Media`, or a
+  connection-level `loadingFailed` whose origin can't be attributed); and a severe page-script console
+  error (a JavaScript error, as opposed to a resource-load report or a CSP containment notice — both
+  excluded from the count anyway). These were demoted because the legacy eForm corpus routinely
+  references off-origin assets, 404s optional helper scripts (`faxControl.js`, `onBodyLoad_*.js`,
+  `jSignature.min.js`), and emits benign JS errors — none of which blank the form, and all of which the
+  in-app eForm viewer already tolerates; failing the render on them denied the fax for every form that
+  was not perfectly self-contained. Failures report counts, never page content.
 - **PHI-safe diagnostics.** Log lines carry fdid (a separate structured field), the loopback base
   URL (host + context path only — no PHI, and the fdid/token live in a separate path value not
   embedded in it), and counters. URLs inside WebDriver error messages are redacted before logging,

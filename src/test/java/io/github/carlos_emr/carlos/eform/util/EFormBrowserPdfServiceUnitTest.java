@@ -567,9 +567,11 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.disallowedRequests()).isEqualTo(1);
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
-        // The later 404'd iframe Document is not the main document, so it counts as a failed
-        // render-critical subresource instead of overwriting the main status.
-        assertThat(scan.failedSubresources()).isEqualTo(1);
+        // The later 404'd iframe Document is not the main document; it is a same-origin (CARLOS)
+        // visual/structural asset — the signature frame — so it counts as a CRITICAL failure (our
+        // EMR failed to serve the form's own content), not an advisory one.
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
         // The "not-json" entry is evidence the replay could not account for; it must be counted,
         // not silently skipped, so the gate can fail closed on truncated evidence.
         assertThat(scan.parseFailures()).isEqualTo(1);
@@ -581,9 +583,11 @@ class EFormBrowserPdfServiceUnitTest {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
-                // A 404'd form background arrives as an HTTP error response, not loadingFailed.
+                // A 404'd same-origin form background arrives as an HTTP error response, not
+                // loadingFailed. It is a CARLOS-served Image → counts as a CRITICAL subresource.
                 cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":404}"),
-                // Connection-level failure of a render-critical resource.
+                // Connection-level failure of a render-critical resource: no URL to attribute origin,
+                // so it is advisory (almost always the dead proxy refusing an off-origin request).
                 cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_CONNECTION_REFUSED\",\"canceled\":false"),
                 // Benign: canceled loads are navigation aborts, not broken content.
                 cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_ABORTED\",\"canceled\":true"),
@@ -597,7 +601,10 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
         assertThat(scan.disallowedRequests()).isZero();
-        assertThat(scan.failedSubresources()).isEqualTo(2);
+        // The same-origin Image 404 is critical (our EMR content); the connection-level Image
+        // failure is advisory (unattributable origin).
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isEqualTo(1);
     }
 
     @Test
@@ -805,17 +812,37 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should tolerate the render when a render-critical subresource failed to load")
-    void shouldTolerateRender_whenRenderCriticalSubresourceFailed() {
-        // A 404'd optional asset (helper script / decorative image) arrives as an Image
-        // responseReceived with status >= 400. Legacy eForms routinely 404 optional helpers without
-        // blanking the form, so by default this is advisory (logged) and must NOT fail the render.
+    @DisplayName("should fail the render when the eForm's own same-origin visual content failed to load")
+    void shouldFailRender_whenSameOriginVisualSubresourceFailed() {
+        // A same-origin (CARLOS-served) Image 404 — e.g. a form background or signature image the EMR
+        // could not serve — is our own eForm content failing to render, so the captured PDF is wrong
+        // and it must hard-fail regardless of the lenient default.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
                 perfEntry(responseReceivedJson("Image",
                         "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("failedCriticalSubresources=1");
+    }
+
+    @Test
+    @DisplayName("should tolerate the render when an off-origin or non-visual subresource failed to load")
+    void shouldTolerateRender_whenOffOriginOrHelperSubresourceFailed() {
+        // An off-origin image (external logo/CDN, already blocked by the dead proxy) and a same-origin
+        // helper Script that 404s (e.g. faxControl.js) do not blank the already-painted form, so by
+        // default both are advisory (logged) and must NOT fail the render.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Image", "https://cdn.example.com/logo.png", 404)),
+                perfEntry(responseReceivedJson("Script",
+                        "http://127.0.0.1:8080/carlos/share/javascript/faxControl.js", 404)));
 
         assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))

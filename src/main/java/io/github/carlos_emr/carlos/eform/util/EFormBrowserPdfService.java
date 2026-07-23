@@ -1113,6 +1113,17 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException(
                     "Browser rendering attempted a live egress channel. liveChannelAttempts=" + scan.liveChannelAttempts());
         }
+        // Hard fail-closed when the render's OWN same-origin (CARLOS) visual content failed to load —
+        // a missing signature block, form image, or stylesheet served by our EMR means the captured
+        // PDF is genuinely wrong, so we must not fax it. (Off-origin and helper-script failures are
+        // advisory below.) Counts only — never request URLs, which can carry eForm content.
+        if (scan.failedCriticalSubresources() > 0) {
+            logger.error("Browser eForm renderer could not load its own eForm content: fdid={} failedCriticalSubresources={}",
+                    fdid, scan.failedCriticalSubresources());
+            throw new PDFGenerationException(
+                    "Browser rendering could not load the eForm's own content. failedCriticalSubresources="
+                            + scan.failedCriticalSubresources());
+        }
         if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
             // Off-origin HTTP requests, failed render-critical subresources, and severe page-script
             // console errors are advisory by default (see STRICT_NETWORK_GATE_PROPERTY): the legacy
@@ -1186,12 +1197,17 @@ public class EFormBrowserPdfService {
      * {@code parseFailures} counts entries the replay could not parse — evidence the egress gate
      * could not account for, which {@link #enforceRenderGates} fails closed on.
      * {@code liveChannelAttempts} counts WebSocket/WebTransport creations, which are an always-on
-     * hard fail-closed signal (they bypass the dead HTTP proxy). {@code disallowedRequests} and
-     * {@code failedSubresources} are advisory by default and only fail the render under the strict
+     * hard fail-closed signal (they bypass the dead HTTP proxy).
+     * {@code failedCriticalSubresources} counts failures of the render's <em>own</em> same-origin
+     * visual/structural content (a signature block, a form image, a stylesheet served by CARLOS) —
+     * an always-on hard fail-closed signal, because the rendered PDF is then genuinely wrong.
+     * {@code disallowedRequests} (off-origin HTTP, already blocked by the dead proxy) and
+     * {@code failedSubresources} (off-origin or non-visual same-origin failures such as helper
+     * scripts that do not paint) are advisory by default and only fail the render under the strict
      * network gate (see {@link #STRICT_NETWORK_GATE_PROPERTY}).
      */
     record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources,
-            int parseFailures, int liveChannelAttempts) {
+            int parseFailures, int liveChannelAttempts, int failedCriticalSubresources) {
     }
 
     /**
@@ -1202,6 +1218,19 @@ public class EFormBrowserPdfService {
      */
     private static final Set<String> RENDER_CRITICAL_RESOURCE_TYPES =
             Set.of("Document", "Image", "Script", "Stylesheet", "Font", "Media", "XHR", "Fetch");
+
+    /**
+     * The subset of {@link #RENDER_CRITICAL_RESOURCE_TYPES} whose bytes are actually painted into
+     * the captured PDF — the form's own visual/structural content: images (including the signature
+     * block), secondary {@code Document} iframes (e.g. the signature frame), stylesheets, and fonts.
+     * A failure of one of these <em>from the render's own same-origin (CARLOS) endpoints</em> is our
+     * EMR failing to serve the form's declared content, so it hard-fails the render. Non-visual types
+     * ({@code Script}, {@code XHR}, {@code Fetch}, {@code Media}) do not paint — a legacy helper
+     * script that 404s (e.g. {@code faxControl.js}) leaves the already-painted form intact — and are
+     * treated as advisory, as are all off-origin failures.
+     */
+    private static final Set<String> RENDER_CRITICAL_VISUAL_TYPES =
+            Set.of("Document", "Image", "Stylesheet", "Font");
 
     /**
      * Replays raw CDP performance-log messages: counts egress attempts to any origin other than
@@ -1223,7 +1252,11 @@ public class EFormBrowserPdfService {
      * visible only as a SEVERE console entry), while connection-level failures arrive as
      * {@code Network.loadingFailed} ({@code canceled=true} events are benign navigation aborts).
      * Both are restricted to {@link #RENDER_CRITICAL_RESOURCE_TYPES} so Chrome's own speculative
-     * requests cannot fail a visually-intact render.</p>
+     * requests cannot fail a visually-intact render. Failures are further split by origin and type:
+     * a same-origin (CARLOS) failure of a painted {@link #RENDER_CRITICAL_VISUAL_TYPES visual type}
+     * is <em>critical</em> (our EMR failed to serve the form's own content — a hard fail), while
+     * off-origin failures and non-visual same-origin failures (helper scripts that never paint) are
+     * <em>advisory</em>. {@code loadingFailed} carries no URL, so it is treated as advisory.</p>
      */
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
         int disallowedRequests = 0;
@@ -1231,6 +1264,7 @@ public class EFormBrowserPdfService {
         int failedSubresources = 0;
         int parseFailures = 0;
         int liveChannelAttempts = 0;
+        int failedCriticalSubresources = 0;
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -1256,23 +1290,34 @@ public class EFormBrowserPdfService {
                 liveChannelAttempts++;
             } else if ("Network.responseReceived".equals(method)) {
                 String resourceType = params.path("type").asText("");
-                if (mainDocumentStatus == null
-                        && "Document".equals(resourceType)
-                        && allowedOrigin != null
-                        && allowedOrigin.equals(originOf(params.path("response").path("url").asText("")))) {
+                String responseUrl = params.path("response").path("url").asText("");
+                boolean sameOrigin = allowedOrigin != null && allowedOrigin.equals(originOf(responseUrl));
+                if (mainDocumentStatus == null && "Document".equals(resourceType) && sameOrigin) {
                     mainDocumentStatus = params.path("response").path("status").asInt();
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
                         && params.path("response").path("status").asInt() >= 400) {
-                    failedSubresources++;
+                    // A same-origin failure of a painted type (signature/image/stylesheet/font served
+                    // by CARLOS) is our EMR failing to serve the form's own content → hard fail.
+                    // Off-origin failures and non-visual same-origin failures (helper scripts that do
+                    // not paint) are advisory: they do not blank the already-rendered form.
+                    if (sameOrigin && RENDER_CRITICAL_VISUAL_TYPES.contains(resourceType)) {
+                        failedCriticalSubresources++;
+                    } else {
+                        failedSubresources++;
+                    }
                 }
             } else if ("Network.loadingFailed".equals(method)
                     && RENDER_CRITICAL_RESOURCE_TYPES.contains(params.path("type").asText(""))
                     && !params.path("canceled").asBoolean(false)) {
+                // loadingFailed carries no URL, so origin cannot be attributed; a connection-level
+                // failure is almost always the dead proxy refusing an off-origin request, so it is
+                // advisory. A genuinely missing same-origin asset instead arrives as an HTTP 4xx/5xx
+                // responseReceived above, where it is correctly classified as critical.
                 failedSubresources++;
             }
         }
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
-                parseFailures, liveChannelAttempts);
+                parseFailures, liveChannelAttempts, failedCriticalSubresources);
     }
 
     // Package-private for the unit test that pins the fail-closed behavior.
