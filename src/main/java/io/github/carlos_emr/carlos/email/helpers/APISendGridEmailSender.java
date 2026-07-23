@@ -22,8 +22,6 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
-import org.apache.hc.core5.http.ParseException;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.apache.hc.core5.ssl.SSLContexts;
@@ -222,14 +220,16 @@ public class APISendGridEmailSender {
                 httpPost.setEntity(entity);
                 try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
                     if (response.getCode() >= 400) {
-                        throw new EmailSendingException(response.getCode() + " " + response.getReasonPhrase()
-                                + "\n" + EntityUtils.toString(response.getEntity()));
+                        // Do not include the provider response body: it can echo recipient addresses or
+                        // other PHI, and this message is persisted to EmailLog.errorMessage. Status only.
+                        throw new EmailSendingException("SendGrid API request failed with status "
+                                + response.getCode() + " " + response.getReasonPhrase());
                     }
                 }
             }
         } catch (EmailSendingException e) {
             throw e;
-        } catch (IOException | GeneralSecurityException | ParseException | IllegalArgumentException e) {
+        } catch (IOException | GeneralSecurityException | IllegalArgumentException e) {
             String message = e.getMessage() != null ? e.getMessage() : "Failed to send email using SendGrid";
             throw new EmailSendingException(message, e);
         }
