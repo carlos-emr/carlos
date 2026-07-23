@@ -15,8 +15,12 @@ from carlos_patient_portal.config import (
 from carlos_patient_portal.database import Base
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_TTL,
+    InviteNotFoundError,
     create_invite,
     hash_invite_token,
+    list_invites,
+    resend_invite,
+    revoke_invite,
 )
 from carlos_patient_portal.models import PatientPortalInvite
 
@@ -264,6 +268,18 @@ def test_login_route_rejects_malformed_urlencoded_form_body() -> None:
     assert response.json()["detail"] == "invalid form body"
 
 
+def test_login_route_rejects_invalid_utf8_form_body() -> None:
+    app = main.create_app(development_settings())
+    response = TestClient(app).post(
+        "/auth/login",
+        content=b"csrf_token=\xff",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "invalid form body"
+
+
 def test_login_route_rejects_too_many_form_fields() -> None:
     app = main.create_app(development_settings())
     client = TestClient(app)
@@ -415,6 +431,15 @@ def test_dev_admin_invite_requires_positive_demographic_no() -> None:
     assert response.status_code == 422
 
 
+def test_dev_admin_invite_list_rejects_invalid_bounds() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+
+    assert client.get("/dev/admin/invites", params={"limit": 0}).status_code == 422
+    assert client.get("/dev/admin/invites", params={"limit": 101}).status_code == 422
+    assert client.get("/dev/admin/invites", params={"offset": -1}).status_code == 422
+
+
 def test_dev_admin_unknown_invite_returns_not_found() -> None:
     app = migrated_development_app()
     response = TestClient(app).post(
@@ -435,6 +460,18 @@ def test_invite_service_validates_future_carlos_callers() -> None:
             create_invite(session, 1234, " ")
         with pytest.raises(ValueError, match="actor"):
             create_invite(session, 1234, "x" * 129)
+        with pytest.raises(ValueError, match="demographic_no"):
+            list_invites(session, demographic_no=0)
+        with pytest.raises(ValueError, match="limit"):
+            list_invites(session, limit=0)
+        with pytest.raises(ValueError, match="limit"):
+            list_invites(session, limit=101)
+        with pytest.raises(ValueError, match="offset"):
+            list_invites(session, offset=-1)
+        with pytest.raises(InviteNotFoundError):
+            resend_invite(session, 999, " ")
+        with pytest.raises(InviteNotFoundError):
+            revoke_invite(session, 999, " ")
 
 
 def test_environment_aliases_are_normalized() -> None:

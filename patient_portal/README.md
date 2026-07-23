@@ -127,7 +127,8 @@ curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
 
 Invite tokens are shown only on create/resend responses. The database stores only the token hash.
 Invites carry a seven-day `expires_at` timestamp so the future redemption endpoint has a clear
-server-side expiry boundary.
+server-side expiry boundary. Invite list responses default to 10 records and are capped at 100
+records per request.
 
 ## Tests
 

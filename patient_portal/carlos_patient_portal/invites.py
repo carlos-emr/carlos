@@ -14,6 +14,8 @@ from carlos_patient_portal.models import (
 
 INVITE_TOKEN_BYTES = 32
 DEFAULT_INVITE_TTL = timedelta(days=7)
+DEFAULT_INVITE_LIST_LIMIT = 10
+MAX_INVITE_LIST_LIMIT = 100
 MAX_ACTOR_LENGTH = 128
 
 
@@ -41,6 +43,13 @@ def normalize_staff_actor(actor: str) -> str:
 def validate_demographic_no(demographic_no: int) -> None:
     if demographic_no <= 0:
         raise ValueError("demographic_no must be positive")
+
+
+def validate_list_pagination(limit: int, offset: int) -> None:
+    if limit < 1 or limit > MAX_INVITE_LIST_LIMIT:
+        raise ValueError(f"limit must be between 1 and {MAX_INVITE_LIST_LIMIT}")
+    if offset < 0:
+        raise ValueError("offset must be zero or greater")
 
 
 def hash_invite_token(token: str) -> str:
@@ -84,11 +93,13 @@ def get_invite(session: Session, invite_id: int) -> PatientPortalInvite:
 def list_invites(
     session: Session,
     demographic_no: int | None = None,
-    limit: int = 10,
+    limit: int = DEFAULT_INVITE_LIST_LIMIT,
     offset: int = 0,
 ) -> list[PatientPortalInvite]:
+    validate_list_pagination(limit, offset)
     statement = select(PatientPortalInvite)
     if demographic_no is not None:
+        validate_demographic_no(demographic_no)
         statement = statement.where(PatientPortalInvite.demographic_no == demographic_no)
     statement = statement.order_by(
         desc(PatientPortalInvite.created_at),
@@ -102,11 +113,11 @@ def resend_invite(
     invite_id: int,
     actor: str,
 ) -> tuple[PatientPortalInvite, str]:
-    normalized_actor = normalize_staff_actor(actor)
     invite = get_invite(session, invite_id)
     if invite.status == INVITE_STATUS_REVOKED:
         raise RevokedInviteError()
 
+    normalized_actor = normalize_staff_actor(actor)
     invite_token = create_invite_token()
     now = utc_now()
     invite.token_hash = hash_invite_token(invite_token)
@@ -126,9 +137,9 @@ def revoke_invite(
     invite_id: int,
     actor: str,
 ) -> PatientPortalInvite:
-    normalized_actor = normalize_staff_actor(actor)
     invite = get_invite(session, invite_id)
     if invite.status != INVITE_STATUS_REVOKED:
+        normalized_actor = normalize_staff_actor(actor)
         now = utc_now()
         invite.status = INVITE_STATUS_REVOKED
         invite.revoked_at = now

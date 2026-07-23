@@ -41,6 +41,14 @@ def upgrade() -> None:
             name="ck_patient_portal_invites_sent_count_non_negative",
         ),
         sa.CheckConstraint(
+            "length(token_hash) = 64",
+            name="ck_patient_portal_invites_token_hash_length",
+        ),
+        sa.CheckConstraint(
+            "expires_at > created_at",
+            name="ck_patient_portal_invites_expires_after_created",
+        ),
+        sa.CheckConstraint(
             "status in ('pending', 'revoked')",
             name="ck_patient_portal_invites_status",
         ),

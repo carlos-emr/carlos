@@ -24,6 +24,8 @@ from carlos_patient_portal.database import (
     session_scope,
 )
 from carlos_patient_portal.invites import (
+    DEFAULT_INVITE_LIST_LIMIT,
+    MAX_INVITE_LIST_LIMIT,
     InviteNotFoundError,
     RevokedInviteError,
     create_invite,
@@ -156,10 +158,13 @@ async def get_urlencoded_form_values(
     if content_type != "application/x-www-form-urlencoded":
         return {}
 
-    body = (await read_limited_request_body(request, max_body_bytes)).decode(
-        "utf-8",
-        errors="replace",
-    )
+    try:
+        body = (await read_limited_request_body(request, max_body_bytes)).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="invalid form body",
+        ) from exc
     try:
         return parse_qs(
             body,
@@ -323,7 +328,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         def dev_list_invites(
             session: Annotated[Session, Depends(get_app_database_session)],
             demographic_no: Annotated[int | None, Query(gt=0)] = None,
-            limit: Annotated[int, Query(ge=1, le=100)] = 10,
+            limit: Annotated[
+                int,
+                Query(ge=1, le=MAX_INVITE_LIST_LIMIT),
+            ] = DEFAULT_INVITE_LIST_LIMIT,
             offset: Annotated[int, Query(ge=0)] = 0,
         ) -> list[dict[str, object]]:
             return [
