@@ -35,6 +35,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
@@ -54,6 +55,7 @@ import org.springframework.stereotype.Component;
 @Path("/pharmacies/")
 @Component("pharmacyService")
 @Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
 public class PharmacyService extends AbstractServiceImpl {
 
     @Autowired
