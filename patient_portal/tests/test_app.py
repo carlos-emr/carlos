@@ -3152,14 +3152,10 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     with session_factory() as session:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
-    try:
+    with pytest.raises(RuntimeError, match="force rollback"):
         with session_scope(session_factory) as session:
             create_service_invite(session, 5678, "Dr example")
             raise RuntimeError("force rollback")
-    except RuntimeError as exc:
-        assert str(exc) == "force rollback"
-    else:
-        pytest.fail("expected rollback failure")
 
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
