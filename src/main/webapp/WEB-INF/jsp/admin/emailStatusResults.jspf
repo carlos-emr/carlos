@@ -27,7 +27,7 @@
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
-                        <i class="fa-solid fa-lock"></i> Encrypted with password <b>${carlos:forHtml(emailStatusResult.password)}</b>
+                        <i class="fa-solid fa-lock"></i> Encrypted
                     </c:when>
                     <c:otherwise>
                         <i class="fa-solid fa-unlock"></i> Unencrypted
@@ -41,7 +41,7 @@
             <tr>
                 <td class="status-and-date">
                     <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}" 
-                        ${ empty emailStatusResult.errorMessage ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${emailStatusResult.errorMessage}">
+                        ${ empty emailStatusResult.errorMessage ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${carlos:forHtmlAttribute(emailStatusResult.errorMessage)}">
                         ${carlos:forHtml(emailStatusResult.status)}
                     </div>
                     <div class="date-time text-muted">

@@ -20,7 +20,6 @@ import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
@@ -74,7 +73,6 @@ public class EmailComposeManager {
     private PatientConsentManager patientConsentManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
-
     /**
      * Prepares an existing email for resending by retrieving its log entry.
      *
@@ -428,22 +426,6 @@ public class EmailComposeManager {
         }
 
         return new List<?>[]{validRecipients, invalidRecipients};
-    }
-
-    /**
-     * Creates a password for encrypting PDF attachments based on patient demographic data.
-     *
-     * This method generates a password by concatenating the patient's birth date components
-     * (year, month, day) and health insurance number (HIN). This provides a patient-specific
-     * password that the patient can reconstruct using their own demographic information.
-     *
-     * @param loggedInInfo LoggedInInfo the current logged-in user session information
-     * @param demographicId Integer the patient demographic ID to create password for
-     * @return String the generated PDF password in format: YYYYMMDDHIN
-     */
-    public String createEmailPDFPassword(LoggedInInfo loggedInInfo, Integer demographicId) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
-        return demographic.getYearOfBirth() + demographic.getMonthOfBirth() + demographic.getDateOfBirth() + demographic.getHin();
     }
 
     /**

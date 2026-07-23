@@ -240,7 +240,10 @@
             </c:choose>
 
             <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
-            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
+            <input type="hidden" name="isEmailComposeStateError" id="isEmailComposeStateError"
+                   value="${isEmailComposeStateError}"/>
+            <input type="hidden" name="emailErrorMessage" id="emailErrorMessage"
+                   value="${carlos:forHtmlAttribute(emailErrorMessage)}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
@@ -249,6 +252,11 @@
                    value="${fn:length(receiverEmailList)}"/>
             <input type="hidden" name="totalInvalidRecipintEmails" id="totalInvalidRecipintEmails"
                    value="${fn:length(invalidReceiverEmailList)}"/>
+            <c:if test="${isEmailComposeStateError}">
+                <div class="alert alert-danger mt-3" role="alert">
+                    ${carlos:forHtml(emailErrorMessage)}
+                </div>
+            </c:if>
 
             <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
@@ -258,6 +266,8 @@
                 <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
                 <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
+                <input type="hidden" name="emailPDFPasswordToken"
+                       value="${carlos:forHtmlAttribute(emailPDFPasswordToken)}"/>
 
                 <%-- To and From sit side by side: recipient (To) first/leftmost, sender (From) on the right.
                      Equal-height cards keep the row tidy when the To card grows with extra recipients. --%>
@@ -458,10 +468,11 @@
                                     <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-9">
-                                    <input class="form-control" type="text" name="emailPDFPassword"
+                                    <input class="form-control" type="text"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
-                                           value="${carlos:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword)}"
-                                           autocomplete="off"/>
+                                           value="${carlos:forHtmlAttribute(emailPDFPassword)}"
+                                           autocomplete="off" spellcheck="false" autocapitalize="none"
+                                           autocorrect="off" readonly/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
@@ -472,8 +483,8 @@
                                                       title="${emailComposeClueTooltip}"></span></label>
                                 </div>
                                 <div class="col-sm-9">
-                                    <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}">${carlos:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
+                                    <textarea class="form-control" id="emailPDFPasswordClue"
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtml(emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
@@ -639,6 +650,13 @@
 
         // Check if any error
         if (document.getElementById('isEmailError').value === 'true') {
+            if (document.getElementById('isEmailComposeStateError').value === 'true') {
+                convertAttachmentSize();
+                showEncryptionOptions();
+                selectPatientChartOption();
+                toggleInternalTextArea();
+                return;
+            }
             // Open EForm again on sent
             showErrorAndClose();
             return;
@@ -707,7 +725,6 @@
         const subjectEmail = document.getElementById('subjectEmail');
         const bodyEmail = document.getElementById('bodyEmail');
         const isEncrypted = document.getElementById('encryptionSwitch').checked;
-        const hasEncryptedMessage = document.getElementById('encryptedMessage').value.trim() !== '';
         const isAttachmentEncrypted = document.getElementById('encryptAttachmentSwitch').checked;
         const emailPDFPassword = document.getElementById('emailPDFPassword');
         const emailPDFPasswordClue = document.getElementById('emailPDFPasswordClue');
@@ -723,17 +740,13 @@
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
         validateField(bodyEmail, emailComposeBodyRequiredMsg, errors, 'bodyError');
-        if (isEncrypted) {
-            if (hasEncryptedMessage) {
-                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
-            } else if (hasAttachments && isAttachmentEncrypted) {
-                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
-            } else {
-                clearError('emailPDFPasswordError');
-                clearError('emailPDFPasswordClueError');
-            }
+        const needsPdfPassword = isEncrypted || (hasAttachments && isAttachmentEncrypted);
+        if (needsPdfPassword) {
+            validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
+            validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
+        } else {
+            clearError('emailPDFPasswordError');
+            clearError('emailPDFPasswordClueError');
         }
 
         if (Object.keys(errors).length === 0) {
@@ -744,13 +757,14 @@
 
     function validateField(field, errorMessage, errors, errorElementId) {
         clearError(errorElementId);
+        const errorKey = field.name || field.id;
 
         if (field.value.trim() === '') {
-            errors[field.name] = errorMessage;
+            errors[errorKey] = errorMessage;
             displayError(errorElementId, errorMessage);
         } else if (field.value.trim().length < 5 && field.id === 'emailPDFPassword') {
             errorMessage = emailComposePasswordMinLengthMsg;
-            errors[field.name] = errorMessage;
+            errors[errorKey] = errorMessage;
             displayError(errorElementId, errorMessage);
         }
     }
@@ -779,6 +793,11 @@
         // Make the risk explicit whenever encryption is turned off: the message and any
         // attachments will leave CARLOS unencrypted, so PHI must not be included.
         document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
+        if (!checkbox.checked) {
+            const encryptAttachmentSwitch = document.getElementById("encryptAttachmentSwitch");
+            encryptAttachmentSwitch.checked = false;
+            document.getElementById("isEmailAttachmentEncrypted").value = "false";
+        }
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {
@@ -893,7 +912,7 @@
     function showAdditionalParamOption() {
         const senderEmailAddress = document.getElementById('senderEmailAddress');
         const selectedSender = senderEmailAddress.options[senderEmailAddress.selectedIndex];
-        if (selectedSender === null) {
+        if (!selectedSender) {
             return;
         }
 

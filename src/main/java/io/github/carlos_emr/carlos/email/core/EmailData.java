@@ -223,20 +223,18 @@ public class EmailData {
     }
 
     /**
-     * Gets the password hint/clue for the encrypted email.
+     * Gets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @return String the password clue, or empty string if not set
+     * @return String the password delivery instruction, or empty string if not set
      */
     public String getPasswordClue() {
         return passwordClue;
     }
 
     /**
-     * Sets the password hint/clue for the encrypted email.
-     * This clue is sent to the recipient to help them remember or derive the password
-     * needed to decrypt the email content.
+     * Sets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @param passwordClue String the password hint/clue; null values are converted to empty string
+     * @param passwordClue String the password delivery instruction; null values are converted to empty string
      */
     public void setPasswordClue(String passwordClue) {
         this.passwordClue = passwordClue != null ? passwordClue : "";
@@ -383,25 +381,33 @@ public class EmailData {
      * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
      *                       (including null) which defaults to DIRECT
      */
+    public void setTransactionType(String transactionType) {
+        this.transactionType = parseTransactionType(transactionType);
+    }
+
+    /**
+     * Parses a transaction type string, defaulting to DIRECT for null or unrecognized values.
+     *
+     * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
+     *                       (including null) which defaults to DIRECT
+     * @return parsed transaction type
+     * @since 2026-07-22
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public void setTransactionType(String transactionType) {
+    public static TransactionType parseTransactionType(String transactionType) {
         if (transactionType == null) {
             transactionType = "DIRECT";
         }
         switch (transactionType.toUpperCase()) {
             case "EFORM":
-                this.transactionType = TransactionType.EFORM;
-                break;
+                return TransactionType.EFORM;
             case "CONSULTATION":
-                this.transactionType = TransactionType.CONSULTATION;
-                break;
+                return TransactionType.CONSULTATION;
             case "TICKLER":
-                this.transactionType = TransactionType.TICKLER;
-                break;
+                return TransactionType.TICKLER;
             default:
-                this.transactionType = TransactionType.DIRECT;
-                break;
+                return TransactionType.DIRECT;
         }
     }
 
@@ -489,5 +495,3 @@ public class EmailData {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
     }
 }
-
-

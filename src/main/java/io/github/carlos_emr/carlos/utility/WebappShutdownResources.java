@@ -30,6 +30,7 @@ import java.util.List;
 
 import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
 import io.github.carlos_emr.carlos.drools.DroolsShutdownResources;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.logging.log4j.Logger;
 
@@ -69,6 +70,8 @@ public final class WebappShutdownResources {
             return 0;
         });
         runStep(results, ShutdownStep.DROOLS_EXECUTORS, () -> DroolsShutdownResources.shutdownExecutors());
+        runStep(results, ShutdownStep.EMAIL_COMPOSE_STATE_CACHE,
+                () -> SpringUtils.getBean(EmailComposeSubmissionStateService.class).shutdown());
         runStep(results, ShutdownStep.QUEUE_CACHE_TIMER, () -> {
             QueueCache.shutdownSharedTimer();
             return 0;
@@ -109,6 +112,8 @@ public final class WebappShutdownResources {
         LOG_ACTION_EXECUTOR,
         /** Stop Drools compiler and KIE executor resources. */
         DROOLS_EXECUTORS,
+        /** Stop the email compose submission state pruner and clear pending compose state. */
+        EMAIL_COMPOSE_STATE_CACHE,
         /** Cancel the QueueCache shared timer. */
         QUEUE_CACHE_TIMER,
         /** Stop MySQL Connector/J's abandoned cleanup thread. */
