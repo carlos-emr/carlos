@@ -31,32 +31,32 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Direct unit tests for {@link EformAssetContentType#forFilename(String)}: the allowlisted
+ * Direct unit tests for {@link EFormAssetContentType#forFilename(String)}: the allowlisted
  * extension resolution the two eForm asset-streaming routes rely on, and the dotless-filename
  * guard that stops a bare extension keyword (e.g. {@code "png"}) from resolving as if it were a
  * matching extension.
  */
-@DisplayName("EformAssetContentType unit tests")
+@DisplayName("EFormAssetContentType unit tests")
 @Tag("unit") @Tag("fast") @Tag("eform")
-class EformAssetContentTypeUnitTest {
+class EFormAssetContentTypeUnitTest {
 
     @ParameterizedTest
     @CsvSource({"bg.png,image/png", "bg.PNG,image/png", "photo.JPeG,image/jpeg", "widget.js,text/javascript", "form.rtl,text/html"})
     @DisplayName("should resolve allowlisted extensions case-insensitively")
     void shouldResolveAllowlistedType_forKnownExtensions(String fileName, String expected) {
-        assertThat(EformAssetContentType.forFilename(fileName)).contains(expected);
+        assertThat(EFormAssetContentType.forFilename(fileName)).contains(expected);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"png", "html", "js", "noextension", "archive.zip", "double..", "."})
     @DisplayName("should return empty for dotless or unknown filenames")
     void shouldReturnEmpty_forDotlessOrUnknownFilenames(String fileName) {
-        assertThat(EformAssetContentType.forFilename(fileName)).isEmpty();
+        assertThat(EFormAssetContentType.forFilename(fileName)).isEmpty();
     }
 
     @Test
     @DisplayName("should return empty for null filename")
     void shouldReturnEmpty_forNullFilename() {
-        assertThat(EformAssetContentType.forFilename(null)).isEmpty();
+        assertThat(EFormAssetContentType.forFilename(null)).isEmpty();
     }
 }

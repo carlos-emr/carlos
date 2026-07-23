@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * bound to the requested asset because these are shared templates, and grant-authorized fetches
  * are logged with the grant's fdid at DEBUG for troubleshooting). Filenames are validated as single path
  * components against the eForm image directory, and content types come from the shared
- * {@link EformAssetContentType} allowlist. No PHI is served by this servlet.</p>
+ * {@link EFormAssetContentType} allowlist. No PHI is served by this servlet.</p>
  */
 public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
@@ -167,9 +167,9 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private static String resolveContentType(File file) {
-        // Shared with DisplayImage2Action: EformAssetContentType owns the allowlist AND the
+        // Shared with DisplayImage2Action: EFormAssetContentType owns the allowlist AND the
         // extension parsing/lowercasing, so the two asset-streaming paths cannot drift on either.
-        return EformAssetContentType.forFilename(file.getName())
+        return EFormAssetContentType.forFilename(file.getName())
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
     }
 

@@ -39,16 +39,16 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@DisplayName("EformRenderPdfHtmlComposer unit tests")
+@DisplayName("EFormRenderPdfHtmlComposer unit tests")
 @Tag("unit")
 @Tag("fast")
 @Tag("eform")
-class EformRenderPdfHtmlComposerUnitTest {
+class EFormRenderPdfHtmlComposerUnitTest {
 
     @Test
     @DisplayName("should normalize a valid stored signature URL under the current context path")
     void shouldNormalizeValidStoredSignatureUrl_whenContextScoped() {
-        String normalized = EformRenderPdfHtmlComposer.normalizePdfSignatureUrl(
+        String normalized = EFormRenderPdfHtmlComposer.normalizePdfSignatureUrl(
                 "/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=42&r=99",
                 "/carlos");
 
@@ -58,7 +58,7 @@ class EformRenderPdfHtmlComposerUnitTest {
     @Test
     @DisplayName("should normalize a valid stored signature URL without a context path prefix")
     void shouldNormalizeValidStoredSignatureUrl_whenRootRelative() {
-        String normalized = EformRenderPdfHtmlComposer.normalizePdfSignatureUrl(
+        String normalized = EFormRenderPdfHtmlComposer.normalizePdfSignatureUrl(
                 "/imageRenderingServlet?source=signature_stored&digitalSignatureId=7",
                 "/carlos");
 
@@ -69,7 +69,7 @@ class EformRenderPdfHtmlComposerUnitTest {
     @MethodSource("invalidSignatureUrls")
     @DisplayName("should reject invalid signature URLs")
     void shouldRejectInvalidSignatureUrl_whenNormalizingSignatureUrl(String rawUrl) {
-        String normalized = EformRenderPdfHtmlComposer.normalizePdfSignatureUrl(rawUrl, "/carlos");
+        String normalized = EFormRenderPdfHtmlComposer.normalizePdfSignatureUrl(rawUrl, "/carlos");
 
         assertThat(normalized).isNull();
     }
@@ -77,7 +77,7 @@ class EformRenderPdfHtmlComposerUnitTest {
     @Test
     @DisplayName("should HTML attribute encode the generated signature image markup")
     void shouldEncodeSignatureImageMarkup_whenBuildingImageHtml() {
-        String markup = EformRenderPdfHtmlComposer.buildSignatureImageMarkup(
+        String markup = EFormRenderPdfHtmlComposer.buildSignatureImageMarkup(
                 "/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42&foo=bar",
                 "1",
                 "2",
@@ -90,13 +90,13 @@ class EformRenderPdfHtmlComposerUnitTest {
     @Test
     @DisplayName("should return null for null input")
     void shouldReturnNull_forNullUrl() {
-        assertThat(EformRenderPdfHtmlComposer.normalizePdfSignatureUrl(null, "/carlos")).isNull();
+        assertThat(EFormRenderPdfHtmlComposer.normalizePdfSignatureUrl(null, "/carlos")).isNull();
     }
 
     @Test
     @DisplayName("should return null for empty string input")
     void shouldReturnNull_forEmptyUrl() {
-        assertThat(EformRenderPdfHtmlComposer.normalizePdfSignatureUrl("", "/carlos")).isNull();
+        assertThat(EFormRenderPdfHtmlComposer.normalizePdfSignatureUrl("", "/carlos")).isNull();
     }
 
     @Test
@@ -115,7 +115,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         letter.setVarName("Letter");
         letter.setVarValue("<div class=\"DoNotPrint\" style=\"color:red\">hide</div><img src=\"../eform/displayImage?imagefile=bg.png\" />");
 
-        String html = EformRenderPdfHtmlComposer.buildPdfHtml(
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
                 eForm,
                 List.of(letter),
                 "/carlos",
@@ -126,6 +126,24 @@ class EformRenderPdfHtmlComposerUnitTest {
                 .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
                 .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
                 .contains("<body style='width:640px;'>");
+    }
+
+    @Test
+    @DisplayName("should fall back to the context path for image asset URLs when project_home is blank")
+    void shouldFallBackToContextPath_whenProjectHomeBlank() {
+        EForm eForm = mockEformWithHtml("");
+        EFormValue letter = eformValue("Letter",
+                "<img src=\"../eform/displayImage?imagefile=bg.png\" /><img src=\"${oscar_image_path}logo.png\" />");
+
+        // A blank project_home must fall back to the servlet context path — never emit a
+        // protocol-relative "//EFormImage..." (which points at an external host) or drop the context
+        // prefix entirely.
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(letter), "/carlos", "", null);
+
+        assertThat(html)
+                .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
+                .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=logo.png")
+                .doesNotContain("//EFormImageViewForPdfGenerationServlet");
     }
 
     @Test
@@ -141,7 +159,7 @@ class EformRenderPdfHtmlComposerUnitTest {
             return null;
         }).when(eForm).setFormHtml(anyString());
 
-        String html = EformRenderPdfHtmlComposer.buildPdfHtml(
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
                 eForm,
                 List.of(),
                 "/carlos",
@@ -174,7 +192,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         letter.setVarValue("<img src=\"../eform/displayImage?imagefile=bg.png\" />"
                 + "<img src=\"${oscar_image_path}logo.png\" />");
 
-        String html = EformRenderPdfHtmlComposer.buildPdfHtml(
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
                 eForm,
                 List.of(letter),
                 "/carlos",
@@ -206,7 +224,7 @@ class EformRenderPdfHtmlComposerUnitTest {
 
         // A well-formed grant is URL-safe base64; a token carrying HTML/query metacharacters must be
         // neutralized before it reaches the src attribute (defence in depth over the upstream grant check).
-        String html = EformRenderPdfHtmlComposer.buildPdfHtml(
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
                 eForm,
                 List.of(letter),
                 "/carlos",
@@ -237,7 +255,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         letter.setVarName("Letter");
         letter.setVarValue("<script>signatureControl.initialize({eform:true, height:40, width:120, top:10, left:20})</script><div id=\"signatureDisplay\"></div>");
 
-        String html = EformRenderPdfHtmlComposer.buildPdfHtml(
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
                 eForm,
                 List.of(signature, letter),
                 "/carlos",
@@ -256,7 +274,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         EForm eForm = mockEformWithHtml("<html>signatureControl.initialize({eform:true, height:80, width:200, top:10, left:20})<div id=\"signatureDisplay\"></div></html>");
         EFormValue sig = eformValue("signatureValue", "https://evil.example/steal.png");
 
-        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
+        assertThatThrownBy(() -> EFormRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("signature");
     }
@@ -267,7 +285,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         EForm eForm = mockEformWithHtml("<html><div id=\"signatureDisplay\"></div></html>"); // no initialize(...) call
         EFormValue sig = eformValue("signatureValue", "/carlos/imageRenderingServlet?digitalSignatureId=42");
 
-        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
+        assertThatThrownBy(() -> EFormRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("signature");
     }
@@ -278,7 +296,7 @@ class EformRenderPdfHtmlComposerUnitTest {
         EForm eForm = mockEformWithHtml("<html><div id=\"signatureDisplay\"></div></html>");
         EFormValue sig = eformValue("signatureValue", "   ");
 
-        assertThatCode(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
+        assertThatCode(() -> EFormRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(sig), "/carlos", "carlos", null))
                 .doesNotThrowAnyException();
     }
 
@@ -287,7 +305,7 @@ class EformRenderPdfHtmlComposerUnitTest {
     void shouldThrowIllegalState_whenFormHtmlMissing() {
         EForm eForm = mockEformWithHtml(null);
 
-        assertThatThrownBy(() -> EformRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(), "/carlos", "carlos", null))
+        assertThatThrownBy(() -> EFormRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(), "/carlos", "carlos", null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("form HTML");
     }

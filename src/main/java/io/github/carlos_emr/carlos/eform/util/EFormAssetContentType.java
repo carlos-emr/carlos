@@ -34,7 +34,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * and the extension parsing/lowercasing that keys into it — in one place stops the streaming paths
  * from drifting when asset types change.
  */
-public final class EformAssetContentType {
+public final class EFormAssetContentType {
 
     private static final String IMAGE_JPEG = "image/jpeg";
     private static final String TEXT_HTML = "text/html";
@@ -96,6 +96,6 @@ public final class EformAssetContentType {
             Map.entry("htm", TEXT_HTML)
     );
 
-    private EformAssetContentType() {
+    private EFormAssetContentType() {
     }
 }

@@ -87,6 +87,11 @@ public interface NioFileManager {
      *         matching page images could not be removed after a best-effort pass over all of
      *         them — cached preview pages are PHI-bearing, so a caller must not report a
      *         successful flush while any remain on disk
+     * @throws IllegalArgumentException when {@code sourceDirectory} is not an allowed preview
+     *         source (not a real, existing CARLOS-owned temp subtree or the document root) and so
+     *         cannot be keyed. The source-scoped page prefix is then underivable, so the flush
+     *         cannot verify the PHI preview pages are gone; the caller must treat this as an
+     *         uncleared cache, not as "nothing to remove"
      */
     public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) throws IOException;
 

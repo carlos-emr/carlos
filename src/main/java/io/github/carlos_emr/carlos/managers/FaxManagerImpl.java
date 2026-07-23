@@ -750,6 +750,12 @@ public class FaxManagerImpl implements FaxManager {
                 // Per-page failures were already logged with their exceptions by removeCacheVersions.
                 logger.error("Fax preview cache flush left cached page image(s) on disk: {}", e.getMessage());
                 cacheCleared = false;
+            } catch (IllegalArgumentException e) {
+                // The preview source could not be keyed to an allowed preview location, so the
+                // source-scoped page prefix is underivable and we cannot confirm the PHI preview
+                // pages were removed. Treat an unkeyable source as an uncleared cache, never success.
+                logger.error("Fax preview cache flush could not key its source directory: {}", e.getMessage());
+                cacheCleared = false;
             }
         }
 

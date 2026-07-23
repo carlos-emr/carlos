@@ -38,7 +38,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 
-import io.github.carlos_emr.carlos.eform.util.EformAssetContentType;
+import io.github.carlos_emr.carlos.eform.util.EFormAssetContentType;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -183,9 +183,9 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     private String resolveContentType(File file) {
-        // Shared with EFormImageViewForPdfGenerationServlet: EformAssetContentType owns the
+        // Shared with EFormImageViewForPdfGenerationServlet: EFormAssetContentType owns the
         // allowlist AND the extension parsing/lowercasing, so the paths cannot drift on either.
-        return EformAssetContentType.forFilename(file.getName())
+        return EFormAssetContentType.forFilename(file.getName())
                 .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
     }
 

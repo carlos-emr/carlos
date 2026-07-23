@@ -407,7 +407,12 @@ public class NioFileManagerImpl implements NioFileManager {
      * the branch the fax-preview flow (the only caller) exercises. Matching is done in Java rather than a
      * directory glob so a filename containing glob metacharacters cannot misfire.
      *
-     * @return the number of cache page images removed (0 if none matched or the source could not be keyed)
+     * @return the number of cache page images removed (0 if none matched)
+     * @throws IllegalArgumentException when {@code sourceDirectory} cannot be keyed to an allowed
+     *         preview source — it is not a real, existing CARLOS-owned temp subtree or the document
+     *         root. A PHI flush that cannot even identify which cache pages belong to its source must
+     *         not silently report "0 removed" as if nothing needed clearing; the caller
+     *         ({@code FaxManagerImpl.flush}) treats this as an uncleared cache.
      */
     @Override
     // FindSecBugs PATH_TRAVERSAL_IN: each candidate is confined to the cache directory via
@@ -425,7 +430,10 @@ public class NioFileManagerImpl implements NioFileManager {
         // preview locations the writer accepts, so a caller cannot target caches for arbitrary paths.
         Path normalizedSourceDir = resolveAllowedPreviewSourceDir(sourceDirectory);
         if (normalizedSourceDir == null) {
-            return 0;
+            // A source that cannot be keyed is indistinguishable on-disk from "nothing matched", but
+            // it means we could not derive the source-scoped prefix at all — so we cannot assert the
+            // PHI preview pages are gone. Fail loudly rather than return a misleading 0.
+            throw new IllegalArgumentException("source directory is not an allowed preview source");
         }
         String scopedPrefix = scopedCacheBaseName(sanitizeFileName(filename), normalizedSourceDir) + "_";
 

@@ -50,9 +50,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * background/asset images (rendered via {@link EFormImageViewForPdfGenerationServlet}). Those
  * subresource fetches carry no HTTP session, so they authorize themselves by
  * {@link #peek(RenderToken)}ing the same grant. Redemption therefore does <em>not</em> remove the
- * token; instead the renderer {@link #invalidate(RenderToken)}s it in its {@code finally} block,
- * and the two-minute TTL bounds any leak. {@link #consume(RenderToken)} remains available for
- * callers that want atomic remove-on-read semantics.</p>
+ * token; instead the renderer holds a {@link RenderLease} whose {@link RenderLease#close()}
+ * {@link #invalidate(RenderToken)}s the grant at end of render — try-with-resources guarantees this
+ * even when the render body throws — and the two-minute TTL bounds any leak.</p>
  *
  * <p>Entries expire two minutes after issue — comfortably above the renderer's page budget and
  * far below any session lifetime.</p>
@@ -123,22 +123,17 @@ final class EFormRenderTokenService {
     }
 
     /**
-     * Redeems a token, returning its grant at most once.
+     * Issues a grant and hands back a {@link RenderLease} so the caller can bind the grant's
+     * lifetime to a try-with-resources block: {@link RenderLease#close()} invalidates the token at
+     * end of render (success or failure). This is the render's own teardown path — the TTL is only
+     * the backstop for a JVM that dies mid-render.
      *
-     * @return the grant, or null when the token is unknown, expired, or already redeemed
+     * @param fdid saved eForm data identifier the grant is bound to
+     * @param providerNo nullable; propagated into the grant for provider-scoped signature rendering
+     * @return a render-scoped lease over a freshly issued grant
      */
-    RenderGrant consume(RenderToken token) {
-        if (token == null || token.queryValue().isEmpty()) {
-            return null;
-        }
-        // Atomic remove so two concurrent redemption attempts cannot both observe the grant.
-        RenderGrant grant = cache.asMap().remove(token.queryValue());
-        if (grant == null) {
-            logger.debug("Render grant consume found no live grant (unknown/expired/already redeemed)");
-        } else {
-            logger.debug("Render grant consumed for fdid={}", grant.fdid());
-        }
-        return grant;
+    RenderLease lease(int fdid, String providerNo) {
+        return new RenderLease(issue(fdid, providerNo));
     }
 
     /**
@@ -189,5 +184,26 @@ final class EFormRenderTokenService {
 
     /** Immutable render authorization bound to one saved eForm and optional provider scope. */
     record RenderGrant(int fdid, String providerNo) {
+    }
+
+    /**
+     * Render-scoped lease over an issued grant: {@link #close()} invalidates the grant, so
+     * try-with-resources guarantees the grant dies with the render even if the render body throws.
+     */
+    public final class RenderLease implements AutoCloseable {
+        private final RenderToken token;
+
+        private RenderLease(RenderToken token) {
+            this.token = token;
+        }
+
+        public RenderToken token() {
+            return token;
+        }
+
+        @Override
+        public void close() {
+            invalidate(token);
+        }
     }
 }

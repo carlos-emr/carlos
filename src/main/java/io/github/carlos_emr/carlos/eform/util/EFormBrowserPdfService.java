@@ -40,6 +40,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -105,8 +106,6 @@ public class EFormBrowserPdfService {
 
     /** URI scheme constant reused by the scheme gates and default-port logic (SonarCloud S1192). */
     private static final String SCHEME_HTTPS = "https";
-    /** Placeholder substituted for filesystem paths in redacted diagnostics (SonarCloud S1192). */
-    private static final String REDACTED_PATH = "[redacted-path]";
 
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
     // Package-private so the unit test can pin the "client read timeout stays above the in-band
@@ -132,6 +131,14 @@ public class EFormBrowserPdfService {
     private static final int MAX_CONCURRENT_RENDERS = 2;
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
     private static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
+
+    /**
+     * Filename prefix shared by every renderer artifact — the per-render capture directory and the
+     * output PDF. The {@link RenderedEformPdf} guard keys on it (plus a {@code .pdf} suffix) so the
+     * AutoCloseable can only ever delete this renderer's own output, and the stale-artifact sweep
+     * keys on it too.
+     */
+    static final String RENDER_ARTIFACT_PREFIX = "eform-browser-render-";
 
     private static final String BASE_URL_PROPERTY = "eform_pdf_browser_base_url";
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
@@ -325,6 +332,29 @@ public class EFormBrowserPdfService {
      * flow promoting the file into the document store).
      */
     public record RenderedEformPdf(Path path) implements AutoCloseable {
+        /**
+         * Rejects any path that is not this renderer's own output. {@link #close()} deletes the
+         * wrapped file, so constraining the wrapper to a non-null {@code eform-browser-render-*.pdf}
+         * filename makes "close() deletes only renderer output" self-enforcing — a stray
+         * {@code new RenderedEformPdf(Path.of("/etc/passwd"))} can never turn this AutoCloseable into
+         * an arbitrary-file delete.
+         *
+         * @throws NullPointerException if {@code path} is null
+         * @throws IllegalArgumentException if the filename is not a renderer output name
+         */
+        public RenderedEformPdf {
+            Objects.requireNonNull(path, "rendered eForm PDF path must not be null");
+            Path fileNamePath = path.getFileName();
+            String fileName = fileNamePath == null ? "" : fileNamePath.toString();
+            if (!fileName.startsWith(RENDER_ARTIFACT_PREFIX) || !fileName.endsWith(".pdf")) {
+                // The filename is a managed temp name, not PHI; naming it aids diagnosis of a
+                // mis-wired caller.
+                throw new IllegalArgumentException(
+                        "RenderedEformPdf must wrap renderer output (" + RENDER_ARTIFACT_PREFIX
+                        + "*.pdf); refusing: " + fileName);
+            }
+        }
+
         @Override
         public void close() {
             deleteQuietly(path);
@@ -398,15 +428,10 @@ public class EFormBrowserPdfService {
         try {
             baseUrl = validateRendererBaseUrl(resolveBaseUrl(projectHome, currentRequest));
         } catch (IllegalArgumentException e) {
-            String reason = redactUrls(String.valueOf(e.getMessage()));
+            String reason = RenderLogRedaction.redactUrls(String.valueOf(e.getMessage()));
             logger.error("Browser eForm renderer rejected its base-URL configuration: {}", reason);
             throw new PDFGenerationException("Browser renderer base URL configuration is invalid: " + reason);
         }
-        // The render token is issued inside the try so the finally always invalidates it: if
-        // renderToken issuance (or any other pre-render step) throws, the grant must not linger in
-        // the bounded token cache for its full TTL. invalidate(null) is a safe no-op if we fail
-        // before issuance.
-        EFormRenderTokenService.RenderToken renderToken = null;
         Path outputDirectory = null;
         Path outputPdfPath = null;
         ChromeDriver driver = null;
@@ -415,17 +440,20 @@ public class EFormBrowserPdfService {
         long startNanos = System.nanoTime();
         long deadlineNanos = startNanos + RENDER_TIMEOUT.toNanos();
 
-        try {
-            renderToken = EFormRenderTokenService.getInstance().issue(fdid, providerId);
-            String appPath = validateRendererAppPath(buildAppPath(fdid, renderToken));
+        // The grant is render-scoped: the lease is opened as the first resource of this block so its
+        // close() invalidates the token at end of render — success, failure, or a throw before the
+        // browser ever redeems it — instead of letting it linger in the bounded token cache for its
+        // full TTL. try-with-resources guarantees close() runs before the catch/finally below.
+        try (var renderLease = EFormRenderTokenService.getInstance().lease(fdid, providerId)) {
+            String appPath = validateRendererAppPath(buildAppPath(fdid, renderLease.token()));
             logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
 
             String allowedOrigin = originOf(baseUrl);
             if (allowedOrigin == null) {
                 throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.");
             }
-            outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
-            outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
+            outputDirectory = createSecureTempDirectory(tempRoot, RENDER_ARTIFACT_PREFIX);
+            outputPdfPath = createSecureTempFile(tempRoot, RENDER_ARTIFACT_PREFIX, ".pdf");
 
             boolean allowUnsandboxed = allowUnsandboxed();
             if (allowUnsandboxed) {
@@ -489,13 +517,13 @@ public class EFormBrowserPdfService {
                     (System.nanoTime() - startNanos) / 1_000_000L);
             return outputPdfPath;
         } catch (PDFGenerationException e) {
-            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} reason={}", fdid, baseUrl, redactUrls(e.getMessage()));
+            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} reason={}", fdid, baseUrl, RenderLogRedaction.redactUrls(e.getMessage()));
             throw e;
         } catch (IOException e) {
             // Redact: an IOException from temp-file/capture handling can carry a path; keep the type and
             // a redacted message rather than the raw throwable, consistent with the RuntimeException path.
             logger.error("Browser eForm renderer I/O failure: fdid={} baseUrl={} type={} error={}",
-                    fdid, baseUrl, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+                    fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException("Unable to prepare files for the browser PDF renderer.", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -519,12 +547,11 @@ public class EFormBrowserPdfService {
             // to log as the undiagnosable "error=null" with the type buried at DEBUG. Frames carry
             // no URLs or PHI, so the summary is safe where the raw throwable is not.
             logger.error("Browser eForm renderer failed: fdid={} baseUrl={} type={} error={} at={}",
-                    fdid, baseUrl, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())), stackSummary(e));
+                    fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
             throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.");
         } finally {
-            // The grant is render-scoped; invalidate it here so a token the browser never redeemed
-            // (or is done with) cannot linger until its TTL.
-            EFormRenderTokenService.getInstance().invalidate(renderToken);
+            // The render grant was already invalidated by the RenderLease's close() (the lease is the
+            // first resource of the try above, so it closes before this finally runs).
             quitQuietly(driver);
             // Belt-and-braces after quit: if the quit command timed out against a wedged Chromium,
             // stopping the caller-owned chromedriver service is what actually tears the processes
@@ -565,7 +592,7 @@ public class EFormBrowserPdfService {
             // PHI-safe logging.
             throw new PDFGenerationException(
                     "The eForm browser renderer started but failed a basic navigation readiness probe: "
-                    + e.getClass().getName() + " " + redactUrls(String.valueOf(e.getMessage())));
+                    + e.getClass().getName() + " " + RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         } finally {
             quitQuietly(driver);
             // Belt-and-braces after quit (mirrors renderWithSlot): stopping the caller-owned
@@ -739,7 +766,7 @@ public class EFormBrowserPdfService {
             // message). Log the type, redacted message, and a frame-only stack summary here so an
             // operator can actually diagnose the failure instead of seeing only the generic advice.
             logger.error("Chromium startup failure detail: type={} error={} at={}",
-                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())), stackSummary(e));
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
             if (!allowUnsandboxed()) {
                 // Fail closed: a sandboxed launch that cannot start must not degrade to --no-sandbox
                 // on its own. The message now admits the non-sandbox causes too (bad/missing browser
@@ -765,31 +792,8 @@ public class EFormBrowserPdfService {
             // Never pass the raw WebDriver throwable: its message/stack can embed the loopback render
             // URL (fdid + render token). Log the type and a redacted message only.
             logger.debug("Unable to quit browser eForm renderer driver cleanly: type={} error={}",
-                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }
-    }
-
-    /**
-     * Compact frame-only stack summary of the top frames (class.method:line, innermost first).
-     * Stack frames carry no URLs, messages, or PHI, so the summary is safe at ERROR level where
-     * the raw WebDriver throwable (whose message can embed the tokenized render URL) is not.
-     */
-    static String stackSummary(Throwable throwable) {
-        StackTraceElement[] frames = throwable.getStackTrace();
-        int limit = Math.min(frames.length, 8);
-        StringBuilder summary = new StringBuilder();
-        for (int i = 0; i < limit; i++) {
-            if (i > 0) {
-                summary.append(" < ");
-            }
-            StackTraceElement frame = frames[i];
-            summary.append(frame.getClassName()).append('.').append(frame.getMethodName())
-                    .append(':').append(frame.getLineNumber());
-        }
-        if (frames.length > limit) {
-            summary.append(" < ...");
-        }
-        return summary.toString();
     }
 
     /**
@@ -809,7 +813,7 @@ public class EFormBrowserPdfService {
             // memory) must be visible at default log levels.
             // Same redaction rule as quitQuietly: never the raw throwable.
             logger.warn("Unable to stop browser eForm renderer chromedriver service cleanly: type={} error={}",
-                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }
     }
 
@@ -842,7 +846,7 @@ public class EFormBrowserPdfService {
         checkDeadline(deadlineNanos);
         Object settleError = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
         if (settleError != null) {
-            throw new PDFGenerationException("Browser rendering failed while stabilizing the eForm page: " + redactUrls(String.valueOf(settleError)));
+            throw new PDFGenerationException("Browser rendering failed while stabilizing the eForm page: " + RenderLogRedaction.redactUrls(String.valueOf(settleError)));
         }
         checkDeadline(deadlineNanos);
     }
@@ -964,7 +968,7 @@ public class EFormBrowserPdfService {
             // gate was the only defense against faxing a form whose background never painted.
             // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
             logger.error("Browser console log unavailable for eForm render gate: fdid={} type={} error={}",
-                    fdid, e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+                    fdid, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException(
                     "Browser rendering could not verify the page's console error state.");
         }
@@ -1109,7 +1113,7 @@ public class EFormBrowserPdfService {
             // pass every gate on truncated evidence.
             // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
             logger.error("Browser performance log unavailable for eForm render: type={} error={}",
-                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())));
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException("Browser rendering could not verify the page's network activity.");
         }
     }
@@ -1171,22 +1175,6 @@ public class EFormBrowserPdfService {
         }
     }
 
-    /** Strips URLs from third-party error text before it reaches logs (PHI-safe diagnostics). */
-    static String redactUrls(String text) {
-        if (text == null) {
-            return null;
-        }
-        // Strip http(s) plus other schemes and bare filesystem paths (Unix, Windows drive-letter, and
-        // UNC) that a WebDriver/settle error could embed, so no URL or local path reaches the logs.
-        // Order matters: the scheme://... rule runs first so a c://… URL is consumed before the
-        // drive-letter rule can see it.
-        return text
-                .replaceAll("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+", "[redacted-url]")
-                .replaceAll("\\\\\\\\[^\\s'\"<>]+", REDACTED_PATH)
-                .replaceAll("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*", REDACTED_PATH)
-                .replaceAll("(?<![\\w./])/[\\w./-]{2,}", REDACTED_PATH);
-    }
-
     private static void checkDeadline(long deadlineNanos) throws PDFGenerationException {
         // Difference comparison is nanoTime wrap-around safe, unlike a direct `>`.
         if (System.nanoTime() - deadlineNanos > 0) {
@@ -1227,10 +1215,14 @@ public class EFormBrowserPdfService {
     // ---------------------------------------------------------------------------------------------
 
     static String buildAppPath(int fdid, EFormRenderTokenService.RenderToken renderToken) {
+        // A null token here would silently build a tokenless renderer URL that the render-page
+        // servlet then rejects (403) — a confusing failure far from the real cause. The render URL
+        // is only ever built from a freshly issued grant, so require it up front.
+        Objects.requireNonNull(renderToken, "render token must be issued before building the renderer URL");
         return "/EFormViewForPdfGenerationServlet?fdid=" + fdid
                 + "&browserRender=true"
                 + "&" + EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM + "="
-                + URLEncoder.encode(renderToken == null ? "" : renderToken.queryValue(), StandardCharsets.UTF_8);
+                + URLEncoder.encode(renderToken.queryValue(), StandardCharsets.UTF_8);
     }
 
     static String buildDefaultBaseUrl(String projectHome) {
@@ -1570,7 +1562,7 @@ public class EFormBrowserPdfService {
         // window reclaims them. Catch unchecked failures too (e.g. DirectoryIteratorException) so a
         // traversal/permission error can never turn this best-effort cleanup into a render prerequisite.
         int reclaimed = 0;
-        try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, "eform-browser-render-*")) {
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(managedRoot, RENDER_ARTIFACT_PREFIX + "*")) {
             for (Path entry : entries) {
                 boolean isDirectory;
                 long modifiedMillis;

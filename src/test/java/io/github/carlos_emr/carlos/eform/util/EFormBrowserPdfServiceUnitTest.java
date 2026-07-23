@@ -68,6 +68,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("EFormBrowserPdfService unit tests")
 @Tag("unit")
 @Tag("fast")
+@Tag("eform")
 class EFormBrowserPdfServiceUnitTest {
 
     @Test
@@ -407,31 +408,6 @@ class EFormBrowserPdfServiceUnitTest {
             Files.deleteIfExists(unrelated);
             Files.deleteIfExists(root);
         }
-    }
-
-    @Test
-    @DisplayName("should redact URLs from third-party error text before logging")
-    void shouldRedactUrls_fromErrorText() {
-        String redacted = EFormBrowserPdfService.redactUrls(
-                "timeout navigating to https://127.0.0.1:8443/carlos/EFormViewForPdfGenerationServlet?fdid=9 after 30s");
-
-        assertThat(redacted)
-                .doesNotContain("fdid=9")
-                .doesNotContain("127.0.0.1")
-                .contains("[redacted-url]");
-        assertThat(EFormBrowserPdfService.redactUrls(null)).isNull();
-        // Non-http schemes and bare filesystem paths are redacted too.
-        assertThat(EFormBrowserPdfService.redactUrls("open file:///etc/passwd failed"))
-                .doesNotContain("/etc/passwd").contains("[redacted-url]");
-        assertThat(EFormBrowserPdfService.redactUrls("cannot read /var/lib/OscarDocument/secret.pdf"))
-                .doesNotContain("/var/lib/OscarDocument/secret.pdf").contains("[redacted-path]");
-        // Windows drive-letter and UNC paths are redacted too.
-        assertThat(EFormBrowserPdfService.redactUrls("cannot read C:\\Users\\clinic\\secret.pdf"))
-                .doesNotContain("Users").doesNotContain("secret.pdf").contains("[redacted-path]");
-        assertThat(EFormBrowserPdfService.redactUrls("chromedriver at C:/tools/chromedriver.exe not found"))
-                .doesNotContain("tools").doesNotContain("chromedriver.exe").contains("[redacted-path]");
-        assertThat(EFormBrowserPdfService.redactUrls("cannot reach \\\\fileserver\\share\\doc.pdf"))
-                .doesNotContain("fileserver").doesNotContain("doc.pdf").contains("[redacted-path]");
     }
 
     @Test

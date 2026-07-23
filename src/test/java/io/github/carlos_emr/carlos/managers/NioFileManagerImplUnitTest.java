@@ -414,9 +414,11 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("Refuses to clear preview cache for a source outside the allowed preview locations")
-    void shouldNotRemovePreviewPages_forDisallowedSource() throws Exception {
+    void shouldRejectFlush_forDisallowedSource() throws Exception {
         // A directory under the shared temp root but NOT CARLOS-owned (and not the document root) is not
-        // a valid preview source, so cache cleanup keyed on it must be a no-op.
+        // a valid preview source. It cannot be keyed, so cleanup keyed on it must FAIL LOUDLY rather
+        // than silently return 0 — a PHI flush that cannot even derive its source-scoped prefix must
+        // not be reported to the caller as "nothing to remove".
         Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-flush-");
         assumeTrue(!PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),
                 "foreign dir must not resolve inside a CARLOS-owned temp directory");
@@ -425,15 +427,15 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
         // Seed a cache file that would match the prefix removeCacheVersions computes IF it processed
         // this foreign source. If the guard were bypassed, this file would be deleted; asserting it
-        // survives (and removed == 0) proves the guard rejected the source, not merely that no files
-        // matched. The prefix mirrors createCacheVersion2's naming.
+        // survives proves the guard rejected the source, not merely that no files matched. The prefix
+        // mirrors createCacheVersion2's naming.
         String fileName = "whatever.pdf";
         String wouldBePrefix = fileName + "_" + sourceKeyOf(foreignDir) + "_";
         Path wouldBeCache = Files.createFile(cacheDir.resolve(wouldBePrefix + "1.png"));
         try {
-            int removed = nioFileManager.removeCacheVersions(loggedInInfo, foreignDir.toString(), fileName);
-
-            assertThat(removed).as("no cache removed for a disallowed source").isZero();
+            assertThatThrownBy(() -> nioFileManager.removeCacheVersions(loggedInInfo, foreignDir.toString(), fileName))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("source directory is not an allowed preview source");
             assertThat(Files.exists(wouldBeCache)).as("a disallowed source's would-be cache is left intact").isTrue();
         } finally {
             Files.deleteIfExists(wouldBeCache);

@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * ({@code setImagePath}, {@code setNowDateTime}) make the step ordering load-bearing — later
  * rewrites operate on URLs the earlier mutators inject.</p>
  */
-public final class EformRenderPdfHtmlComposer {
+public final class EFormRenderPdfHtmlComposer {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -62,7 +62,7 @@ public final class EformRenderPdfHtmlComposer {
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
     private static final String IMAGE_VIEW_SERVLET_NAME = "EFormImageViewForPdfGenerationServlet";
 
-    private EformRenderPdfHtmlComposer() {
+    private EFormRenderPdfHtmlComposer() {
     }
 
     /**
