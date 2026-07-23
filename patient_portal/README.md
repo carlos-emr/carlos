@@ -7,13 +7,15 @@ The first slice is intentionally small:
 - FastAPI application factory.
 - Pydantic settings with `PATIENT_PORTAL_` environment variables.
 - SQLAlchemy session configuration.
-- Alembic migration scaffold and the initial invite table.
+- Alembic migration scaffold with the initial invite and account tables.
 - Minimal public `/health` liveness endpoint.
 - Internal `/internal/health/db` database readiness endpoint.
 - Server-rendered responsive sign-in shell.
 - Development-only staff invite API for creating, listing, resending, and revoking invites.
 - Seven-day invite expiry metadata, refreshed on resend.
-- Basic tests for app wiring, template rendering, database readiness, and invite lifecycle behavior.
+- Patient invite activation using invite code, email, date of birth, and HCN/HIN proof.
+- Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
+  activation behavior.
 
 ## Local Setup
 
@@ -61,8 +63,11 @@ Common development variables:
 
 ```bash
 export PATIENT_PORTAL_ENVIRONMENT=development
+export PATIENT_PORTAL_ENABLE_DEV_ADMIN=true
 export PATIENT_PORTAL_CLINIC_NAME="Maple Creek Medical"
 export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_portal"
+# Set PATIENT_PORTAL_IDENTITY_PROOF_SECRET to a 32+ character random value when
+# seeded invites must survive app restarts.
 ```
 
 The default database URL targets local PostgreSQL because PostgreSQL is the intended MVP database.
@@ -72,9 +77,12 @@ running PostgreSQL instance.
 The portal defaults to `production`, so deployments fail closed unless required secrets are set.
 Local development should explicitly set `PATIENT_PORTAL_ENVIRONMENT=development`.
 
-Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN` and
-`PATIENT_PORTAL_SESSION_SECRET`. The internal readiness endpoint expects the health token as a Bearer
-token:
+`PATIENT_PORTAL_CLINIC_ID` defaults to `default`; set a stable clinic identifier before using a
+shared or persistent database so CARLOS `demographic_no` values are scoped correctly.
+
+Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`,
+`PATIENT_PORTAL_SESSION_SECRET`, and `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`. The internal readiness
+endpoint expects the health token as a Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
@@ -101,18 +109,25 @@ Installed wheel deployments can run packaged migrations without a source checkou
 carlos-patient-portal-migrate
 ```
 
-This PR adds the portal foundation and initial staff invite table. Patient accounts, membership,
-audit, invite redemption, and unlock-secret tables should be added in later vertical slices.
+This PR adds the portal foundation, initial staff invite table, and initial patient account table.
+Membership, audit, and unlock-secret tables should be added in later vertical slices.
 
 ## Development Invite API
 
-The staff invite skeleton is available only when `PATIENT_PORTAL_ENVIRONMENT=development`.
-It is intentionally hidden outside development until real CARLOS staff authentication is wired in.
+The staff invite skeleton is available only when `PATIENT_PORTAL_ENVIRONMENT=development` and
+`PATIENT_PORTAL_ENABLE_DEV_ADMIN=true`. It is intentionally hidden outside development until real
+CARLOS staff authentication is wired in.
 
 ```bash
 curl -X POST http://127.0.0.1:8090/dev/admin/invites \
   -H "Content-Type: application/json" \
-  -d '{"demographic_no":1234,"actor":"Dr example"}'
+  -d '{
+    "demographic_no": 1234,
+    "actor": "Dr example",
+    "email": "example.patient@example.com",
+    "date_of_birth": "1980-05-20",
+    "health_card_number": "ABCD 1234-5678"
+  }'
 
 curl http://127.0.0.1:8090/dev/admin/invites?demographic_no=1234
 
@@ -126,9 +141,29 @@ curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
 ```
 
 Invite tokens are shown only on create/resend responses. The database stores only the token hash.
-Invites carry a seven-day `expires_at` timestamp so the future redemption endpoint has a clear
-server-side expiry boundary. Invite list responses default to 10 records and are capped at 100
+When identity proof is supplied, the database stores only keyed hashes of email, date of birth, and
+HCN/HIN values. Invites carry a seven-day `expires_at` timestamp so the activation endpoint has a
+clear server-side expiry boundary. Invite list responses default to 10 records and are capped at 100
 records per request.
+
+## Patient Activation API
+
+```bash
+curl -X POST http://127.0.0.1:8090/auth/activate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "invite_code": "<invite_token>",
+    "email": "example.patient@example.com",
+    "date_of_birth": "1980-05-20",
+    "health_card_number": "ABCD-1234 5678",
+    "username": "patient.username",
+    "password": "Stronger1!word"
+  }'
+```
+
+Activation checks the invite code, email, date of birth, and HCN/HIN together and returns a generic
+failure when they do not match. Usernames are normalized to lowercase and must be unique. Passwords
+are hashed with Argon2id before storage.
 
 ## Tests
 

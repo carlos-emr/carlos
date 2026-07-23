@@ -1,9 +1,10 @@
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.engine import make_url
 
 from carlos_patient_portal import cli, main
@@ -12,7 +13,12 @@ from carlos_patient_portal.config import (
     MIN_PRODUCTION_SECRET_LENGTH,
     Settings,
 )
-from carlos_patient_portal.database import Base
+from carlos_patient_portal.database import (
+    Base,
+    create_portal_engine,
+    create_session_factory,
+    session_scope,
+)
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_TTL,
     InviteNotFoundError,
@@ -22,12 +28,23 @@ from carlos_patient_portal.invites import (
     resend_invite,
     revoke_invite,
 )
-from carlos_patient_portal.models import PatientPortalInvite
+from carlos_patient_portal.models import (
+    INVITE_STATUS_ACCEPTED,
+    INVITE_STATUS_PENDING,
+    PatientPortalAccount,
+    PatientPortalInvite,
+    utc_now,
+)
 
 NON_DEVELOPMENT_SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
+IDENTITY_PROOF_SECRET = "i" * MIN_PRODUCTION_SECRET_LENGTH
 INTERNAL_HEALTH_TOKEN = "h" * MIN_PRODUCTION_SECRET_LENGTH
 WRONG_INTERNAL_HEALTH_TOKEN = "w" * MIN_PRODUCTION_SECRET_LENGTH
 CSRF_TOKEN_PATTERN = re.compile(r'name="csrf_token" value="([^"]+)"')
+SEEDED_INVITE_EMAIL = "example.patient@example.com"
+SEEDED_INVITE_DOB = "1980-05-20"
+SEEDED_INVITE_HCN = "ABCD 1234-5678"
+STRONG_PASSWORD = "Stronger1!word"
 
 
 def development_settings(**overrides: object) -> Settings:
@@ -35,8 +52,14 @@ def development_settings(**overrides: object) -> Settings:
     return Settings(**values)
 
 
-def migrated_development_app() -> main.FastAPI:
-    app = main.create_app(development_settings(database_url="sqlite+pysqlite:///:memory:"))
+def migrated_development_app(**overrides: object) -> main.FastAPI:
+    settings_values = {
+        "database_url": "sqlite+pysqlite:///:memory:",
+        "enable_dev_admin": True,
+        "identity_proof_secret": IDENTITY_PROOF_SECRET,
+        **overrides,
+    }
+    app = main.create_app(development_settings(**settings_values))
     Base.metadata.create_all(app.state.database_engine)
     return app
 
@@ -53,7 +76,35 @@ def get_csrf_token(client: TestClient) -> str:
 
 
 def parse_response_datetime(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed_datetime = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed_datetime.tzinfo is None:
+        return parsed_datetime.replace(tzinfo=UTC)
+    return parsed_datetime
+
+
+def seeded_invite_request(**overrides: object) -> dict[str, object]:
+    request_payload: dict[str, object] = {
+        "demographic_no": 1234,
+        "actor": "Dr example",
+        "email": SEEDED_INVITE_EMAIL,
+        "date_of_birth": SEEDED_INVITE_DOB,
+        "health_card_number": SEEDED_INVITE_HCN,
+    }
+    request_payload.update(overrides)
+    return request_payload
+
+
+def activation_request(invite_code: str, **overrides: object) -> dict[str, object]:
+    request_payload: dict[str, object] = {
+        "invite_code": invite_code,
+        "email": f" {SEEDED_INVITE_EMAIL.upper()} ",
+        "date_of_birth": SEEDED_INVITE_DOB,
+        "health_card_number": "ABCD-1234 5678",
+        "username": "Patient.User",
+        "password": STRONG_PASSWORD,
+    }
+    request_payload.update(overrides)
+    return request_payload
 
 
 def test_health_endpoint_is_minimal() -> None:
@@ -61,6 +112,7 @@ def test_health_endpoint_is_minimal() -> None:
         Settings(
             environment="staging",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -112,6 +164,7 @@ def test_production_responses_include_hsts() -> None:
         Settings(
             environment="production",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -127,6 +180,7 @@ def test_non_development_csrf_cookie_is_secure() -> None:
         Settings(
             environment="staging",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -308,6 +362,7 @@ def test_api_docs_are_disabled_outside_development() -> None:
         Settings(
             environment="staging",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -322,6 +377,7 @@ def test_api_docs_are_disabled_in_production() -> None:
         Settings(
             environment="production",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -343,11 +399,15 @@ def test_dev_admin_invite_lifecycle() -> None:
     created_invite = create_response.json()
     invite_id = created_invite["id"]
     invite_token = created_invite["invite_token"]
+    assert created_invite["clinic_id"] == "default"
     assert created_invite["demographic_no"] == 1234
     assert created_invite["status"] == "pending"
     assert created_invite["created_by"] == "Dr example"
     assert created_invite["last_sent_by"] == "Dr example"
     assert created_invite["sent_count"] == 1
+    assert created_invite["has_identity_proof"] is False
+    assert created_invite["accepted_at"] is None
+    assert created_invite["accepted_account_id"] is None
     created_expires_at = parse_response_datetime(created_invite["expires_at"])
     created_at = parse_response_datetime(created_invite["created_at"])
     assert DEFAULT_INVITE_TTL - timedelta(seconds=1) <= created_expires_at - created_at
@@ -357,6 +417,7 @@ def test_dev_admin_invite_lifecycle() -> None:
     with app.state.session_factory() as session:
         persisted_invite = session.get(PatientPortalInvite, invite_id)
         assert persisted_invite is not None
+        assert persisted_invite.clinic_id == "default"
         assert persisted_invite.token_hash == hash_invite_token(invite_token)
         assert persisted_invite.token_hash != invite_token
         assert persisted_invite.expires_at is not None
@@ -367,7 +428,9 @@ def test_dev_admin_invite_lifecycle() -> None:
     listed_invites = list_response.json()
     assert len(listed_invites) == 1
     assert listed_invites[0]["id"] == invite_id
-    assert listed_invites[0]["expires_at"] == created_invite["expires_at"]
+    assert listed_invites[0]["clinic_id"] == "default"
+    assert parse_response_datetime(listed_invites[0]["expires_at"]) == created_expires_at
+    assert listed_invites[0]["has_identity_proof"] is False
     assert "invite_token" not in listed_invites[0]
     assert list_response.headers["cache-control"] == "no-store"
 
@@ -405,12 +468,200 @@ def test_dev_admin_invite_lifecycle() -> None:
     assert revoked_resend_response.json()["detail"] == "invite has been revoked"
 
 
+def test_patient_activation_creates_account_from_seeded_invite() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post("/dev/admin/invites", json=seeded_invite_request())
+
+    assert create_response.status_code == 201
+    created_invite = create_response.json()
+    invite_id = created_invite["id"]
+    invite_token = created_invite["invite_token"]
+    assert created_invite["has_identity_proof"] is True
+
+    with app.state.session_factory() as session:
+        persisted_invite = session.get(PatientPortalInvite, invite_id)
+        assert persisted_invite is not None
+        assert persisted_invite.proof_email_hash is not None
+        assert persisted_invite.proof_date_of_birth_hash is not None
+        assert persisted_invite.proof_health_card_hash is not None
+        assert persisted_invite.proof_email_hash != SEEDED_INVITE_EMAIL
+        assert persisted_invite.proof_health_card_hash != SEEDED_INVITE_HCN
+
+    activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(invite_token),
+    )
+
+    assert activation_response.status_code == 201
+    assert activation_response.json() == {"status": "activated", "username": "patient.user"}
+    assert activation_response.headers["cache-control"] == "no-store"
+
+    with app.state.session_factory() as session:
+        account = session.scalar(
+            select(PatientPortalAccount).where(PatientPortalAccount.username == "patient.user")
+        )
+        accepted_invite = session.get(PatientPortalInvite, invite_id)
+
+        assert account is not None
+        assert account.clinic_id == "default"
+        assert account.demographic_no == 1234
+        assert account.email == SEEDED_INVITE_EMAIL
+        assert account.password_hash.startswith("$argon2id$")
+        assert account.password_hash != STRONG_PASSWORD
+        assert accepted_invite is not None
+        assert accepted_invite.status == INVITE_STATUS_ACCEPTED
+        assert accepted_invite.accepted_account_id == account.id
+        assert accepted_invite.accepted_at is not None
+
+    second_activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(invite_token, username="another.patient"),
+    )
+
+    assert second_activation_response.status_code == 400
+    assert second_activation_response.json()["detail"] == (
+        "activation details could not be verified"
+    )
+
+
+def test_patient_activation_rejects_identity_mismatch_without_account_leak() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post("/dev/admin/invites", json=seeded_invite_request())
+    invite_token = create_response.json()["invite_token"]
+
+    activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(invite_token, health_card_number="WRONG1234"),
+    )
+
+    assert activation_response.status_code == 400
+    assert activation_response.json()["detail"] == "activation details could not be verified"
+
+    with app.state.session_factory() as session:
+        assert session.scalar(select(PatientPortalAccount.id)) is None
+        invite = session.scalar(select(PatientPortalInvite))
+        assert invite is not None
+        assert invite.status == INVITE_STATUS_PENDING
+
+
+def test_patient_activation_rejects_expired_invite() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post("/dev/admin/invites", json=seeded_invite_request())
+    created_invite = create_response.json()
+    invite_token = created_invite["invite_token"]
+
+    with app.state.session_factory() as session:
+        invite = session.get(PatientPortalInvite, created_invite["id"])
+        assert invite is not None
+        invite.created_at = utc_now() - timedelta(days=8)
+        invite.expires_at = utc_now() - timedelta(days=1)
+        session.commit()
+
+    activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(invite_token),
+    )
+
+    assert activation_response.status_code == 400
+    assert activation_response.json()["detail"] == "activation details could not be verified"
+
+
+def test_patient_activation_rejects_unavailable_username() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    first_create_response = client.post("/dev/admin/invites", json=seeded_invite_request())
+    first_token = first_create_response.json()["invite_token"]
+    second_create_response = client.post(
+        "/dev/admin/invites",
+        json=seeded_invite_request(
+            demographic_no=5678,
+            email="second.patient@example.com",
+            health_card_number="ZXCV 1234",
+        ),
+    )
+    second_token = second_create_response.json()["invite_token"]
+
+    assert client.post("/auth/activate", json=activation_request(first_token)).status_code == 201
+
+    activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(
+            second_token,
+            email="second.patient@example.com",
+            health_card_number="ZXCV-1234",
+        ),
+    )
+
+    assert activation_response.status_code == 409
+    assert activation_response.json()["detail"] == "username unavailable"
+
+
+def test_patient_activation_rejects_weak_password() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post("/dev/admin/invites", json=seeded_invite_request())
+
+    activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(create_response.json()["invite_token"], password="weak"),
+    )
+
+    assert activation_response.status_code == 422
+    assert "weak" not in activation_response.text
+
+
+def test_accepted_invites_cannot_be_resent_or_revoked() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post("/dev/admin/invites", json=seeded_invite_request())
+    created_invite = create_response.json()
+
+    assert client.post(
+        "/auth/activate",
+        json=activation_request(created_invite["invite_token"]),
+    ).status_code == 201
+
+    resend_response = client.post(
+        f"/dev/admin/invites/{created_invite['id']}/resend",
+        json={"actor": "Admin example"},
+    )
+    revoke_response = client.post(
+        f"/dev/admin/invites/{created_invite['id']}/revoke",
+        json={"actor": "Admin example"},
+    )
+
+    assert resend_response.status_code == 409
+    assert resend_response.json()["detail"] == "invite has already been accepted"
+    assert revoke_response.status_code == 409
+    assert revoke_response.json()["detail"] == "invite has already been accepted"
+
+
 def test_dev_admin_invites_are_hidden_outside_development() -> None:
     app = main.create_app(
         Settings(
             environment="staging",
+            enable_dev_admin=True,
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+    )
+    response = TestClient(app).post(
+        "/dev/admin/invites",
+        json={"demographic_no": 1234, "actor": "Dr example"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_dev_admin_invites_require_explicit_development_flag() -> None:
+    app = main.create_app(
+        development_settings(
+            database_url="sqlite+pysqlite:///:memory:",
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
         )
     )
     response = TestClient(app).post(
@@ -474,10 +725,65 @@ def test_invite_service_validates_future_carlos_callers() -> None:
             revoke_invite(session, 999, " ")
 
 
+def test_invite_service_scopes_records_by_clinic() -> None:
+    app = migrated_development_app()
+    with app.state.session_factory() as session:
+        clinic_a_invite, _ = create_invite(
+            session,
+            1234,
+            "Dr example",
+            clinic_id="clinic-a",
+        )
+        clinic_b_invite, _ = create_invite(
+            session,
+            1234,
+            "Dr example",
+            clinic_id="clinic-b",
+        )
+        session.commit()
+
+        clinic_a_invites = list_invites(session, demographic_no=1234, clinic_id="clinic-a")
+        clinic_b_invites = list_invites(session, demographic_no=1234, clinic_id="clinic-b")
+
+        assert [invite.id for invite in clinic_a_invites] == [clinic_a_invite.id]
+        assert [invite.id for invite in clinic_b_invites] == [clinic_b_invite.id]
+        with pytest.raises(InviteNotFoundError):
+            resend_invite(
+                session,
+                clinic_a_invite.id,
+                "Dr example",
+                clinic_id="clinic-b",
+            )
+
+
+def test_session_scope_commits_success_and_rolls_back_failure() -> None:
+    engine = create_portal_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session_factory = create_session_factory(engine)
+
+    with session_scope(session_factory) as session:
+        committed_invite, _ = create_invite(session, 1234, "Dr example")
+        committed_invite_id = committed_invite.id
+
+    with session_factory() as session:
+        assert session.get(PatientPortalInvite, committed_invite_id) is not None
+
+    with pytest.raises(RuntimeError, match="force rollback"):
+        with session_scope(session_factory) as session:
+            create_invite(session, 5678, "Dr example")
+            raise RuntimeError("force rollback")
+
+    with session_factory() as session:
+        assert list_invites(session, demographic_no=5678) == []
+
+    engine.dispose()
+
+
 def test_environment_aliases_are_normalized() -> None:
     settings = Settings(
         environment=" prod ",
         session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+        identity_proof_secret=IDENTITY_PROOF_SECRET,
         internal_health_token=INTERNAL_HEALTH_TOKEN,
     )
 
@@ -494,6 +800,22 @@ def test_default_database_url_does_not_embed_credentials() -> None:
 
 def test_development_defaults_do_not_embed_session_secret() -> None:
     assert development_settings().session_secret is None
+
+
+def test_development_dev_admin_is_disabled_by_default() -> None:
+    assert not development_settings().is_dev_admin_enabled
+    assert development_settings(enable_dev_admin=True).is_dev_admin_enabled
+
+
+def test_clinic_id_is_normalized() -> None:
+    settings = development_settings(clinic_id=" clinic-a ")
+
+    assert settings.clinic_id == "clinic-a"
+
+
+def test_clinic_id_must_not_be_blank() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_CLINIC_ID"):
+        development_settings(clinic_id=" ")
 
 
 def test_default_settings_reject_missing_production_secrets() -> None:
@@ -540,9 +862,23 @@ def test_non_development_rejects_missing_internal_health_token() -> None:
         Settings(environment="staging", session_secret=NON_DEVELOPMENT_SESSION_SECRET)
 
 
+def test_non_development_rejects_missing_identity_proof_secret() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_IDENTITY_PROOF_SECRET"):
+        Settings(
+            environment="staging",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+
+
 def test_internal_health_token_must_be_long_when_configured() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
         development_settings(internal_health_token="short")
+
+
+def test_identity_proof_secret_must_be_long_when_configured() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_IDENTITY_PROOF_SECRET"):
+        development_settings(identity_proof_secret="short")
 
 
 def test_module_does_not_create_global_app_on_import() -> None:

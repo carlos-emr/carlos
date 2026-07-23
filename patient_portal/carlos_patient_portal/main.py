@@ -10,12 +10,19 @@ from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
+from carlos_patient_portal.accounts import (
+    ActivationError,
+    UsernameUnavailableError,
+    activate_patient_account,
+)
 from carlos_patient_portal.config import Settings, get_settings
 from carlos_patient_portal.database import (
     check_database,
@@ -23,9 +30,11 @@ from carlos_patient_portal.database import (
     create_session_factory,
     session_scope,
 )
+from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_LIST_LIMIT,
     MAX_INVITE_LIST_LIMIT,
+    AcceptedInviteError,
     InviteNotFoundError,
     RevokedInviteError,
     create_invite,
@@ -35,6 +44,8 @@ from carlos_patient_portal.invites import (
 )
 from carlos_patient_portal.models import PatientPortalInvite
 from carlos_patient_portal.schemas import (
+    ActivationRequest,
+    ActivationResponse,
     InviteCreateRequest,
     InviteResponse,
     InviteTokenResponse,
@@ -52,7 +63,7 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
 }
-NO_STORE_PATHS = {"/", "/auth/login"}
+NO_STORE_PATHS = {"/"}
 MAX_FORM_BODY_BYTES = 16 * 1024
 MAX_FORM_FIELD_COUNT = 20
 CSRF_COOKIE_NAME = "carlos_portal_csrf"
@@ -60,6 +71,7 @@ CSRF_COOKIE_PATH = "/auth"
 CSRF_FORM_FIELD = "csrf_token"
 CSRF_TOKEN_TTL_SECONDS = 60 * 60
 CSRF_FUTURE_SKEW_SECONDS = 60
+VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
 
 def create_csrf_token(secret: str) -> str:
@@ -114,12 +126,24 @@ def is_valid_csrf_submission(
     return is_valid_csrf_token(form_token, secret)
 
 
+def sanitized_validation_errors(exc: RequestValidationError) -> list[dict[str, object]]:
+    return [
+        {
+            field_name: field_value
+            for field_name, field_value in error.items()
+            if field_name not in VALIDATION_ERROR_PRIVATE_FIELDS
+        }
+        for error in exc.errors()
+    ]
+
+
 def invite_response_payload(
     invite: PatientPortalInvite,
     invite_token: str | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "id": invite.id,
+        "clinic_id": invite.clinic_id,
         "demographic_no": invite.demographic_no,
         "status": invite.status,
         "created_by": invite.created_by,
@@ -131,6 +155,15 @@ def invite_response_payload(
         "expires_at": invite.expires_at,
         "revoked_at": invite.revoked_at,
         "revoked_by": invite.revoked_by,
+        "has_identity_proof": all(
+            (
+                invite.proof_email_hash,
+                invite.proof_date_of_birth_hash,
+                invite.proof_health_card_hash,
+            )
+        ),
+        "accepted_at": invite.accepted_at,
+        "accepted_account_id": invite.accepted_account_id,
     }
     if invite_token is not None:
         payload["invite_token"] = invite_token
@@ -186,6 +219,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.session_secret is not None
         else token_urlsafe(32)
     )
+    identity_proof_secret = (
+        settings.identity_proof_secret.get_secret_value()
+        if settings.identity_proof_secret is not None
+        else token_urlsafe(32)
+    )
     database_engine = create_portal_engine(settings.database_url)
     session_factory = create_session_factory(database_engine)
 
@@ -213,6 +251,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         name="static",
     )
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        _: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": sanitized_validation_errors(exc)},
+        )
+
     @app.middleware("http")
     async def add_security_headers(
         request: Request,
@@ -226,6 +274,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         if (
             request.url.path in NO_STORE_PATHS
+            or request.url.path.startswith("/auth/")
             or request.url.path.startswith("/internal/")
             or request.url.path.startswith("/dev/admin/")
         ):
@@ -240,7 +289,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     def get_app_database_session() -> Generator[Session, None, None]:
-        yield from session_scope(session_factory)
+        with session_scope(session_factory) as session:
+            yield session
 
     def require_internal_health_token(
         authorization: Annotated[str | None, Header()] = None,
@@ -306,7 +356,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=403, detail="invalid CSRF token")
         raise HTTPException(status_code=501, detail="login is not implemented yet")
 
-    if settings.is_development:
+    @app.post(
+        "/auth/activate",
+        response_model=ActivationResponse,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def activate_invite(
+        payload: ActivationRequest,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> dict[str, str]:
+        try:
+            account = activate_patient_account(
+                session,
+                invite_code=payload.invite_code,
+                identity_proof=IdentityProof(
+                    email=payload.email,
+                    date_of_birth=payload.date_of_birth,
+                    health_card_number=payload.health_card_number,
+                ),
+                username=payload.username,
+                password=payload.password,
+                proof_secret=identity_proof_secret,
+            )
+        except UsernameUnavailableError as exc:
+            raise HTTPException(status_code=409, detail="username unavailable") from exc
+        except ActivationError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="activation details could not be verified",
+            ) from exc
+        return {"status": "activated", "username": account.username}
+
+    if settings.is_dev_admin_enabled:
 
         @app.post(
             "/dev/admin/invites",
@@ -317,10 +398,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             payload: InviteCreateRequest,
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
+            identity_proof = None
+            if payload.email is not None:
+                identity_proof = IdentityProof(
+                    email=payload.email,
+                    date_of_birth=payload.date_of_birth,
+                    health_card_number=payload.health_card_number,
+                )
             invite, invite_token = create_invite(
                 session,
                 payload.demographic_no,
                 payload.actor,
+                clinic_id=settings.clinic_id,
+                identity_proof=identity_proof,
+                proof_secret=identity_proof_secret,
             )
             return invite_response_payload(invite, invite_token)
 
@@ -341,6 +432,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     demographic_no=demographic_no,
                     limit=limit,
                     offset=offset,
+                    clinic_id=settings.clinic_id,
                 )
             ]
 
@@ -351,11 +443,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
             try:
-                invite, invite_token = resend_invite(session, invite_id, payload.actor)
+                invite, invite_token = resend_invite(
+                    session,
+                    invite_id,
+                    payload.actor,
+                    clinic_id=settings.clinic_id,
+                )
             except InviteNotFoundError as exc:
                 raise HTTPException(status_code=404, detail="invite not found") from exc
             except RevokedInviteError as exc:
                 raise HTTPException(status_code=409, detail="invite has been revoked") from exc
+            except AcceptedInviteError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="invite has already been accepted",
+                ) from exc
             return invite_response_payload(invite, invite_token)
 
         @app.post("/dev/admin/invites/{invite_id}/revoke", response_model=InviteResponse)
@@ -365,9 +467,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
             try:
-                invite = revoke_invite(session, invite_id, payload.actor)
+                invite = revoke_invite(
+                    session,
+                    invite_id,
+                    payload.actor,
+                    clinic_id=settings.clinic_id,
+                )
             except InviteNotFoundError as exc:
                 raise HTTPException(status_code=404, detail="invite not found") from exc
+            except AcceptedInviteError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="invite has already been accepted",
+                ) from exc
             return invite_response_payload(invite)
 
     return app

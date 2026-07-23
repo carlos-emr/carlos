@@ -5,9 +5,12 @@ from secrets import token_urlsafe
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
+from carlos_patient_portal.identity import IdentityProof, build_identity_hashes
 from carlos_patient_portal.models import (
+    INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
+    MAX_CLINIC_ID_LENGTH,
     PatientPortalInvite,
     utc_now,
 )
@@ -27,8 +30,21 @@ class RevokedInviteError(Exception):
     """Raised when a revoked invite cannot be reused."""
 
 
+class AcceptedInviteError(Exception):
+    """Raised when an accepted invite cannot be reused."""
+
+
 def create_invite_token() -> str:
     return token_urlsafe(INVITE_TOKEN_BYTES)
+
+
+def normalize_clinic_id(clinic_id: str) -> str:
+    normalized_clinic_id = clinic_id.strip()
+    if not normalized_clinic_id:
+        raise ValueError("clinic_id must not be blank")
+    if len(normalized_clinic_id) > MAX_CLINIC_ID_LENGTH:
+        raise ValueError(f"clinic_id must be {MAX_CLINIC_ID_LENGTH} characters or fewer")
+    return normalized_clinic_id
 
 
 def normalize_staff_actor(actor: str) -> str:
@@ -60,12 +76,21 @@ def create_invite(
     session: Session,
     demographic_no: int,
     actor: str,
+    *,
+    clinic_id: str = "default",
+    identity_proof: IdentityProof | None = None,
+    proof_secret: str | None = None,
 ) -> tuple[PatientPortalInvite, str]:
     validate_demographic_no(demographic_no)
+    normalized_clinic_id = normalize_clinic_id(clinic_id)
     normalized_actor = normalize_staff_actor(actor)
+    if identity_proof is not None and proof_secret is None:
+        raise ValueError("proof_secret is required when identity_proof is provided")
+    proof_hashes = build_identity_hashes(identity_proof, proof_secret) if identity_proof else {}
     invite_token = create_invite_token()
     now = utc_now()
     invite = PatientPortalInvite(
+        clinic_id=normalized_clinic_id,
         demographic_no=demographic_no,
         token_hash=hash_invite_token(invite_token),
         status=INVITE_STATUS_PENDING,
@@ -76,16 +101,23 @@ def create_invite(
         last_sent_at=now,
         last_sent_by=normalized_actor,
         expires_at=now + DEFAULT_INVITE_TTL,
+        **proof_hashes,
     )
     session.add(invite)
-    session.commit()
-    session.refresh(invite)
+    session.flush()
     return invite, invite_token
 
 
-def get_invite(session: Session, invite_id: int) -> PatientPortalInvite:
+def get_invite(
+    session: Session,
+    invite_id: int,
+    *,
+    clinic_id: str | None = None,
+) -> PatientPortalInvite:
     invite = session.get(PatientPortalInvite, invite_id)
-    if invite is None:
+    if invite is None or (
+        clinic_id is not None and invite.clinic_id != normalize_clinic_id(clinic_id)
+    ):
         raise InviteNotFoundError()
     return invite
 
@@ -95,9 +127,14 @@ def list_invites(
     demographic_no: int | None = None,
     limit: int = DEFAULT_INVITE_LIST_LIMIT,
     offset: int = 0,
+    *,
+    clinic_id: str = "default",
 ) -> list[PatientPortalInvite]:
     validate_list_pagination(limit, offset)
-    statement = select(PatientPortalInvite)
+    normalized_clinic_id = normalize_clinic_id(clinic_id)
+    statement = select(PatientPortalInvite).where(
+        PatientPortalInvite.clinic_id == normalized_clinic_id
+    )
     if demographic_no is not None:
         validate_demographic_no(demographic_no)
         statement = statement.where(PatientPortalInvite.demographic_no == demographic_no)
@@ -112,10 +149,14 @@ def resend_invite(
     session: Session,
     invite_id: int,
     actor: str,
+    *,
+    clinic_id: str | None = None,
 ) -> tuple[PatientPortalInvite, str]:
-    invite = get_invite(session, invite_id)
+    invite = get_invite(session, invite_id, clinic_id=clinic_id)
     if invite.status == INVITE_STATUS_REVOKED:
         raise RevokedInviteError()
+    if invite.status == INVITE_STATUS_ACCEPTED:
+        raise AcceptedInviteError()
 
     normalized_actor = normalize_staff_actor(actor)
     invite_token = create_invite_token()
@@ -127,8 +168,7 @@ def resend_invite(
     invite.last_sent_by = normalized_actor
     invite.expires_at = now + DEFAULT_INVITE_TTL
     invite.updated_at = now
-    session.commit()
-    session.refresh(invite)
+    session.flush()
     return invite, invite_token
 
 
@@ -136,8 +176,12 @@ def revoke_invite(
     session: Session,
     invite_id: int,
     actor: str,
+    *,
+    clinic_id: str | None = None,
 ) -> PatientPortalInvite:
-    invite = get_invite(session, invite_id)
+    invite = get_invite(session, invite_id, clinic_id=clinic_id)
+    if invite.status == INVITE_STATUS_ACCEPTED:
+        raise AcceptedInviteError()
     if invite.status != INVITE_STATUS_REVOKED:
         normalized_actor = normalize_staff_actor(actor)
         now = utc_now()
@@ -145,6 +189,5 @@ def revoke_invite(
         invite.revoked_at = now
         invite.revoked_by = normalized_actor
         invite.updated_at = now
-        session.commit()
-        session.refresh(invite)
+        session.flush()
     return invite

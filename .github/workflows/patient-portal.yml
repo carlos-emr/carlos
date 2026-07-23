@@ -59,3 +59,11 @@ jobs:
 
       - name: Build wheel
         run: python -m build --wheel --no-isolation
+
+      - name: Validate runtime lock
+        run: |
+          python -m venv "$RUNNER_TEMP/patient-portal-runtime"
+          . "$RUNNER_TEMP/patient-portal-runtime/bin/activate"
+          python -m pip install --require-hashes -r requirements-runtime.lock
+          python -m pip install --no-deps dist/*.whl
+          python -m pip check
