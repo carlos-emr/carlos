@@ -75,10 +75,6 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
         faxManager = mock(FaxManager.class);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
-        // cancel() (the no-method fall-through target) gates on _fax read; the verb-gate tests
-        // here are about dispatch, not authorization, so grant it.
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
-                .thenReturn(true);
 
         request = new MockHttpServletRequest();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
@@ -192,6 +188,11 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
     @DisplayName("should route POST with no method to cancel() past the verb gate")
     void shouldRoutePostCancelFallThrough_pastVerbGate() {
         setUpCommonMocks();
+        // cancel() now gates on _fax read; this test is about dispatch reaching cancel(), not
+        // authorization, so grant it. The read-only-method tests keep the mock default (false)
+        // because their "not 405" proof is exactly the 403 their own privilege gates emit.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
         request.setMethod("POST"); // no method param -- execute() falls through to cancel()
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
