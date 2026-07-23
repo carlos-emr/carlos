@@ -238,17 +238,17 @@ public class APISendGridEmailSender {
             toList.add(to);
         }
 
-        personalization.put("to", toList);
+        personalization.set("to", toList);
         personalizations.add(personalization);
 
-        emailJson.put("personalizations", personalizations);
+        emailJson.set("personalizations", personalizations);
     }
 
     private void addFrom(ObjectNode emailJson) {
         ObjectNode from = OBJECT_MAPPER.createObjectNode();
         from.put("email", emailConfig.getSenderEmail());
         from.put("name", emailConfig.getSenderFullName());
-        emailJson.put("from", from);
+        emailJson.set("from", from);
     }
 
     private void addSubject(ObjectNode emailJson) {
@@ -261,7 +261,7 @@ public class APISendGridEmailSender {
         contentObj.put("type", "text/plain");
         contentObj.put("value", body);
         content.add(contentObj);
-        emailJson.put("content", content);
+        emailJson.set("content", content);
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
@@ -282,7 +282,7 @@ public class APISendGridEmailSender {
                 throw new EmailSendingException("Failed to attach " + emailAttachment.getFileName() + " while sending email using SendGrid.", e);
             }
         }
-        emailJson.put("attachments", jsonAttachments);
+        emailJson.set("attachments", jsonAttachments);
     }
 
     private void requireEmailWritePrivilege() {
