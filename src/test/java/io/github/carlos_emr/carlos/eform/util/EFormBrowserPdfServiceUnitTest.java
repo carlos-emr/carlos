@@ -41,8 +41,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import java.util.logging.Level;
+
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.logging.LogEntries;
+import org.openqa.selenium.logging.LogEntry;
 import org.openqa.selenium.logging.LogType;
 import org.openqa.selenium.remote.http.ClientConfig;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -51,6 +55,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -584,10 +589,31 @@ class EFormBrowserPdfServiceUnitTest {
     void shouldRefuseRenderSlot_whenConcurrencyBoundSaturated() {
         Semaphore drained = new Semaphore(0);
 
-        assertThat(EFormBrowserPdfService.acquireRenderSlot(drained, Duration.ofMillis(50))).isFalse();
+        assertThat(EFormBrowserPdfService.acquireRenderSlot(drained, Duration.ofMillis(50)))
+                .isEqualTo(EFormBrowserPdfService.SlotAcquisition.TIMED_OUT);
 
         Semaphore available = new Semaphore(1);
-        assertThat(EFormBrowserPdfService.acquireRenderSlot(available, Duration.ofMillis(50))).isTrue();
+        assertThat(EFormBrowserPdfService.acquireRenderSlot(available, Duration.ofMillis(50)))
+                .isEqualTo(EFormBrowserPdfService.SlotAcquisition.ACQUIRED);
+    }
+
+    @Test
+    @DisplayName("should report interrupted when the waiting thread is interrupted before a slot is taken")
+    void shouldReportInterrupted_whenWaitingThreadInterrupted() {
+        // A shutdown-time interrupt is not load-shed capacity: it must be distinguishable so the
+        // caller gives "aborted" guidance (no retry advice) instead of the capacity message.
+        Thread.currentThread().interrupt();
+        try {
+            EFormBrowserPdfService.SlotAcquisition result =
+                    EFormBrowserPdfService.acquireRenderSlot(new Semaphore(0), Duration.ofSeconds(30));
+
+            assertThat(result).isEqualTo(EFormBrowserPdfService.SlotAcquisition.INTERRUPTED);
+            // The interrupt status must be re-raised for the caller / shutdown machinery.
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            // Clear the flag so it cannot leak into sibling tests running on this thread.
+            Thread.interrupted();
+        }
     }
 
     @Test
@@ -671,6 +697,181 @@ class EFormBrowserPdfServiceUnitTest {
                 driver, List.of(), 200, "http://127.0.0.1:8080/carlos", 42))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("console error state");
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // enforceRenderGates rejection coverage: each fail-closed reason exercised in isolation. The
+    // CDP performance entries are raw JSON strings shaped exactly as scanNetworkEvents/
+    // parsePerformanceMessage parse them ({"message":{"method":...,"params":{...}}}), wrapped in
+    // LogEntry the way renderWithSlot collects them, and the browser console is a real LogEntries
+    // stubbed onto the deep-stub driver so the console gate reads a deterministic set.
+    // ---------------------------------------------------------------------------------------------
+
+    private static final String GATE_BASE_URL = "http://127.0.0.1:8080/carlos";
+    private static final String MAIN_DOC_URL =
+            "http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1";
+
+    @Test
+    @DisplayName("should fail the render when no main-document status was ever observed")
+    void shouldFailRender_whenMainDocumentStatusMissing() {
+        // latched=null and no Document responseReceived → the main-document status is unknown, which
+        // must fail closed rather than pass a render whose top-level response is unaccounted for.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, List.of(), null, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("successful eForm page response");
+    }
+
+    @Test
+    @DisplayName("should fail the render when the main document responded with a non-200 status")
+    void shouldFailRender_whenMainDocumentStatusNon200() {
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, List.of(), 500, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("status=500");
+    }
+
+    @Test
+    @DisplayName("should fail the render when a render-critical subresource failed to load")
+    void shouldFailRender_whenRenderCriticalSubresourceFailed() {
+        // A 404'd form background arrives as an Image responseReceived with status >= 400, which the
+        // network scan counts as a failed render-critical subresource.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Image",
+                        "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("failedSubresources=1");
+    }
+
+    @Test
+    @DisplayName("should fail the render when a disallowed egress request was observed")
+    void shouldFailRender_whenDisallowedEgressObserved() {
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(requestWillBeSentJson("https://evil.example/exfil")));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("disallowedRequests=1");
+    }
+
+    @Test
+    @DisplayName("should fail the render when a severe JavaScript console error is present")
+    void shouldFailRender_whenSevereConsoleErrorPresent() {
+        // A page-script failure the network events cannot see (a JS TypeError) is exactly what the
+        // console gate exists to catch; it is neither a resource-load nor a CSP-containment notice.
+        ChromeDriver driver = driverWithConsole(browserConsole(
+                consoleEntry("http://127.0.0.1:8080/carlos/x 12:3 Uncaught TypeError: x is not a function")));
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("consoleErrors=1");
+    }
+
+    @Test
+    @DisplayName("should pass the render gates when only excluded console entries are present")
+    void shouldPassGates_whenOnlyExcludedConsoleEntriesPresent() {
+        // Both entries are SEVERE, but a favicon resource-load 404 (handled type-aware by the network
+        // scan) and a CSP-containment notice (the surface's own defense working) are excluded, so a
+        // healthy render with a 200 main document and no other errors must NOT fail.
+        ChromeDriver driver = driverWithConsole(browserConsole(
+                consoleEntry("http://127.0.0.1:8080/favicon.ico - Failed to load resource: the server responded with a status of 404 ()"),
+                consoleEntry("Loading plugin data from 'data:text/plain,x' violates the following Content Security Policy directive: \"object-src 'none'\". The action has been blocked.")));
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
+
+        assertThatCode(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should prefer the latched main-document status over a later same-origin document")
+    void shouldPreferLatchedStatus_overLaterIframeDocument() {
+        // The scan observes a same-origin Document 200 (e.g. a signature iframe), but the status
+        // latched immediately after navigation was 500. The latched value must win so a later
+        // Document 200 cannot stand in for a failed main-document response.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 500, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("status=500");
+    }
+
+    private static LogEntry perfEntry(String cdpJson) {
+        // Performance-log entries reach enforceRenderGates as LogEntry whose message is the raw CDP
+        // JSON; the level/timestamp are irrelevant to the network scan.
+        return new LogEntry(Level.INFO, 0L, cdpJson);
+    }
+
+    private static String responseReceivedJson(String type, String url, int status) {
+        return cdpMessage("Network.responseReceived",
+                "\"type\":\"" + type + "\",\"response\":{\"url\":\"" + url + "\",\"status\":" + status + "}");
+    }
+
+    private static String requestWillBeSentJson(String url) {
+        return cdpMessage("Network.requestWillBeSent", "\"request\":{\"url\":\"" + url + "\"}");
+    }
+
+    private static LogEntry consoleEntry(String message) {
+        // SEVERE so the entry clears the console gate's level threshold; whether it is then counted
+        // depends solely on the resource-load / CSP-containment exclusions.
+        return new LogEntry(Level.SEVERE, 0L, message);
+    }
+
+    private static LogEntries browserConsole(LogEntry... entries) {
+        return new LogEntries(List.of(entries));
+    }
+
+    private static ChromeDriver driverWithConsole(LogEntries console) {
+        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
+        when(driver.manage().logs().get(LogType.BROWSER)).thenReturn(console);
+        return driver;
+    }
+
+    @Test
+    @DisplayName("should wrap an invalid base-URL configuration as a PDFGenerationException")
+    void shouldWrapInvalidBaseUrlConfig_asPdfGenerationException() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String originalBaseUrl = properties.getProperty("eform_pdf_browser_base_url");
+        properties.setProperty("eform_pdf_browser_base_url", "https://not-loopback.example");
+        try {
+            EFormBrowserPdfService service = new EFormBrowserPdfService();
+
+            // A non-loopback base URL makes validateRendererBaseUrl throw IllegalArgumentException;
+            // the render path must surface that as a checked PDFGenerationException naming the
+            // configuration problem, not let the unchecked IAE escape the throws contract.
+            assertThatThrownBy(() -> service.renderSavedEformPdf(4242, "999998"))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessageContaining("configuration");
+        } finally {
+            if (originalBaseUrl == null) {
+                properties.remove("eform_pdf_browser_base_url");
+            } else {
+                properties.setProperty("eform_pdf_browser_base_url", originalBaseUrl);
+            }
+        }
     }
 
     @Test

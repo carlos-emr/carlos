@@ -349,27 +349,47 @@ public class EFormBrowserPdfService {
      *         times out, or no readable PDF is produced
      */
     public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
-        if (!acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT)) {
+        // Resolve the managed temp root and sweep stale renderer artifacts BEFORE competing for a
+        // render slot. The sweep is best-effort housekeeping (a filesystem walk of the shared root);
+        // running it while holding one of the scarce MAX_CONCURRENT_RENDERS slots would charge its
+        // latency to every render and needlessly narrow throughput under load. A resolve failure here
+        // is a real config error and must surface before a slot is taken.
+        Path tempRoot = resolveRendererTempRoot();
+        sweepStaleRendererRoots(tempRoot);
+
+        SlotAcquisition acquisition = acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT);
+        if (acquisition == SlotAcquisition.TIMED_OUT) {
             // Load-shed: all render slots were busy for the full wait. Log so a maintainer can see the
             // renderer is saturated (fdid only — no PHI, no render URL/token).
             logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
                     MAX_CONCURRENT_RENDERS, fdid);
             throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.");
         }
+        if (acquisition == SlotAcquisition.INTERRUPTED) {
+            // Distinct from capacity: the waiting thread was interrupted (JVM/app shutdown), so no
+            // slot was ever taken (nothing to release) and the render never started. Retry advice
+            // would be misleading here, so the message deliberately omits it.
+            logger.warn("Browser eForm render aborted: waiting thread interrupted (shutdown?): fdid={}", fdid);
+            throw new PDFGenerationException("Browser rendering was aborted before it started.");
+        }
         try {
-            return new RenderedEformPdf(renderWithSlot(fdid, providerId));
+            return new RenderedEformPdf(renderWithSlot(fdid, providerId, tempRoot));
         } finally {
             RENDER_SLOTS.release();
         }
     }
 
-    private Path renderWithSlot(int fdid, String providerId) throws PDFGenerationException {
+    private Path renderWithSlot(int fdid, String providerId, Path tempRoot) throws PDFGenerationException {
         HttpServletRequest currentRequest = currentRequestOrNull();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
-        String baseUrl = validateRendererBaseUrl(resolveBaseUrl(projectHome, currentRequest));
-        // Issued inside the try so the finally always invalidates it: if temp-root setup (or any
-        // other pre-render step) throws, the grant must not linger in the bounded token cache for
-        // its full TTL. invalidate(null) is a safe no-op if we fail before issuance.
+        // Declared before the try (validated to non-null inside it) so the catch-block diagnostics can
+        // reference it AND so an invalid base-URL configuration is reported as a checked
+        // PDFGenerationException rather than letting an IllegalArgumentException escape this method's
+        // throws contract — see the IllegalArgumentException catch below.
+        String baseUrl = null;
+        // The render token is issued inside the try so the finally always invalidates it: if base-URL
+        // validation (or any other pre-render step) throws, the grant must not linger in the bounded
+        // token cache for its full TTL. invalidate(null) is a safe no-op if we fail before issuance.
         EFormRenderTokenService.RenderToken renderToken = null;
         Path outputDirectory = null;
         Path outputPdfPath = null;
@@ -380,12 +400,11 @@ public class EFormBrowserPdfService {
         long deadlineNanos = startNanos + RENDER_TIMEOUT.toNanos();
 
         try {
+            baseUrl = validateRendererBaseUrl(resolveBaseUrl(projectHome, currentRequest));
             renderToken = EFormRenderTokenService.getInstance().issue(fdid, providerId);
             String appPath = validateRendererAppPath(buildAppPath(fdid, renderToken));
             logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
 
-            Path tempRoot = resolveRendererTempRoot();
-            sweepStaleRendererRoots(tempRoot);
             String allowedOrigin = originOf(baseUrl);
             if (allowedOrigin == null) {
                 throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.");
@@ -466,6 +485,14 @@ public class EFormBrowserPdfService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new PDFGenerationException("Browser rendering was interrupted while generating the eForm PDF.", e);
+        } catch (IllegalArgumentException e) {
+            // Base-URL (or other configuration) validation rejected the resolved renderer target.
+            // This is a checked-contract configuration failure, not a transient render error: surface
+            // it as a PDFGenerationException so callers never have to catch an unchecked IAE that
+            // would otherwise escape this method's throws clause. Redacted — the message text is a
+            // fixed validation reason, but redactUrls guards against any future URL-bearing message.
+            logger.error("Browser eForm renderer rejected its base-URL configuration: {}", redactUrls(String.valueOf(e.getMessage())));
+            throw new PDFGenerationException("Browser renderer base URL configuration is invalid: " + e.getMessage());
         } catch (RuntimeException e) {
             // WebDriver exception messages can embed the loopback render URL (which carries the fdid
             // and render token). Log a redacted message at error, and keep the full exception for
@@ -652,6 +679,21 @@ public class EFormBrowserPdfService {
                         + "chromedriver.", e);
             }
         }
+        // Pre-validate the configured Chromium binary path (if any) with the same up-front,
+        // config-specific treatment as the chromedriver path above. A bad eform_pdf_browser_chromium_path
+        // must surface as a clear configuration error naming the property — not get swallowed by the
+        // broad sandbox-guarded catch below and misreported as a kernel/user-namespace problem that
+        // sends operators chasing the wrong fix.
+        String chromiumPath = resolveChromiumPath();
+        if (chromiumPath != null) {
+            try {
+                PathValidationUtils.validateConfiguredFile(chromiumPath, CHROME_PATH_PROPERTY);
+            } catch (RuntimeException e) {
+                throw new PDFGenerationException(
+                        "The configured " + CHROME_PATH_PROPERTY + " does not point to a usable Chromium "
+                        + "binary. Fix the property, or unset it to let Selenium resolve the browser.", e);
+            }
+        }
         try {
             if (chromedriver != null) {
                 ChromeDriverService service = new ChromeDriverService.Builder()
@@ -675,16 +717,23 @@ public class EFormBrowserPdfService {
             // The driver owns its internal default service here, so there is none to hold.
             return new RendererBrowser(new ChromeDriver(options, rendererClientConfig()), null);
         } catch (RuntimeException e) {
+            // The underlying startup failure (a version mismatch, a missing shared library, a sandbox
+            // that cannot start) is otherwise invisible: it is deliberately NOT chained into the
+            // PDFGenerationException below (a downstream logger could re-emit a path embedded in its
+            // message). Log the type, redacted message, and a frame-only stack summary here so an
+            // operator can actually diagnose the failure instead of seeing only the generic advice.
+            logger.error("Chromium startup failure detail: type={} error={} at={}",
+                    e.getClass().getName(), redactUrls(String.valueOf(e.getMessage())), stackSummary(e));
             if (!allowUnsandboxed()) {
-                // Fail closed: a sandboxed launch that cannot start (kernel without unprivileged
-                // user namespaces, or Chromium refusing the sandbox as root) must not degrade to
-                // --no-sandbox on its own. Tell the operator how to make containment real, or how
-                // to consciously accept container-level isolation instead.
+                // Fail closed: a sandboxed launch that cannot start must not degrade to --no-sandbox
+                // on its own. The message now admits the non-sandbox causes too (bad/missing browser
+                // or driver) so a misconfigured install is not misread as purely a namespace problem.
                 throw new PDFGenerationException(
                         "Unable to start the sandboxed headless Chromium renderer for eForms. "
-                        + "Enable unprivileged user namespaces and run the renderer as a non-root user so "
-                        + "Chromium's sandbox can start, or set EFORM_RENDER_ALLOW_UNSANDBOXED=true only when "
-                        + "the container itself provides isolation.", e);
+                        + "Common causes: missing or incompatible Chromium/chromedriver, or a kernel "
+                        + "without unprivileged user namespaces. If the browser installation is correct, "
+                        + "enable unprivileged user namespaces and run as a non-root user, or set "
+                        + "EFORM_RENDER_ALLOW_UNSANDBOXED=true only when the container itself provides isolation.", e);
             }
             throw new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.", e);
         }
@@ -1129,12 +1178,22 @@ public class EFormBrowserPdfService {
         }
     }
 
-    static boolean acquireRenderSlot(Semaphore slots, Duration wait) {
+    /**
+     * Outcome of competing for one of the bounded render slots: {@code ACQUIRED} within the wait,
+     * {@code TIMED_OUT} with every slot busy for the full wait, or {@code INTERRUPTED} when the
+     * waiting thread was interrupted (shutdown) before a slot was taken. Distinguishing the last two
+     * lets the caller give correct operator guidance — capacity load-shed (retry) versus an aborted
+     * render (no retry) — rather than collapsing both into a single boolean {@code false}.
+     */
+    enum SlotAcquisition { ACQUIRED, TIMED_OUT, INTERRUPTED }
+
+    static SlotAcquisition acquireRenderSlot(Semaphore slots, Duration wait) {
         try {
-            return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS);
+            return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
+                    ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return false;
+            return SlotAcquisition.INTERRUPTED;
         }
     }
 
