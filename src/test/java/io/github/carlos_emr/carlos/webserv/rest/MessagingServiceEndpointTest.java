@@ -30,7 +30,6 @@ import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.List;
 
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -123,7 +122,7 @@ class MessagingServiceEndpointTest extends CarlosRestTestBase {
             when(mockMessagingManager.getMyInboxMessageCount(any(LoggedInInfo.class), eq("999998"), anyBoolean()))
                 .thenReturn(5);
 
-            Response response = request().replaceHeader("Accept", "*/*").path("/messaging/count").get();
+            Response response = request().path("/messaging/count").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }

@@ -111,6 +111,7 @@ class FormsServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with available eforms when heading is not Completed")
         void shouldReturn200WithAvailableEForms_whenHeadingIsNotCompleted() {
             EForm eform = new EForm();
+            eform.setId(1);
             eform.setFormName("Referral Form");
             eform.setSubject("Specialist Referral");
 

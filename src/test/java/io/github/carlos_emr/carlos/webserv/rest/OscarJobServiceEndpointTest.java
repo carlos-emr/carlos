@@ -30,6 +30,7 @@ import java.util.List;
 
 import jakarta.ws.rs.core.Response;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -39,6 +40,7 @@ import org.mockito.Mock;
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 import io.github.carlos_emr.carlos.managers.OscarJobManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobResponse;
@@ -62,11 +64,21 @@ class OscarJobServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private OscarJobManager mockOscarJobManager;
 
+    @Mock
+    private SecurityInfoManager mockSecurityInfoManager;
+
     @Override
     protected Object getServiceBean() {
         OscarJobService service = new OscarJobService();
         injectDependency(service, "oscarJobManager", mockOscarJobManager);
+        injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
         return service;
+    }
+
+    @BeforeEach
+    void setUpSecurity() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
+            .thenReturn(true);
     }
 
     private OscarJobType createTestJobType(Integer id, String name, String className) {

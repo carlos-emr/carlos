@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
 import java.util.Collections;
 import java.util.List;
 
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.DisplayName;
@@ -76,7 +75,7 @@ class DemographicMergeServiceEndpointTest extends CarlosRestTestBase {
             when(mockDemographicManager.getMergedDemographics(any(LoggedInInfo.class), eq(100)))
                 .thenReturn(List.of(merged));
 
-            Response response = request().replaceHeader("Accept", "*/*").path("/demographics/merge/100").get();
+            Response response = request().path("/demographics/merge/100").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }
@@ -87,7 +86,7 @@ class DemographicMergeServiceEndpointTest extends CarlosRestTestBase {
             when(mockDemographicManager.getMergedDemographics(any(LoggedInInfo.class), eq(200)))
                 .thenReturn(Collections.emptyList());
 
-            Response response = request().replaceHeader("Accept", "*/*").path("/demographics/merge/200").get();
+            Response response = request().path("/demographics/merge/200").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }
@@ -100,7 +99,7 @@ class DemographicMergeServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 204 when merge succeeds")
         void shouldReturn204_whenMergeSucceeds() {
-            Response response = request().replaceHeader("Accept", "*/*").path("/demographics/merge/")
+            Response response = request().path("/demographics/merge/")
                 .query("parentId", 100)
                 .query("childId", 200)
                 .put(null);
@@ -117,7 +116,7 @@ class DemographicMergeServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 204 when unmerge succeeds")
         void shouldReturn204_whenUnmergeSucceeds() {
-            Response response = request().replaceHeader("Accept", "*/*").path("/demographics/merge/")
+            Response response = request().path("/demographics/merge/")
                 .query("parentId", 100)
                 .query("childsId", 200)
                 .delete();

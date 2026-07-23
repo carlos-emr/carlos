@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -121,6 +120,8 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
     void setUpSecurityDefaults() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), eq(42)))
+            .thenReturn(true);
     }
 
     private Demographic createTestDemographic(int id, String firstName, String lastName) {
@@ -149,7 +150,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(10)))
                 .thenReturn(List.of(demo));
 
-            Response response = request().replaceHeader("Accept", "*/*").path("/demographics")
+            Response response = request().path("/demographics")
                 .query("offset", 0)
                 .query("limit", 10)
                 .get();
@@ -165,7 +166,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             when(mockDemographicManager.getActiveDemographics(any(LoggedInInfo.class), eq(0), eq(0)))
                 .thenReturn(Collections.emptyList());
 
-            Response response = request().replaceHeader("Accept", "*/*").path("/demographics").get();
+            Response response = request().path("/demographics").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
         }
