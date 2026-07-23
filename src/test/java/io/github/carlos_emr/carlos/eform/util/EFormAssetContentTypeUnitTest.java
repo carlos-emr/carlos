@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EFormAssetContentTypeUnitTest {
 
     @ParameterizedTest
-    @CsvSource({"bg.png,image/png", "bg.PNG,image/png", "photo.JPeG,image/jpeg", "widget.js,text/javascript", "form.rtl,text/html"})
+    @CsvSource({"bg.png,image/png", "bg.PNG,image/png", "photo.JPeG,image/jpeg", "scan.jfif,image/jpeg", "widget.js,text/javascript", "form.rtl,text/html"})
     @DisplayName("should resolve allowlisted extensions case-insensitively")
     void shouldResolveAllowlistedType_forKnownExtensions(String fileName, String expected) {
         assertThat(EFormAssetContentType.forFilename(fileName)).contains(expected);

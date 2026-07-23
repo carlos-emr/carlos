@@ -197,6 +197,45 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getContentAsString()).isEqualTo("{\"ok\":true}");
         }
 
+        @Test
+        @DisplayName("should sandbox stored HTML assets served into the authenticated origin")
+        void shouldSandboxHtmlAsset_whenServedToAuthenticatedSession() throws Exception {
+            mockRequest.setParameter("imagefile", "legacy-help.html");
+            Files.writeString(tempDir.resolve("legacy-help.html"),
+                    "<html><body>help</body></html>", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentType()).startsWith("text/html");
+            // A stored asset served as text/html executes in the authenticated origin; the
+            // sandbox directive (no allow-* tokens) strips scripts/forms/origin while keeping
+            // passive embedding working — closing the stored-XSS channel without dropping
+            // legacy html/rtl assets from the allowlist.
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isEqualTo("sandbox");
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        }
+
+        @Test
+        @DisplayName("should set nosniff without a sandbox policy for passive image assets")
+        void shouldSetNosniffOnly_forPassiveImageAsset() throws Exception {
+            mockRequest.setParameter("imagefile", "bg.png");
+            Files.write(tempDir.resolve("bg.png"), new byte[] {1, 2, 3});
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentType()).isEqualTo("image/png");
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
+        }
+
 
         @Test
         @DisplayName("should return 404 when requested asset file is missing")

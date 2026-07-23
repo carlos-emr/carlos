@@ -86,6 +86,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
                 assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
                 assertThat(response.getContentType()).isEqualTo("image/png");
+                assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
                 assertThat(response.getHeader("Content-disposition")).isEqualTo("inline; filename=\"bg.png\"");
                 assertThat(response.getContentAsByteArray()).containsExactly(imageBytes);
             }

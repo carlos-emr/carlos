@@ -72,7 +72,7 @@ public final class EFormAssetContentType {
             Map.entry("bmp", "image/bmp"),
             Map.entry("cod", "image/cis-cod"),
             Map.entry("ief", "image/ief"),
-            Map.entry("jfif", "image/pipeg"),
+            Map.entry("jfif", IMAGE_JPEG),
             Map.entry("svg", "image/svg+xml"),
             Map.entry("tiff", "image/tiff"),
             Map.entry("tif", "image/tiff"),

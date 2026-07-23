@@ -175,6 +175,17 @@ public class DisplayImage2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     StreamData process(File file, String fileName) throws IOException {
         String contentType = resolveContentType(file);
+        // nosniff: the declared allowlist type is the contract; a browser second-guessing bytes
+        // into a scriptable type is never wanted on an asset route.
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        if (RequestNegotiation.isHtmlContentType(contentType)) {
+            // A stored eForm asset served as text/html executes in the authenticated origin —
+            // a stored-XSS channel if asset-upload rights are ever broader than admin. The
+            // sandbox directive (no allow-* tokens) strips scripts/forms/origin from the served
+            // document while keeping passive embedding working, so legacy html/rtl assets stay
+            // servable without staying scriptable.
+            response.setHeader("Content-Security-Policy", "sandbox");
+        }
         response.setContentType(contentType);
         response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
 

@@ -102,6 +102,9 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
+            // nosniff: the declared allowlist type is the contract; a browser second-guessing
+            // bytes into a scriptable type is never wanted on an asset route.
+            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setContentType(resolveContentType(file));
             response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
             try (InputStream stream = new FileInputStream(file)) {
