@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -298,6 +299,39 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(response.getContentAsByteArray()).isEmpty();
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should log redacted type-only diagnostics when the catch-all handles an unexpected error")
+    void shouldRedactUnexpectedErrors_whenCatchAllLogs() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            // The exception message embeds a tokenized render URL, as container/machinery
+            // exceptions can. The catch-all must log type + redacted message only — attaching the
+            // raw throwable would re-emit the live token into the logs while the grant is valid.
+            EFormValueDao explodingDao = mock(EFormValueDao.class);
+            when(explodingDao.findByFormDataId(4321))
+                    .thenThrow(new RuntimeException("boom at http://127.0.0.1/x?renderToken=SECRETTOKENVALUE"));
+            registerMock(EFormValueDao.class, explodingDao);
+            registerMock(DigitalSignatureManager.class, mock(DigitalSignatureManager.class));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            try (LogCapture logs = LogCapture.forLogger(EFormSignatureViewForPdfGenerationServlet.class)) {
+                new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
+                assertThat(logs.messages()).anyMatch(message -> message.contains("type=java.lang.RuntimeException"));
+                assertThat(logs.messages()).noneMatch(message -> message.contains("SECRETTOKENVALUE"));
+            }
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
         }

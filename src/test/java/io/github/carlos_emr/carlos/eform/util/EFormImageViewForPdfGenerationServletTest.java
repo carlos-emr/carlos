@@ -39,6 +39,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -422,6 +423,50 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             }
         } finally {
             deleteTree(tempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should log redacted type-only diagnostics when the catch-all handles an unexpected error")
+    void shouldRedactUnexpectedErrors_whenCatchAllLogs() throws Exception {
+        // The exception message embeds a tokenized render URL, as container/machinery exceptions
+        // can. The catch-all must log type + redacted message only — attaching the raw throwable
+        // would re-emit a live render token into the logs.
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull()))
+                .thenThrow(new RuntimeException("boom at http://127.0.0.1/x?renderToken=SECRETTOKENVALUE"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("imagefile", "bg.png");
+        installLoggedInInfo(request, "999998");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (LogCapture logs = LogCapture.forLogger(EFormImageViewForPdfGenerationServlet.class)) {
+            new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
+            assertThat(logs.messages()).anyMatch(message -> message.contains("type=java.lang.RuntimeException"));
+            assertThat(logs.messages()).noneMatch(message -> message.contains("SECRETTOKENVALUE"));
+        }
+    }
+
+    @Test
+    @DisplayName("should not attach the throwable when rejecting an invalid imagefile parameter")
+    void shouldNotAttachThrowable_whenRejectingInvalidImagefile() throws Exception {
+        // The wrapped FileValidationException's message can echo the caller-supplied imagefile
+        // value; the rejection WARN must carry only the servlet's own message text.
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("imagefile", "../bg.png");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (LogCapture logs = LogCapture.forLogger(EFormImageViewForPdfGenerationServlet.class)) {
+            new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
         }
     }
 

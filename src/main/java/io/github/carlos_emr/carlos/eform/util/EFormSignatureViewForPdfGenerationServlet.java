@@ -165,7 +165,13 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            logger.error("Unexpected error in EFormSignatureViewForPdfGenerationServlet", e);
+            // Same redaction contract as the renderer and render-page servlet: this route's
+            // request URL carries the live render token, and container/machinery exceptions can
+            // embed the request URI — log the type, a redacted message, and a frame-only stack
+            // summary, never the raw throwable.
+            logger.error("Unexpected error in EFormSignatureViewForPdfGenerationServlet: type={} error={} at={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");

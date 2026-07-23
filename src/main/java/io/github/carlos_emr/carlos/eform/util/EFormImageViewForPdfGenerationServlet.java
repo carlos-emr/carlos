@@ -112,15 +112,22 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         } catch (ServletException | IOException e) {
             throw e;
         } catch (IllegalArgumentException e) {
-            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
+            // Message-only: the wrapped FileValidationException's message can echo the
+            // caller-supplied imagefile value; this servlet's own message is safe to log.
+            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request: {}", e.getMessage());
             sendErrorQuietly(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage(),
                     "Unable to send bad-request response for EFormImageViewForPdfGenerationServlet");
         } catch (SecurityException e) {
-            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
+            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request: {}", e.getMessage());
             sendErrorQuietly(response, HttpServletResponse.SC_FORBIDDEN, e.getMessage(),
                     "Unable to send forbidden response for EFormImageViewForPdfGenerationServlet");
         } catch (Exception e) {
-            logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet", e);
+            // Same redaction contract as the renderer and render-page servlet: this route's
+            // request URL carries the live render token, and container/machinery exceptions can
+            // embed the request URI — never attach the raw throwable.
+            logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet: type={} error={} at={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e));
             sendErrorQuietly(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.",
                     "Unable to send internal-error response for EFormImageViewForPdfGenerationServlet");

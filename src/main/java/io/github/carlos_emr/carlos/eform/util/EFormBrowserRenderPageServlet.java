@@ -128,9 +128,12 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
         } catch (Exception e) {
             // Same redaction rule as the renderer: this route's request URL carries the fdid and
             // render token, and container/machinery exceptions can embed the request URI — log
-            // the type and a redacted message, never the raw throwable.
-            logger.error("Unexpected error in EFormBrowserRenderPageServlet: type={} error={}",
-                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            // the type and a redacted message, never the raw throwable. The frame-only stack
+            // summary is PHI-safe and keeps a message-less NPE diagnosable (no more "error=null"
+            // with zero frames).
+            logger.error("Unexpected error in EFormBrowserRenderPageServlet: type={} error={} at={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
