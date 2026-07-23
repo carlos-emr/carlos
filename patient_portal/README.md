@@ -73,6 +73,8 @@ export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_p
 # the development invite API.
 # Set PATIENT_PORTAL_IDENTITY_PROOF_SECRET to a 32+ character random value when
 # seeded invites must survive app restarts.
+# Set PATIENT_PORTAL_AUDIT_HASH_SECRET to a separate 32+ character random value
+# when activation throttling/audit hashes must survive app restarts.
 ```
 
 The default database URL targets local PostgreSQL because PostgreSQL is the intended MVP database.
@@ -84,10 +86,13 @@ Local development should explicitly set `PATIENT_PORTAL_ENVIRONMENT=development`
 
 `PATIENT_PORTAL_CLINIC_ID` defaults to `default`; set a stable clinic identifier before using a
 shared or persistent database so CARLOS `demographic_no` values are scoped correctly.
+If the same value is used in HL7 v2 messages, keep it to letters, numbers, dots, underscores, or
+hyphens, and 20 characters or fewer.
 
 Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`,
-`PATIENT_PORTAL_SESSION_SECRET`, and `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`. The internal readiness
-endpoint expects the health token as a Bearer token:
+`PATIENT_PORTAL_SESSION_SECRET`, `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`, and
+`PATIENT_PORTAL_AUDIT_HASH_SECRET`. The internal readiness endpoint expects the health token as a
+Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
@@ -153,6 +158,7 @@ curl -X POST http://127.0.0.1:8090/dev/admin/invites \
   }'
 
 curl -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
+  -H "X-CARLOS-Staff-Actor: Dr example" \
   http://127.0.0.1:8090/dev/admin/invites?demographic_no=1234
 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/resend \
@@ -175,8 +181,10 @@ cannot create invites that patients are unable to activate. The future CARLOS-ba
 should populate those proof hashes from CARLOS demographics instead of staff-entered JSON fields.
 The development API derives the staff actor from `X-CARLOS-Staff-Actor`; the production CARLOS
 integration should derive it from authenticated CARLOS provider context instead of client JSON.
-Creating a new pending invite for the same patient revokes older pending invites. Creating an invite
-after the patient already has a portal account returns a conflict.
+Creating a new pending invite for the same patient revokes older pending invites. Identity proof
+validation happens before older invites are revoked, so invalid replacement attempts leave the
+current pending invite usable. Creating an invite after the patient already has a portal account
+returns a conflict. Staff create, list, resend, and revoke actions write audit events.
 
 ## Patient Activation API
 
@@ -198,7 +206,8 @@ failure when they do not match. Usernames are normalized to lowercase and must b
 are hashed with Argon2id before storage.
 
 Activation requests must use `application/json` and are capped at 16 KiB before validation. Failed
-activation attempts are audited and rate-limited without storing raw HCN/HIN or date-of-birth values.
+activation attempts are audited and rate-limited without storing raw HCN/HIN, date-of-birth, or raw
+client address values. Client address hashes use `PATIENT_PORTAL_AUDIT_HASH_SECRET`.
 
 ## Interoperability Contract
 
@@ -207,7 +216,9 @@ data shape this portal slice owns against concrete FHIR and HL7 targets without 
 general-purpose exchange server:
 
 - FHIR target: R4 `Patient`, using `fhir.resources==5.1.1`.
-- HL7 v2 target: v2.5.1 ADT A04 patient-registration trigger using HL7apy validation.
+- HL7 v2 target: v2.5.1 ADT A04 patient-registration trigger using HL7apy validation. The message
+  emits CARLOS demographic number and HCN/HIN as repeated `PID-3` identifiers and emits email using
+  `PID-13` XTN email components.
 
 Future CARLOS integration work should reuse this module or replace it with a stricter CARLOS profile
 before exposing additional clinical exchange endpoints.

@@ -22,6 +22,7 @@ AUDIT_ACTOR_TYPE_PATIENT = "patient"
 AUDIT_ACTOR_TYPE_STAFF = "staff"
 AUDIT_EVENT_ACTIVATION = "activation"
 AUDIT_EVENT_INVITE_CREATE = "invite.create"
+AUDIT_EVENT_INVITE_LIST = "invite.list"
 AUDIT_EVENT_INVITE_RESEND = "invite.resend"
 AUDIT_EVENT_INVITE_REVOKE = "invite.revoke"
 AUDIT_OUTCOME_FAILURE = "failure"
@@ -259,7 +260,8 @@ class PatientPortalAuditEvent(Base):
         CheckConstraint(
             (
                 "event_type in "
-                "('activation', 'invite.create', 'invite.resend', 'invite.revoke')"
+                "('activation', 'invite.create', 'invite.list', "
+                "'invite.resend', 'invite.revoke')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),

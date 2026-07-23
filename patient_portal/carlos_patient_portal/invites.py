@@ -162,6 +162,9 @@ def create_invite(
     normalized_actor = normalize_staff_actor(actor)
     if not proof_secret or not proof_secret.strip():
         raise ValueError("proof_secret must not be blank")
+    proof_salt = create_proof_salt()
+    proof_hashes = build_identity_hashes(identity_proof, proof_secret, proof_salt)
+
     if patient_has_account(
         session,
         clinic_id=normalized_clinic_id,
@@ -181,8 +184,6 @@ def create_invite(
     ):
         raise AccountAlreadyExistsError()
 
-    proof_salt = create_proof_salt()
-    proof_hashes = build_identity_hashes(identity_proof, proof_secret, proof_salt)
     invite_token = create_invite_token()
     now = utc_now()
     invite = PatientPortalInvite(
@@ -202,8 +203,9 @@ def create_invite(
         **proof_hashes,
     )
     try:
-        session.add(invite)
-        session.flush()
+        with session.begin_nested():
+            session.add(invite)
+            session.flush()
     except IntegrityError as exc:
         raise PendingInviteExistsError() from exc
     record_audit_event(

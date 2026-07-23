@@ -28,7 +28,11 @@ from carlos_patient_portal.accounts import (
     UsernameUnavailableError,
     activate_patient_account,
 )
-from carlos_patient_portal.audit import UNKNOWN_CLIENT_REFERENCE, hash_sensitive_reference
+from carlos_patient_portal.audit import (
+    UNKNOWN_CLIENT_REFERENCE,
+    hash_sensitive_reference,
+    record_audit_event,
+)
 from carlos_patient_portal.config import Settings, get_settings
 from carlos_patient_portal.database import (
     check_database,
@@ -51,7 +55,12 @@ from carlos_patient_portal.invites import (
     resend_invite,
     revoke_invite,
 )
-from carlos_patient_portal.models import PatientPortalInvite
+from carlos_patient_portal.models import (
+    AUDIT_ACTOR_TYPE_STAFF,
+    AUDIT_EVENT_INVITE_LIST,
+    AUDIT_OUTCOME_SUCCESS,
+    PatientPortalInvite,
+)
 from carlos_patient_portal.schemas import (
     ActivationRequest,
     ActivationResponse,
@@ -304,6 +313,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.identity_proof_secret is not None
         else token_urlsafe(32)
     )
+    audit_hash_secret = (
+        settings.audit_hash_secret.get_secret_value()
+        if settings.audit_hash_secret is not None
+        else token_urlsafe(32)
+    )
     database_engine = create_portal_engine(settings.database_url)
     session_factory = create_session_factory(database_engine)
     activation_rate_limit = ActivationRateLimit(
@@ -472,7 +486,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session: Annotated[Session, Depends(get_app_database_session)],
     ) -> dict[str, str] | JSONResponse:
         client_reference_hash = hash_sensitive_reference(
-            csrf_secret,
+            audit_hash_secret,
             "activation_client",
             get_request_client_reference(request, settings),
         )
@@ -546,7 +560,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         @app.get("/dev/admin/invites", response_model=list[InviteResponse])
         def dev_list_invites(
-            _: Annotated[None, Depends(require_dev_admin_token)],
+            actor: Annotated[str, Depends(get_dev_admin_actor)],
             session: Annotated[Session, Depends(get_app_database_session)],
             demographic_no: Annotated[int | None, Query(gt=0)] = None,
             limit: Annotated[
@@ -555,15 +569,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ] = DEFAULT_INVITE_LIST_LIMIT,
             offset: Annotated[int, Query(ge=0)] = 0,
         ) -> list[dict[str, object]]:
+            invites = list_invites(
+                session,
+                demographic_no=demographic_no,
+                limit=limit,
+                offset=offset,
+                clinic_id=settings.clinic_id,
+            )
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_INVITE_LIST,
+                outcome=AUDIT_OUTCOME_SUCCESS,
+                actor_type=AUDIT_ACTOR_TYPE_STAFF,
+                actor=actor,
+                clinic_id=settings.clinic_id,
+                demographic_no=demographic_no,
+            )
             return [
                 invite_response_payload(invite)
-                for invite in list_invites(
-                    session,
-                    demographic_no=demographic_no,
-                    limit=limit,
-                    offset=offset,
-                    clinic_id=settings.clinic_id,
-                )
+                for invite in invites
             ]
 
         @app.post("/dev/admin/invites/{invite_id}/resend", response_model=InviteTokenResponse)

@@ -43,6 +43,7 @@ from carlos_patient_portal.invites import (
 from carlos_patient_portal.models import (
     AUDIT_EVENT_ACTIVATION,
     AUDIT_EVENT_INVITE_CREATE,
+    AUDIT_EVENT_INVITE_LIST,
     AUDIT_EVENT_INVITE_RESEND,
     AUDIT_EVENT_INVITE_REVOKE,
     AUDIT_OUTCOME_FAILURE,
@@ -59,6 +60,7 @@ from carlos_patient_portal.models import (
 
 NON_DEVELOPMENT_SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
 IDENTITY_PROOF_SECRET = "i" * MIN_PRODUCTION_SECRET_LENGTH
+AUDIT_HASH_SECRET = "a" * MIN_PRODUCTION_SECRET_LENGTH
 INTERNAL_HEALTH_TOKEN = "h" * MIN_PRODUCTION_SECRET_LENGTH
 WRONG_INTERNAL_HEALTH_TOKEN = "w" * MIN_PRODUCTION_SECRET_LENGTH
 DEV_ADMIN_TOKEN = "d" * MIN_PRODUCTION_SECRET_LENGTH
@@ -81,6 +83,7 @@ def migrated_development_app(**overrides: object) -> main.FastAPI:
         "enable_dev_admin": True,
         "dev_admin_token": DEV_ADMIN_TOKEN,
         "identity_proof_secret": IDENTITY_PROOF_SECRET,
+        "audit_hash_secret": AUDIT_HASH_SECRET,
         **overrides,
     }
     app = main.create_app(development_settings(**settings_values))
@@ -175,6 +178,7 @@ def test_health_endpoint_is_minimal() -> None:
             environment="staging",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -227,6 +231,7 @@ def test_production_responses_include_hsts() -> None:
             environment="production",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -243,6 +248,7 @@ def test_non_development_csrf_cookie_is_secure() -> None:
             environment="staging",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -425,6 +431,7 @@ def test_api_docs_are_disabled_outside_development() -> None:
             environment="staging",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -440,6 +447,7 @@ def test_api_docs_are_disabled_in_production() -> None:
             environment="production",
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -582,6 +590,29 @@ def test_new_invite_replaces_older_pending_invite_for_patient() -> None:
 
     assert old_activation_response.status_code == 400
     assert latest_activation_response.status_code == 201
+
+
+def test_invalid_replacement_invite_does_not_revoke_existing_pending_invite() -> None:
+    app = migrated_development_app()
+    with app.state.session_factory() as session:
+        pending_invite, _ = create_service_invite(session)
+        session.commit()
+
+        with pytest.raises(ValueError, match="email"):
+            create_invite(
+                session,
+                1234,
+                "Admin example",
+                identity_proof=seeded_identity_proof(email="not-an-email"),
+                proof_secret=IDENTITY_PROOF_SECRET,
+            )
+
+        persisted_invite = session.get(PatientPortalInvite, pending_invite.id)
+
+        assert persisted_invite is not None
+        assert persisted_invite.status == INVITE_STATUS_PENDING
+        assert persisted_invite.revoked_at is None
+        assert persisted_invite.revoked_by is None
 
 
 def test_patient_activation_creates_account_from_seeded_invite() -> None:
@@ -873,7 +904,7 @@ def test_patient_activation_rate_limits_failed_attempts() -> None:
     assert throttled_response.status_code == 429
     assert throttled_response.headers["retry-after"] == "3600"
     expected_client_hash = hash_sensitive_reference(
-        NON_DEVELOPMENT_SESSION_SECRET,
+        AUDIT_HASH_SECRET,
         "activation_client",
         "testclient",
     )
@@ -914,7 +945,7 @@ def test_patient_activation_rate_limit_can_use_trusted_proxy_header() -> None:
 
     assert response.status_code == 400
     expected_client_hash = hash_sensitive_reference(
-        NON_DEVELOPMENT_SESSION_SECRET,
+        AUDIT_HASH_SECRET,
         "activation_client",
         "203.0.113.7",
     )
@@ -999,6 +1030,7 @@ def test_dev_admin_invites_are_hidden_outside_development() -> None:
             enable_dev_admin=True,
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
     )
@@ -1152,6 +1184,38 @@ def test_invite_lifecycle_writes_audit_events() -> None:
             (AUDIT_EVENT_INVITE_RESEND, AUDIT_OUTCOME_SUCCESS),
             (AUDIT_EVENT_INVITE_REVOKE, AUDIT_OUTCOME_SUCCESS),
         ]
+
+
+def test_invite_list_writes_audit_event() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(actor="Dr example"),
+        json=seeded_invite_request(),
+    )
+
+    list_response = client.get(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(actor="Admin example"),
+        params={"demographic_no": 1234},
+    )
+
+    assert create_response.status_code == 201
+    assert list_response.status_code == 200
+    with app.state.session_factory() as session:
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent).order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert [(event.event_type, event.outcome) for event in audit_events] == [
+            (AUDIT_EVENT_INVITE_CREATE, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_INVITE_LIST, AUDIT_OUTCOME_SUCCESS),
+        ]
+        assert audit_events[-1].actor == "Admin example"
+        assert audit_events[-1].demographic_no == 1234
 
 
 def test_invite_status_constraints_require_matching_metadata() -> None:
@@ -1319,8 +1383,44 @@ def test_interop_helpers_build_valid_fhir_r4_and_hl7_v251_patient_identity() -> 
     assert fhir_patient["name"][0]["family"] == "Patient"
     assert HL7_V2_VERSION == "2.5.1"
     assert "MSH|^~\\&|CARLOS|default|CARLOSPORTAL|default" in hl7_message
+    assert "PID|||1234^^^default^MR~ABCD12345678^^^CARLOSHCN^JHN" in hl7_message
+    assert "^NET^Internet^example.patient@example.com" in hl7_message
     assert "ADT^A04^ADT_A01" in hl7_message
     assert validate_hl7_v251_message(hl7_message) == hl7_message
+
+
+def test_hl7_patient_identity_rejects_unsafe_hl7_values() -> None:
+    identity = PortalPatientInteroperabilityIdentity(
+        clinic_id="clinic-with-a-very-long-id-over-twenty-chars",
+        demographic_no=1234,
+        email=SEEDED_INVITE_EMAIL,
+        date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+        health_card_number=SEEDED_INVITE_HCN,
+        family_name="Patient",
+        given_name="Example",
+    )
+    email_with_separator = PortalPatientInteroperabilityIdentity(
+        clinic_id="default",
+        demographic_no=1234,
+        email="a&b@example.com",
+        date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+        health_card_number=SEEDED_INVITE_HCN,
+        family_name="Patient",
+        given_name="Example",
+    )
+
+    with pytest.raises(ValueError, match="clinic_id"):
+        build_hl7_v251_patient_registration(
+            identity,
+            message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+            message_control_id="MSG0001",
+        )
+    with pytest.raises(ValueError, match="email"):
+        build_hl7_v251_patient_registration(
+            email_with_separator,
+            message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+            message_control_id="MSG0001",
+        )
 
 
 def test_session_scope_commits_success_and_rolls_back_failure() -> None:
@@ -1351,6 +1451,7 @@ def test_environment_aliases_are_normalized() -> None:
         environment=" prod ",
         session_secret=NON_DEVELOPMENT_SESSION_SECRET,
         identity_proof_secret=IDENTITY_PROOF_SECRET,
+        audit_hash_secret=AUDIT_HASH_SECRET,
         internal_health_token=INTERNAL_HEALTH_TOKEN,
     )
 
@@ -1449,6 +1550,16 @@ def test_non_development_rejects_missing_identity_proof_secret() -> None:
         )
 
 
+def test_non_development_rejects_missing_audit_hash_secret() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_AUDIT_HASH_SECRET"):
+        Settings(
+            environment="staging",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+
+
 def test_internal_health_token_must_be_long_when_configured() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN"):
         development_settings(internal_health_token="short")
@@ -1457,6 +1568,11 @@ def test_internal_health_token_must_be_long_when_configured() -> None:
 def test_identity_proof_secret_must_be_long_when_configured() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_IDENTITY_PROOF_SECRET"):
         development_settings(identity_proof_secret="short")
+
+
+def test_audit_hash_secret_must_be_long_when_configured() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_AUDIT_HASH_SECRET"):
+        development_settings(audit_hash_secret="short")
 
 
 def test_dev_admin_token_must_be_long_when_configured() -> None:

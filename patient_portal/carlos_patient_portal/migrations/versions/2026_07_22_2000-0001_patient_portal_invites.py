@@ -215,7 +215,10 @@ def upgrade() -> None:
             name="ck_patient_portal_audit_events_demographic_no_positive",
         ),
         sa.CheckConstraint(
-            "event_type in ('activation', 'invite.create', 'invite.resend', 'invite.revoke')",
+            (
+                "event_type in ('activation', 'invite.create', 'invite.list', "
+                "'invite.resend', 'invite.revoke')"
+            ),
             name="ck_patient_portal_audit_events_event_type",
         ),
         sa.CheckConstraint(

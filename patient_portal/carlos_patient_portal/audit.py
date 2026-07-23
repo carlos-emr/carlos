@@ -106,21 +106,6 @@ def summarize_recent_activation_failures(
     )
 
 
-def count_recent_activation_failures(
-    session: Session,
-    *,
-    since: datetime,
-    invite_token_hash: str | None = None,
-    client_reference_hash: str | None = None,
-) -> int:
-    return summarize_recent_activation_failures(
-        session,
-        since=since,
-        invite_token_hash=invite_token_hash,
-        client_reference_hash=client_reference_hash,
-    ).count
-
-
 def record_activation_failure(
     session: Session,
     *,
