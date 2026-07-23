@@ -204,6 +204,9 @@ public final class PDFSigningUtil {
     }
 
     private static void ensureBouncyCastleProvider() {
+        // Registering BouncyCastle is a process-wide, permanent JCE side effect: it mutates the JVM
+        // security provider list for the whole application, not just this class. The presence check
+        // keeps it idempotent so concurrent/repeat signing calls do not re-register the provider.
         if (Security.getProvider(PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }

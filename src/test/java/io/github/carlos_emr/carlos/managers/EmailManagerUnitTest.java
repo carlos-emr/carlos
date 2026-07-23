@@ -10,11 +10,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -30,11 +34,13 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 
 @Tag("unit")
 @Tag("security")
@@ -103,13 +109,39 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailData.setEncryptedMessage("Protected message");
         emailData.setPassword("");
 
-        Method encryptEmail = EmailManager.class.getDeclaredMethod("encryptEmail", EmailData.class);
+        Method encryptEmail = EmailManager.class.getDeclaredMethod("encryptEmail", EmailData.class, List.class);
         encryptEmail.setAccessible(true);
 
-        assertThatThrownBy(() -> encryptEmail.invoke(emailManager, emailData))
+        assertThatThrownBy(() -> encryptEmail.invoke(emailManager, emailData, new ArrayList<Path>()))
                 .isInstanceOf(InvocationTargetException.class)
                 .hasCauseInstanceOf(EmailSendingException.class)
                 .hasRootCauseMessage("PDF encryption password is required");
+    }
+
+    @Test
+    @DisplayName("should delete only temp files inside an allowed temp directory")
+    void shouldDeleteOnlyTempFiles_insideAllowedTempDirectory() throws Exception {
+        EmailManager emailManager = new EmailManager();
+        Method deleteDisposableTempFiles = EmailManager.class.getDeclaredMethod(
+                "deleteDisposableTempFiles", List.class);
+        deleteDisposableTempFiles.setAccessible(true);
+
+        Path allowedTempPdf = Files.createTempFile("emailCleanupAllowed", ".pdf");
+        Path protectedPdf = Files.createTempFile("emailCleanupProtected", ".pdf");
+        try (MockedStatic<PathValidationUtils> pathValidation = mockStatic(PathValidationUtils.class)) {
+            pathValidation.when(() -> PathValidationUtils.isInAllowedTempDirectory(allowedTempPdf.toFile()))
+                    .thenReturn(true);
+            pathValidation.when(() -> PathValidationUtils.isInAllowedTempDirectory(protectedPdf.toFile()))
+                    .thenReturn(false);
+
+            deleteDisposableTempFiles.invoke(emailManager, List.of(allowedTempPdf, protectedPdf));
+
+            assertThat(Files.exists(allowedTempPdf)).isFalse();
+            assertThat(Files.exists(protectedPdf)).isTrue();
+        } finally {
+            Files.deleteIfExists(allowedTempPdf);
+            Files.deleteIfExists(protectedPdf);
+        }
     }
 
     @Test

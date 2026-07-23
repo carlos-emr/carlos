@@ -320,9 +320,7 @@ public class EmailSend2Action extends ActionSupport {
     }
 
     private EmailLog.TransactionType resolveTransactionType(String transactionType) {
-        EmailData emailData = new EmailData();
-        emailData.setTransactionType(transactionType);
-        return emailData.getTransactionType();
+        return EmailData.parseTransactionType(transactionType);
     }
 
     private static final class EmailComposeStateException extends RuntimeException {

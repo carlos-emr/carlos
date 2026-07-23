@@ -383,16 +383,26 @@ public class EmailData {
      *                       (including null) which defaults to DIRECT
      */
     public void setTransactionType(String transactionType) {
+        this.transactionType = parseTransactionType(transactionType);
+    }
+
+    /**
+     * Parses a transaction type string without allocating an {@link EmailData} instance.
+     *
+     * @param transactionType String one of "EFORM", "CONSULTATION", "TICKLER", or any other value
+     *                       (including null) which defaults to DIRECT
+     * @return TransactionType the matching transaction type, or DIRECT when null or unrecognized
+     */
+    public static TransactionType parseTransactionType(String transactionType) {
         if (transactionType == null) {
-            transactionType = TransactionType.DIRECT.name();
+            return TransactionType.DIRECT;
         }
         for (TransactionType candidate : TransactionType.values()) {
             if (equalsAsciiIgnoreCase(transactionType, candidate.name())) {
-                this.transactionType = candidate;
-                return;
+                return candidate;
             }
         }
-        this.transactionType = TransactionType.DIRECT;
+        return TransactionType.DIRECT;
     }
 
     /**
