@@ -64,7 +64,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *       {@link NioFileManagerImpl#resolveDocumentCacheDirectory()}) &mdash; the backstop for the
  *       flush-vs-writer race: a cancelled preview whose render lands after a successful
  *       {@code removeCacheVersions} flush can leave one PHI-bearing page PNG behind. Stale
- *       {@code *.png} files older than the configured max age are removed.</li>
+ *       {@code *.png} page images and {@code *.png.tmp} atomic-move partials (orphaned when a
+ *       crash lands between {@code createCacheVersion2}'s temp write and its move into place)
+ *       older than the configured max age are removed.</li>
  * </ol>
  *
  * <p><strong>Scheduling:</strong> modeled on {@code FaxSchedulerJob} &mdash; a daemon {@link Timer}
@@ -97,6 +99,9 @@ public class ApplicationTempPurgeJob {
     private static final long INITIAL_DELAY_MS = 3000L;
 
     private static final String CACHE_IMAGE_SUFFIX = ".png";
+    // createCacheVersion2's atomic-move staging suffix: a crash between createTempFile and the
+    // move orphans a PHI-bearing partial that removeCacheVersions deliberately never matches.
+    private static final String CACHE_PARTIAL_SUFFIX = CACHE_IMAGE_SUFFIX + ".tmp";
 
     private final NioFileManagerImpl nioFileManagerImpl;
 
@@ -295,7 +300,11 @@ public class ApplicationTempPurgeJob {
     }
 
     private static boolean isCacheImageCandidate(Path entry) {
-        return Files.isRegularFile(entry) && entry.getFileName().toString().endsWith(CACHE_IMAGE_SUFFIX);
+        if (!Files.isRegularFile(entry)) {
+            return false;
+        }
+        String name = entry.getFileName().toString();
+        return name.endsWith(CACHE_IMAGE_SUFFIX) || name.endsWith(CACHE_PARTIAL_SUFFIX);
     }
 
     private static PurgeOutcome sweep(Path root, Instant cutoff, Predicate<Path> candidateFilter) {

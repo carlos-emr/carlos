@@ -211,4 +211,31 @@ class ApplicationTempPurgeJobUnitTest {
         assertThat(outcome.skipped()).isZero();
         assertThat(outcome.failed()).isZero();
     }
+
+    @Test
+    @DisplayName("Removes expired .png.tmp atomic-move partials from the preview cache directory")
+    void shouldRemoveExpiredPngTmpPartials_fromPreviewCacheDirectory() throws IOException {
+        Instant now = Instant.now();
+        Instant old = now.minus(48, ChronoUnit.HOURS);
+        Instant fresh = now.minus(1, ChronoUnit.HOURS);
+        Instant cutoff = now.minus(24, ChronoUnit.HOURS);
+
+        // A crash between createCacheVersion2's createTempFile and its atomic move orphans a
+        // PHI-bearing .png.tmp partial that removeCacheVersions deliberately never matches —
+        // this sweep is the only cleanup path such a partial has.
+        Path oldPartial = Files.createFile(tempRoot.resolve("scoped_1234.png.tmp"));
+        setLastModified(oldPartial, old);
+
+        Path freshPartial = Files.createFile(tempRoot.resolve("scoped_5678.png.tmp"));
+        setLastModified(freshPartial, fresh);
+
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredCacheImages(tempRoot, cutoff);
+
+        assertThat(Files.exists(oldPartial)).as("expired .png.tmp partial should be removed").isFalse();
+        assertThat(Files.exists(freshPartial)).as("fresh .png.tmp partial should be retained").isTrue();
+
+        assertThat(outcome.removed()).isEqualTo(1);
+        assertThat(outcome.skipped()).isZero();
+        assertThat(outcome.failed()).isZero();
+    }
 }
