@@ -57,6 +57,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_PASSWORD_RESET_REQUEST,
     AUDIT_EVENT_SESSION_LOGOUT,
     AUDIT_EVENT_UNLOCK_SECRET_CREATE,
+    AUDIT_EVENT_UNLOCK_SECRET_LIST,
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_EVENT_UNLOCK_SECRET_REVOKE,
     AUDIT_OUTCOME_FAILURE,
@@ -69,6 +70,7 @@ from carlos_patient_portal.models import (
     UNLOCK_SECRET_NONCE_LENGTH,
     UNLOCK_SECRET_STATUS_REVOKED,
     UNLOCK_SECRET_TYPE_EMAIL,
+    UNLOCK_SECRET_TYPE_PDF,
     PatientPortalAccount,
     PatientPortalAuditEvent,
     PatientPortalInvite,
@@ -288,6 +290,34 @@ def browser_sign_in_seeded_patient(app: main.FastAPI, client: TestClient) -> int
     assert "Path=/portal" in set_cookie_header
     assert "SameSite=strict" in set_cookie_header
     return account_id
+
+
+def sign_in_patient_api_session(
+    client: TestClient,
+    *,
+    username: str = "patient.user",
+    password: str = STRONG_PASSWORD,
+) -> str:
+    login_response = client.post(
+        "/auth/login",
+        json={"username": username, "password": password},
+    )
+    assert login_response.status_code == 200
+    login_payload = login_response.json()
+    verify_response = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": login_payload["mfa_challenge_token"],
+            "code": login_payload["development_mfa_code"],
+        },
+    )
+
+    assert verify_response.status_code == 200
+    return str(verify_response.json()["session_token"])
+
+
+def bearer_headers(session_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {session_token}"}
 
 
 def test_health_endpoint_is_minimal() -> None:
@@ -2204,6 +2234,217 @@ def test_unlock_secret_lifecycle_encrypts_decrypts_revokes_and_audits() -> None:
                 actor="patient.user",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             )
+
+
+def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_a_id = activate_seeded_patient_account(app, client)
+    account_b_id = activate_seeded_patient_account(
+        app,
+        client,
+        username="other.patient",
+        demographic_no=5678,
+        email="other.patient@example.com",
+        health_card_number="WXYZ 9876-5432",
+    )
+    patient_a_token = sign_in_patient_api_session(client)
+    raw_secret_a = "AlphaEmail9!"
+    raw_secret_b = "BetaEmail9!"
+    raw_secret_revoked = "RevokedEmail9!"
+    raw_secret_pdf = "PdfEmail9!"
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            created_a = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_a_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret_a,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="Specialist reply",
+                source_reference="message-3135",
+            )
+            created_b = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=5678,
+                account_id=account_b_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret_b,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="Other patient reply",
+                source_reference="message-3136",
+            )
+            created_revoked = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_a_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret_revoked,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="Revoked reply",
+                source_reference="message-3137",
+            )
+            created_pdf = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_a_id,
+                secret_type=UNLOCK_SECRET_TYPE_PDF,
+                secret=raw_secret_pdf,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="PDF password",
+                source_reference="document-3138",
+            )
+            revoke_unlock_secret(
+                session,
+                created_revoked.unlock_secret.id,
+                clinic_id="default",
+                demographic_no=1234,
+                revoked_by="Dr example",
+                reason="staff_requested",
+            )
+            active_a_id = created_a.unlock_secret.id
+            other_patient_id = created_b.unlock_secret.id
+            revoked_id = created_revoked.unlock_secret.id
+            pdf_id = created_pdf.unlock_secret.id
+
+    list_response = client.get(
+        "/api/patient/email-passwords",
+        headers=bearer_headers(patient_a_token),
+    )
+    retrieve_response = client.get(
+        f"/api/patient/email-passwords/{active_a_id}",
+        headers=bearer_headers(patient_a_token),
+    )
+    cross_patient_response = client.get(
+        f"/api/patient/email-passwords/{other_patient_id}",
+        headers=bearer_headers(patient_a_token),
+    )
+    revoked_response = client.get(
+        f"/api/patient/email-passwords/{revoked_id}",
+        headers=bearer_headers(patient_a_token),
+    )
+    pdf_response = client.get(
+        f"/api/patient/email-passwords/{pdf_id}",
+        headers=bearer_headers(patient_a_token),
+    )
+
+    assert list_response.status_code == 200
+    assert list_response.headers["cache-control"] == "no-store"
+    list_payload = list_response.json()
+    assert list_payload["limit"] == 10
+    assert list_payload["offset"] == 0
+    assert [item["id"] for item in list_payload["items"]] == [active_a_id]
+    assert list_payload["items"][0]["label"] == "Specialist reply"
+    assert list_payload["items"][0]["source_reference"] == "message-3135"
+    assert all(
+        raw_secret not in list_response.text
+        for raw_secret in [raw_secret_a, raw_secret_b, raw_secret_revoked, raw_secret_pdf]
+    )
+
+    assert retrieve_response.status_code == 200
+    retrieve_payload = retrieve_response.json()
+    assert retrieve_payload["id"] == active_a_id
+    assert retrieve_payload["label"] == "Specialist reply"
+    assert retrieve_payload["source_reference"] == "message-3135"
+    assert retrieve_payload["passphrase"] == raw_secret_a
+    assert raw_secret_b not in retrieve_response.text
+    assert raw_secret_revoked not in retrieve_response.text
+    assert raw_secret_pdf not in retrieve_response.text
+
+    for unavailable_response in [cross_patient_response, revoked_response, pdf_response]:
+        assert unavailable_response.status_code == 404
+        assert unavailable_response.json()["detail"] == "email password not found"
+        assert raw_secret_b not in unavailable_response.text
+        assert raw_secret_revoked not in unavailable_response.text
+        assert raw_secret_pdf not in unavailable_response.text
+
+    with app.state.session_factory() as session:
+        active_secret = session.get(PatientPortalUnlockSecret, active_a_id)
+        other_patient_secret = session.get(PatientPortalUnlockSecret, other_patient_id)
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(
+                    PatientPortalAuditEvent.event_type.in_(
+                        [
+                            AUDIT_EVENT_UNLOCK_SECRET_LIST,
+                            AUDIT_EVENT_UNLOCK_SECRET_READ,
+                        ]
+                    )
+                )
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert active_secret is not None
+        assert active_secret.last_viewed_at is not None
+        assert other_patient_secret is not None
+        assert other_patient_secret.last_viewed_at is None
+        assert [
+            (event.event_type, event.outcome, event.account_id, event.demographic_no, event.reason)
+            for event in audit_events
+        ] == [
+            (AUDIT_EVENT_UNLOCK_SECRET_LIST, AUDIT_OUTCOME_SUCCESS, account_a_id, 1234, None),
+            (AUDIT_EVENT_UNLOCK_SECRET_READ, AUDIT_OUTCOME_SUCCESS, account_a_id, 1234, None),
+            (
+                AUDIT_EVENT_UNLOCK_SECRET_READ,
+                AUDIT_OUTCOME_FAILURE,
+                account_a_id,
+                1234,
+                "not_available",
+            ),
+            (
+                AUDIT_EVENT_UNLOCK_SECRET_READ,
+                AUDIT_OUTCOME_FAILURE,
+                account_a_id,
+                1234,
+                "not_available",
+            ),
+            (
+                AUDIT_EVENT_UNLOCK_SECRET_READ,
+                AUDIT_OUTCOME_FAILURE,
+                account_a_id,
+                1234,
+                "not_available",
+            ),
+        ]
+
+
+def test_patient_email_password_api_requires_session_and_valid_pagination() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    patient_token = sign_in_patient_api_session(client)
+    auth_headers = bearer_headers(patient_token)
+
+    unauthenticated_response = client.get("/api/patient/email-passwords")
+    too_small_limit_response = client.get(
+        "/api/patient/email-passwords?limit=0",
+        headers=auth_headers,
+    )
+    too_large_limit_response = client.get(
+        "/api/patient/email-passwords?limit=101",
+        headers=auth_headers,
+    )
+    negative_offset_response = client.get(
+        "/api/patient/email-passwords?offset=-1",
+        headers=auth_headers,
+    )
+
+    assert unauthenticated_response.status_code == 401
+    assert too_small_limit_response.status_code == 422
+    assert too_large_limit_response.status_code == 422
+    assert negative_offset_response.status_code == 422
 
 
 def test_unlock_secret_decryption_rejects_wrong_encryption_secret() -> None:

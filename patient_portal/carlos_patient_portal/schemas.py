@@ -183,6 +183,25 @@ class LogoutResponse(BaseModel):
     status: Literal["logged_out"]
 
 
+class EmailPasswordRecordResponse(BaseModel):
+    id: int
+    label: str | None
+    source_reference: str | None
+    created_at: datetime
+    updated_at: datetime
+    last_viewed_at: datetime | None
+
+
+class EmailPasswordListResponse(BaseModel):
+    items: list[EmailPasswordRecordResponse]
+    limit: int
+    offset: int
+
+
+class EmailPasswordSecretResponse(EmailPasswordRecordResponse):
+    passphrase: str = Field(repr=False)
+
+
 class AccountAdminResponse(BaseModel):
     id: int
     clinic_id: str

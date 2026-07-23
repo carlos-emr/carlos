@@ -81,16 +81,24 @@ from carlos_patient_portal.invites import (
     revoke_invite,
 )
 from carlos_patient_portal.models import (
+    AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_INVITE_LIST,
+    AUDIT_EVENT_UNLOCK_SECRET_LIST,
+    AUDIT_EVENT_UNLOCK_SECRET_READ,
+    AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
+    UNLOCK_SECRET_TYPE_EMAIL,
     PatientPortalAccount,
     PatientPortalInvite,
+    PatientPortalUnlockSecret,
 )
 from carlos_patient_portal.schemas import (
     AccountAdminResponse,
     ActivationRequest,
     ActivationResponse,
+    EmailPasswordListResponse,
+    EmailPasswordSecretResponse,
     InviteCreateRequest,
     InviteResponse,
     InviteTokenResponse,
@@ -106,6 +114,15 @@ from carlos_patient_portal.schemas import (
     PasswordResetRequest,
     PasswordResetRequestResponse,
     SessionResponse,
+)
+from carlos_patient_portal.unlock_secrets import (
+    DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
+    MAX_UNLOCK_SECRET_LIST_LIMIT,
+    UnlockSecretNotFoundError,
+    UnlockSecretRevokedError,
+    get_scoped_unlock_secret,
+    list_unlock_secrets,
+    read_unlock_secret,
 )
 
 PACKAGE_DIR = FilePath(__file__).resolve().parent
@@ -336,6 +353,30 @@ def account_admin_response_payload(account: PatientPortalAccount) -> dict[str, o
         "locked_at": account.locked_at,
         "force_password_reset": account.force_password_reset,
         "failed_login_count": account.failed_login_count,
+    }
+
+
+def email_password_record_response_payload(
+    unlock_secret: PatientPortalUnlockSecret,
+) -> dict[str, object]:
+    return {
+        "id": unlock_secret.id,
+        "label": unlock_secret.label,
+        "source_reference": unlock_secret.source_reference,
+        "created_at": unlock_secret.created_at,
+        "updated_at": unlock_secret.updated_at,
+        "last_viewed_at": unlock_secret.last_viewed_at,
+    }
+
+
+def email_password_secret_response_payload(
+    unlock_secret: PatientPortalUnlockSecret,
+    *,
+    passphrase: str,
+) -> dict[str, object]:
+    return {
+        **email_password_record_response_payload(unlock_secret),
+        "passphrase": passphrase,
     }
 
 
@@ -759,6 +800,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if (
             request.url.path in NO_STORE_PATHS
             or request.url.path.startswith("/auth/")
+            or request.url.path.startswith("/api/patient/")
             or is_portal_path(request.url.path)
             or request.url.path.startswith("/internal/")
             or request.url.path.startswith("/dev/admin/")
@@ -1172,6 +1214,94 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "clinic_id": account.clinic_id,
             "demographic_no": account.demographic_no,
         }
+
+    @app.get("/api/patient/email-passwords", response_model=EmailPasswordListResponse)
+    def list_patient_email_passwords(
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_portal_session),
+        ],
+        session: Annotated[Session, Depends(get_app_database_session)],
+        limit: Annotated[
+            int,
+            Query(ge=1, le=MAX_UNLOCK_SECRET_LIST_LIMIT),
+        ] = DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> dict[str, object]:
+        account = authenticated_session.account
+        records = list_unlock_secrets(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            limit=limit,
+            offset=offset,
+        )
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_UNLOCK_SECRET_LIST,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            account_id=account.id,
+        )
+        return {
+            "items": [email_password_record_response_payload(record) for record in records],
+            "limit": limit,
+            "offset": offset,
+        }
+
+    @app.get(
+        "/api/patient/email-passwords/{email_password_id}",
+        response_model=EmailPasswordSecretResponse,
+    )
+    def retrieve_patient_email_password(
+        email_password_id: Annotated[int, PathParam(gt=0)],
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_portal_session),
+        ],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response | dict[str, object]:
+        account = authenticated_session.account
+        try:
+            passphrase = read_unlock_secret(
+                session,
+                email_password_id,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                audit_account_id=account.id,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                actor=account.username,
+                encryption_secret=unlock_secret_encryption_secret,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            )
+            unlock_secret = get_scoped_unlock_secret(
+                session,
+                email_password_id,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            )
+        except (UnlockSecretNotFoundError, UnlockSecretRevokedError):
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                actor=account.username,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                account_id=account.id,
+                reason="not_available",
+            )
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"detail": "email password not found"},
+            )
+        return email_password_secret_response_payload(unlock_secret, passphrase=passphrase)
 
     @app.post("/auth/logout", response_model=LogoutResponse)
     def logout(

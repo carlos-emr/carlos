@@ -506,7 +506,8 @@ def upgrade() -> None:
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.request', 'session.logout', "
-                "'unlock_secret.create', 'unlock_secret.read', 'unlock_secret.revoke')"
+                "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
+                "'unlock_secret.revoke')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),

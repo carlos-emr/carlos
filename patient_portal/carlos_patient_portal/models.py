@@ -37,6 +37,7 @@ AUDIT_EVENT_PASSWORD_RESET_COMPLETE = "password_reset.complete"
 AUDIT_EVENT_PASSWORD_RESET_REQUEST = "password_reset.request"
 AUDIT_EVENT_SESSION_LOGOUT = "session.logout"
 AUDIT_EVENT_UNLOCK_SECRET_CREATE = "unlock_secret.create"
+AUDIT_EVENT_UNLOCK_SECRET_LIST = "unlock_secret.list"
 AUDIT_EVENT_UNLOCK_SECRET_READ = "unlock_secret.read"
 AUDIT_EVENT_UNLOCK_SECRET_REVOKE = "unlock_secret.revoke"
 AUDIT_OUTCOME_FAILURE = "failure"
@@ -659,7 +660,8 @@ class PatientPortalAuditEvent(Base):
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.request', 'session.logout', "
-                "'unlock_secret.create', 'unlock_secret.read', 'unlock_secret.revoke')"
+                "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
+                "'unlock_secret.revoke')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),

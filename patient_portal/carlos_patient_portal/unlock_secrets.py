@@ -242,7 +242,9 @@ def read_unlock_secret(
     actor_type: str,
     actor: str,
     account_id: int | None = None,
+    audit_account_id: int | None = None,
     demographic_no: int | None = None,
+    secret_type: str | None = None,
 ) -> str:
     normalized_actor_type = normalize_actor_type(actor_type)
     normalized_actor = normalize_required_text(
@@ -250,12 +252,16 @@ def read_unlock_secret(
         field_name="actor",
         max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH,
     )
+    normalized_audit_account_id = (
+        normalize_account_id(audit_account_id) if audit_account_id is not None else None
+    )
     unlock_secret = get_scoped_unlock_secret(
         session,
         unlock_secret_id,
         clinic_id=clinic_id,
         account_id=account_id,
         demographic_no=demographic_no,
+        secret_type=secret_type,
         for_update=True,
     )
     if unlock_secret.status == UNLOCK_SECRET_STATUS_REVOKED:
@@ -276,7 +282,11 @@ def read_unlock_secret(
         actor=normalized_actor,
         clinic_id=unlock_secret.clinic_id,
         demographic_no=unlock_secret.demographic_no,
-        account_id=unlock_secret.account_id,
+        account_id=(
+            normalized_audit_account_id
+            if normalized_audit_account_id is not None
+            else unlock_secret.account_id
+        ),
     )
     return plaintext_secret
 
@@ -337,6 +347,7 @@ def list_unlock_secrets(
     account_id: int | None = None,
     demographic_no: int | None = None,
     include_revoked: bool = False,
+    secret_type: str | None = None,
     limit: int = DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     offset: int = 0,
 ) -> list[PatientPortalUnlockSecret]:
@@ -346,6 +357,7 @@ def list_unlock_secrets(
         clinic_id=clinic_id,
         account_id=account_id,
         demographic_no=demographic_no,
+        secret_type=secret_type,
     )
     if not include_revoked:
         statement = statement.where(PatientPortalUnlockSecret.status == UNLOCK_SECRET_STATUS_ACTIVE)
@@ -364,6 +376,7 @@ def get_scoped_unlock_secret(
     clinic_id: str,
     account_id: int | None = None,
     demographic_no: int | None = None,
+    secret_type: str | None = None,
     for_update: bool = False,
 ) -> PatientPortalUnlockSecret:
     if unlock_secret_id <= 0:
@@ -372,6 +385,7 @@ def get_scoped_unlock_secret(
         clinic_id=clinic_id,
         account_id=account_id,
         demographic_no=demographic_no,
+        secret_type=secret_type,
     ).where(PatientPortalUnlockSecret.id == unlock_secret_id)
     if for_update:
         statement = statement.with_for_update()
@@ -386,6 +400,7 @@ def scoped_unlock_secret_statement(
     clinic_id: str,
     account_id: int | None = None,
     demographic_no: int | None = None,
+    secret_type: str | None = None,
 ) -> Select[tuple[PatientPortalUnlockSecret]]:
     if account_id is None and demographic_no is None:
         raise ValueError("account_id or demographic_no is required")
@@ -401,6 +416,10 @@ def scoped_unlock_secret_statement(
     if demographic_no is not None:
         statement = statement.where(
             PatientPortalUnlockSecret.demographic_no == normalize_demographic_no(demographic_no)
+        )
+    if secret_type is not None:
+        statement = statement.where(
+            PatientPortalUnlockSecret.secret_type == normalize_unlock_secret_type(secret_type)
         )
     return statement
 
