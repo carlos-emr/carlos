@@ -34,6 +34,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -199,6 +200,38 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
         // Session (non-browser) path keeps the strict script-blocking policy.
         assertThat(response.getHeader("Content-Security-Policy")).contains("script-src 'none'");
         assertThat(response.getContentAsString()).contains("session-ok");
+    }
+
+    @Test
+    @DisplayName("should answer 500 with a token-free redacted log when the composer throws")
+    void shouldReturn500WithTokenFreeLog_whenComposerThrows() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(123, "999998");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("fdid", "123");
+            request.setParameter("browserRender", "true");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            try (MockedStatic<EFormRenderPdfHtmlComposer> composer = mockStatic(EFormRenderPdfHtmlComposer.class);
+                 LogCapture logs = LogCapture.forLogger(EFormBrowserRenderPageServlet.class)) {
+                // The failure message embeds the tokenized request URL, as container/machinery
+                // exceptions can; the catch-all must log type + redacted message + frames only.
+                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any(), any()))
+                        .thenThrow(new IllegalStateException(
+                                "boom at http://127.0.0.1/x?renderToken=" + token.queryValue()));
+
+                new EFormBrowserRenderPageServlet().doGet(request, response);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
+                assertThat(logs.messages()).anyMatch(message -> message.contains("type=java.lang.IllegalStateException"));
+                assertThat(logs.messages()).noneMatch(message -> message.contains(token.queryValue()));
+            }
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
     }
 
     @Test

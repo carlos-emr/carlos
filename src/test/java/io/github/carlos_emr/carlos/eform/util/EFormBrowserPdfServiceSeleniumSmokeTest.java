@@ -131,6 +131,14 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
             }
             assertThat(new String(header, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF");
             assertThat(Files.size(pdfPath)).isGreaterThan(1000);
+            // Structural fidelity beyond the magic bytes: the assembled document must be a
+            // loadable PDF whose pages carry real geometry, not merely a well-prefixed blob.
+            try (org.apache.pdfbox.pdmodel.PDDocument renderedPdf =
+                    org.apache.pdfbox.Loader.loadPDF(pdfPath.toFile())) {
+                assertThat(renderedPdf.getNumberOfPages()).isGreaterThanOrEqualTo(1);
+                assertThat(renderedPdf.getPage(0).getMediaBox().getWidth()).isGreaterThan(0);
+                assertThat(renderedPdf.getPage(0).getMediaBox().getHeight()).isGreaterThan(0);
+            }
         } finally {
             // Nest so a throw from any one cleanup step still runs the rest (a failed driver.quit()
             // must not leak the loopback server or orphan the temp dir).

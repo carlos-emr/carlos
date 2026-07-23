@@ -266,6 +266,65 @@ class ApplicationTempPurgeJobUnitTest {
     }
 
     @Test
+    @DisplayName("Schedules the timer with the default interval when the configured interval is malformed")
+    void shouldScheduleWithDefaultInterval_whenConfiguredIntervalMalformed() {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.get(ApplicationTempPurgeJob.INTERVAL_MS_PROPERTY_KEY)).thenReturn("not-a-number");
+
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            ApplicationTempPurgeJob job = new ApplicationTempPurgeJob(mock(NioFileManagerImpl.class));
+            try {
+                // initialize() must never throw (component-scanned into the production context —
+                // a throw is a startup outage); a malformed interval falls back to the default.
+                job.initialize();
+
+                assertThat(job.isTimerScheduled()).isTrue();
+            } finally {
+                job.shutdown();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Does not schedule the timer when the interval is configured to zero")
+    void shouldNotSchedule_whenIntervalConfiguredZero() {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.get(ApplicationTempPurgeJob.INTERVAL_MS_PROPERTY_KEY)).thenReturn("0");
+
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            ApplicationTempPurgeJob job = new ApplicationTempPurgeJob(mock(NioFileManagerImpl.class));
+            try {
+                job.initialize();
+
+                // 0 is the documented "disabled" value.
+                assertThat(job.isTimerScheduled()).isFalse();
+            } finally {
+                job.shutdown();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Tolerates repeated shutdown calls")
+    void shouldTolerateRepeatedCalls_toShutdown() {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.get(ApplicationTempPurgeJob.INTERVAL_MS_PROPERTY_KEY)).thenReturn(null);
+
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            ApplicationTempPurgeJob job = new ApplicationTempPurgeJob(mock(NioFileManagerImpl.class));
+            job.initialize();
+
+            job.shutdown();
+            job.shutdown();
+
+            assertThat(job.isTimerScheduled()).isFalse();
+        }
+    }
+
+    @Test
     @DisplayName("Counts a scan failure when the swept directory cannot be listed")
     void shouldCountScanFailure_whenDirectoryUnreadable() throws IOException {
         // Root ignores POSIX permission bits, so an unreadable directory is only reproducible as

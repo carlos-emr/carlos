@@ -50,6 +50,8 @@ import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
@@ -223,6 +225,36 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             }
         } finally {
             Files.deleteIfExists(attachedForm);
+        }
+    }
+
+    @Test
+    @DisplayName("should return error and name the failing attachment when an attached form cannot be rendered")
+    void shouldReturnErrorNamingFailedAttachment_whenAttachedFormRenderFails() throws Exception {
+        servletActionContextMock.when(ServletActionContext::getServletContext)
+                .thenReturn(new org.springframework.mock.web.MockServletContext());
+        EctFormData.PatientForm form = mock(EctFormData.PatientForm.class);
+        when(form.getFormName()).thenReturn("Rourke Growth Chart");
+        when(form.getDemoNo()).thenReturn("1");
+        when(form.getFormId()).thenReturn("55");
+        when(consultationManager.getAttachedForms(loggedInInfo, 42, 1)).thenReturn(List.of(form));
+        when(faxManager.renderFaxDocument(eq(loggedInInfo), eq(FaxManager.TransactionType.FORM),
+                any(FormTransportContainer.class)))
+                .thenThrow(new PDFGenerationException("renderer unavailable"));
+
+        try (LogCapture logCapture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            // The FORM leg wraps identically to the EFORM leg: attachment named, reason preserved.
+            assertThat(logCapture.events())
+                    .anySatisfy(event -> {
+                        assertThat(event.getThrown()).isInstanceOf(PDFGenerationException.class);
+                        assertThat(event.getThrown().getMessage())
+                                .contains("Rourke Growth Chart")
+                                .contains("renderer unavailable");
+                    });
         }
     }
 

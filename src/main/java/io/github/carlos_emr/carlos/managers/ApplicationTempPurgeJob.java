@@ -163,6 +163,11 @@ public class ApplicationTempPurgeJob {
         logger.info("ApplicationTempPurgeJob scheduled: interval={} ms", intervalMs);
     }
 
+    /** Package-private test hook: whether the daemon timer is currently scheduled. */
+    synchronized boolean isTimerScheduled() {
+        return timer != null;
+    }
+
     /**
      * Cancels the daemon timer during bean shutdown.
      */
