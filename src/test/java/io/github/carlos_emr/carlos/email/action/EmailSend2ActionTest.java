@@ -422,6 +422,39 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not consume compose token when sender config is non-numeric")
+    void shouldNotConsumeComposeToken_whenSenderConfigNonNumeric() {
+        EmailManager emailManager = mock(EmailManager.class);
+        registerMock(EmailManager.class, emailManager);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "not-a-number");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(request, EXAMPLE_GENERATED_VALUE);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        String result = action.sendDirectEmail();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(composeSubmissionStateService.consume(request)).isNotNull();
+        verify(emailManager, never()).hasActiveEmailConfig(anyInt());
+        verify(emailManager, never()).sendEmail(any(), any());
+    }
+
+    @Test
     @DisplayName("should fail when encrypted email is missing generated compose-state password")
     void shouldFail_whenEncryptedPdfPasswordMissingFromComposeState() {
         MockHttpServletRequest request = new MockHttpServletRequest();

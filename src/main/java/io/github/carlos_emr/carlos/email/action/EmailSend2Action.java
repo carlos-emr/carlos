@@ -120,8 +120,8 @@ public class EmailSend2Action extends ActionSupport {
         EmailComposeSubmissionState composeState;
         EmailLog emailLog;
         try {
-            validateSubmittedEmailFields(request);
-            validateActiveSenderConfig(request);
+            int senderConfigId = validateSubmittedEmailFields(request);
+            validateActiveSenderConfig(senderConfigId);
             composeState = resolveEmailComposeSubmissionState(request);
             ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
             emailLog = sendEmail(request, composeState);
@@ -160,8 +160,8 @@ public class EmailSend2Action extends ActionSupport {
         EmailComposeSubmissionState composeState;
         EmailLog emailLog;
         try {
-            validateSubmittedEmailFields(request);
-            validateActiveSenderConfig(request);
+            int senderConfigId = validateSubmittedEmailFields(request);
+            validateActiveSenderConfig(senderConfigId);
             composeState = resolveEmailComposeSubmissionState(request);
             ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
             emailLog = sendEmail(request, composeState);
@@ -340,25 +340,28 @@ public class EmailSend2Action extends ActionSupport {
         return emailData;
     }
 
-    private void validateSubmittedEmailFields(HttpServletRequest request) {
+    private int validateSubmittedEmailFields(HttpServletRequest request) {
         String composeToken = request.getParameter(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM);
         if (composeToken == null || composeToken.isBlank()) {
             throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
-        if (!StringUtils.isInteger(request.getParameter("senderConfigId"))) {
-            throw new EmailComposeStateException(
-                    "This email compose window contains invalid sender information. "
-                            + "Please reopen the email compose window and try again.");
+        try {
+            return Integer.parseInt(request.getParameter("senderConfigId"));
+        } catch (NumberFormatException e) {
+            throw invalidSenderConfigException();
         }
     }
 
-    private void validateActiveSenderConfig(HttpServletRequest request) {
-        int senderConfigId = Integer.parseInt(request.getParameter("senderConfigId"));
+    private void validateActiveSenderConfig(int senderConfigId) {
         if (!emailManager.hasActiveEmailConfig(senderConfigId)) {
-            throw new EmailComposeStateException(
-                    "This email compose window contains invalid sender information. "
-                            + "Please reopen the email compose window and try again.");
+            throw invalidSenderConfigException();
         }
+    }
+
+    private EmailComposeStateException invalidSenderConfigException() {
+        return new EmailComposeStateException(
+                "This email compose window contains invalid sender information. "
+                        + "Please reopen the email compose window and try again.");
     }
 
     private EmailComposeSubmissionState resolveEmailComposeSubmissionState(HttpServletRequest request) {
