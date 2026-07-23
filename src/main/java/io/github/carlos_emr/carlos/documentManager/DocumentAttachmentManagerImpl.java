@@ -65,6 +65,8 @@ import java.util.*;
  */
 @Service
 public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager {
+    private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
+
     @Autowired
     private ConsultDocsDao consultDocsDao;
     @Autowired
@@ -102,11 +104,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the consultation request
-     * @throws RuntimeException if the user lacks the required "_con" read privilege
+     * @throws SecurityException if the user lacks the required "_con" read privilege
      */
     public List<String> getConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, DocumentType documentType, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
         List<String> consultAttachments = new ArrayList<>();
@@ -302,11 +304,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's demographic number for security validation
-     * @throws RuntimeException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
         DocumentAttach documentAttach = new DocumentAttach();
@@ -330,11 +332,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param demographicNo Integer the patient's demographic number for security validation
      * @param editOnOcean Boolean when true, registers attachments for OceanMD transmission;
      *                            when false, performs standard local attachment only
-     * @throws RuntimeException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
         DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);

@@ -18,9 +18,10 @@ import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EformDataManagerImpl createEformPDF")
@@ -54,10 +55,11 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "documentAttachmentManager", documentAttachmentManager);
         injectDependency(manager, "formsManager", formsManager);
 
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_eform"), eq(SecurityInfoManager.UPDATE), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_eform"), eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
 
         EFormData eformData = new EFormData();
         eformData.setId(77);
+        eformData.setDemographicId(123);
         eformData.setFormName("Consult Form");
         eformData.setFormData("<html></html>");
         when(eFormDataDao.find(77)).thenReturn(eformData);
@@ -79,5 +81,31 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("HTML-to-PDF conversion");
+    }
+
+    @Test
+    @DisplayName("should require demographic-scoped eForm read privilege for temporary PDF rendering")
+    void shouldRequireDemographicScopedEformReadPrivilege_forTemporaryPdfRendering() {
+        convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(EFormData.class))).thenReturn(null);
+
+        assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
+                .isInstanceOf(PDFGenerationException.class);
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123");
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, "123");
+    }
+
+    @Test
+    @DisplayName("should throw SecurityException before rendering when demographic-scoped eForm read is denied")
+    void shouldThrowSecurityException_whenDemographicScopedEformReadDenied() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123")).thenReturn(false);
+
+        assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_eform)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123");
+        convertToEdocMock.verifyNoInteractions();
     }
 }

@@ -83,6 +83,14 @@
         <action name="oscarMDS/ViewCreateLab" class="io.github.carlos_emr.carlos.lab.gate.ViewCreateLab2Action">
             <result name="success">/WEB-INF/jsp/oscarMDS/CreateLab.jsp</result>
         </action>
+        <!-- View gate for the HL7 Lab Upload page. Splits the GET (display
+             form) path away from the POST multipart submit path served by
+             lab/CA/ALL/insideLabUpload below — same pattern as ViewCreateLab
+             above (PR #2037, issue #2008). Fixes intermittent 404s for
+             admin > Labs > HL7 Lab upload (issue #2009). -->
+        <action name="lab/CA/ALL/ViewInsideLabUpload" class="io.github.carlos_emr.carlos.lab.gate.ViewInsideLabUpload2Action">
+            <result name="success">/WEB-INF/jsp/lab/CA/ALL/testUploader.jsp</result>
+        </action>
         <action name="lab/ViewCumulativeLabValues" class="io.github.carlos_emr.carlos.lab.gate.ViewCumulativeLabValues2Action">
             <result name="success">/WEB-INF/jsp/lab/CumulativeLabValues.jsp</result>
         </action>
