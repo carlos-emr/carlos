@@ -5,6 +5,10 @@
 
 name: Check Patient Portal
 
+env:
+  FHIR_VALIDATOR_SHA256: 0e53ab1d1a6f1e35f505255c0b8ce10a35fcf27e6e96b503640f784cd07e5ad6
+  FHIR_VALIDATOR_VERSION: 6.9.12
+
 on:
   pull_request:
     branches:
@@ -53,6 +57,12 @@ jobs:
           cache: pip
           cache-dependency-path: patient_portal/requirements.lock
 
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
       - name: Install dependencies
         run: python -m pip install --require-hashes -r requirements.lock
 
@@ -64,6 +74,44 @@ jobs:
 
       - name: Compile Python files
         run: python -m compileall carlos_patient_portal tests
+
+      - name: Cache FHIR validator CLI
+        id: cache-fhir-validator
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ${{ runner.temp }}/fhir-validator/validator_cli.jar
+          key: fhir-validator-${{ env.FHIR_VALIDATOR_VERSION }}-${{ env.FHIR_VALIDATOR_SHA256 }}
+
+      - name: Download FHIR validator CLI
+        if: steps.cache-fhir-validator.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/fhir-validator"
+          curl -fsSL --retry 3 --proto '=https' --tlsv1.2 \
+            --output "$RUNNER_TEMP/fhir-validator/validator_cli.jar" \
+            "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${FHIR_VALIDATOR_VERSION}/validator_cli.jar"
+
+      - name: Verify FHIR validator CLI checksum
+        run: |
+          printf '%s  %s\n' \
+            "$FHIR_VALIDATOR_SHA256" \
+            "$RUNNER_TEMP/fhir-validator/validator_cli.jar" > "$RUNNER_TEMP/fhir-validator/validator.sha256"
+          sha256sum -c "$RUNNER_TEMP/fhir-validator/validator.sha256"
+
+      - name: Cache FHIR package cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.fhir/packages
+          key: fhir-package-cache-r4-4.0.1-validator-${{ env.FHIR_VALIDATOR_VERSION }}
+
+      - name: Validate FHIR examples
+        run: |
+          python tests/fhir_examples.py "$RUNNER_TEMP/fhir-examples"
+          java -jar "$RUNNER_TEMP/fhir-validator/validator_cli.jar" \
+            "$RUNNER_TEMP/fhir-examples" \
+            -version 4.0.1 \
+            -tx n/a \
+            -level errors \
+            -output-style compact
 
       - name: Run migrations
         env:

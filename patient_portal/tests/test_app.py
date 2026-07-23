@@ -3,6 +3,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from fhir.resources.bundle import Bundle
+from fhir.resources.capabilitystatement import CapabilityStatement
+from fhir.resources.documentreference import DocumentReference
+from fhir.resources.operationoutcome import OperationOutcome
+from fhir.resources.organization import Organization
+from fhir.resources.patient import Patient
+from fhir.resources.practitioner import Practitioner
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
@@ -26,9 +33,13 @@ from carlos_patient_portal.database import (
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.interop import (
     FHIR_RELEASE,
+    FHIR_VERSION,
     HL7_V2_VERSION,
     PortalPatientInteroperabilityIdentity,
+    build_fhir_patient_id,
+    build_fhir_practitioner_id,
     build_fhir_r4_patient,
+    build_fhir_r4_practitioner,
     build_hl7_v251_patient_registration,
     validate_hl7_v251_message,
 )
@@ -2800,6 +2811,231 @@ def test_patient_email_password_api_requires_session_and_valid_pagination() -> N
     assert negative_offset_response.status_code == 422
 
 
+def test_fhir_metadata_returns_capability_statement() -> None:
+    app = migrated_development_app()
+    response = TestClient(app).get("/fhir/metadata")
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/fhir+json")
+    assert response.headers["cache-control"] == "no-store"
+    assert payload["resourceType"] == "CapabilityStatement"
+    assert payload["fhirVersion"] == FHIR_VERSION
+    assert payload["implementation"]["url"] == "http://testserver/fhir"
+    assert {
+        resource["type"]
+        for resource in payload["rest"][0]["resource"]
+    } == {"DocumentReference", "Organization", "Patient", "Practitioner"}
+    CapabilityStatement(payload)
+
+
+def test_fhir_patient_endpoints_are_bearer_authenticated_and_patient_scoped() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    patient_token = sign_in_patient_api_session(client)
+    auth_headers = bearer_headers(patient_token)
+    patient_id = build_fhir_patient_id("default", 1234)
+
+    unauthenticated_response = client.get("/fhir/Patient")
+    search_response = client.get("/fhir/Patient", headers=auth_headers)
+    read_response = client.get(f"/fhir/Patient/{patient_id}", headers=auth_headers)
+    wrong_patient_response = client.get(
+        "/fhir/Patient/portal-default-5678",
+        headers=auth_headers,
+    )
+
+    assert unauthenticated_response.status_code == 401
+    assert unauthenticated_response.headers["content-type"].startswith("application/fhir+json")
+    assert unauthenticated_response.json()["resourceType"] == "OperationOutcome"
+    OperationOutcome(unauthenticated_response.json())
+
+    assert search_response.status_code == 200
+    search_payload = search_response.json()
+    assert search_payload["resourceType"] == "Bundle"
+    assert search_payload["total"] == 1
+    assert search_payload["link"][0] == {
+        "relation": "self",
+        "url": "http://testserver/fhir/Patient",
+    }
+    assert search_payload["entry"][0]["fullUrl"] == (
+        f"http://testserver/fhir/Patient/{patient_id}"
+    )
+    assert search_payload["entry"][0]["resource"]["id"] == patient_id
+    Bundle(search_payload)
+
+    assert read_response.status_code == 200
+    patient_payload = read_response.json()
+    assert patient_payload["resourceType"] == "Patient"
+    assert patient_payload["id"] == patient_id
+    assert patient_payload["identifier"][0]["value"] == "default/1234"
+    assert patient_payload["telecom"][0]["value"] == SEEDED_INVITE_EMAIL
+    Patient(patient_payload)
+
+    assert wrong_patient_response.status_code == 404
+    assert wrong_patient_response.json()["resourceType"] == "OperationOutcome"
+    OperationOutcome(wrong_patient_response.json())
+
+
+def test_fhir_document_organization_and_practitioner_resources_are_scoped() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_a_id = activate_seeded_patient_account(app, client)
+    account_b_id = activate_seeded_patient_account(
+        app,
+        client,
+        username="other.patient",
+        demographic_no=5678,
+        email="other.patient@example.com",
+        health_card_number="WXYZ 9876-5432",
+    )
+    patient_a_token = sign_in_patient_api_session(client)
+    auth_headers = bearer_headers(patient_a_token)
+    raw_secret_a = "FhirEmail9!"
+    raw_secret_b = "OtherFhir9!"
+    raw_secret_revoked = "RevokedFhir9!"
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            created_a = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_a_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret_a,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="Specialist message",
+                source_reference="message-3135",
+            )
+            created_b = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=5678,
+                account_id=account_b_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret_b,
+                created_by="Dr other",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="Other patient message",
+                source_reference="message-3136",
+            )
+            created_revoked = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_a_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret_revoked,
+                created_by="Dr example",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="Revoked message",
+                source_reference="message-3137",
+            )
+            revoke_unlock_secret(
+                session,
+                created_revoked.unlock_secret.id,
+                clinic_id="default",
+                demographic_no=1234,
+                revoked_by="Dr example",
+                reason="staff_requested",
+            )
+            active_a_id = created_a.unlock_secret.id
+            other_patient_id = created_b.unlock_secret.id
+            revoked_id = created_revoked.unlock_secret.id
+
+    document_search_response = client.get("/fhir/DocumentReference", headers=auth_headers)
+    document_read_response = client.get(
+        f"/fhir/DocumentReference/{active_a_id}",
+        headers=auth_headers,
+    )
+    other_patient_response = client.get(
+        f"/fhir/DocumentReference/{other_patient_id}",
+        headers=auth_headers,
+    )
+    revoked_response = client.get(
+        f"/fhir/DocumentReference/{revoked_id}",
+        headers=auth_headers,
+    )
+    organization_search_response = client.get("/fhir/Organization", headers=auth_headers)
+    organization_id = organization_search_response.json()["entry"][0]["resource"]["id"]
+    organization_read_response = client.get(
+        f"/fhir/Organization/{organization_id}",
+        headers=auth_headers,
+    )
+    practitioner_search_response = client.get("/fhir/Practitioner", headers=auth_headers)
+    practitioner_id = practitioner_search_response.json()["entry"][0]["resource"]["id"]
+    practitioner_read_response = client.get(
+        f"/fhir/Practitioner/{practitioner_id}",
+        headers=auth_headers,
+    )
+
+    assert document_search_response.status_code == 200
+    document_search_payload = document_search_response.json()
+    assert document_search_payload["resourceType"] == "Bundle"
+    assert document_search_payload["total"] == 1
+    assert document_search_payload["link"][0] == {
+        "relation": "self",
+        "url": "http://testserver/fhir/DocumentReference",
+    }
+    assert document_search_payload["entry"][0]["fullUrl"] == (
+        f"http://testserver/fhir/DocumentReference/{active_a_id}"
+    )
+    assert document_search_payload["entry"][0]["resource"]["id"] == str(active_a_id)
+    assert raw_secret_a not in document_search_response.text
+    assert raw_secret_b not in document_search_response.text
+    assert raw_secret_revoked not in document_search_response.text
+    Bundle(document_search_payload)
+
+    assert document_read_response.status_code == 200
+    document_payload = document_read_response.json()
+    assert document_payload["resourceType"] == "DocumentReference"
+    assert document_payload["subject"]["reference"] == (
+        f"Patient/{build_fhir_patient_id('default', 1234)}"
+    )
+    assert document_payload["description"] == "Specialist message"
+    assert document_payload["masterIdentifier"]["value"] == "message-3135"
+    assert raw_secret_a not in document_read_response.text
+    DocumentReference(document_payload)
+
+    for unavailable_response in [other_patient_response, revoked_response]:
+        assert unavailable_response.status_code == 404
+        assert unavailable_response.json()["resourceType"] == "OperationOutcome"
+        OperationOutcome(unavailable_response.json())
+
+    assert organization_search_response.status_code == 200
+    organization_search_payload = organization_search_response.json()
+    assert organization_search_payload["total"] == 1
+    assert organization_search_payload["link"][0] == {
+        "relation": "self",
+        "url": "http://testserver/fhir/Organization",
+    }
+    assert organization_search_payload["entry"][0]["fullUrl"] == (
+        f"http://testserver/fhir/Organization/{organization_id}"
+    )
+    Organization(organization_search_payload["entry"][0]["resource"])
+    assert organization_read_response.status_code == 200
+    assert organization_read_response.json()["name"] == "Maple Creek Medical"
+    Organization(organization_read_response.json())
+
+    assert practitioner_search_response.status_code == 200
+    practitioner_search_payload = practitioner_search_response.json()
+    assert practitioner_search_payload["total"] == 1
+    assert practitioner_search_payload["link"][0] == {
+        "relation": "self",
+        "url": "http://testserver/fhir/Practitioner",
+    }
+    assert practitioner_search_payload["entry"][0]["fullUrl"] == (
+        f"http://testserver/fhir/Practitioner/{practitioner_id}"
+    )
+    assert practitioner_search_payload["entry"][0]["resource"]["name"][0]["text"] == "Dr example"
+    Practitioner(practitioner_search_payload["entry"][0]["resource"])
+    assert practitioner_read_response.status_code == 200
+    assert practitioner_read_response.json()["name"][0]["text"] == "Dr example"
+    Practitioner(practitioner_read_response.json())
+
+
 def test_unlock_secret_decryption_rejects_wrong_encryption_secret() -> None:
     app = migrated_development_app()
     client = TestClient(app)
@@ -2841,6 +3077,10 @@ def test_interop_helpers_build_valid_fhir_r4_and_hl7_v251_patient_identity() -> 
     )
 
     fhir_patient = build_fhir_r4_patient(identity)
+    fhir_practitioner = build_fhir_r4_practitioner(
+        clinic_id="default",
+        name=" Dr | example\nprovider ",
+    )
     hl7_message = build_hl7_v251_patient_registration(
         identity,
         message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
@@ -2851,6 +3091,13 @@ def test_interop_helpers_build_valid_fhir_r4_and_hl7_v251_patient_identity() -> 
     assert fhir_patient["resourceType"] == "Patient"
     assert fhir_patient["birthDate"] == SEEDED_INVITE_DOB
     assert fhir_patient["name"][0]["family"] == "Patient"
+    assert fhir_practitioner["resourceType"] == "Practitioner"
+    assert fhir_practitioner["name"][0]["text"] == "Dr | example provider"
+    assert fhir_practitioner["id"] == build_fhir_practitioner_id(
+        clinic_id="default",
+        name=" Dr | example\nprovider ",
+    )
+    Practitioner(fhir_practitioner)
     assert HL7_V2_VERSION == "2.5.1"
     assert "MSH|^~\\&|CARLOS|default|CARLOSPORTAL|default" in hl7_message
     assert "PID|||1234^^^default^MR~ABCD12345678^^^CARLOSHCN^JHN" in hl7_message

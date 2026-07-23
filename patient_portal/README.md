@@ -333,7 +333,10 @@ The MVP interoperability scope is intentionally narrow: this package validates t
 data shape this portal slice owns against concrete FHIR and HL7 targets without claiming a complete
 general-purpose exchange server:
 
-- FHIR target: R4 `Patient`, using `fhir.resources==5.1.1`.
+- FHIR target: R4 `CapabilityStatement`, `Patient`, `DocumentReference`, `Organization`,
+  `Practitioner`, `OperationOutcome`, and search `Bundle` resources under `/fhir`. Resources are
+  built with `fhir.resources==5.1.1`, and generated examples are checked in CI with the official
+  HL7 FHIR validator CLI.
 - HL7 v2 target: v2.5.1 ADT A04 patient-registration trigger using HL7apy validation. The message
   emits CARLOS demographic number and HCN/HIN as repeated `PID-3` identifiers and emits email using
   `PID-13` XTN email components.

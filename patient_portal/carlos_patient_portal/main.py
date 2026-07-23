@@ -73,6 +73,18 @@ from carlos_patient_portal.database import (
     session_scope,
 )
 from carlos_patient_portal.identity import IdentityProof
+from carlos_patient_portal.interop import (
+    build_fhir_organization_id,
+    build_fhir_patient_id,
+    build_fhir_practitioner_id,
+    build_fhir_r4_bundle,
+    build_fhir_r4_capability_statement,
+    build_fhir_r4_document_reference,
+    build_fhir_r4_operation_outcome,
+    build_fhir_r4_organization,
+    build_fhir_r4_portal_patient,
+    build_fhir_r4_practitioner,
+)
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_LIST_LIMIT,
     MAX_INVITE_LIST_LIMIT,
@@ -95,6 +107,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
+    UNLOCK_SECRET_STATUS_ACTIVE,
     UNLOCK_SECRET_TYPE_EMAIL,
     PatientPortalAccount,
     PatientPortalInvite,
@@ -141,6 +154,7 @@ CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
     "object-src 'none'"
 )
+FHIR_JSON_MEDIA_TYPE = "application/fhir+json"
 SECURITY_HEADERS = {
     "Referrer-Policy": "same-origin",
     "X-Content-Type-Options": "nosniff",
@@ -176,6 +190,16 @@ ACCOUNT_NOTICE_MESSAGES = {
     "password-updated": "Password updated.",
 }
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
+
+
+class FhirApiError(Exception):
+    """Raised when a FHIR endpoint should return an OperationOutcome."""
+
+    def __init__(self, *, status_code: int, code: str, diagnostics: str) -> None:
+        super().__init__(diagnostics)
+        self.status_code = status_code
+        self.code = code
+        self.diagnostics = diagnostics
 
 
 def create_csrf_token(secret: str) -> str:
@@ -395,6 +419,56 @@ def email_password_secret_response_payload(
         **email_password_record_response_payload(unlock_secret),
         "passphrase": passphrase,
     }
+
+
+def fhir_json_response(
+    payload: dict[str, object],
+    *,
+    status_code: int = status.HTTP_200_OK,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=payload,
+        media_type=FHIR_JSON_MEDIA_TYPE,
+    )
+
+
+def fhir_operation_outcome_response(
+    *,
+    status_code: int,
+    code: str,
+    diagnostics: str,
+) -> JSONResponse:
+    return fhir_json_response(
+        build_fhir_r4_operation_outcome(code=code, diagnostics=diagnostics),
+        status_code=status_code,
+    )
+
+
+def fhir_not_found() -> FhirApiError:
+    return FhirApiError(
+        status_code=status.HTTP_404_NOT_FOUND,
+        code="not-found",
+        diagnostics="resource not found",
+    )
+
+
+def parse_fhir_numeric_id(resource_id: str) -> int:
+    try:
+        parsed_id = int(resource_id)
+    except ValueError as exc:
+        raise fhir_not_found() from exc
+    if parsed_id <= 0:
+        raise fhir_not_found()
+    return parsed_id
+
+
+def fhir_patient_reference(account: PatientPortalAccount) -> str:
+    return f"Patient/{build_fhir_patient_id(account.clinic_id, account.demographic_no)}"
+
+
+def fhir_base_url(request: Request) -> str:
+    return f"{str(request.base_url).rstrip('/')}/fhir"
 
 
 def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
@@ -931,6 +1005,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             content={"detail": sanitized_validation_errors(exc)},
         )
 
+    @app.exception_handler(FhirApiError)
+    async def fhir_api_error_handler(
+        _: Request,
+        exc: FhirApiError,
+    ) -> JSONResponse:
+        return fhir_operation_outcome_response(
+            status_code=exc.status_code,
+            code=exc.code,
+            diagnostics=exc.diagnostics,
+        )
+
     @app.middleware("http")
     async def add_security_headers(
         request: Request,
@@ -946,6 +1031,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request.url.path in NO_STORE_PATHS
             or request.url.path.startswith("/auth/")
             or request.url.path.startswith("/api/patient/")
+            or request.url.path.startswith("/fhir/")
             or is_portal_path(request.url.path)
             or request.url.path.startswith("/internal/")
             or request.url.path.startswith("/dev/admin/")
@@ -1055,6 +1141,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except (PortalSessionInvalidError, ValueError) as exc:
             raise HTTPException(status_code=401, detail="authentication required") from exc
+
+    def get_authenticated_fhir_session(
+        session: Annotated[Session, Depends(get_app_database_session)],
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> AuthenticatedPortalSession:
+        scheme, _, supplied_token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not supplied_token.strip():
+            raise FhirApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="login",
+                diagnostics="authentication required",
+            )
+        try:
+            return authenticate_session_token(
+                session,
+                session_token=supplied_token.strip(),
+                token_secret=csrf_secret,
+            )
+        except (PortalSessionInvalidError, ValueError) as exc:
+            raise FhirApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="login",
+                diagnostics="authentication required",
+            ) from exc
 
     def get_authenticated_portal_cookie_session(
         request: Request,
@@ -1418,6 +1528,203 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "clinic_id": account.clinic_id,
             "demographic_no": account.demographic_no,
         }
+
+    @app.get("/fhir/metadata")
+    def fhir_metadata(request: Request) -> JSONResponse:
+        return fhir_json_response(
+            build_fhir_r4_capability_statement(
+                service_name=settings.service_name,
+                base_url=fhir_base_url(request),
+            ),
+        )
+
+    @app.get("/fhir/Patient")
+    def fhir_patient_search(
+        request: Request,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+    ) -> JSONResponse:
+        patient = build_fhir_r4_portal_patient(authenticated_session.account)
+        return fhir_json_response(
+            build_fhir_r4_bundle(
+                resources=[patient],
+                base_url=fhir_base_url(request),
+                self_link=str(request.url),
+            )
+        )
+
+    @app.get("/fhir/Patient/{patient_id}")
+    def fhir_patient_read(
+        patient_id: str,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+    ) -> JSONResponse:
+        account = authenticated_session.account
+        expected_patient_id = build_fhir_patient_id(account.clinic_id, account.demographic_no)
+        if patient_id != expected_patient_id:
+            raise fhir_not_found()
+        return fhir_json_response(build_fhir_r4_portal_patient(account))
+
+    @app.get("/fhir/DocumentReference")
+    def fhir_document_reference_search(
+        request: Request,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> JSONResponse:
+        account = authenticated_session.account
+        records = list_unlock_secrets(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
+        )
+        resources = [
+            build_fhir_r4_document_reference(
+                record,
+                patient_reference=fhir_patient_reference(account),
+            )
+            for record in records
+        ]
+        return fhir_json_response(
+            build_fhir_r4_bundle(
+                resources=resources,
+                base_url=fhir_base_url(request),
+                self_link=str(request.url),
+            )
+        )
+
+    @app.get("/fhir/DocumentReference/{document_reference_id}")
+    def fhir_document_reference_read(
+        document_reference_id: str,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> JSONResponse:
+        account = authenticated_session.account
+        record_id = parse_fhir_numeric_id(document_reference_id)
+        try:
+            record = get_scoped_unlock_secret(
+                session,
+                record_id,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            )
+        except UnlockSecretNotFoundError as exc:
+            raise fhir_not_found() from exc
+        if record.status != UNLOCK_SECRET_STATUS_ACTIVE:
+            raise fhir_not_found()
+        return fhir_json_response(
+            build_fhir_r4_document_reference(
+                record,
+                patient_reference=fhir_patient_reference(account),
+            )
+        )
+
+    @app.get("/fhir/Organization")
+    def fhir_organization_search(
+        request: Request,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+    ) -> JSONResponse:
+        account = authenticated_session.account
+        organization = build_fhir_r4_organization(
+            clinic_id=account.clinic_id,
+            clinic_name=settings.clinic_name,
+        )
+        return fhir_json_response(
+            build_fhir_r4_bundle(
+                resources=[organization],
+                base_url=fhir_base_url(request),
+                self_link=str(request.url),
+            )
+        )
+
+    @app.get("/fhir/Organization/{organization_id}")
+    def fhir_organization_read(
+        organization_id: str,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+    ) -> JSONResponse:
+        account = authenticated_session.account
+        if organization_id != build_fhir_organization_id(account.clinic_id):
+            raise fhir_not_found()
+        return fhir_json_response(
+            build_fhir_r4_organization(
+                clinic_id=account.clinic_id,
+                clinic_name=settings.clinic_name,
+            )
+        )
+
+    @app.get("/fhir/Practitioner")
+    def fhir_practitioner_search(
+        request: Request,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> JSONResponse:
+        account = authenticated_session.account
+        records = list_unlock_secrets(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
+        )
+        resources = [
+            build_fhir_r4_practitioner(clinic_id=account.clinic_id, name=name)
+            for name in sorted({record.created_by for record in records})
+        ]
+        return fhir_json_response(
+            build_fhir_r4_bundle(
+                resources=resources,
+                base_url=fhir_base_url(request),
+                self_link=str(request.url),
+            )
+        )
+
+    @app.get("/fhir/Practitioner/{practitioner_id}")
+    def fhir_practitioner_read(
+        practitioner_id: str,
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_fhir_session),
+        ],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> JSONResponse:
+        account = authenticated_session.account
+        records = list_unlock_secrets(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
+        )
+        for name in sorted({record.created_by for record in records}):
+            if practitioner_id == build_fhir_practitioner_id(
+                clinic_id=account.clinic_id,
+                name=name,
+            ):
+                return fhir_json_response(
+                    build_fhir_r4_practitioner(clinic_id=account.clinic_id, name=name)
+                )
+        raise fhir_not_found()
 
     @app.get("/api/patient/email-passwords", response_model=EmailPasswordListResponse)
     def list_patient_email_passwords(
