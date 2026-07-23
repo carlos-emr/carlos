@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from math import ceil
 
 from argon2 import PasswordHasher
 from sqlalchemy import select
@@ -7,9 +8,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import (
-    count_recent_activation_failures,
     record_activation_failure,
     record_audit_event,
+    summarize_recent_activation_failures,
 )
 from carlos_patient_portal.credentials import validate_password, validate_username
 from carlos_patient_portal.identity import IdentityProof, normalize_email, verify_identity_proof
@@ -51,6 +52,10 @@ class UsernameUnavailableError(Exception):
 class ActivationThrottledError(Exception):
     """Raised when activation attempts are temporarily throttled."""
 
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__()
+        self.retry_after_seconds = retry_after_seconds
+
 
 @dataclass(frozen=True)
 class ActivationRateLimit:
@@ -69,6 +74,26 @@ def is_expired(expires_at: datetime, now: datetime) -> bool:
     if comparable_now.tzinfo is None:
         comparable_now = comparable_now.replace(tzinfo=UTC)
     return comparable_expires_at <= comparable_now
+
+
+def seconds_until_failure_window_reset(
+    *,
+    oldest_failure_at: datetime | None,
+    now: datetime,
+    failure_window: timedelta,
+) -> int:
+    if oldest_failure_at is None:
+        return ceil(failure_window.total_seconds())
+
+    comparable_oldest_failure_at = oldest_failure_at
+    comparable_now = now
+    if comparable_oldest_failure_at.tzinfo is None:
+        comparable_oldest_failure_at = comparable_oldest_failure_at.replace(tzinfo=UTC)
+    if comparable_now.tzinfo is None:
+        comparable_now = comparable_now.replace(tzinfo=UTC)
+
+    elapsed_seconds = (comparable_now - comparable_oldest_failure_at).total_seconds()
+    return max(1, ceil(failure_window.total_seconds() - elapsed_seconds))
 
 
 def find_account_id_for_patient(
@@ -100,20 +125,34 @@ def enforce_activation_rate_limit(
     now: datetime,
 ) -> None:
     failure_window_start = now - rate_limit.failure_window
-    invite_failure_count = count_recent_activation_failures(
+    invite_failure_summary = summarize_recent_activation_failures(
         session,
         since=failure_window_start,
         invite_token_hash=invite_token_hash,
     )
-    client_failure_count = count_recent_activation_failures(
+    client_failure_summary = summarize_recent_activation_failures(
         session,
         since=failure_window_start,
         client_reference_hash=client_reference_hash,
     )
-    if (
-        invite_failure_count >= rate_limit.max_failures_per_invite
-        or client_failure_count >= rate_limit.max_failures_per_client
-    ):
+    retry_after_candidates: list[int] = []
+    if invite_failure_summary.count >= rate_limit.max_failures_per_invite:
+        retry_after_candidates.append(
+            seconds_until_failure_window_reset(
+                oldest_failure_at=invite_failure_summary.oldest_created_at,
+                now=now,
+                failure_window=rate_limit.failure_window,
+            )
+        )
+    if client_failure_summary.count >= rate_limit.max_failures_per_client:
+        retry_after_candidates.append(
+            seconds_until_failure_window_reset(
+                oldest_failure_at=client_failure_summary.oldest_created_at,
+                now=now,
+                failure_window=rate_limit.failure_window,
+            )
+        )
+    if retry_after_candidates:
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_ACTIVATION,
@@ -123,7 +162,7 @@ def enforce_activation_rate_limit(
             client_reference_hash=client_reference_hash,
             reason=ACTIVATION_REASON_RATE_LIMITED,
         )
-        raise ActivationThrottledError()
+        raise ActivationThrottledError(max(retry_after_candidates))
 
 
 def activate_patient_account(
@@ -166,6 +205,7 @@ def activate_patient_account(
         or not verify_identity_proof(
             identity_proof,
             proof_secret,
+            salt=invite.proof_salt,
             email_hash=invite.proof_email_hash,
             date_of_birth_hash=invite.proof_date_of_birth_hash,
             health_card_hash=invite.proof_health_card_hash,

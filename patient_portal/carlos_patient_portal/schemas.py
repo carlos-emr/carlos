@@ -9,6 +9,7 @@ from carlos_patient_portal.credentials import (
 )
 from carlos_patient_portal.identity import (
     MAX_HEALTH_CARD_NUMBER_LENGTH,
+    MIN_HEALTH_CARD_NUMBER_LENGTH,
     normalize_date_of_birth,
     normalize_email,
     normalize_health_card_number,
@@ -16,24 +17,12 @@ from carlos_patient_portal.identity import (
 from carlos_patient_portal.models import MAX_EMAIL_LENGTH
 
 
-class StaffActorRequest(BaseModel):
-    actor: str = Field(min_length=1, max_length=128)
-
-    @field_validator("actor")
-    @classmethod
-    def strip_actor(cls, value: str) -> str:
-        actor = value.strip()
-        if not actor:
-            raise ValueError("actor must not be blank")
-        return actor
-
-
-class InviteCreateRequest(StaffActorRequest):
+class InviteCreateRequest(BaseModel):
     demographic_no: int = Field(gt=0)
     email: str = Field(min_length=1, max_length=MAX_EMAIL_LENGTH)
     date_of_birth: date
     health_card_number: str = Field(
-        min_length=1,
+        min_length=MIN_HEALTH_CARD_NUMBER_LENGTH,
         max_length=MAX_HEALTH_CARD_NUMBER_LENGTH,
     )
 
@@ -72,7 +61,10 @@ class ActivationRequest(BaseModel):
     invite_code: str = Field(min_length=1)
     email: str = Field(min_length=1, max_length=MAX_EMAIL_LENGTH)
     date_of_birth: date
-    health_card_number: str = Field(min_length=1, max_length=MAX_HEALTH_CARD_NUMBER_LENGTH)
+    health_card_number: str = Field(
+        min_length=MIN_HEALTH_CARD_NUMBER_LENGTH,
+        max_length=MAX_HEALTH_CARD_NUMBER_LENGTH,
+    )
     username: str = Field(min_length=1)
     password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH, repr=False)
 

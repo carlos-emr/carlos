@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from hashlib import sha256
 from hmac import new as new_hmac
@@ -15,6 +16,12 @@ from carlos_patient_portal.models import (
 )
 
 UNKNOWN_CLIENT_REFERENCE = "unknown"
+
+
+@dataclass(frozen=True)
+class ActivationFailureSummary:
+    count: int
+    oldest_created_at: datetime | None
 
 
 def hash_sensitive_reference(secret: str, purpose: str, value: str) -> str:
@@ -40,7 +47,6 @@ def record_audit_event(
     invite_token_hash: str | None = None,
     client_reference_hash: str | None = None,
     reason: str | None = None,
-    detail: str | None = None,
 ) -> PatientPortalAuditEvent:
     audit_event = PatientPortalAuditEvent(
         clinic_id=clinic_id,
@@ -54,7 +60,6 @@ def record_audit_event(
         invite_token_hash=invite_token_hash,
         client_reference_hash=client_reference_hash,
         reason=reason,
-        detail=detail,
         created_at=utc_now(),
     )
     session.add(audit_event)
@@ -62,18 +67,21 @@ def record_audit_event(
     return audit_event
 
 
-def count_recent_activation_failures(
+def summarize_recent_activation_failures(
     session: Session,
     *,
     since: datetime,
     invite_token_hash: str | None = None,
     client_reference_hash: str | None = None,
-) -> int:
+) -> ActivationFailureSummary:
     if invite_token_hash is None and client_reference_hash is None:
         raise ValueError("invite_token_hash or client_reference_hash is required")
 
     statement = (
-        select(func.count())
+        select(
+            func.count(PatientPortalAuditEvent.id),
+            func.min(PatientPortalAuditEvent.created_at),
+        )
         .select_from(PatientPortalAuditEvent)
         .where(
             PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACTIVATION,
@@ -91,7 +99,26 @@ def count_recent_activation_failures(
         statement = statement.where(
             PatientPortalAuditEvent.client_reference_hash == client_reference_hash
         )
-    return int(session.scalar(statement) or 0)
+    count, oldest_created_at = session.execute(statement).one()
+    return ActivationFailureSummary(
+        count=int(count or 0),
+        oldest_created_at=oldest_created_at,
+    )
+
+
+def count_recent_activation_failures(
+    session: Session,
+    *,
+    since: datetime,
+    invite_token_hash: str | None = None,
+    client_reference_hash: str | None = None,
+) -> int:
+    return summarize_recent_activation_failures(
+        session,
+        since=since,
+        invite_token_hash=invite_token_hash,
+        client_reference_hash=client_reference_hash,
+    ).count
 
 
 def record_activation_failure(

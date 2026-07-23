@@ -25,6 +25,20 @@ permissions:
 jobs:
   patient-portal:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: carlos_portal
+          POSTGRES_PASSWORD: carlos_portal
+          POSTGRES_USER: carlos_portal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U carlos_portal -d carlos_portal"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: patient_portal
@@ -56,6 +70,14 @@ jobs:
           PATIENT_PORTAL_ENVIRONMENT: development
           PATIENT_PORTAL_DATABASE_URL: "sqlite+pysqlite:///:memory:"
         run: alembic -c alembic.ini upgrade head
+
+      - name: Run PostgreSQL migrations
+        env:
+          PATIENT_PORTAL_ENVIRONMENT: development
+          PATIENT_PORTAL_DATABASE_URL: "postgresql+psycopg://carlos_portal:carlos_portal@127.0.0.1:5432/carlos_portal"
+        run: |
+          alembic -c alembic.ini upgrade head
+          alembic -c alembic.ini downgrade base
 
       - name: Build wheel
         run: python -m build --wheel --no-isolation

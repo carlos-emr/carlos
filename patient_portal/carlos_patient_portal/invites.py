@@ -3,6 +3,7 @@ from hashlib import sha256
 from secrets import token_urlsafe
 
 from sqlalchemy import desc, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
@@ -13,10 +14,12 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_INVITE_RESEND,
     AUDIT_EVENT_INVITE_REVOKE,
     AUDIT_OUTCOME_SUCCESS,
+    IDENTITY_PROOF_HASH_VERSION,
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
     MAX_CLINIC_ID_LENGTH,
+    PatientPortalAccount,
     PatientPortalInvite,
     utc_now,
 )
@@ -26,6 +29,15 @@ DEFAULT_INVITE_TTL = timedelta(days=7)
 DEFAULT_INVITE_LIST_LIMIT = 10
 MAX_INVITE_LIST_LIMIT = 100
 MAX_ACTOR_LENGTH = 128
+PROOF_SALT_BYTES = 16
+
+
+class AccountAlreadyExistsError(Exception):
+    """Raised when a patient already has a portal account."""
+
+
+class PendingInviteExistsError(Exception):
+    """Raised when another request creates a pending invite first."""
 
 
 class InviteNotFoundError(Exception):
@@ -42,6 +54,10 @@ class AcceptedInviteError(Exception):
 
 def create_invite_token() -> str:
     return token_urlsafe(INVITE_TOKEN_BYTES)
+
+
+def create_proof_salt() -> str:
+    return token_urlsafe(PROOF_SALT_BYTES)
 
 
 def normalize_clinic_id(clinic_id: str) -> str:
@@ -78,6 +94,60 @@ def hash_invite_token(token: str) -> str:
     return sha256(token.encode("utf-8")).hexdigest()
 
 
+def patient_has_account(
+    session: Session,
+    *,
+    clinic_id: str,
+    demographic_no: int,
+) -> bool:
+    return (
+        session.scalar(
+            select(PatientPortalAccount.id).where(
+                PatientPortalAccount.clinic_id == clinic_id,
+                PatientPortalAccount.demographic_no == demographic_no,
+            )
+        )
+        is not None
+    )
+
+
+def revoke_pending_invites_for_patient(
+    session: Session,
+    *,
+    clinic_id: str,
+    demographic_no: int,
+    actor: str,
+) -> None:
+    now = utc_now()
+    pending_invites = list(
+        session.scalars(
+            select(PatientPortalInvite)
+            .where(
+                PatientPortalInvite.clinic_id == clinic_id,
+                PatientPortalInvite.demographic_no == demographic_no,
+                PatientPortalInvite.status == INVITE_STATUS_PENDING,
+            )
+            .with_for_update()
+        )
+    )
+    for invite in pending_invites:
+        invite.status = INVITE_STATUS_REVOKED
+        invite.revoked_at = now
+        invite.revoked_by = actor
+        invite.updated_at = now
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_INVITE_REVOKE,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            actor_type=AUDIT_ACTOR_TYPE_STAFF,
+            actor=actor,
+            clinic_id=clinic_id,
+            demographic_no=demographic_no,
+            invite_id=invite.id,
+            reason="replaced_by_new_invite",
+        )
+
+
 def create_invite(
     session: Session,
     demographic_no: int,
@@ -92,7 +162,27 @@ def create_invite(
     normalized_actor = normalize_staff_actor(actor)
     if not proof_secret or not proof_secret.strip():
         raise ValueError("proof_secret must not be blank")
-    proof_hashes = build_identity_hashes(identity_proof, proof_secret)
+    if patient_has_account(
+        session,
+        clinic_id=normalized_clinic_id,
+        demographic_no=demographic_no,
+    ):
+        raise AccountAlreadyExistsError()
+    revoke_pending_invites_for_patient(
+        session,
+        clinic_id=normalized_clinic_id,
+        demographic_no=demographic_no,
+        actor=normalized_actor,
+    )
+    if patient_has_account(
+        session,
+        clinic_id=normalized_clinic_id,
+        demographic_no=demographic_no,
+    ):
+        raise AccountAlreadyExistsError()
+
+    proof_salt = create_proof_salt()
+    proof_hashes = build_identity_hashes(identity_proof, proof_secret, proof_salt)
     invite_token = create_invite_token()
     now = utc_now()
     invite = PatientPortalInvite(
@@ -107,10 +197,15 @@ def create_invite(
         last_sent_at=now,
         last_sent_by=normalized_actor,
         expires_at=now + DEFAULT_INVITE_TTL,
+        proof_salt=proof_salt,
+        proof_hash_version=IDENTITY_PROOF_HASH_VERSION,
         **proof_hashes,
     )
-    session.add(invite)
-    session.flush()
+    try:
+        session.add(invite)
+        session.flush()
+    except IntegrityError as exc:
+        raise PendingInviteExistsError() from exc
     record_audit_event(
         session,
         event_type=AUDIT_EVENT_INVITE_CREATE,
@@ -129,8 +224,12 @@ def get_invite(
     invite_id: int,
     *,
     clinic_id: str | None = None,
+    lock: bool = False,
 ) -> PatientPortalInvite:
-    invite = session.get(PatientPortalInvite, invite_id)
+    statement = select(PatientPortalInvite).where(PatientPortalInvite.id == invite_id)
+    if lock:
+        statement = statement.with_for_update()
+    invite = session.scalar(statement)
     if invite is None or (
         clinic_id is not None and invite.clinic_id != normalize_clinic_id(clinic_id)
     ):
@@ -168,7 +267,7 @@ def resend_invite(
     *,
     clinic_id: str | None = None,
 ) -> tuple[PatientPortalInvite, str]:
-    invite = get_invite(session, invite_id, clinic_id=clinic_id)
+    invite = get_invite(session, invite_id, clinic_id=clinic_id, lock=True)
     if invite.status == INVITE_STATUS_REVOKED:
         raise RevokedInviteError()
     if invite.status == INVITE_STATUS_ACCEPTED:
@@ -205,7 +304,7 @@ def revoke_invite(
     *,
     clinic_id: str | None = None,
 ) -> PatientPortalInvite:
-    invite = get_invite(session, invite_id, clinic_id=clinic_id)
+    invite = get_invite(session, invite_id, clinic_id=clinic_id, lock=True)
     if invite.status == INVITE_STATUS_ACCEPTED:
         raise AcceptedInviteError()
     if invite.status != INVITE_STATUS_REVOKED:

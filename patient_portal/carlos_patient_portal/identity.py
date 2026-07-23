@@ -8,6 +8,7 @@ from hmac import new as new_hmac
 from carlos_patient_portal.models import HASH_LENGTH, MAX_EMAIL_LENGTH
 
 MAX_HEALTH_CARD_NUMBER_LENGTH = 64
+MIN_HEALTH_CARD_NUMBER_LENGTH = 4
 EMAIL_PATTERN = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
     r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
@@ -51,7 +52,7 @@ def normalize_health_card_number(health_card_number: str) -> str:
         if not character.isspace() and character != "-"
     )
     if (
-        not normalized_hcn
+        len(normalized_hcn) < MIN_HEALTH_CARD_NUMBER_LENGTH
         or len(normalized_hcn) > MAX_HEALTH_CARD_NUMBER_LENGTH
         or not normalized_hcn.isalnum()
     ):
@@ -59,23 +60,28 @@ def normalize_health_card_number(health_card_number: str) -> str:
     return normalized_hcn
 
 
-def hash_identity_value(secret: str, purpose: str, value: str) -> str:
+def hash_identity_value(secret: str, salt: str, purpose: str, value: str) -> str:
     return new_hmac(
         secret.encode("utf-8"),
-        f"{purpose}:{value}".encode(),
+        f"{purpose}:{salt}:{value}".encode(),
         sha256,
     ).hexdigest()
 
 
-def build_identity_hashes(proof: IdentityProof, secret: str) -> dict[str, str]:
-    email_hash = hash_identity_value(secret, "email", normalize_email(proof.email))
+def build_identity_hashes(proof: IdentityProof, secret: str, salt: str) -> dict[str, str]:
+    normalized_salt = salt.strip()
+    if not normalized_salt:
+        raise ValueError("salt must not be blank")
+    email_hash = hash_identity_value(secret, normalized_salt, "email", normalize_email(proof.email))
     date_of_birth_hash = hash_identity_value(
         secret,
+        normalized_salt,
         "date_of_birth",
         normalize_date_of_birth(proof.date_of_birth),
     )
     health_card_hash = hash_identity_value(
         secret,
+        normalized_salt,
         "health_card_number",
         normalize_health_card_number(proof.health_card_number),
     )
@@ -101,14 +107,23 @@ def verify_identity_proof(
     proof: IdentityProof,
     secret: str,
     *,
+    salt: str | None,
     email_hash: str | None,
     date_of_birth_hash: str | None,
     health_card_hash: str | None,
 ) -> bool:
-    if not has_complete_identity_proof_hashes(email_hash, date_of_birth_hash, health_card_hash):
+    if (
+        salt is None
+        or not salt.strip()
+        or not has_complete_identity_proof_hashes(
+            email_hash,
+            date_of_birth_hash,
+            health_card_hash,
+        )
+    ):
         return False
 
-    expected_hashes = build_identity_hashes(proof, secret)
+    expected_hashes = build_identity_hashes(proof, secret, salt)
     return (
         compare_digest(expected_hashes["proof_email_hash"], email_hash or "")
         and compare_digest(expected_hashes["proof_date_of_birth_hash"], date_of_birth_hash or "")

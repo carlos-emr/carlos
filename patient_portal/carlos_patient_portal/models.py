@@ -7,8 +7,8 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,6 +32,8 @@ MAX_EMAIL_LENGTH = 254
 MIN_USERNAME_LENGTH = 3
 MAX_USERNAME_LENGTH = 64
 HASH_LENGTH = 64
+MAX_PROOF_SALT_LENGTH = 64
+IDENTITY_PROOF_HASH_VERSION = "v1"
 MAX_AUDIT_EVENT_TYPE_LENGTH = 64
 MAX_AUDIT_OUTCOME_LENGTH = 16
 MAX_AUDIT_ACTOR_TYPE_LENGTH = 16
@@ -131,6 +133,28 @@ class PatientPortalInvite(Base):
             name="ck_patient_portal_invites_proof_health_card_hash_length",
         ),
         CheckConstraint(
+            (
+                f"proof_salt is null or length(proof_salt) between 1 and "
+                f"{MAX_PROOF_SALT_LENGTH}"
+            ),
+            name="ck_patient_portal_invites_proof_salt_length",
+        ),
+        CheckConstraint(
+            (
+                "(proof_email_hash is null and proof_date_of_birth_hash is null and "
+                "proof_health_card_hash is null and proof_salt is null and "
+                "proof_hash_version is null) or "
+                "(proof_email_hash is not null and proof_date_of_birth_hash is not null and "
+                "proof_health_card_hash is not null and proof_salt is not null and "
+                "proof_hash_version is not null)"
+            ),
+            name="ck_patient_portal_invites_proof_fields_complete",
+        ),
+        CheckConstraint(
+            "proof_hash_version is null or proof_hash_version in ('v1')",
+            name="ck_patient_portal_invites_proof_hash_version",
+        ),
+        CheckConstraint(
             "expires_at > created_at",
             name="ck_patient_portal_invites_expires_after_created",
         ),
@@ -168,6 +192,14 @@ class PatientPortalInvite(Base):
         Index("ix_patient_portal_invites_clinic_expires_at", "clinic_id", "expires_at"),
         Index("ix_patient_portal_invites_clinic_status", "clinic_id", "status"),
         Index("ux_patient_portal_invites_token_hash", "token_hash", unique=True),
+        Index(
+            "ux_patient_portal_invites_one_pending_per_patient",
+            "clinic_id",
+            "demographic_no",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -202,6 +234,8 @@ class PatientPortalInvite(Base):
         String(HASH_LENGTH),
         nullable=True,
     )
+    proof_salt: Mapped[str | None] = mapped_column(String(MAX_PROOF_SALT_LENGTH), nullable=True)
+    proof_hash_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     accepted_account_id: Mapped[int | None] = mapped_column(
         ForeignKey("patient_portal_accounts.id"),
@@ -288,7 +322,6 @@ class PatientPortalAuditEvent(Base):
     invite_token_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
     client_reference_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
     reason: Mapped[str | None] = mapped_column(String(MAX_AUDIT_REASON_LENGTH), nullable=True)
-    detail: Mapped[str | None] = mapped_column(Text(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,

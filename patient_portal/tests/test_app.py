@@ -23,6 +23,14 @@ from carlos_patient_portal.database import (
     session_scope,
 )
 from carlos_patient_portal.identity import IdentityProof
+from carlos_patient_portal.interop import (
+    FHIR_RELEASE,
+    HL7_V2_VERSION,
+    PortalPatientInteroperabilityIdentity,
+    build_fhir_r4_patient,
+    build_hl7_v251_patient_registration,
+    validate_hl7_v251_message,
+)
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_TTL,
     InviteNotFoundError,
@@ -80,8 +88,15 @@ def migrated_development_app(**overrides: object) -> main.FastAPI:
     return app
 
 
-def dev_admin_headers(token: str = DEV_ADMIN_TOKEN) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+def dev_admin_headers(
+    token: str = DEV_ADMIN_TOKEN,
+    *,
+    actor: str = "Dr example",
+) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        main.DEV_ADMIN_ACTOR_HEADER: actor,
+    }
 
 
 def get_csrf_token(client: TestClient) -> str:
@@ -105,7 +120,6 @@ def parse_response_datetime(value: str) -> datetime:
 def seeded_invite_request(**overrides: object) -> dict[str, object]:
     request_payload: dict[str, object] = {
         "demographic_no": 1234,
-        "actor": "Dr example",
         "email": SEEDED_INVITE_EMAIL,
         "date_of_birth": SEEDED_INVITE_DOB,
         "health_card_number": SEEDED_INVITE_HCN,
@@ -440,8 +454,8 @@ def test_dev_admin_invite_lifecycle() -> None:
     client = TestClient(app)
     create_response = client.post(
         "/dev/admin/invites",
-        headers=dev_admin_headers(),
-        json=seeded_invite_request(actor=" Dr example "),
+        headers=dev_admin_headers(actor=" Dr example "),
+        json=seeded_invite_request(),
     )
 
     assert create_response.status_code == 201
@@ -470,6 +484,8 @@ def test_dev_admin_invite_lifecycle() -> None:
         assert persisted_invite.token_hash == hash_invite_token(invite_token)
         assert persisted_invite.token_hash != invite_token
         assert persisted_invite.expires_at is not None
+        assert persisted_invite.proof_salt is not None
+        assert persisted_invite.proof_hash_version == "v1"
 
     list_response = client.get(
         "/dev/admin/invites",
@@ -489,8 +505,7 @@ def test_dev_admin_invite_lifecycle() -> None:
 
     resend_response = client.post(
         f"/dev/admin/invites/{invite_id}/resend",
-        headers=dev_admin_headers(),
-        json={"actor": "Admin example"},
+        headers=dev_admin_headers(actor="Admin example"),
     )
 
     assert resend_response.status_code == 200
@@ -504,8 +519,7 @@ def test_dev_admin_invite_lifecycle() -> None:
 
     revoke_response = client.post(
         f"/dev/admin/invites/{invite_id}/revoke",
-        headers=dev_admin_headers(),
-        json={"actor": "Admin example"},
+        headers=dev_admin_headers(actor="Admin example"),
     )
 
     assert revoke_response.status_code == 200
@@ -516,12 +530,58 @@ def test_dev_admin_invite_lifecycle() -> None:
 
     revoked_resend_response = client.post(
         f"/dev/admin/invites/{invite_id}/resend",
-        headers=dev_admin_headers(),
-        json={"actor": "Admin example"},
+        headers=dev_admin_headers(actor="Admin example"),
     )
 
     assert revoked_resend_response.status_code == 409
     assert revoked_resend_response.json()["detail"] == "invite has been revoked"
+
+
+def test_new_invite_replaces_older_pending_invite_for_patient() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+
+    first_create_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(actor="Dr example"),
+        json=seeded_invite_request(),
+    )
+    second_create_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(actor="Admin example"),
+        json=seeded_invite_request(),
+    )
+
+    assert first_create_response.status_code == 201
+    assert second_create_response.status_code == 201
+    first_invite = first_create_response.json()
+    second_invite = second_create_response.json()
+    assert second_invite["id"] != first_invite["id"]
+
+    list_response = client.get(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(),
+        params={"demographic_no": 1234},
+    )
+    listed_invites = list_response.json()
+    assert [invite["id"] for invite in listed_invites] == [
+        second_invite["id"],
+        first_invite["id"],
+    ]
+    assert [invite["status"] for invite in listed_invites] == ["pending", "revoked"]
+    assert listed_invites[1]["revoked_by"] == "Admin example"
+
+    old_activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(first_invite["invite_token"]),
+    )
+    latest_activation_response = client.post(
+        "/auth/activate",
+        json=activation_request(second_invite["invite_token"]),
+    )
+
+    assert old_activation_response.status_code == 400
+    assert latest_activation_response.status_code == 201
 
 
 def test_patient_activation_creates_account_from_seeded_invite() -> None:
@@ -545,6 +605,7 @@ def test_patient_activation_creates_account_from_seeded_invite() -> None:
         assert persisted_invite.proof_email_hash is not None
         assert persisted_invite.proof_date_of_birth_hash is not None
         assert persisted_invite.proof_health_card_hash is not None
+        assert persisted_invite.proof_salt is not None
         assert persisted_invite.proof_email_hash != SEEDED_INVITE_EMAIL
         assert persisted_invite.proof_health_card_hash != SEEDED_INVITE_HCN
 
@@ -594,6 +655,28 @@ def test_patient_activation_creates_account_from_seeded_invite() -> None:
     assert second_activation_response.json()["detail"] == (
         "activation details could not be verified"
     )
+
+
+def test_dev_admin_invite_rejects_patient_with_existing_account() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    create_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(),
+        json=seeded_invite_request(),
+    )
+    invite_token = create_response.json()["invite_token"]
+    activation_response = client.post("/auth/activate", json=activation_request(invite_token))
+
+    duplicate_create_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(),
+        json=seeded_invite_request(),
+    )
+
+    assert activation_response.status_code == 201
+    assert duplicate_create_response.status_code == 409
+    assert duplicate_create_response.json()["detail"] == "patient already has a portal account"
 
 
 def test_patient_activation_rejects_identity_mismatch_without_account_leak() -> None:
@@ -751,6 +834,16 @@ def test_patient_activation_validation_does_not_echo_health_card_number() -> Non
     assert invalid_health_card_number not in response.text
 
 
+def test_patient_activation_rejects_too_short_health_card_number() -> None:
+    app = migrated_development_app()
+    response = TestClient(app).post(
+        "/auth/activate",
+        json=activation_request("unused", health_card_number="A1"),
+    )
+
+    assert response.status_code == 422
+
+
 def test_patient_activation_rate_limits_failed_attempts() -> None:
     app = migrated_development_app(
         session_secret=NON_DEVELOPMENT_SESSION_SECRET,
@@ -799,6 +892,40 @@ def test_patient_activation_rate_limits_failed_attempts() -> None:
             AUDIT_OUTCOME_THROTTLED,
         ]
         assert all(event.client_reference_hash == expected_client_hash for event in audit_events)
+
+
+def test_patient_activation_rate_limit_can_use_trusted_proxy_header() -> None:
+    app = migrated_development_app(
+        session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+        trusted_client_ip_header="x-forwarded-for",
+    )
+    client = TestClient(app)
+    create_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(),
+        json=seeded_invite_request(),
+    )
+    invite_token = create_response.json()["invite_token"]
+    response = client.post(
+        "/auth/activate",
+        headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.10"},
+        json=activation_request(invite_token, health_card_number="WRONG1234"),
+    )
+
+    assert response.status_code == 400
+    expected_client_hash = hash_sensitive_reference(
+        NON_DEVELOPMENT_SESSION_SECRET,
+        "activation_client",
+        "203.0.113.7",
+    )
+    with app.state.session_factory() as session:
+        audit_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACTIVATION
+            )
+        )
+        assert audit_event is not None
+        assert audit_event.client_reference_hash == expected_client_hash
 
 
 def test_patient_activation_rate_limit_window_expires() -> None:
@@ -852,13 +979,11 @@ def test_accepted_invites_cannot_be_resent_or_revoked() -> None:
 
     resend_response = client.post(
         f"/dev/admin/invites/{created_invite['id']}/resend",
-        headers=dev_admin_headers(),
-        json={"actor": "Admin example"},
+        headers=dev_admin_headers(actor="Admin example"),
     )
     revoke_response = client.post(
         f"/dev/admin/invites/{created_invite['id']}/revoke",
-        headers=dev_admin_headers(),
-        json={"actor": "Admin example"},
+        headers=dev_admin_headers(actor="Admin example"),
     )
 
     assert resend_response.status_code == 409
@@ -880,7 +1005,7 @@ def test_dev_admin_invites_are_hidden_outside_development() -> None:
     response = TestClient(app).post(
         "/dev/admin/invites",
         headers=dev_admin_headers(),
-        json={"demographic_no": 1234, "actor": "Dr example"},
+        json=seeded_invite_request(),
     )
 
     assert response.status_code == 404
@@ -896,7 +1021,7 @@ def test_dev_admin_invites_require_explicit_development_flag() -> None:
     response = TestClient(app).post(
         "/dev/admin/invites",
         headers=dev_admin_headers(),
-        json={"demographic_no": 1234, "actor": "Dr example"},
+        json=seeded_invite_request(),
     )
 
     assert response.status_code == 404
@@ -919,12 +1044,35 @@ def test_dev_admin_invites_require_bearer_token() -> None:
     assert wrong_token_response.status_code == 404
 
 
+def test_dev_admin_invite_creation_rejects_oversized_json_body_after_auth() -> None:
+    app = migrated_development_app()
+    oversized_body = b'{"demographic_no":1234,"email":"' + b"x" * main.MAX_JSON_BODY_BYTES + b'"}'
+
+    missing_token_response = TestClient(app).post(
+        "/dev/admin/invites",
+        content=oversized_body,
+        headers={"Content-Type": "application/json"},
+    )
+    authenticated_response = TestClient(app).post(
+        "/dev/admin/invites",
+        content=oversized_body,
+        headers={
+            "Content-Type": "application/json",
+            **dev_admin_headers(),
+        },
+    )
+
+    assert missing_token_response.status_code == 404
+    assert authenticated_response.status_code == 413
+    assert authenticated_response.json()["detail"] == "request body too large"
+
+
 def test_dev_admin_invite_requires_identity_proof() -> None:
     app = migrated_development_app()
     response = TestClient(app).post(
         "/dev/admin/invites",
         headers=dev_admin_headers(),
-        json={"demographic_no": 1234, "actor": "Dr example"},
+        json={"demographic_no": 1234},
     )
 
     assert response.status_code == 422
@@ -968,7 +1116,6 @@ def test_dev_admin_unknown_invite_returns_not_found() -> None:
     response = TestClient(app).post(
         "/dev/admin/invites/999/resend",
         headers=dev_admin_headers(),
-        json={"actor": "Dr example"},
     )
 
     assert response.status_code == 404
@@ -986,13 +1133,11 @@ def test_invite_lifecycle_writes_audit_events() -> None:
     invite_id = create_response.json()["id"]
     assert client.post(
         f"/dev/admin/invites/{invite_id}/resend",
-        headers=dev_admin_headers(),
-        json={"actor": "Admin example"},
+        headers=dev_admin_headers(actor="Admin example"),
     ).status_code == 200
     assert client.post(
         f"/dev/admin/invites/{invite_id}/revoke",
-        headers=dev_admin_headers(),
-        json={"actor": "Admin example"},
+        headers=dev_admin_headers(actor="Admin example"),
     ).status_code == 200
 
     with app.state.session_factory() as session:
@@ -1024,6 +1169,35 @@ def test_invite_status_constraints_require_matching_metadata() -> None:
         session.commit()
 
         revoked_invite.status = INVITE_STATUS_REVOKED
+        with pytest.raises(IntegrityError):
+            session.commit()
+
+
+def test_invite_constraints_allow_only_one_pending_invite_per_patient() -> None:
+    app = migrated_development_app()
+    with app.state.session_factory() as session:
+        first_invite, _ = create_service_invite(session)
+        session.commit()
+
+        duplicate_pending_invite = PatientPortalInvite(
+            clinic_id=first_invite.clinic_id,
+            demographic_no=first_invite.demographic_no,
+            token_hash=hash_invite_token("manual-duplicate-token"),
+            status=INVITE_STATUS_PENDING,
+            created_by="Dr example",
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            sent_count=1,
+            last_sent_at=utc_now(),
+            last_sent_by="Dr example",
+            expires_at=utc_now() + DEFAULT_INVITE_TTL,
+            proof_email_hash=first_invite.proof_email_hash,
+            proof_date_of_birth_hash=first_invite.proof_date_of_birth_hash,
+            proof_health_card_hash=first_invite.proof_health_card_hash,
+            proof_salt=first_invite.proof_salt,
+            proof_hash_version=first_invite.proof_hash_version,
+        )
+        session.add(duplicate_pending_invite)
         with pytest.raises(IntegrityError):
             session.commit()
 
@@ -1108,6 +1282,47 @@ def test_invite_service_scopes_records_by_clinic() -> None:
             )
 
 
+def test_invite_identity_proof_hashes_are_salted_per_invite() -> None:
+    app = migrated_development_app()
+    with app.state.session_factory() as session:
+        first_invite, _ = create_service_invite(session, demographic_no=1234)
+        second_invite, _ = create_service_invite(session, demographic_no=5678)
+
+        assert first_invite.proof_salt is not None
+        assert second_invite.proof_salt is not None
+        assert first_invite.proof_salt != second_invite.proof_salt
+        assert first_invite.proof_email_hash != second_invite.proof_email_hash
+        assert first_invite.proof_health_card_hash != second_invite.proof_health_card_hash
+
+
+def test_interop_helpers_build_valid_fhir_r4_and_hl7_v251_patient_identity() -> None:
+    identity = PortalPatientInteroperabilityIdentity(
+        clinic_id="default",
+        demographic_no=1234,
+        email=SEEDED_INVITE_EMAIL,
+        date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+        health_card_number=SEEDED_INVITE_HCN,
+        family_name="Patient",
+        given_name="Example",
+    )
+
+    fhir_patient = build_fhir_r4_patient(identity)
+    hl7_message = build_hl7_v251_patient_registration(
+        identity,
+        message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        message_control_id="MSG0001",
+    )
+
+    assert FHIR_RELEASE == "R4"
+    assert fhir_patient["resourceType"] == "Patient"
+    assert fhir_patient["birthDate"] == SEEDED_INVITE_DOB
+    assert fhir_patient["name"][0]["family"] == "Patient"
+    assert HL7_V2_VERSION == "2.5.1"
+    assert "MSH|^~\\&|CARLOS|default|CARLOSPORTAL|default" in hl7_message
+    assert "ADT^A04^ADT_A01" in hl7_message
+    assert validate_hl7_v251_message(hl7_message) == hl7_message
+
+
 def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     engine = create_portal_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -1173,6 +1388,12 @@ def test_clinic_id_is_normalized() -> None:
 def test_clinic_id_must_not_be_blank() -> None:
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_CLINIC_ID"):
         development_settings(clinic_id=" ")
+
+
+def test_trusted_client_ip_header_is_normalized() -> None:
+    settings = development_settings(trusted_client_ip_header=" X-Forwarded-For ")
+
+    assert settings.trusted_client_ip_header == "x-forwarded-for"
 
 
 def test_default_settings_reject_missing_production_secrets() -> None:

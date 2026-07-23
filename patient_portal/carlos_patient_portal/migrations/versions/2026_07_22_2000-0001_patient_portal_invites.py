@@ -78,6 +78,8 @@ def upgrade() -> None:
         sa.Column("proof_email_hash", sa.String(length=64), nullable=True),
         sa.Column("proof_date_of_birth_hash", sa.String(length=64), nullable=True),
         sa.Column("proof_health_card_hash", sa.String(length=64), nullable=True),
+        sa.Column("proof_salt", sa.String(length=64), nullable=True),
+        sa.Column("proof_hash_version", sa.String(length=16), nullable=True),
         sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("accepted_account_id", sa.Integer(), nullable=True),
         sa.CheckConstraint(
@@ -107,6 +109,25 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "proof_health_card_hash is null or length(proof_health_card_hash) = 64",
             name="ck_patient_portal_invites_proof_health_card_hash_length",
+        ),
+        sa.CheckConstraint(
+            "proof_salt is null or length(proof_salt) between 1 and 64",
+            name="ck_patient_portal_invites_proof_salt_length",
+        ),
+        sa.CheckConstraint(
+            (
+                "(proof_email_hash is null and proof_date_of_birth_hash is null and "
+                "proof_health_card_hash is null and proof_salt is null and "
+                "proof_hash_version is null) or "
+                "(proof_email_hash is not null and proof_date_of_birth_hash is not null and "
+                "proof_health_card_hash is not null and proof_salt is not null and "
+                "proof_hash_version is not null)"
+            ),
+            name="ck_patient_portal_invites_proof_fields_complete",
+        ),
+        sa.CheckConstraint(
+            "proof_hash_version is null or proof_hash_version in ('v1')",
+            name="ck_patient_portal_invites_proof_hash_version",
         ),
         sa.CheckConstraint(
             "expires_at > created_at",
@@ -162,6 +183,14 @@ def upgrade() -> None:
         ["token_hash"],
         unique=True,
     )
+    op.create_index(
+        "ux_patient_portal_invites_one_pending_per_patient",
+        "patient_portal_invites",
+        ["clinic_id", "demographic_no"],
+        unique=True,
+        sqlite_where=sa.text("status = 'pending'"),
+        postgresql_where=sa.text("status = 'pending'"),
+    )
     op.create_table(
         "patient_portal_audit_events",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -176,7 +205,6 @@ def upgrade() -> None:
         sa.Column("invite_token_hash", sa.String(length=64), nullable=True),
         sa.Column("client_reference_hash", sa.String(length=64), nullable=True),
         sa.Column("reason", sa.String(length=64), nullable=True),
-        sa.Column("detail", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "clinic_id is null or length(clinic_id) between 1 and 64",
@@ -258,6 +286,10 @@ def downgrade() -> None:
         table_name="patient_portal_audit_events",
     )
     op.drop_table("patient_portal_audit_events")
+    op.drop_index(
+        "ux_patient_portal_invites_one_pending_per_patient",
+        table_name="patient_portal_invites",
+    )
     op.drop_index("ux_patient_portal_invites_token_hash", table_name="patient_portal_invites")
     op.drop_index("ix_patient_portal_invites_clinic_status", table_name="patient_portal_invites")
     op.drop_index(

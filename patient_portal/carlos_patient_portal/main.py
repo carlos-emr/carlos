@@ -3,10 +3,11 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 from hashlib import sha256
 from hmac import new as new_hmac
+from ipaddress import ip_address
 from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
 from time import time
-from typing import Annotated
+from typing import Annotated, TypeVar
 from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
@@ -15,7 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.responses import Response
@@ -40,10 +41,13 @@ from carlos_patient_portal.invites import (
     DEFAULT_INVITE_LIST_LIMIT,
     MAX_INVITE_LIST_LIMIT,
     AcceptedInviteError,
+    AccountAlreadyExistsError,
     InviteNotFoundError,
+    PendingInviteExistsError,
     RevokedInviteError,
     create_invite,
     list_invites,
+    normalize_staff_actor,
     resend_invite,
     revoke_invite,
 )
@@ -54,10 +58,10 @@ from carlos_patient_portal.schemas import (
     InviteCreateRequest,
     InviteResponse,
     InviteTokenResponse,
-    StaffActorRequest,
 )
 
 PACKAGE_DIR = FilePath(__file__).resolve().parent
+RequestModel = TypeVar("RequestModel", bound=BaseModel)
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
@@ -72,6 +76,7 @@ NO_STORE_PATHS = {"/"}
 MAX_FORM_BODY_BYTES = 16 * 1024
 MAX_JSON_BODY_BYTES = 16 * 1024
 MAX_FORM_FIELD_COUNT = 20
+DEV_ADMIN_ACTOR_HEADER = "X-CARLOS-Staff-Actor"
 CSRF_COOKIE_NAME = "carlos_portal_csrf"
 CSRF_COOKIE_PATH = "/auth"
 CSRF_FORM_FIELD = "csrf_token"
@@ -166,6 +171,8 @@ def invite_response_payload(
                 invite.proof_email_hash,
                 invite.proof_date_of_birth_hash,
                 invite.proof_health_card_hash,
+                invite.proof_salt,
+                invite.proof_hash_version,
             )
         ),
         "accepted_at": invite.accepted_at,
@@ -219,21 +226,67 @@ async def get_urlencoded_form_values(
 
 
 async def get_activation_request(request: Request) -> ActivationRequest:
+    return await get_json_request_model(
+        request,
+        ActivationRequest,
+        "activation requires an application/json request body",
+    )
+
+
+async def get_invite_create_request(request: Request) -> InviteCreateRequest:
+    return await get_json_request_model(
+        request,
+        InviteCreateRequest,
+        "invite creation requires an application/json request body",
+    )
+
+
+async def get_json_request_model(
+    request: Request,
+    model_type: type[RequestModel],
+    unsupported_media_type_detail: str,
+) -> RequestModel:
     content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
     if content_type != "application/json":
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="activation requires an application/json request body",
+            detail=unsupported_media_type_detail,
         )
 
     body = await read_limited_request_body(request, MAX_JSON_BODY_BYTES)
     try:
-        return ActivationRequest.model_validate_json(body)
+        return model_type.model_validate_json(body)
     except ValidationError as exc:
         raise RequestValidationError(exc.errors()) from exc
 
 
-def get_request_client_reference(request: Request) -> str:
+def parse_trusted_client_ip_header(header_name: str, header_value: str | None) -> str | None:
+    if not header_value:
+        return None
+
+    candidate = (
+        header_value.split(",", 1)[0].strip()
+        if header_name == "x-forwarded-for"
+        else header_value.strip()
+    )
+    if not candidate:
+        return None
+
+    try:
+        return str(ip_address(candidate))
+    except ValueError:
+        return None
+
+
+def get_request_client_reference(request: Request, settings: Settings) -> str:
+    if settings.trusted_client_ip_header is not None:
+        trusted_client_reference = parse_trusted_client_ip_header(
+            settings.trusted_client_ip_header,
+            request.headers.get(settings.trusted_client_ip_header),
+        )
+        if trusted_client_reference is not None:
+            return trusted_client_reference
+
     if request.client is None or not request.client.host:
         return UNKNOWN_CLIENT_REFERENCE
     return request.client.host
@@ -346,6 +399,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if scheme.lower() != "bearer" or not compare_digest(supplied_token, expected_token):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
 
+    def get_dev_admin_actor(
+        _: Annotated[None, Depends(require_dev_admin_token)],
+        actor_header: Annotated[str | None, Header(alias=DEV_ADMIN_ACTOR_HEADER)] = None,
+    ) -> str:
+        try:
+            return normalize_staff_actor(actor_header or "dev-admin")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="invalid staff actor") from exc
+
     @app.get("/")
     def index(request: Request) -> Response:
         csrf_token = create_csrf_token(csrf_secret)
@@ -412,7 +474,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         client_reference_hash = hash_sensitive_reference(
             csrf_secret,
             "activation_client",
-            get_request_client_reference(request),
+            get_request_client_reference(request, settings),
         )
         try:
             account = activate_patient_account(
@@ -431,11 +493,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except UsernameUnavailableError:
             return JSONResponse(status_code=409, content={"detail": "username unavailable"})
-        except ActivationThrottledError:
+        except ActivationThrottledError as exc:
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={"detail": "too many activation attempts; try again later"},
-                headers={"Retry-After": str(settings.activation_failure_window_seconds)},
+                headers={"Retry-After": str(exc.retry_after_seconds)},
             )
         except ActivationError:
             return JSONResponse(
@@ -452,8 +514,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code=status.HTTP_201_CREATED,
         )
         def dev_create_invite(
-            _: Annotated[None, Depends(require_dev_admin_token)],
-            payload: InviteCreateRequest,
+            actor: Annotated[str, Depends(get_dev_admin_actor)],
+            payload: Annotated[InviteCreateRequest, Depends(get_invite_create_request)],
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
             identity_proof = IdentityProof(
@@ -461,14 +523,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 date_of_birth=payload.date_of_birth,
                 health_card_number=payload.health_card_number,
             )
-            invite, invite_token = create_invite(
-                session,
-                payload.demographic_no,
-                payload.actor,
-                identity_proof=identity_proof,
-                proof_secret=identity_proof_secret,
-                clinic_id=settings.clinic_id,
-            )
+            try:
+                invite, invite_token = create_invite(
+                    session,
+                    payload.demographic_no,
+                    actor,
+                    identity_proof=identity_proof,
+                    proof_secret=identity_proof_secret,
+                    clinic_id=settings.clinic_id,
+                )
+            except AccountAlreadyExistsError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="patient already has a portal account",
+                ) from exc
+            except PendingInviteExistsError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="pending invite already exists",
+                ) from exc
             return invite_response_payload(invite, invite_token)
 
         @app.get("/dev/admin/invites", response_model=list[InviteResponse])
@@ -496,15 +569,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         @app.post("/dev/admin/invites/{invite_id}/resend", response_model=InviteTokenResponse)
         def dev_resend_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
-            _: Annotated[None, Depends(require_dev_admin_token)],
-            payload: StaffActorRequest,
+            actor: Annotated[str, Depends(get_dev_admin_actor)],
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
             try:
                 invite, invite_token = resend_invite(
                     session,
                     invite_id,
-                    payload.actor,
+                    actor,
                     clinic_id=settings.clinic_id,
                 )
             except InviteNotFoundError as exc:
@@ -521,15 +593,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         @app.post("/dev/admin/invites/{invite_id}/revoke", response_model=InviteResponse)
         def dev_revoke_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
-            _: Annotated[None, Depends(require_dev_admin_token)],
-            payload: StaffActorRequest,
+            actor: Annotated[str, Depends(get_dev_admin_actor)],
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
             try:
                 invite = revoke_invite(
                     session,
                     invite_id,
-                    payload.actor,
+                    actor,
                     clinic_id=settings.clinic_id,
                 )
             except InviteNotFoundError as exc:

@@ -15,6 +15,8 @@ The first slice is intentionally small:
 - Seven-day invite expiry metadata, refreshed on resend.
 - Patient invite activation using invite code, email, date of birth, and HCN/HIN proof.
 - Activation attempt throttling backed by portal audit events.
+- Minimal FHIR R4 Patient and HL7 v2.5.1 patient-registration validation helpers for the MVP
+  CARLOS integration contract.
 - Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
   activation behavior.
 
@@ -109,6 +111,12 @@ within a one-hour window. The deployment can tune this with
 `PATIENT_PORTAL_ACTIVATION_MAX_FAILURES_PER_INVITE`, and
 `PATIENT_PORTAL_ACTIVATION_MAX_FAILURES_PER_CLIENT`.
 
+By default, client throttling uses the direct peer address reported by the ASGI server. If the portal
+runs behind a trusted proxy that strips and sets forwarding headers, set
+`PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER` to `x-forwarded-for` or `x-real-ip`. Do not enable this for
+untrusted direct internet traffic, because clients can spoof those headers unless a trusted upstream
+controls them.
+
 ## Migrations
 
 ```bash
@@ -136,9 +144,9 @@ intentionally hidden outside development until real CARLOS staff authentication 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
+  -H "X-CARLOS-Staff-Actor: Dr example" \
   -d '{
     "demographic_no": 1234,
-    "actor": "Dr example",
     "email": "example.patient@example.com",
     "date_of_birth": "1980-05-20",
     "health_card_number": "ABCD 1234-5678"
@@ -148,25 +156,27 @@ curl -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
   http://127.0.0.1:8090/dev/admin/invites?demographic_no=1234
 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/resend \
-  -H "Content-Type: application/json" \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
-  -d '{"actor":"Dr example"}'
+  -H "X-CARLOS-Staff-Actor: Dr example"
 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
-  -H "Content-Type: application/json" \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
-  -d '{"actor":"Dr example"}'
+  -H "X-CARLOS-Staff-Actor: Dr example"
 ```
 
 Invite tokens are shown only on create/resend responses. The database stores only the token hash.
-When identity proof is supplied, the database stores only keyed hashes of email, date of birth, and
-HCN/HIN values. Invites carry a seven-day `expires_at` timestamp so the activation endpoint has a
-clear server-side expiry boundary. Invite list responses default to 10 records and are capped at 100
-records per request.
+When identity proof is supplied, the database stores only per-invite salted keyed hashes of email,
+date of birth, and HCN/HIN values. Invites carry a seven-day `expires_at` timestamp so the activation
+endpoint has a clear server-side expiry boundary. Invite list responses default to 10 records and are
+capped at 100 records per request.
 
 The current development API requires email, date of birth, and HCN/HIN at invite creation time so it
 cannot create invites that patients are unable to activate. The future CARLOS-backed staff action
 should populate those proof hashes from CARLOS demographics instead of staff-entered JSON fields.
+The development API derives the staff actor from `X-CARLOS-Staff-Actor`; the production CARLOS
+integration should derive it from authenticated CARLOS provider context instead of client JSON.
+Creating a new pending invite for the same patient revokes older pending invites. Creating an invite
+after the patient already has a portal account returns a conflict.
 
 ## Patient Activation API
 
@@ -189,6 +199,18 @@ are hashed with Argon2id before storage.
 
 Activation requests must use `application/json` and are capped at 16 KiB before validation. Failed
 activation attempts are audited and rate-limited without storing raw HCN/HIN or date-of-birth values.
+
+## Interoperability Contract
+
+The MVP interoperability scope is intentionally narrow: this package validates the patient identity
+data shape this portal slice owns against concrete FHIR and HL7 targets without claiming a complete
+general-purpose exchange server:
+
+- FHIR target: R4 `Patient`, using `fhir.resources==5.1.1`.
+- HL7 v2 target: v2.5.1 ADT A04 patient-registration trigger using HL7apy validation.
+
+Future CARLOS integration work should reuse this module or replace it with a stricter CARLOS profile
+before exposing additional clinical exchange endpoints.
 
 ## Tests
 

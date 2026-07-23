@@ -5,6 +5,7 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["development", "staging", "test", "production"]
+TrustedClientIpHeader = Literal["x-forwarded-for", "x-real-ip"]
 DEFAULT_DATABASE_URL = "postgresql+psycopg://localhost:5432/carlos_portal"
 MIN_PRODUCTION_SECRET_LENGTH = 32
 MAX_CLINIC_ID_LENGTH = 64
@@ -27,6 +28,7 @@ class Settings(BaseSettings):
     session_secret: SecretStr | None = None
     identity_proof_secret: SecretStr | None = None
     internal_health_token: SecretStr | None = None
+    trusted_client_ip_header: TrustedClientIpHeader | None = None
     activation_failure_window_seconds: int = Field(default=3600, ge=60, le=86400)
     activation_max_failures_per_invite: int = Field(default=10, ge=1, le=100)
     activation_max_failures_per_client: int = Field(default=50, ge=1, le=1000)
@@ -55,6 +57,13 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             normalized_value = value.strip().lower()
             return ENVIRONMENT_ALIASES.get(normalized_value, normalized_value)
+        return value
+
+    @field_validator("trusted_client_ip_header", mode="before")
+    @classmethod
+    def normalize_trusted_client_ip_header(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().lower()
         return value
 
     @field_validator("clinic_id")
