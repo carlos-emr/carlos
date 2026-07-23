@@ -656,7 +656,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session: Annotated[Session, Depends(get_app_database_session)],
     ) -> AuthenticatedPortalSession:
         try:
-            return authenticate_session_token(session, session_token=session_token)
+            return authenticate_session_token(
+                session,
+                session_token=session_token,
+                token_secret=csrf_secret,
+            )
         except (PortalSessionInvalidError, ValueError) as exc:
             raise HTTPException(status_code=401, detail="authentication required") from exc
 
@@ -678,6 +682,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 password=payload.password,
                 client_reference_hash=client_reference_hash,
                 policy=auth_policy,
+                token_secret=csrf_secret,
                 mfa_code_secret=csrf_secret,
                 delivery_method=payload.mfa_delivery_method,
             )
@@ -714,6 +719,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 challenge_token=payload.mfa_challenge_token,
                 delivery_method=payload.mfa_delivery_method,
                 policy=auth_policy,
+                token_secret=csrf_secret,
                 code_secret=csrf_secret,
             )
         except MfaRateLimitedError as exc:
@@ -752,6 +758,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 challenge_token=payload.mfa_challenge_token,
                 code=payload.code,
                 policy=auth_policy,
+                token_secret=csrf_secret,
                 code_secret=csrf_secret,
             )
         except InvalidMfaCodeError:
@@ -791,6 +798,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             email=payload.email,
             client_reference_hash=client_reference_hash,
             policy=auth_policy,
+            token_secret=csrf_secret,
         )
         return password_reset_request_response_payload(result.reset_token, settings=settings)
 
@@ -807,6 +815,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 session,
                 reset_token=payload.reset_token,
                 new_password=payload.new_password,
+                token_secret=csrf_secret,
             )
         except PasswordResetTokenInvalidError:
             return JSONResponse(
@@ -836,7 +845,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session: Annotated[Session, Depends(get_app_database_session)],
     ) -> dict[str, str]:
         try:
-            logout_patient_session(session, session_token=session_token)
+            logout_patient_session(
+                session,
+                session_token=session_token,
+                token_secret=csrf_secret,
+            )
         except (PortalSessionInvalidError, ValueError) as exc:
             raise HTTPException(status_code=401, detail="authentication required") from exc
         return {"status": "logged_out"}

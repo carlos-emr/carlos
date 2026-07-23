@@ -150,11 +150,18 @@ class AuthenticatedPortalSession:
     portal_session: PatientPortalSession
 
 
-def hash_auth_token(token: str) -> str:
+def hash_auth_token(secret: str, purpose: str, token: str) -> str:
+    normalized_secret = secret.strip()
+    if not normalized_secret:
+        raise ValueError("secret must not be blank")
     normalized_token = token.strip()
     if not normalized_token:
         raise ValueError("token must not be blank")
-    return sha256(normalized_token.encode("utf-8")).hexdigest()
+    return new_hmac(
+        normalized_secret.encode("utf-8"),
+        f"auth_token:{purpose}:{normalized_token}".encode(),
+        sha256,
+    ).hexdigest()
 
 
 def create_auth_token() -> str:
@@ -321,12 +328,13 @@ def create_patient_session(
     account: PatientPortalAccount,
     *,
     policy: AuthPolicy,
+    token_secret: str,
     now: datetime,
 ) -> str:
     session_token = create_auth_token()
     portal_session = PatientPortalSession(
         account_id=account.id,
-        token_hash=hash_auth_token(session_token),
+        token_hash=hash_auth_token(token_secret, "session", session_token),
         created_at=now,
         expires_at=now + policy.session_ttl,
     )
@@ -341,6 +349,7 @@ def create_mfa_challenge(
     *,
     delivery_method: str,
     policy: AuthPolicy,
+    token_secret: str,
     code_secret: str,
     now: datetime,
 ) -> MfaChallengeDelivery:
@@ -351,7 +360,7 @@ def create_mfa_challenge(
     code = create_mfa_code()
     challenge = PatientPortalMfaChallenge(
         account_id=account.id,
-        challenge_token_hash=hash_auth_token(challenge_token),
+        challenge_token_hash=hash_auth_token(token_secret, "mfa_challenge", challenge_token),
         code_hash=hash_mfa_code(code_secret, challenge_token, code),
         delivery_method=normalized_delivery_method,
         status=MFA_CHALLENGE_STATUS_PENDING,
@@ -392,6 +401,7 @@ def start_login(
     password: str,
     client_reference_hash: str,
     policy: AuthPolicy,
+    token_secret: str,
     mfa_code_secret: str,
     delivery_method: str | None = None,
 ) -> LoginResult:
@@ -497,6 +507,7 @@ def start_login(
                 account,
                 delivery_method=requested_delivery_method,
                 policy=policy,
+                token_secret=token_secret,
                 code_secret=mfa_code_secret,
                 now=now,
             )
@@ -532,7 +543,13 @@ def start_login(
             mfa_challenge=mfa_challenge,
         )
 
-    session_token = create_patient_session(session, account, policy=policy, now=now)
+    session_token = create_patient_session(
+        session,
+        account,
+        policy=policy,
+        token_secret=token_secret,
+        now=now,
+    )
     account.last_login_at = now
     record_audit_event(
         session,
@@ -551,10 +568,15 @@ def start_login(
 def get_mfa_challenge_for_token(
     session: Session,
     challenge_token: str,
+    *,
+    token_secret: str,
 ) -> PatientPortalMfaChallenge | None:
     return session.scalar(
         select(PatientPortalMfaChallenge)
-        .where(PatientPortalMfaChallenge.challenge_token_hash == hash_auth_token(challenge_token))
+        .where(
+            PatientPortalMfaChallenge.challenge_token_hash
+            == hash_auth_token(token_secret, "mfa_challenge", challenge_token)
+        )
         .with_for_update()
     )
 
@@ -565,10 +587,15 @@ def resend_mfa_challenge(
     challenge_token: str,
     delivery_method: str,
     policy: AuthPolicy,
+    token_secret: str,
     code_secret: str,
 ) -> MfaChallengeDelivery:
     now = utc_now()
-    challenge = get_mfa_challenge_for_token(session, challenge_token)
+    challenge = get_mfa_challenge_for_token(
+        session,
+        challenge_token,
+        token_secret=token_secret,
+    )
     if (
         challenge is None
         or challenge.status != MFA_CHALLENGE_STATUS_PENDING
@@ -653,10 +680,15 @@ def verify_mfa_challenge(
     challenge_token: str,
     code: str,
     policy: AuthPolicy,
+    token_secret: str,
     code_secret: str,
 ) -> str:
     now = utc_now()
-    challenge = get_mfa_challenge_for_token(session, challenge_token)
+    challenge = get_mfa_challenge_for_token(
+        session,
+        challenge_token,
+        token_secret=token_secret,
+    )
     if (
         challenge is None
         or challenge.status != MFA_CHALLENGE_STATUS_PENDING
@@ -711,7 +743,13 @@ def verify_mfa_challenge(
     challenge.status = MFA_CHALLENGE_STATUS_VERIFIED
     challenge.verified_at = now
     challenge.updated_at = now
-    session_token = create_patient_session(session, account, policy=policy, now=now)
+    session_token = create_patient_session(
+        session,
+        account,
+        policy=policy,
+        token_secret=token_secret,
+        now=now,
+    )
     account.last_login_at = now
     account.failed_login_count = 0
     account.updated_at = now
@@ -736,6 +774,7 @@ def request_password_reset(
     email: str,
     client_reference_hash: str,
     policy: AuthPolicy,
+    token_secret: str,
 ) -> PasswordResetRequestResult:
     now = utc_now()
     try:
@@ -784,7 +823,7 @@ def request_password_reset(
     reset_token_value = create_auth_token()
     reset_token = PatientPortalPasswordResetToken(
         account_id=account.id,
-        token_hash=hash_auth_token(reset_token_value),
+        token_hash=hash_auth_token(token_secret, "password_reset", reset_token_value),
         status=PASSWORD_RESET_STATUS_PENDING,
         created_at=now,
         expires_at=now + policy.password_reset_token_ttl,
@@ -811,10 +850,11 @@ def complete_password_reset(
     *,
     reset_token: str,
     new_password: str,
+    token_secret: str,
 ) -> PatientPortalAccount:
     validate_password(new_password)
     now = utc_now()
-    token_hash = hash_auth_token(reset_token)
+    token_hash = hash_auth_token(token_secret, "password_reset", reset_token)
     reset_record = session.scalar(
         select(PatientPortalPasswordResetToken)
         .where(PatientPortalPasswordResetToken.token_hash == token_hash)
@@ -880,11 +920,15 @@ def authenticate_session_token(
     session: Session,
     *,
     session_token: str,
+    token_secret: str,
 ) -> AuthenticatedPortalSession:
     now = utc_now()
     portal_session = session.scalar(
         select(PatientPortalSession)
-        .where(PatientPortalSession.token_hash == hash_auth_token(session_token))
+        .where(
+            PatientPortalSession.token_hash
+            == hash_auth_token(token_secret, "session", session_token)
+        )
         .with_for_update()
     )
     if (
@@ -913,8 +957,13 @@ def logout_patient_session(
     session: Session,
     *,
     session_token: str,
+    token_secret: str,
 ) -> None:
-    authenticated_session = authenticate_session_token(session, session_token=session_token)
+    authenticated_session = authenticate_session_token(
+        session,
+        session_token=session_token,
+        token_secret=token_secret,
+    )
     now = utc_now()
     authenticated_session.portal_session.revoked_at = now
     authenticated_session.portal_session.revoked_reason = SESSION_REVOKED_REASON_LOGOUT

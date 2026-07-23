@@ -283,8 +283,8 @@ curl -X POST http://127.0.0.1:8090/auth/password-reset/complete \
 Development responses include `development_mfa_code` and `development_reset_token` only when needed
 for local testing. Production responses do not expose raw MFA codes or reset tokens; real delivery
 integration should send those values through the configured email/SMS provider without storing them.
-The database stores hashes of MFA codes, reset tokens, and session tokens. Sign-in, MFA, reset,
-lockout, unlock, and logout write audit events.
+The database stores keyed hashes of MFA codes, reset tokens, and session tokens. Sign-in, MFA,
+reset, lockout, unlock, and logout write audit events.
 
 ## Interoperability Contract
 
