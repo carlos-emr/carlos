@@ -31,35 +31,54 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("EFormRenderTokenService unit tests")
 @Tag("unit")
 @Tag("fast")
+@Tag("eform")
 class EFormRenderTokenServiceUnitTest {
 
     @Test
-    @DisplayName("should issue opaque URL-safe tokens redeemable exactly once")
-    void shouldIssueSingleUseToken_forBoundEform() {
+    @DisplayName("should bind a lease to the eForm and discard the grant on close")
+    void shouldBindLeaseToEform_andDiscardOnClose() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
-        String token = service.issue(187, "999998");
-
-        assertThat(token).isNotBlank().matches("[A-Za-z0-9_-]{40,}");
-        EFormRenderTokenService.RenderGrant grant = service.consume(token);
-        assertThat(grant).isNotNull();
-        assertThat(grant.fdid()).isEqualTo(187);
-        assertThat(grant.providerNo()).isEqualTo("999998");
-        assertThat(service.consume(token)).as("second redemption must fail").isNull();
+        EFormRenderTokenService.RenderToken token;
+        try (EFormRenderTokenService.RenderLease lease = service.lease(187, "999998")) {
+            token = lease.token();
+            assertThat(token.queryValue()).isNotBlank().matches("[A-Za-z0-9_-]{40,}");
+            assertThat(token).hasToString("[render-token]");
+            // The document plus each asset-image subresource peeks the same live grant within the
+            // render — repeatable, never consumed.
+            EFormRenderTokenService.RenderGrant grant = service.peek(token);
+            assertThat(grant).isNotNull();
+            assertThat(grant.fdid()).isEqualTo(187);
+            assertThat(grant.providerNo()).isEqualTo("999998");
+            assertThat(service.peek(token)).as("peek must be repeatable within a render").isNotNull();
+        }
+        // close() invalidated the grant: the render is over and the token is a dead loopback capability.
+        assertThat(service.peek(token)).as("grant must not survive the lease close").isNull();
     }
 
     @Test
-    @DisplayName("should return null when consuming unknown or empty tokens")
-    void shouldReturnNull_forUnknownOrEmptyTokens() {
+    @DisplayName("should discard the grant when the render body throws inside the lease")
+    void shouldDiscardGrant_whenLeaseBodyThrows() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
+        RuntimeException renderFailure = new RuntimeException("render failed mid-capture");
 
-        assertThat(service.consume(null)).isNull();
-        assertThat(service.consume("")).isNull();
-        assertThat(service.consume("never-issued")).isNull();
+        EFormRenderTokenService.RenderLease lease = service.lease(187, "999998");
+        EFormRenderTokenService.RenderToken token = lease.token();
+        assertThatThrownBy(() -> {
+            try (lease) {
+                assertThat(service.peek(token)).isNotNull();
+                throw renderFailure;
+            }
+        }).isSameAs(renderFailure);
+
+        // try-with-resources ran close() before the throw propagated, so the grant died with the
+        // render even though the body failed — the modern replacement for consume()'s single-use pin.
+        assertThat(service.peek(token)).as("grant must die with the render even on failure").isNull();
     }
 
     @Test
@@ -67,7 +86,7 @@ class EFormRenderTokenServiceUnitTest {
     void shouldReturnGrantRepeatedly_whenPeeking() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
-        String token = service.issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
 
         // A render fetches the document plus several asset images under one grant, so peek must be
         // repeatable and must not remove the token.
@@ -89,8 +108,8 @@ class EFormRenderTokenServiceUnitTest {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
         assertThat(service.peek(null)).isNull();
-        assertThat(service.peek("")).isNull();
-        assertThat(service.peek("never-issued")).isNull();
+        assertThat(service.peek(new EFormRenderTokenService.RenderToken(""))).isNull();
+        assertThat(service.peek(new EFormRenderTokenService.RenderToken("never-issued"))).isNull();
     }
 
     @Test
@@ -99,12 +118,12 @@ class EFormRenderTokenServiceUnitTest {
         AtomicLong nowNanos = new AtomicLong(0);
         EFormRenderTokenService service = new EFormRenderTokenService(nowNanos::get);
 
-        String token = service.issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
         // Advance just past the two-minute TTL rather than an over-generous three minutes, so a
         // regression that widened the TTL (e.g. to 2m30s) would fail this test instead of passing.
         nowNanos.addAndGet(java.time.Duration.ofMinutes(2).plusSeconds(1).toNanos());
 
-        assertThat(service.consume(token)).isNull();
+        assertThat(service.peek(token)).isNull();
     }
 
     @Test
@@ -113,7 +132,7 @@ class EFormRenderTokenServiceUnitTest {
         AtomicLong nowNanos = new AtomicLong(0);
         EFormRenderTokenService service = new EFormRenderTokenService(nowNanos::get);
 
-        String token = service.issue(187, "999998");
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
         // One second short of the two-minute TTL: the grant must still be redeemable, pinning the
         // lower edge of the contract so a regression that shortened the TTL would be caught too.
         nowNanos.addAndGet(java.time.Duration.ofSeconds(119).toNanos());
@@ -126,12 +145,12 @@ class EFormRenderTokenServiceUnitTest {
     void shouldDiscardGrant_whenInvalidatedBeforeRedemption() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
-        String token = service.issue(187, null);
+        EFormRenderTokenService.RenderToken token = service.issue(187, null);
         service.invalidate(token);
 
-        assertThat(service.consume(token)).isNull();
+        assertThat(service.peek(token)).isNull();
         service.invalidate(null);
-        service.invalidate("unknown");
+        service.invalidate(new EFormRenderTokenService.RenderToken("unknown"));
     }
 
     @Test

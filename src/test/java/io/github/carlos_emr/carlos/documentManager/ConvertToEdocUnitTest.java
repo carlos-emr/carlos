@@ -176,7 +176,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         try {
             // The token (and filename) arrive percent-encoded in stored markup; the resolver must
-            // still find the backing file and preserve the resource instead of dropping it (cubic CQPt).
+            // still find the backing file and preserve the resource instead of dropping it.
             String html = "<html><body>"
                     + "<img src=\"%24%7Boscar_image_path%7Dconvert-to-edoc-encoded-token-test.png\">"
                     + "</body></html>";

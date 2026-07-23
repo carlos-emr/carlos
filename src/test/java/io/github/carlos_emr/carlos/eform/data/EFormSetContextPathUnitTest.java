@@ -28,8 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * marker in the form HTML into a real, browser-facing {@code <context>/library/} URL prefix.
  *
  * <p>The marker is a servlet URL prefix, not a filesystem path, so the method must build the URL by
- * plain string substitution and must tolerate a trailing slash on the context path. A blank/unset
- * context path must leave the HTML untouched.</p>
+ * plain string substitution and must tolerate a trailing slash on the context path. Only a
+ * {@code null} context path (no servlet environment) leaves the HTML untouched; an empty string
+ * ({@code ""}) is a valid root-context (ROOT.war) deployment and must still be normalized.</p>
  *
  * @since 2026-06-01
  */
@@ -124,15 +125,41 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
-    @DisplayName("should leave the form HTML unchanged when the context path is blank")
-    void shouldLeaveHtmlUnchanged_whenContextPathBlank() {
+    @DisplayName("should leave the form HTML unchanged when the context path is null")
+    void shouldLeaveHtmlUnchanged_whenContextPathNull() {
         EForm eform = formWithMarker();
         String original = eform.getFormHtml();
 
-        eform.setContextPath("   ");
+        eform.setContextPath(null);
 
         assertThat(eform.getFormHtml()).isEqualTo(original);
         assertThat(eform.getFormHtml()).contains(JS_MARKER);
+    }
+
+    @Test
+    @DisplayName("should apply legacy normalization for a root-context deployment")
+    void shouldNormalizeLegacyAssets_forRootContextPath() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<script src=\"jquery-1.12.0.min.js\"></script>");
+
+        eform.setContextPath("");
+
+        assertThat(eform.getFormHtml())
+                .contains("src=\"/eform/displayImage?imagefile=jquery-1.12.0.min.js\"")
+                .doesNotContain("src=\"jquery-1.12.0.min.js\"");
+    }
+
+    @Test
+    @DisplayName("should treat a whitespace-only context path as root context")
+    void shouldNormalizeLegacyAssets_forWhitespaceContextPath() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<script src=\"jquery-1.12.0.min.js\"></script>");
+
+        eform.setContextPath("   ");
+
+        assertThat(eform.getFormHtml())
+                .contains("src=\"/eform/displayImage?imagefile=jquery-1.12.0.min.js\"")
+                .doesNotContain("   /eform/displayImage");
     }
 
     @Test
@@ -175,7 +202,7 @@ class EFormSetContextPathUnitTest {
         EForm eform = new EForm();
         // Decoded timer body: var a='</script>'  (real close — must be neutralized to <\/script>)
         //                     var b='</scriptx'  (vertical tab after 'script' — NOT an HTML tag
-        //                     delimiter, so it must be left intact; Java \s wrongly matched it, HOdZ).
+        //                     delimiter, so it must be left intact; Java \s wrongly matched it).
         eform.setFormHtml("<html><body>"
                 + "<script>setTimeout(\"var a='<\\/script>'; var b='<\\/script\\vx'\", 100);</script>"
                 + "</body></html>");

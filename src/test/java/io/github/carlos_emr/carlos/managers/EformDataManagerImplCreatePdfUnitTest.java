@@ -85,10 +85,12 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return the readable PDF path from the browser renderer")
     void shouldReturnReadablePdfPath_whenBrowserRendererSucceeds() throws Exception {
-        Path pdfPath = Files.createTempFile("eform-rendered-", ".pdf");
+        // Filename must match the RenderedEformPdf guard prefix (the real renderer output name).
+        Path pdfPath = Files.createTempFile("eform-browser-render-", ".pdf");
         try {
             Files.write(pdfPath, new byte[] {1, 2, 3, 4});
-            when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998")).thenReturn(pdfPath);
+            when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998"))
+                .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
 
             Path actualPath = manager.createEformPDF(loggedInInfo, 77);
 
@@ -104,9 +106,11 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     void shouldThrowPdfGenerationException_whenBrowserRendererReturnsUnreadablePath() throws Exception {
         // Create a unique temp path and delete it so the renderer result is guaranteed unreadable,
         // regardless of any files other processes may have left in the shared temp directory.
-        Path pdfPath = Files.createTempFile("eform-rendered-missing-", ".pdf");
+        // Filename must match the RenderedEformPdf guard prefix (the real renderer output name).
+        Path pdfPath = Files.createTempFile("eform-browser-render-missing-", ".pdf");
         Files.deleteIfExists(pdfPath);
-        when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998")).thenReturn(pdfPath);
+        when(eFormBrowserPdfService.renderSavedEformPdf(77, "999998"))
+                .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
                 .isInstanceOf(PDFGenerationException.class)

@@ -100,10 +100,21 @@ public class EForm extends EFormBase {
     // HTML spec recognizes (space, tab, LF, FF, CR), "/", or ">" — so ordinary identifiers like
     // "</scriptable" are left untouched. Java's "\s" is deliberately NOT used: it also matches the
     // vertical tab (U+000B), which HTML does not treat as a tag delimiter, so "</script..." must
-    // stay untouched (cubic HOdZ). (Case-insensitive.)
+    // stay untouched. (Case-insensitive.)
     private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[ \\t\\n\\f\\r/>])");
 
     private String runtimeContextPath;
+    /** True once the DOM normalization pass has run for the current formHtml content. */
+    private boolean runtimeAssetsNormalized;
+    /**
+     * True once a WARN has been emitted for a normalization failure on the current formHtml
+     * content. Normalization is retried on every {@link #getFormHtml()} call while it keeps
+     * failing (see {@link #runtimeAssetsNormalized}), which previously meant an operator had no
+     * way to learn that a class of forms persistently fails DOM normalization: the exception was
+     * only ever logged at DEBUG. This flag caps the operator-visible WARN to once per content
+     * generation while the full stack trace still logs at DEBUG on every retry.
+     */
+    private boolean normalizationFailureLogged;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
     private static final String VAR_NAME = "var_name";
@@ -409,17 +420,39 @@ public class EForm extends EFormBase {
      * asset references, injects a {@code loadSig} fallback when needed, and converts legacy string-based
      * timer calls inside inline scripts into function callbacks.</p>
      *
-     * @param contextPath servlet context path used to build browser-facing runtime asset URLs
+     * <p>A {@code null} context path (no servlet environment) is a no-op. An empty string ({@code ""})
+     * is a valid root-context (ROOT.war) deployment and is normalized like any other context path.
+     * Leading/trailing whitespace is stripped before use, so a whitespace-only value (never produced
+     * by {@code HttpServletRequest.getContextPath()}, which only returns {@code ""} or {@code "/path"},
+     * but defended against here regardless) collapses to {@code ""} and is treated as root context
+     * rather than being spliced raw into a browser-facing asset URL.</p>
+     *
+     * @param contextPath servlet context path used to build browser-facing runtime asset URLs;
+     *                     {@code ""} (or a whitespace-only value) for a root-context deployment,
+     *                     {@code null} to skip normalization
      */
     public void setContextPath(String contextPath) {
-        if (StringUtils.isBlank(contextPath)) return;
+        // Only a null context (no servlet environment) skips normalization. An empty string ("")
+        // is a valid root-context (ROOT.war) deployment - request.getContextPath() returns "" there,
+        // not null - and must still get the marker rewrite and legacy-asset normalization below; the
+        // trailing-slash check just below already handles "" correctly ("".endsWith("/") is false, so
+        // it passes through unchanged, while "/" normalizes to "").
+        if (contextPath == null) return;
         // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
         // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
         // path validation on it (which would inject OS separators and reject some valid context paths).
-        String normalizedContextPath = contextPath.endsWith("/")
-                ? contextPath.substring(0, contextPath.length() - 1)
-                : contextPath;
+        // Defensively strip whitespace before the trailing-slash normalization below: a whitespace-only
+        // context path (not producible by HttpServletRequest.getContextPath(), which only ever returns
+        // "" or "/path", but reachable via any other caller) must collapse to "" (treated as root
+        // context) rather than being spliced raw into a browser-facing asset URL like " /eform/...".
+        String strippedContextPath = contextPath.strip();
+        String normalizedContextPath = strippedContextPath.endsWith("/")
+                ? strippedContextPath.substring(0, strippedContextPath.length() - 1)
+                : strippedContextPath;
         this.runtimeContextPath = normalizedContextPath;
+        // This method writes formHtml directly (not via setFormHtml), so it must reset the
+        // normalization flag itself: the rewritten content needs a fresh DOM pass on next read.
+        this.runtimeAssetsNormalized = false;
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
         this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
         this.formHtml = injectLoadSigFallback(this.formHtml);
@@ -487,21 +520,45 @@ public class EForm extends EFormBase {
      *
      * <p>Normalization is best-effort: any {@link RuntimeException} or {@link LinkageError} is caught
      * and logged at debug, and the method falls back to the string-level HTML already produced by
-     * {@link #setContextPath(String)}. When no context path is set the DOM pass is skipped entirely.</p>
+     * {@link #setContextPath(String)}. When no context path is set the DOM pass is skipped entirely.
+     * The first failure for the current content also logs a WARN (with the exception type, not the
+     * full stack) so an operator can discover a persistently-failing class of forms instead of the
+     * failure being silently re-swallowed at DEBUG on every read.</p>
      *
      * @return the normalized eForm HTML; never {@code null} (an unknown form yields the literal
      *         {@code "No Such Form in Database"} placeholder)
      */
     @Override
     public String getFormHtml() {
-        if (!StringUtils.isBlank(runtimeContextPath)) {
+        // The DOM pass runs once per content generation: the composer calls this getter several
+        // times per render, and re-running the (idempotent) jsoup parse + serialize on unchanged
+        // content was pure waste. setFormHtml/setContextPath reset the flag so changed content is
+        // always re-normalized; a failed pass leaves it unset and retries on the next read.
+        // runtimeContextPath is null only when setContextPath() has never run (no servlet
+        // environment); "" is the valid root-context deployment value and must still be normalized.
+        if (runtimeContextPath != null && !runtimeAssetsNormalized) {
             try {
                 normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
+                runtimeAssetsNormalized = true;
             } catch (RuntimeException | LinkageError e) {
+                if (!normalizationFailureLogged) {
+                    normalizationFailureLogged = true;
+                    log.warn("DOM-based eForm runtime normalization failed ({}); using string-level HTML fallback for this form",
+                            e.getClass().getSimpleName());
+                }
                 log.debug("Skipping DOM-based eForm runtime normalization; falling back to string-level HTML", e);
             }
         }
         return super.getFormHtml();
+    }
+
+    @Override
+    public void setFormHtml(String formHtml) {
+        // New content may (re)introduce legacy constructs; it must be re-normalized on next read,
+        // and a fresh WARN is warranted if normalization fails again for this new content.
+        runtimeAssetsNormalized = false;
+        normalizationFailureLogged = false;
+        super.setFormHtml(formHtml);
     }
 
     private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {

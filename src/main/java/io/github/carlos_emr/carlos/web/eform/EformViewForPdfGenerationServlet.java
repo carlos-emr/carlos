@@ -49,7 +49,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to convert an html page into a pdf file in a manner similar to viewing a pdf with a browser and selecting print to file
+ * Session-gated loopback entry for the legacy renderer URL: verifies the authenticated provider
+ * matches the requested providerId, then forwards to /eform/efmshowform_data with the canonical
+ * session-verified provider id. Conversion itself happens in the browser renderer
+ * (EFormBrowserPdfService).
+ *
+ * <p>Naming-convention exception: this class deliberately keeps the legacy {@code Eform} casing
+ * (rather than the project-standard {@code EForm}) because its class name is what the registered
+ * servlet URL {@code /EFormViewForPdfGenerationServlet} and the case-collision with the render-page
+ * servlet {@code eform.util.EFormBrowserRenderPageServlet} were untangled around; renaming it would
+ * reintroduce the same-name-different-case ambiguity the two classes were separated to remove.</p>
  */
 public final class EformViewForPdfGenerationServlet extends HttpServlet {
 

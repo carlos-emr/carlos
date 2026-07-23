@@ -164,8 +164,14 @@ public class LoginFilter implements Filter {
             "/images/cloud-bg.svg",
             "/library/bootstrap/",
             "/library/jquery/",
+            // Flatpickr backs the /share/calendar/ shim below; both are static widget assets
+            // (no PHI) the sessionless browser-PDF renderer must fetch without a session.
+            "/library/flatpickr/",
             "/signature_pad/",
             "/share/css/",
+            // Static calendar widget assets (no PHI): legacy eForms reference them relatively, and
+            // the sessionless browser-PDF renderer must fetch them like /share/css/ above.
+            "/share/calendar/",
             "/share/javascript/carlos-ajax.js",
             "/share/javascript/Oscar.js",
             "/lab/CMLlabUpload",
@@ -212,7 +218,9 @@ public class LoginFilter implements Filter {
             "/images/cloud-bg.svg",
             "/library/bootstrap/",
             "/library/jquery/",
+            "/library/flatpickr/",
             "/share/css/",
+            "/share/calendar/",
             "/share/javascript/carlos-ajax.js",
             "/share/javascript/Oscar.js",
             "/css/fontawesome-all.min.css",

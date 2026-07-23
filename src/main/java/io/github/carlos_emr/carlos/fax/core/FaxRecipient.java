@@ -47,8 +47,11 @@ public class FaxRecipient {
     }
 
     public FaxRecipient(ObjectNode json) {
-        this.name = json.get("name").asText();
-        this.setFax(json.get("fax").asText());
+        // path() (not get()) so an absent field yields null instead of an NPE — the manager's
+        // fail-fast recipient parse decides whether missing fields are acceptable, not this
+        // carrier, and that decision must land before any destructive file promotion.
+        this.name = json.path("name").asText(null);
+        this.setFax(json.path("fax").asText(null));
     }
 
     public FaxRecipient(String name, String fax) {

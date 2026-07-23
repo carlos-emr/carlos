@@ -18,8 +18,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Locale;
-import java.util.Map;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -40,16 +38,24 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to access eform images.
+ * Streams shared eForm template assets (background images, JS, CSS — plus the
+ * {@code vaccine-brands.json} data file) to the loopback browser PDF renderer and to
+ * authenticated in-app callers.
+ *
+ * <p>Contract: requests must originate from a loopback address (checked first), then satisfy ONE
+ * of two authorization regimes — an authenticated session holding {@code _eform} READ
+ * ({@code _prevention} READ is an accepted alternative for {@code vaccine-brands.json} only), or a
+ * live render-scoped grant minted by {@link EFormRenderTokenService} after the caller's
+ * {@code _eform} check (the sessionless render browser's path; the grant is deliberately not
+ * bound to the requested asset because these are shared templates, and grant-authorized fetches
+ * are logged with the grant's fdid at DEBUG for troubleshooting). Filenames are validated as single path
+ * components against the eForm image directory, and content types come from the shared
+ * {@link EFormAssetContentType} allowlist. No PHI is served by this servlet.</p>
  */
 public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
-    // Shared with DisplayImage2Action via EformAssetContentType so the two eForm asset-streaming
-    // paths cannot drift on the MIME allowlist (cubic CQQa). Header hardening (sanitizeHeaderValue)
-    // stays per-class.
-    private static final Map<String, String> CONTENT_TYPES = EformAssetContentType.BY_EXTENSION;
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -71,16 +77,22 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             if (loggedInInfo != null) {
                 enforceAssetReadPrivilege(loggedInInfo, fileName);
                 logger.debug("eForm asset request authorized via _eform session");
-            } else if (!hasValidRenderGrant(request)) {
-                // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
-                // by design (no session cookie ever enters the render browser). Such requests are
-                // authorized instead by a render-scoped grant that was minted only after an _eform
-                // privilege check, is loopback-only, and is invalidated when the render finishes.
-                logger.warn("eForm asset request rejected: no authenticated session and no valid render grant");
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-                return;
             } else {
-                logger.debug("eForm asset request authorized via render grant (sessionless render browser)");
+                EFormRenderTokenService.RenderGrant grant = liveRenderGrant(request);
+                if (grant == null) {
+                    // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
+                    // by design (no session cookie ever enters the render browser). Such requests are
+                    // authorized instead by a render-scoped grant that was minted only after an _eform
+                    // privilege check, is loopback-only, and is invalidated when the render finishes.
+                    logger.warn("eForm asset request rejected: no authenticated session and no valid render grant");
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                // Log the accepted grant's fdid: assets are shared templates, so the grant is
+                // deliberately not asset-bound — the fdid trail is logged at DEBUG for troubleshooting
+                // a cross-render asset fetch (any live grant reading the shared image directory).
+                logger.debug("eForm asset request authorized via render grant (sessionless render browser): fdid={}",
+                        grant.fdid());
             }
 
             File file = DisplayImage2Action.getImageFile(fileName);
@@ -90,6 +102,9 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
+            // nosniff: the declared allowlist type is the contract; a browser second-guessing
+            // bytes into a scriptable type is never wanted on an asset route.
+            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setContentType(resolveContentType(file));
             response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
             try (InputStream stream = new FileInputStream(file)) {
@@ -100,15 +115,22 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         } catch (ServletException | IOException e) {
             throw e;
         } catch (IllegalArgumentException e) {
-            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
+            // Message-only: the wrapped FileValidationException's message can echo the
+            // caller-supplied imagefile value; this servlet's own message is safe to log.
+            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request: {}", e.getMessage());
             sendErrorQuietly(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage(),
                     "Unable to send bad-request response for EFormImageViewForPdfGenerationServlet");
         } catch (SecurityException e) {
-            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
+            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request: {}", e.getMessage());
             sendErrorQuietly(response, HttpServletResponse.SC_FORBIDDEN, e.getMessage(),
                     "Unable to send forbidden response for EFormImageViewForPdfGenerationServlet");
         } catch (Exception e) {
-            logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet", e);
+            // Same redaction contract as the renderer and render-page servlet: this route's
+            // request URL carries the live render token, and container/machinery exceptions can
+            // embed the request URI — never attach the raw throwable.
+            logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet: type={} error={} at={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e));
             sendErrorQuietly(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.",
                     "Unable to send internal-error response for EFormImageViewForPdfGenerationServlet");
@@ -116,13 +138,16 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     /**
-     * True when the request carries a live render-scoped grant. The grant authorizes the sessionless
-     * render browser to read shared eForm template assets (backgrounds, JS, CSS) over loopback for
-     * the duration of one render; it was issued only after an {@code _eform} privilege check.
+     * Returns the live render-scoped grant carried by the request, or null. The grant authorizes
+     * the sessionless render browser to read shared eForm template assets (backgrounds, JS, CSS)
+     * over loopback for the duration of one render; it was issued only after an {@code _eform}
+     * privilege check. Deliberately not bound to the requested asset — assets are shared
+     * templates, unlike the fdid-bound page and signature surfaces — so the grant's fdid is
+     * logged at DEBUG for troubleshooting.
      */
-    private static boolean hasValidRenderGrant(HttpServletRequest request) {
-        String token = request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM);
-        return EFormRenderTokenService.getInstance().peek(token) != null;
+    private static EFormRenderTokenService.RenderGrant liveRenderGrant(HttpServletRequest request) {
+        return EFormRenderTokenService.getInstance().peek(EFormRenderTokenService.RenderToken
+                .fromRequestValue(request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM)));
     }
 
     private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {
@@ -146,26 +171,16 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             // validatePathComponent signals malformed/blank/traversal input with a
             // FileValidationException (a SecurityException). Translate it to IllegalArgumentException so
             // doGet answers 400 (client error) instead of the 403 the SecurityException handler would
-            // emit — a bad imagefile is a bad request, not an authorization failure (cubic Fc2c/SIZkT).
+            // emit — a bad imagefile is a bad request, not an authorization failure.
             throw new IllegalArgumentException("Invalid imagefile parameter", e);
         }
     }
 
     private static String resolveContentType(File file) {
-        String extension = extension(file.getName()).toLowerCase(Locale.ROOT);
-        String contentType = CONTENT_TYPES.get(extension);
-        if (contentType == null) {
-            throw new IllegalArgumentException("Unsupported eform asset type");
-        }
-        return contentType;
-    }
-
-    private static String extension(String fileName) {
-        int dot = fileName.lastIndexOf('.');
-        if (dot < 0 || dot == fileName.length() - 1) {
-            return "";
-        }
-        return fileName.substring(dot + 1);
+        // Shared with DisplayImage2Action: EFormAssetContentType owns the allowlist AND the
+        // extension parsing/lowercasing, so the two asset-streaming paths cannot drift on either.
+        return EFormAssetContentType.forFilename(file.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
     }
 
     private static String sanitizeHeaderValue(String value) {

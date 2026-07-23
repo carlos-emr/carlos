@@ -64,8 +64,27 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
             Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
+    private static final Path WEB_XML =
+            Path.of("src/main/webapp/WEB-INF/web.xml");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
+
+    @Test
+    @DisplayName("should keep the legacy render URL mapped to the renamed browser render page servlet")
+    void shouldKeepLegacyRenderUrl_mappedToBrowserRenderPageServlet() throws IOException {
+        // The retained /EFormViewForPdfGenerationServlet URL is what the loopback render
+        // navigation, the LoginFilter/CSRF exclusions, and the Struts exclude pattern all key on;
+        // each of those is tested individually, but only this pin closes the loop on the
+        // servlet-name -> renamed-class mapping itself.
+        String webXml = Files.readString(WEB_XML, StandardCharsets.UTF_8);
+
+        assertThat(webXml).containsSubsequence(
+                "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
+                "<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormBrowserRenderPageServlet</servlet-class>");
+        assertThat(webXml).containsSubsequence(
+                "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
+                "<url-pattern>/EFormViewForPdfGenerationServlet</url-pattern>");
+    }
 
     @Test
     @DisplayName("patient eForm list should not reference the missing PHR action and should keep live view/delete actions")
@@ -312,7 +331,7 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("eForm editor should navigate current window to eForm library after save, not the opener window")
-    void shouldNavigateCurrentWindow_notOpener_afterSave() throws IOException {
+    void shouldNavigateCurrentWindow_afterSave() throws IOException {
         String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
 
         // window.opener.location navigates the main CARLOS window (opener of the admin popup),

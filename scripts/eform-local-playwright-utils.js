@@ -291,12 +291,11 @@ async function invokeFetchAttached(page) {
   }, previousHtml, { timeout: 5000 }).catch(() => {});
   // Gate success on the SETTLED network response, not on whichever promise won the race above: if the
   // DOM changed optimistically before the request finished, sidebarResponse would still be null and a
-  // 4xx/5xx attachment failure would be wrongly reported as success (cubic CQQS). Awaiting the
+  // 4xx/5xx attachment failure would be wrongly reported as success. Awaiting the
   // response promise (it resolves to null on timeout/error) makes the status check deterministic.
   await responsePromise;
   // A null response means the request timed out or errored (responsePromise resolves to null in that
-  // case); treat that as a failure too, otherwise a missing attachment load would pass silently (cubic
-  // SIt5n).
+  // case); treat that as a failure too, otherwise a missing attachment load would pass silently.
   if (!sidebarResponse) {
     return {
       hasFunction: true,

@@ -201,7 +201,7 @@ public class LogoutBroadcastFilter implements Filter {
             // Content-Length is still correct and must be replayed. Do NOT discard it here (only the
             // SCRIPT_INJECTED / append paths below, which lengthen the body, discard). Routing straight
             // through completeWithoutInjection() preserves the header, matching the no-session path
-            // below (cubic CQQY).
+            // below.
             delegatingResponse.completeWithoutInjection();
             return;
         }

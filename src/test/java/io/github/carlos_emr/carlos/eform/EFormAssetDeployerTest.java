@@ -110,7 +110,11 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_SIGNATURE_PAD)).thenReturn(toStream("signature pad"));
-        when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY)).thenReturn(toStream("jquery compat"));
+        // thenAnswer (not thenReturn): the deployer now reads this resource path twice, once per
+        // legacy jQuery alias (3.1.0 and 1.12.0). A real ServletContext hands back an independent
+        // stream per call; thenReturn would instead replay the same already-drained InputStream
+        // instance on the second call, silently deploying an empty second alias file.
+        when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY)).thenAnswer(invocation -> toStream("jquery compat"));
     }
 
     @Nested
@@ -133,6 +137,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "signature_pad.min.js")).exists();
             assertThat(new File(tempDir.toFile(), "BNK.png")).exists();
             assertThat(new File(tempDir.toFile(), "jquery-3.1.0.min.js")).exists();
+            assertThat(new File(tempDir.toFile(), "jquery-1.12.0.min.js")).exists();
             assertThat(new File(tempDir.toFile(), "LocationsLab_Nov2020.js")).exists();
             assertThat(new File(tempDir.toFile(), "LabDecisionSupport3_2024.js")).exists();
             assertThat(new File(tempDir.toFile(), "LabEngine_2023.js")).exists();
@@ -178,6 +183,19 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(Files.readString(deployedHelperScript.toPath())).contains("autoLabReqPop");
             assertThat(deployedBackground).doesNotExist();
             assertThat(deployedIcon).doesNotExist();
+        }
+
+        @Test
+        @DisplayName("should deploy the current jQuery bundle under the legacy 1.12.0 filename")
+        void shouldDeployJqueryBundle_underLegacyOneTwelveFilename() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            File deployedLegacyJquery = new File(tempDir.toFile(), "jquery-1.12.0.min.js");
+            assertThat(deployedLegacyJquery).exists();
+            assertThat(Files.readString(deployedLegacyJquery.toPath())).isEqualTo("jquery compat");
         }
 
         @Test

@@ -92,9 +92,12 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         loggedInInfo = mock(LoggedInInfo.class);
         ServletContext servletContext = mock(ServletContext.class);
 
-        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(true);
+        // Stub the READ level exactly: the WRITE->READ downgrade on the preview-cache gate is the
+        // enabling change for _fax-only preview, and an anyString() level stub would let a
+        // regression back to WRITE pass every test here.
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.READ), eq(""))).thenReturn(true);
         // The Servlet API returns a non-root context path WITH a leading slash; mirror that contract
-        // so the test exercises the same input the production resolver strips (copilot HXQl, cubic HYt6).
+        // so the test exercises the same input the production resolver strips .
         when(servletContext.getContextPath()).thenReturn("/carlos");
 
         ReflectionTestUtils.setField(nioFileManager, "securityInfoManager", securityInfoManager);
@@ -108,7 +111,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             Files.deleteIfExists(allowedTempDir.resolve("fax-preview-unique.pdf"));
             // The generated cache files carry the source-scoped key (<name>_<key>_<page>.png), so a
             // fixed-name delete never matches; the cache lives under the @TempDir document root and is
-            // auto-removed. Each cache test deletes its own returned path (copilot HDGA).
+            // auto-removed. Each cache test deletes its own returned path.
             Files.deleteIfExists(allowedTempDir);
         }
         if (symlink != null) {
@@ -247,7 +250,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
                 "test temp directory must resolve inside a CARLOS-owned temp directory");
         Files.createDirectories(getDocumentCacheDirectory());
         // A 200-char base name is a valid file component but would blow past the 255-char limit once
-        // the "_<sourceKey>_<page>.png" suffix is appended, unless the cache name is bounded (HmTc).
+        // the "_<sourceKey>_<page>.png" suffix is appended, unless the cache name is bounded.
         String longName = "a".repeat(200) + ".pdf";
         Path sourcePdf = allowedTempDir.resolve(longName);
         createSinglePagePdf(sourcePdf);
@@ -327,7 +330,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         Path otherSourcePage = Files.createFile(cacheDir.resolve("other-source_0123456789abcdef_1.png"));
 
         try {
-            int removed = nioFileManager.removeCacheVersions(
+            int removed = nioFileManager.removeCacheVersions(loggedInInfo, 
                     allowedTempDir.toString(), sourcePdf.getFileName().toString());
 
             assertThat(removed).as("both pages of this source removed").isEqualTo(2);
@@ -356,10 +359,10 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(pageOne).isNotNull().exists();
 
         // Now simulate a user with _fax READ but not _edoc READ (the fax-cancel/flush caller): removal
-        // must still succeed rather than throwing before the temp artifact can be cleaned up (SJD9t).
+        // must still succeed rather than throwing before the temp artifact can be cleaned up.
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(false);
         try {
-            int removed = nioFileManager.removeCacheVersions(allowedTempDir.toString(), sourcePdf.getFileName().toString());
+            int removed = nioFileManager.removeCacheVersions(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString());
 
             assertThat(removed).as("preview page removed without _edoc").isEqualTo(1);
             assertThat(Files.exists(pageOne)).isFalse();
@@ -398,7 +401,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         try {
             // Flush via the symlinked dir path — the remove side must resolve to the same canonical
             // source and clear the page image.
-            int removed = nioFileManager.removeCacheVersions(symlinkDir.toString(), sourcePdf.getFileName().toString());
+            int removed = nioFileManager.removeCacheVersions(loggedInInfo, symlinkDir.toString(), sourcePdf.getFileName().toString());
 
             assertThat(removed).as("preview page removed even when the source dir is reached via a symlink").isEqualTo(1);
             assertThat(Files.exists(pageOne)).isFalse();
@@ -411,9 +414,11 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("Refuses to clear preview cache for a source outside the allowed preview locations")
-    void shouldNotRemovePreviewPages_forDisallowedSource() throws Exception {
+    void shouldRejectFlush_forDisallowedSource() throws Exception {
         // A directory under the shared temp root but NOT CARLOS-owned (and not the document root) is not
-        // a valid preview source, so cache cleanup keyed on it must be a no-op (SJD9x/SJNuK).
+        // a valid preview source. It cannot be keyed, so cleanup keyed on it must FAIL LOUDLY rather
+        // than silently return 0 — a PHI flush that cannot even derive its source-scoped prefix must
+        // not be reported to the caller as "nothing to remove".
         Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-flush-");
         assumeTrue(!PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),
                 "foreign dir must not resolve inside a CARLOS-owned temp directory");
@@ -422,15 +427,15 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
         // Seed a cache file that would match the prefix removeCacheVersions computes IF it processed
         // this foreign source. If the guard were bypassed, this file would be deleted; asserting it
-        // survives (and removed == 0) proves the guard rejected the source, not merely that no files
-        // matched (cubic SJNuK). The prefix mirrors createCacheVersion2's naming.
+        // survives proves the guard rejected the source, not merely that no files matched. The prefix
+        // mirrors createCacheVersion2's naming.
         String fileName = "whatever.pdf";
         String wouldBePrefix = fileName + "_" + sourceKeyOf(foreignDir) + "_";
         Path wouldBeCache = Files.createFile(cacheDir.resolve(wouldBePrefix + "1.png"));
         try {
-            int removed = nioFileManager.removeCacheVersions(foreignDir.toString(), fileName);
-
-            assertThat(removed).as("no cache removed for a disallowed source").isZero();
+            assertThatThrownBy(() -> nioFileManager.removeCacheVersions(loggedInInfo, foreignDir.toString(), fileName))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("source directory is not an allowed preview source");
             assertThat(Files.exists(wouldBeCache)).as("a disallowed source's would-be cache is left intact").isTrue();
         } finally {
             Files.deleteIfExists(wouldBeCache);
@@ -457,7 +462,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     void shouldReturnNull_whenSourceIsInSharedTempButNotApplicationOwned() throws IOException {
         // A directory directly under java.io.tmpdir (not under carlos-temp) is inside the broad
         // allowed temp root but is NOT a CARLOS-owned preview area — an unrelated file another
-        // process could leave there must not be renderable via the fax-preview path (cubic SCQPk).
+        // process could leave there must not be renderable via the fax-preview path.
         Path foreignDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-foreign-temp-");
         assumeTrue(PathValidationUtils.isInAllowedTempDirectory(foreignDir.toFile())
                         && !PathValidationUtils.isInApplicationTempDirectory(foreignDir.toFile()),
@@ -472,6 +477,108 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             deleteQuietly(foreignPdf);
             deleteQuietly(foreignDir);
+        }
+    }
+
+    @Test
+    @DisplayName("Denies the preview cache to callers without _edoc READ using the paren-form message")
+    void shouldThrowSecurityException_whenEdocReadPrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.READ), eq(""))).thenReturn(false);
+
+        assertThatThrownBy(() -> nioFileManager.hasCacheVersion2(loggedInInfo, "fax-preview.pdf", 1))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_edoc)");
+    }
+
+    @Test
+    @DisplayName("Leaves no partial temp files behind after rendering a preview page")
+    void shouldLeaveNoPartialFiles_afterCacheRender() throws IOException {
+        allowedTempDir = createApplicationTempDirectory("nio-cache-atomic-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside a CARLOS-owned temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("fax-preview-unique.pdf");
+        createSinglePagePdf(sourcePdf);
+
+        Path cacheVersion = null;
+        try {
+            cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+
+            assertThat(cacheVersion).isNotNull().exists();
+            // The atomic write path renders to "<name>_....png.tmp" and moves into place; a leftover
+            // .tmp would mean the move or its cleanup regressed.
+            try (var cacheEntries = Files.list(getDocumentCacheDirectory())) {
+                assertThat(cacheEntries.filter(entry -> entry.getFileName().toString().endsWith(".tmp")))
+                        .isEmpty();
+            }
+        } finally {
+            if (cacheVersion != null) {
+                Files.deleteIfExists(cacheVersion);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Treats a lost cache-promotion race as the cache hit it is")
+    void shouldTreatLostPromotionRace_asExistingCacheHit(@TempDir Path raceDir) throws IOException {
+        // Two concurrent misses can render the same page; the loser's atomic move finds the
+        // winner's finished file already in place. That is success — the entry exists — never a
+        // failure that surfaces as a broken preview. (POSIX/NTFS renames replace silently; the
+        // FileAlreadyExistsException arm covers filesystems whose atomic move refuses.)
+        Path partial = raceDir.resolve("page_1.png.tmp");
+        Files.write(partial, new byte[] {9, 9, 9, 9});
+        Path winner = raceDir.resolve("page_1.png");
+        Files.write(winner, new byte[] {1, 2, 3});
+
+        // Must not throw: in production both writers rendered the SAME page, so either file is a
+        // valid cache entry. POSIX/NTFS renames replace (destination becomes the partial's 4
+        // bytes); a refusing filesystem keeps the winner's 3. Deleted-or-throwing is the bug.
+        NioFileManagerImpl.promotePartialIntoPlace(partial, winner);
+
+        assertThat(winner).exists();
+        assertThat(Files.size(winner)).isIn(3L, 4L);
+    }
+
+    @Test
+    @DisplayName("Uniquifies the promoted document name instead of overwriting an existing document")
+    void shouldUniquifyPromotedDocument_whenBasenameCollides() throws IOException {
+        Path firstSource = createApplicationTempDirectory("nio-promote-collide-a-");
+        Path secondSource = createApplicationTempDirectory("nio-promote-collide-b-");
+        assumeTrue(PathValidationUtils.isInApplicationTempDirectory(firstSource.toFile())
+                        && PathValidationUtils.isInApplicationTempDirectory(secondSource.toFile()),
+                "test temp directories must resolve inside a CARLOS-owned temp directory");
+        // Point DOCUMENT_DIR at an isolated destination: getDocumentDirectory() prefers it over the
+        // <BASE_DOCUMENT_DIR>/document fallback, and this test must never write to a real store.
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        Path documentDir = tempDir.resolve("document");
+        Files.createDirectories(documentDir);
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        String sharedFilename = "promoted-collision.pdf";
+        try {
+            Files.writeString(firstSource.resolve(sharedFilename), "first document body");
+            Files.writeString(secondSource.resolve(sharedFilename), "second document body");
+
+            String firstPromoted = nioFileManager.copyFileToOscarDocuments(firstSource.resolve(sharedFilename).toString());
+            String secondPromoted = nioFileManager.copyFileToOscarDocuments(secondSource.resolve(sharedFilename).toString());
+
+            assertThat(firstPromoted).isNotNull();
+            assertThat(secondPromoted).isNotNull();
+            // DOCUMENT_DIR filenames are referenced by persisted records: the second promotion must
+            // land under a fresh name, leaving the first document's content untouched.
+            assertThat(secondPromoted).isNotEqualTo(firstPromoted);
+            assertThat(Files.readString(Path.of(firstPromoted))).isEqualTo("first document body");
+            assertThat(Files.readString(Path.of(secondPromoted))).isEqualTo("second document body");
+        } finally {
+            deleteQuietly(firstSource.resolve(sharedFilename));
+            deleteQuietly(secondSource.resolve(sharedFilename));
+            deleteQuietly(firstSource);
+            deleteQuietly(secondSource);
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
         }
     }
 

@@ -37,7 +37,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -171,16 +173,21 @@ public class NioFileManagerImpl implements NioFileManager {
      * Resolves (creating if absent) the document preview-cache directory without a privilege check.
      * {@link #getDocumentCacheDirectory} wraps this behind an {@code _edoc} READ gate; the fax-preview
      * flush path reaches it through {@link #removeCacheVersions}, which is authorized by its own caller's
-     * {@code _fax} READ and must not require {@code _edoc} (cubic SJD9t).
+     * {@code _fax} READ and must not require {@code _edoc}.
+     *
+     * <p>Package-private (rather than {@code private}) so {@link ApplicationTempPurgeJob}, a
+     * same-package background sweep with no per-request {@link LoggedInInfo} to authorize, can resolve
+     * the cache directory path without duplicating this derivation or requiring a privilege check of its
+     * own — the purge job only stats/deletes expired PNGs, it does not read document content.</p>
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private Path resolveDocumentCacheDirectory() {
+    Path resolveDocumentCacheDirectory() {
         // context.getContextPath() is "/carlos" (leading slash) in production. Paths.get(String,
         // String...) JOINS its segments and collapses redundant separators — it does NOT re-anchor on
         // a leading slash the way Path.resolve("/carlos") would — so baseDocumentDir() is preserved
         // either way. Strip a single leading separator so the intent is explicit and stays correct if
-        // this is ever refactored to resolve() (copilot/cubic HNrA/HXQl/HYt6 — a clarity/robustness
+        // this is ever refactored to resolve() (a clarity/robustness
         // change; no behavioral bug here).
         Path cacheDir = Paths.get(baseDocumentDir(), stripLeadingSeparator(context.getContextPath()), DOCUMENT_CACHE_DIRECTORY);
 
@@ -222,7 +229,7 @@ public class NioFileManagerImpl implements NioFileManager {
         // directory below, so resolving it first is required to build the lookup key — and it means
         // two different temp/document directories that happen to reuse the same PDF filename can
         // never collide on a shared "<filename>_<page>.png" cache key and hand back one another's
-        // rendered page (cubic SCQQI). A caller with only a filename (no source) cannot mint a
+        // rendered page. A caller with only a filename (no source) cannot mint a
         // preview at all, which is the intended contract for the fax-preview flow.
         if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {
             log.error("Invalid source directory: null or empty");
@@ -231,7 +238,7 @@ public class NioFileManagerImpl implements NioFileManager {
 
         // Validate and normalize the source directory to an allowed preview location (a CARLOS-owned
         // temp subtree or the document root). Shared with removeCacheVersions so the writer and remover
-        // agree on both the allowed-source set and the derived key (cubic SJD9x).
+        // agree on both the allowed-source set and the derived key.
         Path normalizedSourceDir = resolveAllowedPreviewSourceDir(sourceDirectory);
         if (normalizedSourceDir == null) {
             return null;
@@ -239,10 +246,10 @@ public class NioFileManagerImpl implements NioFileManager {
         boolean sourceDirectoryInAllowedTemp = PathValidationUtils.isInApplicationTempDirectory(normalizedSourceDir.toFile());
 
         // Source-scoped cache identity: fold a stable digest of the canonical source directory into
-        // the cache filename so both the lookup and the write are unique per source (cubic SCQQI).
+        // the cache filename so both the lookup and the write are unique per source.
         // The filename portion is length-bounded so an overlong (but valid) PDF name can't push the
-        // cache component past the filesystem's per-component limit (cubic HmTc). removeCacheVersions
-        // reuses the same helper so flush() removes exactly what this writes (copilot SI8_2).
+        // cache component past the filesystem's per-component limit. removeCacheVersions
+        // reuses the same helper so flush() removes exactly what this writes.
         String scopedCacheName = scopedCacheBaseName(sanitizedFilename, normalizedSourceDir);
 
         Path cacheFilePath = hasCacheVersion2(loggedInInfo, scopedCacheName, pageNum);
@@ -263,11 +270,13 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 sourceFile = PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
                 if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInApplicationTempDirectory(sourceFile.toFile())) {
-                    log.error("Source file is outside allowed temp path");
+                    // Security-relevant event: keep the sanitized filename so it can be correlated
+                    // with the request that supplied it.
+                    log.error("Source file is outside allowed temp path: {}", LogSafe.sanitize(sanitizedFilename));
                     return null;
                 }
             } catch (SecurityException e) {
-                log.error("Path traversal attempt in source file");
+                log.error("Path traversal attempt in source file: {}", LogSafe.sanitize(sanitizedFilename), e);
                 return null;
             }
 
@@ -299,10 +308,21 @@ public class NioFileManagerImpl implements NioFileManager {
                 // Note: jpedal uses 1-based page indexing, PDFBox uses 0-based
                 BufferedImage image_to_save = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
 
-                // Check ImageIO.write success (returns false on failure)
-                if (!ImageIO.write(image_to_save, "png", cacheFilePath.toFile())) {
-                    log.error("Failed to write PNG image to cache file: {}", LogSafe.sanitize(String.valueOf(cacheFilePath)));
-                    return null;
+                // Render to a same-directory temp file and move it into place atomically: writing
+                // straight to the final cache path let a concurrent request's hasCacheVersion2 see
+                // the half-written file as a cache hit and serve a truncated PNG, and let a
+                // concurrent flush delete the file out from under this writer. The ".tmp" suffix
+                // keeps partials invisible to the page-suffix pattern removeCacheVersions matches.
+                Path partialFile = Files.createTempFile(normalizedCacheDir, scopedCacheName + "_", ".png.tmp");
+                try {
+                    // Check ImageIO.write success (returns false on failure)
+                    if (!ImageIO.write(image_to_save, "png", partialFile.toFile())) {
+                        log.error("Failed to write PNG image to cache file: {}", LogSafe.sanitize(String.valueOf(cacheFilePath)));
+                        return null;
+                    }
+                    promotePartialIntoPlace(partialFile, cacheFilePath);
+                } finally {
+                    Files.deleteIfExists(partialFile);
                 }
 
                 image_to_save.flush();
@@ -314,6 +334,28 @@ public class NioFileManagerImpl implements NioFileManager {
 
         return cacheFilePath;
 
+    }
+
+    /**
+     * Moves a finished {@code .png.tmp} partial into its final cache path. Package-private for
+     * the promotion-race unit test.
+     *
+     * <p>A concurrent cache miss can render the same page and win the promotion race; its
+     * finished file IS the cache entry, so losing the race is success, not failure. (POSIX and
+     * NTFS renames replace silently, so the {@code FileAlreadyExistsException} arm exists for
+     * filesystems whose atomic move refuses to overwrite.)</p>
+     */
+    static void promotePartialIntoPlace(Path partialFile, Path cacheFilePath) throws IOException {
+        try {
+            Files.move(partialFile, cacheFilePath, StandardCopyOption.ATOMIC_MOVE);
+        } catch (FileAlreadyExistsException e) {
+            // Another writer won; nothing to do — the caller's finally removes our partial.
+        } catch (AtomicMoveNotSupportedException e) {
+            // Same-directory rename is atomic on POSIX; this fallback only exists for
+            // filesystems that cannot promise atomicity, where a brief window is still
+            // better than always writing in place.
+            Files.move(partialFile, cacheFilePath, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     /**
@@ -375,31 +417,38 @@ public class NioFileManagerImpl implements NioFileManager {
      * Removes every cached page image {@code createCacheVersion2} wrote for one source PDF. The writer
      * names pages {@code <boundedFilename>_<sourceKey>_<page>.png}, so a single-file removal keyed on the
      * raw PDF name (as {@link #removeCacheVersion} does) matches nothing — this method rebuilds the same
-     * source-scoped prefix and deletes all of its page images (copilot SI8_2). The source directory is
+     * source-scoped prefix and deletes all of its page images. The source directory is
      * normalized the way {@code createCacheVersion2}'s CARLOS-owned-temp branch normalizes it, which is
      * the branch the fax-preview flow (the only caller) exercises. Matching is done in Java rather than a
      * directory glob so a filename containing glob metacharacters cannot misfire.
      *
-     * @return the number of cache page images removed (0 if none matched or the source could not be keyed)
+     * @return the number of cache page images removed (0 if none matched)
+     * @throws IllegalArgumentException when {@code sourceDirectory} cannot be keyed to an allowed
+     *         preview source — it is not a real, existing CARLOS-owned temp subtree or the document
+     *         root. A PHI flush that cannot even identify which cache pages belong to its source must
+     *         not silently report "0 removed" as if nothing needed clearing; the caller
+     *         ({@code FaxManagerImpl.flush}) treats this as an uncleared cache.
      */
     @Override
     // FindSecBugs PATH_TRAVERSAL_IN: each candidate is confined to the cache directory via
     // PathValidationUtils.validateExistingPath before deletion; the source is validated to an allowed
     // preview location and the key derives from that validated path plus server config.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public final int removeCacheVersions(String sourceDirectory, String filename) {
+    public final int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) throws IOException {
         if (filename == null || filename.trim().isEmpty()) {
             return 0;
         }
         // No _edoc gate: the only caller (FaxManagerImpl.flush) is already authorized by _fax READ and
         // this removes only that preview's own regenerable page-image cache. Requiring _edoc here broke
         // the fax-cancel/flush flow for users holding _fax READ but not _edoc READ, throwing before the
-        // approved temp file could be deleted (cubic SJD9t). The source is validated to the same allowed
-        // preview locations the writer accepts, so a caller cannot target caches for arbitrary paths
-        // (cubic SJD9x).
+        // approved temp file could be deleted. The source is validated to the same allowed
+        // preview locations the writer accepts, so a caller cannot target caches for arbitrary paths.
         Path normalizedSourceDir = resolveAllowedPreviewSourceDir(sourceDirectory);
         if (normalizedSourceDir == null) {
-            return 0;
+            // A source that cannot be keyed is indistinguishable on-disk from "nothing matched", but
+            // it means we could not derive the source-scoped prefix at all — so we cannot assert the
+            // PHI preview pages are gone. Fail loudly rather than return a misleading 0.
+            throw new IllegalArgumentException("source directory is not an allowed preview source");
         }
         String scopedPrefix = scopedCacheBaseName(sanitizeFileName(filename), normalizedSourceDir) + "_";
 
@@ -409,6 +458,7 @@ public class NioFileManagerImpl implements NioFileManager {
         }
 
         int removed = 0;
+        int failedRemovals = 0;
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(normalizedCacheDir)) {
             for (Path entry : entries) {
                 String name = entry.getFileName().toString();
@@ -426,14 +476,24 @@ public class NioFileManagerImpl implements NioFileManager {
                         removed++;
                     }
                 } catch (SecurityException | IOException e) {
-                    log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name));
+                    failedRemovals++;
+                    log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name), e);
                 }
             }
         } catch (IOException e) {
             log.error("Error while clearing source-scoped preview cache", e);
+            throw e;
         }
         if (removed > 0) {
-            log.debug("Cleared {} preview cache page image(s) for {}", removed, LogSafe.sanitize(filename));
+            log.debug("Cleared {} preview cache page image(s) for {} (provider={})", removed,
+                    LogSafe.sanitize(filename),
+                    LogSafe.sanitize(loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo()));
+        }
+        // Every matching page was attempted above; failures were logged per entry. Throw AFTER the
+        // best-effort pass so the caller cannot report "flushed" while PHI-bearing preview images
+        // are still on disk.
+        if (failedRemovals > 0) {
+            throw new IOException(failedRemovals + " preview cache page image(s) could not be removed");
         }
         return removed;
     }
@@ -508,7 +568,7 @@ public class NioFileManagerImpl implements NioFileManager {
      * Bounds the filename portion of a source-scoped cache name. Short filenames pass through
      * verbatim; an overlong one is replaced with a fixed-length digest that keeps its extension, so
      * the final {@code <name>_<sourceKey>_<page>.png} cache component cannot exceed the filesystem's
-     * per-component length limit and a legitimately long PDF name can still be previewed (cubic HmTc).
+     * per-component length limit and a legitimately long PDF name can still be previewed.
      */
     private static String boundedCacheBaseName(String filename) {
         final int maxBaseLength = 120;
@@ -519,7 +579,7 @@ public class NioFileManagerImpl implements NioFileManager {
         String extension = (dot > 0 && dot < filename.length() - 1) ? filename.substring(dot) : "";
         // Bound the extension too: a filename whose "extension" is itself pathologically long would
         // otherwise re-inflate the digest-based name past the component limit. Drop it in that case —
-        // the 16-char digest still keeps the cache entry unique and source-scoped (cubic SIt6B).
+        // the 16-char digest still keeps the cache entry unique and source-scoped.
         if (extension.length() > maxBaseLength - 16) {
             extension = "";
         }
@@ -530,7 +590,7 @@ public class NioFileManagerImpl implements NioFileManager {
      * Builds the source-scoped cache base name {@code <boundedFilename>_<sourceKey>} shared by the
      * preview-cache writer ({@link #createCacheVersion2}) and remover ({@link #removeCacheVersions}).
      * Having a single formula means {@code flush()} deletes exactly the page images the writer produced,
-     * even after the filename/source-key scoping changed the on-disk names (copilot SI8_2).
+     * even after the filename/source-key scoping changed the on-disk names.
      *
      * @param sanitizedFilename filename already run through {@link #sanitizeFileName}
      * @param normalizedSourceDir source directory normalized identically on both the write and remove paths
@@ -544,14 +604,14 @@ public class NioFileManagerImpl implements NioFileManager {
      * accepts: a CARLOS-owned temp subtree ({@link PathValidationUtils#isInApplicationTempDirectory}) or
      * the document root. The temp branch is scoped to application-owned temp subtrees, not the whole
      * shared temp root, so a caller with {@code _edoc}/{@code _fax} READ cannot point the cache at an
-     * unrelated file another process left in {@code java.io.tmpdir} or Tomcat work (cubic SCQPk).
+     * unrelated file another process left in {@code java.io.tmpdir} or Tomcat work.
      *
      * <p>Shared between {@link #createCacheVersion2} and {@link #removeCacheVersions} so the remover
-     * cannot clean caches for arbitrary caller-supplied paths and both derive the key identically
-     * (cubic SJD9x).</p>
+     * cannot clean caches for arbitrary caller-supplied paths and both derive the key identically.</p>
      *
-     * @return the normalized source directory (temp branch: normalized-absolute; document branch:
-     *         canonical), or {@code null} if it is not an allowed, existing preview source
+     * @return the canonicalized source directory (falling back to normalized-absolute only when
+     *         canonicalization fails; the document branch is additionally containment-validated),
+     *         or {@code null} if it is not an allowed, existing preview source
      */
     // FindSecBugs PATH_TRAVERSAL_IN: baseDocumentDir() is trusted server config, and the caller-supplied
     // sourceDirectory is confined to a CARLOS-owned temp subtree or the document root before use; the
@@ -566,7 +626,7 @@ public class NioFileManagerImpl implements NioFileManager {
             // Canonicalize (resolve symlinks) so the source-scoped cache key matches the write side, which
             // keys off EDocUtil.resolvePath()'s canonical path. Without this, a symlinked java.io.tmpdir
             // (e.g. macOS /tmp -> /private/tmp) makes the write key hash the canonical dir while flush hashes
-            // the symlinked dir, so removeCacheVersions matches nothing and the SI8_2 flush fix silently
+            // the symlinked dir, so removeCacheVersions matches nothing and the source-scoped flush fix silently
             // no-ops on such hosts. Falls back to normalize() if the path cannot be canonicalized.
             Path normalizedSourceDir;
             try {
@@ -625,7 +685,7 @@ public class NioFileManagerImpl implements NioFileManager {
         // fax-preview temp files. Comparing real paths (rather than rejecting all symlinks) still
         // tolerates a legitimately symlinked java.io.tmpdir *ancestor* (e.g. macOS /tmp -> /private/tmp),
         // where both sides canonicalize consistently. The residual check-to-use window is bounded
-        // because the files written beneath this root are private (cubic SIZkO, SIwOk, HtRV).
+        // because the files written beneath this root are private.
         if (Files.isSymbolicLink(created) || !created.toRealPath().startsWith(tmpDir.toRealPath())) {
             throw new IOException("Application temp root resolves outside java.io.tmpdir: " + created);
         }
@@ -794,8 +854,25 @@ public class NioFileManagerImpl implements NioFileManager {
             // Validate destination path using PathValidationUtils
             destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
 
-            // Perform the copy operation
-            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            // Never overwrite an existing document: DOCUMENT_DIR filenames are referenced by
+            // persisted records, so a basename collision (two promotions reusing one name) must
+            // yield a fresh unique name rather than silently replacing another document's content
+            // — and the copy below deliberately omits REPLACE_EXISTING so a race still fails
+            // closed instead of clobbering.
+            if (destinationFile.exists()) {
+                String uniquifiedName = FilenameUtils.getBaseName(sanitizedFileName)
+                        + "-" + System.currentTimeMillis()
+                        + (FilenameUtils.getExtension(sanitizedFileName).isEmpty()
+                                ? "" : "." + FilenameUtils.getExtension(sanitizedFileName));
+                destinationFile = PathValidationUtils.validatePath(uniquifiedName, documentDir);
+            }
+
+            try {
+                Files.copy(sourceFile.toPath(), destinationFile.toPath());
+            } catch (FileAlreadyExistsException e) {
+                log.error("Refusing to overwrite existing document {}", LogSafe.sanitize(destinationFile.getName()), e);
+                return null;
+            }
 
             if (destinationFile.exists()) {
                 try {
@@ -822,17 +899,16 @@ public class NioFileManagerImpl implements NioFileManager {
      * {@link NioFileManager#DOCUMENT_DIRECTORY} snapshot, so the document root stays consistent with
      * the live {@link #baseDocumentDir()} that {@link #createCacheVersion2} and
      * {@link #getDocumentCacheDirectory} validate against — a runtime {@code BASE_DOCUMENT_DIR} change
-     * can no longer split document storage and cache/source validation across two different roots
-     * (cubic HYtv).</p>
+     * can no longer split document storage and cache/source validation across two different roots.</p>
      */
     // FindSecBugs PATH_TRAVERSAL_IN: both resolved paths derive from trusted server configuration
     // (CarlosProperties DOCUMENT_DIR and the BASE_DOCUMENT_DIR system property), never user input;
-    // the value is a directory root the deployment owns, not a request-supplied filename (SI3Hn/SI3Hq).
+    // the value is a directory root the deployment owns, not a request-supplied filename.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private String getDocumentDirectory() {
-        // Resolve live (HYtv), but keep the legacy recovery: if the configured document dir is stale or
+        // Resolve live, but keep the legacy recovery: if the configured document dir is stale or
         // not an actual directory, fall back to <BASE_DOCUMENT_DIR>/document rather than returning an
-        // unusable path (cubic SIt6A).
+        // unusable path.
         String documentDirectory = CarlosProperties.getInstance().getDocumentDirectory();
         if (documentDirectory == null || !Files.isDirectory(Paths.get(documentDirectory))) {
             // Path is a deployment-owned document root, not PHI; safe to log to surface a misconfiguration.

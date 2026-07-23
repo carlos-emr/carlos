@@ -31,12 +31,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to convert an eform html page into a pdf file.
+ * Serves the token- or session-authorized eForm HTML surface that the loopback browser PDF
+ * renderer ({@link EFormBrowserPdfService}) navigates to and captures. It performs no PDF
+ * conversion itself.
  *
  * <p>This class owns only the HTTP concerns: the loopback-only remote-address gate, render-token
  * redemption (browser path) or session {@code _eform} authorization (session path), the
  * per-render Content-Security-Policy, and writing the response. The stored-form HTML assembly is
- * delegated to {@link EformRenderPdfHtmlComposer}.</p>
+ * delegated to {@link EFormRenderPdfHtmlComposer}.</p>
  *
  * <p>The class was renamed from {@code EFormViewForPdfGenerationServlet} to disambiguate it from the
  * legacy session gate {@code web.eform.EformViewForPdfGenerationServlet} (which differed only by
@@ -90,9 +92,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
             }
 
             String providerId;
-            String renderToken = null;
+            EFormRenderTokenService.RenderToken renderToken = null;
             if (browserRender) {
-                EFormRenderTokenService.RenderGrant grant = redeemedRenderGrant(request, formDataId);
+                EFormRenderTokenService.RenderGrant grant = liveRenderGrant(request, formDataId);
                 if (grant == null) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires a valid render token");
                     return;
@@ -100,7 +102,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 providerId = grant.providerNo();
                 // Carry the grant forward onto the eForm's own asset URLs so the sessionless render
                 // browser can fetch its background/asset images under the same render-scoped token.
-                renderToken = request.getParameter(RENDER_TOKEN_PARAM);
+                // Kept as the redacting RenderToken wrapper all the way into the composer — only
+                // appendRenderTokenToAssetUrls unwraps it via queryValue().
+                renderToken = EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM));
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
@@ -108,23 +112,39 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires an authenticated _eform session");
                     return;
                 }
-                providerId = request.getParameter(PROVIDER_ID_PARAM);
+                // Mirror the sibling session gate (web.eform.EformViewForPdfGenerationServlet):
+                // the render surface is scoped to the authenticated provider. The session's
+                // provider number is authoritative; a present-but-different request-supplied
+                // providerId is rejected, never trusted.
+                providerId = loggedInInfo.getLoggedInProviderNo();
+                String requestedProviderId = request.getParameter(PROVIDER_ID_PARAM);
+                if (requestedProviderId != null && !requestedProviderId.trim().isEmpty()
+                        && !requestedProviderId.trim().equals(providerId)) {
+                    logger.warn("Saved eForm PDF request rejected: providerId does not match the authenticated session");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires a matching provider session");
+                    return;
+                }
                 logger.debug("EFormBrowserRenderPageServlet authorized via _eform session: fdid={}", formDataId);
             }
 
             response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Security-Policy", buildContentSecurityPolicy(browserRender));
 
-            boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
-
-            String html = EformRenderPdfHtmlComposer.buildPdfHtmlForFdid(
-                    formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, prepareForFax, renderToken);
+            String html = EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(
+                    formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, renderToken);
 
             HtmlResponse.of(HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET, html).writeTo(response);
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            logger.error("Unexpected error in EFormBrowserRenderPageServlet", e);
+            // Same redaction rule as the renderer: this route's request URL carries the fdid and
+            // render token, and container/machinery exceptions can embed the request URI — log
+            // the type and a redacted message, never the raw throwable. The frame-only stack
+            // summary is PHI-safe and keeps a message-less NPE diagnosable (no more "error=null"
+            // with zero frames).
+            logger.error("Unexpected error in EFormBrowserRenderPageServlet: type={} error={} at={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
@@ -133,20 +153,22 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     }
 
     /**
-     * Redeems the render-scoped grant carried by a browser-render request.
+     * Returns the live render-scoped grant carried by a browser-render request, or null.
      *
      * <p>Renderer requests carry no HTTP session by design. Authorization happened when
      * {@code EformDataManagerImpl} passed its {@code _eform} privilege check and minted a grant
-     * bound to this fdid. Redemption is render-scoped ({@code peek}, not consume) so the same grant
-     * also authorizes the eForm's loopback asset-image subresources during the render; the renderer
-     * invalidates the token when the render finishes. Fail-closed on any mismatch.</p>
+     * bound to this fdid. This peeks (does not consume) the grant so the same grant also authorizes
+     * the eForm's loopback asset-image subresources during the render — the sibling asset servlet
+     * {@link EFormImageViewForPdfGenerationServlet} uses the same {@code liveRenderGrant} name for
+     * its peek; the renderer's lease invalidates the token when the render finishes. Fail-closed on
+     * any mismatch.</p>
      *
      * @return the grant, or null when the token is missing, expired, invalidated, or bound to a
      *         different saved eForm
      */
-    static EFormRenderTokenService.RenderGrant redeemedRenderGrant(HttpServletRequest request, int formDataId) {
-        EFormRenderTokenService.RenderGrant grant =
-                EFormRenderTokenService.getInstance().peek(request.getParameter(RENDER_TOKEN_PARAM));
+    static EFormRenderTokenService.RenderGrant liveRenderGrant(HttpServletRequest request, int formDataId) {
+        EFormRenderTokenService.RenderGrant grant = EFormRenderTokenService.getInstance().peek(
+                EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM)));
         if (grant == null || grant.fdid() != formDataId) {
             logger.warn("Renderer request rejected: missing, expired, or mismatched render token");
             return null;

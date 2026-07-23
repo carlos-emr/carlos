@@ -298,15 +298,24 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     }
 
     private void deploySampleLabCompatibilityAssets(File targetDir) {
+        // NOT a copy-paste bug: legacy sample-lab eForms reference the literal filename
+        // "jquery-3.1.0.min.js" in their stored HTML, so the WAR's current jQuery bundle
+        // (JQUERY_RESOURCE_PATH, 3.7.1) is deliberately deployed UNDER the legacy filename to
+        // keep those forms working without editing every stored form.
         deployAssetFromPath("jquery-3.1.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
+        // Same deliberate aliasing for the older legacy generation: EForm's runtime normalization
+        // rewrites stored references to jquery-1.12.0.min.js to the displayImage asset route, so the
+        // current bundle must also be deployed under that legacy filename or those forms 404 (and the
+        // 404'd Script subresource fails the whole browser PDF render).
+        deployAssetFromPath("jquery-1.12.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
         for (Map.Entry<String, String> entry : SAMPLE_LAB_COMPATIBILITY_SCRIPTS.entrySet()) {
             deployGeneratedAsset(entry.getKey(), targetDir, entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
         // Expected and benign: these legacy sample-lab background images are intentionally not bundled.
         // Log once at DEBUG with the full list rather than a per-asset WARN on every startup, which
-        // added recurring noise to production logs (copilot SIxUE). The message is emitted unconditionally
+        // added recurring noise to production logs. The message is emitted unconditionally
         // because SAMPLE_LAB_BACKGROUND_ASSETS is the (currently non-empty) fixed asset list; a length>0
-        // guard here was an always-true test (github-code-quality SI9Wy / cubic SJD90).
+        // guard here was an always-true test.
         logger.debug("Sample lab compatibility background assets are not bundled and will not be synthesized: {}",
                 List.of(SAMPLE_LAB_BACKGROUND_ASSETS));
     }

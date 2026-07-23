@@ -37,10 +37,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Locale;
-import java.util.Map;
 
-import io.github.carlos_emr.carlos.eform.util.EformAssetContentType;
+import io.github.carlos_emr.carlos.eform.util.EFormAssetContentType;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -81,10 +79,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DisplayImage2Action extends ActionSupport {
     private static final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
-    // Shared with EFormImageViewForPdfGenerationServlet via EformAssetContentType so the two eForm
-    // asset-streaming paths cannot drift on the MIME allowlist (cubic CQQa). Header hardening
-    // (sanitizeHeaderValue) stays per-class.
-    private static final Map<String, String> OVERRIDDEN_CONTENT_TYPES = EformAssetContentType.BY_EXTENSION;
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -181,6 +175,17 @@ public class DisplayImage2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     StreamData process(File file, String fileName) throws IOException {
         String contentType = resolveContentType(file);
+        // nosniff: the declared allowlist type is the contract; a browser second-guessing bytes
+        // into a scriptable type is never wanted on an asset route.
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        if (RequestNegotiation.isHtmlContentType(contentType)) {
+            // A stored eForm asset served as text/html executes in the authenticated origin —
+            // a stored-XSS channel if asset-upload rights are ever broader than admin. The
+            // sandbox directive (no allow-* tokens) strips scripts/forms/origin from the served
+            // document while keeping passive embedding working, so legacy html/rtl assets stay
+            // servable without staying scriptable.
+            response.setHeader("Content-Security-Policy", "sandbox");
+        }
         response.setContentType(contentType);
         response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
 
@@ -189,13 +194,10 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     private String resolveContentType(File file) {
-        String extension = extension(file.getName()).toLowerCase(Locale.ROOT);
-        String overriddenContentType = OVERRIDDEN_CONTENT_TYPES.get(extension);
-        if (overriddenContentType != null) {
-            return overriddenContentType;
-        }
-
-        throw new IllegalArgumentException("Unsupported eform asset type");
+        // Shared with EFormImageViewForPdfGenerationServlet: EFormAssetContentType owns the
+        // allowlist AND the extension parsing/lowercasing, so the paths cannot drift on either.
+        return EFormAssetContentType.forFilename(file.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
     }
 
     /**
@@ -224,17 +226,6 @@ public class DisplayImage2Action extends ActionSupport {
         }
         
         return sanitized;
-    }
-
-    /**
-     * Gets the file extension from a given filename.
-     *
-     * @param f the filename (e.g., example.jpeg)
-     * @return the file extension
-     */
-    public String extension(String f) {
-        int dot = f.lastIndexOf(".");
-        return f.substring(dot + 1);
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use

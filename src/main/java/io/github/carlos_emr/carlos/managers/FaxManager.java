@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
@@ -51,27 +52,33 @@ public interface FaxManager {
 
     enum TransactionType {CONSULTATION, EFORM, FORM, RX, DOCUMENT}
 
-    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, FormTransportContainer formTransportContainer);
+    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, FormTransportContainer formTransportContainer) throws PDFGenerationException;
 
-    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo);
+    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo) throws PDFGenerationException;
 
     /**
      * @deprecated Move these rendering methods into a more generic class like the DocumentManager
+     *
+     * @return Path to the rendered document, or {@code null} if rendering is not implemented for
+     *         the transaction type
+     * @throws PDFGenerationException when an EFORM or FORM document cannot be rendered — the
+     *         message carries the render diagnosis instead of the pre-fix behavior of returning
+     *         null and detonating as a context-free NullPointerException in the caller
      */
     @Deprecated
-    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo, FormTransportContainer formTransportContainer);
+    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo, FormTransportContainer formTransportContainer) throws PDFGenerationException;
 
     Path renderConsultationRequest(LoggedInInfo loggedInInfo, int requestId, int demographicNo);
 
     Path renderDocument(LoggedInInfo loggedInInfo, int documentNo, int demographicNo);
 
-    Path renderEform(LoggedInInfo loggedInInfo, int eformId, int demographicNo);
+    Path renderEform(LoggedInInfo loggedInInfo, int eformId, int demographicNo) throws PDFGenerationException;
 
     Path renderPrescription(LoggedInInfo loggedInInfo, int rxId, int demographicNo);
 
     Path renderForm(LoggedInInfo loggedInInfo, int formId, int demographicNo);
 
-    Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer);
+    Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) throws PDFGenerationException;
 
     /**
      * 1.) Creates the faxJob

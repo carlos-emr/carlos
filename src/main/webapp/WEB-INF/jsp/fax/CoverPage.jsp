@@ -56,7 +56,7 @@
       letterheadFax - clinic/sender fax number used to select and prefill the sending fax account
       fax           - recipient fax number prefilled into the form
 
-    @since 2026-05-29
+    @since 2014-08-29
 --%>
 
 <!DOCTYPE html>
@@ -123,7 +123,7 @@
     <%--
         Action return flashy confirmation messages.
     --%>
-    <c:if test="${ not empty faxSuccessful }">
+    <c:if test="${ not empty faxSuccessful and faxSuccessful }">
         <script type="text/javascript">
             $(document).ready(function () {
                 $("#page-body").slideUp("slow");
@@ -475,7 +475,7 @@
             <c:forEach items="${ faxJobList }" var="faxJob">
                 <c:choose>
                     <c:when test="${ faxJob.status eq 'ERROR' }">
-                        <div class="alert alert-success" role="alert">
+                        <div class="alert alert-danger" role="alert">
                             Failed to add fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)} ${carlos:forHtml(faxJob.status)}: ${carlos:forHtml(faxJob.statusString)}
                         </div>
                     </c:when>
@@ -487,6 +487,17 @@
                 </c:choose>
             </c:forEach>
             <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
+        </c:if>
+
+        <%-- cancel() no longer redirects (and silently discards the message) when
+             faxManager.flush fails to clear the preview cache / temporary file; render the
+             failure here instead so the user knows the cleanup (and PHI removal) did not
+             complete. --%>
+        <c:if test="${ not empty faxCleanupFailed }">
+            <div class="alert alert-danger" role="alert">
+                The fax was cancelled, but the preview cache or temporary file could not be fully removed.
+                Please retry Cancel or contact your system administrator.
+            </div>
         </c:if>
     </div>
 </div>
@@ -519,14 +530,17 @@
             faxFilePath: faxFilePath
         }).done(function (resultdata) {
             callback(resultdata.pageCount || 0);
-        }).fail(function () {
-            callback(0);
+        }).fail(function (jqXHR) {
+            // Surface the status: a 403 (missing document privilege) needs different operator
+            // action than a 404/500, and collapsing them all into "Preview unavailable" hid that.
+            console.error("Fax preview page count request failed with HTTP status " + jqXHR.status);
+            callback(0, jqXHR.status);
         });
     }
 
     // Cap how many page-image elements are materialized up front so a very large PDF cannot make the
     // cover page slow or unresponsive; the rest render on demand via a "Show remaining" button. Each
-    // <img> is also natively lazy-loaded (cubic CQQR).
+    // <img> is also natively lazy-loaded.
     var PREVIEW_INITIAL_PAGE_CAP = 25;
 
     function appendPreviewImage(container, faxFilePath, pageNumber) {
@@ -537,7 +551,18 @@
             .addClass("img-fluid border rounded bg-white")
             .css("background-image", "url('" + ctx + "/images/loader.gif')")
             .css("background-position", "50% 50%")
-            .css("background-repeat", "no-repeat");
+            .css("background-repeat", "no-repeat")
+            // A user without the _edoc privilege gets a 403 from getPreview for every page image;
+            // without this handler each broken <img> sits on the page captioned
+            // "Showing N pages", which reads as a successful preview instead of a degraded one.
+            .on("error", function () {
+                $(this).remove();
+                var previewStatus = $("#previewStatus");
+                if (!previewStatus.data("degraded")) {
+                    previewStatus.data("degraded", true)
+                        .text("Preview images are not available for your role or this document. Use Open PDF to review the generated fax document.");
+                }
+            });
 
         $("<div />")
             .addClass("mb-3")
@@ -546,7 +571,7 @@
             .appendTo(container);
     }
 
-    function renderPreviewImages(pageCount) {
+    function renderPreviewImages(pageCount, failureStatus) {
         var faxFilePath = $("input[name='faxFilePath']").val();
         var previewStatus = $("#previewStatus");
         var previewImages = $("#previewImages");
@@ -554,13 +579,19 @@
         previewImages.empty();
 
         if (!faxFilePath || pageCount < 1) {
-            previewStatus.text("Preview unavailable. Use Open PDF to review the generated fax document.");
+            // A 403 means this user lacks the document privilege the inline image preview needs
+            // (soft degradation: Open PDF still works); other failures are generic.
+            if (failureStatus === 403) {
+                previewStatus.text("Preview images are not available for your role. Use Open PDF to review the generated fax document.");
+            } else {
+                previewStatus.text("Preview unavailable. Use Open PDF to review the generated fax document.");
+            }
             return;
         }
 
         var initialCount = Math.min(pageCount, PREVIEW_INITIAL_PAGE_CAP);
         // Reflect the initial cap so the count is not misleading for a large fax: only the first
-        // initialCount pages render up front until the user clicks "Show remaining …" (cubic SIxT6).
+        // initialCount pages render up front until the user clicks "Show remaining …".
         if (pageCount > initialCount) {
             previewStatus.text("Showing first " + initialCount + " of " + pageCount + " pages.");
         } else {
@@ -582,8 +613,7 @@
                     for (var j = initialCount + 1; j <= pageCount; j++) {
                         appendPreviewImage(previewImages, faxFilePath, j);
                     }
-                    // All pages are now materialized, so the "first N of M" status no longer holds
-                    // (cubic SI8Tb).
+                    // All pages are now materialized, so the "first N of M" status no longer holds.
                     previewStatus.text("Showing all " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
                 });
             previewImages.append(showMore);

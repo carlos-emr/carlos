@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -157,8 +158,21 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             List<EFormData> eForms = consultationManager.getAttachedEForms(reqId);
 
             for (EFormData eFormItem : eForms) {
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
-                alist.add(Files.newInputStream(attachedForm));
+                Path attachedForm;
+                try {
+                    attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
+                } catch (PDFGenerationException e) {
+                    // The renderer's message says why; only this loop knows which attachment.
+                    throw new PDFGenerationException(
+                            "Attached eForm \"" + eFormItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
+                }
+                // Register in streams so the finally block below closes it; previously this
+                // stream was created but never added to the cleanup list, leaking one file
+                // descriptor per attached eForm on every print (see attached-forms site below
+                // for the matching leak).
+                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                streams.add(attachedFormStream);
+                alist.add(attachedFormStream);
             }
 
             //attached docs
@@ -247,8 +261,18 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
                 formTransportContainer.setFormName(formItem.getFormName());
                 formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-                alist.add(Files.newInputStream(attachedForm));
+                Path attachedForm;
+                try {
+                    attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
+                } catch (PDFGenerationException e) {
+                    throw new PDFGenerationException(
+                            "Attached form \"" + formItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
+                }
+                // Register in streams so the finally block below closes it (see attached-eForms
+                // site above for the matching leak fix).
+                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                streams.add(attachedFormStream);
+                alist.add(attachedFormStream);
             }
 
             if (alist.size() > 0) {
@@ -270,15 +294,24 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } catch (IOException ioe) {
             error = "IOException";
             exception = ioe;
+        } catch (PDFGenerationException pge) {
+            // Attachment render failures land here with the failing attachment named in the
+            // message (wrapped at the render call sites above) instead of the pre-fix behavior
+            // of a context-free NullPointerException from Files.newInputStream(null).
+            error = "PDFGenerationException";
+            exception = pge;
         } catch (ServletException e) {
             throw new RuntimeException(e);
         } finally {
-            // Cleaning up InputStreams created for concatenation.
+            // Cleaning up InputStreams created for concatenation. A close failure here is
+            // cleanup-only: the response bytes are already written (or the real failure was
+            // captured above), so it must never flip a successful print to the "error" result —
+            // Struts would forward an error JSP into the committed binary response.
             for (InputStream is : streams) {
                 try {
                     is.close();
                 } catch (IOException e) {
-                    error = "IOException";
+                    logger.warn("Failed to close attachment stream after consultation print", e);
                 }
             }
         }
@@ -287,7 +320,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         }
-        return null;
+        // Direct-response contract: the PDF bytes were streamed above; NONE (never a named
+        // result or bare null) stops Struts from resolving a view into the binary response.
+        return NONE;
 
     }
 }

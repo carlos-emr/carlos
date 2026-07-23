@@ -256,7 +256,10 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
         // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
+        // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action"
     );
 
     /**
@@ -336,7 +339,10 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // eform slice: only DelEForm2Action is registered; broader slice audit tracked in issue #2828.
-        "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action"
+        "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
+        // Fax slice: only Fax2Action is registered; the fax package is not in
+        // IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

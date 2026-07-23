@@ -133,7 +133,11 @@
 
 			function updateAjax() {
 				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-				if (parentAjaxId !== "null") {
+				// Guard the opener: this page is normally an eChart popup, but a direct
+				// navigation (bookmark, new tab) has no opener and the unguarded access
+				// threw a TypeError from the onunload handler on every close.
+				if (parentAjaxId !== "null" && window.opener && !window.opener.closed
+						&& window.opener.document && window.opener.document.forms['encForm']) {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
 				}
@@ -252,8 +256,7 @@
                         <td><a href="#"
                                ONCLICK="popupPage('efmshowform_data?fdid=<carlos:encode value='<%= (String) curform.get("fdid") %>' context="uriComponent"/>&appointment=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>', '<%="FormP" + i%>'); return false;"
                                TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
-                               onmouseover="window.status='
-                                    <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><carlos:encode value='<%= (String)curform.get("formName") %>' context="html"/>
+                               onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><carlos:encode value='<%= (String)curform.get("formName") %>' context="html"/>
                         </a></td>
                         <td><carlos:encode value='<%= (String)curform.get("formSubject") %>' context="html"/>
                         </td>

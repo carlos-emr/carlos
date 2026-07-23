@@ -123,7 +123,7 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
             }
 
             Path pdfPath = tempDir.resolve("test-pattern.pdf");
-            EFormBrowserPdfService.convertCapturesToPdf(captures, pdfPath);
+            EFormBrowserPdfService.convertCapturesToPdf(captures, pdfPath, tempDir);
 
             byte[] header = new byte[4];
             try (var in = Files.newInputStream(pdfPath)) {
@@ -131,6 +131,14 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
             }
             assertThat(new String(header, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF");
             assertThat(Files.size(pdfPath)).isGreaterThan(1000);
+            // Structural fidelity beyond the magic bytes: the assembled document must be a
+            // loadable PDF whose pages carry real geometry, not merely a well-prefixed blob.
+            try (org.apache.pdfbox.pdmodel.PDDocument renderedPdf =
+                    org.apache.pdfbox.Loader.loadPDF(pdfPath.toFile())) {
+                assertThat(renderedPdf.getNumberOfPages()).isGreaterThanOrEqualTo(1);
+                assertThat(renderedPdf.getPage(0).getMediaBox().getWidth()).isGreaterThan(0);
+                assertThat(renderedPdf.getPage(0).getMediaBox().getHeight()).isGreaterThan(0);
+            }
         } finally {
             // Nest so a throw from any one cleanup step still runs the rest (a failed driver.quit()
             // must not leak the loopback server or orphan the temp dir).
@@ -204,19 +212,21 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
 
     private static ChromeDriver startDriverOrSkip(ChromeOptions options) {
         try {
-            return new ChromeDriver(options);
+            // Same per-command client timeouts as production createDriver, so the smoke run
+            // exercises the bounded-connection configuration against a real chromedriver.
+            return new ChromeDriver(options, EFormBrowserPdfService.rendererClientConfig());
         } catch (WebDriverException e) {
-            // Skip ONLY when the driver/browser genuinely cannot start (offline host, no matching
-            // chromedriver, missing binary). Any other WebDriver failure — a bad options build, a
-            // Selenium regression, a browser that starts then crashes — must fail the test, not be
-            // silently converted into a green skip.
+            // Skip ONLY when chromedriver itself is genuinely unobtainable (offline host, Selenium
+            // Manager can't resolve/download a matching driver). findChromiumBinary() already
+            // guarantees a real Chromium binary exists before this call, so a browser that starts
+            // then crashes, or otherwise fails to launch from a FOUND binary, is a renderer
+            // regression and must fail the test, not be silently converted into a green skip.
             String message = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
             boolean driverUnavailable = message.contains("cannot find")
                     || message.contains("unable to find")
                     || message.contains("no such file")
-                    || message.contains("executable")
-                    || message.contains("chrome failed to start")
-                    || message.contains("binary");
+                    || message.contains("unable to obtain")
+                    || message.contains("executable");
             if (driverUnavailable) {
                 assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
                 throw new IllegalStateException("unreachable");
@@ -234,13 +244,19 @@ class EFormBrowserPdfServiceSeleniumSmokeTest {
         if (Files.isRegularFile(playwrightWrapper) && Files.isExecutable(playwrightWrapper)) {
             return playwrightWrapper.toString();
         }
-        Path browsersRoot = Paths.get("/opt/pw-browsers");
-        if (Files.isDirectory(browsersRoot)) {
+        for (Path browsersRoot : List.of(
+                Paths.get("/opt/pw-browsers"),
+                Paths.get(System.getProperty("user.home", "/root"), ".cache", "ms-playwright"))) {
+            if (!Files.isDirectory(browsersRoot)) {
+                continue;
+            }
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(browsersRoot, "chromium-*")) {
                 for (Path candidate : stream) {
-                    Path chrome = candidate.resolve("chrome-linux").resolve("chrome");
-                    if (Files.isExecutable(chrome)) {
-                        return chrome.toString();
+                    for (String layout : new String[] {"chrome-linux64", "chrome-linux"}) {
+                        Path chrome = candidate.resolve(layout).resolve("chrome");
+                        if (Files.isExecutable(chrome)) {
+                            return chrome.toString();
+                        }
                     }
                 }
             }

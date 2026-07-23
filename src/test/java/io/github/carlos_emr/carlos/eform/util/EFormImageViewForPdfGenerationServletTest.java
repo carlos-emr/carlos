@@ -39,6 +39,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -85,6 +86,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
                 assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
                 assertThat(response.getContentType()).isEqualTo("image/png");
+                assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
                 assertThat(response.getHeader("Content-disposition")).isEqualTo("inline; filename=\"bg.png\"");
                 assertThat(response.getContentAsByteArray()).containsExactly(imageBytes);
             }
@@ -97,7 +99,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     @DisplayName("should stream a local eform background image for a sessionless render carrying a valid grant")
     void shouldStreamLocalEformImage_withValidRenderGrantAndNoSession() throws Exception {
         Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
-        String token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
             Path image = tempDir.resolve("bg.png");
             byte[] imageBytes = new byte[] {9, 8, 7, 6};
@@ -116,7 +118,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
                 MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
                 request.setRemoteAddr("127.0.0.1");
                 request.setParameter("imagefile", "bg.png");
-                request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token);
+                request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
                 MockHttpServletResponse response = new MockHttpServletResponse();
 
                 new EFormImageViewForPdfGenerationServlet().doGet(request, response);
@@ -184,7 +186,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject imagefile parameters containing NUL bytes as a bad request")
-    void shouldRejectImagefileContainingNullBytes() throws Exception {
+    void shouldRejectImagefile_withNullBytes() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("127.0.0.1");
@@ -195,7 +197,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         new EFormImageViewForPdfGenerationServlet().doGet(request, response);
 
         // A malformed imagefile is a client error (400), not an authorization failure (403) — the
-        // filename is validated before the privilege check (cubic Fc2c/SIZkT).
+        // filename is validated before the privilege check.
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
     }
 
@@ -219,7 +221,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject requests without an authenticated session")
-    void shouldRejectRequestsWithoutAuthenticatedSession() throws Exception {
+    void shouldRejectRequest_withoutAuthenticatedSession() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("127.0.0.1");
@@ -233,7 +235,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject non-local requests")
-    void shouldRejectNonLocalRequests() throws Exception {
+    void shouldRejectRequest_fromNonLocalAddress() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("10.0.0.5");
@@ -243,6 +245,230 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         new EFormImageViewForPdfGenerationServlet().doGet(request, response);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("should stream vaccine-brands.json when the session holds prevention read only")
+    void shouldStreamVaccineBrands_withPreventionReadOnly() throws Exception {
+        Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
+        try {
+            Path asset = tempDir.resolve("vaccine-brands.json");
+            byte[] assetBytes = "[{\"brand\":\"example\"}]".getBytes();
+            Files.write(asset, assetBytes);
+
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+
+            // _eform is absent; _prevention READ alone is the accepted alternative for this one asset.
+            SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+            when(securityInfoManager.hasPrivilege(any(), eq("_prevention"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+            try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+                carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+                request.setRemoteAddr("127.0.0.1");
+                request.setParameter("imagefile", "vaccine-brands.json");
+                installLoggedInInfo(request, "999998");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+                assertThat(response.getContentType()).isEqualTo("application/json");
+                assertThat(response.getContentAsByteArray()).containsExactly(assetBytes);
+            }
+        } finally {
+            deleteTree(tempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should deny vaccine-brands.json when both eform and prevention privileges are missing")
+    void shouldSend403_forVaccineBrandsWithoutPrivileges() throws Exception {
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_prevention"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("imagefile", "vaccine-brands.json");
+        installLoggedInInfo(request, "999998");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(response.getErrorMessage()).contains("(_eform or _prevention)");
+    }
+
+    @Test
+    @DisplayName("should not authorize a non-vaccine asset by prevention privilege alone")
+    void shouldSend403_forGenericAssetWithPreventionOnly() throws Exception {
+        // The _prevention alternative in enforceAssetReadPrivilege is scoped to vaccine-brands.json
+        // only; a generic template asset must still require _eform even when _prevention is held.
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_prevention"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("imagefile", "bg.png");
+        installLoggedInInfo(request, "999998");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should strip hostile characters from the Content-disposition header")
+    void shouldSanitizeContentDisposition_forHostileFileName() throws Exception {
+        Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
+        try {
+            // Filesystem-legal on Linux (only '/' and NUL are forbidden), so this exercises the real
+            // getImageFile -> file.exists() path rather than a stubbed one. The quote, semicolon, and
+            // embedded CR/LF are exactly the characters sanitizeHeaderValue must strip so the
+            // Content-disposition header cannot be split or have its filename attribute escaped.
+            String hostileName = "bad\"name;\r\nX.png";
+            Path asset = tempDir.resolve(hostileName);
+            byte[] assetBytes = new byte[] {7, 7, 7};
+            Files.write(asset, assetBytes);
+
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+
+            SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+            try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+                carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+                request.setRemoteAddr("127.0.0.1");
+                request.setParameter("imagefile", hostileName);
+                installLoggedInInfo(request, "999998");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+                assertThat(response.getContentAsByteArray()).containsExactly(assetBytes);
+                assertThat(response.getHeader("Content-disposition")).isEqualTo("inline; filename=\"badnameX.png\"");
+            }
+        } finally {
+            deleteTree(tempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should answer bad request for an eform asset extension outside the content-type allowlist")
+    void shouldSendBadRequest_forUnsupportedAssetExtension() throws Exception {
+        Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
+        try {
+            Path asset = tempDir.resolve("archive.zip");
+            Files.write(asset, new byte[] {1, 2, 3});
+
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+
+            SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+            try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+                carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+                request.setRemoteAddr("127.0.0.1");
+                request.setParameter("imagefile", "archive.zip");
+                installLoggedInInfo(request, "999998");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+                assertThat(response.getContentAsByteArray()).isEmpty();
+            }
+        } finally {
+            deleteTree(tempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should answer not found when the requested asset file does not exist")
+    void shouldSendNotFound_whenAssetFileMissing() throws Exception {
+        Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
+        try {
+            // The eform image directory exists but the requested asset was never written into it.
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+
+            SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+            try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+                carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+                request.setRemoteAddr("127.0.0.1");
+                request.setParameter("imagefile", "missing.png");
+                installLoggedInInfo(request, "999998");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            }
+        } finally {
+            deleteTree(tempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should log redacted type-only diagnostics when the catch-all handles an unexpected error")
+    void shouldRedactUnexpectedErrors_whenCatchAllLogs() throws Exception {
+        // The exception message embeds a tokenized render URL, as container/machinery exceptions
+        // can. The catch-all must log type + redacted message only — attaching the raw throwable
+        // would re-emit a live render token into the logs.
+        SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull()))
+                .thenThrow(new RuntimeException("boom at http://127.0.0.1/x?renderToken=SECRETTOKENVALUE"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("imagefile", "bg.png");
+        installLoggedInInfo(request, "999998");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (LogCapture logs = LogCapture.forLogger(EFormImageViewForPdfGenerationServlet.class)) {
+            new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
+            assertThat(logs.messages()).anyMatch(message -> message.contains("type=java.lang.RuntimeException"));
+            assertThat(logs.messages()).noneMatch(message -> message.contains("SECRETTOKENVALUE"));
+        }
+    }
+
+    @Test
+    @DisplayName("should not attach the throwable when rejecting an invalid imagefile parameter")
+    void shouldNotAttachThrowable_whenRejectingInvalidImagefile() throws Exception {
+        // The wrapped FileValidationException's message can echo the caller-supplied imagefile
+        // value; the rejection WARN must carry only the servlet's own message text.
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("imagefile", "../bg.png");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try (LogCapture logs = LogCapture.forLogger(EFormImageViewForPdfGenerationServlet.class)) {
+            new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
+        }
     }
 
     private static void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {
