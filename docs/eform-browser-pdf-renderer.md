@@ -97,6 +97,7 @@ shape.
 | `eform_pdf_browser_chromium_path` | unset | Absolute path to the Chromium/Chrome binary. |
 | `eform_pdf_browser_chromedriver_path` | unset | Absolute path to a pinned chromedriver. Set this in production. |
 | `eform_pdf_browser_startup_check` | `required` | Startup readiness gate mode: `required` aborts webapp startup on a failed renderer probe, `warn` logs and defers the failure to first render, `off` skips the probe (test contexts). See the upgrade notice above. |
+| `eform_pdf_browser_strict_network_gate` | `false` | When `true`, restores the original fail-closed posture where any observed off-origin HTTP request, failed render-critical subresource, or severe page-script console error aborts the whole render. The default (`false`) treats those three as advisory (logged, render proceeds) so the legacy eForm corpus — which routinely references off-origin assets, 404s optional helper scripts/images, and emits benign JS errors — still produces a PDF of what painted. Physical egress containment is unaffected: the dead proxy still blocks off-origin HTTP, and the WebSocket/WebTransport gate, the same-origin main-document requirement, and the unparseable-network-evidence gate stay hard fail-closed regardless of this switch. |
 
 Environment: the renderer is **unsandboxed by default** so it starts out of the box on the common
 deployment shape (Tomcat as root / a container without unprivileged user namespaces, where
@@ -180,15 +181,21 @@ heuristic.
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.
-- **Page gates.** All render gates are **fail-closed**: a `null` or non-200 main document, any
-  severe console entry that is neither a resource-load report nor a CSP containment notice
-  (JavaScript errors — resource failures are gated type-aware by the network scan instead, so
-  headless Chrome's speculative origin-root `/favicon.ico` 404 cannot fail an intact render, and
-  a CSP block is the surface's own containment working, fail-safe by construction), any failed
-  render-critical subresource (an HTTP-error or connection-failed
-  image/script/stylesheet/font/iframe), and an unreadable browser console log all fail the
-  render — the console log is explicitly enabled via `goog:loggingPrefs`, so failing to read it
-  is a WebDriver fault, not a capability gap. Failures report counts, never page content.
+- **Page gates.** The render gates split into two tiers. **Always hard fail-closed:** a `null` or
+  non-200 same-origin main document, a WebSocket/WebTransport creation (a live bidirectional channel
+  that bypasses the dead HTTP proxy and is never opened by a real render), unparseable network
+  evidence, and an unreadable browser console log (explicitly enabled via `goog:loggingPrefs`, so
+  failing to read it is a WebDriver fault, not a capability gap). **Advisory by default** (logged at
+  WARN, render proceeds — set `eform_pdf_browser_strict_network_gate=true` to make them hard again):
+  an off-origin HTTP request (already physically blocked by the dead proxy), a failed render-critical
+  subresource (HTTP-error or connection-failed image/script/stylesheet/font/iframe), and a severe
+  page-script console error (a JavaScript error, as opposed to a resource-load report or a CSP
+  containment notice — both of which are excluded from the count anyway). These three were demoted
+  because the legacy eForm corpus routinely references off-origin assets, 404s optional helper scripts
+  (`faxControl.js`, `onBodyLoad_*.js`, `jSignature.min.js`), and emits benign JS errors — none of
+  which blank the form, and all of which the in-app eForm viewer already tolerates; failing the render
+  on them denied the fax for every form that was not perfectly self-contained. Failures report counts,
+  never page content.
 - **PHI-safe diagnostics.** Log lines carry fdid (a separate structured field), the loopback base
   URL (host + context path only — no PHI, and the fdid/token live in a separate path value not
   embedded in it), and counters. URLs inside WebDriver error messages are redacted before logging,

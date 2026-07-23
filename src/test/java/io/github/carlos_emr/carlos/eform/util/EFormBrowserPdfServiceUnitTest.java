@@ -616,7 +616,10 @@ class EFormBrowserPdfServiceUnitTest {
 
         EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
-        assertThat(scan.disallowedRequests()).isEqualTo(4);
+        // WebSocket/WebTransport creations are tallied as live-channel attempts (an always-on hard
+        // fail-closed signal), separate from off-origin HTTP, which is only advisory.
+        assertThat(scan.liveChannelAttempts()).isEqualTo(4);
+        assertThat(scan.disallowedRequests()).isZero();
     }
 
     @Test
@@ -802,10 +805,11 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should fail the render when a render-critical subresource failed to load")
-    void shouldFailRender_whenRenderCriticalSubresourceFailed() {
-        // A 404'd form background arrives as an Image responseReceived with status >= 400, which the
-        // network scan counts as a failed render-critical subresource.
+    @DisplayName("should tolerate the render when a render-critical subresource failed to load")
+    void shouldTolerateRender_whenRenderCriticalSubresourceFailed() {
+        // A 404'd optional asset (helper script / decorative image) arrives as an Image
+        // responseReceived with status >= 400. Legacy eForms routinely 404 optional helpers without
+        // blanking the form, so by default this is advisory (logged) and must NOT fail the render.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
@@ -813,10 +817,9 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(responseReceivedJson("Image",
                         "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
 
-        assertThatThrownBy(() -> service.enforceRenderGates(
+        assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
-                .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("failedSubresources=1");
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -838,34 +841,54 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should fail the render when a disallowed egress request was observed")
-    void shouldFailRender_whenDisallowedEgressObserved() {
+    @DisplayName("should tolerate the render when an off-origin HTTP egress request was observed")
+    void shouldTolerateRender_whenDisallowedHttpEgressObserved() {
+        // An off-origin HTTP request (e.g. a form referencing an external font/CDN/image) is already
+        // physically blocked by the dead proxy, so by default observing the attempt is advisory and
+        // must NOT deny the fax. It stays fail-closed only under the strict network gate.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
                 perfEntry(requestWillBeSentJson("https://evil.example/exfil")));
 
-        assertThatThrownBy(() -> service.enforceRenderGates(
+        assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
-                .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("disallowedRequests=1");
+                .doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("should fail the render when a severe JavaScript console error is present")
-    void shouldFailRender_whenSevereConsoleErrorPresent() {
-        // A page-script failure the network events cannot see (a JS TypeError) is exactly what the
-        // console gate exists to catch; it is neither a resource-load nor a CSP-containment notice.
+    @DisplayName("should fail the render when a live WebSocket/WebTransport egress channel was observed")
+    void shouldFailRender_whenLiveChannelEgressObserved() {
+        // A live bidirectional channel bypasses the dead HTTP proxy and is never opened by a render
+        // surface, so it stays an always-on hard fail-closed signal even under the default lenient
+        // gate — unlike off-origin HTTP, which the proxy already blocks.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\"")));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("liveChannelAttempts=1");
+    }
+
+    @Test
+    @DisplayName("should tolerate the render when a severe JavaScript console error is present")
+    void shouldTolerateRender_whenSevereConsoleErrorPresent() {
+        // A benign page-script error (a JS TypeError) is ubiquitous across the legacy eForm corpus
+        // and does not blank the form — the in-app viewer displays the same content. By default this
+        // is advisory (logged) and must NOT fail the render; it stays fail-closed under strict mode.
         ChromeDriver driver = driverWithConsole(browserConsole(
                 consoleEntry("http://127.0.0.1:8080/carlos/x 12:3 Uncaught TypeError: x is not a function")));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
 
-        assertThatThrownBy(() -> service.enforceRenderGates(
+        assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
-                .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("consoleErrors=1");
+                .doesNotThrowAnyException();
     }
 
     @Test

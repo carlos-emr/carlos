@@ -162,6 +162,20 @@ public class EFormBrowserPdfService {
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
     private static final String CHROMEDRIVER_PATH_PROPERTY = "eform_pdf_browser_chromedriver_path";
     private static final String CATALINA_BASE_PROPERTY = "catalina.base";
+    /**
+     * When {@code true}, restores the original fail-closed posture in which any observed off-origin
+     * HTTP request, failed render-critical subresource, or severe page-script console error aborts
+     * the whole render. Default ({@code false}) treats those three as <em>advisory</em>: they are
+     * logged but the render still produces a PDF of what painted. The legacy eForm corpus routinely
+     * references off-origin assets (fonts/CDN libs/images), 404s optional helper scripts
+     * ({@code faxControl.js}, {@code onBodyLoad_*.js}, {@code jSignature.min.js}), and emits benign
+     * JavaScript errors — none of which blank the form, and all of which the in-app eForm viewer
+     * already tolerates while displaying the same stored content. Physical egress containment is
+     * unaffected by this switch: the dead proxy still blocks every off-origin HTTP request, the
+     * WebSocket/WebTransport gate and the same-origin main-document requirement stay hard-fail
+     * regardless, the filesystem stays locked, and the render token stays single-use and fdid-bound.
+     */
+    private static final String STRICT_NETWORK_GATE_PROPERTY = "eform_pdf_browser_strict_network_gate";
     private static final String ENV_REQUIRE_SANDBOX = "EFORM_RENDER_SANDBOX";
     // Log the "running unsandboxed" notice once per JVM rather than on every render, since unsandboxed
     // is now the default and a per-render WARN would be noise.
@@ -1090,14 +1104,44 @@ public class EFormBrowserPdfService {
             logger.error("Browser eForm renderer rejected main document: fdid={} status={}", fdid, mainDocumentStatus);
             throw new PDFGenerationException("Browser rendering did not receive a successful eForm page response. status=" + mainDocumentStatus);
         }
-        if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
-            // Counts only — never request URLs or console text, which can carry eForm content.
-            logger.error("Browser eForm renderer surfaced page errors: fdid={} disallowedRequests={} severeConsoleEntries={} failedSubresources={}",
-                    fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources());
-            throw new PDFGenerationException("Browser rendering surfaced page errors. disallowedRequests="
-                    + disallowedRequests + " consoleErrors=" + severeConsoleEntries
-                    + " failedSubresources=" + scan.failedSubresources());
+        // Hard fail-closed on live bidirectional channels regardless of the strict-gate switch: a
+        // render surface never legitimately opens a WebSocket or WebTransport, and these bypass the
+        // dead HTTP proxy, so any such attempt is treated as an egress channel and aborts the render.
+        if (scan.liveChannelAttempts() > 0) {
+            logger.error("Browser eForm renderer observed a live egress channel: fdid={} liveChannelAttempts={}",
+                    fdid, scan.liveChannelAttempts());
+            throw new PDFGenerationException(
+                    "Browser rendering attempted a live egress channel. liveChannelAttempts=" + scan.liveChannelAttempts());
         }
+        if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
+            // Off-origin HTTP requests, failed render-critical subresources, and severe page-script
+            // console errors are advisory by default (see STRICT_NETWORK_GATE_PROPERTY): the legacy
+            // eForm corpus references off-origin assets, 404s optional helper scripts/images, and
+            // emits benign JS errors — none of which blank the form, and off-origin HTTP is already
+            // physically blocked by the dead proxy. Failing the render on them denied the fax for
+            // every form that was not perfectly self-contained. Counts only — never request URLs or
+            // console text, which can carry eForm content.
+            if (strictNetworkGateEnabled()) {
+                logger.error("Browser eForm renderer surfaced page errors (strict gate): fdid={} disallowedRequests={} severeConsoleEntries={} failedSubresources={}",
+                        fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources());
+                throw new PDFGenerationException("Browser rendering surfaced page errors. disallowedRequests="
+                        + disallowedRequests + " consoleErrors=" + severeConsoleEntries
+                        + " failedSubresources=" + scan.failedSubresources());
+            }
+            logger.warn("Browser eForm renderer tolerated non-fatal page issues: fdid={} disallowedRequests={} severeConsoleEntries={} failedSubresources={}"
+                    + " (off-origin egress is contained by the dead proxy; set {}=true to fail closed instead)",
+                    fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources(), STRICT_NETWORK_GATE_PROPERTY);
+        }
+    }
+
+    /**
+     * Whether the strict fail-closed network gate is enabled. Defaults to {@code false} (advisory);
+     * see {@link #STRICT_NETWORK_GATE_PROPERTY}. Never affects the always-on hard gates
+     * (WebSocket/WebTransport, main-document status, unparseable network evidence).
+     */
+    private static boolean strictNetworkGateEnabled() {
+        return Boolean.parseBoolean(
+                CarlosProperties.getInstance().getProperty(STRICT_NETWORK_GATE_PROPERTY, "false").trim());
     }
 
     /**
@@ -1141,9 +1185,13 @@ public class EFormBrowserPdfService {
      * Outcome of replaying Chrome's network events against the allowed loopback origin.
      * {@code parseFailures} counts entries the replay could not parse — evidence the egress gate
      * could not account for, which {@link #enforceRenderGates} fails closed on.
+     * {@code liveChannelAttempts} counts WebSocket/WebTransport creations, which are an always-on
+     * hard fail-closed signal (they bypass the dead HTTP proxy). {@code disallowedRequests} and
+     * {@code failedSubresources} are advisory by default and only fail the render under the strict
+     * network gate (see {@link #STRICT_NETWORK_GATE_PROPERTY}).
      */
     record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources,
-            int parseFailures) {
+            int parseFailures, int liveChannelAttempts) {
     }
 
     /**
@@ -1182,6 +1230,7 @@ public class EFormBrowserPdfService {
         Integer mainDocumentStatus = null;
         int failedSubresources = 0;
         int parseFailures = 0;
+        int liveChannelAttempts = 0;
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -1198,11 +1247,13 @@ public class EFormBrowserPdfService {
                     disallowedRequests++;
                 }
             } else if ("Network.webSocketCreated".equals(method) || "Network.webTransportCreated".equals(method)) {
-                // A render surface never opens a WebSocket or WebTransport. Fail closed on any such
-                // channel regardless of URL/origin: a same-origin wss:/https: WebTransport would pass
+                // A render surface never opens a WebSocket or WebTransport. Counted separately from
+                // off-origin HTTP because this is an unconditional hard fail-closed signal regardless
+                // of URL/origin: a same-origin wss:/https: WebTransport would pass
                 // isDisallowedRendererRequestUrl (http(s) to the allowed origin) yet is still a live
-                // bidirectional egress channel the dead HTTP proxy does not cover.
-                disallowedRequests++;
+                // bidirectional egress channel the dead HTTP proxy does not cover. Off-origin HTTP,
+                // by contrast, is already blocked by the dead proxy and is only advisory.
+                liveChannelAttempts++;
             } else if ("Network.responseReceived".equals(method)) {
                 String resourceType = params.path("type").asText("");
                 if (mainDocumentStatus == null
@@ -1220,7 +1271,8 @@ public class EFormBrowserPdfService {
                 failedSubresources++;
             }
         }
-        return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources, parseFailures);
+        return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
+                parseFailures, liveChannelAttempts);
     }
 
     // Package-private for the unit test that pins the fail-closed behavior.
