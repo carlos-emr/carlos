@@ -14,6 +14,7 @@ The first slice is intentionally small:
 - Development-only staff invite API for creating, listing, resending, and revoking invites.
 - Seven-day invite expiry metadata, refreshed on resend.
 - Patient invite activation using invite code, email, date of birth, and HCN/HIN proof.
+- Activation attempt throttling backed by portal audit events.
 - Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
   activation behavior.
 
@@ -66,6 +67,8 @@ export PATIENT_PORTAL_ENVIRONMENT=development
 export PATIENT_PORTAL_ENABLE_DEV_ADMIN=true
 export PATIENT_PORTAL_CLINIC_NAME="Maple Creek Medical"
 export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_portal"
+# Set PATIENT_PORTAL_DEV_ADMIN_TOKEN to a 32+ character random value before using
+# the development invite API.
 # Set PATIENT_PORTAL_IDENTITY_PROOF_SECRET to a 32+ character random value when
 # seeded invites must survive app restarts.
 ```
@@ -96,6 +99,16 @@ Non-development secrets must be set explicitly and be at least 32 characters.
 `PATIENT_PORTAL_ENVIRONMENT` accepts `development`, `staging`, `test`, or `production`; `dev` and
 `prod` are normalized aliases.
 
+The development invite API requires `PATIENT_PORTAL_DEV_ADMIN_TOKEN` when
+`PATIENT_PORTAL_ENABLE_DEV_ADMIN=true`. Keep that token local to development machines and pass it as a
+Bearer token.
+
+Activation throttling defaults to 10 failed attempts per invite code and 50 failed attempts per client
+within a one-hour window. The deployment can tune this with
+`PATIENT_PORTAL_ACTIVATION_FAILURE_WINDOW_SECONDS`,
+`PATIENT_PORTAL_ACTIVATION_MAX_FAILURES_PER_INVITE`, and
+`PATIENT_PORTAL_ACTIVATION_MAX_FAILURES_PER_CLIENT`.
+
 ## Migrations
 
 ```bash
@@ -109,18 +122,20 @@ Installed wheel deployments can run packaged migrations without a source checkou
 carlos-patient-portal-migrate
 ```
 
-This PR adds the portal foundation, initial staff invite table, and initial patient account table.
-Membership, audit, and unlock-secret tables should be added in later vertical slices.
+This PR adds the portal foundation, initial staff invite table, initial patient account table, and
+initial audit event table.
+Membership and unlock-secret tables should be added in later vertical slices.
 
 ## Development Invite API
 
 The staff invite skeleton is available only when `PATIENT_PORTAL_ENVIRONMENT=development` and
-`PATIENT_PORTAL_ENABLE_DEV_ADMIN=true`. It is intentionally hidden outside development until real
-CARLOS staff authentication is wired in.
+`PATIENT_PORTAL_ENABLE_DEV_ADMIN=true`. It also requires a development-only Bearer token. It is
+intentionally hidden outside development until real CARLOS staff authentication is wired in.
 
 ```bash
 curl -X POST http://127.0.0.1:8090/dev/admin/invites \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
   -d '{
     "demographic_no": 1234,
     "actor": "Dr example",
@@ -129,14 +144,17 @@ curl -X POST http://127.0.0.1:8090/dev/admin/invites \
     "health_card_number": "ABCD 1234-5678"
   }'
 
-curl http://127.0.0.1:8090/dev/admin/invites?demographic_no=1234
+curl -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
+  http://127.0.0.1:8090/dev/admin/invites?demographic_no=1234
 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/resend \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
   -d '{"actor":"Dr example"}'
 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
   -d '{"actor":"Dr example"}'
 ```
 
@@ -145,6 +163,10 @@ When identity proof is supplied, the database stores only keyed hashes of email,
 HCN/HIN values. Invites carry a seven-day `expires_at` timestamp so the activation endpoint has a
 clear server-side expiry boundary. Invite list responses default to 10 records and are capped at 100
 records per request.
+
+The current development API requires email, date of birth, and HCN/HIN at invite creation time so it
+cannot create invites that patients are unable to activate. The future CARLOS-backed staff action
+should populate those proof hashes from CARLOS demographics instead of staff-entered JSON fields.
 
 ## Patient Activation API
 
@@ -164,6 +186,9 @@ curl -X POST http://127.0.0.1:8090/auth/activate \
 Activation checks the invite code, email, date of birth, and HCN/HIN together and returns a generic
 failure when they do not match. Usernames are normalized to lowercase and must be unique. Passwords
 are hashed with Argon2id before storage.
+
+Activation requests must use `application/json` and are capped at 16 KiB before validation. Failed
+activation attempts are audited and rate-limited without storing raw HCN/HIN or date-of-birth values.
 
 ## Tests
 

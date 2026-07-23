@@ -30,28 +30,18 @@ class StaffActorRequest(BaseModel):
 
 class InviteCreateRequest(StaffActorRequest):
     demographic_no: int = Field(gt=0)
-    email: str | None = Field(default=None, max_length=MAX_EMAIL_LENGTH)
-    date_of_birth: date | None = None
-    health_card_number: str | None = Field(
-        default=None,
+    email: str = Field(min_length=1, max_length=MAX_EMAIL_LENGTH)
+    date_of_birth: date
+    health_card_number: str = Field(
+        min_length=1,
         max_length=MAX_HEALTH_CARD_NUMBER_LENGTH,
     )
 
     @model_validator(mode="after")
-    def require_complete_identity_proof(self) -> "InviteCreateRequest":
-        proof_values = (self.email, self.date_of_birth, self.health_card_number)
-        if any(value is not None for value in proof_values) and not all(
-            value is not None for value in proof_values
-        ):
-            raise ValueError(
-                "email, date_of_birth, and health_card_number must be provided together"
-            )
-        if self.email is not None:
-            normalize_email(self.email)
-        if self.date_of_birth is not None:
-            normalize_date_of_birth(self.date_of_birth)
-        if self.health_card_number is not None:
-            normalize_health_card_number(self.health_card_number)
+    def validate_identity_proof(self) -> "InviteCreateRequest":
+        normalize_email(self.email)
+        normalize_date_of_birth(self.date_of_birth)
+        normalize_health_card_number(self.health_card_number)
         return self
 
 

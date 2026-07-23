@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
@@ -7,6 +8,11 @@ from hmac import new as new_hmac
 from carlos_patient_portal.models import HASH_LENGTH, MAX_EMAIL_LENGTH
 
 MAX_HEALTH_CARD_NUMBER_LENGTH = 64
+EMAIL_PATTERN = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
+    r"[A-Za-z]{2,63}$"
+)
 
 
 @dataclass(frozen=True)
@@ -20,13 +26,9 @@ class IdentityProof:
 
 def normalize_email(email: str) -> str:
     normalized_email = email.strip().casefold()
-    local_part, separator, domain_part = normalized_email.partition("@")
     if (
-        not separator
-        or not local_part
-        or not domain_part
-        or len(normalized_email) > MAX_EMAIL_LENGTH
-        or any(character.isspace() for character in normalized_email)
+        len(normalized_email) > MAX_EMAIL_LENGTH
+        or EMAIL_PATTERN.fullmatch(normalized_email) is None
     ):
         raise ValueError("email must be a valid email address")
     return normalized_email

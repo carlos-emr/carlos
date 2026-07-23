@@ -5,8 +5,14 @@ from secrets import token_urlsafe
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
+from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.identity import IdentityProof, build_identity_hashes
 from carlos_patient_portal.models import (
+    AUDIT_ACTOR_TYPE_STAFF,
+    AUDIT_EVENT_INVITE_CREATE,
+    AUDIT_EVENT_INVITE_RESEND,
+    AUDIT_EVENT_INVITE_REVOKE,
+    AUDIT_OUTCOME_SUCCESS,
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
@@ -77,16 +83,16 @@ def create_invite(
     demographic_no: int,
     actor: str,
     *,
+    identity_proof: IdentityProof,
+    proof_secret: str,
     clinic_id: str = "default",
-    identity_proof: IdentityProof | None = None,
-    proof_secret: str | None = None,
 ) -> tuple[PatientPortalInvite, str]:
     validate_demographic_no(demographic_no)
     normalized_clinic_id = normalize_clinic_id(clinic_id)
     normalized_actor = normalize_staff_actor(actor)
-    if identity_proof is not None and proof_secret is None:
-        raise ValueError("proof_secret is required when identity_proof is provided")
-    proof_hashes = build_identity_hashes(identity_proof, proof_secret) if identity_proof else {}
+    if not proof_secret or not proof_secret.strip():
+        raise ValueError("proof_secret must not be blank")
+    proof_hashes = build_identity_hashes(identity_proof, proof_secret)
     invite_token = create_invite_token()
     now = utc_now()
     invite = PatientPortalInvite(
@@ -105,6 +111,16 @@ def create_invite(
     )
     session.add(invite)
     session.flush()
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_INVITE_CREATE,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        actor_type=AUDIT_ACTOR_TYPE_STAFF,
+        actor=normalized_actor,
+        clinic_id=normalized_clinic_id,
+        demographic_no=demographic_no,
+        invite_id=invite.id,
+    )
     return invite, invite_token
 
 
@@ -169,6 +185,16 @@ def resend_invite(
     invite.expires_at = now + DEFAULT_INVITE_TTL
     invite.updated_at = now
     session.flush()
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_INVITE_RESEND,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        actor_type=AUDIT_ACTOR_TYPE_STAFF,
+        actor=normalized_actor,
+        clinic_id=invite.clinic_id,
+        demographic_no=invite.demographic_no,
+        invite_id=invite.id,
+    )
     return invite, invite_token
 
 
@@ -190,4 +216,14 @@ def revoke_invite(
         invite.revoked_by = normalized_actor
         invite.updated_at = now
         session.flush()
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_INVITE_REVOKE,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            actor_type=AUDIT_ACTOR_TYPE_STAFF,
+            actor=normalized_actor,
+            clinic_id=invite.clinic_id,
+            demographic_no=invite.demographic_no,
+            invite_id=invite.id,
+        )
     return invite

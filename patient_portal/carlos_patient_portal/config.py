@@ -23,9 +23,13 @@ class Settings(BaseSettings):
     clinic_name: str = "Maple Creek Medical"
     database_url: str = DEFAULT_DATABASE_URL
     enable_dev_admin: bool = False
+    dev_admin_token: SecretStr | None = None
     session_secret: SecretStr | None = None
     identity_proof_secret: SecretStr | None = None
     internal_health_token: SecretStr | None = None
+    activation_failure_window_seconds: int = Field(default=3600, ge=60, le=86400)
+    activation_max_failures_per_invite: int = Field(default=10, ge=1, le=100)
+    activation_max_failures_per_client: int = Field(default=50, ge=1, le=1000)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -65,6 +69,7 @@ class Settings(BaseSettings):
         "session_secret",
         "identity_proof_secret",
         "internal_health_token",
+        "dev_admin_token",
         mode="before",
     )
     @classmethod
@@ -88,6 +93,19 @@ class Settings(BaseSettings):
                     "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN must be at least "
                     f"{MIN_PRODUCTION_SECRET_LENGTH} characters when set"
                 )
+
+        if self.dev_admin_token is not None:
+            dev_admin_token_value = self.dev_admin_token.get_secret_value().strip()
+            if len(dev_admin_token_value) < MIN_PRODUCTION_SECRET_LENGTH:
+                raise ValueError(
+                    "PATIENT_PORTAL_DEV_ADMIN_TOKEN must be at least "
+                    f"{MIN_PRODUCTION_SECRET_LENGTH} characters when set"
+                )
+
+        if self.is_dev_admin_enabled and self.dev_admin_token is None:
+            raise ValueError(
+                "PATIENT_PORTAL_DEV_ADMIN_TOKEN must be set when development admin API is enabled"
+            )
 
         identity_proof_secret_value: str | None = None
         if self.identity_proof_secret is not None:

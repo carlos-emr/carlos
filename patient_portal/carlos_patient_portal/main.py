@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from hashlib import sha256
 from hmac import new as new_hmac
 from pathlib import Path as FilePath
@@ -14,15 +15,19 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from carlos_patient_portal.accounts import (
     ActivationError,
+    ActivationRateLimit,
+    ActivationThrottledError,
     UsernameUnavailableError,
     activate_patient_account,
 )
+from carlos_patient_portal.audit import UNKNOWN_CLIENT_REFERENCE, hash_sensitive_reference
 from carlos_patient_portal.config import Settings, get_settings
 from carlos_patient_portal.database import (
     check_database,
@@ -65,6 +70,7 @@ SECURITY_HEADERS = {
 }
 NO_STORE_PATHS = {"/"}
 MAX_FORM_BODY_BYTES = 16 * 1024
+MAX_JSON_BODY_BYTES = 16 * 1024
 MAX_FORM_FIELD_COUNT = 20
 CSRF_COOKIE_NAME = "carlos_portal_csrf"
 CSRF_COOKIE_PATH = "/auth"
@@ -212,6 +218,27 @@ async def get_urlencoded_form_values(
         ) from exc
 
 
+async def get_activation_request(request: Request) -> ActivationRequest:
+    content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+    if content_type != "application/json":
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="activation requires an application/json request body",
+        )
+
+    body = await read_limited_request_body(request, MAX_JSON_BODY_BYTES)
+    try:
+        return ActivationRequest.model_validate_json(body)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
+
+def get_request_client_reference(request: Request) -> str:
+    if request.client is None or not request.client.host:
+        return UNKNOWN_CLIENT_REFERENCE
+    return request.client.host
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     csrf_secret = (
@@ -226,6 +253,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     database_engine = create_portal_engine(settings.database_url)
     session_factory = create_session_factory(database_engine)
+    activation_rate_limit = ActivationRateLimit(
+        failure_window=timedelta(seconds=settings.activation_failure_window_seconds),
+        max_failures_per_invite=settings.activation_max_failures_per_invite,
+        max_failures_per_client=settings.activation_max_failures_per_client,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
@@ -303,6 +335,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if scheme.lower() != "bearer" or not compare_digest(supplied_token, expected_token):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
 
+    def require_dev_admin_token(
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> None:
+        if settings.dev_admin_token is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+
+        scheme, _, supplied_token = (authorization or "").partition(" ")
+        expected_token = settings.dev_admin_token.get_secret_value().strip()
+        if scheme.lower() != "bearer" or not compare_digest(supplied_token, expected_token):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+
     @app.get("/")
     def index(request: Request) -> Response:
         csrf_token = create_csrf_token(csrf_secret)
@@ -362,9 +405,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         status_code=status.HTTP_201_CREATED,
     )
     def activate_invite(
-        payload: ActivationRequest,
+        request: Request,
+        payload: Annotated[ActivationRequest, Depends(get_activation_request)],
         session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> dict[str, str]:
+    ) -> dict[str, str] | JSONResponse:
+        client_reference_hash = hash_sensitive_reference(
+            csrf_secret,
+            "activation_client",
+            get_request_client_reference(request),
+        )
         try:
             account = activate_patient_account(
                 session,
@@ -377,14 +426,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 username=payload.username,
                 password=payload.password,
                 proof_secret=identity_proof_secret,
+                client_reference_hash=client_reference_hash,
+                rate_limit=activation_rate_limit,
             )
-        except UsernameUnavailableError as exc:
-            raise HTTPException(status_code=409, detail="username unavailable") from exc
-        except ActivationError as exc:
-            raise HTTPException(
+        except UsernameUnavailableError:
+            return JSONResponse(status_code=409, content={"detail": "username unavailable"})
+        except ActivationThrottledError:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "too many activation attempts; try again later"},
+                headers={"Retry-After": str(settings.activation_failure_window_seconds)},
+            )
+        except ActivationError:
+            return JSONResponse(
                 status_code=400,
-                detail="activation details could not be verified",
-            ) from exc
+                content={"detail": "activation details could not be verified"},
+            )
         return {"status": "activated", "username": account.username}
 
     if settings.is_dev_admin_enabled:
@@ -395,28 +452,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code=status.HTTP_201_CREATED,
         )
         def dev_create_invite(
+            _: Annotated[None, Depends(require_dev_admin_token)],
             payload: InviteCreateRequest,
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
-            identity_proof = None
-            if payload.email is not None:
-                identity_proof = IdentityProof(
-                    email=payload.email,
-                    date_of_birth=payload.date_of_birth,
-                    health_card_number=payload.health_card_number,
-                )
+            identity_proof = IdentityProof(
+                email=payload.email,
+                date_of_birth=payload.date_of_birth,
+                health_card_number=payload.health_card_number,
+            )
             invite, invite_token = create_invite(
                 session,
                 payload.demographic_no,
                 payload.actor,
-                clinic_id=settings.clinic_id,
                 identity_proof=identity_proof,
                 proof_secret=identity_proof_secret,
+                clinic_id=settings.clinic_id,
             )
             return invite_response_payload(invite, invite_token)
 
         @app.get("/dev/admin/invites", response_model=list[InviteResponse])
         def dev_list_invites(
+            _: Annotated[None, Depends(require_dev_admin_token)],
             session: Annotated[Session, Depends(get_app_database_session)],
             demographic_no: Annotated[int | None, Query(gt=0)] = None,
             limit: Annotated[
@@ -439,6 +496,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         @app.post("/dev/admin/invites/{invite_id}/resend", response_model=InviteTokenResponse)
         def dev_resend_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
+            _: Annotated[None, Depends(require_dev_admin_token)],
             payload: StaffActorRequest,
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
@@ -463,6 +521,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         @app.post("/dev/admin/invites/{invite_id}/revoke", response_model=InviteResponse)
         def dev_revoke_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
+            _: Annotated[None, Depends(require_dev_admin_token)],
             payload: StaffActorRequest,
             session: Annotated[Session, Depends(get_app_database_session)],
         ) -> dict[str, object]:
