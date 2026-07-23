@@ -84,6 +84,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 /**
@@ -424,6 +425,29 @@ public class EFormBrowserPdfService {
      *         times out, or no readable PDF is produced
      */
     public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
+        return renderSavedEformPdf(fdid, providerId, false);
+    }
+
+    /**
+     * Overload that optionally accepts a visually-incomplete render. When {@code allowMissingContent}
+     * is {@code true}, a failure of the eForm's own same-origin (CARLOS) visual assets — a signature
+     * block, form image, or stylesheet — no longer fails the render; instead it is logged and the
+     * captured (incomplete) PDF is produced. This backs the "render anyway" clinician choice after the
+     * default render has reported {@link EformContentUnavailableException}. It never relaxes the
+     * always-hard gates: a main document that never loaded and an attempted live egress channel still
+     * fail closed regardless of this flag.
+     *
+     * @param fdid saved eForm data identifier
+     * @param providerId provider number the render surface is scoped to
+     * @param allowMissingContent {@code true} to accept an incomplete render past missing same-origin
+     *        visual assets; {@code false} (default) to fail closed with
+     *        {@link EformContentUnavailableException}
+     * @return handle to a readable temporary PDF
+     * @throws EformContentUnavailableException when {@code allowMissingContent} is {@code false} and
+     *         the eForm's own visual content failed to load (user-recoverable)
+     * @throws PDFGenerationException for every other render failure
+     */
+    public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId, boolean allowMissingContent) throws PDFGenerationException {
         // Resolve the managed temp root and sweep stale renderer artifacts BEFORE competing for a
         // render slot. The sweep is best-effort housekeeping (a filesystem walk of the shared root);
         // running it while holding one of the scarce MAX_CONCURRENT_RENDERS slots would charge its
@@ -448,13 +472,13 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException("Browser rendering was aborted before it started.");
         }
         try {
-            return new RenderedEformPdf(renderWithSlot(fdid, providerId, tempRoot));
+            return new RenderedEformPdf(renderWithSlot(fdid, providerId, tempRoot, allowMissingContent));
         } finally {
             RENDER_SLOTS.release();
         }
     }
 
-    private Path renderWithSlot(int fdid, String providerId, Path tempRoot) throws PDFGenerationException {
+    private Path renderWithSlot(int fdid, String providerId, Path tempRoot, boolean allowMissingContent) throws PDFGenerationException {
         HttpServletRequest currentRequest = currentRequestOrNull();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
         // Declared before the try (validated to non-null inside it) so the catch-block diagnostics can
@@ -538,7 +562,7 @@ public class EFormBrowserPdfService {
 
             captureRegions(driver, regions, outputDirectory, deadlineNanos);
             drainPerformanceLog(driver, performanceEntries);
-            enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid);
+            enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid, allowMissingContent);
 
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
@@ -1061,6 +1085,17 @@ public class EFormBrowserPdfService {
     // Package-private for the unit test that pins the console-log-unavailable fail-closed branch.
     void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
             Integer latchedMainStatus, String baseUrl, int fdid) throws PDFGenerationException {
+        enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid, false);
+    }
+
+    /**
+     * @param allowMissingContent when {@code true}, a failure of the eForm's own same-origin visual
+     *        assets is logged and tolerated instead of throwing {@link EformContentUnavailableException}
+     *        — the "render anyway" path. The always-hard gates (main document, live egress channels,
+     *        unparseable evidence) are unaffected.
+     */
+    void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
+            Integer latchedMainStatus, String baseUrl, int fdid, boolean allowMissingContent) throws PDFGenerationException {
         NetworkGateScan scan = scanNetworkEvents(
                 performanceEntries.stream().map(LogEntry::getMessage).toList(),
                 originOf(baseUrl));
@@ -1113,16 +1148,23 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException(
                     "Browser rendering attempted a live egress channel. liveChannelAttempts=" + scan.liveChannelAttempts());
         }
-        // Hard fail-closed when the render's OWN same-origin (CARLOS) visual content failed to load —
-        // a missing signature block, form image, or stylesheet served by our EMR means the captured
-        // PDF is genuinely wrong, so we must not fax it. (Off-origin and helper-script failures are
-        // advisory below.) Counts only — never request URLs, which can carry eForm content.
+        // The render's OWN same-origin (CARLOS) visual content failed to load — a missing signature
+        // block, form image, or stylesheet served by our EMR means the captured PDF is visually
+        // incomplete. By default this fails closed with a distinct, user-recoverable exception so the
+        // web layer can offer a "render anyway" choice; when the clinician has taken that choice
+        // (allowMissingContent), it is logged and tolerated. Counts only — never request URLs, which
+        // can carry eForm content.
         if (scan.failedCriticalSubresources() > 0) {
-            logger.error("Browser eForm renderer could not load its own eForm content: fdid={} failedCriticalSubresources={}",
-                    fdid, scan.failedCriticalSubresources());
-            throw new PDFGenerationException(
-                    "Browser rendering could not load the eForm's own content. failedCriticalSubresources="
-                            + scan.failedCriticalSubresources());
+            if (allowMissingContent) {
+                logger.warn("Browser eForm renderer producing an INCOMPLETE eForm per render-anyway choice: fdid={} failedCriticalSubresources={}",
+                        fdid, scan.failedCriticalSubresources());
+            } else {
+                logger.error("Browser eForm renderer could not load its own eForm content: fdid={} failedCriticalSubresources={}",
+                        fdid, scan.failedCriticalSubresources());
+                throw new EformContentUnavailableException(
+                        "Browser rendering could not load the eForm's own content. failedCriticalSubresources="
+                                + scan.failedCriticalSubresources(), scan.failedCriticalSubresources());
+            }
         }
         if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
             // Off-origin HTTP requests, failed render-critical subresources, and severe page-script

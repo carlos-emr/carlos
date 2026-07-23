@@ -826,8 +826,42 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThatThrownBy(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
-                .isInstanceOf(PDFGenerationException.class)
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.EformContentUnavailableException.class)
                 .hasMessageContaining("failedCriticalSubresources=1");
+    }
+
+    @Test
+    @DisplayName("should render past missing same-origin content when render-anyway is chosen")
+    void shouldRenderPastMissingContent_whenRenderAnywayChosen() {
+        // The clinician's "render anyway" choice (allowMissingContent=true) tolerates the missing
+        // same-origin visual asset and produces the incomplete PDF instead of failing.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Image",
+                        "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
+
+        assertThatCode(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42, true))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should still fail closed on live egress even when render-anyway is chosen")
+    void shouldStillFailOnLiveEgress_whenRenderAnywayChosen() {
+        // "Render anyway" relaxes only the missing-content gate; a live egress channel (security) is
+        // never overridable, so it must still hard-fail with allowMissingContent=true.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\"")));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42, true))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("liveChannelAttempts=1");
     }
 
     @Test

@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
@@ -73,6 +74,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class Fax2Action extends ActionSupport {
 
     private static final String ACCESS_DENIED = "Access denied";
+    private static final String EFORM_FAX_MISSING_CONTENT_MESSAGE =
+            "This eForm could not be fully rendered because some of its own content (for example a "
+            + "signature or an image) could not be loaded. You can fax it anyway, but the document "
+            + "may be incomplete.";
     private static final String FAX_FILE_PATH_PARAM = "faxFilePath";
     private static final String ERROR_SENDING_ERROR_RESPONSE = "Error sending error response";
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -523,13 +528,30 @@ public class Fax2Action extends ActionSupport {
                 request.setAttribute("fdid", String.valueOf(transactionId));
                 request.setAttribute("demographicId", String.valueOf(demographicNo));
 
+                // "renderAnyway" is the clinician's explicit choice to fax a visually-incomplete eForm
+                // after the default render reported missing same-origin content. It relaxes only that
+                // one content gate; security/main-document gates stay hard.
+                boolean renderAnyway = Boolean.parseBoolean(request.getParameter("renderAnyway"));
                 try {
-                    pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+                    pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response, renderAnyway);
                     if (logger.isDebugEnabled()) {
                         logger.debug("prepareFax renderEFormWithAttachments returned readable={} exists={}",
                                 pdfPath != null && Files.isReadable(pdfPath),
                                 pdfPath != null && Files.exists(pdfPath));
                     }
+                } catch (EformContentUnavailableException e) {
+                    // The eForm's own content (e.g. a signature/image) could not be loaded. Offer the
+                    // clinician a "fax anyway" confirmation instead of dead-ending. Count only — no PHI.
+                    logger.warn("prepareFax eForm incomplete: missing same-origin content, offering fax-anyway (missingAssets={})",
+                            e.getMissingAssetCount());
+                    request.setAttribute("missingContentMessage", EFORM_FAX_MISSING_CONTENT_MESSAGE);
+                    request.setAttribute("transactionType", transactionType.name());
+                    request.setAttribute("transactionId", transactionId);
+                    request.setAttribute("demographicNo", demographicNo);
+                    request.setAttribute("recipient", recipient);
+                    request.setAttribute("recipientFaxNumber", recipientFaxNumber);
+                    request.setAttribute("letterheadFax", letterheadFax);
+                    return "eFormMissingContent";
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();
