@@ -213,18 +213,28 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should keep the Chromium sandbox enabled by default")
-    void shouldKeepSandboxEnabled_byDefault() {
+    @DisplayName("should omit --no-sandbox when the OS sandbox is enabled (opt-in)")
+    void shouldOmitNoSandbox_whenSandboxEnabled() {
+        // Opt-in hardened posture (EFORM_RENDER_SANDBOX=true -> unsandboxed=false): keep Chromium's OS
+        // sandbox, so --no-sandbox must be absent. Assert the args are actually populated first so
+        // doesNotContain cannot pass vacuously (SonarCloud S5841).
         ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(null, false, "http://127.0.0.1:8080");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> chromeOptions = (Map<String, Object>) options.asMap().get("goog:chromeOptions");
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) chromeOptions.get("args");
-        // Secure by default: no --no-sandbox unless the operator explicitly opts out. Assert the args
-        // are actually populated first so doesNotContain cannot pass vacuously (SonarCloud S5841).
         assertThat(args).isNotEmpty();
         assertThat(args).doesNotContain("--no-sandbox");
+    }
+
+    @Test
+    @DisplayName("should default to unsandboxed when EFORM_RENDER_SANDBOX is unset")
+    void shouldDefaultToUnsandboxed_whenSandboxEnvVarUnset() {
+        // The renderer is unsandboxed by default so it starts out of the box where Chromium's sandbox
+        // cannot initialize (root / no user namespaces). The OS sandbox is opt-in via EFORM_RENDER_SANDBOX.
+        // The test JVM has no such env var, so sandboxEnabled() must report false.
+        assertThat(EFormBrowserPdfService.sandboxEnabled()).isFalse();
     }
 
     @Test
