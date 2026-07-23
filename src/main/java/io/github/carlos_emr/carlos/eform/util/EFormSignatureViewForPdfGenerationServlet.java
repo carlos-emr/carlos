@@ -25,10 +25,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -38,10 +41,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>Contract: requests must originate from a loopback address (checked first) AND carry a live
  * render-scoped grant minted by {@link EFormRenderTokenService}; there is no session alternative
- * on this surface. The requested {@code digitalSignatureId} must additionally be referenced by
- * the stored values of the grant's own eForm ({@code fdid} binding), so a leaked or concurrent
- * grant cannot enumerate other patients' signature images. Misses are deterministic 404s; a
- * malformed id is a 400.</p>
+ * on this surface. The requested {@code digitalSignatureId} must be referenced by the stored
+ * values of the grant's own eForm ({@code fdid} binding) — a pre-filter over attacker-editable
+ * form text — AND the signature row must belong to the same patient as that eForm
+ * ({@code DigitalSignature.demographicId} equals {@code EFormData.demographicId}), which is the
+ * authoritative authorization: a crafted form value referencing another patient's signature id
+ * is denied. Misses are deterministic 404s; a malformed id is a 400.</p>
  */
 public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet {
 
@@ -111,10 +116,28 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
+            // The stored-value reference above proves only that the form's TEXT mentions this id —
+            // text a form-filling user controls. The authoritative binding is the demographic
+            // comparison below: the signature row must belong to the same patient as the eForm
+            // being rendered. Fail closed on any null (an unprovable binding must not stream PHI).
+            EFormData renderEform = SpringUtils.getBean(EFormDataDao.class).findByFormDataId(grant.fdid());
+            Integer renderDemographic = renderEform == null ? null : renderEform.getDemographicId();
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature digitalSignature = digitalSignatureManager
 					.getDigitalSignature(digitalSignatureId);
             if (digitalSignature != null) {
+                Integer signatureDemographic = digitalSignature.getDemographicId();
+                if (renderDemographic == null || signatureDemographic == null
+                        || !signatureDemographic.equals(renderDemographic)) {
+                    // Distinct, triage-able message: DigitalSignature.demographicId is NOT NULL in
+                    // the schema and set by every creation path, so a legitimate form can only hit
+                    // this if demographic merge/renumber tooling moved EFormData without updating
+                    // DigitalSignature. fdid only — never patient or signature identifiers.
+                    logger.warn("Rejected signature fetch: signature not bound to the render eForm's patient: fdid={}",
+                            LogSafe.sanitize(String.valueOf(grant.fdid())));
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
                 byte[] image = digitalSignature.getSignatureImage();

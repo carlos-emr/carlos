@@ -31,8 +31,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -55,12 +57,15 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             byte[] imageBytes = new byte[] {5, 4, 3, 2, 1};
             DigitalSignature signature = new DigitalSignature();
             signature.setSignatureImage(imageBytes);
+            signature.setDemographicId(111);
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
-            // The grant's eForm (fdid 4321) references signature 42, so the fetch is authorized.
+            // The grant's eForm (fdid 4321) references signature 42 AND the signature belongs to
+            // the same patient (111), so the fetch is authorized.
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
 
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
@@ -86,12 +91,14 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             byte[] imageBytes = new byte[] {9, 8, 7};
             DigitalSignature signature = new DigitalSignature();
             signature.setSignatureImage(imageBytes);
+            signature.setDemographicId(111);
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // Stored markup escapes the '&' as '&amp;'; the reference must still authorize the fetch.
             registerMock(EFormValueDao.class, eFormValueDaoReferencingEscaped(4321, "42"));
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
 
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
@@ -119,6 +126,7 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
             when(manager.getDigitalSignature(42)).thenReturn(null);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
 
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
@@ -206,12 +214,16 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     void shouldSendNotFound_whenSignatureImageBytesMissing() throws Exception {
         EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
-            // The row exists and the eForm references it, but the image column is empty — the
-            // pre-fix empty-200 fall-through left an untraceable blank signature in the PDF.
+            // The row exists, the eForm references it, and it belongs to the right patient — but
+            // the image column is empty; the pre-fix empty-200 fall-through left an untraceable
+            // blank signature in the PDF.
+            DigitalSignature imagelessSignature = new DigitalSignature();
+            imagelessSignature.setDemographicId(111);
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
-            when(manager.getDigitalSignature(42)).thenReturn(new DigitalSignature());
+            when(manager.getDigitalSignature(42)).thenReturn(imagelessSignature);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
 
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
@@ -225,6 +237,78 @@ class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
         }
+    }
+
+    @Test
+    @DisplayName("should reject a referenced signature that belongs to a different patient")
+    void shouldRejectSignature_whenSignatureBelongsToDifferentPatient() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            DigitalSignature signature = new DigitalSignature();
+            signature.setSignatureImage(new byte[] {1, 2, 3});
+            signature.setDemographicId(222);
+
+            DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
+            when(manager.getDigitalSignature(42)).thenReturn(signature);
+            registerMock(DigitalSignatureManager.class, manager);
+            // The form's stored TEXT references signature 42 — text a form-filling user controls —
+            // but the signature row belongs to another patient (222 vs the eForm's 111). The
+            // authoritative demographic binding must deny the fetch.
+            registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a referenced signature that carries no patient binding")
+    void shouldRejectSignature_whenSignatureHasNoDemographic() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            // demographicId is NOT NULL in the schema and set by every creation path; a null here
+            // is an unprovable binding and must fail closed rather than stream PHI.
+            DigitalSignature signature = new DigitalSignature();
+            signature.setSignatureImage(new byte[] {1, 2, 3});
+
+            DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
+            when(manager.getDigitalSignature(42)).thenReturn(signature);
+            registerMock(DigitalSignatureManager.class, manager);
+            registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42");
+            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    private static EFormDataDao eFormDataDaoFor(int fdid, Integer demographicId) {
+        EFormData eFormData = new EFormData();
+        eFormData.setDemographicId(demographicId);
+        EFormDataDao dao = mock(EFormDataDao.class);
+        when(dao.findByFormDataId(fdid)).thenReturn(eFormData);
+        return dao;
     }
 
     private static EFormValueDao eFormValueDaoReferencing(int fdid, String signatureId) {
