@@ -162,7 +162,9 @@ public class EmailManager {
             }
         } catch (EmailSendingException e) {
             updateEmailStatus(loggedInInfo, emailLog, EmailStatus.FAILED, boundedErrorMessage(e.getMessage()));
-            logger.error("Failed to send email", e);
+            // Log only the exception type: the throwable's cause chain can carry PHI (e.g. attachment
+            // filenames, raw provider responses), which must never reach the logs.
+            logger.error("Failed to send email: {}", e.getClass().getSimpleName());
         }
         return emailLog;
     }
