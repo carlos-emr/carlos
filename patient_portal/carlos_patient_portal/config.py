@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     activation_failure_window_seconds: int = Field(default=3600, ge=60, le=86400)
     activation_max_failures_per_invite: int = Field(default=10, ge=1, le=100)
     activation_max_failures_per_client: int = Field(default=50, ge=1, le=1000)
+    require_mfa: bool = True
+    auth_max_failed_password_attempts: int = Field(default=50, ge=1, le=1000)
+    mfa_max_failed_attempts: int = Field(default=10, ge=1, le=100)
+    session_ttl_seconds: int = Field(default=12 * 60 * 60, ge=300, le=30 * 24 * 60 * 60)
+    mfa_code_ttl_seconds: int = Field(default=10 * 60, ge=60, le=60 * 60)
+    mfa_email_resend_cooldown_seconds: int = Field(default=60, ge=30, le=60 * 60)
+    mfa_sms_resend_cooldown_seconds: int = Field(default=5 * 60, ge=60, le=60 * 60)
+    password_reset_token_ttl_seconds: int = Field(default=60 * 60, ge=300, le=24 * 60 * 60)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -117,6 +125,9 @@ class Settings(BaseSettings):
             raise ValueError(
                 "PATIENT_PORTAL_DEV_ADMIN_TOKEN must be set when development admin API is enabled"
             )
+
+        if self.is_production and not self.require_mfa:
+            raise ValueError("PATIENT_PORTAL_REQUIRE_MFA must stay enabled in production")
 
         identity_proof_secret_value: str | None = None
         if self.identity_proof_secret is not None:

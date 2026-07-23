@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -21,15 +22,35 @@ ACCOUNT_STATUS_ACTIVE = "active"
 AUDIT_ACTOR_TYPE_PATIENT = "patient"
 AUDIT_ACTOR_TYPE_STAFF = "staff"
 AUDIT_EVENT_ACTIVATION = "activation"
+AUDIT_EVENT_ACCOUNT_LOCK = "account.lock"
+AUDIT_EVENT_ACCOUNT_UNLOCK = "account.unlock"
 AUDIT_EVENT_INVITE_CREATE = "invite.create"
 AUDIT_EVENT_INVITE_LIST = "invite.list"
 AUDIT_EVENT_INVITE_RESEND = "invite.resend"
 AUDIT_EVENT_INVITE_REVOKE = "invite.revoke"
+AUDIT_EVENT_LOGIN = "login"
+AUDIT_EVENT_MFA_CHALLENGE = "mfa.challenge"
+AUDIT_EVENT_MFA_RESEND = "mfa.resend"
+AUDIT_EVENT_MFA_VERIFY = "mfa.verify"
+AUDIT_EVENT_PASSWORD_RESET_COMPLETE = "password_reset.complete"
+AUDIT_EVENT_PASSWORD_RESET_REQUEST = "password_reset.request"
+AUDIT_EVENT_SESSION_LOGOUT = "session.logout"
 AUDIT_OUTCOME_FAILURE = "failure"
 AUDIT_OUTCOME_SUCCESS = "success"
 AUDIT_OUTCOME_THROTTLED = "throttled"
+MFA_DELIVERY_METHOD_EMAIL = "email"
+MFA_DELIVERY_METHOD_SMS = "sms"
+MFA_CHALLENGE_STATUS_CANCELLED = "cancelled"
+MFA_CHALLENGE_STATUS_PENDING = "pending"
+MFA_CHALLENGE_STATUS_VERIFIED = "verified"
+PASSWORD_RESET_STATUS_PENDING = "pending"
+PASSWORD_RESET_STATUS_REVOKED = "revoked"
+PASSWORD_RESET_STATUS_USED = "used"
+SESSION_REVOKED_REASON_LOGOUT = "logout"
+SESSION_REVOKED_REASON_PASSWORD_RESET = "password_reset"
 MAX_CLINIC_ID_LENGTH = 64
 MAX_EMAIL_LENGTH = 254
+MAX_PHONE_NUMBER_LENGTH = 32
 MIN_USERNAME_LENGTH = 3
 MAX_USERNAME_LENGTH = 64
 HASH_LENGTH = 64
@@ -66,6 +87,27 @@ class PatientPortalAccount(Base):
             "status in ('active')",
             name="ck_patient_portal_accounts_status",
         ),
+        CheckConstraint(
+            "phone_number is null or length(phone_number) between 1 and 32",
+            name="ck_patient_portal_accounts_phone_number_length",
+        ),
+        CheckConstraint(
+            "preferred_mfa_method in ('email', 'sms')",
+            name="ck_patient_portal_accounts_preferred_mfa_method",
+        ),
+        CheckConstraint(
+            "failed_login_count >= 0",
+            name="ck_patient_portal_accounts_failed_login_count_non_negative",
+        ),
+        CheckConstraint(
+            "locked_by is null or length(locked_by) between 1 and 128",
+            name="ck_patient_portal_accounts_locked_by_length",
+        ),
+        CheckConstraint(
+            "(locked_at is null and locked_by is null) or "
+            "(locked_at is not null and locked_by is not null)",
+            name="ck_patient_portal_accounts_lock_fields_complete",
+        ),
         UniqueConstraint(
             "clinic_id",
             "demographic_no",
@@ -80,8 +122,25 @@ class PatientPortalAccount(Base):
     demographic_no: Mapped[int] = mapped_column(Integer, nullable=False)
     username: Mapped[str] = mapped_column(String(MAX_USERNAME_LENGTH), nullable=False)
     email: Mapped[str] = mapped_column(String(MAX_EMAIL_LENGTH), nullable=False)
+    phone_number: Mapped[str | None] = mapped_column(
+        String(MAX_PHONE_NUMBER_LENGTH),
+        nullable=True,
+    )
+    preferred_mfa_method: Mapped[str] = mapped_column(
+        String(8),
+        nullable=False,
+        default=MFA_DELIVERY_METHOD_EMAIL,
+    )
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
+    failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    force_password_reset: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
@@ -98,6 +157,180 @@ class PatientPortalAccount(Base):
         default=utc_now,
         nullable=False,
     )
+
+
+class PatientPortalSession(Base):
+    """Opaque bearer session created after password and MFA checks pass."""
+
+    __tablename__ = "patient_portal_sessions"
+    __table_args__ = (
+        CheckConstraint(
+            f"length(token_hash) = {HASH_LENGTH}",
+            name="ck_patient_portal_sessions_token_hash_length",
+        ),
+        CheckConstraint(
+            "expires_at > created_at",
+            name="ck_patient_portal_sessions_expires_after_created",
+        ),
+        CheckConstraint(
+            "revoked_reason is null or length(revoked_reason) between 1 and 64",
+            name="ck_patient_portal_sessions_revoked_reason_length",
+        ),
+        Index("ux_patient_portal_sessions_token_hash", "token_hash", unique=True),
+        Index("ix_patient_portal_sessions_account_expires", "account_id", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("patient_portal_accounts.id"),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class PatientPortalMfaChallenge(Base):
+    """Short-lived MFA challenge with a hashed one-time code."""
+
+    __tablename__ = "patient_portal_mfa_challenges"
+    __table_args__ = (
+        CheckConstraint(
+            f"length(challenge_token_hash) = {HASH_LENGTH}",
+            name="ck_patient_portal_mfa_challenges_token_hash_length",
+        ),
+        CheckConstraint(
+            f"length(code_hash) = {HASH_LENGTH}",
+            name="ck_patient_portal_mfa_challenges_code_hash_length",
+        ),
+        CheckConstraint(
+            "delivery_method in ('email', 'sms')",
+            name="ck_patient_portal_mfa_challenges_delivery_method",
+        ),
+        CheckConstraint(
+            "status in ('pending', 'verified', 'cancelled')",
+            name="ck_patient_portal_mfa_challenges_status",
+        ),
+        CheckConstraint(
+            "failed_attempts >= 0",
+            name="ck_patient_portal_mfa_challenges_failed_attempts_non_negative",
+        ),
+        CheckConstraint(
+            "expires_at > created_at",
+            name="ck_patient_portal_mfa_challenges_expires_after_created",
+        ),
+        CheckConstraint(
+            "status = 'verified' or verified_at is null",
+            name="ck_patient_portal_mfa_challenges_unverified_verified_at_null",
+        ),
+        CheckConstraint(
+            "status != 'verified' or verified_at is not null",
+            name="ck_patient_portal_mfa_challenges_verified_at_present",
+        ),
+        Index(
+            "ux_patient_portal_mfa_challenges_token_hash",
+            "challenge_token_hash",
+            unique=True,
+        ),
+        Index("ix_patient_portal_mfa_challenges_account_status", "account_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("patient_portal_accounts.id"),
+        nullable=False,
+    )
+    challenge_token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
+    delivery_method: Mapped[str] = mapped_column(String(8), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    failed_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_email_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_sms_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PatientPortalPasswordResetToken(Base):
+    """Short-lived one-time token for patient password reset."""
+
+    __tablename__ = "patient_portal_password_reset_tokens"
+    __table_args__ = (
+        CheckConstraint(
+            f"length(token_hash) = {HASH_LENGTH}",
+            name="ck_patient_portal_password_reset_tokens_token_hash_length",
+        ),
+        CheckConstraint(
+            "status in ('pending', 'used', 'revoked')",
+            name="ck_patient_portal_password_reset_tokens_status",
+        ),
+        CheckConstraint(
+            "expires_at > created_at",
+            name="ck_patient_portal_password_reset_tokens_expires_after_created",
+        ),
+        CheckConstraint(
+            "status = 'used' or used_at is null",
+            name="ck_patient_portal_password_reset_tokens_unused_used_at_null",
+        ),
+        CheckConstraint(
+            "status != 'used' or used_at is not null",
+            name="ck_patient_portal_password_reset_tokens_used_at_present",
+        ),
+        CheckConstraint(
+            f"client_reference_hash is null or length(client_reference_hash) = {HASH_LENGTH}",
+            name="ck_patient_portal_password_reset_tokens_client_hash_length",
+        ),
+        Index(
+            "ux_patient_portal_password_reset_tokens_token_hash",
+            "token_hash",
+            unique=True,
+        ),
+        Index(
+            "ix_patient_portal_password_reset_tokens_account_status",
+            "account_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("patient_portal_accounts.id"),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    client_reference_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
 
 
 class PatientPortalInvite(Base):
@@ -260,8 +493,10 @@ class PatientPortalAuditEvent(Base):
         CheckConstraint(
             (
                 "event_type in "
-                "('activation', 'invite.create', 'invite.list', "
-                "'invite.resend', 'invite.revoke')"
+                "('activation', 'account.lock', 'account.unlock', "
+                "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
+                "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
+                "'password_reset.complete', 'password_reset.request', 'session.logout')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),

@@ -41,20 +41,33 @@ from carlos_patient_portal.invites import (
     revoke_invite,
 )
 from carlos_patient_portal.models import (
+    AUDIT_EVENT_ACCOUNT_LOCK,
+    AUDIT_EVENT_ACCOUNT_UNLOCK,
     AUDIT_EVENT_ACTIVATION,
     AUDIT_EVENT_INVITE_CREATE,
     AUDIT_EVENT_INVITE_LIST,
     AUDIT_EVENT_INVITE_RESEND,
     AUDIT_EVENT_INVITE_REVOKE,
+    AUDIT_EVENT_LOGIN,
+    AUDIT_EVENT_MFA_CHALLENGE,
+    AUDIT_EVENT_MFA_RESEND,
+    AUDIT_EVENT_MFA_VERIFY,
+    AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
+    AUDIT_EVENT_PASSWORD_RESET_REQUEST,
+    AUDIT_EVENT_SESSION_LOGOUT,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
     AUDIT_OUTCOME_THROTTLED,
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
+    MFA_DELIVERY_METHOD_SMS,
     PatientPortalAccount,
     PatientPortalAuditEvent,
     PatientPortalInvite,
+    PatientPortalMfaChallenge,
+    PatientPortalPasswordResetToken,
+    PatientPortalSession,
     utc_now,
 )
 
@@ -70,6 +83,7 @@ SEEDED_INVITE_EMAIL = "example.patient@example.com"
 SEEDED_INVITE_DOB = "1980-05-20"
 SEEDED_INVITE_HCN = "ABCD 1234-5678"
 STRONG_PASSWORD = "Stronger1!word"
+STRONG_RESET_PASSWORD = "Changed1!word"
 
 
 def development_settings(**overrides: object) -> Settings:
@@ -170,6 +184,45 @@ def activation_request(invite_code: str, **overrides: object) -> dict[str, objec
     }
     request_payload.update(overrides)
     return request_payload
+
+
+def activate_seeded_patient_account(
+    app: main.FastAPI,
+    client: TestClient,
+    *,
+    username: str = "patient.user",
+    password: str = STRONG_PASSWORD,
+    demographic_no: int = 1234,
+    email: str = SEEDED_INVITE_EMAIL,
+    health_card_number: str = SEEDED_INVITE_HCN,
+) -> int:
+    create_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(),
+        json=seeded_invite_request(
+            demographic_no=demographic_no,
+            email=email,
+            health_card_number=health_card_number,
+        ),
+    )
+    assert create_response.status_code == 201
+    activate_response = client.post(
+        "/auth/activate",
+        json=activation_request(
+            create_response.json()["invite_token"],
+            username=username,
+            password=password,
+            email=email,
+            health_card_number=health_card_number,
+        ),
+    )
+    assert activate_response.status_code == 201
+    with app.state.session_factory() as session:
+        account_id = session.scalar(
+            select(PatientPortalAccount.id).where(PatientPortalAccount.username == username)
+        )
+    assert account_id is not None
+    return account_id
 
 
 def test_health_endpoint_is_minimal() -> None:
@@ -296,21 +349,90 @@ def test_internal_database_health_requires_configured_token() -> None:
     ).status_code == 200
 
 
-def test_login_route_is_explicitly_not_implemented() -> None:
-    app = main.create_app(development_settings())
+def test_login_mfa_session_and_logout_happy_path() -> None:
+    app = migrated_development_app()
     client = TestClient(app)
-    csrf_token = get_csrf_token(client)
-    response = client.post(
+    account_id = activate_seeded_patient_account(app, client)
+
+    login_response = client.post(
         "/auth/login",
-        data={
-            "csrf_token": csrf_token,
-            "username": "patient.username",
-            "password": "unused",
+        json={"username": "Patient.User", "password": STRONG_PASSWORD},
+    )
+
+    assert login_response.status_code == 200
+    login_payload = login_response.json()
+    assert login_payload["status"] == "mfa_required"
+    assert login_payload["mfa_delivery_method"] == "email"
+    assert login_payload["mfa_challenge_token"]
+    assert re.fullmatch(r"\d{6}", login_payload["development_mfa_code"])
+    assert login_payload["session_token"] is None
+    assert login_response.headers["cache-control"] == "no-store"
+
+    verify_response = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": login_payload["mfa_challenge_token"],
+            "code": login_payload["development_mfa_code"],
         },
     )
 
-    assert response.status_code == 501
-    assert response.json()["detail"] == "login is not implemented yet"
+    assert verify_response.status_code == 200
+    session_token = verify_response.json()["session_token"]
+    assert session_token
+
+    session_response = client.get(
+        "/auth/session",
+        headers={"Authorization": f"Bearer {session_token}"},
+    )
+
+    assert session_response.status_code == 200
+    assert session_response.json() == {
+        "status": "authenticated",
+        "username": "patient.user",
+        "clinic_id": "default",
+        "demographic_no": 1234,
+    }
+
+    logout_response = client.post(
+        "/auth/logout",
+        headers={"Authorization": f"Bearer {session_token}"},
+    )
+    expired_session_response = client.get(
+        "/auth/session",
+        headers={"Authorization": f"Bearer {session_token}"},
+    )
+
+    assert logout_response.status_code == 200
+    assert logout_response.json() == {"status": "logged_out"}
+    assert expired_session_response.status_code == 401
+    with app.state.session_factory() as session:
+        portal_session = session.scalar(select(PatientPortalSession))
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(
+                    PatientPortalAuditEvent.event_type.in_(
+                        [
+                            AUDIT_EVENT_LOGIN,
+                            AUDIT_EVENT_MFA_CHALLENGE,
+                            AUDIT_EVENT_MFA_VERIFY,
+                            AUDIT_EVENT_SESSION_LOGOUT,
+                        ]
+                    )
+                )
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert portal_session is not None
+        assert portal_session.account_id == account_id
+        assert portal_session.revoked_reason == "logout"
+        assert [(event.event_type, event.outcome) for event in audit_events] == [
+            (AUDIT_EVENT_MFA_CHALLENGE, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_LOGIN, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_MFA_VERIFY, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_SESSION_LOGOUT, AUDIT_OUTCOME_SUCCESS),
+        ]
 
 
 def test_login_route_rejects_missing_csrf_token() -> None:
@@ -417,6 +539,242 @@ def test_login_route_rejects_too_many_form_fields() -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid form body"
+
+
+def test_login_rejects_bad_password_with_generic_error_and_audit() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+
+    response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": "Wrong1!password"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "sign-in could not be completed"
+    assert "Wrong1!password" not in response.text
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        audit_event = session.scalar(
+            select(PatientPortalAuditEvent)
+            .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_LOGIN)
+            .order_by(PatientPortalAuditEvent.id.desc())
+        )
+
+        assert account is not None
+        assert account.failed_login_count == 1
+        assert account.locked_at is None
+        assert audit_event is not None
+        assert audit_event.outcome == AUDIT_OUTCOME_FAILURE
+        assert audit_event.reason == "invalid_credentials"
+
+
+def test_mfa_resend_limits_email_and_allows_switch_to_sms() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        account.phone_number = "+1 555 123 4567"
+        account.preferred_mfa_method = MFA_DELIVERY_METHOD_SMS
+        session.commit()
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+            "mfa_delivery_method": "email",
+        },
+    )
+    challenge_token = login_response.json()["mfa_challenge_token"]
+
+    throttled_email_response = client.post(
+        "/auth/mfa/resend",
+        json={"mfa_challenge_token": challenge_token, "mfa_delivery_method": "email"},
+    )
+    sms_response = client.post(
+        "/auth/mfa/resend",
+        json={"mfa_challenge_token": challenge_token, "mfa_delivery_method": "sms"},
+    )
+    throttled_sms_response = client.post(
+        "/auth/mfa/resend",
+        json={"mfa_challenge_token": challenge_token, "mfa_delivery_method": "sms"},
+    )
+
+    assert login_response.status_code == 200
+    assert throttled_email_response.status_code == 429
+    assert throttled_email_response.headers["retry-after"] == "60"
+    assert sms_response.status_code == 200
+    assert sms_response.json()["mfa_delivery_method"] == "sms"
+    assert re.fullmatch(r"\d{6}", sms_response.json()["development_mfa_code"])
+    assert throttled_sms_response.status_code == 429
+    assert throttled_sms_response.headers["retry-after"] == "300"
+
+    verify_response = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": challenge_token,
+            "code": sms_response.json()["development_mfa_code"],
+        },
+    )
+
+    assert verify_response.status_code == 200
+    assert verify_response.json()["status"] == "signed_in"
+    with app.state.session_factory() as session:
+        challenge = session.scalar(select(PatientPortalMfaChallenge))
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_MFA_RESEND)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert challenge is not None
+        assert challenge.delivery_method == "sms"
+        assert challenge.status == "verified"
+        assert [event.outcome for event in audit_events] == [
+            AUDIT_OUTCOME_THROTTLED,
+            AUDIT_OUTCOME_SUCCESS,
+            AUDIT_OUTCOME_THROTTLED,
+        ]
+
+
+def test_bad_mfa_attempts_lock_account() -> None:
+    app = migrated_development_app(mfa_max_failed_attempts=2)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    login_payload = login_response.json()
+    challenge_token = login_payload["mfa_challenge_token"]
+    wrong_code = "111111" if login_payload["development_mfa_code"] == "000000" else "000000"
+
+    first_bad_response = client.post(
+        "/auth/mfa/verify",
+        json={"mfa_challenge_token": challenge_token, "code": wrong_code},
+    )
+    second_bad_response = client.post(
+        "/auth/mfa/verify",
+        json={"mfa_challenge_token": challenge_token, "code": wrong_code},
+    )
+
+    assert first_bad_response.status_code == 401
+    assert first_bad_response.json()["detail"] == "MFA could not be verified"
+    assert second_bad_response.status_code == 423
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        challenge = session.scalar(select(PatientPortalMfaChallenge))
+        lock_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_LOCK
+            )
+        )
+
+        assert account is not None
+        assert account.locked_at is not None
+        assert account.force_password_reset is True
+        assert challenge is not None
+        assert challenge.status == "cancelled"
+        assert lock_event is not None
+        assert lock_event.reason == "mfa_failures"
+
+
+def test_password_lockout_staff_unlock_and_forced_reset() -> None:
+    app = migrated_development_app(auth_max_failed_password_attempts=2)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+
+    first_bad_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": "Wrong1!password"},
+    )
+    lock_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": "Wrong1!password"},
+    )
+    locked_login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+
+    assert first_bad_response.status_code == 401
+    assert lock_response.status_code == 423
+    assert locked_login_response.status_code == 423
+
+    unlock_response = client.post(
+        f"/dev/admin/accounts/{account_id}/unlock",
+        headers=dev_admin_headers(actor="Admin example"),
+    )
+    forced_reset_login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    reset_request_response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    reset_token = reset_request_response.json()["development_reset_token"]
+    complete_reset_response = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": reset_token, "new_password": STRONG_RESET_PASSWORD},
+    )
+    new_login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_RESET_PASSWORD},
+    )
+
+    assert unlock_response.status_code == 200
+    assert unlock_response.json()["locked_at"] is None
+    assert unlock_response.json()["force_password_reset"] is True
+    assert forced_reset_login_response.status_code == 403
+    assert forced_reset_login_response.json() == {"status": "password_reset_required"}
+    assert reset_request_response.status_code == 202
+    assert reset_token
+    assert complete_reset_response.status_code == 200
+    assert complete_reset_response.json() == {
+        "status": "password_reset",
+        "username": "patient.user",
+    }
+    assert new_login_response.status_code == 200
+    assert new_login_response.json()["status"] == "mfa_required"
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        reset_records = list(session.scalars(select(PatientPortalPasswordResetToken)))
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(
+                    PatientPortalAuditEvent.event_type.in_(
+                        [
+                            AUDIT_EVENT_ACCOUNT_LOCK,
+                            AUDIT_EVENT_ACCOUNT_UNLOCK,
+                            AUDIT_EVENT_PASSWORD_RESET_REQUEST,
+                            AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
+                        ]
+                    )
+                )
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert account is not None
+        assert account.failed_login_count == 0
+        assert account.locked_at is None
+        assert account.force_password_reset is False
+        assert len(reset_records) == 1
+        assert reset_records[0].status == "used"
+        assert [(event.event_type, event.outcome) for event in audit_events] == [
+            (AUDIT_EVENT_ACCOUNT_LOCK, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_ACCOUNT_UNLOCK, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_PASSWORD_RESET_REQUEST, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_PASSWORD_RESET_COMPLETE, AUDIT_OUTCOME_SUCCESS),
+        ]
 
 
 def test_api_docs_are_available_in_development() -> None:
@@ -1587,6 +1945,32 @@ def test_activation_rate_limit_settings_are_bounded() -> None:
         development_settings(activation_max_failures_per_invite=0)
     with pytest.raises(ValidationError, match="activation_max_failures_per_client"):
         development_settings(activation_max_failures_per_client=0)
+
+
+def test_auth_policy_settings_are_bounded() -> None:
+    with pytest.raises(ValidationError, match="auth_max_failed_password_attempts"):
+        development_settings(auth_max_failed_password_attempts=0)
+    with pytest.raises(ValidationError, match="mfa_max_failed_attempts"):
+        development_settings(mfa_max_failed_attempts=0)
+    with pytest.raises(ValidationError, match="session_ttl_seconds"):
+        development_settings(session_ttl_seconds=299)
+    with pytest.raises(ValidationError, match="mfa_code_ttl_seconds"):
+        development_settings(mfa_code_ttl_seconds=59)
+    with pytest.raises(ValidationError, match="mfa_email_resend_cooldown_seconds"):
+        development_settings(mfa_email_resend_cooldown_seconds=29)
+    with pytest.raises(ValidationError, match="mfa_sms_resend_cooldown_seconds"):
+        development_settings(mfa_sms_resend_cooldown_seconds=59)
+    with pytest.raises(ValidationError, match="password_reset_token_ttl_seconds"):
+        development_settings(password_reset_token_ttl_seconds=299)
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_REQUIRE_MFA"):
+        Settings(
+            environment="production",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+            require_mfa=False,
+        )
 
 
 def test_module_does_not_create_global_app_on_import() -> None:

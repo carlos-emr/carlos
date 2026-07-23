@@ -30,7 +30,7 @@
         <section class="auth-panel" aria-labelledby="signin-title">
           <h1 id="signin-title">Sign in</h1>
           {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
-          <form class="form-stack" method="post" action="{{ url_for('login_placeholder') }}">
+          <form class="form-stack" method="post" action="{{ url_for('login') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>
               <span>Username</span>

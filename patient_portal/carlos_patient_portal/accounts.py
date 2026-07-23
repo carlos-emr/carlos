@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from math import ceil
 
-from argon2 import PasswordHasher
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,7 +11,7 @@ from carlos_patient_portal.audit import (
     record_audit_event,
     summarize_recent_activation_failures,
 )
-from carlos_patient_portal.credentials import validate_password, validate_username
+from carlos_patient_portal.credentials import password_hasher, validate_password, validate_username
 from carlos_patient_portal.identity import IdentityProof, normalize_email, verify_identity_proof
 from carlos_patient_portal.invites import hash_invite_token
 from carlos_patient_portal.models import (
@@ -23,18 +22,12 @@ from carlos_patient_portal.models import (
     AUDIT_OUTCOME_THROTTLED,
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
+    MFA_DELIVERY_METHOD_EMAIL,
     PatientPortalAccount,
     PatientPortalInvite,
     utc_now,
 )
 
-password_hasher = PasswordHasher(
-    time_cost=3,
-    memory_cost=65536,
-    parallelism=4,
-    hash_len=32,
-    salt_len=16,
-)
 ACTIVATION_REASON_INTEGRITY_CONFLICT = "integrity_conflict"
 ACTIVATION_REASON_INVALID_DETAILS = "invalid_details"
 ACTIVATION_REASON_USERNAME_UNAVAILABLE = "username_unavailable"
@@ -257,8 +250,11 @@ def activate_patient_account(
         demographic_no=invite.demographic_no,
         username=normalized_username,
         email=normalized_email,
+        preferred_mfa_method=MFA_DELIVERY_METHOD_EMAIL,
         password_hash=password_hasher.hash(password),
         status=ACCOUNT_STATUS_ACTIVE,
+        failed_login_count=0,
+        force_password_reset=False,
         created_at=now,
         updated_at=now,
         password_updated_at=now,

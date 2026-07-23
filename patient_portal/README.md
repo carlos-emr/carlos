@@ -15,10 +15,12 @@ The first slice is intentionally small:
 - Seven-day invite expiry metadata, refreshed on resend.
 - Patient invite activation using invite code, email, date of birth, and HCN/HIN proof.
 - Activation attempt throttling backed by portal audit events.
+- Patient login with Argon2id password verification, MFA challenge/verify, opaque bearer sessions,
+  logout, password reset, lockout, staff unlock, and forced reset after unlock.
 - Minimal FHIR R4 Patient and HL7 v2.5.1 patient-registration validation helpers for the MVP
   CARLOS integration contract.
 - Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
-  activation behavior.
+  activation/auth behavior.
 
 ## Local Setup
 
@@ -116,6 +118,24 @@ within a one-hour window. The deployment can tune this with
 `PATIENT_PORTAL_ACTIVATION_MAX_FAILURES_PER_INVITE`, and
 `PATIENT_PORTAL_ACTIVATION_MAX_FAILURES_PER_CLIENT`.
 
+Authentication defaults:
+
+- MFA is required by default and cannot be disabled in production.
+- Password login locks the account after 50 failed password attempts.
+- MFA verification locks the account after 10 failed code attempts.
+- MFA codes expire after 10 minutes.
+- Email MFA resend is limited to once per minute.
+- SMS MFA resend is limited to once per five minutes.
+- Patient sessions expire after 12 hours.
+- Password reset tokens expire after one hour and are one-time use.
+
+The deployment can tune these with `PATIENT_PORTAL_REQUIRE_MFA`,
+`PATIENT_PORTAL_AUTH_MAX_FAILED_PASSWORD_ATTEMPTS`, `PATIENT_PORTAL_MFA_MAX_FAILED_ATTEMPTS`,
+`PATIENT_PORTAL_SESSION_TTL_SECONDS`, `PATIENT_PORTAL_MFA_CODE_TTL_SECONDS`,
+`PATIENT_PORTAL_MFA_EMAIL_RESEND_COOLDOWN_SECONDS`,
+`PATIENT_PORTAL_MFA_SMS_RESEND_COOLDOWN_SECONDS`, and
+`PATIENT_PORTAL_PASSWORD_RESET_TOKEN_TTL_SECONDS`.
+
 By default, client throttling uses the direct peer address reported by the ASGI server. If the portal
 runs behind a trusted proxy that strips and sets forwarding headers, set
 `PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER` to `x-forwarded-for` or `x-real-ip`. Do not enable this for
@@ -136,8 +156,8 @@ carlos-patient-portal-migrate
 ```
 
 This PR adds the portal foundation, initial staff invite table, initial patient account table, and
-initial audit event table.
-Membership and unlock-secret tables should be added in later vertical slices.
+initial audit event table. It also adds portal-owned session, MFA challenge, and password reset token
+tables. Membership and unlock-secret tables should be added in later vertical slices.
 
 ## Development Invite API
 
@@ -168,6 +188,10 @@ curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/resend \
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
   -H "X-CARLOS-Staff-Actor: Dr example"
+
+curl -X POST http://127.0.0.1:8090/dev/admin/accounts/1/unlock \
+  -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
+  -H "X-CARLOS-Staff-Actor: Dr example"
 ```
 
 Invite tokens are shown only on create/resend responses. The database stores only the token hash.
@@ -185,6 +209,8 @@ Creating a new pending invite for the same patient revokes older pending invites
 validation happens before older invites are revoked, so invalid replacement attempts leave the
 current pending invite usable. Creating an invite after the patient already has a portal account
 returns a conflict. Staff create, list, resend, and revoke actions write audit events.
+The development unlock endpoint clears lockout counters, revokes active sessions/MFA challenges, and
+sets `force_password_reset=true`; the patient must then complete the reset flow before sign-in.
 
 ## Patient Activation API
 
@@ -208,6 +234,57 @@ are hashed with Argon2id before storage.
 Activation requests must use `application/json` and are capped at 16 KiB before validation. Failed
 activation attempts are audited and rate-limited without storing raw HCN/HIN, date-of-birth, or raw
 client address values. Client address hashes use `PATIENT_PORTAL_AUDIT_HASH_SECRET`.
+
+## Patient Auth API
+
+Login accepts either the server-rendered form with CSRF or JSON:
+
+```bash
+curl -X POST http://127.0.0.1:8090/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "patient.username", "password": "Stronger1!word"}'
+```
+
+When MFA is required, login returns an opaque `mfa_challenge_token`. Verify the emailed or texted code
+to create a session:
+
+```bash
+curl -X POST http://127.0.0.1:8090/auth/mfa/verify \
+  -H "Content-Type: application/json" \
+  -d '{"mfa_challenge_token": "<challenge>", "code": "123456"}'
+
+curl -H "Authorization: Bearer <session_token>" \
+  http://127.0.0.1:8090/auth/session
+
+curl -X POST -H "Authorization: Bearer <session_token>" \
+  http://127.0.0.1:8090/auth/logout
+```
+
+MFA resend supports switching between `email` and `sms` when the account has the selected channel:
+
+```bash
+curl -X POST http://127.0.0.1:8090/auth/mfa/resend \
+  -H "Content-Type: application/json" \
+  -d '{"mfa_challenge_token": "<challenge>", "mfa_delivery_method": "sms"}'
+```
+
+Password reset uses a generic request response and a one-time token:
+
+```bash
+curl -X POST http://127.0.0.1:8090/auth/password-reset/request \
+  -H "Content-Type: application/json" \
+  -d '{"username": "patient.username", "email": "example.patient@example.com"}'
+
+curl -X POST http://127.0.0.1:8090/auth/password-reset/complete \
+  -H "Content-Type: application/json" \
+  -d '{"reset_token": "<reset_token>", "new_password": "Changed1!word"}'
+```
+
+Development responses include `development_mfa_code` and `development_reset_token` only when needed
+for local testing. Production responses do not expose raw MFA codes or reset tokens; real delivery
+integration should send those values through the configured email/SMS provider without storing them.
+The database stores hashes of MFA codes, reset tokens, and session tokens. Sign-in, MFA, reset,
+lockout, unlock, and logout write audit events.
 
 ## Interoperability Contract
 

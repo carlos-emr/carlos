@@ -1,11 +1,20 @@
 import re
 
+from argon2 import PasswordHasher
+
 from carlos_patient_portal.models import MAX_USERNAME_LENGTH, MIN_USERNAME_LENGTH
 
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 256
 USERNAME_PATTERN = re.compile(r"^[a-z0-9._-]+$")
 PASSWORD_SYMBOL_PATTERN = re.compile(r"[^A-Za-z0-9]")
+password_hasher = PasswordHasher(
+    time_cost=3,
+    memory_cost=65536,
+    parallelism=4,
+    hash_len=32,
+    salt_len=16,
+)
 
 
 def validate_username(username: str) -> str:

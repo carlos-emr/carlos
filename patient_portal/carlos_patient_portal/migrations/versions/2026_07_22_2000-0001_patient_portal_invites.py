@@ -24,8 +24,15 @@ def upgrade() -> None:
         sa.Column("demographic_no", sa.Integer(), nullable=False),
         sa.Column("username", sa.String(length=64), nullable=False),
         sa.Column("email", sa.String(length=254), nullable=False),
+        sa.Column("phone_number", sa.String(length=32), nullable=True),
+        sa.Column("preferred_mfa_method", sa.String(length=8), nullable=False),
         sa.Column("password_hash", sa.String(length=512), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False),
+        sa.Column("failed_login_count", sa.Integer(), nullable=False),
+        sa.Column("locked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("locked_by", sa.String(length=128), nullable=True),
+        sa.Column("force_password_reset", sa.Boolean(), nullable=False),
+        sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("password_updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -45,6 +52,27 @@ def upgrade() -> None:
             "status in ('active')",
             name="ck_patient_portal_accounts_status",
         ),
+        sa.CheckConstraint(
+            "phone_number is null or length(phone_number) between 1 and 32",
+            name="ck_patient_portal_accounts_phone_number_length",
+        ),
+        sa.CheckConstraint(
+            "preferred_mfa_method in ('email', 'sms')",
+            name="ck_patient_portal_accounts_preferred_mfa_method",
+        ),
+        sa.CheckConstraint(
+            "failed_login_count >= 0",
+            name="ck_patient_portal_accounts_failed_login_count_non_negative",
+        ),
+        sa.CheckConstraint(
+            "locked_by is null or length(locked_by) between 1 and 128",
+            name="ck_patient_portal_accounts_locked_by_length",
+        ),
+        sa.CheckConstraint(
+            "(locked_at is null and locked_by is null) or "
+            "(locked_at is not null and locked_by is not null)",
+            name="ck_patient_portal_accounts_lock_fields_complete",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "clinic_id",
@@ -58,6 +86,154 @@ def upgrade() -> None:
         "patient_portal_accounts",
         ["status"],
         unique=False,
+    )
+    op.create_table(
+        "patient_portal_sessions",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("token_hash", sa.String(length=64), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("revoked_reason", sa.String(length=64), nullable=True),
+        sa.CheckConstraint(
+            "length(token_hash) = 64",
+            name="ck_patient_portal_sessions_token_hash_length",
+        ),
+        sa.CheckConstraint(
+            "expires_at > created_at",
+            name="ck_patient_portal_sessions_expires_after_created",
+        ),
+        sa.CheckConstraint(
+            "revoked_reason is null or length(revoked_reason) between 1 and 64",
+            name="ck_patient_portal_sessions_revoked_reason_length",
+        ),
+        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "ix_patient_portal_sessions_account_expires",
+        "patient_portal_sessions",
+        ["account_id", "expires_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ux_patient_portal_sessions_token_hash",
+        "patient_portal_sessions",
+        ["token_hash"],
+        unique=True,
+    )
+    op.create_table(
+        "patient_portal_mfa_challenges",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("challenge_token_hash", sa.String(length=64), nullable=False),
+        sa.Column("code_hash", sa.String(length=64), nullable=False),
+        sa.Column("delivery_method", sa.String(length=8), nullable=False),
+        sa.Column("status", sa.String(length=16), nullable=False),
+        sa.Column("failed_attempts", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("last_email_sent_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("last_sms_sent_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("verified_at", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint(
+            "length(challenge_token_hash) = 64",
+            name="ck_patient_portal_mfa_challenges_token_hash_length",
+        ),
+        sa.CheckConstraint(
+            "length(code_hash) = 64",
+            name="ck_patient_portal_mfa_challenges_code_hash_length",
+        ),
+        sa.CheckConstraint(
+            "delivery_method in ('email', 'sms')",
+            name="ck_patient_portal_mfa_challenges_delivery_method",
+        ),
+        sa.CheckConstraint(
+            "status in ('pending', 'verified', 'cancelled')",
+            name="ck_patient_portal_mfa_challenges_status",
+        ),
+        sa.CheckConstraint(
+            "failed_attempts >= 0",
+            name="ck_patient_portal_mfa_challenges_failed_attempts_non_negative",
+        ),
+        sa.CheckConstraint(
+            "expires_at > created_at",
+            name="ck_patient_portal_mfa_challenges_expires_after_created",
+        ),
+        sa.CheckConstraint(
+            "status = 'verified' or verified_at is null",
+            name="ck_patient_portal_mfa_challenges_unverified_verified_at_null",
+        ),
+        sa.CheckConstraint(
+            "status != 'verified' or verified_at is not null",
+            name="ck_patient_portal_mfa_challenges_verified_at_present",
+        ),
+        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "ix_patient_portal_mfa_challenges_account_status",
+        "patient_portal_mfa_challenges",
+        ["account_id", "status"],
+        unique=False,
+    )
+    op.create_index(
+        "ux_patient_portal_mfa_challenges_token_hash",
+        "patient_portal_mfa_challenges",
+        ["challenge_token_hash"],
+        unique=True,
+    )
+    op.create_table(
+        "patient_portal_password_reset_tokens",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("token_hash", sa.String(length=64), nullable=False),
+        sa.Column("status", sa.String(length=16), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("client_reference_hash", sa.String(length=64), nullable=True),
+        sa.CheckConstraint(
+            "length(token_hash) = 64",
+            name="ck_patient_portal_password_reset_tokens_token_hash_length",
+        ),
+        sa.CheckConstraint(
+            "status in ('pending', 'used', 'revoked')",
+            name="ck_patient_portal_password_reset_tokens_status",
+        ),
+        sa.CheckConstraint(
+            "expires_at > created_at",
+            name="ck_patient_portal_password_reset_tokens_expires_after_created",
+        ),
+        sa.CheckConstraint(
+            "status = 'used' or used_at is null",
+            name="ck_patient_portal_password_reset_tokens_unused_used_at_null",
+        ),
+        sa.CheckConstraint(
+            "status != 'used' or used_at is not null",
+            name="ck_patient_portal_password_reset_tokens_used_at_present",
+        ),
+        sa.CheckConstraint(
+            "client_reference_hash is null or length(client_reference_hash) = 64",
+            name="ck_patient_portal_password_reset_tokens_client_hash_length",
+        ),
+        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "ix_patient_portal_password_reset_tokens_account_status",
+        "patient_portal_password_reset_tokens",
+        ["account_id", "status"],
+        unique=False,
+    )
+    op.create_index(
+        "ux_patient_portal_password_reset_tokens_token_hash",
+        "patient_portal_password_reset_tokens",
+        ["token_hash"],
+        unique=True,
     )
     op.create_table(
         "patient_portal_invites",
@@ -216,8 +392,10 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             (
-                "event_type in ('activation', 'invite.create', 'invite.list', "
-                "'invite.resend', 'invite.revoke')"
+                "event_type in ('activation', 'account.lock', 'account.unlock', "
+                "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
+                "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
+                "'password_reset.complete', 'password_reset.request', 'session.logout')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),
@@ -304,5 +482,32 @@ def downgrade() -> None:
         table_name="patient_portal_invites",
     )
     op.drop_table("patient_portal_invites")
+    op.drop_index(
+        "ux_patient_portal_password_reset_tokens_token_hash",
+        table_name="patient_portal_password_reset_tokens",
+    )
+    op.drop_index(
+        "ix_patient_portal_password_reset_tokens_account_status",
+        table_name="patient_portal_password_reset_tokens",
+    )
+    op.drop_table("patient_portal_password_reset_tokens")
+    op.drop_index(
+        "ux_patient_portal_mfa_challenges_token_hash",
+        table_name="patient_portal_mfa_challenges",
+    )
+    op.drop_index(
+        "ix_patient_portal_mfa_challenges_account_status",
+        table_name="patient_portal_mfa_challenges",
+    )
+    op.drop_table("patient_portal_mfa_challenges")
+    op.drop_index(
+        "ux_patient_portal_sessions_token_hash",
+        table_name="patient_portal_sessions",
+    )
+    op.drop_index(
+        "ix_patient_portal_sessions_account_expires",
+        table_name="patient_portal_sessions",
+    )
+    op.drop_table("patient_portal_sessions")
     op.drop_index("ix_patient_portal_accounts_status", table_name="patient_portal_accounts")
     op.drop_table("patient_portal_accounts")

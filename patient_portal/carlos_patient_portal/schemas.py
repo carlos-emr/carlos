@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -15,6 +16,8 @@ from carlos_patient_portal.identity import (
     normalize_health_card_number,
 )
 from carlos_patient_portal.models import MAX_EMAIL_LENGTH
+
+MfaDeliveryMethod = Literal["email", "sms"]
 
 
 class InviteCreateRequest(BaseModel):
@@ -106,3 +109,86 @@ class ActivationRequest(BaseModel):
 class ActivationResponse(BaseModel):
     status: str
     username: str
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH, repr=False)
+    mfa_delivery_method: MfaDeliveryMethod | None = None
+
+
+class LoginResponse(BaseModel):
+    status: Literal["mfa_required", "signed_in", "password_reset_required"]
+    mfa_challenge_token: str | None = None
+    mfa_delivery_method: MfaDeliveryMethod | None = None
+    session_token: str | None = None
+    development_mfa_code: str | None = None
+
+
+class MfaVerifyRequest(BaseModel):
+    mfa_challenge_token: str = Field(min_length=1)
+    code: str = Field(min_length=1, max_length=16, repr=False)
+
+
+class MfaVerifyResponse(BaseModel):
+    status: Literal["signed_in"]
+    session_token: str
+
+
+class MfaResendRequest(BaseModel):
+    mfa_challenge_token: str = Field(min_length=1)
+    mfa_delivery_method: MfaDeliveryMethod
+
+
+class MfaChallengeResponse(BaseModel):
+    status: Literal["mfa_required"]
+    mfa_challenge_token: str
+    mfa_delivery_method: MfaDeliveryMethod
+    development_mfa_code: str | None = None
+
+
+class PasswordResetRequest(BaseModel):
+    username: str = Field(min_length=1)
+    email: str = Field(min_length=1, max_length=MAX_EMAIL_LENGTH)
+
+
+class PasswordResetRequestResponse(BaseModel):
+    status: Literal["reset_requested"]
+    development_reset_token: str | None = None
+
+
+class PasswordResetCompleteRequest(BaseModel):
+    reset_token: str = Field(min_length=1)
+    new_password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH, repr=False)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return validate_password(value)
+
+
+class PasswordResetCompleteResponse(BaseModel):
+    status: Literal["password_reset"]
+    username: str
+
+
+class SessionResponse(BaseModel):
+    status: Literal["authenticated"]
+    username: str
+    clinic_id: str
+    demographic_no: int
+
+
+class LogoutResponse(BaseModel):
+    status: Literal["logged_out"]
+
+
+class AccountAdminResponse(BaseModel):
+    id: int
+    clinic_id: str
+    demographic_no: int
+    username: str
+    email: str
+    locked_at: datetime | None
+    force_password_reset: bool
+    failed_login_count: int

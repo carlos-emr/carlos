@@ -33,6 +33,30 @@ from carlos_patient_portal.audit import (
     hash_sensitive_reference,
     record_audit_event,
 )
+from carlos_patient_portal.auth import (
+    AccountLockedError,
+    AccountNotFoundError,
+    AuthenticatedPortalSession,
+    AuthPolicy,
+    InvalidCredentialsError,
+    InvalidMfaCodeError,
+    LoginResult,
+    MfaChallengeDelivery,
+    MfaChallengeNotFoundError,
+    MfaDeliveryUnavailableError,
+    MfaRateLimitedError,
+    PasswordResetRequiredError,
+    PasswordResetTokenInvalidError,
+    PortalSessionInvalidError,
+    authenticate_session_token,
+    complete_password_reset,
+    logout_patient_session,
+    request_password_reset,
+    resend_mfa_challenge,
+    start_login,
+    unlock_patient_account,
+    verify_mfa_challenge,
+)
 from carlos_patient_portal.config import Settings, get_settings
 from carlos_patient_portal.database import (
     check_database,
@@ -59,14 +83,28 @@ from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_INVITE_LIST,
     AUDIT_OUTCOME_SUCCESS,
+    PatientPortalAccount,
     PatientPortalInvite,
 )
 from carlos_patient_portal.schemas import (
+    AccountAdminResponse,
     ActivationRequest,
     ActivationResponse,
     InviteCreateRequest,
     InviteResponse,
     InviteTokenResponse,
+    LoginRequest,
+    LoginResponse,
+    LogoutResponse,
+    MfaChallengeResponse,
+    MfaResendRequest,
+    MfaVerifyRequest,
+    MfaVerifyResponse,
+    PasswordResetCompleteRequest,
+    PasswordResetCompleteResponse,
+    PasswordResetRequest,
+    PasswordResetRequestResponse,
+    SessionResponse,
 )
 
 PACKAGE_DIR = FilePath(__file__).resolve().parent
@@ -192,6 +230,73 @@ def invite_response_payload(
     return payload
 
 
+def account_admin_response_payload(account: PatientPortalAccount) -> dict[str, object]:
+    return {
+        "id": account.id,
+        "clinic_id": account.clinic_id,
+        "demographic_no": account.demographic_no,
+        "username": account.username,
+        "email": account.email,
+        "locked_at": account.locked_at,
+        "force_password_reset": account.force_password_reset,
+        "failed_login_count": account.failed_login_count,
+    }
+
+
+def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
+    return AuthPolicy(
+        max_failed_password_attempts=settings.auth_max_failed_password_attempts,
+        mfa_max_failed_attempts=settings.mfa_max_failed_attempts,
+        session_ttl=timedelta(seconds=settings.session_ttl_seconds),
+        mfa_code_ttl=timedelta(seconds=settings.mfa_code_ttl_seconds),
+        mfa_email_resend_cooldown=timedelta(
+            seconds=settings.mfa_email_resend_cooldown_seconds
+        ),
+        mfa_sms_resend_cooldown=timedelta(seconds=settings.mfa_sms_resend_cooldown_seconds),
+        password_reset_token_ttl=timedelta(seconds=settings.password_reset_token_ttl_seconds),
+        require_mfa=settings.require_mfa,
+    )
+
+
+def mfa_challenge_response_payload(
+    delivery: MfaChallengeDelivery,
+    *,
+    settings: Settings,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "status": "mfa_required",
+        "mfa_challenge_token": delivery.challenge_token,
+        "mfa_delivery_method": delivery.delivery_method,
+    }
+    if settings.is_development:
+        payload["development_mfa_code"] = delivery.code
+    return payload
+
+
+def login_response_payload(
+    result: LoginResult,
+    *,
+    settings: Settings,
+) -> dict[str, object]:
+    payload: dict[str, object] = {"status": result.status}
+    if result.session_token is not None:
+        payload["session_token"] = result.session_token
+    if result.mfa_challenge is not None:
+        payload.update(mfa_challenge_response_payload(result.mfa_challenge, settings=settings))
+    return payload
+
+
+def password_reset_request_response_payload(
+    reset_token: str | None,
+    *,
+    settings: Settings,
+) -> dict[str, object]:
+    payload: dict[str, object] = {"status": "reset_requested"}
+    if settings.is_development and reset_token is not None:
+        payload["development_reset_token"] = reset_token
+    return payload
+
+
 async def read_limited_request_body(request: Request, max_bytes: int) -> bytes:
     body = bytearray()
     async for chunk in request.stream():
@@ -242,6 +347,38 @@ async def get_activation_request(request: Request) -> ActivationRequest:
     )
 
 
+async def get_mfa_verify_request(request: Request) -> MfaVerifyRequest:
+    return await get_json_request_model(
+        request,
+        MfaVerifyRequest,
+        "MFA verification requires an application/json request body",
+    )
+
+
+async def get_mfa_resend_request(request: Request) -> MfaResendRequest:
+    return await get_json_request_model(
+        request,
+        MfaResendRequest,
+        "MFA resend requires an application/json request body",
+    )
+
+
+async def get_password_reset_request(request: Request) -> PasswordResetRequest:
+    return await get_json_request_model(
+        request,
+        PasswordResetRequest,
+        "password reset request requires an application/json request body",
+    )
+
+
+async def get_password_reset_complete_request(request: Request) -> PasswordResetCompleteRequest:
+    return await get_json_request_model(
+        request,
+        PasswordResetCompleteRequest,
+        "password reset completion requires an application/json request body",
+    )
+
+
 async def get_invite_create_request(request: Request) -> InviteCreateRequest:
     return await get_json_request_model(
         request,
@@ -265,6 +402,50 @@ async def get_json_request_model(
     body = await read_limited_request_body(request, MAX_JSON_BODY_BYTES)
     try:
         return model_type.model_validate_json(body)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
+
+def first_form_value(form_values: dict[str, list[str]], field_name: str) -> str | None:
+    values = form_values.get(field_name)
+    if not values:
+        return None
+    return values[0]
+
+
+async def get_login_request_from_request(request: Request, csrf_secret: str) -> LoginRequest:
+    content_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+    if content_type == "application/json":
+        return await get_json_request_model(
+            request,
+            LoginRequest,
+            "login requires an application/json request body",
+        )
+
+    if content_type != "application/x-www-form-urlencoded":
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="login requires an application/json or form request body",
+        )
+
+    form_values = await get_urlencoded_form_values(
+        request,
+        MAX_FORM_BODY_BYTES,
+        MAX_FORM_FIELD_COUNT,
+    )
+    csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
+    csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+    if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
+        raise HTTPException(status_code=403, detail="invalid CSRF token")
+
+    try:
+        return LoginRequest.model_validate(
+            {
+                "username": first_form_value(form_values, "username"),
+                "password": first_form_value(form_values, "password"),
+                "mfa_delivery_method": first_form_value(form_values, "mfa_delivery_method"),
+            }
+        )
     except ValidationError as exc:
         raise RequestValidationError(exc.errors()) from exc
 
@@ -325,6 +506,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         max_failures_per_invite=settings.activation_max_failures_per_invite,
         max_failures_per_client=settings.activation_max_failures_per_client,
     )
+    auth_policy = auth_policy_from_settings(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
@@ -461,19 +643,203 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=503, detail="database unavailable") from exc
         return {"status": "ok", "database": "ok"}
 
-    @app.post("/auth/login")
-    async def login_placeholder(request: Request) -> None:
-        form_values = await get_urlencoded_form_values(
-            request,
-            MAX_FORM_BODY_BYTES,
-            MAX_FORM_FIELD_COUNT,
+    def get_authorization_bearer_token(
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> str:
+        scheme, _, supplied_token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not supplied_token.strip():
+            raise HTTPException(status_code=401, detail="authentication required")
+        return supplied_token.strip()
+
+    def get_authenticated_portal_session(
+        session_token: Annotated[str, Depends(get_authorization_bearer_token)],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> AuthenticatedPortalSession:
+        try:
+            return authenticate_session_token(session, session_token=session_token)
+        except (PortalSessionInvalidError, ValueError) as exc:
+            raise HTTPException(status_code=401, detail="authentication required") from exc
+
+    @app.post("/auth/login", response_model=LoginResponse)
+    async def login(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> dict[str, object] | JSONResponse:
+        payload = await get_login_request_from_request(request, csrf_secret)
+        client_reference_hash = hash_sensitive_reference(
+            audit_hash_secret,
+            "login_client",
+            get_request_client_reference(request, settings),
         )
-        csrf_values = form_values.get(CSRF_FORM_FIELD)
-        csrf_token = csrf_values[0] if csrf_values else None
-        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
-        if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
-            raise HTTPException(status_code=403, detail="invalid CSRF token")
-        raise HTTPException(status_code=501, detail="login is not implemented yet")
+        try:
+            result = start_login(
+                session,
+                username=payload.username,
+                password=payload.password,
+                client_reference_hash=client_reference_hash,
+                policy=auth_policy,
+                mfa_code_secret=csrf_secret,
+                delivery_method=payload.mfa_delivery_method,
+            )
+        except InvalidCredentialsError:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "sign-in could not be completed"},
+            )
+        except AccountLockedError:
+            return JSONResponse(
+                status_code=status.HTTP_423_LOCKED,
+                content={"detail": "account access is locked; contact the clinic for help"},
+            )
+        except PasswordResetRequiredError:
+            return JSONResponse(
+                status_code=403,
+                content={"status": "password_reset_required"},
+            )
+        except MfaDeliveryUnavailableError:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "MFA delivery method is unavailable"},
+            )
+        return login_response_payload(result, settings=settings)
+
+    @app.post("/auth/mfa/resend", response_model=MfaChallengeResponse)
+    def resend_mfa(
+        payload: Annotated[MfaResendRequest, Depends(get_mfa_resend_request)],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> dict[str, object] | JSONResponse:
+        try:
+            delivery = resend_mfa_challenge(
+                session,
+                challenge_token=payload.mfa_challenge_token,
+                delivery_method=payload.mfa_delivery_method,
+                policy=auth_policy,
+                code_secret=csrf_secret,
+            )
+        except MfaRateLimitedError as exc:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "MFA code was sent recently; try again later"},
+                headers={"Retry-After": str(exc.retry_after_seconds)},
+            )
+        except (MfaChallengeNotFoundError, ValueError):
+            return JSONResponse(status_code=400, content={"detail": "MFA could not be verified"})
+        except AccountLockedError:
+            return JSONResponse(
+                status_code=status.HTTP_423_LOCKED,
+                content={"detail": "account access is locked; contact the clinic for help"},
+            )
+        except PasswordResetRequiredError:
+            return JSONResponse(
+                status_code=403,
+                content={"status": "password_reset_required"},
+            )
+        except MfaDeliveryUnavailableError:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "MFA delivery method is unavailable"},
+            )
+        return mfa_challenge_response_payload(delivery, settings=settings)
+
+    @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)
+    def verify_mfa(
+        payload: Annotated[MfaVerifyRequest, Depends(get_mfa_verify_request)],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> dict[str, str] | JSONResponse:
+        try:
+            session_token = verify_mfa_challenge(
+                session,
+                challenge_token=payload.mfa_challenge_token,
+                code=payload.code,
+                policy=auth_policy,
+                code_secret=csrf_secret,
+            )
+        except InvalidMfaCodeError:
+            return JSONResponse(status_code=401, content={"detail": "MFA could not be verified"})
+        except (MfaChallengeNotFoundError, ValueError):
+            return JSONResponse(status_code=400, content={"detail": "MFA could not be verified"})
+        except AccountLockedError:
+            return JSONResponse(
+                status_code=status.HTTP_423_LOCKED,
+                content={"detail": "account access is locked; contact the clinic for help"},
+            )
+        except PasswordResetRequiredError:
+            return JSONResponse(
+                status_code=403,
+                content={"status": "password_reset_required"},
+            )
+        return {"status": "signed_in", "session_token": session_token}
+
+    @app.post(
+        "/auth/password-reset/request",
+        response_model=PasswordResetRequestResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    def request_reset(
+        request: Request,
+        payload: Annotated[PasswordResetRequest, Depends(get_password_reset_request)],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> dict[str, object]:
+        client_reference_hash = hash_sensitive_reference(
+            audit_hash_secret,
+            "password_reset_client",
+            get_request_client_reference(request, settings),
+        )
+        result = request_password_reset(
+            session,
+            username=payload.username,
+            email=payload.email,
+            client_reference_hash=client_reference_hash,
+            policy=auth_policy,
+        )
+        return password_reset_request_response_payload(result.reset_token, settings=settings)
+
+    @app.post("/auth/password-reset/complete", response_model=PasswordResetCompleteResponse)
+    def complete_reset(
+        payload: Annotated[
+            PasswordResetCompleteRequest,
+            Depends(get_password_reset_complete_request),
+        ],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> dict[str, str] | JSONResponse:
+        try:
+            account = complete_password_reset(
+                session,
+                reset_token=payload.reset_token,
+                new_password=payload.new_password,
+            )
+        except PasswordResetTokenInvalidError:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "password reset could not be completed"},
+            )
+        return {"status": "password_reset", "username": account.username}
+
+    @app.get("/auth/session", response_model=SessionResponse)
+    def read_session(
+        authenticated_session: Annotated[
+            AuthenticatedPortalSession,
+            Depends(get_authenticated_portal_session),
+        ],
+    ) -> dict[str, object]:
+        account = authenticated_session.account
+        return {
+            "status": "authenticated",
+            "username": account.username,
+            "clinic_id": account.clinic_id,
+            "demographic_no": account.demographic_no,
+        }
+
+    @app.post("/auth/logout", response_model=LogoutResponse)
+    def logout(
+        session_token: Annotated[str, Depends(get_authorization_bearer_token)],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> dict[str, str]:
+        try:
+            logout_patient_session(session, session_token=session_token)
+        except (PortalSessionInvalidError, ValueError) as exc:
+            raise HTTPException(status_code=401, detail="authentication required") from exc
+        return {"status": "logged_out"}
 
     @app.post(
         "/auth/activate",
@@ -635,5 +1001,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     detail="invite has already been accepted",
                 ) from exc
             return invite_response_payload(invite)
+
+        @app.post(
+            "/dev/admin/accounts/{account_id}/unlock",
+            response_model=AccountAdminResponse,
+        )
+        def dev_unlock_account(
+            account_id: Annotated[int, PathParam(gt=0)],
+            actor: Annotated[str, Depends(get_dev_admin_actor)],
+            session: Annotated[Session, Depends(get_app_database_session)],
+        ) -> dict[str, object]:
+            try:
+                account = unlock_patient_account(
+                    session,
+                    account_id,
+                    actor,
+                    clinic_id=settings.clinic_id,
+                )
+            except AccountNotFoundError as exc:
+                raise HTTPException(status_code=404, detail="account not found") from exc
+            return account_admin_response_payload(account)
 
     return app
