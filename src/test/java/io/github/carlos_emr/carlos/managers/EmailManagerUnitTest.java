@@ -90,4 +90,17 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(persistedLog.getPassword()).isEmpty();
         assertThat(persistedLog.getPasswordClue()).isEmpty();
     }
+
+    @Test
+    @DisplayName("should report whether sender config is active")
+    void shouldReportWhetherSenderConfigIsActive() {
+        EmailConfigDaoImpl emailConfigDao = mock(EmailConfigDaoImpl.class);
+        EmailManager emailManager = new EmailManager();
+        injectDependency(emailManager, "emailConfigDao", emailConfigDao);
+
+        when(emailConfigDao.findActiveEmailConfigById(1)).thenReturn(new EmailConfig());
+
+        assertThat(emailManager.hasActiveEmailConfig(1)).isTrue();
+        assertThat(emailManager.hasActiveEmailConfig(2)).isFalse();
+    }
 }

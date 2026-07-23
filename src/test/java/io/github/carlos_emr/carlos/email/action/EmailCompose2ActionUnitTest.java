@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
@@ -28,6 +29,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION;
+import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM;
+import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.MAX_PENDING_EMAIL_COMPOSE_STATES;
+import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -98,7 +103,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getSession(false).getAttribute("emailComposeSubmissionStates")).isNull();
             String emailPDFPasswordToken = (String) request.getAttribute("emailPDFPasswordToken");
             assertThat(emailPDFPasswordToken).isNotBlank();
-            request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
             EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState =
                     composeSubmissionStateService.consume(request);
             assertThat(composeState.emailPDFPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
@@ -211,6 +216,9 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
+        request.getSession(false).setAttribute("fdid", "456");
+        request.getSession(false).setAttribute("openEFormAfterEmail", true);
+        request.getSession(false).setAttribute("deleteEFormAfterEmail", false);
         request.getSession(false).setAttribute("isEmailEncrypted", false);
         when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("Patient One");
@@ -232,15 +240,20 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
             assertThat(request.getAttribute("emailPDFPassword")).isEqualTo(EXAMPLE_GENERATED_VALUE);
             assertThat(request.getAttribute("emailPDFPasswordClue"))
-                    .isEqualTo(EmailCompose2Action.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION);
+                    .isEqualTo(DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION);
             String emailPDFPasswordToken = (String) request.getAttribute("emailPDFPasswordToken");
             assertThat(emailPDFPasswordToken).isNotBlank();
-            request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
             EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState =
                     composeSubmissionStateService.consume(request);
             assertThat(composeState.emailPDFPassword()).isEqualTo(EXAMPLE_GENERATED_VALUE);
             assertThat(composeState.emailPDFPasswordClue())
-                    .isEqualTo(EmailCompose2Action.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION);
+                    .isEqualTo(DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION);
+            assertThat(composeState.context().demographicId()).isEqualTo("123");
+            assertThat(composeState.context().fdid()).isEqualTo("456");
+            assertThat(composeState.context().transactionType()).isEqualTo(TransactionType.EFORM);
+            assertThat(composeState.context().openEFormAfterEmail()).isTrue();
+            assertThat(composeState.context().deleteEFormAfterEmail()).isFalse();
             verify(emailPdfPasswordService).generatePassphrase();
         }
     }
@@ -251,18 +264,18 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         String oldestToken = null;
         try {
-            for (int i = 0; i <= EmailCompose2Action.MAX_PENDING_EMAIL_COMPOSE_STATES; i++) {
+            for (int i = 0; i <= MAX_PENDING_EMAIL_COMPOSE_STATES; i++) {
                 String token = composeSubmissionStateService.store(
                         request.getSession(),
                         "example-value-" + i,
-                        EmailCompose2Action.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                        DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
                         List.of());
                 if (i == 0) {
                     oldestToken = token;
                 }
             }
 
-            request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, oldestToken);
+            request.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, oldestToken);
 
             assertThat(composeSubmissionStateService.consume(request)).isNull();
         } finally {
@@ -275,13 +288,13 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectNewComposeState_whenGlobalCacheIsFull() {
         List<MockHttpServletRequest> requests = new ArrayList<>();
         try {
-            for (int i = 0; i < EmailCompose2Action.MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES; i++) {
+            for (int i = 0; i < MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES; i++) {
                 MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
                 requests.add(request);
                 composeSubmissionStateService.store(
                         request.getSession(),
                         "example-value-" + i,
-                        EmailCompose2Action.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                        DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
                         List.of());
             }
 
@@ -290,7 +303,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> composeSubmissionStateService.store(
                     overflowRequest.getSession(),
                     "example-overflow-value",
-                    EmailCompose2Action.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                    DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
                     List.of()))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("Email compose submission state cache is full");
@@ -310,17 +323,17 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         String firstToken = composeSubmissionStateService.store(
                 firstRequest.getSession(),
                 "example-first-value",
-                EmailCompose2Action.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
                 List.of());
         String secondToken = composeSubmissionStateService.store(
                 secondRequest.getSession(),
                 "example-second-value",
-                EmailCompose2Action.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
+                DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION,
                 List.of());
 
         assertThat(composeSubmissionStateService.clear(firstSessionId)).isEqualTo(1);
-        firstRequest.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstToken);
-        secondRequest.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, secondToken);
+        firstRequest.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstToken);
+        secondRequest.setParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM, secondToken);
 
         assertThat(composeSubmissionStateService.consume(firstRequest)).isNull();
         assertThat(composeSubmissionStateService.consume(secondRequest)).isNotNull();

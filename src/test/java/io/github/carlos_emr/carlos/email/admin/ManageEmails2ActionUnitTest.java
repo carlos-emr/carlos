@@ -101,7 +101,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
                         + "Please generate a new email instead.")
                 .doesNotContain("Patient Jane")
                 .doesNotContain("render failed");
-        assertThat(request.getAttribute(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM)).isNull();
+        assertThat(request.getAttribute(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM)).isNull();
         verify(emailPdfPasswordService, never()).generatePassphrase();
     }
 }

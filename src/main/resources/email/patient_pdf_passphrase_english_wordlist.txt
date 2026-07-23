@@ -1823,7 +1823,7 @@
 1816	kestrel
 1817	ketchup
 1818	kettle
-1819	key
+1819	keel
 1820	keyboard
 1821	keychain
 1822	keyhole
@@ -2487,7 +2487,7 @@
 2480	partridge
 2481	party
 2482	passage
-2483	password
+2483	pastime
 2484	pasta
 2485	paste
 2486	pastel

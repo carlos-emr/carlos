@@ -13,6 +13,8 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -114,23 +116,27 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String sendEFormEmail() {
-        boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        EmailComposeSubmissionState composeState;
         EmailLog emailLog;
         try {
-            emailLog = sendEmail(request);
+            validateSubmittedEmailFields(request);
+            validateActiveSenderConfig(request);
+            composeState = resolveEmailComposeSubmissionState(request);
+            ensureTransactionType(composeState, EmailLog.TransactionType.EFORM);
+            emailLog = sendEmail(request, composeState);
         } catch (EmailComposeStateException e) {
             return handleEmailComposeStateError(e);
         }
+        EmailComposeSubmissionContext context = composeState.context();
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
-        if (isEmailSuccessful && deleteEFormAfterEmail) {
-            eformDataManager.removeEFormData(loggedInInfo, request.getParameter("fdid"));
+        if (isEmailSuccessful && context.deleteEFormAfterEmail() && StringUtils.filled(context.fdid())) {
+            eformDataManager.removeEFormData(loggedInInfo, context.fdid());
         }
-        request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
-        request.setAttribute("fdid", request.getParameter("fdid"));
+        request.setAttribute("isOpenEForm", context.openEFormAfterEmail());
+        request.setAttribute("fdid", context.fdid());
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
     }
@@ -151,9 +157,14 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
     public String sendDirectEmail() {
+        EmailComposeSubmissionState composeState;
         EmailLog emailLog;
         try {
-            emailLog = sendEmail(request);
+            validateSubmittedEmailFields(request);
+            validateActiveSenderConfig(request);
+            composeState = resolveEmailComposeSubmissionState(request);
+            ensureTransactionType(composeState, EmailLog.TransactionType.DIRECT);
+            emailLog = sendEmail(request, composeState);
         } catch (EmailComposeStateException e) {
             return handleEmailComposeStateError(e);
         }
@@ -183,15 +194,24 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("bodyEmail", request.getParameter("bodyEmail"));
         request.setAttribute("encryptedMessageEmail", request.getParameter("encryptedMessage"));
         request.setAttribute("emailPatientChartOption", request.getParameter("patientChartOption"));
-        request.setAttribute("demographicId", request.getParameter("demographicId"));
-        request.setAttribute("fdid", request.getParameter("fdid"));
-        request.setAttribute("openEFormAfterEmail", request.getParameter("openEFormAfterEmail"));
-        request.setAttribute("deleteEFormAfterEmail", request.getParameter("deleteEFormAfterEmail"));
-        request.setAttribute("isEmailEncrypted", "true".equals(request.getParameter("isEmailEncrypted")));
-        request.setAttribute("isEmailAttachmentEncrypted", "true".equals(request.getParameter("isEmailAttachmentEncrypted")));
+        request.setAttribute("demographicId", integerParameterOrEmpty(request, "demographicId"));
+        request.setAttribute("fdid", integerParameterOrEmpty(request, "fdid"));
+        request.setAttribute("openEFormAfterEmail", isTrueParameter(request, "openEFormAfterEmail"));
+        request.setAttribute("deleteEFormAfterEmail", isTrueParameter(request, "deleteEFormAfterEmail"));
+        request.setAttribute("isEmailEncrypted", isTrueParameter(request, "isEmailEncrypted"));
+        request.setAttribute("isEmailAttachmentEncrypted", isTrueParameter(request, "isEmailAttachmentEncrypted"));
         request.setAttribute("emailPDFPassword", "");
         request.setAttribute("emailPDFPasswordClue", "");
         request.setAttribute("emailAttachmentList", List.of());
+    }
+
+    private static String integerParameterOrEmpty(HttpServletRequest request, String parameterName) {
+        String value = request.getParameter(parameterName);
+        return StringUtils.isInteger(value) ? value : "";
+    }
+
+    private static boolean isTrueParameter(HttpServletRequest request, String parameterName) {
+        return "true".equalsIgnoreCase(request.getParameter(parameterName));
     }
 
     /**
@@ -243,9 +263,9 @@ public class EmailSend2Action extends ActionSupport {
      * @return EmailLog entity containing the result of the email send operation including
      *         status (SUCCESS/FAILURE), timestamps, and any error messages
      */
-    private EmailLog sendEmail(HttpServletRequest request) {
+    private EmailLog sendEmail(HttpServletRequest request, EmailComposeSubmissionState composeState) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        EmailData emailData = prepareEmailFields(request);
+        EmailData emailData = prepareEmailFields(request, composeState);
         return emailManager.sendEmail(loggedInInfo, emailData);
     }
 
@@ -272,6 +292,11 @@ public class EmailSend2Action extends ActionSupport {
      *         ready for processing by EmailManager
      */
     private EmailData prepareEmailFields(HttpServletRequest request) {
+        validateSubmittedEmailFields(request);
+        return prepareEmailFields(request, resolveEmailComposeSubmissionState(request));
+    }
+
+    private EmailData prepareEmailFields(HttpServletRequest request, EmailComposeSubmissionState composeState) {
         String senderConfigId = request.getParameter("senderConfigId");
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter("subjectEmail");
@@ -283,14 +308,11 @@ public class EmailSend2Action extends ActionSupport {
             isAttachmentEncrypted = "false";
         }
         boolean needsPdfPassword = "true".equals(isEncrypted) || "true".equals(isAttachmentEncrypted);
-        EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState =
-                resolveEmailComposeSubmissionState(request);
         String password = resolveEmailPdfPassword(composeState, needsPdfPassword);
         String passwordClue = needsPdfPassword ? resolveEmailPdfPasswordClue(request, composeState) : "";
+        EmailComposeSubmissionContext context = composeState.context();
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
-        String transactionType = request.getParameter("transactionType");
-        String demographicNo = request.getParameter("demographicId");
         String additionalParams = request.getParameter("additionalURLParams");
         List<EmailAttachment> emailAttachmentList = composeState.emailAttachmentList();
 
@@ -309,8 +331,8 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setIsAttachmentEncrypted(isAttachmentEncrypted);
         emailData.setChartDisplayOption(chartDisplayOption);
         emailData.setInternalComment(internalComment);
-        emailData.setTransactionType(transactionType);
-        emailData.setDemographicNo(demographicNo);
+        emailData.setTransactionType(context.transactionType());
+        emailData.setDemographicNo(context.demographicId());
         emailData.setProviderNo(providerNo);
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
@@ -318,19 +340,46 @@ public class EmailSend2Action extends ActionSupport {
         return emailData;
     }
 
-    private EmailComposeSubmissionStateService.EmailComposeSubmissionState resolveEmailComposeSubmissionState(
-            HttpServletRequest request
-    ) {
-        EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState =
-                emailComposeSubmissionStateService.consume(request);
+    private void validateSubmittedEmailFields(HttpServletRequest request) {
+        String composeToken = request.getParameter(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        if (composeToken == null || composeToken.isBlank()) {
+            throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+        }
+        if (!StringUtils.isInteger(request.getParameter("senderConfigId"))) {
+            throw new EmailComposeStateException(
+                    "This email compose window contains invalid sender information. "
+                            + "Please reopen the email compose window and try again.");
+        }
+    }
+
+    private void validateActiveSenderConfig(HttpServletRequest request) {
+        int senderConfigId = Integer.parseInt(request.getParameter("senderConfigId"));
+        if (!emailManager.hasActiveEmailConfig(senderConfigId)) {
+            throw new EmailComposeStateException(
+                    "This email compose window contains invalid sender information. "
+                            + "Please reopen the email compose window and try again.");
+        }
+    }
+
+    private EmailComposeSubmissionState resolveEmailComposeSubmissionState(HttpServletRequest request) {
+        EmailComposeSubmissionState composeState = emailComposeSubmissionStateService.consume(request);
         if (composeState == null) {
             throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         }
         return composeState;
     }
 
+    private void ensureTransactionType(
+            EmailComposeSubmissionState composeState,
+            EmailLog.TransactionType expectedTransactionType
+    ) {
+        if (composeState.context().transactionType() != expectedTransactionType) {
+            throw new EmailComposeStateException(EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+        }
+    }
+
     private String resolveEmailPdfPassword(
-            EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState,
+            EmailComposeSubmissionState composeState,
             boolean needsPdfPassword
     ) {
         if (!needsPdfPassword) {
@@ -345,7 +394,7 @@ public class EmailSend2Action extends ActionSupport {
 
     private String resolveEmailPdfPasswordClue(
             HttpServletRequest request,
-            EmailComposeSubmissionStateService.EmailComposeSubmissionState composeState
+            EmailComposeSubmissionState composeState
     ) {
         if (!StringUtils.isNullOrEmpty(composeState.emailPDFPasswordClue())) {
             return composeState.emailPDFPasswordClue();

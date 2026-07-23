@@ -20,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -38,7 +39,7 @@ public class EmailComposeSubmissionStateService {
             "Deliver this password to the patient separately. It is not included in the email.";
     public static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
     public static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = 1024;
-    public static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 2L * 60 * 60 * 1000;
+    public static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 30L * 60 * 1000;
     static final long PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS = 60L * 1000;
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -75,6 +76,21 @@ public class EmailComposeSubmissionStateService {
             String emailPDFPasswordClue,
             List<EmailAttachment> emailAttachmentList
     ) {
+        return store(
+                session,
+                emailPDFPassword,
+                emailPDFPasswordClue,
+                emailAttachmentList,
+                EmailComposeSubmissionContext.direct(""));
+    }
+
+    public String store(
+            HttpSession session,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context
+    ) {
         String sessionId = session.getId();
         String token = UUID.randomUUID().toString();
         long createdAtMillis = clock.millis();
@@ -82,7 +98,8 @@ public class EmailComposeSubmissionStateService {
                 emailPDFPassword,
                 emailPDFPasswordClue,
                 copyAttachments(emailAttachmentList),
-                createdAtMillis);
+                createdAtMillis,
+                context == null ? EmailComposeSubmissionContext.direct("") : context);
 
         synchronized (lock) {
             ensureOpen();
@@ -110,10 +127,23 @@ public class EmailComposeSubmissionStateService {
             EmailPdfPasswordService emailPdfPasswordService,
             List<EmailAttachment> emailAttachmentList
     ) {
+        return preparePdfPasswordSubmissionState(
+                request,
+                emailPdfPasswordService,
+                emailAttachmentList,
+                EmailComposeSubmissionContext.direct(""));
+    }
+
+    public EmailPdfPasswordSubmissionState preparePdfPasswordSubmissionState(
+            HttpServletRequest request,
+            EmailPdfPasswordService emailPdfPasswordService,
+            List<EmailAttachment> emailAttachmentList,
+            EmailComposeSubmissionContext context
+    ) {
         String emailPDFPassword = emailPdfPasswordService.generatePassphrase();
         String emailPDFPasswordClue = resolveEmailPdfPasswordDeliveryInstruction(request);
         String emailPDFPasswordToken = store(
-                request.getSession(), emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
+                request.getSession(), emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, context);
         return new EmailPdfPasswordSubmissionState(
                 emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken);
     }
@@ -341,8 +371,46 @@ public class EmailComposeSubmissionStateService {
             String emailPDFPassword,
             String emailPDFPasswordClue,
             List<EmailAttachment> emailAttachmentList,
-            long createdAtMillis
+            long createdAtMillis,
+            EmailComposeSubmissionContext context
     ) {
+    }
+
+    /**
+     * Server-owned patient and eForm context bound to one compose submission token.
+     *
+     * @since 2026-07-23
+     */
+    public record EmailComposeSubmissionContext(
+            String demographicId,
+            String fdid,
+            TransactionType transactionType,
+            boolean openEFormAfterEmail,
+            boolean deleteEFormAfterEmail
+    ) {
+        public EmailComposeSubmissionContext {
+            demographicId = demographicId == null ? "" : demographicId;
+            fdid = fdid == null ? "" : fdid;
+            transactionType = transactionType == null ? TransactionType.DIRECT : transactionType;
+        }
+
+        public static EmailComposeSubmissionContext direct(String demographicId) {
+            return new EmailComposeSubmissionContext(demographicId, "", TransactionType.DIRECT, false, false);
+        }
+
+        public static EmailComposeSubmissionContext eform(
+                String demographicId,
+                String fdid,
+                boolean openEFormAfterEmail,
+                boolean deleteEFormAfterEmail
+        ) {
+            return new EmailComposeSubmissionContext(
+                    demographicId,
+                    fdid,
+                    TransactionType.EFORM,
+                    openEFormAfterEmail,
+                    deleteEFormAfterEmail);
+        }
     }
 
     /**

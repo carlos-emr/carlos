@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -86,12 +87,6 @@ public class EmailCompose2Action extends ActionSupport {
     private transient EmailComposeSubmissionStateService emailComposeSubmissionStateService =
             SpringUtils.getBean(EmailComposeSubmissionStateService.class);
 
-    public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM =
-            EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM;
-    static final String EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION_KEY =
-            EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION_KEY;
-    static final String DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION =
-            EmailComposeSubmissionStateService.DEFAULT_EMAIL_PDF_PASSWORD_DELIVERY_INSTRUCTION;
     public static final String EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE =
             "This email compose window has expired or is no longer valid. "
                     + "Please reopen the email compose window and try again.";
@@ -99,10 +94,6 @@ public class EmailCompose2Action extends ActionSupport {
             "This email compose window could not be prepared. "
                     + "Please close other open email compose windows and try again.";
     private static final String DEMOGRAPHIC_ID_KEY = "demographicId";
-    static final int MAX_PENDING_EMAIL_COMPOSE_STATES =
-            EmailComposeSubmissionStateService.MAX_PENDING_EMAIL_COMPOSE_STATES;
-    static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES =
-            EmailComposeSubmissionStateService.MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_STATES;
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", DEMOGRAPHIC_ID_KEY, "emailAttachmentList",
@@ -243,6 +234,7 @@ public class EmailCompose2Action extends ActionSupport {
         String bodyEmail = (String) session.getAttribute("bodyEmail");
         String encryptedMessageEmail = (String) session.getAttribute("encryptedMessageEmail");
         String emailPatientChartOption = (String) session.getAttribute("emailPatientChartOption");
+        String emailFdid = (String) session.getAttribute("fdid");
 
         if (demographicId == null || demographicId.isBlank()) {
             return emailComposeError(request, EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
@@ -293,7 +285,14 @@ public class EmailCompose2Action extends ActionSupport {
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
         try {
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
-                    request, emailPdfPasswordService, emailAttachmentList);
+                    request,
+                    emailPdfPasswordService,
+                    emailAttachmentList,
+                    EmailComposeSubmissionContext.eform(
+                            demographicId,
+                            emailFdid,
+                            isTrue(session.getAttribute("openEFormAfterEmail")),
+                            isTrue(session.getAttribute("deleteEFormAfterEmail"))));
         } catch (IllegalStateException e) {
             logger.warn("Unable to prepare email compose submission state", e);
             return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
@@ -316,7 +315,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);
         request.setAttribute(DEMOGRAPHIC_ID_KEY, demographicId);
-        request.setAttribute("fdid", session.getAttribute("fdid"));
+        request.setAttribute("fdid", emailFdid);
         request.setAttribute("fid", fid);
         request.setAttribute("openEFormAfterEmail", session.getAttribute("openEFormAfterEmail"));
         request.setAttribute("deleteEFormAfterEmail", session.getAttribute("deleteEFormAfterEmail"));
@@ -328,7 +327,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         cleanupEmailSessionAttributes(request);
         request.setAttribute(
-                EMAIL_PDF_PASSWORD_TOKEN_PARAM,
+                EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
                 emailPdfPasswordSubmissionState.emailPDFPasswordToken());
 
         return "compose";
@@ -382,6 +381,7 @@ public class EmailCompose2Action extends ActionSupport {
      * @see io.github.carlos_emr.carlos.utility.PDFGenerationException
      */
     private String emailComposeError(HttpServletRequest request, String errorMessage) {
+        cleanupEmailSessionAttributes(request);
         request.setAttribute("errorMessage", errorMessage);
         return "eFormError";
     }

@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.action.EmailCompose2Action;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -265,9 +266,13 @@ public class ManageEmails2Action extends ActionSupport {
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
         try {
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
-                    request, emailPdfPasswordService, emailAttachmentList);
+                    request,
+                    emailPdfPasswordService,
+                    emailAttachmentList,
+                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)));
         } catch (IllegalStateException e) {
             logger.warn("Unable to prepare resend email compose submission state", e);
+            EmailCompose2Action.cleanupEmailSessionAttributes(request);
             request.setAttribute("emailErrorMessage", EmailCompose2Action.EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
             request.setAttribute("isEmailError", true);
             return "compose";
@@ -295,7 +300,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
         EmailCompose2Action.cleanupEmailSessionAttributes(request);
         request.setAttribute(
-                EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
+                EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
                 emailPdfPasswordSubmissionState.emailPDFPasswordToken());
 
         return "compose";

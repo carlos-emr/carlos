@@ -239,12 +239,14 @@
                 </c:when>
             </c:choose>
 
-            <input type="hidden" name="isEmailError" id="isEmailError" value="${isEmailError}"/>
+            <input type="hidden" name="isEmailError" id="isEmailError"
+                   value="${carlos:forHtmlAttribute(isEmailError)}"/>
             <input type="hidden" name="isEmailComposeStateError" id="isEmailComposeStateError"
-                   value="${isEmailComposeStateError}"/>
+                   value="${carlos:forHtmlAttribute(isEmailComposeStateError)}"/>
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage"
                    value="${carlos:forHtmlAttribute(emailErrorMessage)}"/>
-            <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
+            <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful"
+                   value="${carlos:forHtmlAttribute(isEmailSuccessful)}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
                    value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
             <input type="hidden" name="totalSenderEmails" id="totalSenderEmails" value="${fn:length(senderAccounts)}"/>
@@ -260,12 +262,15 @@
 
             <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
-                <input type="hidden" name="demographicId" value="${demographicId}"/>
-                <input type="hidden" name="fdid" value="${fdid}"/>
+                <input type="hidden" name="demographicId" value="${carlos:forHtmlAttribute(demographicId)}"/>
+                <input type="hidden" name="fdid" value="${carlos:forHtmlAttribute(fdid)}"/>
                 <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
-                <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
-                <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
-                <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
+                <input type="hidden" name="openEFormAfterEmail"
+                       value="${carlos:forHtmlAttribute(openEFormAfterEmail)}"/>
+                <input type="hidden" name="deleteEFormAfterEmail"
+                       value="${carlos:forHtmlAttribute(deleteEFormAfterEmail)}"/>
+                <input type="hidden" name="transactionType" id="transactionType"
+                       value="${carlos:forHtmlAttribute(transactionType)}"/>
                 <input type="hidden" name="emailPDFPasswordToken"
                        value="${carlos:forHtmlAttribute(emailPDFPasswordToken)}"/>
 
@@ -568,7 +573,7 @@
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
                                                     <object id="emailAttachmentPDF${loop.count}"
-                                                            data="${ctx}/previewDocs?method=renderPDF&pdfPath=${emailAttachment.filePath}"
+                                                            data="${carlos:forHtmlAttribute(ctx)}/previewDocs?method=renderPDF&amp;pdfPath=${carlos:forHtmlAttribute(carlos:forUriComponent(emailAttachment.filePath))}"
                                                             type="application/pdf" width="100%" height="500">
                                                         <%-- Accessible fallback shown when the browser cannot render the inline PDF preview. --%>
                                                         <p class="text-muted mb-0">${carlos:forHtml(emailAttachment.fileName)}</p>
@@ -655,6 +660,7 @@
                 showEncryptionOptions();
                 selectPatientChartOption();
                 toggleInternalTextArea();
+                disableForm();
                 return;
             }
             // Open EForm again on sent
@@ -816,16 +822,17 @@
 
     // Open EForm again on sent
     function openEFormAfterSend() {
-        const isOpenEForm = "${isOpenEForm}" === "true";
+        const isOpenEForm = '${carlos:forJavaScript(isOpenEForm)}' === 'true';
         if (isOpenEForm) {
-            window.open("${ctx}/eform/efmshowform_data?fdid=${fdid}", "_blank", "width=800,height=600");
+            const fdid = '${carlos:forJavaScript(fdid)}';
+            window.open("${ctx}/eform/efmshowform_data?fdid=" + encodeURIComponent(fdid), "_blank", "width=800,height=600");
         }
     }
 
     // Auto-send email
     function autoSendEmail() {
         const emailComposeForm = document.getElementById('emailComposeForm');
-        const isAutoSend = "${isEmailAutoSend}" === "true";
+        const isAutoSend = '${carlos:forJavaScript(isEmailAutoSend)}' === 'true';
         if (isAutoSend && validateForm()) {
             ShowSpin(true);
             emailComposeForm.submit();
@@ -896,7 +903,8 @@
 
     function openDemographicPage(event) {
         event.preventDefault();
-        window.open("${ctx}/demographic/DemographicEdit?demographic_no=${demographicId}", "_blank", "width=1027,height=700");
+        const demographicId = '${carlos:forJavaScript(demographicId)}';
+        window.open("${ctx}/demographic/DemographicEdit?demographic_no=" + encodeURIComponent(demographicId), "_blank", "width=1027,height=700");
     }
 
     function cancelEmail() {

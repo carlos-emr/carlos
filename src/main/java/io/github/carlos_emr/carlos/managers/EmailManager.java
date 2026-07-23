@@ -146,6 +146,10 @@ public class EmailManager {
         return emailLog;
     }
 
+    public boolean hasActiveEmailConfig(int senderConfigId) {
+        return emailConfigDao.findActiveEmailConfigById(senderConfigId) != null;
+    }
+
     /**
      * Prepares an email for sending by creating and persisting an email log entry in the outbox.
      *

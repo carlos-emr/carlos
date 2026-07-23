@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
 @Tag("unit")
@@ -59,7 +60,12 @@ class EmailComposeSubmissionStateServiceUnitTest {
                     request.getSession(),
                     "example-snapshot-value",
                     "delivery instruction",
-                    List.of(attachment));
+                    List.of(attachment),
+                    EmailComposeSubmissionStateService.EmailComposeSubmissionContext.eform(
+                            "123",
+                            "456",
+                            true,
+                            false));
             attachment.setFileName("changed.pdf");
             attachment.setFilePath("/tmp/changed.pdf");
             attachment.setDocumentType(DocumentType.LAB);
@@ -76,6 +82,11 @@ class EmailComposeSubmissionStateServiceUnitTest {
             assertThat(snapshot.getDocumentType()).isEqualTo(DocumentType.DOC);
             assertThat(snapshot.getDocumentId()).isEqualTo(42);
             assertThat(snapshot.getFileSize()).isEqualTo(2048);
+            assertThat(state.context().demographicId()).isEqualTo("123");
+            assertThat(state.context().fdid()).isEqualTo("456");
+            assertThat(state.context().transactionType()).isEqualTo(TransactionType.EFORM);
+            assertThat(state.context().openEFormAfterEmail()).isTrue();
+            assertThat(state.context().deleteEFormAfterEmail()).isFalse();
         } finally {
             service.shutdown();
         }
