@@ -59,7 +59,6 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,6 +66,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.pdfbox.Loader;
+import org.springframework.http.ContentDisposition;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -430,15 +430,17 @@ public class Fax2Action extends ActionSupport {
                 }
                 if (outfile != null && outfile.getFileName() != null) {
                     response.setContentType("image/png");
+                    // FilenameUtils.getName strips any path components (response-splitting /
+                    // traversal defense); ContentDisposition owns the RFC 6266 header encoding
+                    // (URL form encoding is not HTTP header encoding — it rendered spaces as
+                    // literal %20 in the filename).
                     String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
-                    // Encode filename to prevent HTTP response splitting by removing any control characters
-                    String encodedFilename = URLEncoder.encode(sanitizedFilename, StandardCharsets.UTF_8)
-                            .replaceAll("\\+", "%20"); // Replace + with %20 for spaces in filenames
                     // Inline (not attachment): this PNG is the in-page fax preview rendered in an
                     // <img>, so browsers that honour Content-Disposition on embedded resources must
                     // render it rather than download it. The explicit "Open PDF" link uses the
                     // separate application/pdf branch below.
-                    response.setHeader("Content-Disposition", "inline; filename=\"" + encodedFilename + "\"");
+                    response.setHeader("Content-Disposition", ContentDisposition.inline()
+                            .filename(sanitizedFilename, StandardCharsets.UTF_8).build().toString());
                 }
             } else {
                 // Validate and resolve the PDF path using FaxManager
@@ -462,10 +464,7 @@ public class Fax2Action extends ActionSupport {
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {
 
-                int data;
-                while ((data = bfis.read()) != -1) {
-                    outs.write(data); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary fax document download
-                }
+                bfis.transferTo(outs); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary fax document download
                 outs.flush();
                 logger.debug("Streamed fax preview to client");
             } catch (IOException e) {
