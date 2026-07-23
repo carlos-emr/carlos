@@ -3163,6 +3163,17 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     engine.dispose()
 
 
+def test_database_identifiers_fit_postgresql_limit() -> None:
+    identifiers = []
+    for table in Base.metadata.tables.values():
+        identifiers.extend(
+            constraint.name for constraint in table.constraints if constraint.name is not None
+        )
+        identifiers.extend(index.name for index in table.indexes if index.name is not None)
+
+    assert sorted(name for name in identifiers if len(name) > 63) == []
+
+
 def test_environment_aliases_are_normalized() -> None:
     settings = Settings(
         environment=" prod ",

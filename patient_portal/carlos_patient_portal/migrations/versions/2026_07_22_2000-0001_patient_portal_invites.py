@@ -110,7 +110,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "demographic_no > 0",
-            name="ck_patient_portal_contact_review_requests_demographic_no_positive",
+            name="ck_pp_contact_review_demographic_positive",
         ),
         sa.CheckConstraint(
             "status in ('pending', 'reviewed')",
@@ -138,11 +138,11 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "status = 'reviewed' or (reviewed_at is null and reviewed_by is null)",
-            name="ck_patient_portal_contact_review_requests_unreviewed_fields_null",
+            name="ck_pp_contact_review_unreviewed_null",
         ),
         sa.CheckConstraint(
             "status != 'reviewed' or (reviewed_at is not null and reviewed_by is not null)",
-            name="ck_patient_portal_contact_review_requests_reviewed_fields_present",
+            name="ck_pp_contact_review_reviewed_present",
         ),
         sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
         sa.PrimaryKeyConstraint("id"),
@@ -154,7 +154,7 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_index(
-        "ix_patient_portal_contact_review_requests_clinic_status_requested",
+        "ix_pp_contact_review_clinic_status_requested",
         "patient_portal_contact_review_requests",
         ["clinic_id", "status", "requested_at"],
         unique=False,
@@ -705,7 +705,7 @@ def downgrade() -> None:
     )
     op.drop_table("patient_portal_sessions")
     op.drop_index(
-        "ix_patient_portal_contact_review_requests_clinic_status_requested",
+        "ix_pp_contact_review_clinic_status_requested",
         table_name="patient_portal_contact_review_requests",
     )
     op.drop_index(

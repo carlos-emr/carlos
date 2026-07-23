@@ -194,7 +194,7 @@ class PatientPortalContactReviewRequest(Base):
         ),
         CheckConstraint(
             "demographic_no > 0",
-            name="ck_patient_portal_contact_review_requests_demographic_no_positive",
+            name="ck_pp_contact_review_demographic_positive",
         ),
         CheckConstraint(
             "status in ('pending', 'reviewed')",
@@ -222,11 +222,11 @@ class PatientPortalContactReviewRequest(Base):
         ),
         CheckConstraint(
             "status = 'reviewed' or (reviewed_at is null and reviewed_by is null)",
-            name="ck_patient_portal_contact_review_requests_unreviewed_fields_null",
+            name="ck_pp_contact_review_unreviewed_null",
         ),
         CheckConstraint(
             "status != 'reviewed' or (reviewed_at is not null and reviewed_by is not null)",
-            name="ck_patient_portal_contact_review_requests_reviewed_fields_present",
+            name="ck_pp_contact_review_reviewed_present",
         ),
         Index(
             "ix_patient_portal_contact_review_requests_account_status",
@@ -234,7 +234,7 @@ class PatientPortalContactReviewRequest(Base):
             "status",
         ),
         Index(
-            "ix_patient_portal_contact_review_requests_clinic_status_requested",
+            "ix_pp_contact_review_clinic_status_requested",
             "clinic_id",
             "status",
             "requested_at",
