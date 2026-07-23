@@ -44,6 +44,7 @@ carlos_patient_portal = [
   "static/*.js",
   "static/*.svg",
   "templates/*.html",
+  "interop_profiles/*.json",
   "migrations/README",
   "migrations/script.py.mako",
   "migrations/versions/*.py",

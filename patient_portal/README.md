@@ -337,9 +337,11 @@ general-purpose exchange server:
   `Practitioner`, `OperationOutcome`, and search `Bundle` resources under `/fhir`. Resources are
   built with `fhir.resources==5.1.1`, and generated examples are checked in CI with the official
   HL7 FHIR validator CLI.
-- HL7 v2 target: v2.5.1 ADT A04 patient-registration trigger using HL7apy validation. The message
-  emits CARLOS demographic number and HCN/HIN as repeated `PID-3` identifiers and emits email using
-  `PID-13` XTN email components.
+- HL7 v2 target: v2.5.1 ADT A04 patient-registration trigger using HL7apy validation plus the
+  packaged CARLOS profile artifact
+  `carlos_patient_portal/interop_profiles/carlos_patient_registration_adt_a04_v251.json`. The
+  message emits CARLOS demographic number and HCN/HIN as repeated `PID-3` identifiers and emits
+  email using `PID-13` XTN email components.
 
 Future CARLOS integration work should reuse this module or replace it with a stricter CARLOS profile
 before exposing additional clinical exchange endpoints.

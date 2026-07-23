@@ -34,14 +34,18 @@ from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.interop import (
     FHIR_RELEASE,
     FHIR_VERSION,
+    HL7_PATIENT_REGISTRATION_PROFILE_ID,
     HL7_V2_VERSION,
+    Hl7ConformanceProfileError,
     PortalPatientInteroperabilityIdentity,
     build_fhir_patient_id,
     build_fhir_practitioner_id,
     build_fhir_r4_patient,
     build_fhir_r4_practitioner,
     build_hl7_v251_patient_registration,
+    load_hl7_v251_patient_registration_profile,
     validate_hl7_v251_message,
+    validate_hl7_v251_patient_registration_profile,
 )
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_TTL,
@@ -3086,6 +3090,7 @@ def test_interop_helpers_build_valid_fhir_r4_and_hl7_v251_patient_identity() -> 
         message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
         message_control_id="MSG0001",
     )
+    hl7_profile = load_hl7_v251_patient_registration_profile()
 
     assert FHIR_RELEASE == "R4"
     assert fhir_patient["resourceType"] == "Patient"
@@ -3104,6 +3109,36 @@ def test_interop_helpers_build_valid_fhir_r4_and_hl7_v251_patient_identity() -> 
     assert "^NET^Internet^example.patient@example.com" in hl7_message
     assert "ADT^A04^ADT_A01" in hl7_message
     assert validate_hl7_v251_message(hl7_message) == hl7_message
+    assert hl7_profile["id"] == HL7_PATIENT_REGISTRATION_PROFILE_ID
+    assert hl7_profile["message_structure"] == "ADT_A01"
+    assert validate_hl7_v251_patient_registration_profile(hl7_message) == hl7_message
+
+
+def test_hl7_patient_registration_profile_rejects_nonconforming_messages() -> None:
+    identity = PortalPatientInteroperabilityIdentity(
+        clinic_id="default",
+        demographic_no=1234,
+        email=SEEDED_INVITE_EMAIL,
+        date_of_birth=datetime.fromisoformat(SEEDED_INVITE_DOB).date(),
+        health_card_number=SEEDED_INVITE_HCN,
+        family_name="Patient",
+        given_name="Example",
+    )
+    hl7_message = build_hl7_v251_patient_registration(
+        identity,
+        message_time=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        message_control_id="MSG0001",
+    )
+    wrong_receiver = hl7_message.replace("CARLOSPORTAL", "OTHERAPP", 1)
+    missing_health_card = hl7_message.replace("~ABCD12345678^^^CARLOSHCN^JHN", "", 1)
+    missing_visit = hl7_message.replace("\rPV1||O", "", 1)
+
+    with pytest.raises(Hl7ConformanceProfileError, match="MSH-5"):
+        validate_hl7_v251_patient_registration_profile(wrong_receiver)
+    with pytest.raises(Hl7ConformanceProfileError, match="JHN"):
+        validate_hl7_v251_patient_registration_profile(missing_health_card)
+    with pytest.raises(Hl7ConformanceProfileError, match="PV1"):
+        validate_hl7_v251_patient_registration_profile(missing_visit)
 
 
 def test_hl7_patient_identity_rejects_unsafe_hl7_values() -> None:

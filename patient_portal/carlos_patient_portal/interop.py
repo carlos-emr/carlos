@@ -1,7 +1,9 @@
+import json
 import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
+from importlib import resources as importlib_resources
 
 from fhir.resources.bundle import Bundle
 from fhir.resources.capabilitystatement import CapabilityStatement
@@ -12,6 +14,7 @@ from fhir.resources.patient import Patient
 from fhir.resources.practitioner import Practitioner
 from hl7apy.consts import VALIDATION_LEVEL
 from hl7apy.core import Field, Message
+from hl7apy.exceptions import HL7apyException
 from hl7apy.parser import parse_message
 
 from carlos_patient_portal.identity import (
@@ -37,6 +40,9 @@ CARLOS_UNLOCK_SECRET_IDENTIFIER_SYSTEM = (
 CARLOS_PORTAL_FHIR_BASE = "https://github.com/carlos-emr/carlos/patient-portal/fhir"
 HL7_MESSAGE_STRUCTURE = "ADT_A01"
 HL7_TRIGGER_EVENT = "A04"
+HL7_PATIENT_REGISTRATION_PROFILE_ID = "carlos.portal.patient-registration.adt-a04.v251"
+HL7_PATIENT_REGISTRATION_PROFILE_PACKAGE = "carlos_patient_portal.interop_profiles"
+HL7_PATIENT_REGISTRATION_PROFILE_FILENAME = "carlos_patient_registration_adt_a04_v251.json"
 HL7_DEMOGRAPHIC_IDENTIFIER_TYPE = "MR"
 HL7_HEALTH_CARD_IDENTIFIER_TYPE = "JHN"
 HL7_HEALTH_CARD_ASSIGNING_AUTHORITY = "CARLOSHCN"
@@ -58,6 +64,10 @@ class PortalPatientInteroperabilityIdentity:
     health_card_number: str
     family_name: str
     given_name: str
+
+
+class Hl7ConformanceProfileError(ValueError):
+    """Raised when an HL7 message fails the CARLOS-owned conformance profile."""
 
 
 def normalize_patient_name_part(value: str, field_name: str) -> str:
@@ -359,6 +369,140 @@ def build_fhir_r4_document_reference(
             "value": unlock_secret.source_reference,
         }
     return DocumentReference(document_reference).as_json()
+
+
+def load_hl7_v251_patient_registration_profile() -> dict[str, object]:
+    profile_text = (
+        importlib_resources.files(HL7_PATIENT_REGISTRATION_PROFILE_PACKAGE)
+        .joinpath(HL7_PATIENT_REGISTRATION_PROFILE_FILENAME)
+        .read_text(encoding="utf-8")
+    )
+    profile = json.loads(profile_text)
+    if not isinstance(profile, dict):
+        raise Hl7ConformanceProfileError("HL7 conformance profile must be a JSON object")
+    return profile
+
+
+def get_hl7_field_repetitions(message: Message, field_path: str) -> list[Field]:
+    segment_id, separator, field_number = field_path.partition("-")
+    if not separator or not segment_id or not field_number:
+        raise Hl7ConformanceProfileError(f"invalid HL7 field path: {field_path}")
+    segment = getattr(message, segment_id.lower())
+    field_name = f"{segment_id}_{field_number}".upper()
+    return [field for field in segment.children if field.name == field_name]
+
+
+def get_hl7_component_value(field: Field, component_number: str) -> str:
+    component_suffix = f"_{component_number}"
+    for component in field.children:
+        if component.name.endswith(component_suffix):
+            return component.to_er7()
+    return ""
+
+
+def get_hl7_profile_path_value(message: Message, path: str) -> str:
+    field_path, _, component_number = path.partition(".")
+    repetitions = get_hl7_field_repetitions(message, field_path)
+    if not repetitions:
+        return ""
+    if not component_number:
+        return repetitions[0].to_er7()
+    return get_hl7_component_value(repetitions[0], component_number)
+
+
+def resolve_hl7_profile_expected_value(message: Message, value: object) -> str:
+    expected_value = str(value)
+    if expected_value.startswith("${") and expected_value.endswith("}"):
+        return get_hl7_profile_path_value(message, expected_value[2:-1])
+    return expected_value
+
+
+def get_hl7_profile_entries(profile: dict[str, object], key: str) -> list[object]:
+    entries = profile.get(key, [])
+    if not isinstance(entries, list):
+        raise Hl7ConformanceProfileError(f"profile {key} must be a list")
+    return entries
+
+
+def has_hl7_segment(message: Message, segment_id: str) -> bool:
+    return any(child.name == segment_id for child in message.children)
+
+
+def validate_hl7_v251_patient_registration_profile(
+    encoded_message: str,
+    *,
+    profile: dict[str, object] | None = None,
+) -> str:
+    try:
+        normalized_message = validate_hl7_v251_message(encoded_message)
+        message = parse_message(
+            normalized_message,
+            validation_level=VALIDATION_LEVEL.STRICT,
+            find_groups=True,
+        )
+    except HL7apyException as exc:
+        raise Hl7ConformanceProfileError(f"HL7 v2.5.1 validation failed: {exc}") from exc
+    profile_payload = (
+        load_hl7_v251_patient_registration_profile() if profile is None else profile
+    )
+    errors: list[str] = []
+
+    if profile_payload.get("id") != HL7_PATIENT_REGISTRATION_PROFILE_ID:
+        errors.append("profile id does not match CARLOS patient registration profile")
+    if profile_payload.get("hl7_version") != HL7_V2_VERSION:
+        errors.append("profile HL7 version does not match supported version")
+
+    for segment in get_hl7_profile_entries(profile_payload, "segments"):
+        if not isinstance(segment, dict):
+            errors.append("segment entry must be an object")
+            continue
+        segment_id = str(segment.get("id", ""))
+        if segment.get("usage") == "R" and not has_hl7_segment(message, segment_id):
+            errors.append(f"{segment_id} segment is required")
+
+    for fixed_field in get_hl7_profile_entries(profile_payload, "fixed_fields"):
+        if not isinstance(fixed_field, dict):
+            errors.append("fixed field entry must be an object")
+            continue
+        path = str(fixed_field.get("path", ""))
+        expected_value = resolve_hl7_profile_expected_value(message, fixed_field.get("value", ""))
+        actual_value = get_hl7_profile_path_value(message, path)
+        if actual_value != expected_value:
+            errors.append(f"{path} expected {expected_value!r}, got {actual_value!r}")
+
+    for required_field in get_hl7_profile_entries(profile_payload, "required_fields"):
+        if not isinstance(required_field, dict):
+            errors.append("required field entry must be an object")
+            continue
+        path = str(required_field.get("path", ""))
+        if not get_hl7_profile_path_value(message, path):
+            errors.append(f"{path} is required")
+
+    for required_identifier in get_hl7_profile_entries(profile_payload, "required_identifiers"):
+        if not isinstance(required_identifier, dict):
+            errors.append("required identifier entry must be an object")
+            continue
+        field_path = str(required_identifier.get("field", ""))
+        expected_identifier_type = str(required_identifier.get("identifier_type", ""))
+        expected_assigning_authority = resolve_hl7_profile_expected_value(
+            message,
+            required_identifier.get("assigning_authority", ""),
+        )
+        matching_identifier = any(
+            get_hl7_component_value(identifier, "1")
+            and get_hl7_component_value(identifier, "4") == expected_assigning_authority
+            and get_hl7_component_value(identifier, "5") == expected_identifier_type
+            for identifier in get_hl7_field_repetitions(message, field_path)
+        )
+        if not matching_identifier:
+            errors.append(
+                f"{field_path} requires {expected_identifier_type!r} identifier "
+                f"from {expected_assigning_authority!r}"
+            )
+
+    if errors:
+        raise Hl7ConformanceProfileError("; ".join(errors))
+    return normalized_message
 
 
 def format_hl7_timestamp(value: datetime) -> str:
