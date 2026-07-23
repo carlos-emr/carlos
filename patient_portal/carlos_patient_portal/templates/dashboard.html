@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ service_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="portal-screen dashboard-screen" aria-label="Patient dashboard">
+      <header class="patient-topbar portal-topbar">
+        <div class="brand-lockup">
+          <img src="{{ url_for('static', path='/carlos-placeholder.svg') }}" alt="" class="brand-logo">
+          <div>
+            <strong>{{ service_name }}</strong>
+            <span>{{ clinic_name }}</span>
+          </div>
+        </div>
+        <div class="portal-user-actions">
+          <span class="signed-in-user">{{ account.username }}</span>
+          {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
+          <form class="logout-form" method="post" action="{{ url_for('portal_logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="secondary-action" type="submit">Logout</button>
+          </form>
+        </div>
+      </header>
+
+      <div class="dashboard-layout" data-active-module="{{ active_module }}">
+        <nav class="module-nav" aria-label="Portal modules">
+          {% for module in modules %}
+            <a
+              class="module-link{% if module.is_active %} selected{% endif %}"
+              href="{{ module.href }}"
+              {% if module.is_active %}aria-current="page"{% endif %}
+            >{{ module.label }}</a>
+          {% endfor %}
+        </nav>
+
+        <section class="module-workspace" aria-live="polite">
+          {% if active_module == "account" %}
+            <header class="module-header">
+              <h1>Account</h1>
+            </header>
+            <dl class="detail-list">
+              <div>
+                <dt>Username</dt>
+                <dd>{{ account.username }}</dd>
+              </div>
+              <div>
+                <dt>Email</dt>
+                <dd>{{ account.email }}</dd>
+              </div>
+              <div>
+                <dt>MFA</dt>
+                <dd>{{ account.preferred_mfa_method|upper }}</dd>
+              </div>
+              <div>
+                <dt>Password updated</dt>
+                <dd>{{ password_updated_date }}</dd>
+              </div>
+            </dl>
+          {% elif active_module == "email-passwords" %}
+            <header class="module-header">
+              <h1>Email passwords</h1>
+            </header>
+            <div class="table-shell" role="region" aria-label="Email passwords">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Provider</th>
+                    <th scope="col">Sent</th>
+                    <th scope="col">Password</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colspan="4" class="empty-state">No email passwords</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <header class="module-header">
+              <h1>Help</h1>
+            </header>
+            <dl class="detail-list">
+              <div>
+                <dt>Clinic</dt>
+                <dd>{{ clinic_name }}</dd>
+              </div>
+              <div>
+                <dt>Account help</dt>
+                <dd>Contact the clinic</dd>
+              </div>
+            </dl>
+          {% endif %}
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

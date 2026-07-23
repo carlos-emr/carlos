@@ -17,6 +17,7 @@ The first slice is intentionally small:
 - Activation attempt throttling backed by portal audit events.
 - Patient login with Argon2id password verification, MFA challenge/verify, opaque bearer sessions,
   logout, password reset, lockout, staff unlock, and forced reset after unlock.
+- Authenticated dashboard shell with Account, Email passwords, and Help modules.
 - Minimal FHIR R4 Patient and HL7 v2.5.1 patient-registration validation helpers for the MVP
   CARLOS integration contract.
 - Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
@@ -157,7 +158,7 @@ carlos-patient-portal-migrate
 
 This PR adds the portal foundation, initial staff invite table, initial patient account table, and
 initial audit event table. It also adds portal-owned session, MFA challenge, and password reset token
-tables. Membership and unlock-secret tables should be added in later vertical slices.
+tables. Unlock-secret tables should be added in later vertical slices.
 
 ## Development Invite API
 
@@ -285,6 +286,28 @@ for local testing. Production responses do not expose raw MFA codes or reset tok
 integration should send those values through the configured email/SMS provider without storing them.
 The database stores keyed hashes of MFA codes, reset tokens, and session tokens. Sign-in, MFA,
 reset, lockout, unlock, and logout write audit events.
+
+Successful login/MFA responses also set an HttpOnly portal session cookie scoped to `/portal` so the
+server-rendered dashboard can be used without putting bearer tokens in page scripts. API clients may
+still use the returned bearer `session_token`.
+
+## Patient Dashboard
+
+```bash
+curl -H "Cookie: carlos_portal_session=<session_token>" \
+  http://127.0.0.1:8090/portal
+```
+
+Dashboard routes:
+
+- `/portal` and `/portal/account` show the Account module shell.
+- `/portal/email-passwords` shows the Email passwords module shell with an empty table until the
+  unlock-secret slice is implemented.
+- `/portal/help` shows clinic help details.
+- `POST /portal/logout` clears the portal session cookie and writes a logout audit event.
+
+The dashboard is server-rendered and responsive. Desktop uses a left module rail; mobile uses a
+horizontal module bar with logout kept in the top-right header area.
 
 ## Interoperability Contract
 

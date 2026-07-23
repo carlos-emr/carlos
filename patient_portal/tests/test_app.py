@@ -225,6 +225,31 @@ def activate_seeded_patient_account(
     return account_id
 
 
+def sign_in_seeded_patient(app: main.FastAPI, client: TestClient) -> tuple[int, str]:
+    account_id = activate_seeded_patient_account(app, client)
+    login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    assert login_response.status_code == 200
+    login_payload = login_response.json()
+    verify_response = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": login_payload["mfa_challenge_token"],
+            "code": login_payload["development_mfa_code"],
+        },
+    )
+    assert verify_response.status_code == 200
+    set_cookie_header = verify_response.headers.get("set-cookie", "")
+    assert main.PORTAL_SESSION_COOKIE_NAME in verify_response.cookies
+    assert f"{main.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
+    assert "HttpOnly" in set_cookie_header
+    assert "Path=/portal" in set_cookie_header
+    assert "SameSite=strict" in set_cookie_header
+    return account_id, verify_response.json()["session_token"]
+
+
 def test_health_endpoint_is_minimal() -> None:
     app = main.create_app(
         Settings(
@@ -433,6 +458,137 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
             (AUDIT_EVENT_MFA_VERIFY, AUDIT_OUTCOME_SUCCESS),
             (AUDIT_EVENT_SESSION_LOGOUT, AUDIT_OUTCOME_SUCCESS),
         ]
+
+
+def test_dashboard_shell_requires_session_cookie() -> None:
+    app = migrated_development_app()
+    response = TestClient(app).get("/portal", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_dashboard_shell_navigation_and_cookie_logout() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id, _ = sign_in_seeded_patient(app, client)
+
+    dashboard_response = client.get("/portal")
+
+    assert dashboard_response.status_code == 200
+    assert dashboard_response.headers["cache-control"] == "no-store"
+    assert "HttpOnly" in dashboard_response.headers["set-cookie"]
+    assert "Path=/portal" in dashboard_response.headers["set-cookie"]
+    assert "SameSite=strict" in dashboard_response.headers["set-cookie"]
+    assert 'data-active-module="account"' in dashboard_response.text
+    assert 'href="/portal/account"' in dashboard_response.text
+    assert 'href="/portal/email-passwords"' in dashboard_response.text
+    assert 'href="/portal/help"' in dashboard_response.text
+    assert 'class="logout-form"' in dashboard_response.text
+    assert ">Logout</button>" in dashboard_response.text
+    assert "patient.user" in dashboard_response.text
+
+    email_passwords_response = client.get("/portal/email-passwords")
+    help_response = client.get("/portal/help")
+
+    assert email_passwords_response.status_code == 200
+    assert 'data-active-module="email-passwords"' in email_passwords_response.text
+    email_passwords_link_start = email_passwords_response.text.index(
+        'href="/portal/email-passwords"'
+    )
+    email_passwords_link_open = email_passwords_response.text.rindex(
+        "<a",
+        0,
+        email_passwords_link_start,
+    )
+    email_passwords_link = email_passwords_response.text[
+        email_passwords_link_open : email_passwords_response.text.index(
+            "</a>",
+            email_passwords_link_start,
+        )
+    ]
+    assert 'aria-current="page"' in email_passwords_link
+    assert "selected" in email_passwords_link
+    assert 'data-active-module="account"' not in email_passwords_response.text
+    assert "<th scope=\"col\">Subject</th>" in email_passwords_response.text
+    assert "No email passwords" in email_passwords_response.text
+    assert help_response.status_code == 200
+    assert 'data-active-module="help"' in help_response.text
+    assert "Maple Creek Medical" in help_response.text
+
+    match = CSRF_TOKEN_PATTERN.search(help_response.text)
+    assert match is not None
+    logout_response = client.post(
+        "/portal/logout",
+        data={"csrf_token": match.group(1)},
+        follow_redirects=False,
+    )
+    redirected_response = client.get("/portal", follow_redirects=False)
+
+    assert logout_response.status_code == 303
+    assert logout_response.headers["location"] == "/"
+    assert redirected_response.status_code == 303
+    with app.state.session_factory() as session:
+        portal_session = session.scalar(
+            select(PatientPortalSession).where(PatientPortalSession.account_id == account_id)
+        )
+        logout_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_SESSION_LOGOUT
+            )
+        )
+
+        assert portal_session is not None
+        assert portal_session.revoked_reason == "logout"
+        assert logout_event is not None
+        assert logout_event.account_id == account_id
+
+
+def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id, _ = sign_in_seeded_patient(app, client)
+
+    dashboard_response = client.get("/portal")
+    logout_response = client.post(
+        "/portal/logout",
+        data={"csrf_token": "invalid"},
+        follow_redirects=False,
+    )
+    still_authenticated_response = client.get("/portal")
+
+    assert dashboard_response.status_code == 200
+    assert logout_response.status_code == 303
+    assert logout_response.headers["location"] == "/"
+    assert still_authenticated_response.status_code == 200
+    with app.state.session_factory() as session:
+        portal_session = session.scalar(
+            select(PatientPortalSession).where(PatientPortalSession.account_id == account_id)
+        )
+        logout_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_SESSION_LOGOUT
+            )
+        )
+
+        assert portal_session is not None
+        assert portal_session.revoked_reason is None
+        assert logout_event is None
+
+
+def test_dashboard_styles_include_desktop_and_mobile_navigation_rules() -> None:
+    app = main.create_app(development_settings())
+    response = TestClient(app).get("/static/styles.css")
+    css = response.text
+
+    assert response.status_code == 200
+    assert ".dashboard-layout" in css
+    assert "grid-template-columns: 220px minmax(0, 1fr);" in css
+    assert "@media (max-width: 640px)" in css
+    assert ".portal-topbar" in css
+    assert "flex-direction: row;" in css
+    assert ".module-nav" in css
 
 
 def test_login_route_rejects_missing_csrf_token() -> None:

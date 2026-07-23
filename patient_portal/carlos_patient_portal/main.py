@@ -13,7 +13,7 @@ from urllib.parse import parse_qs
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError
@@ -129,6 +129,17 @@ CSRF_COOKIE_PATH = "/auth"
 CSRF_FORM_FIELD = "csrf_token"
 CSRF_TOKEN_TTL_SECONDS = 60 * 60
 CSRF_FUTURE_SKEW_SECONDS = 60
+PORTAL_SESSION_COOKIE_NAME = "carlos_portal_session"
+PORTAL_SESSION_COOKIE_PATH = "/portal"
+PORTAL_MODULES = (
+    {"slug": "account", "label": "Account", "href": "/portal/account"},
+    {
+        "slug": "email-passwords",
+        "label": "Email passwords",
+        "href": "/portal/email-passwords",
+    },
+    {"slug": "help", "label": "Help", "href": "/portal/help"},
+)
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
 
@@ -182,6 +193,51 @@ def is_valid_csrf_submission(
     if not compare_digest(form_token, cookie_token):
         return False
     return is_valid_csrf_token(form_token, secret)
+
+
+def set_csrf_cookie(
+    response: Response,
+    csrf_token: str,
+    *,
+    settings: Settings,
+    path: str,
+) -> None:
+    response.set_cookie(
+        CSRF_COOKIE_NAME,
+        csrf_token,
+        httponly=True,
+        max_age=CSRF_TOKEN_TTL_SECONDS,
+        path=path,
+        samesite="strict",
+        secure=not settings.is_development,
+    )
+
+
+def set_portal_session_cookie(
+    response: Response,
+    session_token: str,
+    *,
+    settings: Settings,
+) -> None:
+    response.set_cookie(
+        PORTAL_SESSION_COOKIE_NAME,
+        session_token,
+        httponly=True,
+        max_age=settings.session_ttl_seconds,
+        path=PORTAL_SESSION_COOKIE_PATH,
+        samesite="strict",
+        secure=not settings.is_development,
+    )
+
+
+def clear_portal_session_cookie(response: Response, *, settings: Settings) -> None:
+    response.delete_cookie(
+        PORTAL_SESSION_COOKIE_NAME,
+        path=PORTAL_SESSION_COOKIE_PATH,
+        secure=not settings.is_development,
+        httponly=True,
+        samesite="strict",
+    )
 
 
 def sanitized_validation_errors(exc: RequestValidationError) -> list[dict[str, object]]:
@@ -295,6 +351,37 @@ def password_reset_request_response_payload(
     if settings.is_development and reset_token is not None:
         payload["development_reset_token"] = reset_token
     return payload
+
+
+def portal_modules(active_module: str) -> tuple[dict[str, object], ...]:
+    return tuple(
+        {
+            **module,
+            "is_active": module["slug"] == active_module,
+        }
+        for module in PORTAL_MODULES
+    )
+
+
+def portal_template_context(
+    request: Request,
+    *,
+    authenticated_session: AuthenticatedPortalSession,
+    settings: Settings,
+    active_module: str,
+    csrf_token: str,
+) -> dict[str, object]:
+    account = authenticated_session.account
+    return {
+        "request": request,
+        "service_name": settings.service_name,
+        "clinic_name": settings.clinic_name,
+        "account": account,
+        "password_updated_date": account.password_updated_at.date().isoformat(),
+        "active_module": active_module,
+        "modules": portal_modules(active_module),
+        "csrf_token": csrf_token,
+    }
 
 
 async def read_limited_request_body(request: Request, max_bytes: int) -> bytes:
@@ -556,6 +643,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if (
             request.url.path in NO_STORE_PATHS
             or request.url.path.startswith("/auth/")
+            or request.url.path.startswith("/portal")
             or request.url.path.startswith("/internal/")
             or request.url.path.startswith("/dev/admin/")
         ):
@@ -617,15 +705,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "service_name": settings.service_name,
             },
         )
-        response.set_cookie(
-            CSRF_COOKIE_NAME,
-            csrf_token,
-            httponly=True,
-            max_age=CSRF_TOKEN_TTL_SECONDS,
-            path=CSRF_COOKIE_PATH,
-            samesite="strict",
-            secure=not settings.is_development,
-        )
+        set_csrf_cookie(response, csrf_token, settings=settings, path=CSRF_COOKIE_PATH)
         return response
 
     @app.get("/health")
@@ -664,9 +744,54 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except (PortalSessionInvalidError, ValueError) as exc:
             raise HTTPException(status_code=401, detail="authentication required") from exc
 
+    def get_authenticated_portal_cookie_session(
+        request: Request,
+        session: Session,
+    ) -> AuthenticatedPortalSession:
+        session_token = request.cookies.get(PORTAL_SESSION_COOKIE_NAME)
+        if session_token is None:
+            raise PortalSessionInvalidError()
+        return authenticate_session_token(
+            session,
+            session_token=session_token,
+            token_secret=csrf_secret,
+        )
+
+    def render_portal_page(
+        request: Request,
+        session: Session,
+        *,
+        active_module: str,
+    ) -> Response:
+        try:
+            authenticated_session = get_authenticated_portal_cookie_session(request, session)
+        except (PortalSessionInvalidError, ValueError):
+            return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+
+        csrf_token = create_csrf_token(csrf_secret)
+        response = templates.TemplateResponse(
+            request=request,
+            name="dashboard.html",
+            context=portal_template_context(
+                request,
+                authenticated_session=authenticated_session,
+                settings=settings,
+                active_module=active_module,
+                csrf_token=csrf_token,
+            ),
+        )
+        set_csrf_cookie(
+            response,
+            csrf_token,
+            settings=settings,
+            path=PORTAL_SESSION_COOKIE_PATH,
+        )
+        return response
+
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
         request: Request,
+        response: Response,
         session: Annotated[Session, Depends(get_app_database_session)],
     ) -> dict[str, object] | JSONResponse:
         payload = await get_login_request_from_request(request, csrf_secret)
@@ -706,6 +831,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=400,
                 content={"detail": "MFA delivery method is unavailable"},
             )
+        if result.session_token is not None:
+            set_portal_session_cookie(response, result.session_token, settings=settings)
         return login_response_payload(result, settings=settings)
 
     @app.post("/auth/mfa/resend", response_model=MfaChallengeResponse)
@@ -749,6 +876,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)
     def verify_mfa(
+        response: Response,
         payload: Annotated[MfaVerifyRequest, Depends(get_mfa_verify_request)],
         session: Annotated[Session, Depends(get_app_database_session)],
     ) -> dict[str, str] | JSONResponse:
@@ -775,6 +903,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=403,
                 content={"status": "password_reset_required"},
             )
+        set_portal_session_cookie(response, session_token, settings=settings)
         return {"status": "signed_in", "session_token": session_token}
 
     @app.post(
@@ -842,6 +971,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/auth/logout", response_model=LogoutResponse)
     def logout(
         session_token: Annotated[str, Depends(get_authorization_bearer_token)],
+        response: Response,
         session: Annotated[Session, Depends(get_app_database_session)],
     ) -> dict[str, str]:
         try:
@@ -852,7 +982,65 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except (PortalSessionInvalidError, ValueError) as exc:
             raise HTTPException(status_code=401, detail="authentication required") from exc
+        clear_portal_session_cookie(response, settings=settings)
         return {"status": "logged_out"}
+
+    @app.get("/portal")
+    def portal_dashboard(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        return render_portal_page(request, session, active_module="account")
+
+    @app.get("/portal/account")
+    def portal_account(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        return render_portal_page(request, session, active_module="account")
+
+    @app.get("/portal/email-passwords")
+    def portal_email_passwords(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        return render_portal_page(request, session, active_module="email-passwords")
+
+    @app.get("/portal/help")
+    def portal_help(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        return render_portal_page(request, session, active_module="help")
+
+    @app.post("/portal/logout")
+    async def portal_logout(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        form_values = await get_urlencoded_form_values(
+            request,
+            MAX_FORM_BODY_BYTES,
+            MAX_FORM_FIELD_COUNT,
+        )
+        csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
+        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+        response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+        if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
+            return response
+
+        session_token = request.cookies.get(PORTAL_SESSION_COOKIE_NAME)
+        if session_token is not None:
+            try:
+                logout_patient_session(
+                    session,
+                    session_token=session_token,
+                    token_secret=csrf_secret,
+                )
+            except (PortalSessionInvalidError, ValueError):
+                pass
+        clear_portal_session_cookie(response, settings=settings)
+        return response
 
     @app.post(
         "/auth/activate",
