@@ -80,7 +80,7 @@ public class CreatePaymentType2Action extends ActionSupport {
 
         String paymentType = request.getParameter("paymentType");
         Map<String, String> ret = new HashMap<>();
-        if (paymentType == null || paymentType.isEmpty()) {
+        if (paymentType == null || paymentType.isBlank()) {
             ret.put("ret", "1");
             ret.put("reason", "Missing payment type.");
             writeJsonResponse(response, ret);

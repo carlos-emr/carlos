@@ -146,6 +146,19 @@ class CreatePaymentType2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturnRet1_whenPaymentTypeParamBlank() throws Exception {
+        mockRequest.setParameter("paymentType", "   ");
+        CreatePaymentType2Action action = new CreatePaymentType2Action(mockSecurityInfoManager, mockDao);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verifyNoInteractions(mockDao);
+        assertThat(mockResponse.getContentAsString()).contains("\"ret\":\"1\"");
+        assertThat(mockResponse.getContentAsString()).contains("Missing payment type");
+    }
+
+    @Test
     void shouldThrowSecurityException_whenLackingBillingWritePrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);

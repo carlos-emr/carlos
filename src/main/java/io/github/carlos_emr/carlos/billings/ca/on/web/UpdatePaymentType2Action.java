@@ -82,8 +82,8 @@ public class UpdatePaymentType2Action extends ActionSupport {
         String oldPaymentType = request.getParameter("oldPaymentType");
         String paymentType = request.getParameter("paymentType");
         Map<String, String> ret = new HashMap<>();
-        if (oldPaymentType == null || oldPaymentType.isEmpty()
-                || paymentType == null || paymentType.isEmpty()) {
+        if (oldPaymentType == null || oldPaymentType.isBlank()
+                || paymentType == null || paymentType.isBlank()) {
             ret.put("ret", "1");
             ret.put("reason", "Missing payment type.");
             writeJsonResponse(response, ret);
