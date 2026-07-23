@@ -180,6 +180,20 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
+        return createDocumentInternal(loggedInInfo, document, demographicNo, providerNo, documentData);
+    }
+
+    @Override
+    public Document createSystemDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
+        // No _edoc gate: this is a trusted internal/system control (outbound email archive) that is a
+        // mandatory side-effect of an already-authorized action. The initiating action authorizes it
+        // (the archive is gated on _email write by OutboundEmailArchiveService); the document is still
+        // attributed to loggedInInfo via doccreator for audit. See DocumentManager#createSystemDocument.
+        return createDocumentInternal(loggedInInfo, document, demographicNo, providerNo, documentData);
+    }
+
+    private Document createDocumentInternal(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
+
         SimpleDateFormat dateTimeFormat = new SimpleDateFormat("yyyyMMddHHmmss");
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         Date today = new Date();

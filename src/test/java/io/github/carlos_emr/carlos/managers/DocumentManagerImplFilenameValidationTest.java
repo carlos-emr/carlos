@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -83,6 +84,45 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
             assertThat(Files.readString(tempDir.resolve(result.getDocfilename()))).isEqualTo("document body");
             assertThat(Files.exists(tempDir.resolve("my_report.txt"))).isFalse();
         }
+    }
+
+    @Test
+    @DisplayName("should create system document without requiring eDoc write privilege")
+    void shouldCreateSystemDocument_withoutRequiringEdocWritePrivilege() throws Exception {
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties properties = mock(CarlosProperties.class);
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(tempDir.toString());
+            // Caller lacks _edoc write: the system path must still write the archive document.
+            when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_edoc"), eq("w"), eq(""))).thenReturn(false);
+
+            DocumentManagerImpl manager = newDocumentManager();
+            Document document = new Document();
+            document.setDocfilename("outbound-email-1-archive.json");
+
+            Document result = manager.createSystemDocument(loggedInInfo, document, null, PROVIDER_NO,
+                    "archive body".getBytes(StandardCharsets.UTF_8));
+
+            // Reaching here without a Security/RuntimeException proves the _edoc gate was skipped.
+            assertThat(result.getDocfilename()).matches("\\d{14}_.*\\.json");
+            assertThat(result.getDoccreator()).isEqualTo(PROVIDER_NO);
+            assertThat(Files.readString(tempDir.resolve(result.getDocfilename()))).isEqualTo("archive body");
+        }
+    }
+
+    @Test
+    @DisplayName("should reject createDocument without eDoc write privilege")
+    void shouldRejectCreateDocument_withoutEdocWritePrivilege() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_edoc"), eq("w"), eq(""))).thenReturn(false);
+
+        DocumentManagerImpl manager = newDocumentManager();
+        Document document = new Document();
+        document.setDocfilename("report.txt");
+
+        assertThatThrownBy(() -> manager.createDocument(loggedInInfo, document, null, null,
+                "body".getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("_edoc");
     }
 
     private DocumentManagerImpl newDocumentManager() {

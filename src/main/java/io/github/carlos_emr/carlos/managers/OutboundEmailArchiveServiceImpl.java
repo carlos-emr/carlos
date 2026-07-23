@@ -208,13 +208,13 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         EmailLog emailLog = loadEmailLog(requestedEmailLog.getId());
         String fileName = uniqueArchiveFileName(emailLog, contentType);
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
-        authorizeArchiveAccess(loggedInInfo, demographicNo);
+        authorizeArchiveAccess(loggedInInfo);
         List<OutboundEmailArchiveAttachment> attachments = buildAttachments(loggedInInfo, request, providerNo, demographicNo);
 
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
         Document savedDocument;
         try {
-            savedDocument = documentManager.createDocument(
+            savedDocument = documentManager.createSystemDocument(
                     loggedInInfo,
                     document,
                     demographicNo,
@@ -671,12 +671,16 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return value;
     }
 
-    private void authorizeArchiveAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-            throw new SecurityException("not authorized for outbound email archive demographic");
+    // The outbound email archive is a mandatory compliance record for an email that has already been
+    // authorized to send, so it is gated on the send privilege (_email write) rather than the sender's
+    // _edoc/patient-record rights. This lets authorized senders without chart-write access (e.g. front
+    // desk staff) still have their outbound email archived. The eDoc itself is written via
+    // DocumentManager#createSystemDocument (the archive is a system control), and the demographic is
+    // fixed by the already-authorized send, not by caller-supplied input. Controlled DELETION of an
+    // archive remains gated on _edoc/_admin.edocdelete + patient-record access (authorizeControlledDeletion).
+    private void authorizeArchiveAccess(LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_email)");
         }
     }
 

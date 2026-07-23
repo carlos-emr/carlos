@@ -144,7 +144,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         Document savedDocument = savedDocument();
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument);
         doAnswer(invocation -> {
             OutboundEmailArchive archive = invocation.getArgument(0);
@@ -155,7 +155,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
-        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createSystemDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
         assertArchiveDocumentToCreate(documentCaptor.getValue());
 
         verify(outboundEmailArchiveDao).persist(archive);
@@ -182,16 +182,16 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         persistedEmailLog.setEmailConfig(persistedEmailConfig);
         Document savedDocument = savedDocument();
         when(emailLogDao.find((Object) Integer.valueOf(44))).thenReturn(persistedEmailLog);
-        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 789)).thenReturn(true);
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(789), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(789), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument);
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         verify(emailLogDao).find((Object) Integer.valueOf(44));
-        verify(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(789), eq(PROVIDER_NO), eq(RFC822_BYTES));
-        verify(securityInfoManager).isAllowedAccessToPatientRecord(loggedInInfo, 789);
-        verify(securityInfoManager, never()).isAllowedAccessToPatientRecord(loggedInInfo, 456);
+        // The archive is filed against the reloaded email log's demographic (789), never the
+        // request-supplied one (456) - prevents a confused-deputy write to the wrong chart.
+        verify(documentManager).createSystemDocument(eq(loggedInInfo), any(Document.class), eq(789), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager, never()).createSystemDocument(eq(loggedInInfo), any(Document.class), eq(456), eq(PROVIDER_NO), eq(RFC822_BYTES));
         assertThat(archive.getEmailLog()).isSameAs(persistedEmailLog);
         assertThat(archive.getDemographic().getDemographicNo()).isEqualTo(789);
         assertThat(archive.getProvider()).isSameAs(persistedProvider);
@@ -206,13 +206,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         request.setContentType("Message/RFC822; charset=UTF-8");
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
 
         service.archive(loggedInInfo, request);
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
-        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createSystemDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
         assertThat(documentCaptor.getValue().getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
     }
 
@@ -222,13 +222,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         request.setFileName("Jane-Smith-1970-01-01-referral.eml");
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
-        verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        verify(documentManager).createSystemDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
         assertThat(documentCaptor.getValue().getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
         assertThat(archive.getOriginalFileName()).isEqualTo("Jane-Smith-1970-01-01-referral.eml");
     }
@@ -252,7 +252,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 Files.write(file, RFC822_BYTES);
                 createdFile.set(file);
                 throw new RuntimeException("document database failed");
-            }).when(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+            }).when(documentManager).createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
 
             assertThatThrownBy(() -> service.archive(loggedInInfo, request))
                     .isInstanceOf(RuntimeException.class)
@@ -278,7 +278,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         Document savedDocument = savedDocument();
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument);
         doAnswer(invocation -> {
             OutboundEmailArchive archive = invocation.getArgument(0);
@@ -312,7 +312,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
             OutboundEmailArchiveDto request = archiveRequest(emailLog);
             Document savedDocument = savedDocument();
             Path archivedFile = documentDir.resolve(savedDocument.getDocfilename());
-            when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+            when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                     .thenAnswer(invocation -> {
                         Files.write(archivedFile, RFC822_BYTES);
                         return savedDocument;
@@ -351,7 +351,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         request.addAttachment(attachmentRequest);
 
         when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -384,7 +384,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         attachmentRequest.setSourceDocumentId(9901);
         request.addAttachment(attachmentRequest);
 
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -427,7 +427,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         when(hrmDocumentToDemographicDao.findByHrmDocumentId(503)).thenReturn(List.of(hrmMapping));
         when(formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, 123, true, true))
                 .thenReturn(List.of(new PatientForm("formTable", "Form", 504, 123)));
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -471,7 +471,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldPreventDirectAttachmentMutation_whenAttachmentsAreExposed() throws Exception {
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
-        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
 
         OutboundEmailArchive archive = service.archive(loggedInInfo, request);
@@ -563,31 +563,35 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject archive without eDoc write authority")
-    void shouldRejectArchive_whenCallerLacksEdocWriteAuthority() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
+    @DisplayName("should reject archive without email send authority")
+    void shouldRejectArchive_whenCallerLacksEmailWriteAuthority() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(false);
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
 
         assertThatThrownBy(() -> service.archive(loggedInInfo, request))
                 .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_edoc)");
+                .hasMessage("missing required sec object (_email)");
 
         verifyNoInteractions(documentManager);
     }
 
     @Test
-    @DisplayName("should reject archive without patient access")
-    void shouldRejectArchive_whenCallerCannotAccessPatientRecord() {
+    @DisplayName("should archive for an authorized sender lacking eDoc write and patient access")
+    void shouldArchive_whenSenderHasEmailWriteButLacksEdocAndPatientAccess() throws Exception {
+        // Front-desk case: holds _email (may send) but not _edoc/patient-record access. The archive
+        // is a mandatory system control and must still be written via createSystemDocument.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        when(documentManager.createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
 
-        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("archive demographic");
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
 
-        verifyNoInteractions(documentManager);
+        assertThat(archive).isNotNull();
+        verify(documentManager).createSystemDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
     }
 
     @Test
@@ -854,6 +858,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     private void allowControlledDeletion() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);

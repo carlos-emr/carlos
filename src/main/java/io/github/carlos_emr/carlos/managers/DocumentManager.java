@@ -69,6 +69,28 @@ public interface DocumentManager {
      */
     public Document createDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException;
 
+    /**
+     * Creates a document as a trusted internal/system control, without gating on the caller's
+     * {@code _edoc} write privilege.
+     *
+     * <p><strong>Restricted use.</strong> This bypasses the {@code _edoc} write check that
+     * {@link #createDocument} enforces and must only be called by internal controls that are
+     * mandatory side-effects of an already-authorized user action and that have performed their
+     * own authorization. The current caller is the outbound email archive, which is a compliance
+     * record written for every authorized email send (gated by {@code _email} write) — including
+     * sends by staff who may not hold {@code _edoc} write. The document is still attributed to
+     * {@code loggedInInfo}'s provider via {@code doccreator} for audit.</p>
+     *
+     * @param loggedInInfo  the acting user, recorded as the document creator for audit
+     * @param document      document to create
+     * @param demographicNo demographic the document is filed to
+     * @param providerNo    optional provider to route the document to
+     * @param documentData  document byte data
+     * @return the created document record
+     * @throws IOException if writing the document data fails
+     */
+    public Document createSystemDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException;
+
     public List<Document> getDocumentsUpdateAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn);
 
     public List<Document> getDocumentsByDemographicIdUpdateAfterDate(LoggedInInfo loggedInInfo, Integer demographicId, Date updatedAfterThisDateExclusive);
