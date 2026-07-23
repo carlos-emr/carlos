@@ -146,6 +146,66 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject non-HTTPS SendGrid endpoint before sending")
+    void shouldRejectSendGridEndpoint_whenSchemeIsNotHttps() {
+        EmailConfig emailConfig = sendGridEmailConfig();
+        emailConfig.setConfigDetailsJson("{\"api_key\":\"" + API_KEY + "\",\"end_point\":\"http://api.sendgrid.test/v3/mail/send\"}");
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                emailConfig,
+                new String[]{"patient@example.test"},
+                "Test subject",
+                "Body text",
+                null,
+                null);
+
+        assertThatThrownBy(sender::sendPreparedPayload)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessage("Invalid SendGrid endpoint configured for provider@example.test")
+                .hasMessageNotContaining(API_KEY);
+    }
+
+    @Test
+    @DisplayName("should reject SendGrid endpoint with no host before sending")
+    void shouldRejectSendGridEndpoint_whenHostIsMissing() {
+        EmailConfig emailConfig = sendGridEmailConfig();
+        emailConfig.setConfigDetailsJson("{\"api_key\":\"" + API_KEY + "\",\"end_point\":\"https:///v3/mail/send\"}");
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                emailConfig,
+                new String[]{"patient@example.test"},
+                "Test subject",
+                "Body text",
+                null,
+                null);
+
+        assertThatThrownBy(sender::sendPreparedPayload)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessage("Invalid SendGrid endpoint configured for provider@example.test")
+                .hasMessageNotContaining(API_KEY);
+    }
+
+    @Test
+    @DisplayName("should reject malformed SendGrid endpoint before sending")
+    void shouldRejectSendGridEndpoint_whenEndpointIsMalformed() {
+        EmailConfig emailConfig = sendGridEmailConfig();
+        emailConfig.setConfigDetailsJson("{\"api_key\":\"" + API_KEY + "\",\"end_point\":\"https://exa mple.test/v3/mail/send\"}");
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                loggedInInfo,
+                emailConfig,
+                new String[]{"patient@example.test"},
+                "Test subject",
+                "Body text",
+                null,
+                null);
+
+        assertThatThrownBy(sender::sendPreparedPayload)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessage("Invalid SendGrid endpoint configured for provider@example.test")
+                .hasMessageNotContaining(API_KEY);
+    }
+
+    @Test
     @DisplayName("should reject SendGrid payload when attachment path is missing")
     void shouldRejectSendGridPayload_whenAttachmentPathMissing() {
         EmailAttachment attachment = new EmailAttachment("attachment_001.pdf", null, DocumentType.DOC, 77);

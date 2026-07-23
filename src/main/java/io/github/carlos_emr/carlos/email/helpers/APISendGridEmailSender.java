@@ -4,6 +4,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -319,22 +320,40 @@ public class APISendGridEmailSender {
     }
 
     private SendGridConfigDetails readConfigDetails() throws EmailSendingException {
-        String invalidCredentialsMessage = "Invalid credentials configured for " + emailConfig.getSenderEmail();
+        String senderEmail = emailConfig != null ? emailConfig.getSenderEmail() : "";
+        String invalidCredentialsMessage = "Invalid credentials configured for " + senderEmail;
+        if (emailConfig == null) {
+            throw new EmailSendingException(invalidCredentialsMessage);
+        }
+        JsonNode jsonNode;
         try {
-            JsonNode jsonNode = OBJECT_MAPPER.readTree(emailConfig.getConfigDetailsJson());
-            JsonNode apiKeyNode = jsonNode.get("api_key");
-            if (apiKeyNode == null || apiKeyNode.asText().isBlank()) {
-                throw new EmailSendingException(invalidCredentialsMessage);
-            }
-
-            String endpoint = DEFAULT_ENDPOINT;
-            JsonNode endpointNode = jsonNode.get("end_point");
-            if (endpointNode != null && !endpointNode.asText().isBlank()) {
-                endpoint = endpointNode.asText().trim();
-            }
-            return new SendGridConfigDetails(apiKeyNode.asText().trim(), endpoint);
+            jsonNode = OBJECT_MAPPER.readTree(emailConfig.getConfigDetailsJson());
         } catch (IOException | IllegalArgumentException e) {
             throw new EmailSendingException(invalidCredentialsMessage, e);
+        }
+
+        JsonNode apiKeyNode = jsonNode.get("api_key");
+        if (apiKeyNode == null || apiKeyNode.asText().isBlank()) {
+            throw new EmailSendingException(invalidCredentialsMessage);
+        }
+
+        String endpoint = DEFAULT_ENDPOINT;
+        JsonNode endpointNode = jsonNode.get("end_point");
+        if (endpointNode != null && !endpointNode.asText().isBlank()) {
+            endpoint = endpointNode.asText().trim();
+        }
+        return new SendGridConfigDetails(apiKeyNode.asText().trim(), requireHttpsEndpoint(endpoint, senderEmail));
+    }
+
+    private String requireHttpsEndpoint(String endpoint, String senderEmail) throws EmailSendingException {
+        try {
+            URI endpointUri = URI.create(endpoint);
+            if (!"https".equalsIgnoreCase(endpointUri.getScheme()) || endpointUri.getHost() == null || endpointUri.getHost().isBlank()) {
+                throw new EmailSendingException("Invalid SendGrid endpoint configured for " + senderEmail);
+            }
+            return endpoint;
+        } catch (IllegalArgumentException e) {
+            throw new EmailSendingException("Invalid SendGrid endpoint configured for " + senderEmail, e);
         }
     }
 
