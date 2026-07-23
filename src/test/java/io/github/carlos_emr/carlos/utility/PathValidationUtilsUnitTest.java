@@ -710,6 +710,37 @@ class PathValidationUtilsUnitTest {
 
             assertThat(PathValidationUtils.isInApplicationTempDirectory(strayFile)).isFalse();
         }
+
+        @Test
+        @DisplayName("should reject a CARLOS temp symlink whose target escapes outside every CARLOS-owned temp subtree")
+        void shouldRejectSymlinkEscape_whenApplicationTempLinkTargetsOutside() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path appRoot = Files.createDirectories(
+                    Path.of(systemTempDir, PathValidationUtils.APPLICATION_TEMP_ROOT_NAME, "app-temp-symlink-escape-"));
+            // The link LIVES inside carlos-temp but its target is outside every CARLOS-owned temp
+            // subtree. validateApplicationTempPath canonicalizes (resolving the symlink) before the
+            // boundary check, so it must reject the escape rather than trust the in-boundary link path
+            // — closing the check-vs-use gap a local attacker could open by pre-seeding the link.
+            Path outsideDir = Files.createTempDirectory("outside-carlos-temp-");
+            Path outsideTarget = outsideDir.resolve("secret.pdf");
+            Files.write(outsideTarget, "outside bytes".getBytes());
+            Path escapingLink = appRoot.resolve("escape-link.pdf");
+            try {
+                Files.createSymbolicLink(escapingLink, outsideTarget);
+            } catch (IOException | UnsupportedOperationException symlinkUnsupported) {
+                Assumptions.assumeTrue(false, "Symlinks not supported on this system");
+                return;
+            }
+            try {
+                assertThatThrownBy(() -> PathValidationUtils.validateApplicationTempPath(escapingLink.toFile()))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessageContaining("outside every CARLOS-owned temp subtree");
+            } finally {
+                Files.deleteIfExists(escapingLink);
+                Files.deleteIfExists(outsideTarget);
+                Files.deleteIfExists(outsideDir);
+            }
+        }
     }
 
     // ========================================================================

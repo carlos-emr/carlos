@@ -73,6 +73,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("FaxManagerImpl")
 @Tag("unit")
 @Tag("fast")
+@Tag("manager")
 class FaxManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Mock private SecurityInfoManager securityInfoManager;
@@ -513,6 +514,23 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(flushed).isTrue();
         verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
         verify(nioFileManager, never()).deleteTempFile(any(String.class));
+    }
+
+    @Test
+    @DisplayName("should report flush failure when the preview source cannot be keyed to an allowed preview source")
+    void shouldReturnFalse_whenPreviewSourceCannotBeKeyed() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        String documentPath = "/var/lib/OscarDocument/carlos/document/some-fax.pdf";
+        // removeCacheVersions now rejects an unkeyable/disallowed preview source with an
+        // IllegalArgumentException instead of a misleading 0. A PHI flush that cannot even key its
+        // source must be reported as an uncleared cache, never success.
+        when(nioFileManager.removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf"))
+                .thenThrow(new IllegalArgumentException("source directory is not an allowed preview source"));
+
+        boolean flushed = manager.flush(loggedInInfo, documentPath);
+
+        assertThat(flushed).as("an unkeyable preview source must not report a successful flush").isFalse();
+        verify(nioFileManager).removeCacheVersions(loggedInInfo, "/var/lib/OscarDocument/carlos/document", "some-fax.pdf");
     }
 
     @Test

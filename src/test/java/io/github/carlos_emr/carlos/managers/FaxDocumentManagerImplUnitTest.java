@@ -49,6 +49,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("FaxDocumentManagerImpl")
 @Tag("unit")
 @Tag("fast")
+@Tag("manager")
 class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Mock private SecurityInfoManager securityInfoManager;

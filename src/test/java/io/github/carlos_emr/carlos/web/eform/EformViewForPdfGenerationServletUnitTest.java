@@ -106,6 +106,35 @@ class EformViewForPdfGenerationServletUnitTest {
         assertThat(response.getStatus()).isEqualTo(403);
     }
 
+    @Test
+    @DisplayName("should answer bad request when the providerId parameter is missing")
+    void shouldSendBadRequest_whenProviderIdMissing() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/eformViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EformViewForPdfGenerationServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        // A rejected request must not allocate a session.
+        assertThat(request.getSession(false)).isNull();
+    }
+
+    @Test
+    @DisplayName("should reject renderer requests from non-local addresses")
+    void shouldRejectRendererRequest_fromNonLocalAddress() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/eformViewForPdfGenerationServlet");
+        request.setRemoteAddr("192.168.1.20");
+        request.setParameter("providerId", "999998");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EformViewForPdfGenerationServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        // The loopback gate is checked before anything else, so no session is created.
+        assertThat(request.getSession(false)).isNull();
+    }
+
     private static void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);
