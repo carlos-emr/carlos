@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.AppDefinitionDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao.EFormSortOrder;
@@ -111,7 +112,7 @@ class FormsServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should return 200 with available eforms when heading is not Completed")
         void shouldReturn200WithAvailableEForms_whenHeadingIsNotCompleted() {
             EForm eform = new EForm();
-            eform.setId(1);
+            ReflectionTestUtils.setField(eform, "id", 1);
             eform.setFormName("Referral Form");
             eform.setSubject("Specialist Referral");
 
