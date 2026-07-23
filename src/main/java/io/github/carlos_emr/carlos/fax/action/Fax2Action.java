@@ -373,7 +373,7 @@ public class Fax2Action extends ActionSupport {
             // A resolved job binds the file to a queued fax this user is permitted to see
             // (getFaxJob already gated on _fax read); when the job also carries a demographic
             // (set from the queue params by createFaxJob), enforce circle-of-care access the same
-            // way validateFaxInputs does for the send path (:164), so _fax-read alone cannot expose
+            // way validateFaxInputs does for the send path, so _fax-read alone cannot expose
             // another provider's patient's queued fax.
             if (faxJob.getDemographicNo() != null
                     && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, faxJob.getDemographicNo())) {

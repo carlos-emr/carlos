@@ -1047,8 +1047,11 @@ public class EFormBrowserPdfService {
      * pattern is inspected; console text is still never logged.
      */
     static boolean isResourceLoadConsoleEntry(String message) {
-        // Anchored to Chrome's own emission (phrase + colon) rather than a bare substring, so a
-        // form's console.error mentioning the words cannot reclassify its JS error as ignorable.
+        // Substring match on Chrome's emission (phrase + colon). Residual risk, mirroring the CSP
+        // matcher below: a form's own console.error that happens to contain the exact phrase is
+        // reclassified as a resource-load entry, suppressing only that form's JS-error signal —
+        // resource failures stay gated type-aware by the network scan and egress stays gated by
+        // the dead proxy plus event replay, so nothing is bypassed.
         return message != null && message.contains("Failed to load resource:");
     }
 

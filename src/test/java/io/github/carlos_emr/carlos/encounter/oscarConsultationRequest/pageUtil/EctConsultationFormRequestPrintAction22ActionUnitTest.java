@@ -101,6 +101,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     private FaxManager faxManager;
 
     private EctConsultationFormRequestPrintAction22Action action;
+    private Object originalStaticFaxManager;
 
     @BeforeEach
     void setUp() {
@@ -143,13 +144,19 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
 
         action = new EctConsultationFormRequestPrintAction22Action();
-        // faxManager is a STATIC field resolved once at class load; override it so this test's mock is
-        // used regardless of when the class was first loaded in the JVM.
+        // faxManager is a STATIC field resolved once at class load; capture the original and
+        // override it so this test's mock is used regardless of when the class was first loaded.
+        // tearDown restores it — a dead mock left on the static field would silently poison any
+        // later test (or production-code path) constructing this action in the same fork.
+        originalStaticFaxManager = ReflectionTestUtils.getField(
+                EctConsultationFormRequestPrintAction22Action.class, "faxManager");
         ReflectionTestUtils.setField(EctConsultationFormRequestPrintAction22Action.class, "faxManager", faxManager);
     }
 
     @AfterEach
     void tearDown() {
+        ReflectionTestUtils.setField(
+                EctConsultationFormRequestPrintAction22Action.class, "faxManager", originalStaticFaxManager);
         if (consultationPdfCreatorConstruction != null) {
             consultationPdfCreatorConstruction.close();
         }
@@ -221,7 +228,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @Test
     @DisplayName("should return error and name the failing attachment in the wrapped PDFGenerationException when an attached eForm cannot be rendered")
-    void shouldReturnError_withAttachmentNamedException_whenAttachedEformRenderFails() throws Exception {
+    void shouldReturnErrorNamingFailedAttachment_whenAttachedEformRenderFails() throws Exception {
         EFormData eForm = mock(EFormData.class);
         when(eForm.getId()).thenReturn(7);
         when(eForm.getDemographicId()).thenReturn(1);

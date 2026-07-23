@@ -230,9 +230,11 @@ public class FaxManagerImpl implements FaxManager {
      * <b>Filesystem side effects are NOT covered by this transaction.</b> Temp-file promotion
      * (see {@link #createFaxJob}) and cover-page file creation (see {@link #addCoverPage(byte[],
      * Path)}) write directly to disk and are not undone by a JPA rollback. An aborted queue can
-     * therefore leave orphaned files on disk with no corresponding transmittable row; the T16
-     * orphan-file purge and the permanent document store are the intended backstops for those,
-     * not this transaction boundary.
+     * therefore leave orphaned files on disk with no corresponding transmittable row. Temp-side
+     * orphans are swept by {@code ApplicationTempPurgeJob}; a promoted document, and a
+     * {@code Cover_*} file whose concat succeeded before the rollback, land in DOCUMENT_DIR —
+     * which no automated sweep covers — so those are bounded only by {@code addCoverPage}'s
+     * failed-concat cleanup and manual housekeeping, not by any backstop.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")

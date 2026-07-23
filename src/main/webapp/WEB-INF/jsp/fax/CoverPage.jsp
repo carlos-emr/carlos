@@ -489,7 +489,7 @@
             <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
         </c:if>
 
-        <%-- item 22: cancel() no longer redirects (and silently discards the message) when
+        <%-- cancel() no longer redirects (and silently discards the message) when
              faxManager.flush fails to clear the preview cache / temporary file; render the
              failure here instead so the user knows the cleanup (and PHI removal) did not
              complete. --%>
@@ -552,8 +552,8 @@
             .css("background-image", "url('" + ctx + "/images/loader.gif')")
             .css("background-position", "50% 50%")
             .css("background-repeat", "no-repeat")
-            // A user without the _edoc privilege gets a 403 from getPreview for every page image
-            // (item 9): without this handler each broken <img> sits on the page captioned
+            // A user without the _edoc privilege gets a 403 from getPreview for every page image;
+            // without this handler each broken <img> sits on the page captioned
             // "Showing N pages", which reads as a successful preview instead of a degraded one.
             .on("error", function () {
                 $(this).remove();
@@ -613,8 +613,7 @@
                     for (var j = initialCount + 1; j <= pageCount; j++) {
                         appendPreviewImage(previewImages, faxFilePath, j);
                     }
-                    // All pages are now materialized, so the "first N of M" status no longer holds
-                    //.
+                    // All pages are now materialized, so the "first N of M" status no longer holds.
                     previewStatus.text("Showing all " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
                 });
             previewImages.append(showMore);
