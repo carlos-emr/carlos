@@ -26,15 +26,23 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import org.apache.struts2.ActionSupport;
 
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
@@ -48,6 +56,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -155,6 +164,58 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+    }
+
+    @Test
+    @DisplayName("should return NONE after a successful print whose bytes were already streamed")
+    void shouldReturnNone_afterSuccessfulPrintStreaming() throws Exception {
+        // No attachments; ConcatPDF is stubbed inert so the (mock-inert) consultation PDF
+        // concatenates trivially. The direct-response contract requires NONE after streaming —
+        // a named result (or bare null) lets Struts write page content into the committed
+        // binary response.
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(request.getAttribute("printError")).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should return NONE when a stream close fails after a fully successful print")
+    void shouldReturnNone_whenStreamCloseFailsAfterSuccessfulPrint() throws Exception {
+        // A cleanup-only close failure after the PDF bytes were streamed must not flip the
+        // result to "error": Struts would forward an error JSP into the committed binary
+        // response — exactly the direct-response corruption CLAUDE.md forbids.
+        Path attachedForm = Files.createTempFile("consult-print-close-fail-", ".pdf");
+        try {
+            EFormData eForm = mock(EFormData.class);
+            when(eForm.getId()).thenReturn(7);
+            when(eForm.getDemographicId()).thenReturn(1);
+            when(eForm.getFormName()).thenReturn("Diabetes Flow Sheet");
+            when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eForm));
+            when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1))
+                    .thenReturn(attachedForm);
+
+            InputStream closeThrowingStream = new ByteArrayInputStream(new byte[0]) {
+                @Override
+                public void close() throws IOException {
+                    throw new IOException("close failed");
+                }
+            };
+
+            try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+                 MockedStatic<Files> filesMock = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+                filesMock.when(() -> Files.newInputStream(attachedForm)).thenReturn(closeThrowingStream);
+
+                String result = action.execute();
+
+                assertThat(result).isEqualTo(ActionSupport.NONE);
+                assertThat(request.getAttribute("printError")).isNull();
+            }
+        } finally {
+            Files.deleteIfExists(attachedForm);
         }
     }
 

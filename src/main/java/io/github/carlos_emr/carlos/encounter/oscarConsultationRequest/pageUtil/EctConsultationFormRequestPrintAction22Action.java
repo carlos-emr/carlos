@@ -303,12 +303,15 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } catch (ServletException e) {
             throw new RuntimeException(e);
         } finally {
-            // Cleaning up InputStreams created for concatenation.
+            // Cleaning up InputStreams created for concatenation. A close failure here is
+            // cleanup-only: the response bytes are already written (or the real failure was
+            // captured above), so it must never flip a successful print to the "error" result —
+            // Struts would forward an error JSP into the committed binary response.
             for (InputStream is : streams) {
                 try {
                     is.close();
                 } catch (IOException e) {
-                    error = "IOException";
+                    logger.warn("Failed to close attachment stream after consultation print", e);
                 }
             }
         }
@@ -317,7 +320,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         }
-        return null;
+        // Direct-response contract: the PDF bytes were streamed above; NONE (never a named
+        // result or bare null) stops Struts from resolving a view into the binary response.
+        return NONE;
 
     }
 }
