@@ -244,6 +244,24 @@ def clear_portal_session_cookie(response: Response, *, settings: Settings) -> No
     )
 
 
+def logout_browser_session_cookie_token(
+    session: Session,
+    *,
+    session_token: str | None,
+    token_secret: str,
+) -> None:
+    if session_token is None:
+        return
+    try:
+        logout_patient_session(
+            session,
+            session_token=session_token,
+            token_secret=token_secret,
+        )
+    except (PortalSessionInvalidError, ValueError):
+        return
+
+
 def is_portal_path(path: str) -> bool:
     return path == PORTAL_SESSION_COOKIE_PATH or path.startswith(
         f"{PORTAL_SESSION_COOKIE_PATH}/"
@@ -1216,16 +1234,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
             raise HTTPException(status_code=403, detail="logout could not be completed")
 
-        session_token = request.cookies.get(PORTAL_SESSION_COOKIE_NAME)
-        if session_token is not None:
-            try:
-                logout_patient_session(
-                    session,
-                    session_token=session_token,
-                    token_secret=csrf_secret,
-                )
-            except (PortalSessionInvalidError, ValueError):
-                pass
+        logout_browser_session_cookie_token(
+            session,
+            session_token=request.cookies.get(PORTAL_SESSION_COOKIE_NAME),
+            token_secret=csrf_secret,
+        )
         clear_portal_session_cookie(response, settings=settings)
         return response
 

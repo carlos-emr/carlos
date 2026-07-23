@@ -17,6 +17,8 @@ dependencies = [
   "jinja2>=3.1,<4",
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.6,<3",
+  # CFFI accepts 2.x; keep this parser dependency on a reviewed major version.
+  "pycparser>=2.23,<3",
   "sqlalchemy>=2.0,<3",
   "uvicorn[standard]>=0.32,<1",
 ]

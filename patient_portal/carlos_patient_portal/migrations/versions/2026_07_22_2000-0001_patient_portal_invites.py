@@ -10,10 +10,13 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0001_patient_portal_invites"
-down_revision: str | None = None
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+_ALEMBIC_REVISION_IDENTIFIERS: dict[str, str | Sequence[str] | None] = {
+    "revision": "0001_patient_portal_invites",
+    "down_revision": None,
+    "branch_labels": None,
+    "depends_on": None,
+}
+globals().update(_ALEMBIC_REVISION_IDENTIFIERS)
 
 
 def upgrade() -> None:

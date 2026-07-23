@@ -679,6 +679,42 @@ def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
         assert logout_event is None
 
 
+def test_portal_logout_clears_invalid_session_cookie() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    dashboard_response = client.get("/portal")
+    match = CSRF_TOKEN_PATTERN.search(dashboard_response.text)
+    assert match is not None
+    with app.state.session_factory() as session:
+        portal_session = session.scalar(
+            select(PatientPortalSession).where(PatientPortalSession.account_id == account_id)
+        )
+        assert portal_session is not None
+        portal_session.revoked_at = utc_now()
+        portal_session.revoked_reason = "test"
+        session.commit()
+
+    response = client.post(
+        "/portal/logout",
+        data={"csrf_token": match.group(1)},
+        follow_redirects=False,
+    )
+    set_cookie_header = response.headers.get("set-cookie", "")
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert f"{main.PORTAL_SESSION_COOKIE_NAME}=" in set_cookie_header
+    assert "Max-Age=0" in set_cookie_header
+    with app.state.session_factory() as session:
+        logout_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_SESSION_LOGOUT
+            )
+        )
+        assert logout_event is None
+
+
 def test_dashboard_clears_invalid_session_cookie() -> None:
     app = migrated_development_app()
     client = TestClient(app)
@@ -2275,10 +2311,14 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     with session_factory() as session:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
-    with pytest.raises(RuntimeError, match="force rollback"):
+    try:
         with session_scope(session_factory) as session:
             create_service_invite(session, 5678, "Dr example")
             raise RuntimeError("force rollback")
+    except RuntimeError as exc:
+        assert str(exc) == "force rollback"
+    else:
+        pytest.fail("expected rollback failure")
 
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
