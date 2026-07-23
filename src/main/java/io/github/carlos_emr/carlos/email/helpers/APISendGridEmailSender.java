@@ -80,6 +80,7 @@ public class APISendGridEmailSender {
     private String additionalParams;
     private List<EmailAttachment> attachments;
     private byte[] preparedPayloadBytes;
+    private SendGridConfigDetails preparedConfigDetails;
 
     /**
      * Private no-argument constructor to prevent instantiation without required parameters.
@@ -186,8 +187,9 @@ public class APISendGridEmailSender {
     public byte[] preparePayloadBytes() throws EmailSendingException {
         requireEmailWritePrivilege();
         // Validate transport credentials and endpoint up front so an archive-first caller fails
-        // before writing a durable eDoc for an email that could never have been sent.
-        readConfigDetails();
+        // before writing a durable eDoc for an email that could never have been sent. The parsed
+        // details are cached and reused by sendPreparedPayload() to avoid re-parsing the config.
+        preparedConfigDetails = readConfigDetails();
 
         preparedPayloadBytes = createEmailJSON().getBytes(StandardCharsets.UTF_8);
         return preparedPayloadBytes.clone();
@@ -200,7 +202,7 @@ public class APISendGridEmailSender {
         }
 
         try {
-            SendGridConfigDetails configDetails = readConfigDetails();
+            SendGridConfigDetails configDetails = preparedConfigDetails != null ? preparedConfigDetails : readConfigDetails();
             SSLContext sslContext = SSLContexts.custom().build();
 
             HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
@@ -361,6 +363,8 @@ public class APISendGridEmailSender {
         return new SendGridConfigDetails(apiKeyNode.asText().trim(), requireHttpsEndpoint(endpoint, senderEmail));
     }
 
+    // IMPROPER_UNICODE: intended case-insensitive comparison of a URI scheme against the ASCII literal "https"; URI schemes are ASCII by RFC 3986 and case-insensitive, so no Unicode case-folding risk.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "intended case-insensitive comparison of an ASCII URI scheme against the literal \"https\"; RFC 3986 schemes are ASCII and case-insensitive")
     private String requireHttpsEndpoint(String endpoint, String senderEmail) throws EmailSendingException {
         try {
             URI endpointUri = URI.create(endpoint);
