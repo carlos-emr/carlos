@@ -220,10 +220,10 @@ public class APISendGridEmailSender {
                 httpPost.setEntity(entity);
                 try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
                     if (response.getCode() >= 400) {
-                        // Do not include the provider response body: it can echo recipient addresses or
-                        // other PHI, and this message is persisted to EmailLog.errorMessage. Status only.
-                        throw new EmailSendingException("SendGrid API request failed with status "
-                                + response.getCode() + " " + response.getReasonPhrase());
+                        // Status code only: the response body and reason phrase are provider-supplied
+                        // text that can echo recipient addresses or other PHI, and this message is
+                        // persisted to EmailLog.errorMessage.
+                        throw new EmailSendingException("SendGrid API request failed with status " + response.getCode());
                     }
                 }
             }
