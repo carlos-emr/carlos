@@ -85,6 +85,11 @@ public class EFormBrowserRendererStartupValidator {
             return;
         }
         try {
+            // Cheap config-format validation first: a malformed eform_pdf_browser_base_url is as
+            // much a known renderer fault as a missing browser, and required mode is fail-at-deploy
+            // for both. (Connectivity to the app's own origin cannot be probed here — Tomcat is
+            // not serving yet — so this validates format, and the launch probe validates the browser.)
+            eFormBrowserPdfService.verifyConfiguredBaseUrl();
             eFormBrowserPdfService.verifyRendererReady();
             logger.info("eForm browser renderer startup check passed.");
         } catch (PDFGenerationException e) {

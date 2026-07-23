@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -113,6 +114,36 @@ class EFormBrowserRendererStartupValidatorUnitTest {
 
         assertThatCode(validator::verifyRendererReadyOrFailStartup).doesNotThrowAnyException();
         verifyNoInteractions(service);
+    }
+
+    @Test
+    @DisplayName("should fail webapp startup when the configured base URL is invalid in required mode")
+    void shouldThrowIllegalState_whenConfiguredBaseUrlInvalidRequiredMode() throws PDFGenerationException {
+        // required mode is fail-at-deploy for every known renderer fault: a malformed
+        // eform_pdf_browser_base_url must refuse deployment, not fail at first fax.
+        properties.remove(STARTUP_CHECK_PROPERTY);
+        EFormBrowserPdfService service = mock(EFormBrowserPdfService.class);
+        doThrow(new PDFGenerationException("The configured eform_pdf_browser_base_url is invalid"))
+                .when(service).verifyConfiguredBaseUrl();
+
+        EFormBrowserRendererStartupValidator validator = new EFormBrowserRendererStartupValidator(service);
+
+        assertThatThrownBy(validator::verifyRendererReadyOrFailStartup)
+                .isInstanceOf(IllegalStateException.class);
+        // Config validation runs before the (slower) browser launch probe.
+        verify(service, never()).verifyRendererReady();
+    }
+
+    @Test
+    @DisplayName("should log and continue when the configured base URL is invalid in warn mode")
+    void shouldContinue_whenConfiguredBaseUrlInvalidWarnMode() throws PDFGenerationException {
+        properties.setProperty(STARTUP_CHECK_PROPERTY, "warn");
+        EFormBrowserPdfService service = mock(EFormBrowserPdfService.class);
+        doThrow(new PDFGenerationException("bad base url")).when(service).verifyConfiguredBaseUrl();
+
+        EFormBrowserRendererStartupValidator validator = new EFormBrowserRendererStartupValidator(service);
+
+        assertThatCode(validator::verifyRendererReadyOrFailStartup).doesNotThrowAnyException();
     }
 
     @Test

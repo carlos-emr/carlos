@@ -1339,7 +1339,33 @@ public class EFormBrowserPdfService {
         if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
             throw new IllegalArgumentException("Renderer base URL host must resolve to loopback");
         }
+        if (uri.getRawUserInfo() != null || uri.getRawQuery() != null || uri.getRawFragment() != null) {
+            // Servlet paths are appended verbatim to this base; a query/fragment would swallow
+            // them and fail every render far from the misconfiguration. Reject at the source.
+            throw new IllegalArgumentException("Renderer base URL must not contain user-info, query, or fragment components");
+        }
         return rawBaseUrl.trim().replaceAll("/$", "");
+    }
+
+    /**
+     * Startup-time format validation of {@code eform_pdf_browser_base_url}. A no-op when the
+     * property is unset (request-derived URLs cannot be validated before Tomcat serves). Lets the
+     * required-mode startup gate refuse to deploy on a malformed configured base URL — the
+     * deployment decision for that gate is fail-at-deploy, never fail-at-first-fax.
+     *
+     * @throws PDFGenerationException when the configured value fails
+     *         {@link #validateRendererBaseUrl}; the message names the property
+     */
+    void verifyConfiguredBaseUrl() throws PDFGenerationException {
+        String configured = CarlosProperties.getInstance().getProperty(BASE_URL_PROPERTY);
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        try {
+            validateRendererBaseUrl(configured);
+        } catch (IllegalArgumentException e) {
+            throw new PDFGenerationException("The configured " + BASE_URL_PROPERTY + " is invalid: " + e.getMessage());
+        }
     }
 
     static String validateRendererAppPath(String appPath) {

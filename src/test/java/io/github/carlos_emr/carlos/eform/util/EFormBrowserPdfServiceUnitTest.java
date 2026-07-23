@@ -314,6 +314,25 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a base URL carrying user-info, query, or fragment components")
+    void shouldRejectBaseUrl_withUserInfoQueryOrFragment() {
+        // Servlet paths are appended verbatim to the base; a query/fragment would swallow them
+        // and fail every render far from the misconfiguration.
+        assertThatThrownBy(() -> EFormBrowserPdfService.validateRendererBaseUrl("http://127.0.0.1:8080/carlos?x=1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("user-info, query, or fragment");
+        assertThatThrownBy(() -> EFormBrowserPdfService.validateRendererBaseUrl("http://127.0.0.1/carlos#frag"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("user-info, query, or fragment");
+        assertThatThrownBy(() -> EFormBrowserPdfService.validateRendererBaseUrl("http://user:pass@127.0.0.1/carlos"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("user-info, query, or fragment");
+        // The path component (the context path) must stay allowed.
+        assertThat(EFormBrowserPdfService.validateRendererBaseUrl("http://127.0.0.1:8080/carlos"))
+                .isEqualTo("http://127.0.0.1:8080/carlos");
+    }
+
+    @Test
     @DisplayName("should detect PDF magic bytes for the rendered output gate")
     void shouldDetectPdfMagicBytes_forRenderedOutputGate(@TempDir Path dir) throws IOException {
         Path pdf = dir.resolve("ok.pdf");
