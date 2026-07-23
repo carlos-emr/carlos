@@ -29,6 +29,9 @@ import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mockStatic;
+/**
+ * Unit test verifying functionality and logic for DroolsShutdownResourcesUnitTest in CARLOS EMR system.
+ */
 
 @Tag("unit")
 class DroolsShutdownResourcesUnitTest extends CarlosUnitTestBase {

@@ -21,6 +21,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+/**
+ * Unit test verifying functionality and logic for ViewTabletSignature2ActionTest in CARLOS EMR system.
+ */
 
 @DisplayName("ViewTabletSignature2Action Unit Tests")
 @Tag("unit")

@@ -34,6 +34,9 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+/**
+ * Unit test verifying functionality and logic for BillingOnJspRoutingTest in CARLOS EMR system.
+ */
 
 @DisplayName("Billing Ontario JSP Routing Unit Tests")
 @Tag("unit")
@@ -116,6 +119,8 @@ class BillingOnJspRoutingTest {
     }
 
     private String readJspContent(Path path) throws IOException {
+        /* Performs the primary logic and validation associated with the readJspContent operation for BillingOnJspRoutingTest */
+
         return Files.readString(path, StandardCharsets.UTF_8);
     }
 }

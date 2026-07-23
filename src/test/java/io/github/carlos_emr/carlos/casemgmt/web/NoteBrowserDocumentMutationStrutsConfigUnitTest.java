@@ -37,6 +37,9 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Unit test verifying functionality and logic for NoteBrowserDocumentMutationStrutsConfigUnitTest in CARLOS EMR system.
+ */
 
 @DisplayName("noteBrowser document mutation Struts config")
 @Tag("unit")
@@ -85,6 +88,8 @@ class NoteBrowserDocumentMutationStrutsConfigUnitTest {
     }
 
     private Element findAction(Document doc, String actionName) {
+        /* Performs the primary logic and validation associated with the findAction operation for NoteBrowserDocumentMutationStrutsConfigUnitTest */
+
         NodeList actions = doc.getElementsByTagName("action");
         for (int i = 0; i < actions.getLength(); i++) {
             Element action = (Element) actions.item(i);

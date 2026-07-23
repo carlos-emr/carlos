@@ -32,6 +32,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletResponse;
+/**
+ * Validates JSON serialization and response writing logic for API endpoints.
+ */
 
 @DisplayName("JsonResponseWriter")
 @Tag("unit")

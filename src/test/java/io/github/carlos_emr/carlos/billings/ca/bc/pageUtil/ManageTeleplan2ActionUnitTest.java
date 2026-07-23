@@ -46,6 +46,9 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+/**
+ * Validates the action logic for managing and configuring Teleplan billing settings.
+ */
 
 @DisplayName("ManageTeleplan2Action method guard")
 @Tag("unit")

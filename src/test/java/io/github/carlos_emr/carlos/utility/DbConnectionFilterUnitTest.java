@@ -19,6 +19,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+/**
+ * Tests database connection lifecycle management and filtering logic.
+ */
 
 @Tag("unit")
 class DbConnectionFilterUnitTest extends CarlosUnitTestBase {
@@ -112,6 +115,8 @@ class DbConnectionFilterUnitTest extends CarlosUnitTestBase {
 
     @SuppressWarnings("unchecked")
     private Set<Connection> trackedConnections() throws Exception {
+        /* Performs the primary logic and validation associated with the trackedConnections operation for DbConnectionFilterUnitTest */
+
         Field field = DbConnectionFilter.class.getDeclaredField("trackedConnections");
         field.setAccessible(true);
         return (Set<Connection>) field.get(null);

@@ -32,6 +32,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Unit test verifying functionality and logic for StrutsActionClassReferenceTest in CARLOS EMR system.
+ */
 
 @DisplayName("Struts action class reference Tests")
 @Tag("unit")
@@ -62,6 +65,8 @@ class StrutsActionClassReferenceTest {
     }
 
     private List<Path> strutsConfigPaths() throws Exception {
+        /* Performs the primary logic and validation associated with the strutsConfigPaths operation for StrutsActionClassReferenceTest */
+
         try (Stream<Path> paths = Files.list(STRUTS_CONFIG_DIR)) {
             return paths
                     // CARLOS Struts modules use lowercase alphabetic names:

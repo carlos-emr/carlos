@@ -36,6 +36,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+/**
+ * Unit tests for the tracking data source configuration and pooling.
+ */
 
 @Tag("unit")
 class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
@@ -78,6 +81,8 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
     }
 
     private Connection track(Connection delegate) throws Exception {
+        /* Performs the primary logic and validation associated with the track operation for OscarTrackingBasicDataSourceUnitTest */
+
         Method trackConnection = OscarTrackingBasicDataSource.class
                 .getDeclaredMethod("trackConnection", Connection.class);
         trackConnection.setAccessible(true);

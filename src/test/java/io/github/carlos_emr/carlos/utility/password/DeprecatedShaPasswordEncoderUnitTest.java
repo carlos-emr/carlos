@@ -27,6 +27,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+/**
+ * Tests legacy password encoding logic for backward compatibility.
+ */
 
 @DisplayName("Deprecated SHA password encoder")
 @Tag("unit")

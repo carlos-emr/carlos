@@ -18,6 +18,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+/**
+ * Unit test verifying functionality and logic for DBPreparedHandlerParamUnitTest in CARLOS EMR system.
+ */
 
 @Tag("unit")
 @Tag("database")

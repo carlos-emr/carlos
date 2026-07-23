@@ -38,6 +38,9 @@ import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+/**
+ * Unit test verifying functionality and logic for PreventionPrint2ActionTest in CARLOS EMR system.
+ */
 
 @DisplayName("PreventionPrint2Action Unit Tests")
 @Tag("unit")

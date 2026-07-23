@@ -29,6 +29,9 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+/**
+ * Unit test verifying functionality and logic for OscarSessionListenerLoggingUnitTest in CARLOS EMR system.
+ */
 
 @Tag("unit")
 @Tag("security")

@@ -45,6 +45,9 @@ import org.xml.sax.InputSource;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+/**
+ * Unit test verifying functionality and logic for StrutsBillingConfigTest in CARLOS EMR system.
+ */
 
 @DisplayName("Struts billing config Tests")
 @Tag("unit")
@@ -99,6 +102,8 @@ class StrutsBillingConfigTest {
     }
 
     private Map<String, String> collectExceptionMappings() throws Exception {
+        /* Performs the primary logic and validation associated with the collectExceptionMappings operation for StrutsBillingConfigTest */
+
         Document doc = parse(STRUTS_BILLING_XML);
         NodeList mappings = doc.getElementsByTagName("exception-mapping");
         Map<String, String> out = new LinkedHashMap<>();

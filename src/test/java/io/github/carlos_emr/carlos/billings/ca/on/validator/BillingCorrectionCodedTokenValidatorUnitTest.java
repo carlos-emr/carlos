@@ -30,6 +30,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+/**
+ * Unit tests for validating coded tokens during billing corrections.
+ */
 
 @DisplayName("BillingCorrectionCodedTokenValidator")
 @Tag("unit")

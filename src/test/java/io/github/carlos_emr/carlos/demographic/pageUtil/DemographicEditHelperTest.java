@@ -31,6 +31,9 @@ import org.junit.jupiter.api.Test;
 import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Tests helper utilities for modifying and validating demographic records.
+ */
 
 @DisplayName("DemographicEditHelper Tests")
 @Tag("unit")

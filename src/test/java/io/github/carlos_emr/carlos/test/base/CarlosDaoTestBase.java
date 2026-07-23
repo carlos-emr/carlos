@@ -51,6 +51,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
     "test.db.schema.auto=create",
     "test.db.data.auto=false"
 })
+/**
+ * Base class providing common setup and utilities for DAO layer integration tests.
+ */
 public abstract class CarlosDaoTestBase extends CarlosTestBase {
 
     @Autowired
@@ -67,6 +70,8 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
      * Override this to specify tables that shouldn't be cleared
      */
     protected String[] preservedTables() {
+        /* Performs the primary logic and validation associated with the preservedTables operation for CarlosDaoTestBase */
+
         return new String[] {
             "issue", "issueGroup", "secRole", "secObjPrivilege",
             "LookupList", "LookupListItem", "measurementType", "measurementGroup"

@@ -52,6 +52,9 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+/**
+ * Unit test verifying functionality and logic for ClientImage2ActionTest in CARLOS EMR system.
+ */
 
 @DisplayName("ClientImage2Action Unit Tests")
 @Tag("unit")

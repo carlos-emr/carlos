@@ -43,6 +43,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+/**
+ * Integration tests for the main disease research query and extraction workflow.
+ */
 
 @DisplayName("DxResearch2Action Unit Tests")
 @Tag("unit")

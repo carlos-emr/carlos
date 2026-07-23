@@ -75,6 +75,9 @@ import java.lang.reflect.Field;
 @ContextConfiguration(locations = {
     "classpath:test-context-full.xml"
 })
+/**
+ * Core base class offering shared configurations for integration test execution.
+ */
 @WebAppConfiguration
 @Transactional
 @Rollback
@@ -128,6 +131,8 @@ public abstract class CarlosTestBase {
      */
     @BeforeAll
     public static void initializeSpringUtils() {
+        /* Performs the primary logic and validation associated with the initializeSpringUtils operation for CarlosTestBase */
+
         if (!springUtilsInitialized && staticContext != null) {
             try {
                 // Use reflection to set the private static beanFactory in SpringUtils

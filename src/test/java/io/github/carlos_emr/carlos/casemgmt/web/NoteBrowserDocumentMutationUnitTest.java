@@ -39,6 +39,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+/**
+ * Unit test verifying functionality and logic for NoteBrowserDocumentMutationUnitTest in CARLOS EMR system.
+ */
 
 @DisplayName("NoteBrowser document mutation action unit tests")
 @Tag("unit")
@@ -58,6 +61,8 @@ class NoteBrowserDocumentMutationUnitTest extends CarlosUnitTestBase {
         final List<String> deleted = new ArrayList<>();
         boolean fail;
         @Override protected void deleteDocument(String docNo) throws DocumentMutationException {
+        /* Performs the primary logic and validation associated with the deleteDocument operation for NoteBrowserDocumentMutationUnitTest */
+
             if (fail) {
                 throw new DocumentMutationException(new IllegalStateException("simulated delete failure"));
             }

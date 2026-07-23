@@ -30,6 +30,9 @@ import java.nio.file.Path;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Unit test verifying functionality and logic for NoteBrowserJspSecurityRegressionTest in CARLOS EMR system.
+ */
 
 @DisplayName("noteBrowser JSP security regression tests")
 @Tag("unit")
@@ -62,6 +65,8 @@ class NoteBrowserJspSecurityRegressionTest {
     }
 
     private void assertMutationFunctionPostsTo(String jsp, String functionName, String actionPath) {
+        /* Performs the primary logic and validation associated with the assertMutationFunctionPostsTo operation for NoteBrowserJspSecurityRegressionTest */
+
         Pattern mutationPostPattern = Pattern.compile(
                 "function\\s+" + Pattern.quote(functionName) + "\\s*\\(\\)\\s*\\{"
                         + "(?s:.*?)document\\.DisplayDoc\\.action\\s*=\\s*'[^']*"

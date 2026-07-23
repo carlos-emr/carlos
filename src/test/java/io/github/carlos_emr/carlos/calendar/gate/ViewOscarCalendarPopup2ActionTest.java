@@ -20,6 +20,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+/**
+ * Integration tests for the calendar popup view action in the scheduling module.
+ */
 
 @DisplayName("ViewOscarCalendarPopup2Action Unit Tests")
 @Tag("unit")

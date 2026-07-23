@@ -36,6 +36,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Unit test verifying functionality and logic for UploadActionBindingSecurityUnitTest in CARLOS EMR system.
+ */
 
 @DisplayName("upload action binding security")
 @Tag("unit")
@@ -87,6 +90,8 @@ class UploadActionBindingSecurityUnitTest {
     }
 
     private static Stream<String> multipartUploadActionSources() {
+        /* Performs the primary logic and validation associated with the multipartUploadActionSources operation for UploadActionBindingSecurityUnitTest */
+
         return Stream.of(
                 "src/main/java/io/github/carlos_emr/carlos/admin/web/ManageFlowsheetsUpload2Action.java",
                 "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingDocumentErrorReportUpload2Action.java",

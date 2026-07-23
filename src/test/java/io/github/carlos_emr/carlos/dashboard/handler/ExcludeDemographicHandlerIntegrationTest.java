@@ -58,6 +58,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @Disabled("Production code issue: ExcludeDemographicHandler constructor calls SpringUtils.getBean(DemographicExtDao.class) " +
         "which returns a mock in test context. The handler needs a real DemographicExtDao to persist/query exclusions. " +
         "Also, Demographic entity has many short VARCHAR columns that EntityDataGenerator overflows.")
+/**
+ * Integration tests for excluding specific demographic records from processing.
+ */
 @Tag("integration")
 @Tag("dashboard")
 @DisplayName("ExcludeDemographicHandler integration tests")

@@ -27,6 +27,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+/**
+ * Unit test verifying functionality and logic for ViewOntarioMDRedirect2ActionTest in CARLOS EMR system.
+ */
 
 @DisplayName("ViewOntarioMDRedirect2Action Unit Tests")
 @Tag("unit")

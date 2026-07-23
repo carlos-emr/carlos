@@ -54,6 +54,9 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+/**
+ * Unit test verifying functionality and logic for UploadActionCallbackValidationUnitTest in CARLOS EMR system.
+ */
 
 @DisplayName("upload action callback validation")
 @Tag("unit")
@@ -184,6 +187,8 @@ class UploadActionCallbackValidationUnitTest extends CarlosUnitTestBase {
     }
 
     private static UploadedFile uploadedFile(Object content, String originalName, String contentType) {
+        /* Performs the primary logic and validation associated with the uploadedFile operation for UploadActionCallbackValidationUnitTest */
+
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getContent()).thenReturn(content);
         when(uploadedFile.getOriginalName()).thenReturn(originalName);

@@ -36,6 +36,9 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+/**
+ * Unit tests for verifying document upload servlet functionality and validation.
+ */
 
 @DisplayName("DocumentUploadServlet authorization")
 @Tag("unit")
@@ -151,6 +154,8 @@ class DocumentUploadServletUnitTest extends CarlosUnitTestBase {
     }
 
     private static void restoreProperty(String key, String previousValue) {
+        /* Performs the primary logic and validation associated with the restoreProperty operation for DocumentUploadServletUnitTest */
+
         if (previousValue == null) {
             CarlosProperties.getInstance().remove(key);
         } else {

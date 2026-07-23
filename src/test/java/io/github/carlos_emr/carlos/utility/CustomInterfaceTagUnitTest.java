@@ -27,6 +27,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Validates the rendering and conditional logic of custom JSP interface tags.
+ */
 
 @DisplayName("CustomInterfaceTag")
 @Tag("unit")

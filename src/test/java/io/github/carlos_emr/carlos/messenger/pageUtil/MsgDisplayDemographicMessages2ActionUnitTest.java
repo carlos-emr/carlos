@@ -24,6 +24,9 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+/**
+ * Unit test verifying functionality and logic for MsgDisplayDemographicMessages2ActionUnitTest in CARLOS EMR system.
+ */
 
 @Tag("unit")
 @Tag("security")

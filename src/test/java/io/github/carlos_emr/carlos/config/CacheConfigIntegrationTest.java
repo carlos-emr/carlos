@@ -56,6 +56,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 // safety tests below can drive transaction boundaries explicitly through TransactionTemplate.
 // TransactionAwareCacheManagerProxy only fires afterCommit hooks when a real transaction
 // commits, so tests must manage their own commits rather than relying on the test-wide rollback.
+/**
+ * Unit test verifying functionality and logic for CacheConfigIntegrationTest in CARLOS EMR system.
+ */
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class CacheConfigIntegrationTest extends CarlosTestBase {
 
@@ -99,6 +102,8 @@ class CacheConfigIntegrationTest extends CarlosTestBase {
     }
 
     private TransactionTemplate requiresNewTx() {
+        /* Performs the primary logic and validation associated with the requiresNewTx operation for CacheConfigIntegrationTest */
+
         if (requiresNewTx == null) {
             requiresNewTx = new TransactionTemplate(transactionManager);
             requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);

@@ -39,6 +39,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+/**
+ * Validates the loading of data associations for disease research tools.
+ */
 
 @DisplayName("DxResearchLoadAssociations2Action Unit Tests")
 @Tag("unit")

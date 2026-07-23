@@ -11,6 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Validates HTTP content negotiation and request parsing utilities.
+ */
 
 @Tag("unit")
 class RequestNegotiationUnitTest {

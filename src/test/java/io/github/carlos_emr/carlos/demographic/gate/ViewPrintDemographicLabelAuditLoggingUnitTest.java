@@ -46,6 +46,9 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
+/**
+ * Validates audit logging functionality during demographic label printing.
+ */
 
 @DisplayName("View print demographic label audit logging")
 @Tag("unit")
@@ -118,6 +121,8 @@ class ViewPrintDemographicLabelAuditLoggingUnitTest extends CarlosUnitTestBase {
     }
 
     private String execute(ActionSupport action) throws Exception {
+        /* Performs the main execution workflow for the ViewPrintDemographicLabelAuditLoggingUnitTest action */
+
         String result = action.execute();
         logActionMock.verify(() -> LogAction.addLog(
                 PROVIDER_NO,

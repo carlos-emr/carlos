@@ -28,6 +28,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Unit tests validating HTML generation and formatting for Teleplan billing integration.
+ */
 
 @DisplayName("HtmlTeleplanHelper")
 @Tag("unit")

@@ -21,6 +21,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+/**
+ * Tests the view rendering logic for the shared clinical outcomes dashboard.
+ */
 
 @DisplayName("ViewSharedOutcomesDashboard2Action Unit Tests")
 @Tag("unit")

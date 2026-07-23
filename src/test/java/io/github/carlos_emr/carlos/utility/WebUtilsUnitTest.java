@@ -27,6 +27,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
+/**
+ * Validates miscellaneous web request utilities and session helpers.
+ */
 
 @DisplayName("WebUtils")
 @Tag("unit")
