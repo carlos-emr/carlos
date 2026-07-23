@@ -158,6 +158,8 @@ heuristic.
   embedded in it), and counters. URLs inside WebDriver error messages are redacted before logging,
   and the raw WebDriver exception is **not** propagated as the failure cause (only a redacted
   message is), so a downstream handler that logs the throwable cannot re-emit an unredacted URL.
+  This covers render-path failures **and** browser launch failures alike; the redacted
+  `Chromium startup failure detail` log line is the diagnostic record for the latter.
 
 ### Security operations note
 

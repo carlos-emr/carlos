@@ -314,6 +314,21 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should never chain a raw WebDriver cause into the Chromium startup failure")
+    void shouldNotChainRawWebDriverCause_intoChromiumStartupFailure() {
+        // The raw WebDriver throwable can embed local filesystem paths; a downstream handler
+        // that logs the chain would re-emit them unredacted. createDriver's catch throws this
+        // factory's exception, so pinning cause-lessness here pins the PHI-safe logging contract
+        // against a well-meaning future "preserve the cause for debugging" edit.
+        assertThat(EFormBrowserPdfService.chromiumStartupFailure(false))
+                .hasNoCause()
+                .hasMessageContaining("sandboxed");
+        assertThat(EFormBrowserPdfService.chromiumStartupFailure(true))
+                .hasNoCause()
+                .hasMessageContaining("Chromium renderer");
+    }
+
+    @Test
     @DisplayName("should scope the proxy bypass to the application's own loopback port")
     void shouldScopeProxyBypass_toApplicationLoopbackPort() {
         assertThat(EFormBrowserPdfService.proxyBypassListFor("http://127.0.0.1:8080"))

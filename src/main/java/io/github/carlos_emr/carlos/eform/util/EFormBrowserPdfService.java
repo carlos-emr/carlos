@@ -760,26 +760,37 @@ public class EFormBrowserPdfService {
             // The driver owns its internal default service here, so there is none to hold.
             return new RendererBrowser(new ChromeDriver(options, rendererClientConfig()), null);
         } catch (RuntimeException e) {
-            // The underlying startup failure (a version mismatch, a missing shared library, a sandbox
-            // that cannot start) is otherwise invisible: it is deliberately NOT chained into the
-            // PDFGenerationException below (a downstream logger could re-emit a path embedded in its
-            // message). Log the type, redacted message, and a frame-only stack summary here so an
-            // operator can actually diagnose the failure instead of seeing only the generic advice.
+            // The redacted detail line below is the ONLY place the underlying startup failure (a
+            // version mismatch, a missing shared library, a sandbox that cannot start) surfaces:
+            // it is deliberately NOT chained into the PDFGenerationException (a downstream logger
+            // that logs the throwable could re-emit a path embedded in its message), matching the
+            // render path and verifyRendererReady. Log the type, redacted message, and a
+            // frame-only stack summary here so an operator can actually diagnose the failure.
             logger.error("Chromium startup failure detail: type={} error={} at={}",
                     e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
-            if (!allowUnsandboxed()) {
-                // Fail closed: a sandboxed launch that cannot start must not degrade to --no-sandbox
-                // on its own. The message now admits the non-sandbox causes too (bad/missing browser
-                // or driver) so a misconfigured install is not misread as purely a namespace problem.
-                throw new PDFGenerationException(
-                        "Unable to start the sandboxed headless Chromium renderer for eForms. "
-                        + "Common causes: missing or incompatible Chromium/chromedriver, or a kernel "
-                        + "without unprivileged user namespaces. If the browser installation is correct, "
-                        + "enable unprivileged user namespaces and run as a non-root user, or set "
-                        + "EFORM_RENDER_ALLOW_UNSANDBOXED=true only when the container itself provides isolation.", e);
-            }
-            throw new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.", e);
+            throw chromiumStartupFailure(allowUnsandboxed());
         }
+    }
+
+    /**
+     * Builds the operator-facing Chromium launch-failure exception. Never carries a cause: the
+     * raw WebDriver throwable can embed local filesystem paths in its message, and a downstream
+     * handler that logs this exception's chain would re-emit them unredacted — the redacted
+     * "Chromium startup failure detail" log line at the catch site is the diagnostic record.
+     */
+    static PDFGenerationException chromiumStartupFailure(boolean allowUnsandboxed) {
+        if (!allowUnsandboxed) {
+            // Fail closed: a sandboxed launch that cannot start must not degrade to --no-sandbox
+            // on its own. The message admits the non-sandbox causes too (bad/missing browser or
+            // driver) so a misconfigured install is not misread as purely a namespace problem.
+            return new PDFGenerationException(
+                    "Unable to start the sandboxed headless Chromium renderer for eForms. "
+                    + "Common causes: missing or incompatible Chromium/chromedriver, or a kernel "
+                    + "without unprivileged user namespaces. If the browser installation is correct, "
+                    + "enable unprivileged user namespaces and run as a non-root user, or set "
+                    + "EFORM_RENDER_ALLOW_UNSANDBOXED=true only when the container itself provides isolation.");
+        }
+        return new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.");
     }
 
     private static void quitQuietly(ChromeDriver driver) {
