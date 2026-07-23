@@ -519,6 +519,27 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Treats a lost cache-promotion race as the cache hit it is")
+    void shouldTreatLostPromotionRace_asExistingCacheHit(@TempDir Path raceDir) throws IOException {
+        // Two concurrent misses can render the same page; the loser's atomic move finds the
+        // winner's finished file already in place. That is success — the entry exists — never a
+        // failure that surfaces as a broken preview. (POSIX/NTFS renames replace silently; the
+        // FileAlreadyExistsException arm covers filesystems whose atomic move refuses.)
+        Path partial = raceDir.resolve("page_1.png.tmp");
+        Files.write(partial, new byte[] {9, 9, 9, 9});
+        Path winner = raceDir.resolve("page_1.png");
+        Files.write(winner, new byte[] {1, 2, 3});
+
+        // Must not throw: in production both writers rendered the SAME page, so either file is a
+        // valid cache entry. POSIX/NTFS renames replace (destination becomes the partial's 4
+        // bytes); a refusing filesystem keeps the winner's 3. Deleted-or-throwing is the bug.
+        NioFileManagerImpl.promotePartialIntoPlace(partial, winner);
+
+        assertThat(winner).exists();
+        assertThat(Files.size(winner)).isIn(3L, 4L);
+    }
+
+    @Test
     @DisplayName("Uniquifies the promoted document name instead of overwriting an existing document")
     void shouldUniquifyPromotedDocument_whenBasenameCollides() throws IOException {
         Path firstSource = createApplicationTempDirectory("nio-promote-collide-a-");

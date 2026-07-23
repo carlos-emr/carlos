@@ -320,14 +320,7 @@ public class NioFileManagerImpl implements NioFileManager {
                         log.error("Failed to write PNG image to cache file: {}", LogSafe.sanitize(String.valueOf(cacheFilePath)));
                         return null;
                     }
-                    try {
-                        Files.move(partialFile, cacheFilePath, StandardCopyOption.ATOMIC_MOVE);
-                    } catch (AtomicMoveNotSupportedException e) {
-                        // Same-directory rename is atomic on POSIX; this fallback only exists for
-                        // filesystems that cannot promise atomicity, where a brief window is still
-                        // better than always writing in place.
-                        Files.move(partialFile, cacheFilePath, StandardCopyOption.REPLACE_EXISTING);
-                    }
+                    promotePartialIntoPlace(partialFile, cacheFilePath);
                 } finally {
                     Files.deleteIfExists(partialFile);
                 }
@@ -341,6 +334,28 @@ public class NioFileManagerImpl implements NioFileManager {
 
         return cacheFilePath;
 
+    }
+
+    /**
+     * Moves a finished {@code .png.tmp} partial into its final cache path. Package-private for
+     * the promotion-race unit test.
+     *
+     * <p>A concurrent cache miss can render the same page and win the promotion race; its
+     * finished file IS the cache entry, so losing the race is success, not failure. (POSIX and
+     * NTFS renames replace silently, so the {@code FileAlreadyExistsException} arm exists for
+     * filesystems whose atomic move refuses to overwrite.)</p>
+     */
+    static void promotePartialIntoPlace(Path partialFile, Path cacheFilePath) throws IOException {
+        try {
+            Files.move(partialFile, cacheFilePath, StandardCopyOption.ATOMIC_MOVE);
+        } catch (FileAlreadyExistsException e) {
+            // Another writer won; nothing to do — the caller's finally removes our partial.
+        } catch (AtomicMoveNotSupportedException e) {
+            // Same-directory rename is atomic on POSIX; this fallback only exists for
+            // filesystems that cannot promise atomicity, where a brief window is still
+            // better than always writing in place.
+            Files.move(partialFile, cacheFilePath, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     /**
