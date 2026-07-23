@@ -22,6 +22,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
+from carlos_patient_portal.account_settings import (
+    AccountSettingsStepUpError,
+    AccountSettingsValidationError,
+    change_account_password,
+    update_account_contact,
+    update_account_mfa_method,
+)
 from carlos_patient_portal.accounts import (
     ActivationError,
     ActivationRateLimit,
@@ -161,6 +168,13 @@ PORTAL_MODULES = (
     {"slug": "help", "label": "Help", "href": "/portal/help"},
 )
 EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE = DEFAULT_UNLOCK_SECRET_LIST_LIMIT
+ACCOUNT_CHANGE_ERROR_MESSAGE = "Account change could not be completed."
+ACCOUNT_NOTICE_MESSAGES = {
+    "contact-updated": "Contact update sent for staff review.",
+    "mfa-updated": "MFA settings updated.",
+    "no-change": "No account changes.",
+    "password-updated": "Password updated.",
+}
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
 
@@ -488,6 +502,8 @@ def portal_template_context(
     settings: Settings,
     active_module: str,
     csrf_token: str,
+    account_notice: str | None = None,
+    account_error: str | None = None,
     extra_context: dict[str, object] | None = None,
 ) -> dict[str, object]:
     account = authenticated_session.account
@@ -500,6 +516,8 @@ def portal_template_context(
         "active_module": active_module,
         "modules": portal_modules(active_module),
         "csrf_token": csrf_token,
+        "account_notice": account_notice,
+        "account_error": account_error,
     }
     if extra_context is not None:
         context.update(extra_context)
@@ -773,6 +791,10 @@ def first_form_value(form_values: dict[str, list[str]], field_name: str) -> str 
     if not values:
         return None
     return values[0]
+
+
+def first_form_value_or_empty(form_values: dict[str, list[str]], field_name: str) -> str:
+    return first_form_value(form_values, field_name) or ""
 
 
 async def get_login_request_from_request(request: Request, csrf_secret: str) -> LoginRequest:
@@ -1052,6 +1074,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session: Session,
         *,
         active_module: str,
+        status_code: int = status.HTTP_200_OK,
+        account_notice: str | None = None,
+        account_error: str | None = None,
         email_password_search: str | None = None,
         email_password_page: int = 1,
     ) -> Response:
@@ -1081,8 +1106,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 settings=settings,
                 active_module=active_module,
                 csrf_token=csrf_token,
+                account_notice=account_notice,
+                account_error=account_error,
                 extra_context=extra_context,
             ),
+            status_code=status_code,
         )
         set_csrf_cookie(
             response,
@@ -1091,6 +1119,47 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             path=PORTAL_SESSION_COOKIE_PATH,
         )
         return response
+
+    async def get_portal_account_form_values(
+        request: Request,
+        *,
+        csrf_error_detail: str,
+    ) -> dict[str, list[str]]:
+        form_values = await get_urlencoded_form_values(
+            request,
+            MAX_FORM_BODY_BYTES,
+            MAX_FORM_FIELD_COUNT,
+        )
+        csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
+        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+        if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
+            raise HTTPException(status_code=403, detail=csrf_error_detail)
+        return form_values
+
+    def get_portal_cookie_session_or_redirect(
+        request: Request,
+        session: Session,
+    ) -> AuthenticatedPortalSession | RedirectResponse:
+        try:
+            return get_authenticated_portal_cookie_session(request, session)
+        except (PortalSessionInvalidError, ValueError):
+            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+            clear_portal_session_cookie(response, settings=settings)
+            return response
+
+    def render_account_change_error(
+        request: Request,
+        session: Session,
+        *,
+        status_code: int,
+    ) -> Response:
+        return render_portal_page(
+            request,
+            session,
+            active_module="account",
+            status_code=status_code,
+            account_error=ACCOUNT_CHANGE_ERROR_MESSAGE,
+        )
 
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
@@ -1466,8 +1535,134 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def portal_account(
         request: Request,
         session: Annotated[Session, Depends(get_app_database_session)],
+        account_status: Annotated[
+            str | None,
+            Query(alias="status", max_length=32),
+        ] = None,
     ) -> Response:
-        return render_portal_page(request, session, active_module="account")
+        return render_portal_page(
+            request,
+            session,
+            active_module="account",
+            account_notice=ACCOUNT_NOTICE_MESSAGES.get(account_status or ""),
+        )
+
+    @app.post("/portal/account/password")
+    async def portal_account_password(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        form_values = await get_portal_account_form_values(
+            request,
+            csrf_error_detail="password change could not be completed",
+        )
+        authenticated_session = get_portal_cookie_session_or_redirect(request, session)
+        if isinstance(authenticated_session, RedirectResponse):
+            return authenticated_session
+
+        try:
+            change_account_password(
+                session,
+                authenticated_session.account,
+                authenticated_session.portal_session,
+                current_password=first_form_value_or_empty(form_values, "current_password"),
+                new_password=first_form_value_or_empty(form_values, "new_password"),
+            )
+        except AccountSettingsStepUpError:
+            return render_account_change_error(
+                request,
+                session,
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        except (AccountSettingsValidationError, ValueError):
+            return render_account_change_error(
+                request,
+                session,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        return RedirectResponse(
+            "/portal/account?status=password-updated",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @app.post("/portal/account/contact")
+    async def portal_account_contact(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        form_values = await get_portal_account_form_values(
+            request,
+            csrf_error_detail="contact update could not be completed",
+        )
+        authenticated_session = get_portal_cookie_session_or_redirect(request, session)
+        if isinstance(authenticated_session, RedirectResponse):
+            return authenticated_session
+
+        try:
+            review_request = update_account_contact(
+                session,
+                authenticated_session.account,
+                current_password=first_form_value_or_empty(form_values, "current_password"),
+                email=first_form_value_or_empty(form_values, "email"),
+                phone_number=first_form_value(form_values, "phone_number"),
+            )
+        except AccountSettingsStepUpError:
+            return render_account_change_error(
+                request,
+                session,
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        except (AccountSettingsValidationError, ValueError):
+            return render_account_change_error(
+                request,
+                session,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        status_key = "contact-updated" if review_request is not None else "no-change"
+        return RedirectResponse(
+            f"/portal/account?status={status_key}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @app.post("/portal/account/mfa")
+    async def portal_account_mfa(
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> Response:
+        form_values = await get_portal_account_form_values(
+            request,
+            csrf_error_detail="MFA update could not be completed",
+        )
+        authenticated_session = get_portal_cookie_session_or_redirect(request, session)
+        if isinstance(authenticated_session, RedirectResponse):
+            return authenticated_session
+
+        try:
+            update_account_mfa_method(
+                session,
+                authenticated_session.account,
+                current_password=first_form_value_or_empty(form_values, "current_password"),
+                preferred_mfa_method=first_form_value_or_empty(
+                    form_values,
+                    "preferred_mfa_method",
+                ),
+            )
+        except AccountSettingsStepUpError:
+            return render_account_change_error(
+                request,
+                session,
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        except (AccountSettingsValidationError, ValueError):
+            return render_account_change_error(
+                request,
+                session,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        return RedirectResponse(
+            "/portal/account?status=mfa-updated",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     @app.get("/portal/email-passwords")
     def portal_email_passwords(

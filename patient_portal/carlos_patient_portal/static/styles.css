@@ -21,7 +21,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -122,6 +123,12 @@ h1 {
   font-size: 22px;
 }
 
+h2 {
+  margin: 0;
+  color: var(--carlos-blue-dark);
+  font-size: 16px;
+}
+
 .form-stack {
   display: grid;
   gap: 12px;
@@ -136,6 +143,14 @@ h1 {
 }
 
 .form-stack input {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #aeb7c8;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.form-stack select {
   min-height: 34px;
   padding: 6px 8px;
   border: 1px solid #aeb7c8;
@@ -169,6 +184,17 @@ h1 {
   color: #7a1f1f;
   background: #fff1f1;
   border: 1px solid #e3a8a8;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.form-notice {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  color: #17402a;
+  background: #eef9f2;
+  border: 1px solid #a8d8b8;
   border-radius: 4px;
   font-size: 13px;
   line-height: 1.35;
@@ -315,6 +341,28 @@ h1 {
   color: #111827;
   overflow-wrap: anywhere;
   font-size: 14px;
+}
+
+.settings-sections {
+  display: grid;
+  gap: 18px;
+  max-width: 720px;
+  margin-top: 18px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-form {
+  max-width: 420px;
+}
+
+.settings-form .primary-action {
+  width: fit-content;
 }
 
 .table-shell {

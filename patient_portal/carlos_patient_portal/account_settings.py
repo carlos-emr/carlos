@@ -1,0 +1,244 @@
+from datetime import datetime
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from carlos_patient_portal.audit import record_audit_event
+from carlos_patient_portal.auth import (
+    MfaDeliveryUnavailableError,
+    cancel_pending_mfa_challenges,
+    ensure_mfa_delivery_available,
+    normalize_mfa_delivery_method,
+    normalize_phone_number,
+    password_matches,
+)
+from carlos_patient_portal.credentials import password_hasher, validate_password
+from carlos_patient_portal.identity import normalize_email
+from carlos_patient_portal.models import (
+    AUDIT_ACTOR_TYPE_PATIENT,
+    AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+    AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
+    AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
+    AUDIT_OUTCOME_FAILURE,
+    AUDIT_OUTCOME_SUCCESS,
+    CONTACT_REVIEW_STATUS_PENDING,
+    MFA_DELIVERY_METHOD_SMS,
+    SESSION_REVOKED_REASON_PASSWORD_CHANGE,
+    PatientPortalAccount,
+    PatientPortalContactReviewRequest,
+    PatientPortalSession,
+    utc_now,
+)
+
+ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE = "delivery_unavailable"
+ACCOUNT_SETTINGS_REASON_NO_CHANGE = "no_change"
+ACCOUNT_SETTINGS_REASON_STEP_UP_FAILED = "step_up_failed"
+ACCOUNT_SETTINGS_REASON_UPDATED = "updated"
+
+
+class AccountSettingsStepUpError(Exception):
+    """Raised when a sensitive account setting change fails current-password verification."""
+
+
+class AccountSettingsValidationError(Exception):
+    """Raised when an account setting value would leave the account unusable."""
+
+
+def change_account_password(
+    session: Session,
+    account: PatientPortalAccount,
+    portal_session: PatientPortalSession,
+    *,
+    current_password: str,
+    new_password: str,
+) -> None:
+    validate_password(new_password)
+    verify_current_password(
+        session,
+        account,
+        current_password=current_password,
+        event_type=AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
+    )
+    now = utc_now()
+    account.password_hash = password_hasher.hash(new_password)
+    account.password_updated_at = now
+    account.failed_login_count = 0
+    account.updated_at = now
+    revoke_other_account_sessions(
+        session,
+        account.id,
+        keep_session_id=portal_session.id,
+        now=now,
+    )
+    cancel_pending_mfa_challenges(session, account.id, now=now)
+    record_account_settings_audit_event(
+        session,
+        account,
+        event_type=AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        reason=ACCOUNT_SETTINGS_REASON_UPDATED,
+    )
+
+
+def update_account_contact(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    current_password: str,
+    email: str,
+    phone_number: str | None,
+) -> PatientPortalContactReviewRequest | None:
+    normalized_email = normalize_email(email)
+    normalized_phone_number = normalize_phone_number(phone_number)
+    verify_current_password(
+        session,
+        account,
+        current_password=current_password,
+        event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+    )
+    if account.preferred_mfa_method == MFA_DELIVERY_METHOD_SMS and normalized_phone_number is None:
+        record_account_settings_audit_event(
+            session,
+            account,
+            event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
+        )
+        raise AccountSettingsValidationError()
+
+    if account.email == normalized_email and account.phone_number == normalized_phone_number:
+        record_account_settings_audit_event(
+            session,
+            account,
+            event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason=ACCOUNT_SETTINGS_REASON_NO_CHANGE,
+        )
+        return None
+
+    now = utc_now()
+    review_request = PatientPortalContactReviewRequest(
+        account_id=account.id,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        status=CONTACT_REVIEW_STATUS_PENDING,
+        email_before=account.email,
+        email_after=normalized_email,
+        phone_number_before=account.phone_number,
+        phone_number_after=normalized_phone_number,
+        requested_at=now,
+    )
+    session.add(review_request)
+    account.email = normalized_email
+    account.phone_number = normalized_phone_number
+    account.updated_at = now
+    session.flush()
+    record_account_settings_audit_event(
+        session,
+        account,
+        event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        reason=ACCOUNT_SETTINGS_REASON_UPDATED,
+    )
+    return review_request
+
+
+def update_account_mfa_method(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    current_password: str,
+    preferred_mfa_method: str,
+) -> None:
+    normalized_method = normalize_mfa_delivery_method(preferred_mfa_method)
+    verify_current_password(
+        session,
+        account,
+        current_password=current_password,
+        event_type=AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
+    )
+    try:
+        ensure_mfa_delivery_available(account, normalized_method)
+    except MfaDeliveryUnavailableError as exc:
+        record_account_settings_audit_event(
+            session,
+            account,
+            event_type=AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
+        )
+        raise AccountSettingsValidationError() from exc
+
+    now = utc_now()
+    account.preferred_mfa_method = normalized_method
+    account.updated_at = now
+    record_account_settings_audit_event(
+        session,
+        account,
+        event_type=AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        reason=normalized_method,
+    )
+
+
+def verify_current_password(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    current_password: str,
+    event_type: str,
+) -> None:
+    if password_matches(account.password_hash, current_password):
+        return
+    record_account_settings_audit_event(
+        session,
+        account,
+        event_type=event_type,
+        outcome=AUDIT_OUTCOME_FAILURE,
+        reason=ACCOUNT_SETTINGS_REASON_STEP_UP_FAILED,
+    )
+    raise AccountSettingsStepUpError()
+
+
+def revoke_other_account_sessions(
+    session: Session,
+    account_id: int,
+    *,
+    keep_session_id: int,
+    now: datetime,
+) -> None:
+    other_sessions = list(
+        session.scalars(
+            select(PatientPortalSession)
+            .where(
+                PatientPortalSession.account_id == account_id,
+                PatientPortalSession.id != keep_session_id,
+                PatientPortalSession.revoked_at.is_(None),
+            )
+            .with_for_update()
+        )
+    )
+    for other_session in other_sessions:
+        other_session.revoked_at = now
+        other_session.revoked_reason = SESSION_REVOKED_REASON_PASSWORD_CHANGE
+
+
+def record_account_settings_audit_event(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    event_type: str,
+    outcome: str,
+    reason: str,
+) -> None:
+    record_audit_event(
+        session,
+        event_type=event_type,
+        outcome=outcome,
+        actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+        actor=account.username,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        account_id=account.id,
+        reason=reason,
+    )

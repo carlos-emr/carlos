@@ -42,7 +42,10 @@ from carlos_patient_portal.invites import (
     revoke_invite,
 )
 from carlos_patient_portal.models import (
+    AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
     AUDIT_EVENT_ACCOUNT_LOCK,
+    AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
+    AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
     AUDIT_EVENT_ACCOUNT_UNLOCK,
     AUDIT_EVENT_ACTIVATION,
     AUDIT_EVENT_INVITE_CREATE,
@@ -63,16 +66,19 @@ from carlos_patient_portal.models import (
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
     AUDIT_OUTCOME_THROTTLED,
+    CONTACT_REVIEW_STATUS_PENDING,
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
     MFA_DELIVERY_METHOD_SMS,
+    SESSION_REVOKED_REASON_PASSWORD_CHANGE,
     UNLOCK_SECRET_NONCE_LENGTH,
     UNLOCK_SECRET_STATUS_REVOKED,
     UNLOCK_SECRET_TYPE_EMAIL,
     UNLOCK_SECRET_TYPE_PDF,
     PatientPortalAccount,
     PatientPortalAuditEvent,
+    PatientPortalContactReviewRequest,
     PatientPortalInvite,
     PatientPortalMfaChallenge,
     PatientPortalPasswordResetToken,
@@ -619,6 +625,9 @@ def test_dashboard_shell_navigation_and_cookie_logout() -> None:
     assert 'href="/portal/help"' in dashboard_response.text
     assert 'class="logout-form"' in dashboard_response.text
     assert ">Logout</button>" in dashboard_response.text
+    assert 'action="http://testserver/portal/account/password"' in dashboard_response.text
+    assert 'action="http://testserver/portal/account/contact"' in dashboard_response.text
+    assert 'action="http://testserver/portal/account/mfa"' in dashboard_response.text
     assert "patient.user" in dashboard_response.text
 
     email_passwords_response = client.get("/portal/email-passwords")
@@ -675,6 +684,216 @@ def test_dashboard_shell_navigation_and_cookie_logout() -> None:
         assert portal_session.revoked_reason == "logout"
         assert logout_event is not None
         assert logout_event.account_id == account_id
+
+
+def test_account_password_change_requires_step_up_and_revokes_other_sessions() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    sign_in_patient_api_session(client)
+    account_response = client.get("/portal/account")
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(account_response.text)
+    assert csrf_token_match is not None
+
+    failed_response = client.post(
+        "/portal/account/password",
+        data={
+            "csrf_token": csrf_token_match.group(1),
+            "current_password": "Wrong1!password",
+            "new_password": STRONG_RESET_PASSWORD,
+        },
+    )
+    fresh_account_response = client.get("/portal/account")
+    fresh_csrf_token_match = CSRF_TOKEN_PATTERN.search(fresh_account_response.text)
+    assert fresh_csrf_token_match is not None
+    changed_response = client.post(
+        "/portal/account/password",
+        data={
+            "csrf_token": fresh_csrf_token_match.group(1),
+            "current_password": STRONG_PASSWORD,
+            "new_password": STRONG_RESET_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+    notice_response = client.get("/portal/account?status=password-updated")
+    old_password_login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    new_password_login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_RESET_PASSWORD},
+    )
+    still_signed_in_response = client.get("/portal")
+
+    assert failed_response.status_code == 403
+    assert "Account change could not be completed." in failed_response.text
+    assert "Wrong1!password" not in failed_response.text
+    assert changed_response.status_code == 303
+    assert changed_response.headers["location"] == "/portal/account?status=password-updated"
+    assert notice_response.status_code == 200
+    assert "Password updated." in notice_response.text
+    assert old_password_login_response.status_code == 401
+    assert new_password_login_response.status_code == 200
+    assert new_password_login_response.json()["status"] == "mfa_required"
+    assert still_signed_in_response.status_code == 200
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        portal_sessions = list(
+            session.scalars(
+                select(PatientPortalSession)
+                .where(PatientPortalSession.account_id == account_id)
+                .order_by(PatientPortalSession.id)
+            )
+        )
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert account is not None
+        assert account.password_hash != STRONG_PASSWORD
+        assert account.password_hash != STRONG_RESET_PASSWORD
+        assert any(
+            portal_session.revoked_reason == SESSION_REVOKED_REASON_PASSWORD_CHANGE
+            for portal_session in portal_sessions
+        )
+        assert any(portal_session.revoked_at is None for portal_session in portal_sessions)
+        assert [(event.outcome, event.reason) for event in audit_events] == [
+            (AUDIT_OUTCOME_FAILURE, "step_up_failed"),
+            (AUDIT_OUTCOME_SUCCESS, "updated"),
+        ]
+
+
+def test_account_contact_update_creates_staff_review_request() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    account_response = client.get("/portal/account")
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(account_response.text)
+    assert csrf_token_match is not None
+
+    failed_response = client.post(
+        "/portal/account/contact",
+        data={
+            "csrf_token": csrf_token_match.group(1),
+            "email": "new.patient@example.com",
+            "phone_number": "+1 555 010 5555",
+            "current_password": "Wrong1!password",
+        },
+    )
+    fresh_account_response = client.get("/portal/account")
+    fresh_csrf_token_match = CSRF_TOKEN_PATTERN.search(fresh_account_response.text)
+    assert fresh_csrf_token_match is not None
+    updated_response = client.post(
+        "/portal/account/contact",
+        data={
+            "csrf_token": fresh_csrf_token_match.group(1),
+            "email": " New.Patient@Example.com ",
+            "phone_number": " +1 555 010 5555 ",
+            "current_password": STRONG_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+    notice_response = client.get("/portal/account?status=contact-updated")
+
+    assert failed_response.status_code == 403
+    assert "Account change could not be completed." in failed_response.text
+    assert "Wrong1!password" not in failed_response.text
+    assert updated_response.status_code == 303
+    assert updated_response.headers["location"] == "/portal/account?status=contact-updated"
+    assert notice_response.status_code == 200
+    assert "Contact update sent for staff review." in notice_response.text
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        review_request = session.scalar(select(PatientPortalContactReviewRequest))
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert account is not None
+        assert account.email == "new.patient@example.com"
+        assert account.phone_number == "+1 555 010 5555"
+        assert review_request is not None
+        assert review_request.account_id == account_id
+        assert review_request.status == CONTACT_REVIEW_STATUS_PENDING
+        assert review_request.email_before == SEEDED_INVITE_EMAIL
+        assert review_request.email_after == "new.patient@example.com"
+        assert review_request.phone_number_before is None
+        assert review_request.phone_number_after == "+1 555 010 5555"
+        assert [(event.outcome, event.reason) for event in audit_events] == [
+            (AUDIT_OUTCOME_FAILURE, "step_up_failed"),
+            (AUDIT_OUTCOME_SUCCESS, "updated"),
+        ]
+
+
+def test_account_mfa_settings_require_available_delivery_method() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    account_response = client.get("/portal/account")
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(account_response.text)
+    assert csrf_token_match is not None
+
+    unavailable_response = client.post(
+        "/portal/account/mfa",
+        data={
+            "csrf_token": csrf_token_match.group(1),
+            "preferred_mfa_method": "sms",
+            "current_password": STRONG_PASSWORD,
+        },
+    )
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        account.phone_number = "+1 555 010 5555"
+        session.commit()
+    fresh_account_response = client.get("/portal/account")
+    fresh_csrf_token_match = CSRF_TOKEN_PATTERN.search(fresh_account_response.text)
+    assert fresh_csrf_token_match is not None
+    updated_response = client.post(
+        "/portal/account/mfa",
+        data={
+            "csrf_token": fresh_csrf_token_match.group(1),
+            "preferred_mfa_method": "sms",
+            "current_password": STRONG_PASSWORD,
+        },
+        follow_redirects=False,
+    )
+    login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+
+    assert unavailable_response.status_code == 400
+    assert "Account change could not be completed." in unavailable_response.text
+    assert updated_response.status_code == 303
+    assert updated_response.headers["location"] == "/portal/account?status=mfa-updated"
+    assert login_response.status_code == 200
+    assert login_response.json()["mfa_delivery_method"] == MFA_DELIVERY_METHOD_SMS
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        audit_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_MFA_UPDATE)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert account is not None
+        assert account.preferred_mfa_method == MFA_DELIVERY_METHOD_SMS
+        assert [(event.outcome, event.reason) for event in audit_events] == [
+            (AUDIT_OUTCOME_FAILURE, "delivery_unavailable"),
+            (AUDIT_OUTCOME_SUCCESS, MFA_DELIVERY_METHOD_SMS),
+        ]
 
 
 def test_email_password_dashboard_populated_search_pagination_and_copy_controls() -> None:
@@ -916,6 +1135,7 @@ def test_dashboard_styles_include_desktop_and_mobile_navigation_rules() -> None:
     assert ".portal-topbar" in css
     assert "flex-direction: row;" in css
     assert ".module-nav" in css
+    assert ".settings-section" in css
     assert ".password-copy-group" in css
     assert ".table-shell .email-password-table" in css
     assert ".email-password-table td::before" in css

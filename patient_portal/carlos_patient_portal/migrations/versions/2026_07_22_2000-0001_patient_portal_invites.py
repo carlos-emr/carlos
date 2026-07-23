@@ -91,6 +91,75 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_table(
+        "patient_portal_contact_review_requests",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("account_id", sa.Integer(), nullable=False),
+        sa.Column("clinic_id", sa.String(length=64), nullable=False),
+        sa.Column("demographic_no", sa.Integer(), nullable=False),
+        sa.Column("status", sa.String(length=16), nullable=False),
+        sa.Column("email_before", sa.String(length=254), nullable=False),
+        sa.Column("email_after", sa.String(length=254), nullable=False),
+        sa.Column("phone_number_before", sa.String(length=32), nullable=True),
+        sa.Column("phone_number_after", sa.String(length=32), nullable=True),
+        sa.Column("requested_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("reviewed_by", sa.String(length=128), nullable=True),
+        sa.CheckConstraint(
+            "length(clinic_id) between 1 and 64",
+            name="ck_patient_portal_contact_review_requests_clinic_id_length",
+        ),
+        sa.CheckConstraint(
+            "demographic_no > 0",
+            name="ck_patient_portal_contact_review_requests_demographic_no_positive",
+        ),
+        sa.CheckConstraint(
+            "status in ('pending', 'reviewed')",
+            name="ck_patient_portal_contact_review_requests_status",
+        ),
+        sa.CheckConstraint(
+            "length(email_before) between 1 and 254",
+            name="ck_patient_portal_contact_review_requests_email_before_length",
+        ),
+        sa.CheckConstraint(
+            "length(email_after) between 1 and 254",
+            name="ck_patient_portal_contact_review_requests_email_after_length",
+        ),
+        sa.CheckConstraint(
+            "phone_number_before is null or length(phone_number_before) between 1 and 32",
+            name="ck_patient_portal_contact_review_requests_phone_before_length",
+        ),
+        sa.CheckConstraint(
+            "phone_number_after is null or length(phone_number_after) between 1 and 32",
+            name="ck_patient_portal_contact_review_requests_phone_after_length",
+        ),
+        sa.CheckConstraint(
+            "reviewed_by is null or length(reviewed_by) between 1 and 128",
+            name="ck_patient_portal_contact_review_requests_reviewed_by_length",
+        ),
+        sa.CheckConstraint(
+            "status = 'reviewed' or (reviewed_at is null and reviewed_by is null)",
+            name="ck_patient_portal_contact_review_requests_unreviewed_fields_null",
+        ),
+        sa.CheckConstraint(
+            "status != 'reviewed' or (reviewed_at is not null and reviewed_by is not null)",
+            name="ck_patient_portal_contact_review_requests_reviewed_fields_present",
+        ),
+        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "ix_patient_portal_contact_review_requests_account_status",
+        "patient_portal_contact_review_requests",
+        ["account_id", "status"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_patient_portal_contact_review_requests_clinic_status_requested",
+        "patient_portal_contact_review_requests",
+        ["clinic_id", "status", "requested_at"],
+        unique=False,
+    )
+    op.create_table(
         "patient_portal_sessions",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("account_id", sa.Integer(), nullable=False),
@@ -502,7 +571,8 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             (
-                "event_type in ('activation', 'account.lock', 'account.unlock', "
+                "event_type in ('activation', 'account.contact_update', 'account.lock', "
+                "'account.mfa_update', 'account.password_change', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.request', 'session.logout', "
@@ -634,5 +704,14 @@ def downgrade() -> None:
         table_name="patient_portal_sessions",
     )
     op.drop_table("patient_portal_sessions")
+    op.drop_index(
+        "ix_patient_portal_contact_review_requests_clinic_status_requested",
+        table_name="patient_portal_contact_review_requests",
+    )
+    op.drop_index(
+        "ix_patient_portal_contact_review_requests_account_status",
+        table_name="patient_portal_contact_review_requests",
+    )
+    op.drop_table("patient_portal_contact_review_requests")
     op.drop_index("ix_patient_portal_accounts_status", table_name="patient_portal_accounts")
     op.drop_table("patient_portal_accounts")

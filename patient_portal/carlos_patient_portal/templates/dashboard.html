@@ -44,6 +44,12 @@
             <header class="module-header">
               <h1>Account</h1>
             </header>
+            {% if account_notice %}
+              <p class="form-notice">{{ account_notice }}</p>
+            {% endif %}
+            {% if account_error %}
+              <p class="form-error">{{ account_error }}</p>
+            {% endif %}
             <dl class="detail-list">
               <div>
                 <dt>Username</dt>
@@ -62,6 +68,68 @@
                 <dd>{{ password_updated_date }}</dd>
               </div>
             </dl>
+            <div class="settings-sections">
+              <section class="settings-section">
+                <h2>Change password</h2>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_password') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    Current password
+                    <input type="password" name="current_password" autocomplete="current-password">
+                  </label>
+                  <label>
+                    New password
+                    <input type="password" name="new_password" autocomplete="new-password">
+                  </label>
+                  <button class="primary-action" type="submit">Update password</button>
+                </form>
+              </section>
+
+              <section class="settings-section">
+                <h2>Contact info</h2>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_contact') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    Email
+                    <input type="email" name="email" value="{{ account.email }}" maxlength="254" autocomplete="email">
+                  </label>
+                  <label>
+                    Phone
+                    <input
+                      type="tel"
+                      name="phone_number"
+                      value="{{ account.phone_number or '' }}"
+                      maxlength="32"
+                      autocomplete="tel"
+                    >
+                  </label>
+                  <label>
+                    Current password
+                    <input type="password" name="current_password" autocomplete="current-password">
+                  </label>
+                  <button class="primary-action" type="submit">Update contact</button>
+                </form>
+              </section>
+
+              <section class="settings-section">
+                <h2>MFA settings</h2>
+                <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_mfa') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label>
+                    Method
+                    <select name="preferred_mfa_method">
+                      <option value="email"{% if account.preferred_mfa_method == "email" %} selected{% endif %}>Email</option>
+                      <option value="sms"{% if account.preferred_mfa_method == "sms" %} selected{% endif %}>SMS</option>
+                    </select>
+                  </label>
+                  <label>
+                    Current password
+                    <input type="password" name="current_password" autocomplete="current-password">
+                  </label>
+                  <button class="primary-action" type="submit">Update MFA</button>
+                </form>
+              </section>
+            </div>
           {% elif active_module == "email-passwords" %}
             <header class="module-header">
               <h1>Email passwords</h1>

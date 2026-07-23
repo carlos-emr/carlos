@@ -23,7 +23,10 @@ ACCOUNT_STATUS_ACTIVE = "active"
 AUDIT_ACTOR_TYPE_PATIENT = "patient"
 AUDIT_ACTOR_TYPE_STAFF = "staff"
 AUDIT_EVENT_ACTIVATION = "activation"
+AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE = "account.contact_update"
 AUDIT_EVENT_ACCOUNT_LOCK = "account.lock"
+AUDIT_EVENT_ACCOUNT_MFA_UPDATE = "account.mfa_update"
+AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE = "account.password_change"
 AUDIT_EVENT_ACCOUNT_UNLOCK = "account.unlock"
 AUDIT_EVENT_INVITE_CREATE = "invite.create"
 AUDIT_EVENT_INVITE_LIST = "invite.list"
@@ -52,7 +55,10 @@ PASSWORD_RESET_STATUS_PENDING = "pending"
 PASSWORD_RESET_STATUS_REVOKED = "revoked"
 PASSWORD_RESET_STATUS_USED = "used"
 SESSION_REVOKED_REASON_LOGOUT = "logout"
+SESSION_REVOKED_REASON_PASSWORD_CHANGE = "password_change"
 SESSION_REVOKED_REASON_PASSWORD_RESET = "password_reset"
+CONTACT_REVIEW_STATUS_PENDING = "pending"
+CONTACT_REVIEW_STATUS_REVIEWED = "reviewed"
 UNLOCK_SECRET_STATUS_ACTIVE = "active"
 UNLOCK_SECRET_STATUS_REVOKED = "revoked"
 UNLOCK_SECRET_TYPE_EMAIL = "email"
@@ -175,6 +181,91 @@ class PatientPortalAccount(Base):
         default=utc_now,
         nullable=False,
     )
+
+
+class PatientPortalContactReviewRequest(Base):
+    """Patient contact change waiting for staff review before CARLOS demographic sync."""
+
+    __tablename__ = "patient_portal_contact_review_requests"
+    __table_args__ = (
+        CheckConstraint(
+            f"length(clinic_id) between 1 and {MAX_CLINIC_ID_LENGTH}",
+            name="ck_patient_portal_contact_review_requests_clinic_id_length",
+        ),
+        CheckConstraint(
+            "demographic_no > 0",
+            name="ck_patient_portal_contact_review_requests_demographic_no_positive",
+        ),
+        CheckConstraint(
+            "status in ('pending', 'reviewed')",
+            name="ck_patient_portal_contact_review_requests_status",
+        ),
+        CheckConstraint(
+            f"length(email_before) between 1 and {MAX_EMAIL_LENGTH}",
+            name="ck_patient_portal_contact_review_requests_email_before_length",
+        ),
+        CheckConstraint(
+            f"length(email_after) between 1 and {MAX_EMAIL_LENGTH}",
+            name="ck_patient_portal_contact_review_requests_email_after_length",
+        ),
+        CheckConstraint(
+            "phone_number_before is null or length(phone_number_before) between 1 and 32",
+            name="ck_patient_portal_contact_review_requests_phone_before_length",
+        ),
+        CheckConstraint(
+            "phone_number_after is null or length(phone_number_after) between 1 and 32",
+            name="ck_patient_portal_contact_review_requests_phone_after_length",
+        ),
+        CheckConstraint(
+            "reviewed_by is null or length(reviewed_by) between 1 and 128",
+            name="ck_patient_portal_contact_review_requests_reviewed_by_length",
+        ),
+        CheckConstraint(
+            "status = 'reviewed' or (reviewed_at is null and reviewed_by is null)",
+            name="ck_patient_portal_contact_review_requests_unreviewed_fields_null",
+        ),
+        CheckConstraint(
+            "status != 'reviewed' or (reviewed_at is not null and reviewed_by is not null)",
+            name="ck_patient_portal_contact_review_requests_reviewed_fields_present",
+        ),
+        Index(
+            "ix_patient_portal_contact_review_requests_account_status",
+            "account_id",
+            "status",
+        ),
+        Index(
+            "ix_patient_portal_contact_review_requests_clinic_status_requested",
+            "clinic_id",
+            "status",
+            "requested_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(
+        ForeignKey("patient_portal_accounts.id"),
+        nullable=False,
+    )
+    clinic_id: Mapped[str] = mapped_column(String(MAX_CLINIC_ID_LENGTH), nullable=False)
+    demographic_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    email_before: Mapped[str] = mapped_column(String(MAX_EMAIL_LENGTH), nullable=False)
+    email_after: Mapped[str] = mapped_column(String(MAX_EMAIL_LENGTH), nullable=False)
+    phone_number_before: Mapped[str | None] = mapped_column(
+        String(MAX_PHONE_NUMBER_LENGTH),
+        nullable=True,
+    )
+    phone_number_after: Mapped[str | None] = mapped_column(
+        String(MAX_PHONE_NUMBER_LENGTH),
+        nullable=True,
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        nullable=False,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
 
 class PatientPortalSession(Base):
@@ -656,7 +747,8 @@ class PatientPortalAuditEvent(Base):
         CheckConstraint(
             (
                 "event_type in "
-                "('activation', 'account.lock', 'account.unlock', "
+                "('activation', 'account.contact_update', 'account.lock', "
+                "'account.mfa_update', 'account.password_change', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.request', 'session.logout', "
