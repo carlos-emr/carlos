@@ -5,6 +5,13 @@ ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties"
+# The eForm browser PDF renderer runs headless Chromium; Tomcat runs as root here and Chromium
+# refuses to start its OS-level sandbox as root. This container IS the isolation boundary, so we
+# consciously opt out of the in-process sandbox (read by EFormBrowserPdfService.allowUnsandboxed()).
+# Set as a container ENV rather than in bashrc so the Tomcat process inherits it under the `server`
+# script even in non-interactive CI shells (where bashrc returns early). Never enable this outside a
+# container that provides isolation another way.
+ENV EFORM_RENDER_ALLOW_UNSANDBOXED=true
 ENV JPDA_OPTS="-agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
 ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket

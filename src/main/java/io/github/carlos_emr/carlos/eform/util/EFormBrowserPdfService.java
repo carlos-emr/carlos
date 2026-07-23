@@ -486,6 +486,43 @@ public class EFormBrowserPdfService {
         }
     }
 
+    /**
+     * Real readiness probe for the hard startup gate: launches the pinned headless Chromium exactly
+     * as a render would (same binary/sandbox/option resolution), navigates to {@code about:blank},
+     * then tears the browser and its chromedriver back down. A real launch is the only honest
+     * readiness signal — a mere binary-exists check cannot detect a sandbox that refuses to start
+     * or a chromedriver/browser version mismatch, both of which surface only once a session is
+     * actually created.
+     *
+     * <p>{@code about:blank} loads no CARLOS page and carries no fdid, render token, or PHI, so the
+     * probe exercises the browser launch path without touching patient data.</p>
+     *
+     * @throws PDFGenerationException if the renderer cannot launch or fails the navigation probe;
+     *         the message carries operator remediation guidance and is redacted (PHI-safe)
+     */
+    public void verifyRendererReady() throws PDFGenerationException {
+        RendererBrowser browser = createDriver(
+                buildChromeOptions(resolveChromiumPath(), allowUnsandboxed(), "http://127.0.0.1"));
+        ChromeDriver driver = browser.driver();
+        ChromeDriverService driverService = browser.service();
+        try {
+            driver.get("about:blank");
+        } catch (RuntimeException e) {
+            // A WebDriver failure message can embed a local filesystem path; keep the type plus a
+            // redacted message and deliberately do NOT chain the raw throwable (a downstream logger
+            // would otherwise re-emit the unredacted text), consistent with the render path's
+            // PHI-safe logging.
+            throw new PDFGenerationException(
+                    "The eForm browser renderer started but failed a basic navigation readiness probe: "
+                    + e.getClass().getName() + " " + redactUrls(String.valueOf(e.getMessage())));
+        } finally {
+            quitQuietly(driver);
+            // Belt-and-braces after quit (mirrors renderWithSlot): stopping the caller-owned
+            // chromedriver service is what actually tears the processes down if quit() timed out.
+            stopServiceQuietly(driverService);
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Browser lifecycle and options
     // ---------------------------------------------------------------------------------------------
