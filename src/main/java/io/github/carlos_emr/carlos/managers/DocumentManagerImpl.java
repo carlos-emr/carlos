@@ -89,7 +89,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2012 (McMaster University)
  */
 @Service
-public class DocumentManagerImpl implements DocumentManager {
+public class DocumentManagerImpl implements DocumentManager, OutboundEmailArchiveDocumentPersister {
 
     private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private final Logger logger = MiscUtils.getLogger();
@@ -184,11 +184,11 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     @Override
-    public Document createSystemDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
+    public Document persistArchiveDocument(LoggedInInfo loggedInInfo, Document document, Integer demographicNo, String providerNo, byte[] documentData) throws IOException {
         // No _edoc gate: this is a trusted internal/system control (outbound email archive) that is a
         // mandatory side-effect of an already-authorized action. The initiating action authorizes it
         // (the archive is gated on _email write by OutboundEmailArchiveService); the document is still
-        // attributed to loggedInInfo via doccreator for audit. See DocumentManager#createSystemDocument.
+        // attributed to loggedInInfo via doccreator for audit. See OutboundEmailArchiveDocumentPersister.
         return createDocumentInternal(loggedInInfo, document, demographicNo, providerNo, documentData);
     }
 

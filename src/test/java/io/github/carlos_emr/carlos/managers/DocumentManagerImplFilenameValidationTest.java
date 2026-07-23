@@ -87,8 +87,8 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should create system document without requiring eDoc write privilege")
-    void shouldCreateSystemDocument_withoutRequiringEdocWritePrivilege() throws Exception {
+    @DisplayName("should persist archive document without requiring eDoc write privilege")
+    void shouldPersistArchiveDocument_withoutRequiringEdocWritePrivilege() throws Exception {
         try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
             CarlosProperties properties = mock(CarlosProperties.class);
             propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
@@ -100,7 +100,7 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
             Document document = new Document();
             document.setDocfilename("outbound-email-1-archive.json");
 
-            Document result = manager.createSystemDocument(loggedInInfo, document, null, PROVIDER_NO,
+            Document result = manager.persistArchiveDocument(loggedInInfo, document, null, PROVIDER_NO,
                     "archive body".getBytes(StandardCharsets.UTF_8));
 
             // Reaching here without a Security/RuntimeException proves the _edoc gate was skipped.

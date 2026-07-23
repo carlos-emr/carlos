@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -80,7 +81,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private static final String DOCUMENT_SOURCE = "Outbound Email Archive";
     private static final String CTL_DOCUMENT_MODULE_DEMOGRAPHIC = "demographic";
 
-    private final DocumentManager documentManager;
+    private final OutboundEmailArchiveDocumentPersister archiveDocumentPersister;
 
     private final DocumentDao documentDao;
 
@@ -104,7 +105,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     @Autowired
     public OutboundEmailArchiveServiceImpl(
-            DocumentManager documentManager,
+            // DocumentManagerImpl is registered as both an XML bean ("documentManager") and a
+            // component-scanned @Service, so bind the persister explicitly to avoid an ambiguous
+            // by-type match on the OutboundEmailArchiveDocumentPersister interface.
+            @Qualifier("documentManager") OutboundEmailArchiveDocumentPersister archiveDocumentPersister,
             DocumentDao documentDao,
             EmailLogDao emailLogDao,
             OutboundEmailArchiveDao outboundEmailArchiveDao,
@@ -115,7 +119,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             HRMDocumentToDemographicDao hrmDocumentToDemographicDao,
             FormsManager formsManager,
             SecurityInfoManager securityInfoManager) {
-        this.documentManager = documentManager;
+        this.archiveDocumentPersister = archiveDocumentPersister;
         this.documentDao = documentDao;
         this.emailLogDao = emailLogDao;
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
@@ -183,7 +187,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      *
      * <p>The supplied request must reference a persisted {@link EmailLog}. The service reloads
      * that log, authorizes access to the target demographic, writes the artifact through
-     * {@link DocumentManager}, registers rollback cleanup for the eDoc file, and then persists the
+     * {@link OutboundEmailArchiveDocumentPersister}, registers rollback cleanup for the eDoc file, and then persists the
      * archive row and attachment metadata in the same transaction.</p>
      *
      * @param loggedInInfo current user context used for authorization, eDoc ownership, and audit logging
@@ -214,7 +218,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
         Document savedDocument;
         try {
-            savedDocument = documentManager.createSystemDocument(
+            savedDocument = archiveDocumentPersister.persistArchiveDocument(
                     loggedInInfo,
                     document,
                     demographicNo,
@@ -675,7 +679,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     // authorized to send, so it is gated on the send privilege (_email write) rather than the sender's
     // _edoc/patient-record rights. This lets authorized senders without chart-write access (e.g. front
     // desk staff) still have their outbound email archived. The eDoc itself is written via
-    // DocumentManager#createSystemDocument (the archive is a system control), and the demographic is
+    // OutboundEmailArchiveDocumentPersister#persistArchiveDocument (the archive is a system control), and the demographic is
     // fixed by the already-authorized send, not by caller-supplied input. Controlled DELETION of an
     // archive remains gated on _edoc/_admin.edocdelete + patient-record access (authorizeControlledDeletion).
     private void authorizeArchiveAccess(LoggedInInfo loggedInInfo) {
