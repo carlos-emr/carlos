@@ -9,6 +9,7 @@ TrustedClientIpHeader = Literal["x-forwarded-for", "x-real-ip"]
 DEFAULT_DATABASE_URL = "postgresql+psycopg://localhost:5432/carlos_portal"
 MIN_PRODUCTION_SECRET_LENGTH = 32
 MAX_CLINIC_ID_LENGTH = 64
+DEFAULT_AUDIT_RETENTION_DAYS = 25 * 365
 ENVIRONMENT_ALIASES = {
     "dev": "development",
     "prod": "production",
@@ -42,6 +43,11 @@ class Settings(BaseSettings):
     mfa_email_resend_cooldown_seconds: int = Field(default=60, ge=30, le=60 * 60)
     mfa_sms_resend_cooldown_seconds: int = Field(default=5 * 60, ge=60, le=60 * 60)
     password_reset_token_ttl_seconds: int = Field(default=60 * 60, ge=300, le=24 * 60 * 60)
+    global_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
+    global_rate_limit_max_requests: int = Field(default=300, ge=1, le=10000)
+    audit_retention_days: int = Field(default=DEFAULT_AUDIT_RETENTION_DAYS, ge=365, le=100 * 365)
+    maintenance_mode: bool = False
+    maintenance_retry_after_seconds: int = Field(default=5 * 60, ge=60, le=24 * 60 * 60)
 
     model_config = SettingsConfigDict(
         env_file=".env",

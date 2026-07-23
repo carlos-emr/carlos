@@ -17,8 +17,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal import cli, main
-from carlos_patient_portal.audit import hash_sensitive_reference
+from carlos_patient_portal.audit import hash_sensitive_reference, record_audit_event
 from carlos_patient_portal.config import (
+    DEFAULT_AUDIT_RETENTION_DAYS,
     DEFAULT_DATABASE_URL,
     MIN_PRODUCTION_SECRET_LENGTH,
     Settings,
@@ -55,6 +56,14 @@ from carlos_patient_portal.invites import (
     list_invites,
     resend_invite,
     revoke_invite,
+)
+from carlos_patient_portal.maintenance import (
+    BackupDestinationExistsError,
+    BackupUnsupportedError,
+    audit_retention_cutoff,
+    backup_sqlite_database,
+    prune_audit_events,
+    restore_sqlite_database,
 )
 from carlos_patient_portal.models import (
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
@@ -466,6 +475,72 @@ def test_internal_database_health_requires_configured_token() -> None:
         "/internal/health/db",
         headers={"Authorization": f"Bearer {INTERNAL_HEALTH_TOKEN}"},
     ).status_code == 200
+
+
+def test_internal_readiness_reports_maintenance_without_hiding_liveness() -> None:
+    app = main.create_app(
+        development_settings(
+            database_url="sqlite+pysqlite:///:memory:",
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+            maintenance_mode=True,
+            maintenance_retry_after_seconds=120,
+        )
+    )
+    client = TestClient(app)
+
+    sign_in_response = client.get("/")
+    fhir_response = client.get("/fhir/metadata")
+    public_health_response = client.get("/health")
+    db_health_response = client.get(
+        "/internal/health/db",
+        headers={"Authorization": f"Bearer {INTERNAL_HEALTH_TOKEN}"},
+    )
+    readiness_response = client.get(
+        "/internal/readiness",
+        headers={"Authorization": f"Bearer {INTERNAL_HEALTH_TOKEN}"},
+    )
+
+    assert sign_in_response.status_code == 503
+    assert sign_in_response.json()["detail"] == "service temporarily unavailable"
+    assert sign_in_response.headers["retry-after"] == "120"
+    assert sign_in_response.headers["cache-control"] == "no-store"
+    assert fhir_response.status_code == 503
+    assert fhir_response.headers["content-type"].startswith(main.FHIR_JSON_MEDIA_TYPE)
+    assert fhir_response.json()["resourceType"] == "OperationOutcome"
+    assert public_health_response.status_code == 200
+    assert public_health_response.json() == {"status": "ok"}
+    assert db_health_response.status_code == 200
+    assert db_health_response.json() == {"status": "ok", "database": "ok"}
+    assert readiness_response.status_code == 503
+    assert readiness_response.headers["retry-after"] == "120"
+    assert readiness_response.json() == {
+        "status": "maintenance",
+        "database": "ok",
+        "maintenance": True,
+    }
+
+
+def test_global_rate_limit_throttles_patient_routes_and_exempts_health() -> None:
+    app = main.create_app(
+        development_settings(
+            global_rate_limit_max_requests=2,
+            global_rate_limit_window_seconds=60,
+        )
+    )
+    client = TestClient(app)
+
+    first_response = client.get("/")
+    second_response = client.get("/")
+    throttled_response = client.get("/")
+    health_response = client.get("/health")
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert throttled_response.status_code == 429
+    assert throttled_response.json()["detail"] == "too many requests"
+    assert throttled_response.headers["retry-after"] == "60"
+    assert throttled_response.headers["cache-control"] == "no-store"
+    assert health_response.status_code == 200
 
 
 def test_login_mfa_session_and_logout_happy_path() -> None:
@@ -3198,6 +3273,92 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     engine.dispose()
 
 
+def test_audit_retention_prunes_only_events_older_than_cutoff() -> None:
+    app = migrated_development_app()
+    now = datetime(2026, 7, 23, 12, 0, tzinfo=UTC)
+    cutoff = audit_retention_cutoff(365, now=now)
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            old_event = record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_LOGIN,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type="patient",
+                reason="invalid_credentials",
+            )
+            recent_event = record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_LOGIN,
+                outcome=AUDIT_OUTCOME_SUCCESS,
+                actor_type="patient",
+                reason="mfa_required",
+            )
+            old_event.created_at = cutoff - timedelta(seconds=1)
+            recent_event.created_at = cutoff
+            old_event_id = old_event.id
+            recent_event_id = recent_event.id
+
+        with session.begin():
+            first_prune_count = prune_audit_events(session, before=cutoff, batch_size=1)
+        with session.begin():
+            second_prune_count = prune_audit_events(session, before=cutoff, batch_size=1)
+
+        remaining_event_ids = set(session.scalars(select(PatientPortalAuditEvent.id)))
+
+    assert first_prune_count == 1
+    assert second_prune_count == 0
+    assert old_event_id not in remaining_event_ids
+    assert recent_event_id in remaining_event_ids
+
+
+def test_sqlite_backup_and_restore_round_trip(tmp_path) -> None:
+    database_path = tmp_path / "portal.db"
+    backup_path = tmp_path / "portal.backup.db"
+    database_url = f"sqlite+pysqlite:///{database_path}"
+    engine = create_portal_engine(database_url)
+    Base.metadata.create_all(engine)
+    session_factory = create_session_factory(engine)
+
+    with session_scope(session_factory) as session:
+        original_invite, _ = create_service_invite(session)
+        original_invite_id = original_invite.id
+
+    engine.dispose()
+    created_backup_path = backup_sqlite_database(database_url, backup_path)
+
+    assert created_backup_path == backup_path
+    assert backup_path.exists()
+    with pytest.raises(BackupDestinationExistsError):
+        backup_sqlite_database(database_url, backup_path)
+    with pytest.raises(BackupDestinationExistsError):
+        backup_sqlite_database(database_url, database_path, overwrite=True)
+    with pytest.raises(BackupDestinationExistsError):
+        restore_sqlite_database(database_url, database_path, overwrite=True)
+
+    engine = create_portal_engine(database_url)
+    session_factory = create_session_factory(engine)
+    with session_scope(session_factory) as session:
+        create_service_invite(session, demographic_no=5678)
+        assert len(list_invites(session, limit=10)) == 2
+    engine.dispose()
+
+    restored_path = restore_sqlite_database(database_url, backup_path, overwrite=True)
+
+    assert restored_path == database_path
+    engine = create_portal_engine(database_url)
+    session_factory = create_session_factory(engine)
+    with session_scope(session_factory) as session:
+        restored_invites = list_invites(session, limit=10)
+        assert [(invite.id, invite.demographic_no) for invite in restored_invites] == [
+            (original_invite_id, 1234)
+        ]
+    engine.dispose()
+
+    with pytest.raises(BackupUnsupportedError):
+        backup_sqlite_database(DEFAULT_DATABASE_URL, tmp_path / "postgres.backup")
+
+
 def test_database_identifiers_fit_postgresql_limit() -> None:
     identifiers = []
     for table in Base.metadata.tables.values():
@@ -3394,6 +3555,24 @@ def test_auth_policy_settings_are_bounded() -> None:
             internal_health_token=INTERNAL_HEALTH_TOKEN,
             require_mfa=False,
         )
+
+
+def test_hardening_settings_are_bounded() -> None:
+    settings = development_settings()
+
+    assert settings.audit_retention_days == DEFAULT_AUDIT_RETENTION_DAYS
+    assert settings.global_rate_limit_window_seconds == 60
+    assert settings.global_rate_limit_max_requests == 300
+    assert settings.maintenance_mode is False
+    assert settings.maintenance_retry_after_seconds == 300
+    with pytest.raises(ValidationError, match="global_rate_limit_window_seconds"):
+        development_settings(global_rate_limit_window_seconds=0)
+    with pytest.raises(ValidationError, match="global_rate_limit_max_requests"):
+        development_settings(global_rate_limit_max_requests=0)
+    with pytest.raises(ValidationError, match="audit_retention_days"):
+        development_settings(audit_retention_days=364)
+    with pytest.raises(ValidationError, match="maintenance_retry_after_seconds"):
+        development_settings(maintenance_retry_after_seconds=59)
 
 
 def test_module_does_not_create_global_app_on_import() -> None:

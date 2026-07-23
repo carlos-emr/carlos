@@ -1,13 +1,16 @@
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import timedelta
 from hashlib import sha256
 from hmac import new as new_hmac
 from http.cookies import SimpleCookie
 from ipaddress import ip_address
+from math import ceil
 from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
-from time import time
+from threading import Lock
+from time import monotonic, time
 from typing import Annotated, TypeVar
 from urllib.parse import parse_qs, urlencode
 
@@ -192,6 +195,55 @@ ACCOUNT_NOTICE_MESSAGES = {
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
 
+@dataclass
+class RateLimitBucket:
+    window_started_at: float
+    request_count: int
+
+
+class InMemoryRateLimiter:
+    """Small per-process limiter for pilot deployments before shared edge limits exist."""
+
+    def __init__(self, *, window_seconds: int, max_requests: int) -> None:
+        self.window_seconds = window_seconds
+        self.max_requests = max_requests
+        self.buckets: dict[str, RateLimitBucket] = {}
+        self.lock = Lock()
+
+    def retry_after_seconds(self, key: str, *, now: float | None = None) -> int | None:
+        current_time = now if now is not None else monotonic()
+        with self.lock:
+            self.prune_expired_buckets(current_time)
+            bucket = self.buckets.get(key)
+            if bucket is None:
+                self.buckets[key] = RateLimitBucket(
+                    window_started_at=current_time,
+                    request_count=1,
+                )
+                return None
+
+            elapsed_seconds = current_time - bucket.window_started_at
+            if elapsed_seconds >= self.window_seconds:
+                bucket.window_started_at = current_time
+                bucket.request_count = 1
+                return None
+
+            if bucket.request_count >= self.max_requests:
+                return max(1, ceil(self.window_seconds - elapsed_seconds))
+
+            bucket.request_count += 1
+            return None
+
+    def prune_expired_buckets(self, current_time: float) -> None:
+        expired_keys = [
+            key
+            for key, bucket in self.buckets.items()
+            if current_time - bucket.window_started_at >= self.window_seconds
+        ]
+        for key in expired_keys:
+            del self.buckets[key]
+
+
 class FhirApiError(Exception):
     """Raised when a FHIR endpoint should return an OperationOutcome."""
 
@@ -324,6 +376,24 @@ def is_portal_path(path: str) -> bool:
     return path == PORTAL_SESSION_COOKIE_PATH or path.startswith(
         f"{PORTAL_SESSION_COOKIE_PATH}/"
     )
+
+
+def is_patient_runtime_path(path: str) -> bool:
+    return (
+        path == "/"
+        or path.startswith("/auth/")
+        or path.startswith("/api/patient/")
+        or path.startswith("/fhir/")
+        or is_portal_path(path)
+    )
+
+
+def is_rate_limited_path(path: str) -> bool:
+    return is_patient_runtime_path(path)
+
+
+def is_maintenance_exempt_path(path: str) -> bool:
+    return path == "/health" or path.startswith("/internal/")
 
 
 def is_json_request(request: Request) -> bool:
@@ -969,6 +1039,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         max_failures_per_client=settings.activation_max_failures_per_client,
     )
     auth_policy = auth_policy_from_settings(settings)
+    rate_limiter = InMemoryRateLimiter(
+        window_seconds=settings.global_rate_limit_window_seconds,
+        max_requests=settings.global_rate_limit_max_requests,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
@@ -988,6 +1062,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.database_engine = database_engine
     app.state.session_factory = session_factory
+    app.state.rate_limiter = rate_limiter
     app.state.unlock_secret_encryption_secret = unlock_secret_encryption_secret
     app.mount(
         "/static",
@@ -1021,7 +1096,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        response = await call_next(request)
+        if settings.maintenance_mode and not is_maintenance_exempt_path(request.url.path):
+            if request.url.path.startswith("/fhir/"):
+                response = fhir_operation_outcome_response(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    code="transient",
+                    diagnostics="service temporarily unavailable",
+                )
+            else:
+                response = JSONResponse(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    content={"detail": "service temporarily unavailable"},
+                )
+            response.headers["Retry-After"] = str(settings.maintenance_retry_after_seconds)
+        elif is_rate_limited_path(request.url.path):
+            retry_after_seconds = rate_limiter.retry_after_seconds(
+                get_request_client_reference(request, settings)
+            )
+            if retry_after_seconds is None:
+                response = await call_next(request)
+            elif request.url.path.startswith("/fhir/"):
+                response = fhir_operation_outcome_response(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    code="throttled",
+                    diagnostics="too many requests",
+                )
+                response.headers["Retry-After"] = str(retry_after_seconds)
+            else:
+                response = JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={"detail": "too many requests"},
+                    headers={"Retry-After": str(retry_after_seconds)},
+                )
+        else:
+            response = await call_next(request)
         for header, value in SECURITY_HEADERS.items():
             response.headers.setdefault(header, value)
         if not request.url.path.startswith("/api/"):
@@ -1120,6 +1228,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except SQLAlchemyError as exc:
             raise HTTPException(status_code=503, detail="database unavailable") from exc
         return {"status": "ok", "database": "ok"}
+
+    @app.get("/internal/readiness", include_in_schema=False)
+    def readiness(
+        _: Annotated[None, Depends(require_internal_health_token)],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> JSONResponse:
+        try:
+            check_database(session)
+        except SQLAlchemyError:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "unavailable",
+                    "database": "unavailable",
+                    "maintenance": settings.maintenance_mode,
+                },
+            )
+
+        if settings.maintenance_mode:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"status": "maintenance", "database": "ok", "maintenance": True},
+                headers={"Retry-After": str(settings.maintenance_retry_after_seconds)},
+            )
+        return JSONResponse(
+            content={"status": "ok", "database": "ok", "maintenance": False}
+        )
 
     def get_authorization_bearer_token(
         authorization: Annotated[str | None, Header()] = None,

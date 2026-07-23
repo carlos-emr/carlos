@@ -25,6 +25,7 @@ dependencies = [
 
 [project.scripts]
 carlos-patient-portal-migrate = "carlos_patient_portal.cli:migrate"
+carlos-patient-portal-maintenance = "carlos_patient_portal.cli:maintenance"
 
 [project.optional-dependencies]
 dev = [

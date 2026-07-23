@@ -19,6 +19,8 @@ The first slice is intentionally small:
   logout, password reset, lockout, staff unlock, and forced reset after unlock.
 - Authenticated dashboard shell with Account, Email passwords, and Help modules.
 - Encrypted unlock-secret storage service for generated email/PDF passphrases.
+- Pilot hardening hooks for readiness checks, maintenance mode, coarse request throttling, audit
+  retention pruning, and local SQLite backup/restore drills.
 - Minimal FHIR R4 Patient and HL7 v2.5.1 patient-registration validation helpers for the MVP
   CARLOS integration contract.
 - Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
@@ -103,10 +105,13 @@ The internal readiness endpoint expects the health token as a Bearer token:
 ```bash
 curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
   http://127.0.0.1:8090/internal/health/db
+
+curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
+  http://127.0.0.1:8090/internal/readiness
 ```
 
-Expose `/internal/health/db` only to trusted infrastructure such as a load balancer or orchestrator
-health probe.
+Expose `/internal/health/db` and `/internal/readiness` only to trusted infrastructure such as a load
+balancer or orchestrator health probe.
 
 Non-development secrets must be set explicitly and be at least 32 characters.
 `PATIENT_PORTAL_ENVIRONMENT` accepts `development`, `staging`, `test`, or `production`; `dev` and
@@ -146,6 +151,18 @@ runs behind a trusted proxy that strips and sets forwarding headers, set
 untrusted direct internet traffic, because clients can spoof those headers unless a trusted upstream
 controls them.
 
+Pilot hardening defaults:
+
+- Coarse per-process request throttling allows 300 patient-facing requests per client per minute.
+  Tune with `PATIENT_PORTAL_GLOBAL_RATE_LIMIT_WINDOW_SECONDS` and
+  `PATIENT_PORTAL_GLOBAL_RATE_LIMIT_MAX_REQUESTS`. Keep edge/load-balancer throttles in front of
+  this service for multi-instance deployments.
+- `PATIENT_PORTAL_MAINTENANCE_MODE=true` returns `503` and `Retry-After` on patient-facing routes
+  while keeping `/health`, `/internal/health/db`, and `/internal/readiness` available. Tune the
+  retry hint with `PATIENT_PORTAL_MAINTENANCE_RETRY_AFTER_SECONDS`.
+- `PATIENT_PORTAL_AUDIT_RETENTION_DAYS` defaults to 25 years. Audit pruning is explicit rather than
+  automatic so clinics can align the retention job with their backup and legal-retention process.
+
 ## Migrations
 
 ```bash
@@ -162,6 +179,33 @@ carlos-patient-portal-migrate
 This PR adds the portal foundation, initial staff invite table, initial patient account table, and
 initial audit event table. It also adds portal-owned session, MFA challenge, password reset token,
 and encrypted unlock-secret tables.
+
+## Pilot Operations
+
+Run audit retention pruning from an installed wheel:
+
+```bash
+carlos-patient-portal-maintenance prune-audit --dry-run
+carlos-patient-portal-maintenance prune-audit --batch-size 1000
+```
+
+The built-in backup/restore helper is intentionally limited to file-backed SQLite databases for
+local development and small pilot recovery drills:
+
+```bash
+carlos-patient-portal-maintenance backup-sqlite --output /secure/backups/portal.db
+carlos-patient-portal-maintenance restore-sqlite --input /secure/backups/portal.db --overwrite
+```
+
+PostgreSQL deployments should use managed database snapshots, PITR, or `pg_dump`/`pg_restore` from
+the deployment platform. Before a pilot, run and document at least one restore drill against a
+non-production database.
+
+Keep `PATIENT_PORTAL_SESSION_SECRET`, `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`,
+`PATIENT_PORTAL_AUDIT_HASH_SECRET`, and `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET` as separate
+random values stored in the deployment secret manager. Back up the database before rotating any
+secret; rotating the unlock-secret encryption secret without a re-encryption migration makes stored
+email/PDF passphrases unreadable.
 
 ## Development Invite API
 
