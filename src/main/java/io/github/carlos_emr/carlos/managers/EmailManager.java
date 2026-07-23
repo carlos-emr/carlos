@@ -181,7 +181,16 @@ public class EmailManager {
         if (message == null) {
             return "";
         }
-        return message.length() <= MAX_ERROR_MESSAGE_LENGTH ? message : message.substring(0, MAX_ERROR_MESSAGE_LENGTH);
+        if (message.length() <= MAX_ERROR_MESSAGE_LENGTH) {
+            return message;
+        }
+        int end = MAX_ERROR_MESSAGE_LENGTH;
+        // Do not cut through a surrogate pair: if the last retained char is a high surrogate its
+        // low-surrogate partner is dropped, so drop the high surrogate too to avoid a lone unit.
+        if (Character.isHighSurrogate(message.charAt(end - 1))) {
+            end--;
+        }
+        return message.substring(0, end);
     }
 
     private void archiveOutboundEmail(LoggedInInfo loggedInInfo, EmailSender emailSender, EmailLog emailLog) throws EmailSendingException {

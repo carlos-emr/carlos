@@ -164,6 +164,29 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should not split a surrogate pair when bounding an oversized error message")
+    void shouldNotSplitSurrogatePair_whenBoundingOversizedErrorMessage() throws Exception {
+        EmailData emailData = sendGridEmailData();
+        EmailConfig emailConfig = sendGridEmailConfig();
+        OutboundEmailArchiveDto archiveRequest = new OutboundEmailArchiveDto();
+        stubPreparedOutbox(emailConfig);
+        // Place an emoji (surrogate pair) so its high surrogate lands on the 1000-char boundary.
+        String detail = "x".repeat(999) + "😀" + "y".repeat(100);
+
+        try (MockedConstruction<EmailSender> mockedEmailSenders = mockConstruction(EmailSender.class, (emailSender, context) -> {
+            when(emailSender.supportsOutboundArchive()).thenReturn(true);
+            when(emailSender.prepareOutboundArchive(any(EmailLog.class))).thenReturn(archiveRequest);
+            doThrow(new EmailSendingException(detail)).when(emailSender).sendPrepared();
+        })) {
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).isEqualTo("x".repeat(999));
+            assertThat(emailLog.getErrorMessage().chars().noneMatch(c -> Character.isSurrogate((char) c))).isTrue();
+        }
+    }
+
     private void stubPreparedOutbox(EmailConfig emailConfig) {
         when(emailConfigDao.findActiveEmailConfigById(7)).thenReturn(emailConfig);
         when(demographicManager.getDemographic(loggedInInfo, 123)).thenReturn(new Demographic(123));
