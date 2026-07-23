@@ -100,7 +100,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             PharmacyInfo pharmacy = new PharmacyInfo();
             pharmacy.setId(1);
             pharmacy.setName("Downtown Pharmacy");
-            when(mockPharmacyInfoDao.find(eq(1))).thenReturn(pharmacy);
+            when(mockPharmacyInfoDao.find(eq((Object) 1))).thenReturn(pharmacy);
 
             Response response = request().path("/pharmacies/1").get();
 
@@ -118,7 +118,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             PharmacyInfo pharmacy = new PharmacyInfo();
             pharmacy.setId(1);
             pharmacy.setName("Old Pharmacy");
-            when(mockPharmacyInfoDao.find(eq(1))).thenReturn(pharmacy);
+            when(mockPharmacyInfoDao.find(eq((Object) 1))).thenReturn(pharmacy);
             when(mockPharmacyInfoDao.saveEntity(any(PharmacyInfo.class))).thenReturn(pharmacy);
 
             Response response = request().path("/pharmacies/1").delete();
