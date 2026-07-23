@@ -687,9 +687,9 @@ public class EFormBrowserPdfService {
 
     /**
      * A started renderer browser plus the caller-owned chromedriver service behind it.
-     * {@code service} is non-null only on the pinned-chromedriver path; holding it lets the render
-     * {@code finally} stop the chromedriver process even when {@code quit()} times out against a
-     * wedged Chromium, so a hung render can never orphan a driver process.
+     * {@code service} is non-null on both the pinned and Selenium-Manager paths; holding it lets
+     * the render {@code finally} stop the chromedriver process even when {@code quit()} times out
+     * against a wedged Chromium, so a hung render can never orphan a driver process.
      */
     record RendererBrowser(ChromeDriver driver, ChromeDriverService service) {
     }
@@ -755,10 +755,25 @@ public class EFormBrowserPdfService {
                     throw e;
                 }
             }
-            // No pinned chromedriver: Selenium Manager resolves one matching the browser. Intended
-            // for dev/CI; production deployments should pin eform_pdf_browser_chromedriver_path.
-            // The driver owns its internal default service here, so there is none to hold.
-            return new RendererBrowser(new ChromeDriver(options, rendererClientConfig()), null);
+            // No pinned chromedriver: Selenium Manager resolves one when the driver starts (the
+            // DriverFinder consults it for an executable-less service). Build a caller-owned
+            // service anyway so the render finally can stop the chromedriver process even when
+            // quit() times out against a wedged Chromium — without the handle, that leak (a
+            // browser holding a rendered PHI page) was invisible below DEBUG and unkillable.
+            // Intended for dev/CI; production deployments should still pin
+            // eform_pdf_browser_chromedriver_path.
+            ChromeDriverService managerResolvedService = new ChromeDriverService.Builder().build();
+            try {
+                return new RendererBrowser(
+                        new ChromeDriver(managerResolvedService, options, rendererClientConfig()), managerResolvedService);
+            } catch (RuntimeException e) {
+                // Mirror the pinned path: Selenium starts the caller-owned service before session
+                // creation but does not stop it if the ChromeDriver constructor throws.
+                if (managerResolvedService.isRunning()) {
+                    managerResolvedService.stop();
+                }
+                throw e;
+            }
         } catch (RuntimeException e) {
             // The redacted detail line below is the ONLY place the underlying startup failure (a
             // version mismatch, a missing shared library, a sandbox that cannot start) surfaces:
