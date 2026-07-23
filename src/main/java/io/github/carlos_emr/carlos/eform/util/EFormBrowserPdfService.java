@@ -475,7 +475,7 @@ public class EFormBrowserPdfService {
                         + "set EFORM_RENDER_SANDBOX=true on a non-root deployment with unprivileged user "
                         + "namespaces to enable it). OS-level containment is delegated to the container boundary.");
             }
-            RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), allowUnsandboxed, allowedOrigin));
+            RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), unsandboxed, allowedOrigin));
             driver = browser.driver();
             driverService = browser.service();
             logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
@@ -597,7 +597,7 @@ public class EFormBrowserPdfService {
      */
     public void verifyRendererReady() throws PDFGenerationException {
         RendererBrowser browser = createDriver(
-                buildChromeOptions(resolveChromiumPath(), allowUnsandboxed(), "http://127.0.0.1"));
+                buildChromeOptions(resolveChromiumPath(), !sandboxEnabled(), "http://127.0.0.1"));
         ChromeDriver driver = browser.driver();
         ChromeDriverService driverService = browser.service();
         try {
@@ -817,7 +817,7 @@ public class EFormBrowserPdfService {
             // frame-only stack summary here so an operator can actually diagnose the failure.
             logger.error("Chromium startup failure detail: type={} error={} at={}",
                     e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
-            throw chromiumStartupFailure(allowUnsandboxed());
+            throw chromiumStartupFailure(!sandboxEnabled());
         }
     }
 
@@ -827,17 +827,18 @@ public class EFormBrowserPdfService {
      * handler that logs this exception's chain would re-emit them unredacted — the redacted
      * "Chromium startup failure detail" log line at the catch site is the diagnostic record.
      */
-    static PDFGenerationException chromiumStartupFailure(boolean allowUnsandboxed) {
-        if (!allowUnsandboxed) {
-            // Fail closed: a sandboxed launch that cannot start must not degrade to --no-sandbox
-            // on its own. The message admits the non-sandbox causes too (bad/missing browser or
-            // driver) so a misconfigured install is not misread as purely a namespace problem.
+    static PDFGenerationException chromiumStartupFailure(boolean unsandboxed) {
+        if (!unsandboxed) {
+            // The operator opted into Chromium's OS sandbox (EFORM_RENDER_SANDBOX=true) but it could not
+            // start; fail closed rather than silently degrading to --no-sandbox. The message admits the
+            // non-sandbox causes too (bad/missing browser or driver) so a misconfigured install is not
+            // misread as purely a namespace problem.
             return new PDFGenerationException(
                     "Unable to start the sandboxed headless Chromium renderer for eForms. "
                     + "Common causes: missing or incompatible Chromium/chromedriver, or a kernel "
                     + "without unprivileged user namespaces. If the browser installation is correct, "
-                    + "enable unprivileged user namespaces and run as a non-root user, or set "
-                    + "EFORM_RENDER_ALLOW_UNSANDBOXED=true only when the container itself provides isolation.");
+                    + "enable unprivileged user namespaces and run as a non-root user, or unset "
+                    + "EFORM_RENDER_SANDBOX to run with --no-sandbox where the container provides isolation.");
         }
         return new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.");
     }

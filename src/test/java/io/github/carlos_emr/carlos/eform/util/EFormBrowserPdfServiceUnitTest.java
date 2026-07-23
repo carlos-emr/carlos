@@ -315,6 +315,15 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should default to unsandboxed when EFORM_RENDER_SANDBOX is unset")
+    void shouldDefaultToUnsandboxed_whenSandboxEnvVarUnset() {
+        // The renderer is unsandboxed by default so it starts out of the box where Chromium's sandbox
+        // cannot initialize (root / no user namespaces). The OS sandbox is opt-in via EFORM_RENDER_SANDBOX.
+        // The test JVM has no such env var, so sandboxEnabled() must report false.
+        assertThat(EFormBrowserPdfService.sandboxEnabled()).isFalse();
+    }
+
+    @Test
     @DisplayName("should reject a base URL carrying user-info, query, or fragment components")
     void shouldRejectBaseUrl_withUserInfoQueryOrFragment() {
         // Servlet paths are appended verbatim to the base; a query/fragment would swallow them

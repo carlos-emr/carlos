@@ -73,10 +73,11 @@ shape.
 >
 > Before upgrading, install Chromium/Chrome and a matching `chromedriver` (or confirm the host can
 > reach Selenium Manager to download one), and configure `eform_pdf_browser_chromium_path` /
-> `eform_pdf_browser_chromedriver_path` per the bullets below. If the host's Chromium sandbox
-> cannot start (no unprivileged user namespaces available), the readiness probe fails the same as a
-> real render would — see `EFORM_RENDER_ALLOW_UNSANDBOXED` under "Security operations note" before
-> assuming the deployment is broken.
+> `eform_pdf_browser_chromedriver_path` per the bullets below. The renderer is unsandboxed by default
+> (see "Security operations note"), so the readiness probe launches Chromium with `--no-sandbox` and
+> does not fail merely because the host lacks user namespaces. If you have opted into the OS sandbox
+> with `EFORM_RENDER_SANDBOX=true` and it cannot start, the readiness probe fails the same as a real
+> render would — review that setting before assuming the deployment is broken.
 
 - **Chromium** (or Chrome) on the server. Point the renderer at it with
   `eform_pdf_browser_chromium_path`; without the property, Selenium looks for a system Chrome.
