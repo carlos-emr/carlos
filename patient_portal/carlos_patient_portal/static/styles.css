@@ -261,6 +261,32 @@ h1 {
   margin-bottom: 12px;
 }
 
+.module-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 920px;
+  margin-bottom: 12px;
+}
+
+.search-field {
+  display: grid;
+  gap: 4px;
+  min-width: min(100%, 280px);
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.search-field input {
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid #aeb7c8;
+  border-radius: 3px;
+  background: #fff;
+}
+
 .detail-list {
   display: grid;
   gap: 0;
@@ -317,8 +343,78 @@ h1 {
   font-size: 13px;
 }
 
+.cell-primary,
+.cell-secondary {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.cell-primary {
+  font-weight: bold;
+}
+
+.cell-secondary {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.password-copy-group {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  max-width: 280px;
+}
+
+.copyable-password {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid #aeb7c8;
+  border-radius: 3px;
+  background: #fff;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.copy-action {
+  min-width: 58px;
+}
+
+.unavailable-row {
+  color: var(--muted);
+}
+
+.unavailable-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  color: #6b2430;
+  font-weight: bold;
+}
+
 .empty-state {
   color: var(--muted);
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 920px;
+  margin-top: 12px;
+}
+
+.pagination-disabled,
+.page-indicator {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 10px;
+  color: var(--muted);
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: bold;
 }
 
 @media (max-width: 640px) {
@@ -378,8 +474,73 @@ h1 {
     padding: 14px 10px;
   }
 
+  .module-toolbar {
+    align-items: stretch;
+  }
+
+  .module-toolbar .secondary-action {
+    flex: 1 1 96px;
+  }
+
   .detail-list div {
     grid-template-columns: minmax(0, 1fr);
     gap: 3px;
+  }
+
+  .table-shell {
+    overflow-x: visible;
+  }
+
+  .table-shell .email-password-table {
+    min-width: 0;
+  }
+
+  .email-password-table thead {
+    display: none;
+  }
+
+  .email-password-table,
+  .email-password-table tbody,
+  .email-password-table tr,
+  .email-password-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .email-password-table tr {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .email-password-table td {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 0;
+  }
+
+  .email-password-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .email-password-table .empty-state {
+    display: block;
+  }
+
+  .email-password-table .empty-state::before {
+    content: "";
+  }
+
+  .password-copy-group {
+    grid-template-columns: minmax(0, 1fr) auto;
+    max-width: none;
+  }
+
+  .pagination-bar {
+    justify-content: space-between;
   }
 }

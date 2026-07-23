@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ service_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
 </head>
 <body>
   <main class="app-shell">
@@ -65,8 +66,25 @@
             <header class="module-header">
               <h1>Email passwords</h1>
             </header>
+            <form class="module-toolbar" method="get" action="{{ url_for('portal_email_passwords') }}" role="search">
+              <label class="search-field" for="email-password-search">
+                <span>Search</span>
+                <input
+                  id="email-password-search"
+                  name="q"
+                  type="search"
+                  maxlength="128"
+                  value="{{ email_passwords.search }}"
+                  autocomplete="off"
+                >
+              </label>
+              <button class="secondary-action" type="submit">Search</button>
+              {% if email_passwords.search %}
+                <a class="secondary-action" href="{{ url_for('portal_email_passwords') }}">Clear</a>
+              {% endif %}
+            </form>
             <div class="table-shell" role="region" aria-label="Email passwords">
-              <table>
+              <table class="email-password-table">
                 <thead>
                   <tr>
                     <th scope="col">Subject</th>
@@ -76,12 +94,61 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td colspan="4" class="empty-state">No email passwords</td>
-                  </tr>
+                  {% if email_passwords.rows %}
+                    {% for row in email_passwords.rows %}
+                      <tr{% if not row.is_available %} class="unavailable-row"{% endif %}>
+                        <td data-label="Subject">
+                          <span class="cell-primary">{{ row.subject }}</span>
+                          {% if row.source_reference %}
+                            <span class="cell-secondary">{{ row.source_reference }}</span>
+                          {% endif %}
+                        </td>
+                        <td data-label="Provider">{{ row.provider }}</td>
+                        <td data-label="Sent">{{ row.sent_at }}</td>
+                        <td data-label="Password">
+                          {% if row.is_available %}
+                            <div class="password-copy-group">
+                              <input
+                                id="email-password-{{ row.id }}"
+                                class="copyable-password"
+                                type="text"
+                                value="{{ row.passphrase }}"
+                                readonly
+                                aria-label="Password for {{ row.subject }}"
+                              >
+                              <button
+                                class="secondary-action copy-action"
+                                type="button"
+                                data-copy-target="email-password-{{ row.id }}"
+                              >Copy</button>
+                            </div>
+                          {% else %}
+                            <span class="unavailable-state">Unavailable</span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="4" class="empty-state">{{ email_passwords.empty_message }}</td>
+                    </tr>
+                  {% endif %}
                 </tbody>
               </table>
             </div>
+            <nav class="pagination-bar" aria-label="Email password pages">
+              {% if email_passwords.previous_href %}
+                <a class="secondary-action" href="{{ email_passwords.previous_href }}">Previous</a>
+              {% else %}
+                <span class="pagination-disabled">Previous</span>
+              {% endif %}
+              <span class="page-indicator">Page {{ email_passwords.page }}</span>
+              {% if email_passwords.next_href %}
+                <a class="secondary-action" href="{{ email_passwords.next_href }}">Next</a>
+              {% else %}
+                <span class="pagination-disabled">Next</span>
+              {% endif %}
+            </nav>
           {% else %}
             <header class="module-header">
               <h1>Help</h1>

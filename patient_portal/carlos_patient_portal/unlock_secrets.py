@@ -5,7 +5,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from sqlalchemy import Select, select
+from sqlalchemy import Select, or_, select
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
@@ -40,6 +40,7 @@ ASSOCIATED_DATA_PREFIX = "carlos-patient-portal.unlock-secret.v1"
 GENERATED_UNLOCK_SECRET_LENGTH = 12
 DEFAULT_UNLOCK_SECRET_LIST_LIMIT = 10
 MAX_UNLOCK_SECRET_LIST_LIMIT = 100
+MAX_UNLOCK_SECRET_SEARCH_LENGTH = 128
 MAX_UNLOCK_SECRET_PLAINTEXT_BYTES = 1024
 AMBIGUOUS_SECRET_CHARACTERS = frozenset("0O1Il")
 UNLOCK_SECRET_LOWERCASE = "abcdefghjkmnpqrstuvwxyz"
@@ -348,6 +349,7 @@ def list_unlock_secrets(
     demographic_no: int | None = None,
     include_revoked: bool = False,
     secret_type: str | None = None,
+    search: str | None = None,
     limit: int = DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     offset: int = 0,
 ) -> list[PatientPortalUnlockSecret]:
@@ -361,6 +363,20 @@ def list_unlock_secrets(
     )
     if not include_revoked:
         statement = statement.where(PatientPortalUnlockSecret.status == UNLOCK_SECRET_STATUS_ACTIVE)
+    normalized_search = normalize_optional_text(
+        search,
+        field_name="search",
+        max_length=MAX_UNLOCK_SECRET_SEARCH_LENGTH,
+    )
+    if normalized_search is not None:
+        like_pattern = f"%{escape_like_pattern(normalized_search)}%"
+        statement = statement.where(
+            or_(
+                PatientPortalUnlockSecret.label.ilike(like_pattern, escape="\\"),
+                PatientPortalUnlockSecret.source_reference.ilike(like_pattern, escape="\\"),
+                PatientPortalUnlockSecret.created_by.ilike(like_pattern, escape="\\"),
+            )
+        )
     statement = (
         statement.order_by(PatientPortalUnlockSecret.created_at.desc())
         .limit(normalized_limit)
@@ -529,6 +545,10 @@ def normalize_list_offset(offset: int) -> int:
     if offset < 0:
         raise ValueError("offset must not be negative")
     return offset
+
+
+def escape_like_pattern(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def normalize_required_text(value: str, *, field_name: str, max_length: int) -> str:

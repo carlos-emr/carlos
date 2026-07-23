@@ -677,6 +677,131 @@ def test_dashboard_shell_navigation_and_cookie_logout() -> None:
         assert logout_event.account_id == account_id
 
 
+def test_email_password_dashboard_populated_search_pagination_and_copy_controls() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    base_time = datetime(2026, 7, 23, 12, 0, tzinfo=UTC)
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            for index in range(12):
+                created = create_unlock_secret(
+                    session,
+                    clinic_id="default",
+                    demographic_no=1234,
+                    account_id=account_id,
+                    secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                    secret=f"PortalPwd{index:02d}!A",
+                    created_by="Dr example",
+                    encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                    label="Lab report" if index == 5 else f"Message {index:02d}",
+                    source_reference=f"message-{3135 + index}",
+                )
+                created_at = base_time + timedelta(minutes=index)
+                created.unlock_secret.created_at = created_at
+                created.unlock_secret.updated_at = created_at
+
+    page_one_response = client.get("/portal/email-passwords")
+    page_two_response = client.get("/portal/email-passwords?page=2")
+    search_response = client.get("/portal/email-passwords?q=lab")
+
+    assert page_one_response.status_code == 200
+    assert "Message 11" in page_one_response.text
+    assert "PortalPwd11!A" in page_one_response.text
+    assert "Message 02" in page_one_response.text
+    assert "PortalPwd02!A" in page_one_response.text
+    assert "Message 01" not in page_one_response.text
+    assert "PortalPwd01!A" not in page_one_response.text
+    assert page_one_response.text.index("Message 11") < page_one_response.text.index("Message 02")
+    assert 'value="PortalPwd11!A"' in page_one_response.text
+    assert 'readonly' in page_one_response.text
+    assert 'data-copy-target="email-password-' in page_one_response.text
+    assert 'href="/portal/email-passwords?page=2"' in page_one_response.text
+    assert '<span class="page-indicator">Page 1</span>' in page_one_response.text
+
+    assert page_two_response.status_code == 200
+    assert "Message 01" in page_two_response.text
+    assert "PortalPwd01!A" in page_two_response.text
+    assert "Message 00" in page_two_response.text
+    assert "PortalPwd00!A" in page_two_response.text
+    assert "Message 02" not in page_two_response.text
+    assert 'href="/portal/email-passwords"' in page_two_response.text
+    assert '<span class="page-indicator">Page 2</span>' in page_two_response.text
+
+    assert search_response.status_code == 200
+    assert "Lab report" in search_response.text
+    assert "PortalPwd05!A" in search_response.text
+    assert "Message 06" not in search_response.text
+    assert "PortalPwd06!A" not in search_response.text
+    assert 'value="lab"' in search_response.text
+
+    with app.state.session_factory() as session:
+        read_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(
+                    PatientPortalAuditEvent.event_type == AUDIT_EVENT_UNLOCK_SECRET_READ,
+                    PatientPortalAuditEvent.outcome == AUDIT_OUTCOME_SUCCESS,
+                    PatientPortalAuditEvent.account_id == account_id,
+                )
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+
+        assert len(read_events) == 13
+        assert all(event.actor_type == "patient" for event in read_events)
+
+
+def test_email_password_dashboard_empty_search_and_unavailable_password_states() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    raw_secret = "HiddenEmail9!"
+
+    empty_response = client.get("/portal/email-passwords")
+    empty_search_response = client.get("/portal/email-passwords?q=missing")
+
+    assert empty_response.status_code == 200
+    assert "No email passwords" in empty_response.text
+    assert empty_search_response.status_code == 200
+    assert "No matching email passwords" in empty_search_response.text
+
+    with app.state.session_factory() as session:
+        with session.begin():
+            create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret,
+                created_by="Dr example",
+                encryption_secret="v" * MIN_PRODUCTION_SECRET_LENGTH,
+                label="Broken message",
+                source_reference="message-4000",
+            )
+
+    unavailable_response = client.get("/portal/email-passwords")
+
+    assert unavailable_response.status_code == 200
+    assert "Broken message" in unavailable_response.text
+    assert "Unavailable" in unavailable_response.text
+    assert raw_secret not in unavailable_response.text
+    assert "copyable-password" not in unavailable_response.text
+    with app.state.session_factory() as session:
+        read_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_UNLOCK_SECRET_READ,
+                PatientPortalAuditEvent.outcome == AUDIT_OUTCOME_FAILURE,
+                PatientPortalAuditEvent.account_id == account_id,
+            )
+        )
+
+        assert read_event is not None
+        assert read_event.reason == "not_available"
+
+
 def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
     app = migrated_development_app()
     client = TestClient(app)
@@ -778,16 +903,24 @@ def test_non_portal_prefix_does_not_receive_portal_cache_rule() -> None:
 
 def test_dashboard_styles_include_desktop_and_mobile_navigation_rules() -> None:
     app = main.create_app(development_settings())
-    response = TestClient(app).get("/static/styles.css")
+    client = TestClient(app)
+    response = client.get("/static/styles.css")
+    script_response = client.get("/static/portal.js")
     css = response.text
 
     assert response.status_code == 200
+    assert script_response.status_code == 200
     assert ".dashboard-layout" in css
     assert "grid-template-columns: 220px minmax(0, 1fr);" in css
     assert "@media (max-width: 640px)" in css
     assert ".portal-topbar" in css
     assert "flex-direction: row;" in css
     assert ".module-nav" in css
+    assert ".password-copy-group" in css
+    assert ".table-shell .email-password-table" in css
+    assert ".email-password-table td::before" in css
+    assert "content: attr(data-label);" in css
+    assert "navigator.clipboard.writeText" in script_response.text
 
 
 def test_login_route_rejects_missing_csrf_token() -> None:

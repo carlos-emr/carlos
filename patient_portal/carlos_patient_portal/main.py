@@ -9,7 +9,7 @@ from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
 from time import time
 from typing import Annotated, TypeVar
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlencode
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
@@ -118,6 +118,8 @@ from carlos_patient_portal.schemas import (
 from carlos_patient_portal.unlock_secrets import (
     DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     MAX_UNLOCK_SECRET_LIST_LIMIT,
+    MAX_UNLOCK_SECRET_SEARCH_LENGTH,
+    UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
     UnlockSecretRevokedError,
     get_scoped_unlock_secret,
@@ -158,6 +160,7 @@ PORTAL_MODULES = (
     },
     {"slug": "help", "label": "Help", "href": "/portal/help"},
 )
+EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE = DEFAULT_UNLOCK_SECRET_LIST_LIMIT
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
 
@@ -485,9 +488,10 @@ def portal_template_context(
     settings: Settings,
     active_module: str,
     csrf_token: str,
+    extra_context: dict[str, object] | None = None,
 ) -> dict[str, object]:
     account = authenticated_session.account
-    return {
+    context: dict[str, object] = {
         "request": request,
         "service_name": settings.service_name,
         "clinic_name": settings.clinic_name,
@@ -497,6 +501,125 @@ def portal_template_context(
         "modules": portal_modules(active_module),
         "csrf_token": csrf_token,
     }
+    if extra_context is not None:
+        context.update(extra_context)
+    return context
+
+
+def email_password_dashboard_context(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    search: str | None,
+    page: int,
+    encryption_secret: str,
+) -> dict[str, object]:
+    normalized_search = normalize_email_password_dashboard_search(search)
+    normalized_page = max(page, 1)
+    offset = (normalized_page - 1) * EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
+    records = list_unlock_secrets(
+        session,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+        search=normalized_search,
+        limit=EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE + 1,
+        offset=offset,
+    )
+    visible_records = records[:EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE]
+    has_next = len(records) > EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
+    return {
+        "rows": [
+            email_password_dashboard_row(
+                session,
+                account,
+                record,
+                encryption_secret=encryption_secret,
+            )
+            for record in visible_records
+        ],
+        "search": normalized_search or "",
+        "page": normalized_page,
+        "empty_message": (
+            "No matching email passwords" if normalized_search else "No email passwords"
+        ),
+        "previous_href": (
+            portal_email_password_page_href(search=normalized_search, page=normalized_page - 1)
+            if normalized_page > 1
+            else None
+        ),
+        "next_href": (
+            portal_email_password_page_href(search=normalized_search, page=normalized_page + 1)
+            if has_next
+            else None
+        ),
+    }
+
+
+def email_password_dashboard_row(
+    session: Session,
+    account: PatientPortalAccount,
+    unlock_secret: PatientPortalUnlockSecret,
+    *,
+    encryption_secret: str,
+) -> dict[str, object]:
+    try:
+        passphrase = read_unlock_secret(
+            session,
+            unlock_secret.id,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            audit_account_id=account.id,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            encryption_secret=encryption_secret,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+        )
+    except (UnlockSecretDecryptionError, UnlockSecretNotFoundError, UnlockSecretRevokedError):
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            account_id=account.id,
+            reason="not_available",
+        )
+        passphrase = None
+
+    return {
+        "id": unlock_secret.id,
+        "subject": unlock_secret.label or "Email password",
+        "provider": unlock_secret.created_by,
+        "sent_at": unlock_secret.created_at.strftime("%Y-%m-%d %H:%M"),
+        "source_reference": unlock_secret.source_reference,
+        "passphrase": passphrase,
+        "is_available": passphrase is not None,
+    }
+
+
+def normalize_email_password_dashboard_search(search: str | None) -> str | None:
+    if search is None:
+        return None
+    normalized_search = search.strip()
+    if not normalized_search:
+        return None
+    return normalized_search[:MAX_UNLOCK_SECRET_SEARCH_LENGTH]
+
+
+def portal_email_password_page_href(*, search: str | None, page: int) -> str:
+    query_params: dict[str, str] = {}
+    normalized_search = normalize_email_password_dashboard_search(search)
+    if normalized_search is not None:
+        query_params["q"] = normalized_search
+    if page > 1:
+        query_params["page"] = str(page)
+    query_string = urlencode(query_params)
+    if not query_string:
+        return "/portal/email-passwords"
+    return f"/portal/email-passwords?{query_string}"
 
 
 async def read_limited_request_body(request: Request, max_bytes: int) -> bytes:
@@ -929,6 +1052,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session: Session,
         *,
         active_module: str,
+        email_password_search: str | None = None,
+        email_password_page: int = 1,
     ) -> Response:
         try:
             authenticated_session = get_authenticated_portal_cookie_session(request, session)
@@ -937,6 +1062,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             clear_portal_session_cookie(response, settings=settings)
             return response
 
+        extra_context: dict[str, object] = {}
+        if active_module == "email-passwords":
+            extra_context["email_passwords"] = email_password_dashboard_context(
+                session,
+                authenticated_session.account,
+                search=email_password_search,
+                page=email_password_page,
+                encryption_secret=unlock_secret_encryption_secret,
+            )
         csrf_token = create_csrf_token(csrf_secret)
         response = templates.TemplateResponse(
             request=request,
@@ -947,6 +1081,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 settings=settings,
                 active_module=active_module,
                 csrf_token=csrf_token,
+                extra_context=extra_context,
             ),
         )
         set_csrf_cookie(
@@ -1338,8 +1473,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def portal_email_passwords(
         request: Request,
         session: Annotated[Session, Depends(get_app_database_session)],
+        q: Annotated[str | None, Query(max_length=MAX_UNLOCK_SECRET_SEARCH_LENGTH)] = None,
+        page: Annotated[int, Query(ge=1)] = 1,
     ) -> Response:
-        return render_portal_page(request, session, active_module="email-passwords")
+        return render_portal_page(
+            request,
+            session,
+            active_module="email-passwords",
+            email_password_search=q,
+            email_password_page=page,
+        )
 
     @app.get("/portal/help")
     def portal_help(
