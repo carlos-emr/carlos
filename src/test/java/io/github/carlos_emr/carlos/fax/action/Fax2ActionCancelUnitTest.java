@@ -36,10 +36,15 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -75,9 +80,36 @@ class Fax2ActionCancelUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         response = new MockHttpServletResponse();
 
+        // cancel() gates on _fax read before touching the flush/redirect flow.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+
         registerMock(FaxManager.class, faxManager);
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should throw SecurityException when the fax read privilege is missing")
+    void shouldThrowSecurityException_whenFaxReadPrivilegeMissing() {
+        setUpCommonMocks();
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(false);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("CONSULTATION");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+
+            assertThatThrownBy(action::cancel)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object (_fax)");
+            // The privilege gate fires before any flush/deletion side effect.
+            verify(faxManager, never()).flush(any(), anyString());
+        }
     }
 
     @Test

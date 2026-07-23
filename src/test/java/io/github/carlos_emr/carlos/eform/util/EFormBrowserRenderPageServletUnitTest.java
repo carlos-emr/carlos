@@ -202,6 +202,27 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should send forbidden when the session path carries a mismatched providerId")
+    void shouldSendForbidden_whenSessionProviderIdMismatched() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("fdid", "123");
+        request.setParameter("providerId", "111111");
+        installLoggedInInfo(request, "999998");
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormBrowserRenderPageServlet().doGet(request, response);
+
+        // Mirror the sibling session gate (web.eform.EformViewForPdfGenerationServlet): the
+        // render surface is scoped to the authenticated provider, and a request-supplied
+        // providerId is never trusted over the session's.
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    @Test
     @DisplayName("should send forbidden when the authenticated session lacks _eform read privilege")
     void shouldSendForbidden_whenSessionLacksEformReadPrivilege() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");

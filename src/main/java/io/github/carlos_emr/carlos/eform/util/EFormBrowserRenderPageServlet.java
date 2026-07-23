@@ -112,7 +112,18 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires an authenticated _eform session");
                     return;
                 }
-                providerId = request.getParameter(PROVIDER_ID_PARAM);
+                // Mirror the sibling session gate (web.eform.EformViewForPdfGenerationServlet):
+                // the render surface is scoped to the authenticated provider. The session's
+                // provider number is authoritative; a present-but-different request-supplied
+                // providerId is rejected, never trusted.
+                providerId = loggedInInfo.getLoggedInProviderNo();
+                String requestedProviderId = request.getParameter(PROVIDER_ID_PARAM);
+                if (requestedProviderId != null && !requestedProviderId.trim().isEmpty()
+                        && !requestedProviderId.trim().equals(providerId)) {
+                    logger.warn("Saved eForm PDF request rejected: providerId does not match the authenticated session");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires a matching provider session");
+                    return;
+                }
                 logger.debug("EFormBrowserRenderPageServlet authorized via _eform session: fdid={}", formDataId);
             }
 

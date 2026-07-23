@@ -139,6 +139,12 @@ public class Fax2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String cancel() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Direct gate (2Action convention): cancel deletes temp files and PHI preview caches, so
+        // it must not rely solely on flush()'s internal _fax gate — and the empty-path redirect
+        // branch had no check at all.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
         String faxForward = transactionType;
 
         if (faxFilePath != null && !faxFilePath.trim().isEmpty()) {

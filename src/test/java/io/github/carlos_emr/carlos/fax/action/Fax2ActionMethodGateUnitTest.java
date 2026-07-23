@@ -75,6 +75,10 @@ class Fax2ActionMethodGateUnitTest extends CarlosUnitTestBase {
         faxManager = mock(FaxManager.class);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
+        // cancel() (the no-method fall-through target) gates on _fax read; the verb-gate tests
+        // here are about dispatch, not authorization, so grant it.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
 
         request = new MockHttpServletRequest();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
