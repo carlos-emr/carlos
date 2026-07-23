@@ -182,6 +182,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         persistedEmailLog.setEmailConfig(persistedEmailConfig);
         Document savedDocument = savedDocument();
         when(emailLogDao.find((Object) Integer.valueOf(44))).thenReturn(persistedEmailLog);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 789)).thenReturn(true);
         when(archiveDocumentPersister.persistArchiveDocument(eq(loggedInInfo), any(Document.class), eq(789), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument);
 
@@ -577,12 +578,11 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should archive for an authorized sender lacking eDoc write and patient access")
-    void shouldArchive_whenSenderHasEmailWriteButLacksEdocAndPatientAccess() throws Exception {
-        // Front-desk case: holds _email (may send) but not _edoc/patient-record access. The archive
-        // is a mandatory system control and must still be written via persistArchiveDocument.
+    @DisplayName("should archive for an authorized sender lacking eDoc write")
+    void shouldArchive_whenSenderHasEmailWriteButLacksEdoc() throws Exception {
+        // Front-desk case: holds _email (may send) and default patient-record access, but not _edoc.
+        // The archive is a mandatory system control and must still be written via persistArchiveDocument.
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
-        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
         EmailLog emailLog = emailLog();
         OutboundEmailArchiveDto request = archiveRequest(emailLog);
         when(archiveDocumentPersister.persistArchiveDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
@@ -592,6 +592,22 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
         assertThat(archive).isNotNull();
         verify(archiveDocumentPersister).persistArchiveDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+    }
+
+    @Test
+    @DisplayName("should reject archive into a chart locked to the sender")
+    void shouldRejectArchive_whenPatientRecordAccessDenied() {
+        // Patient-record access is default-allow; a false result means the chart is explicitly locked
+        // to the caller, so the outbound PHI must not be archived into it.
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+
+        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("archive demographic");
+
+        verifyNoInteractions(archiveDocumentPersister);
     }
 
     @Test

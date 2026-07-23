@@ -212,7 +212,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         EmailLog emailLog = loadEmailLog(requestedEmailLog.getId());
         String fileName = uniqueArchiveFileName(emailLog, contentType);
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
-        authorizeArchiveAccess(loggedInInfo);
+        authorizeArchiveAccess(loggedInInfo, demographicNo);
         List<OutboundEmailArchiveAttachment> attachments = buildAttachments(loggedInInfo, request, providerNo, demographicNo);
 
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
@@ -677,14 +677,22 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     // The outbound email archive is a mandatory compliance record for an email that has already been
     // authorized to send, so it is gated on the send privilege (_email write) rather than the sender's
-    // _edoc/patient-record rights. This lets authorized senders without chart-write access (e.g. front
-    // desk staff) still have their outbound email archived. The eDoc itself is written via
-    // OutboundEmailArchiveDocumentPersister#persistArchiveDocument (the archive is a system control), and the demographic is
-    // fixed by the already-authorized send, not by caller-supplied input. Controlled DELETION of an
-    // archive remains gated on _edoc/_admin.edocdelete + patient-record access (authorizeControlledDeletion).
-    private void authorizeArchiveAccess(LoggedInInfo loggedInInfo) {
+    // _edoc write right. This lets authorized senders without chart-write access (e.g. front desk staff)
+    // still have their outbound email archived, and the eDoc is written via
+    // OutboundEmailArchiveDocumentPersister#persistArchiveDocument (the archive is a system control).
+    //
+    // Patient-record access is still enforced: isAllowedAccessToPatientRecord is default-allow and only
+    // denies charts explicitly locked to the caller (_demographic$<no>/_eChart$<no>), so it does not
+    // affect ordinary front-desk sends but prevents archiving outbound PHI into a locked chart. The
+    // demographic is fixed by the already-authorized send, not by caller-supplied input. Controlled
+    // DELETION of an archive remains gated on _edoc/_admin.edocdelete + patient-record access
+    // (authorizeControlledDeletion).
+    private void authorizeArchiveAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
+        }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("not authorized for outbound email archive demographic");
         }
     }
 
