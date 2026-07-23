@@ -71,6 +71,7 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
     /*
      * Returns a temporary path to a PDF version of the given eformId.
      */
+    @Override
     public Path getEformFaxDocument(LoggedInInfo loggedInInfo, int eformId) throws PDFGenerationException {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
@@ -90,11 +91,12 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
         return eformDataManager.createEformPDF(loggedInInfo, eformId);
     }
 
+    @Override
     public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required sec object (_fax)");
         }
-        LogAction.addLogSynchronous(loggedInInfo, "FaxDocumentManager.getFormFaxDocument", "eformID: " + formTransportContainer.getFormName());
+        LogAction.addLogSynchronous(loggedInInfo, "FaxDocumentManager.getFormFaxDocument", "formName: " + formTransportContainer.getFormName());
         Path tempPdf = ConvertToEdoc.saveAsTempPDF(formTransportContainer);
         if (tempPdf == null) {
             // A null path means the form-to-PDF conversion produced nothing; the fax preview/send flow

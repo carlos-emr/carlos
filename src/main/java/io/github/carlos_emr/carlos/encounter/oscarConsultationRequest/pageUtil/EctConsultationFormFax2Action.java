@@ -163,7 +163,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
         } catch (PDFGenerationException e) {
             logger.error(e.getMessage(), e);
-            String errorMessage = "This fax could not be sent. \\n\\n" + e.getMessage();
+            String errorMessage = "This fax could not be sent. \n\n" + e.getMessage();
             request.setAttribute("errorMessage", errorMessage);
             return "error";
         }
@@ -173,7 +173,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             // details are in the server log. Surface it instead of NPE-ing on Paths.get(null).
             logger.error("Consultation fax PDF could not be stored in the document directory; aborting fax");
             request.setAttribute("errorMessage",
-                    "This fax could not be sent. \\n\\nThe fax document could not be stored for sending; please retry or contact your administrator.");
+                    "This fax could not be sent. \n\nThe fax document could not be stored for sending; please retry or contact your administrator.");
             return "error";
         }
         faxPdf = Paths.get(faxPdfPath);

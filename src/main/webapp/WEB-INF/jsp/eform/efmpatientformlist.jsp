@@ -135,13 +135,19 @@
 				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
 				// Guard the opener: this page is normally an eChart popup, but a direct
 				// navigation (bookmark, new tab) has no opener and the unguarded access
-				// threw a TypeError from the onunload handler on every close.
-				if (parentAjaxId !== "null" && window.opener && !window.opener.closed
-						&& window.opener.document && window.opener.document.forms['encForm']) {
-					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
-					window.opener.updateNeeded = true;
+				// threw a TypeError from the onunload handler on every close. Reading
+				// window.opener.document also throws a cross-origin SecurityError when the
+				// opener is a foreign origin (external-site link opened in a new tab), so the
+				// whole access is wrapped in try/catch to fail closed rather than throw.
+				try {
+					if (parentAjaxId !== "null" && window.opener && !window.opener.closed
+							&& window.opener.document && window.opener.document.forms['encForm']) {
+						window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
+						window.opener.updateNeeded = true;
+					}
+				} catch (e) {
+					// Cross-origin or closed opener — nothing to update; ignore.
 				}
-
 			}
         </script>
         <style>

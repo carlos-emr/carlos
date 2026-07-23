@@ -1604,6 +1604,8 @@ public class EFormBrowserPdfService {
      * equal). Without the downgrade the derived base is https://127.0.0.1:<httpPort>, which fails
      * every render. eform_pdf_browser_base_url overrides this derivation entirely.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal request scheme against https to detect a proxied-TLS loopback hop; not a security or authorization decision on user identity.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal request scheme against https to detect a proxied-TLS loopback hop; not a security or authorization decision on user identity")
     static String deriveLoopbackScheme(HttpServletRequest request) {
         String scheme = request.getScheme();
         if (SCHEME_HTTPS.equalsIgnoreCase(scheme) && request.getServerPort() != request.getLocalPort()) {
@@ -1793,9 +1795,10 @@ public class EFormBrowserPdfService {
                 || (SCHEME_HTTPS.equalsIgnoreCase(scheme) && port == 443);
     }
 
-    private static void deleteQuietly(Path outputPath) {
+    /** @return {@code true} when the path no longer exists after the attempt (deleted or already gone). */
+    private static boolean deleteQuietly(Path outputPath) {
         if (outputPath == null) {
-            return;
+            return false;
         }
         try {
             Files.deleteIfExists(outputPath);
@@ -1805,11 +1808,13 @@ public class EFormBrowserPdfService {
             // filesystem/permission problem. The path is a managed temp path, not PHI.
             logger.warn("Unable to delete temporary browser-rendered PDF {}", outputPath, e);
         }
+        return !Files.exists(outputPath);
     }
 
-    private static void deleteRecursivelyQuietly(Path directory) {
+    /** @return {@code true} only when every entry was removed and the directory itself no longer exists. */
+    private static boolean deleteRecursivelyQuietly(Path directory) {
         if (directory == null) {
-            return;
+            return false;
         }
         // Per-entry failures stay at DEBUG so one undeletable tree cannot spam WARN per file;
         // the aggregate below surfaces the problem once at WARN.
@@ -1825,11 +1830,14 @@ public class EFormBrowserPdfService {
             }
         } catch (IOException e) {
             logger.warn("Unable to delete temporary browser-rendered capture directory {}", directory, e);
+            return false;
         }
         if (failedEntries > 0) {
             logger.warn("Unable to delete {} entries under renderer capture directory {}; PHI capture images may be accumulating",
                     failedEntries, directory);
+            return false;
         }
+        return !Files.exists(directory);
     }
 
     /**
@@ -1883,12 +1891,13 @@ public class EFormBrowserPdfService {
                     continue; // can't stat it; leave it for a later sweep
                 }
                 if (isDirectory) {
-                    if (modifiedMillis < dirCutoffMillis) {
-                        deleteRecursivelyQuietly(entry);
+                    // Count only a confirmed reclamation: deleteRecursivelyQuietly returns false when
+                    // any entry survived, so the metric can't claim cleanup that didn't happen.
+                    if (modifiedMillis < dirCutoffMillis && deleteRecursivelyQuietly(entry)) {
                         reclaimed++;
                     }
-                } else if (entry.getFileName().toString().endsWith(".pdf") && modifiedMillis < outputCutoffMillis) {
-                    deleteQuietly(entry); // orphaned output reclaimed only long past any request lifetime
+                } else if (entry.getFileName().toString().endsWith(".pdf") && modifiedMillis < outputCutoffMillis
+                        && deleteQuietly(entry)) { // orphaned output reclaimed only long past any request lifetime
                     reclaimed++;
                 }
             }

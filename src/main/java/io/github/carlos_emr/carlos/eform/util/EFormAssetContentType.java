@@ -54,9 +54,11 @@ public final class EFormAssetContentType {
             return Optional.empty();
         }
         int dot = fileName.lastIndexOf('.');
-        if (dot < 0) {
-            // A dotless name has no extension; without this guard "png" (the whole name) would key
-            // the allowlist and type a dotless file as image/png.
+        if (dot <= 0 || dot == fileName.length() - 1) {
+            // No usable extension: a dotless name (dot < 0) would let "png" (the whole name) key the
+            // allowlist; a leading-dot dotfile (".png", dot == 0) has no name part and must not be
+            // typed off its "extension"; a trailing dot ("name.", dot == last) yields an empty
+            // extension. All three are treated as "no extension" so they cannot be served typed.
             return Optional.empty();
         }
         String extension = fileName.substring(dot + 1).toLowerCase(Locale.ROOT);

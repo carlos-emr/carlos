@@ -341,8 +341,10 @@ public class EForm extends EFormBase {
                 // - input: directly inserts value="" attribute at this position
                 int attributeEndPos = EFormUtil.getAttributeEndPos(marker, fieldHeader);
                 if (attributeEndPos == -1) {
-                    log.error("Failed to find attribute end position for marker: {} in field: {}",
-                            LogSafe.sanitize(marker), LogSafe.sanitize(fieldHeader));
+                    // Log the marker and its field index only — never fieldHeader, which is the raw
+                    // eForm field HTML and can carry a PHI-bearing value attribute.
+                    log.error("Failed to find attribute end position for marker: {} at field index: {}",
+                            LogSafe.sanitize(marker), markerLoc);
                     continue;
                 }
                 int pointer = markerLoc + attributeEndPos;

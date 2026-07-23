@@ -227,9 +227,10 @@ public class EformDataManagerImpl implements EformDataManager {
                     eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo(), allowMissingContent);
             path = rendered == null ? null : rendered.path();
         } catch (PDFGenerationException e) {
-            // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
-            // The renderer already logged a redacted cause; record which fdid failed here for correlation.
-            logger.warn("EForm PDF generation failed during browser rendering: fdid={} reason={}", fdid, e.getMessage());
+            // The renderer already logged a redacted cause. Record which fdid failed and the exception
+            // TYPE only for correlation — not e.getMessage(), which can re-emit unredacted renderer
+            // text (a page-generated error, URL, or path). The message still propagates to callers/UI.
+            logger.warn("EForm PDF generation failed during browser rendering: fdid={} type={}", fdid, e.getClass().getName());
             throw e;
         } catch (RuntimeException e) {
             // Only genuinely-unexpected non-renderer errors (NPE/Spring/etc.) reach here — the renderer

@@ -463,6 +463,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      *        same-origin visual assets; {@code false} to fail closed with
      *        {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}
      */
+    @Override
     public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, boolean allowMissingContent) throws PDFGenerationException {
         return renderDocument(loggedInInfo, null, null, documentType, documentId, allowMissingContent);
     }
@@ -536,11 +537,20 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * — the "render anyway" clinician choice on the fax cover page. Non-eForm attachments and the
      * always-hard render gates are unaffected.
      */
+    @Override
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, boolean allowMissingContent) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
         String demographicId = (String) request.getAttribute("demographicId");
-        Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, Integer.parseInt(fdid), allowMissingContent);
+        // fdid is set upstream from a numeric transaction id, but guard the parse so a malformed
+        // value surfaces as a clean PDFGenerationException instead of an uncaught NumberFormatException.
+        int fdidValue;
+        try {
+            fdidValue = Integer.parseInt(fdid);
+        } catch (NumberFormatException e) {
+            throw new PDFGenerationException("eForm render request carried a non-numeric fdid.");
+        }
+        Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, fdidValue, allowMissingContent);
 
         List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
         List<EDoc> attachedEDocs = EDocUtil.listDocsAttachedToEForm(loggedInInfo, demographicId, fdid, EDocUtil.ATTACHED);

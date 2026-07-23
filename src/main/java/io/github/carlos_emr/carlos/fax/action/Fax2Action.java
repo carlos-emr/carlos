@@ -110,6 +110,8 @@ public class Fax2Action extends ActionSupport {
      * @return the Struts result name for the dispatched operation, or {@link #NONE}
      *         after a direct-response write or a 405 rejection
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity")
     public String execute() {
         String method = request.getParameter("method");
         boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method) || "prepareFax".equals(method);
@@ -354,6 +356,8 @@ public class Fax2Action extends ActionSupport {
     /**
      * Get a preview image of the entire fax document.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: the request faxFilePath is confined to the CARLOS-owned temp workspace via PathValidationUtils.isInApplicationTempDirectory before any File use; a stored-document path is reachable only through its job binding.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "faxFilePath is containment-validated via PathValidationUtils.isInApplicationTempDirectory before any File use; stored documents are reachable only through their job binding")
     @SuppressWarnings("unused")
     public void getPreview() {
 
@@ -589,6 +593,8 @@ public class Fax2Action extends ActionSupport {
     /**
      * Get the actual number of pages in this PDF document.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: the request faxFilePath is confined to the CARLOS-owned temp workspace via PathValidationUtils.isInApplicationTempDirectory before any File use; a stored-document path is reachable only through its job binding.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "faxFilePath is containment-validated via PathValidationUtils.isInApplicationTempDirectory before any File use; stored documents are reachable only through their job binding")
     @SuppressWarnings("unused")
     public void getPageCount() {
 
