@@ -106,8 +106,9 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
 
     @Override
     public List<PatientLabRouting> findAllByLabNo(int labNo) {
-        String query = "select x from " + this.modelClass.getName() + " x where x.labNo=?1";
-        TypedQuery<PatientLabRouting> q = entityManager.createQuery(query, PatientLabRouting.class);
+        TypedQuery<PatientLabRouting> q = entityManager.createQuery(
+                "select x from PatientLabRouting x where x.labNo=?1",
+                PatientLabRouting.class);
         q.setParameter(1, labNo);
         return q.getResultList();
     }
