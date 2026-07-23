@@ -28,6 +28,16 @@
 <struts>
     <package name="provider" namespace="/" extends="struts-default" strict-method-invocation="true">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+            <exception-mapping exception="java.lang.Exception" result="error"/>
+        </global-exception-mappings>
+
         <action name="web/inboxhub/Inboxhub" class="io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2Action" method="execute">
             <result name="success">/WEB-INF/jsp/web/inboxhub/Inboxhub.jsp</result>
             <result name="displayList">/WEB-INF/jsp/web/inboxhub/InboxhubListMode.jsp</result>

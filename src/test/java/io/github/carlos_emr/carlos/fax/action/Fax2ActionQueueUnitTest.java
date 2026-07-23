@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.LIST;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
@@ -98,12 +99,18 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setCopyToRecipients(new String[] {"\"name\":\"Jane Doe\",\"fax\":\"\""});
 
-            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class);
+            // The deliberate rejection must propagate with its own honest message — not get
+            // swallowed by the JSON-parse catch and re-labeled "Invalid copy-to recipient format".
+            assertThatThrownBy(action::queue)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Copy-to recipient fax number is required");
 
-            // The specific, user-facing reason must survive even though the surrounding
-            // JSON-parse try/catch in validateFaxInputs re-wraps the thrown SecurityException
-            // into a more generic "Invalid copy-to recipient format" exception for the caller.
             assertThat(action.getActionErrors()).contains("Copy-to recipient fax number is required");
+            // queue() bridges Struts action errors onto the request attribute securityError.jsp
+            // actually renders, so the user sees the specific reason on the mapped error page.
+            assertThat(request.getAttribute("actionErrors"))
+                    .asInstanceOf(LIST)
+                    .contains("Copy-to recipient fax number is required");
             verify(faxManager, never()).createAndSaveFaxJob(any(LoggedInInfo.class), anyMap());
         }
     }
@@ -123,9 +130,37 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
             action.setCopyToRecipients(new String[] {"\"name\":\"Jane Doe\""});
 
-            assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class);
+            assertThatThrownBy(action::queue)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Copy-to recipient fax number is required");
 
             assertThat(action.getActionErrors()).contains("Copy-to recipient fax number is required");
+            verify(faxManager, never()).createAndSaveFaxJob(any(LoggedInInfo.class), anyMap());
+        }
+    }
+
+    @Test
+    @DisplayName("should reject queue when a copy-to recipient entry is not parseable JSON")
+    void shouldRejectQueue_whenCopyToRecipientJsonMalformed() {
+        setUpCommonMocks();
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+            action.setCopyToRecipients(new String[] {"\"name\":\"Jane Doe\", NOT-JSON"});
+
+            // Only a genuine parse failure gets the format label now.
+            assertThatThrownBy(action::queue)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Invalid copy-to recipient format");
+
+            assertThat(action.getActionErrors())
+                    .contains("Copy-to recipient entry 1 is not in a valid format");
             verify(faxManager, never()).createAndSaveFaxJob(any(LoggedInInfo.class), anyMap());
         }
     }

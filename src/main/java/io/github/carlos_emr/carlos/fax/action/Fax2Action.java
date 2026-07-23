@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.fax.action;
 
 import org.apache.struts2.ActionSupport;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
@@ -231,23 +232,33 @@ public class Fax2Action extends ActionSupport {
             for (int i = 0; i < copyToRecipients.length; i++) {
                 String copyRecipient = copyToRecipients[i];
                 if (copyRecipient != null && !copyRecipient.trim().isEmpty()) {
-                    // Parse JSON to extract fax number for validation
+                    // Parse JSON to extract fax number for validation. Only the parse itself is
+                    // guarded: the deliberate rejections below must propagate with their own
+                    // honest messages instead of being caught here and re-labeled (and re-logged)
+                    // as a parse failure.
+                    String copyToFaxNumber;
                     try {
                         String jsonString = "{" + copyRecipient + "}";
                         ObjectNode json = (ObjectNode) objectMapper.readTree(jsonString);
-                        String faxNumber = json.has("fax") ? json.get("fax").asText() : null;
-                        if (faxNumber == null || faxNumber.trim().isEmpty()) {
-                            // An empty/absent fax number on a copy-to recipient used to slip past
-                            // validation entirely (only the format was checked when present),
-                            // silently dropping that recipient at send time. Reject it up front,
-                            // same as the primary recipient fax number requirement above.
-                            addActionError("Copy-to recipient fax number is required");
-                            throw new SecurityException("Copy-to recipient fax number is required at index " + i);
-                        }
-                        faxManager.validateFaxNumber(faxNumber, "copy-to recipient fax number [" + i + "]");
-                    } catch (Exception e) {
+                        copyToFaxNumber = json.has("fax") ? json.get("fax").asText() : null;
+                    } catch (JsonProcessingException | ClassCastException e) {
                         logger.error("Failed to parse copy-to recipient JSON at index {}: {}", i, LogSafe.sanitize(copyRecipient), e);
+                        addActionError("Copy-to recipient entry " + (i + 1) + " is not in a valid format");
                         throw new SecurityException("Invalid copy-to recipient format at index " + i);
+                    }
+                    if (copyToFaxNumber == null || copyToFaxNumber.trim().isEmpty()) {
+                        // An empty/absent fax number on a copy-to recipient used to slip past
+                        // validation entirely (only the format was checked when present),
+                        // silently dropping that recipient at send time. Reject it up front,
+                        // same as the primary recipient fax number requirement above.
+                        addActionError("Copy-to recipient fax number is required");
+                        throw new SecurityException("Copy-to recipient fax number is required at index " + i);
+                    }
+                    try {
+                        faxManager.validateFaxNumber(copyToFaxNumber, "copy-to recipient fax number [" + i + "]");
+                    } catch (SecurityException e) {
+                        addActionError("Copy-to recipient fax number is invalid at entry " + (i + 1));
+                        throw e;
                     }
                 }
             }
@@ -268,7 +279,17 @@ public class Fax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         // Validate all inputs before processing
-        validateFaxInputs(loggedInInfo);
+        try {
+            validateFaxInputs(loggedInInfo);
+        } catch (SecurityException e) {
+            // securityError.jsp (the provider package's SecurityException mapping target) renders
+            // the request attribute "actionErrors"; Struts action errors don't reach it on the
+            // exception-mapping path without this bridge.
+            if (!getActionErrors().isEmpty()) {
+                request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            }
+            throw e;
+        }
 
         TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase());
 
