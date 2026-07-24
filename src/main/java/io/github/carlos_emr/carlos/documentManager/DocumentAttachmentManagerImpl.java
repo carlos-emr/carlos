@@ -753,10 +753,19 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public void flattenPDFFormFields(Path pdfPath) throws PDFGenerationException {
         try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
             PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
-            if (acroForm != null) {
-                acroForm.flatten();
+            if (acroForm == null) {
+                // Nothing to flatten — and, critically, do NOT rewrite the file: PDFBox loads from
+                // the file lazily, and save() onto the SAME path the open document is still backed
+                // by overwrites streams it has not yet read. That self-clobber corrupted the
+                // browser-rendered eForm page of every merged PDF (its embedded subset font program
+                // was destroyed, leaving glyph-shifted, unextractable text for PDF parsers).
+                return;
             }
-            document.save(pdfPath.toString());
+            acroForm.flatten();
+            // Save to a buffer first, then replace the file — never save() onto the live backing file.
+            java.io.ByteArrayOutputStream flattened = new java.io.ByteArrayOutputStream();
+            document.save(flattened);
+            Files.write(pdfPath, flattened.toByteArray());
         } catch (IOException e) {
             throw new PDFGenerationException("Error while flattening the " + pdfPath.getFileName() + " file. " + e.getMessage(), e);
         }

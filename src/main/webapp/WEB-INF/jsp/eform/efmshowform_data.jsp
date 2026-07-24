@@ -179,6 +179,9 @@
         "img-src 'self' data:",
         "font-src 'self' data:",
         "object-src 'none'",
+        // blob: frames carry the attachment-preview PDFs (attachDocument.jsp builds a Blob from the
+        // preview bytes); without an explicit frame-src the default-src 'self' fallback blocks them.
+        "frame-src 'self' blob:",
         "base-uri 'none'",
         "frame-ancestors 'self'"
     );

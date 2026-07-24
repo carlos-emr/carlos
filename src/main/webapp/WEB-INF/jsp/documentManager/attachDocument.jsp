@@ -242,6 +242,8 @@
             return foundAttachment ? foundAttachment.base64Data : null;
         }
 
+        let previewBlobUrl = null;
+
         function showPDF(base64Data) {
             if (!base64Data) {
                 showError();
@@ -250,12 +252,19 @@
 
             const previewFiller = document.getElementById('preview-filler');
             previewFiller.classList.add('d-none');
-            const pdfObject = document.getElementById('pdfObject');
-            let newPdfObject = document.createElement('object');
-            newPdfObject.setAttribute('data', "data:application/pdf;base64," + base64Data);
-            newPdfObject.type = "application/pdf";
-            newPdfObject.id = "pdfObject";
-            pdfObject.parentNode.replaceChild(newPdfObject, pdfObject);
+            // Render via a blob: URL in the iframe. A data:application/pdf <object> was silently
+            // blocked by the eForm pages' CSP (object-src 'none'); iframes fall under frame-src,
+            // which those pages permit for blob:. The blob also avoids giant data: URLs. Revoke the
+            // previous preview's URL so repeated previews do not leak object URLs.
+            const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            if (previewBlobUrl) {
+                URL.revokeObjectURL(previewBlobUrl);
+            }
+            previewBlobUrl = URL.createObjectURL(blob);
+            const pdfFrame = document.getElementById('pdfObject');
+            pdfFrame.classList.remove('d-none');
+            pdfFrame.src = previewBlobUrl;
             HideSpin();
         }
 
@@ -544,8 +553,10 @@
         </div>
 
         <div id="pdfPreview" class="preview-pane">
-            <object id="pdfObject" class="d-none" type="application/pdf" data="">
-            </object>
+            <%-- iframe, not <object>: the eForm pages harden with CSP object-src 'none', which
+                 silently blocked <object>-based PDF previews. Iframes are governed by frame-src,
+                 which those pages open to 'self' and blob: for exactly this preview. --%>
+            <iframe id="pdfObject" class="d-none" title="Attachment preview"></iframe>
             <div id="preview-filler" class="preview-filler">
                 <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.clickAnyItemToPreview"/>
             </div>

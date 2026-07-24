@@ -130,6 +130,16 @@
     thisEForm.setOscarOPEN(request.getRequestURI());
     thisEForm.setAction();
     thisEForm.setSource(source);
+    // A NEW (unsaved) form has no saved-instance id, so substitute the ${fdid} marker with an empty
+    // value (same call the admin view makes). Left raw, corpus JS that builds fetch URLs from the
+    // marker (e.g. the Rich Text Letter's attached-files panel: displayAttachedFiles?requestId=${fdid})
+    // sends literal curly braces, which Tomcat's strict HTTP validation rejects with a raw 400 —
+    // surfacing as "Error loading attachments" on every new letter. An empty value instead reaches
+    // the JSP's graceful "No attachments" branch, and corpus marker-guard idioms treat it as unsaved.
+    // ORDER MATTERS: this string-level substitution must run with the other string-phase mutators
+    // (setContextPath/setSource/...), BEFORE any add*() call — those mutate the jsoup document, and
+    // getFormHtml() re-serializes that document at print, discarding later string-level edits.
+    thisEForm.setFdid("");
 
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.
@@ -167,7 +177,8 @@
     // is primarily restricting external script sources to 'self', blocking object/embed
     // via object-src 'none', preventing <base> injection via base-uri 'none', and reducing
     // clickjacking exposure via frame-ancestors 'self'.
-    response.setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
+    // frame-src permits the blob: frames that carry attachment-preview PDFs (attachDocument.jsp).
+    response.setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-inline'; object-src 'none'; frame-src 'self' blob:; base-uri 'none'; frame-ancestors 'self'");
     response.setHeader("X-Content-Type-Options", "nosniff");
     out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

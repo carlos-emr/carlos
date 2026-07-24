@@ -165,11 +165,17 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should keep the font and image settle waits in the stabilization script")
+    @DisplayName("should keep the font, image, and DOM-quiescence settle waits in the stabilization script")
     void shouldKeepSettleWaits_inStabilizationScript() {
         assertThat(EFormBrowserPdfService.STABILIZE_ASYNC_JS)
                 .contains("document.fonts.ready instanceof Promise")
                 .contains("!image.complete")
+                // Script-built forms (the Rich Text Letter editor) assemble their content after
+                // onload; without a DOM-quiet window the capture raced the editor and sometimes
+                // printed half-built chrome. Bounded so a perpetual animation cannot stall renders.
+                .contains("MutationObserver")
+                .contains("quietWindowMillis = 500")
+                .contains("maxWaitMillis = 5000")
                 .contains("requestAnimationFrame");
     }
 

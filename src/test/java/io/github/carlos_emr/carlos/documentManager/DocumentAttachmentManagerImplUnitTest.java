@@ -75,4 +75,27 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(combinedPdf);
         verify(manager).concatPDF(pdfDocumentList);
     }
+
+    @Test
+    @DisplayName("should leave the PDF file byte-identical when flattening a form with no AcroForm")
+    void shouldLeavePdfBytesUntouched_whenFlatteningWithNoAcroForm(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // Regression pin for the merged-PDF font corruption: flattenPDFFormFields used to call
+        // document.save() onto the SAME file the open PDDocument was still lazily reading from.
+        // PDFBox streams objects (embedded font programs included) from the backing file during
+        // save, so overwriting it mid-save self-clobbered those streams — the browser-rendered
+        // eForm page of every merged PDF lost its embedded subset font and extracted as
+        // glyph-shifted garbage. With no AcroForm there is nothing to flatten, so the file must
+        // not be rewritten at all.
+        Path pdf = tempDir.resolve("eform-browser-render-flatten.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(pdf.toFile());
+        }
+        byte[] before = java.nio.file.Files.readAllBytes(pdf);
+
+        manager.flattenPDFFormFields(pdf);
+
+        byte[] after = java.nio.file.Files.readAllBytes(pdf);
+        assertThat(after).isEqualTo(before);
+    }
 }

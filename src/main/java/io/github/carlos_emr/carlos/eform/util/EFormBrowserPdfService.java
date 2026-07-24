@@ -208,7 +208,19 @@ public class EFormBrowserPdfService {
     // the PNGs with PDFBox, which produced an image-only, unsearchable document).
     // ---------------------------------------------------------------------------------------------
 
-    /** Async settle: fonts ready, pending images resolved, two animation frames. */
+    /**
+     * Async settle: fonts ready, pending images resolved, DOM mutations quiet, two animation frames.
+     *
+     * <p>The DOM-quiescence wait is load-bearing for script-built forms. The Rich Text Letter (and
+     * other editor-driven corpus forms) construct their visible content asynchronously after
+     * {@code onload} — fonts/images alone can settle while the editor is still assembling the letter
+     * body, and a capture in that window prints the half-built editor chrome instead of the document
+     * (nondeterministically, since it is a race the renderer sometimes lost and sometimes won). The
+     * observer waits for a quiet window with no DOM mutations anywhere in the document (subtree-wide,
+     * including attribute and text changes), bounded by a hard cap so a form with a perpetual
+     * animation/timer cannot stall the render: after the cap the page is captured as-is, and the
+     * render gates still apply.</p>
+     */
     static final String STABILIZE_ASYNC_JS =
             "var callback = arguments[arguments.length - 1];\n"
             + "(async () => {\n"
@@ -220,6 +232,26 @@ public class EFormBrowserPdfService {
             + "    image.addEventListener('load', resolve, { once: true });\n"
             + "    image.addEventListener('error', resolve, { once: true });\n"
             + "  })));\n"
+            + "  await new Promise((resolve) => {\n"
+            + "    const quietWindowMillis = 500;\n"
+            + "    const maxWaitMillis = 5000;\n"
+            + "    let quietTimer = null;\n"
+            + "    let done = false;\n"
+            + "    const observer = new MutationObserver(() => {\n"
+            + "      if (done) { return; }\n"
+            + "      clearTimeout(quietTimer);\n"
+            + "      quietTimer = setTimeout(finish, quietWindowMillis);\n"
+            + "    });\n"
+            + "    function finish() {\n"
+            + "      if (done) { return; }\n"
+            + "      done = true;\n"
+            + "      observer.disconnect();\n"
+            + "      resolve();\n"
+            + "    }\n"
+            + "    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });\n"
+            + "    quietTimer = setTimeout(finish, quietWindowMillis);\n"
+            + "    setTimeout(finish, maxWaitMillis);\n"
+            + "  });\n"
             + "  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n"
             + "})().then(() => callback(null)).catch((error) => callback(String(error)));";
 

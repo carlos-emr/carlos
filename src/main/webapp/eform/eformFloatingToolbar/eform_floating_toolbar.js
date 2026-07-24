@@ -98,6 +98,18 @@ function submitEForm() {
 function remoteSave() {
 
 	try {
+		// Guard: the Rich Text Letter editor builds its UI (and the letter content) asynchronously
+		// after page load. Saving while it is still initializing serializes the half-built editor —
+		// its template dropdown still shows the legacy " loading... " placeholder — and stores that
+		// broken snapshot as the letter, which then renders as an empty "loading" page forever.
+		// Block the save until the editor is ready rather than persist a corrupted letter.
+		const stillLoading = Array.from(document.querySelectorAll('select option'))
+			.some((option) => option.textContent.trim() === 'loading...');
+		if (stillLoading) {
+			alert('The letter editor is still loading. Please wait a moment and try again.');
+			return;
+		}
+
 		// bind the spinner to the form submit event.
 		jQuery('form').on('submit', function(e) {
 			ShowSpin(true);
