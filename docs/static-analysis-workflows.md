@@ -307,6 +307,44 @@ These annotations were applied in bulk by `scripts/lint/annotate-improper-unicod
 re-derives the flagged sites from source (tree-sitter) and is idempotent — re-run it after large
 merges to annotate any new drift.
 
+##### `UNVALIDATED_REDIRECT` (open redirect)
+
+Find Security Bugs flags any `response.sendRedirect(...)` whose argument is data-flow reachable
+from request input. The overwhelming majority of CARLOS sites are false positives because the
+redirect target is a **fixed same-origin path** — `request.getContextPath() + "<literal route>"` —
+with request-derived data appended only as URL-encoded **query parameters**, which cannot change
+the host or scheme. The standard justification is:
+
+> *"redirect target is a same-origin application path or validated internal path, not an
+> attacker-controlled external URL."*
+
+**Guard — do not paste this string onto a redirect whose *destination* is request-influenced.**
+It is only accurate when the scheme+host+path are contextPath-anchored or a server-side allowlist
+value. If a request parameter can become the redirect *target* itself (a `nextPage` / `returnURL` /
+`chain` style value), the finding is **real** — gate it through
+`io.github.carlos_emr.carlos.utility.RedirectValidationUtils.isValidRelativeRedirect(...)` (which
+rejects absolute, protocol-relative, backslash/`%5c`, encoded control chars, and `..` traversal)
+**before** suppressing, and write a site-specific justification naming the validator.
+
+##### `BEAN_PROPERTY_INJECTION` (mass assignment)
+
+Fires on `BeanUtils.copyProperties(...)`. The CARLOS sites are false positives because they use the
+Spring **bean-to-bean** form `copyProperties(source, target)` — and its overload
+`copyProperties(source, target, ignoreProperties)`, where the third argument is a *hardcoded* list
+of property names to **skip**, not a source of request input. In both forms the property names come
+from the compiled JavaBean descriptors of the fixed source/target model/DTO types, so no
+request-controlled property name reaches the sink (see e.g. the legitimate 3-arg suppressions in
+`OscarJobService` and `FacilityTransfer`). The standard justification states exactly that.
+
+The distinguishing factor is whether the **property name** is request-derived, not the argument
+count. **Do not** reuse this rationale for Apache Commons `BeanUtils.populate(bean, map)` /
+`BeanUtilsBean.setProperty`, or any sink where the property name itself comes from request data —
+those are genuine mass-assignment sinks.
+For generated-JSP sinks the suppression lives in `.github/spotbugs/spotbugs-exclude.xml` keyed to
+the generated `_jspService` class name — note that such entries silently stop matching if the JSP is
+renamed or migrated to a `2Action`, so prefer an in-source `@SuppressFBWarnings` once the sink moves
+to Java.
+
 ---
 
 ## Relationship to Other Analysis Tools

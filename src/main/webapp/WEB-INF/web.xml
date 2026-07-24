@@ -248,9 +248,16 @@
 	<filter>
 		<filter-name>LogoutBroadcastFilter</filter-name>
 		<filter-class>io.github.carlos_emr.carlos.app.LogoutBroadcastFilter</filter-class>
+		<!--
+		     eForm document routes are excluded because the Rich Text Letter editor reads the
+		     returned document HTML through innerHTML/textContent; appended logout/session
+		     heartbeat script would otherwise become editable letter content. See issue #3099.
+		     The .jsp alias is listed explicitly: the exclusion matcher treats it as a sibling
+		     of the extensionless route, not a child, so the bare path does not cover it.
+		-->
 		<init-param>
 			<param-name>exclusions</param-name>
-			<param-value>/logoutPage,/status/SessionHeartbeat</param-value>
+			<param-value>/logoutPage,/status/SessionHeartbeat,/eform/efmformadd_data,/eform/efmshowform_data,/eform/efmformrtl_templates,/eform/efmformrtl_templates.jsp</param-value>
 		</init-param>
 	</filter>
 

@@ -605,6 +605,8 @@ public class Pregnancy2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String loadEformByName() {
         EFormDao eformDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
         //Prenatal Screening (IPS) Credit Valley

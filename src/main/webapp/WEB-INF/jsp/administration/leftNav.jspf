@@ -263,7 +263,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
 			<div class="accordion-body">
 			<ul>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/insideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/ViewInsideLabUpload" ><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
 				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
 					<li><a href="${ctx}/lab/labUpload" class="contentLink"><fmt:message key="admin.admin.oldLabUpload"/></a></li>
 				</oscar:oscarPropertiesCheck>
@@ -292,7 +292,9 @@ Properties oscarVariables = CarlosProperties.getInstance();
 			<ul>
 					<li><a href="${ctx}/form/setupSelect" class="contentLink"><fmt:message key="admin.admin.btnSelectForm"/></a></li>
 					
-					<li><a href="${ctx}/form/formXmlUpload" class="contentLink"><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+						<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="w" reverse="<%=false%>">
+						<li><a href="${ctx}/form/formXmlUpload" class="contentLink"><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+						</security:oscarSec>
 					
 					<li><a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms">
 						<fmt:message key="eform.showmyform.msgManageEFrm"/>

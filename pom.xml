@@ -93,7 +93,7 @@
         <!-- Apache CXF Version -->
         <cxf.version>4.1.5</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.133.Final</netty.version>
+        <netty.version>4.1.135.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
@@ -102,7 +102,7 @@
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.21.2</jackson.version>
+        <jackson.version>2.22.0</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.1</httpclient5.version>
         <!-- Bouncy Castle -->
@@ -146,23 +146,21 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- JitPack removed: ultrabuk-htmltopdf-java is now in local_repo,
-             repacked with only the Ubuntu Noble amd64 native (17MB vs 315MB).
-             This eliminates JitPack's tendency to shadow Maven Central artifacts
-             under alternate groupIds, which caused dependency-lock failures in CI. -->
+        <!-- JitPack fully removed. Every artifact it used to serve is vendored in
+             local_repo, byte-identical to dependencies-lock.json:
+             - com.github.openosp:ultrabuk-htmltopdf-java (repacked with only the
+               Ubuntu Noble amd64 native, 17MB vs 315MB)
+             - com.github.librepdf.openpdf:openpdf / openpdf-html 3.0.3 (+ parent POM).
+               These keep the JitPack multi-module coordinates on purpose: the modern
+               org.openpdf.* 3.x line must coexist with com.github.librepdf:openpdf
+               1.3.x (com.lowagie.*) required by JasperReports, and Maven allows only
+               one version per groupId:artifactId.
+             Removing JitPack ends its on-demand rebuilds serving different bytes
+             (SHA512 lock failures) and its shadowing of Maven Central artifacts
+             under alternate groupIds. -->
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
-        </repository>
-
-        <!-- Only for com.github.openosp:ultrabuk-htmltopdf-java (not on Maven Central).
-             Listed LAST so Central resolves everything it can first, preventing jitpack
-             from shadowing Central artifacts with its own builds (different bytes/hashes). -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
 
@@ -277,16 +275,17 @@
                  Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
                  CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
                  CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
-                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7). -->
+                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7),
+                 and XSLT transform hardening fixes patched in 6.9.10. -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.10</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.10</version>
             </dependency>
             <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
                  Fixes GHSA-reported denial-of-service issues in policy normalization:
@@ -651,7 +650,9 @@
 
         <!-- Modern OpenPDF (LGPL) for application code that imports org.openpdf.*.
              Do not use the com.github.librepdf group here; JasperReports PDF needs that
-             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*. -->
+             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*.
+             The com.github.librepdf.openpdf coordinates are vendored in local_repo
+             (formerly served by JitPack, now removed). -->
         <dependency>
             <groupId>com.github.librepdf.openpdf</groupId>
             <artifactId>openpdf</artifactId>
@@ -1693,22 +1694,10 @@
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
-                    <!-- Skip integrity/version checks for JitPack-served artifacts.
-                         JitPack builds from source on demand and can serve different
-                         bytes (and thus different SHA512 hashes) between environments,
-                         causing spurious lock-file failures. Tracked for long-term
-                         fix (publish to a stable repo). See issue: JitPack exclusion. -->
-                    <dependencySets>
-                        <dependencySet>
-                            <includes>
-                                <include>com.github.openosp:ultrabuk-htmltopdf-java</include>
-                            </includes>
-                            <version>ignore</version>
-                            <integrity>ignore</integrity>
-                            <allowMissing>true</allowMissing>
-                            <allowExtraneous>true</allowExtraneous>
-                        </dependencySet>
-                    </dependencySets>
+                    <!-- No exemptions: formerly JitPack-served artifacts (ultrabuk-htmltopdf-java,
+                         openpdf 3.x) are vendored in local_repo with deterministic bytes that
+                         match the lock, so full version+integrity checking applies to the
+                         entire tree. -->
                 </configuration>
                 <executions>
                     <execution>
@@ -1788,10 +1777,8 @@
                             </execution>
                         </executions>
                     </plugin>
-                    <!-- Dependency lock is already validated in the build job.
-                         Skip in jspc profile because JitPack can shadow Maven Central
-                         artifacts under alternate groupIds in CI environments with cold
-                         caches, causing false dependency-lock failures. -->
+                    <!-- Dependency lock is already validated in the build job;
+                         skip the redundant check in the jspc profile. -->
                     <plugin>
                         <groupId>se.vandmo</groupId>
                         <artifactId>dependency-lock-maven-plugin</artifactId>
@@ -1806,9 +1793,10 @@
             </build>
         </profile>
 
-        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud)
-             where JitPack-served artifacts produce different SHA512 hashes
-             than locally-cached ones, causing false failures.
+        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud) and
+             container builds that validate the lock elsewhere or intentionally
+             build from a moving ref. All dependencies now resolve from Maven
+             Central or local_repo with deterministic bytes (JitPack removed).
              Activate with: mvn ... -Pskip-dependency-lock -->
         <profile>
             <id>skip-dependency-lock</id>

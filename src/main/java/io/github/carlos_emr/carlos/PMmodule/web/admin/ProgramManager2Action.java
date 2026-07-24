@@ -83,6 +83,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1063,13 +1064,13 @@ public class ProgramManager2Action extends ActionSupport {
                     continue;
                 }
 
-                String required = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Required";
+                String required = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Required";
                 if (request.getParameter(required) == null)
                     newCriteria.setCanBeAdhoc(0);
                 else
                     newCriteria.setCanBeAdhoc(Integer.valueOf(request.getParameter(required)));
 
-                String targetName = "targetOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+                String targetName = "targetOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
                 String[] answers = parameters.get(targetName);
 
                 saveTemplateOrVacancy(parameters, answers, type, newCriteria, request);
@@ -1137,9 +1138,9 @@ public class ProgramManager2Action extends ActionSupport {
         for (CriteriaType type : typeList) {
             Criteria criteria = new Criteria();
             criteria.setTemplateId(vacancyTemplate.getId());
-            String required = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Required";
+            String required = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Required";
             criteria.setCanBeAdhoc(request.getParameter(required) == null ? 0 : Integer.valueOf(request.getParameter(required)));
-            String targetName = "targetOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+            String targetName = "targetOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
             String[] answers = parameters.get(targetName);
 
             saveTemplateOrVacancy(parameters, answers, type, criteria, request);
@@ -1161,15 +1162,15 @@ public class ProgramManager2Action extends ActionSupport {
 
         } else if (type.getFieldType().equalsIgnoreCase("select_one_range")) {
 
-            String sourceName = "sourceOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+            String sourceName = "sourceOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
             String[] singleAnswers = parameters.get(sourceName);
             String answer = "";
             if (singleAnswers != null && singleAnswers.length > 0)
                 answer = singleAnswers[0];
             criteria.setCriteriaValue(answer);
 
-            String minName = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Minimum";
-            String maxName = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Maximum";
+            String minName = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Minimum";
+            String maxName = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Maximum";
             if (!StringUtils.isBlank(request.getParameter(minName)))
                 criteria.setRangeStartValue(Integer.valueOf(request.getParameter(minName)));
             if (!StringUtils.isBlank(request.getParameter(maxName)))
@@ -1181,7 +1182,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         } else if (type.getFieldType().equalsIgnoreCase("select_one")) {
 
-            String sourceName = "sourceOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+            String sourceName = "sourceOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
             String[] singleAnswers = parameters.get(sourceName);
             String answer = "";
             if (singleAnswers != null && singleAnswers.length > 0)
@@ -1194,7 +1195,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         } else if (type.getFieldType().equalsIgnoreCase("number")) {
 
-            String numberName = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Number";
+            String numberName = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Number";
             String[] numberAnswers = parameters.get(numberName);
             String number = "";
             if (numberAnswers != null && numberAnswers.length > 0)
@@ -1541,7 +1542,7 @@ public class ProgramManager2Action extends ActionSupport {
         obj.put("error", error);
 
         try {
-            response.getWriter().print(obj.toString());
+            JsonResponseWriter.write(response, obj);
         } catch (IOException e) {
             MiscUtils.getLogger().warn("error writing json", e);
         }

@@ -8,13 +8,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -63,6 +68,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
+    private static final String EDOC_PDF_RENDER_FAILURE_MESSAGE = "Failed to render document PDF.";
+    private static final String EFORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render eForm PDF.";
+    private static final String HRM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render HRM PDF.";
+    private static final String LAB_PDF_RENDER_FAILURE_MESSAGE = "Failed to render lab PDF.";
+    private static final String FORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render form PDF.";
+    private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
+    private static final String EFORM_SECURITY_OBJECT = "_eform";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -72,6 +84,9 @@ public class DocumentPreview2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
+    private final transient EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
+    private final transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+    private final transient HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -101,44 +116,41 @@ public class DocumentPreview2Action extends ActionSupport {
 
         switch (method.toLowerCase(Locale.ROOT)) {
             case "fetcheformdocuments":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 return fetchEFormDocuments();
             case "renderedocpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEDocPDF();
-                return null;
+                return NONE;
             case "rendereformpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEFormPDF();
-                return null;
+                return NONE;
             case "renderhrmpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderHrmPDF();
-                return null;
+                return NONE;
             case "renderlabpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderLabPDF();
-                return null;
+                return NONE;
             case "renderformpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderFormPDF();
-                return null;
+                return NONE;
             case "renderpdf":
                 requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderPDF();
-                return null;
+                return NONE;
             case "fetchconsultdocuments":
-                requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
             default:
-                logger.warn("Unsupported previewDocs method requested: {}", LogSafe.sanitize(method));
+                logger.warn("Unsupported previewDocs method requested.");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
         }
     }
 
     private void requirePrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, null)) {
+        requirePrivilege(loggedInInfo, securityObjectName, privilege, null);
+    }
+
+    private void requirePrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, String target) {
+        if (!hasPrivilege(loggedInInfo, securityObjectName, privilege, target)) {
             throw new SecurityException("missing required sec object (" + securityObjectName + ")");
         }
     }
@@ -163,12 +175,18 @@ public class DocumentPreview2Action extends ActionSupport {
         if (eDocId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, demographicNo);
+        resolveEDocDemographicNoOrDeny(eDocId, demographicNo);
         try {
             Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId);
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eDoc. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, EDOC_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -192,12 +210,18 @@ public class DocumentPreview2Action extends ActionSupport {
         if (eFormId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo);
+        resolveEFormDemographicNoOrDeny(eFormId, demographicNo);
         try {
             Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
             generateResponse(response, eFormPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, EFORM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -221,12 +245,18 @@ public class DocumentPreview2Action extends ActionSupport {
         if (hrmId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, demographicNo);
+        resolveHrmDemographicNoOrDeny(hrmId, demographicNo);
         try {
             Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering HRM. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, HRM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -249,12 +279,18 @@ public class DocumentPreview2Action extends ActionSupport {
         if (segmentId == null) {
             return;
         }
+        String demographicNo = parseDemographicNoOrRespondBadRequest();
+        if (demographicNo == null) {
+            return;
+        }
+        requirePrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, demographicNo);
+        resolveLabDemographicNoOrDeny(segmentId, demographicNo);
         try {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Lab. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, LAB_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -271,12 +307,29 @@ public class DocumentPreview2Action extends ActionSupport {
      * or "errorMessage" field if PDF generation fails.
      */
     public void renderFormPDF() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        Integer formId = parseIntegerParameterOrRespondBadRequest(request.getParameter("formId"), "formId");
+        if (formId == null) {
+            return;
+        }
+        String formName = parseRequiredParameterOrRespondBadRequest(request.getParameter("formName"), "formName");
+        if (formName == null) {
+            return;
+        }
+        Integer demographicId = parseIntegerParameterOrRespondBadRequest(
+                request.getParameter(DEMOGRAPHIC_NO_PARAMETER), DEMOGRAPHIC_NO_PARAMETER);
+        if (demographicId == null) {
+            return;
+        }
+        String demographicNo = String.valueOf(demographicId);
+        requirePrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo);
+        requireFormBelongsToDemographic(loggedInInfo, formId, formName, demographicId);
         try {
             Path formPDFPath = documentAttachmentManager.renderDocument(request, response, DocumentType.FORM);
             generateResponse(response, formPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Form. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, FORM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -417,18 +470,16 @@ public class DocumentPreview2Action extends ActionSupport {
     public String fetchConsultDocuments() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
-        Integer demographicId;
-        try {
-            demographicId = Integer.valueOf(demographicNo);
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid demographicNo received: {}. Falling back to 0.", LogSafe.sanitize(demographicNo), e);
-            demographicNo = "0";
-            demographicId = 0;
-        }
+        String demographicNo = requestDemographicNoOrZero();
+        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, DEMOGRAPHIC_NO_PARAMETER, 0);
+        String sanitizedDemographicNo = String.valueOf(demographicId);
 
-        populateCommonDocs(loggedInInfo, demographicNo, demographicId);
-		List<EFormData> allEForms = hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)
+        requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, sanitizedDemographicNo);
+        request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
+        request.setAttribute("attachmentSecurityObject", "_con");
+        request.setAttribute("canManageAttachments", hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, sanitizedDemographicNo));
+        populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
+		List<EFormData> allEForms = hasPrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo)
                 ? EFormUtil.listPatientEformsCurrent(demographicId, true)
                 : new ArrayList<>();
         request.setAttribute("allEForms", allEForms);
@@ -460,12 +511,16 @@ public class DocumentPreview2Action extends ActionSupport {
     public String fetchEFormDocuments() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
+        String demographicNo = requestDemographicNoOrZero();
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
-        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, "demographicNo", 0);
+        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, DEMOGRAPHIC_NO_PARAMETER, 0);
         String sanitizedDemographicNo = String.valueOf(demographicId);
         Integer fdidInt = parseIntegerParameterOrDefault(fdid, "fdid", 0);
 
+        requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo);
+        request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
+        request.setAttribute("attachmentSecurityObject", EFORM_SECURITY_OBJECT);
+        request.setAttribute("canManageAttachments", hasPrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.WRITE, sanitizedDemographicNo));
         populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
 		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, fdidInt);
 		request.setAttribute("allEForms", allEForms);
@@ -529,16 +584,16 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param demographicNo Demographic number of the patient
      */
     private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo, Integer demographicId) {
-        List<EDoc> allDocuments = hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)
+        List<EDoc> allDocuments = hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, demographicNo)
                 ? EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)
                 : new ArrayList<>();
-        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)
+        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, demographicNo)
                 ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false)
                 : new ArrayList<>();
-        List<AttachmentLabResultData> allLabsSortedByVersions = hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)
+        List<AttachmentLabResultData> allLabsSortedByVersions = hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, demographicNo)
                 ? documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo)
                 : new ArrayList<>();
-        List<EctFormData.PatientForm> allForms = hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)
+        List<EctFormData.PatientForm> allForms = hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, demographicNo)
                 ? formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicId, false, true)
                 : new ArrayList<>();
 
@@ -550,6 +605,92 @@ public class DocumentPreview2Action extends ActionSupport {
 
     private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, String target) {
         return securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, target);
+    }
+
+    private String resolveEFormDemographicNoOrDeny(Integer eFormId, String requestedDemographicNo) {
+        EFormData eFormData = eFormDataDao.find(eFormId.intValue());
+        Integer demographicNo = eFormData == null ? null : eFormData.getDemographicId();
+        return requireMatchingDemographicNo(demographicNo, requestedDemographicNo, "eForm");
+    }
+
+    private String resolveEDocDemographicNoOrDeny(Integer eDocId, String requestedDemographicNo) {
+        EDoc eDoc = EDocUtil.getEDocFromDocId(String.valueOf(eDocId));
+        if (eDoc == null || !"demographic".equals(eDoc.getModule())) {
+            throw new SecurityException("document does not match demographic");
+        }
+
+        return requireMatchingDemographicNo(parseIntegerValue(eDoc.getModuleId()), requestedDemographicNo, "document");
+    }
+
+    private String resolveHrmDemographicNoOrDeny(Integer hrmId, String requestedDemographicNo) {
+        List<HRMDocumentToDemographic> linkedDemographics = hrmDocumentToDemographicDao.findByHrmDocumentId(hrmId);
+        if (linkedDemographics != null) {
+            for (HRMDocumentToDemographic linkedDemographic : linkedDemographics) {
+                if (linkedDemographic != null && requestedDemographicNo.equals(String.valueOf(linkedDemographic.getDemographicNo()))) {
+                    return requestedDemographicNo;
+                }
+            }
+        }
+
+        throw new SecurityException("HRM document does not match demographic");
+    }
+
+    private String resolveLabDemographicNoOrDeny(Integer segmentId, String requestedDemographicNo) {
+        PatientLabRouting patientLabRouting = patientLabRoutingDao.findDemographicByLabId(segmentId);
+        Integer demographicNo = patientLabRouting == null ? null : patientLabRouting.getDemographicNo();
+        return requireMatchingDemographicNo(demographicNo, requestedDemographicNo, "lab");
+    }
+
+    private void requireFormBelongsToDemographic(LoggedInInfo loggedInInfo, Integer formId, String formName, Integer demographicNo) {
+        List<EctFormData.PatientForm> forms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true);
+        if (forms != null) {
+            String requestedFormId = String.valueOf(formId);
+            for (EctFormData.PatientForm form : forms) {
+                if (form != null
+                        && requestedFormId.equals(form.getFormId())
+                        && demographicNo.equals(form.demographicId)
+                        && formName.equals(form.getFormName())) {
+                    return;
+                }
+            }
+        }
+
+        throw new SecurityException("form does not match demographic");
+    }
+
+    private String requireMatchingDemographicNo(Integer resolvedDemographicNo, String requestedDemographicNo, String resourceName) {
+        if (resolvedDemographicNo == null) {
+            throw new SecurityException(resourceName + " does not match demographic");
+        }
+
+        String resolvedDemographicNoString = String.valueOf(resolvedDemographicNo);
+        if (!resolvedDemographicNoString.equals(requestedDemographicNo)) {
+            throw new SecurityException(resourceName + " does not match demographic");
+        }
+
+        return resolvedDemographicNoString;
+    }
+
+    private String parseDemographicNoOrRespondBadRequest() {
+        Integer demographicId = parseIntegerParameterOrRespondBadRequest(
+                request.getParameter(DEMOGRAPHIC_NO_PARAMETER), DEMOGRAPHIC_NO_PARAMETER);
+        return demographicId == null ? null : String.valueOf(demographicId);
+    }
+
+    private String requestDemographicNoOrZero() {
+        String demographicNo = request.getParameter(DEMOGRAPHIC_NO_PARAMETER);
+        return StringUtils.isNullOrEmpty(demographicNo) ? "0" : demographicNo;
+    }
+
+    private String parseRequiredParameterOrRespondBadRequest(String value, String parameterName) {
+        if (StringUtils.isNullOrEmpty(value)) {
+            logger.warn("Invalid {} received: empty value", parameterName);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, "Invalid " + parameterName);
+            return null;
+        }
+
+        return value;
     }
 
     private Integer parseIntegerParameterOrDefault(String value, String parameterName, Integer defaultValue) {
@@ -568,6 +709,14 @@ public class DocumentPreview2Action extends ActionSupport {
             logger.warn("Invalid {} received: {}", parameterName, LogSafe.sanitize(value), e);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             generateResponse(response, "Invalid " + parameterName);
+            return null;
+        }
+    }
+
+    private Integer parseIntegerValue(String value) {
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException e) {
             return null;
         }
     }

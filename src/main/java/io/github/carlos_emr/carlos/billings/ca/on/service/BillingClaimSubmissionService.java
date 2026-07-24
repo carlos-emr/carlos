@@ -380,7 +380,7 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withProviderRmaNo("");
         claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
         claim1Header = claim1Header.withAssistantProviderNo("");
-        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user"));
+        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user")); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- reads authenticated user from existing session; does not write request data into session
 
         claim1Header = claim1Header.withClinic(val.getParameter("site"));
 
@@ -483,7 +483,7 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withProviderRmaNo("");
         claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
         claim1Header = claim1Header.withAssistantProviderNo("");
-        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user"));
+        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user")); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- reads authenticated user from existing session; does not write request data into session
         claim1Header = claim1Header.withClinic(val.getParameter("site"));
 
         return claim1Header;

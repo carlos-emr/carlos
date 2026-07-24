@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.util;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -82,5 +84,19 @@ class ZipUtilTest {
         assertThat(tempDir.getParent().resolve("slip-evil.xml")).doesNotExist();
         // The benign entry still extracted inside the directory.
         assertThat(Files.readString(tempDir.resolve("good.xml"))).isEqualTo("safe");
+    }
+
+    @Test
+    @DisplayName("unzipXML should omit invalid file name before logging")
+    void shouldOmitFileName_whenZipExtensionIsMissing() {
+        try (LogCapture capture = LogCapture.forLogger(zip.class)) {
+            boolean result = zip.unzipXML(tempDir.toString(), "claim\r\nforged.txt");
+
+            assertThat(result).isFalse();
+            assertThat(capture.messages()).hasSize(1);
+            String logged = capture.messages().get(0);
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).doesNotContain("claim\r\nforged.txt", "claim\\r\\nforged.txt", "forged.txt");
+        }
     }
 }

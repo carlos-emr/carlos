@@ -33,9 +33,11 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Entities;
+import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -44,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.xhtmlrenderer.layout.SharedContext;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import io.github.carlos_emr.CarlosProperties;
@@ -54,6 +57,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -103,7 +107,8 @@ public final class ConvertToEdoc {
     private static final String SYSTEM_ID = "-1";
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
-    
+    private static final String BACKGROUND_ATTRIBUTE = "background";
+    private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
@@ -416,8 +421,9 @@ public final class ConvertToEdoc {
     /**
      * Prepare document for Flying Saucer which requires strict XHTML
      */
-    private static Document prepareDocumentForFlyingSaucer(String document) {
+    static Document prepareDocumentForFlyingSaucer(String document) {
         Document doc = Jsoup.parse(document);
+        normalizeHtmlCommentsForXml(doc);
         
         // Flying Saucer requires XML/XHTML syntax
         doc.outputSettings()
@@ -436,6 +442,23 @@ public final class ConvertToEdoc {
         doc.select("input:not([type])").attr("type", "text");
         
         return doc;
+    }
+
+    private static void normalizeHtmlCommentsForXml(Node root) {
+        if (root == null) {
+            return;
+        }
+
+        for (Node child : root.childNodes()) {
+            if (child instanceof Comment comment) {
+                String normalized = comment.getData().replace("--", "- -");
+                if (normalized.endsWith("-")) {
+                    normalized += " ";
+                }
+                comment.setData(normalized);
+            }
+            normalizeHtmlCommentsForXml(child);
+        }
     }
 
     /**
@@ -459,6 +482,31 @@ public final class ConvertToEdoc {
      * @return org.jsoup.nodes.Document JSoup DOM
      */
     public static Document getDocument(String documentString) {
+        Document document = parseDocument(documentString);
+
+        /*
+         * Process and validate resource paths
+         */
+        validateResourcePaths(document);
+
+        /*
+         * Returns a Document object.
+         * Document will contain a blank HTML page if the incoming HTML
+         * string is NULL, empty, or if an error occurs.
+         */
+        return document;
+    }
+
+    /**
+     * Parses runtime eForm HTML into a Jsoup DOM without stripping unresolved resource tags.
+     * Runtime eForms intentionally reference application-served assets such as
+     * /eform/displayImage?imagefile=... and should keep those authored elements intact.
+     *
+     * @param documentString raw HTML to parse
+     * @return parsed Jsoup DOM configured for runtime HTML handling
+     * @throws IllegalArgumentException if {@code documentString} is null, empty, or blank
+     */
+    public static Document parseDocument(String documentString) {
         if (StringUtils.isBlank(documentString)) {
             throw new IllegalArgumentException("HTML cannot be blank");
         }
@@ -474,17 +522,6 @@ public final class ConvertToEdoc {
             .escapeMode(Entities.EscapeMode.xhtml)
             .charset("UTF-8")
             .prettyPrint(false);
-
-        /*
-         * Process and validate resource paths
-         */
-        validateResourcePaths(document);
-
-        /*
-         * Returns a Document object.
-         * Document will contain a blank HTML page if the incoming HTML
-         * string is NULL, empty, or if an error occurs.
-         */
         return document;
     }
 
@@ -551,6 +588,9 @@ public final class ConvertToEdoc {
         Map<List<String>, Element> pathTranslationMap = new HashMap<>();
         translateLinkPaths(document, pathTranslationMap);
         translateImagePaths(document, pathTranslationMap);
+        translateBackgroundAttributes(document);
+        translateInlineStylePaths(document);
+        translateEmbeddedStylesheetPaths(document);
 
         for (Map.Entry<List<String>, Element> pathSet : pathTranslationMap.entrySet()) {
             if (!pathSet.getKey().isEmpty()) {
@@ -592,6 +632,202 @@ public final class ConvertToEdoc {
         translatePaths(imageNodeList, ElementAttribute.src, pathTranslationMap);
     }
 
+    private static void translateBackgroundAttributes(Document document) {
+        for (Element element : document.select("[" + BACKGROUND_ATTRIBUTE + "]")) {
+            String originalPath = element.attr(BACKGROUND_ATTRIBUTE);
+            String translatedPath = translateSingleResourcePath(originalPath);
+            if (translatedPath != null) {
+                element.attr(BACKGROUND_ATTRIBUTE, translatedPath);
+            } else if (!isEmbeddedDataResourcePath(originalPath)) {
+                element.removeAttr(BACKGROUND_ATTRIBUTE);
+            }
+        }
+    }
+
+    private static void translateInlineStylePaths(Document document) {
+        for (Element element : document.select("[" + STYLE_ATTRIBUTE + "]")) {
+            element.attr(STYLE_ATTRIBUTE, rewriteCssResourceUrls(element.attr(STYLE_ATTRIBUTE)));
+        }
+    }
+
+    private static void translateEmbeddedStylesheetPaths(Document document) {
+        for (Element styleElement : document.getElementsByTag(STYLE_ATTRIBUTE)) {
+            styleElement.text(rewriteCssResourceUrls(styleElement.data()));
+        }
+    }
+
+    private static String rewriteCssResourceUrls(String cssText) {
+        if (StringUtils.isBlank(cssText)) {
+            return cssText;
+        }
+
+        StringBuilder rewrittenCss = new StringBuilder();
+        int cursor = 0;
+        CssUrlMatch match = findNextCssUrlMatch(cssText, cursor);
+        while (match != null) {
+            rewrittenCss.append(cssText, cursor, match.urlStart());
+            if (match.complete()) {
+                appendRewrittenCssUrl(rewrittenCss, cssText, match);
+                cursor = match.urlEnd() + 1;
+                match = findNextCssUrlMatch(cssText, cursor);
+            } else {
+                rewrittenCss.append(cssText, match.urlStart(), cssText.length());
+                cursor = cssText.length();
+                match = null;
+            }
+        }
+
+        rewrittenCss.append(cssText, cursor, cssText.length());
+        return rewrittenCss.toString();
+    }
+
+    private static void appendRewrittenCssUrl(StringBuilder rewrittenCss, String cssText, CssUrlMatch match) {
+        String originalPath = extractCssUrlPath(cssText, match.contentStart(), match.urlEnd());
+        String translatedPath = translateSingleResourcePath(originalPath);
+        if (translatedPath != null) {
+            // translateSingleResourcePath returns data: URIs unchanged, so this branch
+            // also handles embedded data resources (they arrive here with translatedPath == originalPath).
+            rewrittenCss.append("url('").append(SafeEncode.forCssString(translatedPath)).append("')");
+        } else {
+            rewrittenCss.append("url('')");
+        }
+    }
+
+    private static CssUrlMatch findNextCssUrlMatch(String cssText, int cursor) {
+        int urlStart = StringUtils.indexOfIgnoreCase(cssText, "url(", cursor);
+        if (urlStart < 0) {
+            return null;
+        }
+
+        int contentStart = urlStart + 4;
+        while (contentStart < cssText.length() && Character.isWhitespace(cssText.charAt(contentStart))) {
+            contentStart++;
+        }
+
+        int urlEnd = findCssUrlEnd(cssText, contentStart);
+        if (urlEnd < 0) {
+            return CssUrlMatch.incomplete(urlStart, contentStart);
+        }
+
+        return CssUrlMatch.complete(urlStart, contentStart, urlEnd);
+    }
+
+    private static int findCssUrlEnd(String cssText, int contentStart) {
+        char quote = 0;
+        boolean escaped = false;
+        int nestedParens = 0;
+        for (int i = contentStart; i < cssText.length(); i++) {
+            char current = cssText.charAt(i);
+            if (quote != 0) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\' && i + 1 < cssText.length()) {
+                    escaped = true;
+                } else {
+                    quote = closeQuoteIfNeeded(quote, current);
+                }
+            } else if (isCssQuote(current)) {
+                quote = current;
+            } else if (current == '(') {
+                nestedParens++;
+            } else if (current == ')') {
+                if (nestedParens == 0) {
+                    return i;
+                }
+                nestedParens--;
+            }
+        }
+        return -1;
+    }
+
+    private static char closeQuoteIfNeeded(char quote, char current) {
+        return current == quote ? (char) 0 : quote;
+    }
+
+    private static boolean isCssQuote(char current) {
+        return current == '\'' || current == '"';
+    }
+
+    private static String extractCssUrlPath(String cssText, int contentStart, int urlEnd) {
+        String rawPath = cssText.substring(contentStart, urlEnd).trim();
+        if (rawPath.length() >= 2) {
+            char first = rawPath.charAt(0);
+            char last = rawPath.charAt(rawPath.length() - 1);
+            if (isMatchingQuote(first, last)) {
+                rawPath = rawPath.substring(1, rawPath.length() - 1).trim();
+            }
+        }
+        return rawPath;
+    }
+
+    private static boolean isMatchingQuote(char first, char last) {
+        return isCssQuote(first) && first == last;
+    }
+
+    private record CssUrlMatch(int urlStart, int contentStart, int urlEnd, boolean complete) {
+        private static CssUrlMatch complete(int urlStart, int contentStart, int urlEnd) {
+            return new CssUrlMatch(urlStart, contentStart, urlEnd, true);
+        }
+
+        private static CssUrlMatch incomplete(int urlStart, int contentStart) {
+            return new CssUrlMatch(urlStart, contentStart, -1, false);
+        }
+    }
+
+    private static String translateSingleResourcePath(String path) {
+        if (isEmbeddedDataResourcePath(path)) {
+            return path;
+        }
+        return validateLink(collectPotentialFilePaths(path));
+    }
+
+    private static List<String> collectPotentialFilePaths(String path) {
+        List<String> potentialFilePaths = new ArrayList<>();
+
+        if (!isTranslatableResourcePath(path)) {
+            return potentialFilePaths;
+        }
+
+        if (path.contains("?")) {
+            String basePath = path.split("\\?", 2)[0];
+            collectRealPathCandidates(basePath, potentialFilePaths);
+            collectImageDirectoryCandidates(path, potentialFilePaths);
+        } else {
+            collectRealPathCandidates(path, potentialFilePaths);
+        }
+
+        return potentialFilePaths;
+    }
+
+    private static boolean isTranslatableResourcePath(String path) {
+        return StringUtils.isNotBlank(path) && !isDisallowedResourcePath(path);
+    }
+
+    private static void collectRealPathCandidates(String path, List<String> potentialFilePaths) {
+        String resolvedPath = getRealPath(path);
+        if (!resolvedPath.isEmpty()) {
+            potentialFilePaths.add(resolvedPath);
+        }
+    }
+
+    private static void collectImageDirectoryCandidates(String path, List<String> potentialFilePaths) {
+        String parameters = path.split("\\?", 2)[1];
+        for (String parameter : parameters.split("&")) {
+            String candidate = buildImageDirectoryCandidate(parameter);
+            if (!candidate.isEmpty()) {
+                potentialFilePaths.add(candidate);
+            }
+        }
+    }
+
+    private static String buildImageDirectoryCandidate(String parameter) {
+        if (!parameter.contains("=")) {
+            return "";
+        }
+
+        return buildImageDirectoryPath(parameter.split("=", 2)[1]);
+    }
+
     /**
      * Translate any given Link or Image element resource path from
      * a Struts HTTP request parameter or HTTP relative context path.
@@ -605,61 +841,54 @@ public final class ConvertToEdoc {
      */
     private static void translatePaths(Elements nodeList, ElementAttribute pathAttribute, Map<List<String>, Element> pathTranslationMap) {
         for (Element element : nodeList) {
-            // go no further if there is no link attribute.
-            if (!element.hasAttr(pathAttribute.name())) {
-                continue;
-            }
-
-            String path = element.attributes().get(pathAttribute.name());
-            String parameters = null;
-            String[] parameterList = null;
-            List<String> potentialFilePaths = new ArrayList<>();
-
-            /*
-             * NO EXTERNAL LINKS. These are removed.
-             * eForms are often imported from unknown sources.
-             * Developers tend to use insecure CDN's, links to images, tracking tokens,
-             * and advertisements.
-             */
-            if (path.startsWith("http") || path.startsWith("HTTP")) {
-                element.remove();
-            }
-
-            // internal GET links are validated.
-            else if (path.contains("?")) {
-                // image or link paths with parameters
-                parameters = path.split("\\?")[1];
-            } else if (!path.isEmpty()) {
-                // these are most likely relative context paths
-                path = getRealPath(path);
-                if (!path.isEmpty()) {
-                    potentialFilePaths.add(path);
-                }
-            }
-
-            /* parse the parameters and test if any are links to the eForm
-             * images library. Otherwise, these resources are no good.
-             */
-            if (parameters != null && parameters.contains("&")) {
-                parameterList = parameters.split("&");
-            }
-
-            if (parameterList != null) {
-                for (String parameter : parameterList) {
-                    if (parameter.contains("=")) {
-                        // these are file names that need a path.
-                        path = buildImageDirectoryPath(parameter.split("=")[1]);
-                        potentialFilePaths.add(path);
+            if (element.hasAttr(pathAttribute.name())) {
+                String path = element.attributes().get(pathAttribute.name());
+                if (isExternalResourcePath(path)) {
+                    element.remove();
+                } else if (!isEmbeddedDataResourcePath(path)) {
+                    List<String> potentialFilePaths = collectPotentialFilePaths(path);
+                    if (!potentialFilePaths.isEmpty()) {
+                        pathTranslationMap.put(potentialFilePaths, element);
+                    } else {
+                        element.remove();
                     }
                 }
-            } else if (parameters != null && parameters.contains("=")) {
-                path = buildImageDirectoryPath(parameters.split("=")[1]);
-                potentialFilePaths.add(path);
             }
+        }
+    }
 
-            if (!potentialFilePaths.isEmpty()) {
-                pathTranslationMap.put(potentialFilePaths, element);
-            }
+    private static boolean isExternalResourcePath(String path) {
+        String normalized = StringUtils.trimToEmpty(path).toLowerCase(Locale.ROOT);
+        return normalized.startsWith("http://")
+                || normalized.startsWith("https://")
+                || normalized.startsWith("//")
+                || normalized.startsWith("ftp://")
+                || normalized.startsWith("file:");
+    }
+
+    private static boolean isEmbeddedDataResourcePath(String path) {
+        return StringUtils.trimToEmpty(path).toLowerCase(Locale.ROOT).startsWith("data:");
+    }
+
+    private static boolean isDisallowedResourcePath(String path) {
+        if (isExternalResourcePath(path)) {
+            return true;
+        }
+
+        if (isEmbeddedDataResourcePath(path)) {
+            return false;
+        }
+
+        String normalized = StringUtils.trimToEmpty(path);
+        if (normalized.isEmpty()) {
+            return false;
+        }
+
+        try {
+            return Path.of(normalized).isAbsolute();
+        } catch (InvalidPathException e) {
+            logger.debug("Skipping malformed resource path", e);
+            return true;
         }
     }
 
@@ -702,10 +931,8 @@ public final class ConvertToEdoc {
 						.findFirst()
 						.orElse(null);
 
-					if (found != null) { 
-						contextRealPath = found.toAbsolutePath().toString(); 
-					} else {
-						contextRealPath = uri;
+					if (found != null) {
+						contextRealPath = PathValidationUtils.validateExistingPath(found.toFile(), basePath.toFile()).getAbsolutePath();
 					}
 				}
 			} catch (Exception e) {
@@ -839,7 +1066,7 @@ public final class ConvertToEdoc {
      * Clean up any artifacts or poorly formed XHTML
      * and fetch the HTML template resources.
      */
-    private static String tidyDocument(final String documentString) {
+    static String tidyDocument(final String documentString) {
         Document document = getDocument(documentString);
 
         /*
@@ -856,6 +1083,11 @@ public final class ConvertToEdoc {
          * for some strange reason.
          */
         return documentToString(document);
+    }
+
+    static String tidyDocument(final String documentString, String realPath) {
+        ConvertToEdoc.realPath = realPath;
+        return tidyDocument(documentString);
     }
 
     /**
