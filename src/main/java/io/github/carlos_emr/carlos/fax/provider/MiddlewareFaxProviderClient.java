@@ -22,11 +22,17 @@
 package io.github.carlos_emr.carlos.fax.provider;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
@@ -89,10 +95,12 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     /**
      * Sends outbound fax through existing middleware /fax/send endpoint.
      *
-     * <p>Note: No URL validation is performed on {@code faxConfig.getUrl()} because the middleware
-     * endpoint is intentionally configurable to any custom external fax handler. Clinics may run
-     * their own relay servers at arbitrary URLs. Credentials are sent via Basic Auth and custom
-     * headers per the middleware protocol.</p>
+     * <p>The configured {@code faxConfig.getUrl()} is validated by {@link #validateMiddlewareUrl}
+     * before use: only http/https, no embedded user-info, and the host must not resolve to a
+     * loopback / link-local (incl. cloud metadata) / any-local / multicast address unless the operator
+     * has explicitly allowlisted it. Private-LAN clinic relays remain permitted. Credentials (Basic
+     * Auth + custom headers) and the encoded document are only sent to a destination that passes this
+     * gate, limiting SSRF and credential/PHI exfiltration to a misconfigured or malicious fax admin.</p>
      */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
@@ -332,6 +340,67 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
         if (faxConfig.getFaxPasswd() == null || faxConfig.getFaxPasswd().trim().isEmpty()) {
             throw new FaxProviderException("Middleware fax password is not configured for this fax account");
         }
+        // URL/SSRF validation runs last: the field-presence checks above give more specific errors,
+        // and this is still before any WebClient is created or credentials/document are sent.
+        validateMiddlewareUrl(faxConfig.getUrl());
+    }
+
+    /**
+     * SSRF guard for the configured middleware URL. Rejects non-http(s) schemes, embedded user-info,
+     * and hosts that resolve to loopback / link-local (incl. the 169.254.169.254 cloud-metadata
+     * endpoint) / any-local / multicast addresses — the classic pivot targets. Private-LAN / site-local
+     * addresses are permitted because clinics legitimately run their own relay on the LAN. An operator
+     * can further approve a specific host (e.g. a loopback relay) via the comma-separated
+     * {@code carlos.fax.middleware.allowedHosts} system property.
+     */
+    // IMPROPER_UNICODE: URL scheme/host comparisons here are intentionally case-insensitive per the
+    // URI spec (schemes and hostnames are case-insensitive); locale does not affect ASCII scheme/host.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "case-insensitive URL scheme/host comparison for SSRF validation; ASCII only")
+    private void validateMiddlewareUrl(String url) throws FaxProviderException {
+        URI uri;
+        try {
+            uri = new URI(url.trim());
+        } catch (URISyntaxException e) {
+            throw new FaxProviderException("Middleware URL is not a valid URI");
+        }
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+        if (!"http".equals(scheme) && !"https".equals(scheme)) {
+            throw new FaxProviderException("Middleware URL must use http or https");
+        }
+        if (uri.getUserInfo() != null) {
+            throw new FaxProviderException("Middleware URL must not embed user-info credentials");
+        }
+        String host = uri.getHost();
+        if (host == null || host.isEmpty()) {
+            throw new FaxProviderException("Middleware URL must include a host");
+        }
+        if (isHostAllowlisted(host)) {
+            return; // operator has explicitly approved this destination
+        }
+        try {
+            for (InetAddress addr : InetAddress.getAllByName(host)) {
+                if (addr.isLoopbackAddress() || addr.isLinkLocalAddress()
+                        || addr.isAnyLocalAddress() || addr.isMulticastAddress()) {
+                    throw new FaxProviderException("Middleware URL host resolves to a disallowed address");
+                }
+            }
+        } catch (UnknownHostException e) {
+            throw new FaxProviderException("Middleware URL host could not be resolved");
+        }
+    }
+
+    private boolean isHostAllowlisted(String host) {
+        String allow = System.getProperty("carlos.fax.middleware.allowedHosts", "");
+        if (allow == null || allow.isBlank()) {
+            return false;
+        }
+        for (String allowed : allow.split(",")) {
+            if (allowed.trim().equalsIgnoreCase(host)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
