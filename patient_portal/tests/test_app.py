@@ -3294,11 +3294,6 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
 
-    def create_invite_then_fail() -> None:
-        with session_scope(session_factory) as session:
-            create_service_invite(session, 5678, "Dr example")
-            raise RuntimeError("force rollback")
-
     with session_scope(session_factory) as session:
         committed_invite, _ = create_service_invite(session, 1234, "Dr example")
         committed_invite_id = committed_invite.id
@@ -3306,8 +3301,15 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     with session_factory() as session:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
-    with pytest.raises(RuntimeError, match="force rollback"):
-        create_invite_then_fail()
+    rollback_error: RuntimeError | None = None
+    try:
+        with session_scope(session_factory) as session:
+            create_service_invite(session, 5678, "Dr example")
+            raise RuntimeError("force rollback")
+    except RuntimeError as exc:
+        rollback_error = exc
+    assert rollback_error is not None
+    assert str(rollback_error) == "force rollback"
 
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
