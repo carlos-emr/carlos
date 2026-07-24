@@ -242,7 +242,14 @@
             return foundAttachment ? foundAttachment.base64Data : null;
         }
 
-        let previewBlobUrl = null;
+        // var + typeof guard (not a top-level `let`): this script is re-evaluated in the parent
+        // page's global scope every time the attach dialog is reopened via jQuery .load(), and a
+        // re-declared top-level `let`/`const` throws a SyntaxError that discards the whole block.
+        // Same idiom the pdfCache global above uses; preserving the value across reopens also lets a
+        // prior blob URL still be revoked.
+        if (typeof previewBlobUrl === 'undefined') {
+            var previewBlobUrl = null;
+        }
 
         function showPDF(base64Data) {
             if (!base64Data) {

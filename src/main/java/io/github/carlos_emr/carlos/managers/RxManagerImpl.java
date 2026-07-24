@@ -268,10 +268,14 @@ public class RxManagerImpl implements RxManager {
         // nullable Integer and != would compare references. Done before addDrug() so a rejected request
         // never creates a replacement drug.
         if (!java.util.Objects.equals(old.getDemographicId(), d.getDemographicId())) {
-            logger.info("Drug demographic ({}) does not match input demographic ({}), failed to update.",
+            // Deny EXPLICITLY, do not return null: prescribe() treats a null from updateDrug as
+            // "drug not in the DB, add it", which would launder this security denial into an insert
+            // (a phantom medication in the caller's own patient chart) reported as success. Throwing
+            // keeps the denial distinguishable from the legitimate not-found/not-persisted nulls above.
+            logger.info("Drug demographic ({}) does not match input demographic ({}), update denied.",
                     LogSafe.sanitize(String.valueOf(old.getDemographicId())),
                     LogSafe.sanitize(String.valueOf(d.getDemographicId()))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return null;
+            throw new AccessDeniedException("_rx", "w", String.valueOf(d.getDemographicId()));
         }
 
         // Attempt to add the new drug first, if this fails

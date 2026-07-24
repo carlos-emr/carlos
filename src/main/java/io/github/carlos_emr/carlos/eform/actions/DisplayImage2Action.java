@@ -109,6 +109,13 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         String fileName = request.getParameter("imagefile");
+        if (fileName == null || fileName.isBlank()) {
+            // Guard before BUNDLED_EDITOR_ASSETS.contains() below: that set is a null-hostile Set.of,
+            // so a missing imagefile parameter would NPE into the Struts error page instead of a
+            // controlled 400. Fail closed with a bad-request response.
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing imagefile parameter");
+            return NONE;
+        }
         boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null);
         if (VACCINE_BRANDS_FILE.equals(fileName)) {
             if (!hasEformRead

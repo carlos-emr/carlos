@@ -250,9 +250,11 @@ class RxManagerUnitTest extends RxManagerImpl {
             request.setId(3);
             request.setGenericName("ASA");
 
-            Drug result = updateDrug(info, request);
-
-            assertThat(result).isNull();            // request rejected
+            // The cross-patient attempt must be DENIED EXPLICITLY (throw), not laundered into a null
+            // that prescribe() reinterprets as "drug not in the DB, add it" — which would create a
+            // phantom medication and report success.
+            assertThatThrownBy(() -> updateDrug(info, request))
+                    .isInstanceOf(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class);
             assertThat(mergedDrug).isNull();         // no drug archived
             assertThat(victim.isArchived()).isFalse(); // victim's drug untouched
         }

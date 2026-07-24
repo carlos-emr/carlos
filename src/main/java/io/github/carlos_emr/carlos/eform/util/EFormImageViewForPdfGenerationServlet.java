@@ -107,7 +107,16 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             // nosniff: the declared allowlist type is the contract; a browser second-guessing
             // bytes into a scriptable type is never wanted on an asset route.
             response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setContentType(resolveContentType(file));
+            String contentType = resolveContentType(file);
+            // Mirror DisplayImage2Action.process: a stored text/html or image/svg+xml asset from the
+            // user-writable image directory runs embedded <script> when navigated to as a document,
+            // so it must carry the sandbox CSP (strips scripts, keeps passive <img>/CSS) or it is a
+            // stored-XSS channel in the authenticated origin. This servlet serves the same directory.
+            if (io.github.carlos_emr.carlos.utility.RequestNegotiation.isHtmlContentType(contentType)
+                    || "image/svg+xml".equalsIgnoreCase(contentType)) {
+                response.setHeader("Content-Security-Policy", "sandbox");
+            }
+            response.setContentType(contentType);
             response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
             try (InputStream stream = new FileInputStream(file)) {
                 OutputStream outputStream = response.getOutputStream();

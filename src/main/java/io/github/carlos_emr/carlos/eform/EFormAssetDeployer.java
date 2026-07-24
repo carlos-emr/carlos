@@ -103,6 +103,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     private static final String BUNDLED_ASSETS_PATH = "/WEB-INF/eform-assets/";
     private static final String SHARED_JAVASCRIPT_PATH = "/share/javascript/";
     private static final String JQUERY_RESOURCE_PATH = "/library/jquery/jquery-3.7.1.min.js";
+    /** Compatibility shim ($.browser, .andSelf, .size, .live/.die, .bind/.unbind) appended to the
+     *  jQuery bundle deployed under legacy 1.x/3.1 filenames so pre-3.x forms keep working. */
+    private static final String JQUERY_COMPAT_RESOURCE_PATH = "/library/jquery/jquery-compat.js";
     private static final byte[] BLANK_SIGNATURE_PNG = new byte[] {
         (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
         0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
@@ -300,16 +303,13 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     }
 
     private void deploySampleLabCompatibilityAssets(File targetDir) {
-        // NOT a copy-paste bug: legacy sample-lab eForms reference the literal filename
-        // "jquery-3.1.0.min.js" in their stored HTML, so the WAR's current jQuery bundle
-        // (JQUERY_RESOURCE_PATH, 3.7.1) is deliberately deployed UNDER the legacy filename to
-        // keep those forms working without editing every stored form.
-        deployAssetFromPath("jquery-3.1.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
-        // Same deliberate aliasing for the older legacy generation: EForm's runtime normalization
-        // rewrites stored references to jquery-1.12.0.min.js to the displayImage asset route, so the
-        // current bundle must also be deployed under that legacy filename or those forms 404 (and the
-        // 404'd Script subresource fails the whole browser PDF render).
-        deployAssetFromPath("jquery-1.12.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
+        // Deliberate aliasing: legacy sample-lab eForms reference "jquery-3.1.0.min.js" /
+        // "jquery-1.12.0.min.js" in their stored HTML, so the current bundle (3.7.1) is deployed UNDER
+        // those legacy filenames to keep the forms working without editing every stored form. Serving
+        // 3.7.1 to a 1.x-era form would silently break removed APIs ($.browser, .size(), .andSelf), so
+        // the jQuery bundle is combined with jquery-compat.js (which restores them) under these names.
+        deployJqueryWithCompat("jquery-3.1.0.min.js", targetDir);
+        deployJqueryWithCompat("jquery-1.12.0.min.js", targetDir);
         for (Map.Entry<String, String> entry : SAMPLE_LAB_COMPATIBILITY_SCRIPTS.entrySet()) {
             deployGeneratedAsset(entry.getKey(), targetDir, entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
@@ -336,6 +336,41 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             deployAssetFromStream(filename, targetDir, is, resourcePath);
         } catch (IOException e) {
             logger.error("Failed to deploy eForm asset: {}", filename, e);
+        }
+    }
+
+    /**
+     * Deploys the current jQuery bundle concatenated with {@code jquery-compat.js} under a legacy
+     * jQuery filename, so a pre-3.x form that loads (say) {@code jquery-1.12.0.min.js} transparently
+     * receives jQuery 3.7.1 plus the shims for the APIs 3.x removed ({@code $.browser}, {@code .size()},
+     * {@code .andSelf()}, {@code .live}/{@code .die}, {@code .bind}/{@code .unbind}). The compat IIFE
+     * extends {@code window.jQuery}, so it must run after the bundle — hence append, not prepend.
+     */
+    private void deployJqueryWithCompat(String filename, File targetDir) {
+        File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
+        if (targetFile.exists()) {
+            logger.debug("eForm asset already exists, skipping: {}", targetFile.getAbsolutePath());
+            return;
+        }
+        try (InputStream jq = servletContext.getResourceAsStream(JQUERY_RESOURCE_PATH);
+             InputStream compat = servletContext.getResourceAsStream(JQUERY_COMPAT_RESOURCE_PATH)) {
+            if (jq == null) {
+                logger.warn("Bundled jQuery not found in WAR: {}", JQUERY_RESOURCE_PATH);
+                return;
+            }
+            java.io.ByteArrayOutputStream combined = new java.io.ByteArrayOutputStream();
+            jq.transferTo(combined);
+            if (compat != null) {
+                // Separator so the minified bundle (which may not end in ;/newline) cannot merge with
+                // the compat IIFE's opening token.
+                combined.write("\n;\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                compat.transferTo(combined);
+            } else {
+                logger.warn("jQuery compat shim not found in WAR: {}", JQUERY_COMPAT_RESOURCE_PATH);
+            }
+            deployGeneratedAsset(filename, targetDir, combined.toByteArray());
+        } catch (IOException e) {
+            logger.error("Failed to deploy combined jQuery+compat asset: {}", filename, e);
         }
     }
 
@@ -395,13 +430,35 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         String compatibilityScript = """
                 (function(global) {
                   var warned = false;
-                  function warnStub() {
-                    if (!warned) {
-                      warned = true;
-                      if (global.console && console.warn) {
-                        console.warn("CARLOS: a lab decision-support script is not deployed; its functions are stubbed and do nothing. Contact your administrator if lab decision support is expected.");
-                      }
+                  function warnStub(fnName) {
+                    if (warned) { return; }
+                    warned = true;
+                    if (global.console && console.warn) {
+                      console.warn("CARLOS: a lab decision-support script is not deployed; its functions are stubbed and do nothing. Contact your administrator if lab decision support is expected.");
                     }
+                    // A console warning is invisible to clinicians and to the headless PDF renderer.
+                    // On the FIRST invocation of any stubbed function, make the degradation visible at
+                    // the point of use (an in-form banner) and durable for operators (a server beacon),
+                    // so a silently-disabled reminder/tickler is not mistaken for a completed action.
+                    try {
+                      var doc = global.document;
+                      if (doc && doc.body && doc.createElement) {
+                        var banner = doc.createElement('div');
+                        banner.setAttribute('id', 'carlos-lab-ds-unavailable');
+                        banner.textContent = 'Lab decision support is not available on this server \\u2014 automated reminders/ticklers on this form will not run. Contact your administrator.';
+                        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#fdecea;color:#611a15;padding:8px 12px;font:14px sans-serif;border-bottom:2px solid #f5c6cb;';
+                        doc.body.appendChild(banner);
+                      }
+                      var ctxEl = doc && doc.getElementById ? doc.getElementById('context') : null;
+                      var fidEl = doc && doc.getElementById ? doc.getElementById('fid') : null;
+                      var ctx = ctxEl ? ctxEl.value : '';
+                      if (ctx && global.navigator && global.navigator.sendBeacon && global.URLSearchParams) {
+                        var params = new global.URLSearchParams();
+                        params.append('formId', fidEl ? fidEl.value : '');
+                        params.append('error', 'lab decision-support stub invoked (not deployed): ' + (fnName || 'unknown'));
+                        global.navigator.sendBeacon(ctx + '/eform/logEformError', params);
+                      }
+                    } catch (e) { /* best-effort visibility only; never break the form */ }
                   }
                   function noop() { warnStub(); return null; }
                   function falsy() { warnStub(); return false; }

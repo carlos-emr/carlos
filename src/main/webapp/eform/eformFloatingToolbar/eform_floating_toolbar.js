@@ -350,6 +350,7 @@ function remoteDownload() {
     if (editorStillLoading()) {
         return;
     }
+    clearWorkflowFlags();
     ShowSpin(true);
     // Reuse-by-id so repeated attempts do not accumulate duplicate hidden inputs.
     let saveAndDownload = document.getElementById("saveAndDownloadEForm");
@@ -393,6 +394,7 @@ function remoteFax() {
     if (editorStillLoading()) {
         return;
     }
+    clearWorkflowFlags();
     setHiddenFormInput("faxAction", "faxEForm", "true");
 
     /*
@@ -434,6 +436,21 @@ function setHiddenFormInput(id, name, value) {
 }
 
 /**
+ * Removes every workflow-intent hidden input (and fax recipient inputs). Each composite action
+ * (download/fax/email/edocument) calls this before setting its own flag, so a flag left behind by a
+ * previously prevented/aborted attempt cannot ride a later action into the wrong server-side
+ * workflow (e.g. a stale faxEForm=true making a later Save enter the fax path).
+ */
+function clearWorkflowFlags() {
+    ['saveAndDownloadEForm', 'faxAction', 'emailAction', 'saveAsEdoc', 'recipient', 'recipientFaxNumber'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el && el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+    });
+}
+
+/**
  * Adds a hidden input field into the eForm form with instructions to
  * open the Oscar Email dialog.
  */
@@ -464,6 +481,7 @@ function remoteEmail() {
     if (editorStillLoading()) {
         return;
     }
+    clearWorkflowFlags();
     setHiddenFormInput("emailAction", "emailEForm", "true");
     remoteSave();
 
@@ -545,6 +563,7 @@ function hailMary() {
  */
 function remoteEdocument() {
 
+    clearWorkflowFlags();
     const edocElement = document.getElementById("saveAsEdoc");
     if (edocElement) {
         edocElement.value = 'true';

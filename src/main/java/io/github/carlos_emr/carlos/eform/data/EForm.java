@@ -89,8 +89,12 @@ public class EForm extends EFormBase {
     // Matches legacy string-argument timer calls with either quote style. The backreference \1 pins
     // the closing quote to the opening one, while the body consumes either escaped characters or
     // any non-delimiter, non-line-break content so escaped quotes do not terminate the match early.
-    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
-    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
+    // The leading (?<![\w$.]) identifier-boundary lookbehind stops the bare literal from matching
+    // INSIDE a longer identifier (e.g. rewriting the string arg of a custom mysetTimeout('x', 10)
+    // into a function). It does not fix a match inside a string/comment (a lexer/runtime shim would);
+    // that residual is tracked separately.
+    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("(?<![\\w$.])setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("(?<![\\w$.])setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
     // The "</" that begins a closing </script> tag, re-escaped after timer decoding so a decoded
     // script-close cannot truncate the surrounding inline script. Scoped to the exact sequences the

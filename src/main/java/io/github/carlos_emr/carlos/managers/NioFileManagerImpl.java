@@ -672,15 +672,13 @@ public class NioFileManagerImpl implements NioFileManager {
                 normalizedSourceDir = PathValidationUtils.validateExistingPath(
                         normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
             }
-            // The directory is containment-validated above (application-temp or document root) and is
-            // only stat'd and hashed into a cache key, never read as content — the suppression must sit
-            // on the flagged sink line itself to take effect.
-            if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) { // codeql[java/path-injection]
-                if (log.isErrorEnabled()) {
-                    log.error("Source directory does not exist or is not a directory: {}", LogSafe.sanitize(sourceDirectory, 1024));
-                }
-                return null;
-            }
+            // Deliberately do NOT require the directory to exist on disk. The source is only hashed
+            // into a cache key (the cache pages live in document_cache, not here), so a still-allowed
+            // temp preview dir that ApplicationTempPurgeJob already deleted after 24h is a valid
+            // "nothing left to flush" case, not an error. Requiring existence here wedged fax-preview
+            // Cancel: the missing dir returned null → removeCacheVersions threw → Cancel failed
+            // identically on every retry though no PHI remained. A genuinely disallowed path is
+            // rejected above (containment / validateExistingPath) and still returns null.
             return normalizedSourceDir;
         } catch (Exception e) {
             if (log.isErrorEnabled()) {
@@ -709,7 +707,31 @@ public class NioFileManagerImpl implements NioFileManager {
     private static Path applicationTempParent() throws IOException {
         Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir"));
         Path parent = tmpDir.resolve(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
-        Path created = Files.createDirectories(parent);
+        boolean posix = parent.getFileSystem().supportedFileAttributeViews().contains("posix");
+        Path created;
+        if (posix) {
+            // Create the root owner-only (rwx------) so a local user on a multi-tenant host cannot read
+            // the PHI temp files written beneath it, nor pre-create it world-writable. Consistent with
+            // the 0600 files createSecureTempFile writes elsewhere.
+            java.util.Set<java.nio.file.attribute.PosixFilePermission> ownerOnly =
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------");
+            try {
+                created = Files.createDirectory(parent,
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(ownerOnly));
+            } catch (FileAlreadyExistsException alreadyExists) {
+                // Existing root (possibly pre-created by another local user): tighten its permissions
+                // and verify this JVM owns it — refuse to write PHI beneath a root owned by someone else.
+                created = parent;
+                Files.setPosixFilePermissions(created, ownerOnly);
+                java.nio.file.attribute.UserPrincipal owner = Files.getOwner(created);
+                String jvmUser = System.getProperty("user.name");
+                if (jvmUser != null && owner != null && !jvmUser.equals(owner.getName())) {
+                    throw new IOException("Application temp root is not owned by the CARLOS process user: " + created);
+                }
+            }
+        } else {
+            created = Files.createDirectories(parent);
+        }
         // Reject if carlos-temp itself is a symlink, and reject if it resolves outside the real
         // java.io.tmpdir. Both guards defend against a local process that pre-created/swapped the root
         // to redirect application temp writes, but the leaf-symlink guard also keeps this write path

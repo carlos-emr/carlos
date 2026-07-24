@@ -250,11 +250,13 @@ public class Download2Action extends ActionSupport {
             File inboxDir = PathValidationUtils.validateConfiguredDirectory(
                     CarlosProperties.getInstance().getProperty("ONEDT_INBOX"), "ONEDT_INBOX");
             for (DownloadData d : downloadResult.getData()) {
-                // Sanitize the remote description to a bare filename, then prefix it with the resource ID
-                // so two downloads that share a description cannot silently overwrite each other in the
-                // inbox. validatePath re-confines the assembled name to inboxDir and strips any traversal.
-                String safeDescription = PathValidationUtils.validatePath(d.getDescription(), inboxDir).getName();
-                File document = PathValidationUtils.validatePath(d.getResourceID() + "_" + safeDescription, inboxDir);
+                // Keep the ministry filename EXACTLY as delivered (bare description). Ontario MOH
+                // consumers parse it positionally — BillingLegacyReport2Action selects its stylesheet
+                // on substring(2,4)=="OU", BillingDocumentErrorReportUpload2Action dispatches on
+                // startsWith("L") — so a <resourceID>_ prefix silently breaks both, and userDownload()
+                // writes the bare name anyway (one resource under two names). validatePath re-confines
+                // the name to inboxDir and strips traversal.
+                File document = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
                 byte[] inputBytes = d.getContent();
 
 
