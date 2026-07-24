@@ -38,6 +38,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Form bean capturing user input from the BC quick billing interface.
+ * Holds service codes, diagnostic codes, and provider details during submission.
+ */
 public class QuickBillingBCFormBean {
 
     /**

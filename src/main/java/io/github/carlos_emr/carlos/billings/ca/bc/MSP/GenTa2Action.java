@@ -69,6 +69,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action responsible for generating the 'TA' (Transmission Acknowledgement) file.
+ * Handles the creation of the final file payload for Teleplan upload.
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

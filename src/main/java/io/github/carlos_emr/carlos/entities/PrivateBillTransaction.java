@@ -32,6 +32,10 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Represents a transactional record for private or direct-to-patient billing.
+ * Tracks payments, charges, and balances for non-insured services.
+ */
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;

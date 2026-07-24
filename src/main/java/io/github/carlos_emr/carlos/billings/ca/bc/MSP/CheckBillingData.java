@@ -41,6 +41,10 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Utility class providing comprehensive validation checks on billing data before submission.
+ * Verifies required fields, patient eligibility, and code combinations.
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1

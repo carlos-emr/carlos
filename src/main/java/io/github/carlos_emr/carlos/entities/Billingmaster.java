@@ -71,6 +71,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
+/**
+ * Core entity representing a comprehensive billing record.
+ * Aggregates all necessary information for submitting claims and tracking payments.
+ */
 public class Billingmaster {
 
     /**

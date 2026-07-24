@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents individual laboratory data points or results.
+ * Manages the specific values and metadata associated with a lab test.
+ */
 public class LabData {
     private String a1c;
     private String ldl;

@@ -24,6 +24,10 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Validates MSP service codes against current provincial fee schedules and rules.
+ * Prevents submission errors by catching invalid or incompatible codes early.
+ */
 public class ServiceCodeValidator {
     protected boolean valid = true;
     protected String serviceCode = "";

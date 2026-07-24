@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Enumerates or represents the physical location of an injury for WCB or ICBC claims.
+ * Required data element for specific types of third-party or occupational billing.
+ */
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;

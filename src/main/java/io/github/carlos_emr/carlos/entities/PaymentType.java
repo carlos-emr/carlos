@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Defines the various types of payments accepted within the billing system.
+ * Examples include Cash, Credit, Cheque, or specific insurance types.
+ */
 public class PaymentType {
     private String id;
     private String paymentType;

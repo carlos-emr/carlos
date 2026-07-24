@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Core entity representing a patient in the CARLOS EMR system.
+ * Stores demographics, identifiers, and links to all clinical and administrative records.
+ */
 public class Patient {
     private String firstName;
     private String lastName;

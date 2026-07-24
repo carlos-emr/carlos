@@ -46,6 +46,10 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Defines the standard error and rejection codes returned by the BC MSP Teleplan system.
+ * Used to map provincial errors to user-friendly messages for reconciliation.
+ */
 public class MspErrorCodes extends Properties {
 
     /**

@@ -18,6 +18,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Generates reports related to Goods and Services Tax (GST) for billable items.
+ * Assists clinics in tracking and remitting collected taxes.
+ */
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {

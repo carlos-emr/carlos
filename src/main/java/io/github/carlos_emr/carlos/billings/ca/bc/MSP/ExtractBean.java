@@ -59,6 +59,10 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 
+/**
+ * Manages the data extraction logic for formatting BC MSP claims into Teleplan format.
+ * Translates internal billing data into the required provincial standard.
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);

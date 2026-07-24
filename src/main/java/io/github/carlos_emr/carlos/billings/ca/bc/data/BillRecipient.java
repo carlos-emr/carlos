@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the recipient or payee of a specific bill or invoice.
+ * Defines who is responsible for the financial transaction, be it patient or third party.
+ */
 public class BillRecipient {
 
     private Integer id;

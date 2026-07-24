@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Generic entity for medical or diagnostic tests.
+ * Provides a foundational structure for tracking various test types within the system.
+ */
 public class Test {
     private String id;
     private String description;

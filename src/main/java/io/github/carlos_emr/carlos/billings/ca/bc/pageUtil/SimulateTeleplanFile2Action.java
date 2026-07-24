@@ -53,6 +53,10 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action to simulate Teleplan file generation.
+ * Provides a preview of the Teleplan file content without actually transmitting it.
+ */
 public class SimulateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

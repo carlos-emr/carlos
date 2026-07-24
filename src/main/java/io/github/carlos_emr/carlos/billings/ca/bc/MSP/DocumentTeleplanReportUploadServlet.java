@@ -51,6 +51,10 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Servlet responsible for handling the upload and processing of Teleplan remittance reports.
+ * Parses incoming files from the ministry to reconcile payments and rejections.
+ */
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use

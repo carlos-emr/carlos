@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents a clinical factor or determinant affecting a patient's health.
+ * Used for tracking risk factors, social determinants, and other relevant clinical metrics.
+ */
 public class ClinicalFactor {
     // Fields
     //

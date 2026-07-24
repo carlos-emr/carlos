@@ -50,6 +50,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * View helper bean for displaying billing information in the user interface.
+ * Formats complex billing data structures into a view-friendly format.
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;

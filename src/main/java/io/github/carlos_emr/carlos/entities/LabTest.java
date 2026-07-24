@@ -30,6 +30,10 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Represents a laboratory test order or definition.
+ * Associates the test details with the patient and ordering provider.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";

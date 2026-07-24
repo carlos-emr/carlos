@@ -27,6 +27,10 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Utility class providing common helper methods for the CAISI integration module.
+ * Facilitates operations related to agency and program management.
+ */
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {
         if (str == null) return (null);
