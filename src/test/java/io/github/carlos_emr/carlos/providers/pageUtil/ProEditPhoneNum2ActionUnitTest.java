@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -46,6 +47,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -156,6 +158,70 @@ class ProEditPhoneNum2ActionUnitTest {
             assertThat(request.getAttribute("phoneError")).isNull();
             assertThat(request.getAttribute("status")).isEqualTo("complete");
             verify(propertyDao).saveProp(any(UserProperty.class));
+        }
+    }
+
+    @Test
+    @DisplayName("should reject GET carrying the faxNumber mutation param with 405 and never persist")
+    void shouldReject405_whenGetCarriesFaxNumberMutationIntent() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        // A GET carrying save data is the CSRF-via-GET attempt the gate must stop.
+        request.setParameter("faxNumber", "5550100");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        UserPropertyDAO propertyDao = mock(UserPropertyDAO.class);
+
+        try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
+             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
+             MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class)) {
+
+            servletCtx.when(ServletActionContext::getRequest).thenReturn(request);
+            servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
+            wireBeans(springUtils, securityInfoManager, propertyDao);
+            grantSession(loggedInInfo, securityInfoManager);
+
+            ProEditPhoneNum2Action action = new ProEditPhoneNum2Action();
+            action.setFaxNumber("5550100");
+
+            String result = action.execute();
+
+            // Rejected with 405 before any persist — the method gate runs ahead of the DAO lookup.
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            verifyNoInteractions(propertyDao);
+        }
+    }
+
+    @Test
+    @DisplayName("should render the editor on a GET without mutation intent and never persist")
+    void shouldRenderEditor_whenGetWithoutFaxNumber() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        UserPropertyDAO propertyDao = mock(UserPropertyDAO.class);
+
+        try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
+             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
+             MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class)) {
+
+            servletCtx.when(ServletActionContext::getRequest).thenReturn(request);
+            servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
+            wireBeans(springUtils, securityInfoManager, propertyDao);
+            grantSession(loggedInInfo, securityInfoManager);
+
+            ProEditPhoneNum2Action action = new ProEditPhoneNum2Action();
+
+            String result = action.execute();
+
+            // GET view: forwards to providerPhone.jsp (success), sets no error/status, never persists.
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("phoneError")).isNull();
+            assertThat(request.getAttribute("status")).isNull();
+            verifyNoInteractions(propertyDao);
         }
     }
 

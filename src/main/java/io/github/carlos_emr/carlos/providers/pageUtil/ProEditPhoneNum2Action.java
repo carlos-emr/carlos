@@ -55,13 +55,22 @@ public class ProEditPhoneNum2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE",
             justification = "case-insensitive comparison of the literal HTTP method name, not user-identity folding")
     public String execute() throws Exception {
-        // Mutator: this action persists the provider's rxPhone (propertyDao.saveProp below), so it
-        // MUST reject GET/HEAD before any side-effect fires (GET/HEAD Rejection Contract). CSRFGuard
-        // does not validate GET, so without this a CSRF-via-GET could change the stored value.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
+        // Dual-purpose route (struts EditPhoneNum -> providerPhone.jsp): a GET/HEAD renders the phone
+        // editor (view), a POST persists the provider's rxPhone. CSRFGuard does not validate GET, so
+        // the saveProp mutation below MUST never run on GET/HEAD. A GET/HEAD that carries the faxNumber
+        // mutation parameter is a CSRF-via-GET save attempt and is rejected before any side effect; a
+        // GET/HEAD without it renders the editor view. Any other method is unsupported.
+        String method = request.getMethod();
+        boolean isPost = "POST".equalsIgnoreCase(method);
+        if (!isPost) {
+            boolean readView = "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
+            if (!readView || request.getParameter("faxNumber") != null) {
+                response.setHeader("Allow", readView ? "POST" : "GET, HEAD, POST");
+                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
         }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             // No authenticated session — eject rather than NPE on the privilege/provider access below.
@@ -76,29 +85,33 @@ public class ProEditPhoneNum2Action extends ActionSupport {
         if (providerNo == null)
             return "eject";
 
-        // Server-side validation. The browser-side validate() is bypassable via a direct POST, so the
-        // value MUST be constrained here before it is stored and later rendered back into the page.
-        // Allow only telephone punctuation and bound the length; reject anything else (e.g. markup),
-        // which is both a data-quality and a stored-XSS defense. A literal space is permitted, but NOT
-        // the rest of \s (CR/LF/tab/form-feed) — those are never valid in a phone/fax number and could
-        // otherwise be stored and later reflected into logs or the page.
-        if (faxNumber != null && !faxNumber.matches("[0-9+()\\-. xX]{0,40}")) {
-            request.setAttribute("phoneError", Boolean.TRUE);
-            return SUCCESS;
-        }
+        // A GET/HEAD view falls through to render the editor with the provider's current value; only a
+        // POST mutates. Server-side validation runs before the persist: the browser-side validate() is
+        // bypassable via a direct POST, so the value MUST be constrained here before it is stored and
+        // later rendered back into the page. Allow only telephone punctuation and bound the length;
+        // reject anything else (e.g. markup), which is both a data-quality and a stored-XSS defense. A
+        // literal space is permitted, but NOT the rest of \s (CR/LF/tab/form-feed) — those are never
+        // valid in a phone/fax number and could otherwise be stored and later reflected into logs or
+        // the page.
+        if (isPost) {
+            if (faxNumber != null && !faxNumber.matches("[0-9+()\\-. xX]{0,40}")) {
+                request.setAttribute("phoneError", Boolean.TRUE);
+                return SUCCESS;
+            }
 
-        UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty prop = propertyDao.getProp(providerNo, "rxPhone");
-        if (prop != null) {
-            prop.setValue(faxNumber);
-        } else {
-            prop = new UserProperty();
-            prop.setName("rxPhone");
-            prop.setProviderNo(providerNo);
-            prop.setValue(faxNumber);
+            UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+            UserProperty prop = propertyDao.getProp(providerNo, "rxPhone");
+            if (prop != null) {
+                prop.setValue(faxNumber);
+            } else {
+                prop = new UserProperty();
+                prop.setName("rxPhone");
+                prop.setProviderNo(providerNo);
+                prop.setValue(faxNumber);
+            }
+            propertyDao.saveProp(prop);
+            request.setAttribute("status", "complete");
         }
-        propertyDao.saveProp(prop);
-        request.setAttribute("status", "complete");
         return SUCCESS;
     }
 

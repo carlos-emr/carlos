@@ -143,12 +143,9 @@ class MutatorActionGetRejectionContractUnitTest {
             // privilege-tuple fields below are left as empty strings — the contract assertion
             // skips the privilege check when hasPrivilege is never invoked.
             Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
-            // --- providers ---
-            // ProEditPhoneNum2Action persists the provider's rxPhone on every POST. Its POST-only
-            // guard runs before the _pref privilege check, so on GET hasPrivilege is never invoked —
-            // register with an empty privilege tuple (the contract assertion then skips the privilege
-            // check, as it does for Logout2Action).
-            Arguments.of("io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action", "", ""),
+            // (ProEditPhoneNum2Action moved to CONDITIONAL_MUTATORS: EditPhoneNum is a dual view/mutate
+            // route — GET renders providerPhone.jsp, only a POST or GET-with-faxNumber mutation intent
+            // is gated. Its dedicated GET-rejection coverage lives in ProEditPhoneNum2ActionUnitTest.)
             // --- appointment ---
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action",
                     "_appointment", "w"),
@@ -246,6 +243,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         // Messenger admin: rejects GET on form-save method invocations.
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
+        // Provider phone editor: EditPhoneNum -> providerPhone.jsp is dual-purpose. A GET/HEAD renders
+        // the editor (view); only a POST — or a GET/HEAD carrying the faxNumber mutation param — is
+        // gated (see ProEditPhoneNum2ActionUnitTest for the focused GET-rejection coverage).
+        "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
         // Provider document descriptions: read methods permit GET; write methods are POST-only.
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // Document manager: read methods permit GET; addIncomingDocument is POST-only.
