@@ -128,9 +128,21 @@ RUN cat <<'EOF' > /usr/local/bin/postfix-capture-mail && chmod 0755 /usr/local/b
 #!/bin/sh
 set -eu
 
+# The append redirection below recreates the capture file if it was deleted at
+# runtime. Without this umask it would come back 0644 (world-readable), losing
+# the 0660 guarantee set at image build time; 007 makes any recreation 0660.
+umask 007
+
 CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
 sender="${1:-unknown-sender}"
 recipient="${2:-unknown-recipient}"
+
+# Recreate with explicit perms if missing, so the guarantee holds even if a
+# future edit changes the umask above.
+if [ ! -e "$CAPTURE_FILE" ]; then
+  : > "$CAPTURE_FILE"
+  chmod 0660 "$CAPTURE_FILE"
+fi
 
 # Serialize the whole append under an exclusive lock so concurrent devcapture
 # deliveries cannot interleave and corrupt the captured MIME. fd 9 opens the
