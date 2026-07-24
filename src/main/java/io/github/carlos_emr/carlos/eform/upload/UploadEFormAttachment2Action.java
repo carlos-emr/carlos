@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.eform.upload;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -93,7 +94,11 @@ public class UploadEFormAttachment2Action extends ActionSupport {
     private void writeError(String message) {
         String errorMsg = "<div id=\"error\">error</div><div id=\"message\">" + SafeEncode.forHtmlContent(message) + "</div>";
         try {
-            response.getOutputStream().write(errorMsg.getBytes());
+            // Explicit type + charset so the fragment is deterministic across JVMs: getBytes() with
+            // no charset used the platform default, and with no declared content type the client had
+            // to guess the encoding of this HTML fragment.
+            response.setContentType("text/html; charset=UTF-8");
+            response.getOutputStream().write(errorMsg.getBytes(StandardCharsets.UTF_8));
             response.getOutputStream().flush();
             response.getOutputStream().close();
         } catch (IOException e1) {
