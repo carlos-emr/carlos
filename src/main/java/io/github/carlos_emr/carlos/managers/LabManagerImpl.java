@@ -197,7 +197,9 @@ public class LabManagerImpl implements LabManager {
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege, Integer demographicNo) {
         String target = demographicNo == null ? null : String.valueOf(demographicNo);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", privilege, target)) {
-            throw new RuntimeException("missing required sec object (_lab)");
+            // SecurityException (not a bare RuntimeException) so an authorization failure is
+            // recognizable as security-denied rather than surfacing as a generic 500.
+            throw new SecurityException("missing required sec object (_lab)");
         }
     }
 
