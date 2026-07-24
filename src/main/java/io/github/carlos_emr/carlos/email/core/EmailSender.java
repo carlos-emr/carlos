@@ -185,7 +185,7 @@ public class EmailSender {
      * @since 2026-07-20
      */
     public boolean supportsOutboundArchive() {
-        return emailConfig.getEmailType() == EmailConfig.EmailType.SMTP;
+        return emailConfig != null && emailConfig.getEmailType() == EmailConfig.EmailType.SMTP;
     }
 
     /**

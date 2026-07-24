@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -85,7 +86,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
 
-        emailManager = new EmailManager();
+        emailManager = new EmailManager(outboundEmailArchiveService);
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -94,7 +95,6 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         injectDependency(emailManager, "providerManager", mockProviderManager());
         injectDependency(emailManager, "securityInfoManager", securityInfoManager);
-        injectDependency(emailManager, "outboundEmailArchiveService", outboundEmailArchiveService);
     }
 
     @Test
@@ -147,6 +147,34 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             verify(smtpSender).sendPreparedMessage();
             verify(emailLogDao).updateEmailStatus(45, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
         }
+    }
+
+    @Test
+    @DisplayName("should bound persisted error message when archive failure message exceeds the column width")
+    void shouldBoundPersistedErrorMessage_whenArchiveFailureMessageExceedsColumnWidth() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 46);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        // A provider response body can be arbitrarily long; emailLog.errorMessage is VARCHAR(1000).
+        doThrow(new IllegalStateException("x".repeat(5000)))
+                .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+        assertThat(emailLog.getErrorMessage()).hasSizeLessThanOrEqualTo(1000);
+    }
+
+    @Test
+    @DisplayName("should not archive when the email configuration is missing")
+    void shouldNotArchive_whenEmailConfigurationIsMissing() {
+        EmailSender emailSender = new EmailSender(loggedInInfo, null, emailData());
+
+        assertThat(emailSender.supportsOutboundArchive()).isFalse();
     }
 
     private EmailData emailData() {
