@@ -3290,9 +3290,6 @@ def test_hl7_patient_identity_rejects_unsafe_hl7_values() -> None:
 
 
 def test_session_scope_commits_success_and_rolls_back_failure() -> None:
-    class RollbackProbeError(Exception):
-        pass
-
     engine = create_portal_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -3304,15 +3301,14 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     with session_factory() as session:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
-    rollback_was_triggered = False
-    try:
-        with session_scope(session_factory) as session:
-            create_service_invite(session, 5678, "Dr example")
-            raise RollbackProbeError
-    except RollbackProbeError:
-        rollback_was_triggered = True
+    rollback_scope = session_scope(session_factory)
+    rollback_session = rollback_scope.__enter__()
+    create_service_invite(rollback_session, 5678, "Dr example")
+    rollback_error = RuntimeError("force session rollback")
+    assert rollback_scope.__exit__(
+        type(rollback_error), rollback_error, rollback_error.__traceback__
+    ) is False
 
-    assert rollback_was_triggered is True
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
 
