@@ -41,8 +41,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import java.util.Set;
+
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -52,6 +57,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class GenericDownload extends HttpServlet {
 
     private static final Logger log = MiscUtils.getLogger();
+
+    /**
+     * Configured-directory property names this servlet is permitted to serve from. The caller names
+     * the directory via the {@code dir_property} request parameter; allowing an arbitrary property
+     * lets any authenticated request pick which configured directory is trusted (exports, backups,
+     * integration artifacts). No caller in the codebase uses this servlet, so the allowlist is
+     * intentionally empty — add a property key here deliberately, with its use case and an
+     * appropriate privilege, only when a real caller needs it.
+     */
+    private static final Set<String> ALLOWED_DIR_PROPERTIES = Set.of();
 
     public GenericDownload() {
     }
@@ -64,15 +79,24 @@ public class GenericDownload extends HttpServlet {
 
             String filename = req.getParameter("filename");
             String dir_property = req.getParameter("dir_property");
-            String contentType = req.getParameter("contentType");
-            String dir = oscarProps.getProperty(dir_property);
             String user = (String) session.getAttribute("user");
 
-            boolean bDo = false;
-            if (filename != null && dir_property != null && dir != null && user != null) {
-                bDo = true;
-            }
-            download(bDo, res, dir, filename, contentType);
+            // Authorization: a non-null session user is NOT sufficient to read arbitrary configured
+            // directories. Require an administrator, and restrict dir_property to the server-side
+            // allowlist. The caller-supplied contentType is ignored — content type is forced to
+            // application/octet-stream (in transferFile) to avoid MIME-sniffing / type confusion.
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            boolean authorized = user != null
+                    && loggedInInfo != null
+                    && dir_property != null
+                    && ALLOWED_DIR_PROPERTIES.contains(dir_property)
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
+
+            String dir = authorized ? oscarProps.getProperty(dir_property) : null;
+
+            boolean bDo = authorized && filename != null && dir != null;
+            download(bDo, res, dir, filename, null);
         } catch (IOException e) {
             throw e;
         } catch (SecurityException e) {
