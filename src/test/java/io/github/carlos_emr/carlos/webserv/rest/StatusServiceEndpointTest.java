@@ -63,5 +63,6 @@ class StatusServiceEndpointTest extends CarlosRestTestBase {
         Response response = request().path("/status/checkIfAuthed").get();
 
         assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.readEntity(String.class)).contains("999998");
     }
 }

@@ -165,7 +165,7 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         // Both locations are needed: AbstractServiceImpl.getLoggedInInfo() reads
         // from session first, but falls back to request attributes when the session
         // value has a null loggedInProvider (which mocks do by default).
-        String key = new LoggedInInfo().LOGGED_IN_INFO_KEY;
+        String key = LoggedInInfo.LOGGED_IN_INFO_KEY;
         mockServletRequest.setAttribute(key, mockLoggedInInfo);
         mockSession.setAttribute(key, mockLoggedInInfo);
 

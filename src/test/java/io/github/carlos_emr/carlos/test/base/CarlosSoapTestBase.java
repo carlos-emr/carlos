@@ -147,7 +147,7 @@ public abstract class CarlosSoapTestBase extends CarlosUnitTestBase {
         MockHttpSession mockSession = new MockHttpSession();
         mockServletRequest.setSession(mockSession);
 
-        String key = new LoggedInInfo().LOGGED_IN_INFO_KEY;
+        String key = LoggedInInfo.LOGGED_IN_INFO_KEY;
         mockServletRequest.setAttribute(key, mockLoggedInInfo);
         mockSession.setAttribute(key, mockLoggedInInfo);
 

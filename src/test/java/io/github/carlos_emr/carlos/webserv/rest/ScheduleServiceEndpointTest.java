@@ -32,7 +32,6 @@ import java.util.List;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -143,25 +142,6 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/schedule/day/today").get();
-
-            assertThat(response.getStatus()).isEqualTo(200);
-        }
-    }
-
-    /** Tests for POST /schedule/add endpoint. */
-    @Nested
-    @DisplayName("POST /schedule/add")
-    class AddAppointment {
-
-        @Test
-        @Disabled("TODO: Requires mock setup for NewAppointmentConverter internal SpringUtils.getBean() calls on CXF thread")
-        @DisplayName("should return 200 when appointment is added successfully")
-        void shouldReturn200_whenAppointmentAdded() {
-            // addAppointment returns void; default mock behavior (do nothing) is sufficient
-
-            String json = "{\"demographicNo\":1,\"providerNo\":\"999001\",\"startDate\":\"2026-04-01\",\"startTime\":\"09:00\",\"endTime\":\"09:15\"}";
-
-            Response response = request().path("/schedule/add").post(json);
 
             assertThat(response.getStatus()).isEqualTo(200);
         }

@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 public final class LoggedInInfo implements Serializable {
 
 
-    public final String LOGGED_IN_INFO_KEY = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+    public static final String LOGGED_IN_INFO_KEY = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
 
     private HttpSession session = null;
     private Facility currentFacility = null;
@@ -97,14 +97,14 @@ public final class LoggedInInfo implements Serializable {
     public static void setLoggedInInfoIntoSession(HttpSession session, LoggedInInfo loggedInInfo) {
 
         // nosemgrep: tainted-session-from-http-request -- loggedInInfo is an internally constructed LoggedInInfo object, not user input
-        session.setAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY, loggedInInfo);
+        session.setAttribute(LoggedInInfo.LOGGED_IN_INFO_KEY, loggedInInfo);
     }
 
     /**
      * This method should be used for browser requests / end user requests.
      */
     public static LoggedInInfo getLoggedInInfoFromSession(HttpSession session) {
-        return ((LoggedInInfo) session.getAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY));
+        return ((LoggedInInfo) session.getAttribute(LoggedInInfo.LOGGED_IN_INFO_KEY));
     }
 
     /**
@@ -121,7 +121,7 @@ public final class LoggedInInfo implements Serializable {
      * This will be stored in the requestAttributes, not the session.
      */
     public static void setLoggedInInfoIntoRequest(HttpServletRequest request, LoggedInInfo loggedInInfo) {
-        request.setAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY, loggedInInfo);
+        request.setAttribute(LoggedInInfo.LOGGED_IN_INFO_KEY, loggedInInfo);
     }
 
     /**
@@ -129,7 +129,7 @@ public final class LoggedInInfo implements Serializable {
      * This will be retrieved from the requestAttributes, not the session.
      */
     public static LoggedInInfo getLoggedInInfoFromRequest(HttpServletRequest request) {
-        return ((LoggedInInfo) request.getAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY));
+        return ((LoggedInInfo) request.getAttribute(LoggedInInfo.LOGGED_IN_INFO_KEY));
     }
 
     public Facility getCurrentFacility() {

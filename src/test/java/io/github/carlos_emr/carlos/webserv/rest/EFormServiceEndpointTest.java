@@ -92,13 +92,14 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
-        @DisplayName("should return 200 with error when eForm not found")
-        void shouldReturn200WithError_whenEFormNotFound() {
+        @DisplayName("should return 404 with error when eForm not found")
+        void shouldReturn404WithError_whenEFormNotFound() {
             when(mockEFormDao.findById(999)).thenReturn(null);
 
             Response response = request().path("/eform/999").get();
 
-            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getStatus()).isEqualTo(404);
+            assertThat(response.readEntity(String.class)).contains("Failed to find EForm");
         }
     }
 

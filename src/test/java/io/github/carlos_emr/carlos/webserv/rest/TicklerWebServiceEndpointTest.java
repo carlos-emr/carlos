@@ -27,7 +27,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
-import java.util.List;
 
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.Response;
@@ -97,24 +96,6 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
     class SearchTicklers {
 
         @Test
-        @DisplayName("should return 200 with ticklers matching search criteria")
-        void shouldReturn200WithTicklers_whenSearchReturnsResults() {
-            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(10)))
-                .thenReturn(Collections.emptyList());
-
-            String searchJson = "{\"status\":\"A\"}";
-
-            Response response = request().path("/tickler/search")
-                .query("startIndex", 0)
-                .query("limit", 10)
-                .post(Entity.json(searchJson));
-
-            assertThat(response.getStatus()).isEqualTo(200);
-            TicklerResponse body = response.readEntity(TicklerResponse.class);
-            assertThat(body.getContent()).isEmpty();
-        }
-
-        @Test
         @DisplayName("should return 200 with empty list when no ticklers match")
         void shouldReturn200WithEmptyList_whenNoTicklersMatch() {
             when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(10)))
@@ -137,21 +118,6 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
     @Nested
     @DisplayName("GET /tickler/mine")
     class GetMyTicklers {
-
-        @Test
-        @DisplayName("should return 200 with current provider ticklers")
-        void shouldReturn200WithMyTicklers_whenTicklersExist() {
-            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(20)))
-                .thenReturn(Collections.emptyList());
-
-            Response response = request().path("/tickler/mine")
-                .query("limit", 20)
-                .get();
-
-            assertThat(response.getStatus()).isEqualTo(200);
-            TicklerResponse body = response.readEntity(TicklerResponse.class);
-            assertThat(body.getContent()).isEmpty();
-        }
 
         @Test
         @DisplayName("should return 200 with empty list when provider has no ticklers")

@@ -107,6 +107,7 @@ class PatientDetailStatusServiceEndpointTest extends CarlosRestTestBase {
                 .get();
 
             assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.readEntity(String.class)).contains("success");
         }
 
         @Test
@@ -123,6 +124,7 @@ class PatientDetailStatusServiceEndpointTest extends CarlosRestTestBase {
                 .get();
 
             assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.readEntity(String.class)).contains("Health card number is not unique");
         }
     }
 }
