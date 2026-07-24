@@ -190,6 +190,15 @@ public class HL7CreateFile {
         String labNameType = LAB_TYPE + "|" + labName;
         DateTimeFullOrPartial labDateString = lab.getLabRequisitionDateTime() != null ? lab.getLabRequisitionDateTime() : lab.getCollectionDateTime();
         String requisitionDate = getDateTime(labDateString);
+        if (requisitionDate.isEmpty()) {
+            // MSH-7 is the message date/time — a REQUIRED HL7 envelope field meaning "when this
+            // message was created", which is genuinely now. getDateTime() deliberately returns "" for
+            // an absent/unparseable clinical date (fabricating a collection/requisition timestamp
+            // corrupts the record), and that empty is correct for OBR-6/7 and OBX-14. But an empty
+            // MSH-7 makes strict receivers reject the entire ORU^R01, so for the envelope field —
+            // and only here — fall back to the current time, which is the field's true meaning.
+            requisitionDate = new SimpleDateFormat(FULL_DATE_TIME).format(new Date());
+        }
         String version = "2.3";
         if (LAB_TYPE.equals("MDS")) {
             labNameType = labName + "|" + LAB_TYPE;

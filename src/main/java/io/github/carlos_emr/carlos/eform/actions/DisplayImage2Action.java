@@ -227,15 +227,16 @@ public class DisplayImage2Action extends ActionSupport {
         // nosniff: the declared allowlist type is the contract; a browser second-guessing bytes
         // into a scriptable type is never wanted on an asset route.
         response.setHeader("X-Content-Type-Options", "nosniff");
-        if (RequestNegotiation.isHtmlContentType(contentType)) {
-            // A stored eForm asset served as text/html executes in the authenticated origin —
-            // a stored-XSS channel if asset-upload rights are ever broader than admin. The
+        if (RequestNegotiation.isHtmlContentType(contentType) || "image/svg+xml".equalsIgnoreCase(contentType)) {
+            // A stored eForm asset served as text/html — OR an image/svg+xml, which likewise runs
+            // embedded <script> when navigated to as a document — executes in the authenticated
+            // origin: a stored-XSS channel if asset-upload rights are ever broader than admin. The
             // sandbox directive (no allow-* tokens) strips scripts/forms/origin from the served
-            // document while keeping passive embedding working, so legacy html/rtl assets stay
-            // servable without staying scriptable. This is UNCONDITIONAL for every file served from
-            // the (user-writable) image directory; trusted editor assets are served separately from
-            // the immutable WAR path (see serveBundledEditorAsset) so a user-uploaded same-named file
-            // can never reach this route unsandboxed.
+            // document while keeping passive <img>/CSS embedding working, so legacy html/rtl/svg
+            // assets stay servable without staying scriptable. This is UNCONDITIONAL for every file
+            // served from the (user-writable) image directory; trusted editor assets are served
+            // separately from the immutable WAR path (see serveBundledEditorAsset) so a user-uploaded
+            // same-named file can never reach this route unsandboxed.
             response.setHeader("Content-Security-Policy", "sandbox");
         }
         response.setContentType(contentType);

@@ -170,60 +170,45 @@ public class OscarOAuthDataProvider {
 
 
     public AccessToken createAccessToken(RequestToken requestToken) {
-        // Consume the request token atomically, keyed on the token id, so two concurrent /token
-        // exchanges cannot both read the same live request token and each mint an access token from it
-        // (OAuth1 request tokens are single-use). The loser finds the row already removed and is
-        // rejected. NOTE: this serializes within one JVM only; a clustered deployment additionally
-        // needs a DB uniqueness/consume constraint on the request token (tracked as a DB follow-up).
-        synchronized (requestTokenLock(requestToken.getTokenKey())) {
-            ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestToken.getTokenKey());
-            if (srt == null) throw new OAuth1Exception(401, "Invalid request token");
+        ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestToken.getTokenKey());
+        if (srt == null) throw new OAuth1Exception(401, "Invalid request token");
 
-            String accessTokenId = UUID.randomUUID().toString();
-            String tokenSecret = UUID.randomUUID().toString();
-            long issuedAt = System.currentTimeMillis() / 1000;
-
-            AccessToken at = new AccessToken(requestToken.getClient(), accessTokenId, tokenSecret, 3600, issuedAt);
-            at.setSubject(new UserSubject(srt.getProviderNo(), new ArrayList<>()));
-            at.setScopes(requestToken.getScopes());
-
-            ServiceAccessToken sat = new ServiceAccessToken();
-            ServiceClient sc = serviceClientDao.findByKey(requestToken.getClient().getConsumerKey());
-            sat.setClientId(sc.getId());
-            sat.setDateCreated(new Date());
-            sat.setIssued(issuedAt);
-            sat.setLifetime(3600);
-            sat.setTokenId(accessTokenId);
-            sat.setTokenSecret(tokenSecret);
-            sat.setProviderNo(srt.getProviderNo());
-            sat.setScopes(String.join(" ", requestToken.getScopes().stream()
-                .map(OAuth1Permission::getPermission).toArray(String[]::new)));
-
-            serviceAccessTokenDao.persist(sat);
-            serviceRequestTokenDao.remove(srt);
-
-            return at;
+        // Consume the request token atomically BEFORE minting: the bulk DELETE takes a DB row lock, so
+        // two concurrent /token exchanges serialize on it — the winner removes exactly one row
+        // (rowcount 1) and proceeds; the loser sees rowcount 0 and is rejected. OAuth1 request tokens
+        // are single-use, and this is race-free across the cluster (single DB), regardless of
+        // transaction commit timing. A JVM-only synchronized/striped lock could NOT guarantee this:
+        // this class is @Transactional, so a subsequent remove(srt) would not commit until after the
+        // lock's scope had ended, leaving a window where a second caller reads the row as still live
+        // and mints a second access token from the same request token.
+        int consumed = serviceRequestTokenDao.deleteByTokenId(requestToken.getTokenKey());
+        if (consumed == 0) {
+            throw new OAuth1Exception(401, "Invalid request token");
         }
-    }
 
-    /**
-     * Fixed pool of monitor objects that serialize {@link #createAccessToken} per request-token id, so
-     * one request token cannot be exchanged for two access tokens by concurrent callers. Striping bounds
-     * memory and needs no cleanup; a hash collision only makes two unrelated tokens briefly share a lock.
-     */
-    private static final int REQUEST_TOKEN_LOCK_STRIPES = 64;
-    private static final Object[] REQUEST_TOKEN_LOCKS = newRequestTokenLocks(REQUEST_TOKEN_LOCK_STRIPES);
+        String accessTokenId = UUID.randomUUID().toString();
+        String tokenSecret = UUID.randomUUID().toString();
+        long issuedAt = System.currentTimeMillis() / 1000;
 
-    private static Object[] newRequestTokenLocks(int count) {
-        Object[] locks = new Object[count];
-        for (int i = 0; i < count; i++) {
-            locks[i] = new Object();
-        }
-        return locks;
-    }
+        AccessToken at = new AccessToken(requestToken.getClient(), accessTokenId, tokenSecret, 3600, issuedAt);
+        at.setSubject(new UserSubject(srt.getProviderNo(), new ArrayList<>()));
+        at.setScopes(requestToken.getScopes());
 
-    private static Object requestTokenLock(String tokenId) {
-        return REQUEST_TOKEN_LOCKS[Math.floorMod(String.valueOf(tokenId).hashCode(), REQUEST_TOKEN_LOCK_STRIPES)];
+        ServiceAccessToken sat = new ServiceAccessToken();
+        ServiceClient sc = serviceClientDao.findByKey(requestToken.getClient().getConsumerKey());
+        sat.setClientId(sc.getId());
+        sat.setDateCreated(new Date());
+        sat.setIssued(issuedAt);
+        sat.setLifetime(3600);
+        sat.setTokenId(accessTokenId);
+        sat.setTokenSecret(tokenSecret);
+        sat.setProviderNo(srt.getProviderNo());
+        sat.setScopes(String.join(" ", requestToken.getScopes().stream()
+            .map(OAuth1Permission::getPermission).toArray(String[]::new)));
+
+        serviceAccessTokenDao.persist(sat);
+
+        return at;
     }
 
     public void removeToken(String tokenId) {
