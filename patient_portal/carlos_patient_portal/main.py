@@ -2875,10 +2875,7 @@ def register_patient_email_password_routes(
                 account_id=account.id,
                 reason="decryption_failed",
             )
-            logger.error(
-                "Unlock-secret decryption failed for record %d",
-                email_password_id,
-            )
+            logger.error("Unlock-secret decryption failed")
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"detail": "email password unavailable"},
@@ -3162,10 +3159,7 @@ def register_portal_routes(
                 account_id=account.id,
                 reason="decryption_failed",
             )
-            logger.error(
-                "Unlock-secret decryption failed for record %d",
-                email_password_id,
-            )
+            logger.error("Unlock-secret decryption failed")
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"detail": "email password unavailable"},
