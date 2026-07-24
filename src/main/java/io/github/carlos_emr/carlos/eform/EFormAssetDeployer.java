@@ -394,8 +394,17 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         Map<String, String> scripts = new LinkedHashMap<>();
         String compatibilityScript = """
                 (function(global) {
-                  function noop() { return null; }
-                  function falsy() { return false; }
+                  var warned = false;
+                  function warnStub() {
+                    if (!warned) {
+                      warned = true;
+                      if (global.console && console.warn) {
+                        console.warn("CARLOS: a lab decision-support script is not deployed; its functions are stubbed and do nothing. Contact your administrator if lab decision support is expected.");
+                      }
+                    }
+                  }
+                  function noop() { warnStub(); return null; }
+                  function falsy() { warnStub(); return false; }
                   global.CheckCopyTo = global.CheckCopyTo || noop;
                   global.Reminders = global.Reminders || noop;
                   global.ToggleCopyTo = global.ToggleCopyTo || noop;

@@ -551,15 +551,16 @@ public class EFormBrowserPdfService {
             // the honest generic diagnosis below.
             //
             // WebDriver exception messages can embed the loopback render URL (which carries the fdid
-            // and render token). Log a redacted message at error, and keep the full exception for
-            // troubleshooting at debug only. Deliberately do NOT chain the raw exception as the
-            // cause: a downstream handler that logs the throwable (FaxDocumentManagerImpl) would
-            // otherwise re-emit the unredacted URL, defeating the renderer's PHI-safe logging.
-            // Type + frame-only stack summary at ERROR: a message-less exception (e.g. an NPE) used
-            // to log as the undiagnosable "error=null" with the type buried at DEBUG. Frames carry
-            // no URLs or PHI, so the summary is safe where the raw throwable is not.
-            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} type={} error={} at={}",
-                    fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
+            // and render token). Deliberately do NOT chain the raw exception as the cause: a
+            // downstream handler that logs the throwable (FaxDocumentManagerImpl) would otherwise
+            // re-emit the unredacted URL, defeating the renderer's PHI-safe logging. Instead we log,
+            // here and only here, a fully-redacted picture: the type, the URL/path-redacted message,
+            // a type+frame-only stack summary (a message-less exception such as an NPE used to log as
+            // the undiagnosable "error=null"), and the redacted caused-by chain so a wrapped Selenium
+            // root cause (WebDriverException around a TimeoutException/ConnectException) is not lost.
+            logger.error("Browser eForm renderer failed: fdid={} baseUrl={} type={} error={} at={} causedBy={}",
+                    fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
             throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF.");
         } finally {
             // The render grant was already invalidated by the RenderLease's close() (the lease is the

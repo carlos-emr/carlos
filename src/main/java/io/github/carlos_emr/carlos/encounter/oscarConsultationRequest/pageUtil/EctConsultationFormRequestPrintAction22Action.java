@@ -317,6 +317,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
         if (!error.equals("")) {
             logger.error(error + " occured insided ConsultationPrintAction", exception);
+            if (response.isCommitted()) {
+                // The failure occurred after the PDF response was already committed (e.g. an
+                // IOException mid-write from a client abort). Forwarding the "error" JSP now would
+                // append HTML into the committed binary response; nothing more can be done safely.
+                return NONE;
+            }
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         }

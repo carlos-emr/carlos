@@ -166,7 +166,7 @@ heuristic.
   render sees but cannot send it anywhere.
 - **Fresh browser per render.** No cookies, storage, or cache can bleed between renders or
   users. `driver.quit()` in a `finally` block tears down chromedriver and Chromium, and the
-  caller-owned chromedriver service (pinned-chromedriver path) is stopped afterwards as a backstop
+  caller-owned chromedriver service is stopped afterwards as a backstop
   when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
   so rendering can never saturate Tomcat's request workers. Every WebDriver/CDP HTTP command is
@@ -283,7 +283,7 @@ from PR #3164:
   crossed for another full `WEBDRIVER_COMMAND_READ_TIMEOUT` (90s), and `driver.quit()` in the
   render's `finally` block is itself one more WebDriver command bound by that same 90-second client
   read timeout. Worst case that is roughly three 90-second spans — **up to ~4.5 minutes** — before
-  `stopServiceQuietly`'s process-level kill (pinned-chromedriver path) actually frees the render
+  `stopServiceQuietly`'s process-level kill actually frees the render
   slot. `MAX_CONCURRENT_RENDERS=2` bounds the blast radius to at most 2 stuck slots at a time, not
   the whole renderer, but a wedged browser is not guaranteed to fail within the nominal 90-second
   budget.

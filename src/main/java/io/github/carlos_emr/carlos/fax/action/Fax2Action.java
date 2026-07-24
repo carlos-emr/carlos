@@ -538,10 +538,13 @@ public class Fax2Action extends ActionSupport {
                 }
             }
         } else {
-            // No configured/active fax accounts: the preview screen shows a message but nothing gets
-            // sent, so surface the misconfiguration for operators.
+            // No configured/active fax accounts: nothing can be sent. Fail with an honest HTTP status
+            // and message rather than the "error" -> errorpage.jsp path, which renders
+            // "CARLOS Error: 0" at HTTP 200 and drops the message attribute entirely.
             logger.warn("prepareFax found no active fax accounts; nothing can be sent");
-            request.setAttribute("message", "No active fax accounts found.");
+            sendErrorQuietly(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                    "No active fax accounts are configured. Configure one under Administration > Faxes.");
+            return NONE;
         }
 
         if (pdfPath != null) {
@@ -557,6 +560,16 @@ public class Fax2Action extends ActionSupport {
             request.setAttribute("professionalSpecialistName", recipient);
             request.setAttribute("fax", recipientFaxNumber);
             actionForward = "preview";
+        }
+
+        if (ERROR.equals(actionForward)) {
+            // Accounts exist but no document was produced (e.g. a transaction type this action does not
+            // render). Fail honestly instead of falling through to the errorpage.jsp "CARLOS Error: 0".
+            logger.warn("prepareFax produced no document for transactionType={} transactionId={}",
+                    transactionType, transactionId);
+            sendErrorQuietly(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "The fax document could not be prepared for this request.");
+            return NONE;
         }
 
         logger.debug("prepareFax end: transactionId={} actionForward={} responseCommitted={}",

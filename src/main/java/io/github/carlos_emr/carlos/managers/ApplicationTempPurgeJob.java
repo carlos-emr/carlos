@@ -248,7 +248,10 @@ public class ApplicationTempPurgeJob {
             // in a non-web bootstrap) this must degrade to "nothing to sweep" rather than derail the
             // temp-root sweep that already ran above.
             logger.warn("Could not resolve preview cache directory for purge", e);
-            return PurgeOutcome.EMPTY;
+            // Count as a failed target (not EMPTY): the entire preview-cache sweep — the flush-race PHI
+            // backstop — was skipped because of an error, so the cycle summary must not read failed=0
+            // (healthy) when a whole target could not be swept.
+            return new PurgeOutcome(0, 0, 1);
         }
         if (cacheDir == null || !Files.isDirectory(cacheDir)) {
             logger.debug("Preview cache directory does not exist yet, nothing to purge");
