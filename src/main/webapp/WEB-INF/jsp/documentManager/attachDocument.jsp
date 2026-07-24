@@ -256,12 +256,24 @@
             // blocked by the eForm pages' CSP (object-src 'none'); iframes fall under frame-src,
             // which those pages permit for blob:. The blob also avoids giant data: URLs. Revoke the
             // previous preview's URL so repeated previews do not leak object URLs.
-            const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-            const blob = new Blob([bytes], { type: 'application/pdf' });
+            // atob() throws InvalidCharacterError on corrupt/truncated base64; without this guard the
+            // throw escapes after the spinner is already in its locked state, leaving an
+            // undismissable full-screen overlay with no message. Route the failure to showError,
+            // which restores the spinner and tells the user.
+            let previewUrl;
+            try {
+                const bytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                previewUrl = URL.createObjectURL(blob);
+            } catch (e) {
+                previewFiller.classList.remove('d-none');
+                showError("The preview data could not be decoded.");
+                return;
+            }
             if (previewBlobUrl) {
                 URL.revokeObjectURL(previewBlobUrl);
             }
-            previewBlobUrl = URL.createObjectURL(blob);
+            previewBlobUrl = previewUrl;
             const pdfFrame = document.getElementById('pdfObject');
             pdfFrame.classList.remove('d-none');
             pdfFrame.src = previewBlobUrl;
@@ -295,10 +307,15 @@
                         addPdfAttachment(attachmentName, attachmentId, data.base64Data);
                         showPDF(data.base64Data);
                     } else if (data.missingContent) {
-                        // The eForm's own content (e.g. a signature/image) could not be loaded. Let the
-                        // clinician decide whether to render the incomplete document anyway.
+                        // A signed eForm whose signature image could not be loaded. Let the clinician
+                        // decide whether to render the incomplete document anyway. Guard against an
+                        // unbounded confirm/retry loop: if we already asked the server to render anyway
+                        // and it STILL reports missingContent, treat it as a hard error rather than
+                        // re-prompting forever (one param-name regression away).
                         HideSpin();
-                        if (confirm(data.errorMessage + "\n\nRender it anyway?")) {
+                        if (parameters.indexOf("renderAnyway=true") !== -1) {
+                            showError(data.errorMessage);
+                        } else if (confirm(data.errorMessage + "\n\nRender it anyway?")) {
                             getPdf(attachmentName, attachmentId, parameters + "&renderAnyway=true");
                         }
                     } else {
@@ -306,7 +323,13 @@
                     }
                 },
                 error: function (xhr, status, error) {
-                    showError("");
+                    // A non-JSON response (typically a login redirect after session expiry) lands here.
+                    // Give the actionable hint instead of the context-free generic message.
+                    if (xhr.status === 0 || xhr.status === 401 || xhr.status === 403 || status === "parsererror") {
+                        showError("Your session may have expired. Reload the page and sign in again.");
+                    } else {
+                        showError("");
+                    }
                 }
             });
         }

@@ -126,7 +126,19 @@ class EFormBrowserPdfServiceUnitTest {
                 // is counted and measured so the JVM can WARN that authored content was excluded.
                 .contains("const substantive")
                 .contains("excludedCount")
-                .contains("excludedHeight");
+                .contains("excludedHeight")
+                // Signed-form safety: a spliced-but-failed-to-load signature image is detected and
+                // reported so the JVM can offer the clinician the render-anyway choice.
+                .contains("signatureBroken")
+                .contains("#signatureDisplay img")
+                .contains("naturalWidth === 0");
+        // Ordering is load-bearing: the element must be MEASURED (getBoundingClientRect / substantive)
+        // BEFORE it is hidden — the baseline print stylesheet display:none-s .carlos-render-nonpage, so
+        // adding the class first would collapse every candidate to 0x0 and the WARN could never fire.
+        String geometry = EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS;
+        assertThat(geometry.indexOf("const substantive"))
+                .as("substantive must be computed before the element is hidden")
+                .isLessThan(geometry.indexOf("child.classList.add('carlos-render-nonpage')"));
     }
 
     @Test
@@ -149,6 +161,19 @@ class EFormBrowserPdfServiceUnitTest {
                 "excludedHeight", Double.NaN));
         assertThat(clamped.excludedCount()).isZero();
         assertThat(clamped.excludedHeight()).isZero();
+
+        // Each counter is clamped INDEPENDENTLY: a valid count with a missing/non-numeric height must
+        // still WARN (count kept, extent reported as zero) rather than discarding the valid count.
+        EFormBrowserPdfService.PageGeometry countOnly = EFormBrowserPdfService.readPageGeometry(Map.of(
+                "pages", List.of(),
+                "excludedCount", 4L));
+        assertThat(countOnly.excludedCount()).isEqualTo(4);
+        assertThat(countOnly.excludedHeight()).isZero();
+
+        // signatureBroken defaults to false when absent/non-boolean, and is read when present.
+        assertThat(EFormBrowserPdfService.readPageGeometry(Map.of("pages", List.of())).signatureBroken()).isFalse();
+        assertThat(EFormBrowserPdfService.readPageGeometry(Map.of(
+                "pages", List.of(), "signatureBroken", Boolean.TRUE)).signatureBroken()).isTrue();
 
         // A non-map geometry result is still rejected fail-closed (the pages payload is load-bearing).
         assertThatThrownBy(() -> EFormBrowserPdfService.readPageGeometry("not-a-map"))
@@ -176,6 +201,9 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("MutationObserver")
                 .contains("quietWindowMillis = 500")
                 .contains("maxWaitMillis = 5000")
+                // Cap-exit is signalled distinctly from a quiet settle ('CAPPED' vs null) so the JVM
+                // can WARN that a still-mutating page was captured as-is rather than logging it clean.
+                .contains("'CAPPED'")
                 .contains("requestAnimationFrame");
     }
 

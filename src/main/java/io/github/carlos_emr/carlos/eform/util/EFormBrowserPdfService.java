@@ -88,9 +88,12 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
  *
  * <p>Security invariants (change together or not at all):</p>
  * <ul>
- *   <li>Browser egress is locked to loopback by a dead proxy + loopback bypass list, and any
- *       observed non-loopback request fails the render. {@code acceptInsecureCerts} is safe only
- *       because of this lockdown — it can never be leveraged against an external host.</li>
+ *   <li>Browser egress is physically contained: a dead proxy plus a loopback bypass list block
+ *       every non-loopback HTTP request at the network layer, so nothing off-origin is ever fetched.
+ *       Observing such a (already-blocked) request is <em>advisory</em> by default and fails the
+ *       render only under the strict network gate ({@code eform_pdf_browser_strict_network_gate});
+ *       the always-hard egress gate is a live WebSocket/WebTransport channel. {@code acceptInsecureCerts}
+ *       is safe only because of this containment — it can never be leveraged against an external host.</li>
  *   <li>The browser holds no HTTP session or cookies; authorization is a render-scoped fdid-bound
  *       token minted after the caller's {@code _eform} privilege check.</li>
  *   <li>A fresh browser is launched per render so no state can bleed between users' renders.</li>
@@ -130,7 +133,7 @@ public class EFormBrowserPdfService {
      * Chromium). A doomed launch — a missing/incompatible Chromium or chromedriver, or (when the OS
      * sandbox is opted in) a sandbox that cannot start — otherwise blocks on chromedriver's internal
      * browser-start timeout (~60s), and the fax-with-attachments flow renders serially, so each doomed
-     * render stacks that wait into the multi-minute "faxing page never loads" the tester reported. A
+     * render stacks that wait into a multi-minute "faxing page never loads" for the user. A
      * real Chromium launch completes in a few seconds; this budget fails a doomed one fast and frees
      * the render slot. Kept independent of {@link #WEBDRIVER_COMMAND_READ_TIMEOUT} because a legitimate
      * render command (navigation up to {@link #PAGE_LOAD_TIMEOUT}) needs the longer per-command read.
@@ -167,7 +170,8 @@ public class EFormBrowserPdfService {
      * already tolerates while displaying the same stored content. Physical egress containment is
      * unaffected by this switch: the dead proxy still blocks every off-origin HTTP request, the
      * WebSocket/WebTransport gate and the same-origin main-document requirement stay hard-fail
-     * regardless, the filesystem stays locked, and the render token stays single-use and fdid-bound.
+     * regardless, the filesystem stays locked, and the render token stays render-scoped (redeemed by
+     * every loopback subresource of the one render, not consumed on first use) and fdid-bound.
      */
     private static final String STRICT_NETWORK_GATE_PROPERTY = "eform_pdf_browser_strict_network_gate";
     private static final String ENV_REQUIRE_SANDBOX = "EFORM_RENDER_SANDBOX";
@@ -199,10 +203,11 @@ public class EFormBrowserPdfService {
     private static final double MAX_PAGE_DIMENSION = 20_000;
 
     // ---------------------------------------------------------------------------------------------
-    // Browser-side JS. Each script owns one print guarantee: STABILIZE_ASYNC_JS waits until fonts
-    // and images have settled, PREPARE_PRINT_JS injects the baseline print stylesheet (zero page
-    // margin, exact color/background reproduction, non-print chrome hidden), COMPUTE_PAGE_GEOMETRY_JS
-    // measures each authored page div's content box so the JVM can size the CSS @page boxes, and
+    // Browser-side JS. Each script owns one print guarantee: STABILIZE_ASYNC_JS waits until fonts,
+    // images, and DOM mutations have settled, PREPARE_PRINT_JS injects the baseline print stylesheet
+    // (zero page margin, exact color/background reproduction, non-print chrome hidden),
+    // COMPUTE_PAGE_GEOMETRY_JS measures each authored page div's content box (and isolates non-page
+    // flow content and detects a broken signature image) so the JVM can size the CSS @page boxes, and
     // INJECT_PAGE_SIZE_CSS_JS applies those computed @page sizes. Chromium's native Page.printToPDF
     // then emits a real text-layer PDF (the former raster path screenshotted each region and glued
     // the PNGs with PDFBox, which produced an image-only, unsearchable document).
@@ -232,7 +237,7 @@ public class EFormBrowserPdfService {
             + "    image.addEventListener('load', resolve, { once: true });\n"
             + "    image.addEventListener('error', resolve, { once: true });\n"
             + "  })));\n"
-            + "  await new Promise((resolve) => {\n"
+            + "  const capped = await new Promise((resolve) => {\n"
             + "    const quietWindowMillis = 500;\n"
             + "    const maxWaitMillis = 5000;\n"
             + "    let quietTimer = null;\n"
@@ -240,20 +245,24 @@ public class EFormBrowserPdfService {
             + "    const observer = new MutationObserver(() => {\n"
             + "      if (done) { return; }\n"
             + "      clearTimeout(quietTimer);\n"
-            + "      quietTimer = setTimeout(finish, quietWindowMillis);\n"
+            + "      quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
             + "    });\n"
-            + "    function finish() {\n"
+            // finish(true) means the hard cap fired before a quiet window was ever observed — the page
+            // kept mutating (a broken/animating editor). Resolve with that flag so the JVM can WARN
+            // that the capture is as-is rather than logging it as an ordinary quiet settle.
+            + "    function finish(wasCapped) {\n"
             + "      if (done) { return; }\n"
             + "      done = true;\n"
             + "      observer.disconnect();\n"
-            + "      resolve();\n"
+            + "      resolve(!!wasCapped);\n"
             + "    }\n"
             + "    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });\n"
-            + "    quietTimer = setTimeout(finish, quietWindowMillis);\n"
-            + "    setTimeout(finish, maxWaitMillis);\n"
+            + "    quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
+            + "    setTimeout(() => finish(true), maxWaitMillis);\n"
             + "  });\n"
             + "  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n"
-            + "})().then(() => callback(null)).catch((error) => callback(String(error)));";
+            + "  return capped;\n"
+            + "})().then((capped) => callback(capped ? 'CAPPED' : null)).catch((error) => callback(String(error)));";
 
     /**
      * Baseline print stylesheet injected before printing. This is a <em>safety net</em>: a
@@ -328,9 +337,14 @@ public class EFormBrowserPdfService {
      * (cost no pagination space), and some corpus forms overlay inputs onto pages from outside the
      * page divs.</p>
      *
-     * <p>Returns {@code {pages: [{id,width,height}, ...], excludedCount, excludedHeight}};
-     * {@code pages} is empty for a free-flow form (e.g. the Rich Text Letter) that authored no
-     * {@code pageN} divs (no marking happens in that case — the whole document prints).</p>
+     * <p>Also reports {@code signatureBroken}: whether the composer-spliced signature image
+     * ({@code #signatureDisplay img}) is present but failed to load. This runs for every form,
+     * independent of the page-div marking, so a signed free-flow letter is covered too.</p>
+     *
+     * <p>Returns {@code {pages: [{id,width,height}, ...], excludedCount, excludedHeight,
+     * signatureBroken}}; {@code pages} is empty for a free-flow form (e.g. the Rich Text Letter)
+     * that authored no {@code pageN} divs (no page-div marking happens in that case — the whole
+     * document prints).</p>
      */
     static final String COMPUTE_PAGE_GEOMETRY_JS =
             "const rectOf = (el) => {\n"
@@ -386,11 +400,14 @@ public class EFormBrowserPdfService {
             + "    }\n"
             + "    const position = window.getComputedStyle(child).position;\n"
             + "    if (position !== 'absolute' && position !== 'fixed') {\n"
-            + "      child.classList.add('carlos-render-nonpage');\n"
-            // Substantive = visible, taller than a spacer, and carrying real text or a visual
-            // element. Invisible layout junk (whitespace divs, empty paragraphs, <br> runs) is
-            // excluded silently; substantive authored content is counted so the JVM can WARN that
-            // it was excluded from the printed PDF (legacy region-capture parity).
+            // Measure and classify BEFORE hiding. The baseline print stylesheet sets
+            // .carlos-render-nonpage { display:none }, so adding the class first collapses the
+            // element to a 0x0 box and makes isVisible() false — every element would then test
+            // non-substantive and excludedCount could never rise above 0, silently defeating the
+            // "authored content excluded from the printed PDF" WARN. Substantive = visible, taller
+            // than a spacer, carrying real text or a visual element. Invisible layout junk
+            // (whitespace divs, empty paragraphs, <br> runs) is excluded silently; substantive
+            // authored content is counted, THEN the element is hidden.
             + "      const rect = child.getBoundingClientRect();\n"
             + "      const substantive = isVisible(child) && rect.height > 4 && (\n"
             + "        (child.textContent || '').trim().length > 0\n"
@@ -399,8 +416,20 @@ public class EFormBrowserPdfService {
             + "        excludedCount += 1;\n"
             + "        excludedHeight += rect.height;\n"
             + "      }\n"
+            + "      child.classList.add('carlos-render-nonpage');\n"
             + "    }\n"
             + "  }\n"
+            + "}\n"
+            // Signed-form safety: the composer splices a stored signature as
+            // <div id="signatureDisplay"><img src=...>. After the async image settle, a present but
+            // failed-to-load signature reads complete===true with naturalWidth===0. Surface it so the
+            // JVM can offer the clinician the render-anyway choice instead of silently producing a
+            // clinician-signed PDF with no signature. Runs for every form (a free-flow letter can be
+            // signed too), independent of the page-div marking above.
+            + "let signatureBroken = false;\n"
+            + "const signatureImage = document.querySelector('#signatureDisplay img');\n"
+            + "if (signatureImage && signatureImage.complete && signatureImage.naturalWidth === 0) {\n"
+            + "  signatureBroken = true;\n"
             + "}\n"
             + "return {\n"
             + "  pages: pageNodes.map((pageNode) => {\n"
@@ -419,6 +448,7 @@ public class EFormBrowserPdfService {
             + "  }),\n"
             + "  excludedCount: excludedCount,\n"
             + "  excludedHeight: excludedHeight,\n"
+            + "  signatureBroken: signatureBroken,\n"
             + "};";
 
     /**
@@ -503,22 +533,25 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Overload that optionally accepts a visually-incomplete render. When {@code allowMissingContent}
-     * is {@code true}, a failure of the eForm's own same-origin (CARLOS) visual assets — a signature
-     * block, form image, or stylesheet — no longer fails the render; instead it is logged and the
-     * captured (incomplete) PDF is produced. This backs the "render anyway" clinician choice after the
-     * default render has reported {@link EformContentUnavailableException}. It never relaxes the
-     * always-hard gates: a main document that never loaded and an attempted live egress channel still
-     * fail closed regardless of this flag.
+     * Overload that optionally accepts a signature-less render. Most missing same-origin content
+     * (a background image, a per-provider letterhead, a stylesheet) is <em>advisory</em> on both
+     * paths — it never fails the render, because the legacy corpus routinely references optional
+     * assets that 404 for most users. The single exception is a clinician-signed form whose spliced
+     * signature image fails to load: a signed clinical document must never silently fax/archive
+     * without its signature, so that case raises {@link EformContentUnavailableException} to offer
+     * the clinician a "render anyway" choice. When {@code allowMissingContent} is {@code true}
+     * (the clinician opted in) that signature failure is tolerated and the signature-less PDF is
+     * produced. The always-hard gates (a main document that never loaded, an attempted live egress
+     * channel) fail closed regardless of this flag.
      *
      * @param fdid saved eForm data identifier
      * @param providerId provider number the render surface is scoped to
-     * @param allowMissingContent {@code true} to accept an incomplete render past missing same-origin
-     *        visual assets; {@code false} (default) to fail closed with
-     *        {@link EformContentUnavailableException}
+     * @param allowMissingContent {@code true} to accept a signature-less render (the clinician's
+     *        "render anyway" choice); {@code false} (default) to raise
+     *        {@link EformContentUnavailableException} when a signed form's signature failed to load
      * @return handle to a readable temporary PDF
      * @throws EformContentUnavailableException when {@code allowMissingContent} is {@code false} and
-     *         the eForm's own visual content failed to load (user-recoverable)
+     *         a signed eForm's signature image failed to load (user-recoverable)
      * @throws PDFGenerationException for every other render failure
      */
     public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId, boolean allowMissingContent) throws PDFGenerationException {
@@ -625,7 +658,7 @@ public class EFormBrowserPdfService {
             Integer latchedMainStatus = scanNetworkEvents(
                     performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
             awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
-            settle(driver, deadlineNanos);
+            settle(driver, deadlineNanos, fdid);
 
             JavascriptExecutor js = driver;
             js.executeScript(PREPARE_PRINT_JS);
@@ -634,6 +667,19 @@ public class EFormBrowserPdfService {
             // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            if (geometry.signatureBroken() && !allowMissingContent) {
+                // A clinician-signed eForm whose spliced signature image failed to load. This is the
+                // ONE content failure that stays user-recoverable rather than advisory: a signed
+                // clinical document must never silently fax/archive without its signature. (The
+                // composer already hard-fails when the signature cannot be placed in the markup; this
+                // covers the image itself failing to LOAD at render time.) Surface it as the
+                // recoverable EformContentUnavailableException so the web layer can warn the clinician
+                // and offer "render anyway"; a plain missing background/letterhead stays advisory
+                // (enforceRenderGates below). Count only — no URLs/PHI. Fail fast before printing.
+                logger.warn("Browser eForm renderer: signed eForm's signature image did not load; offering render-anyway: fdid={}", fdid);
+                throw new EformContentUnavailableException(
+                        "The eForm's signature could not be loaded; the document would be missing its signature.", 1);
+            }
             List<PageSize> pageSizes = geometry.pages();
             if (!pageSizes.isEmpty()) {
                 js.executeScript(INJECT_PAGE_SIZE_CSS_JS, buildPageSizeCss(pageSizes));
@@ -671,6 +717,12 @@ public class EFormBrowserPdfService {
                     fdid, pageSizes.size(), outputPdfBytes,
                     (System.nanoTime() - startNanos) / 1_000_000L);
             return outputPdfPath;
+        } catch (EformContentUnavailableException e) {
+            // User-recoverable (a signed form's signature failed to load): already WARN-logged above
+            // with the fdid. Re-throw as-is so the generic PDFGenerationException handler below does
+            // NOT re-log it as a hard renderer failure — the web layer offers the clinician the
+            // render-anyway choice for this case, not an error page.
+            throw e;
         } catch (PDFGenerationException e) {
             logger.error("Browser eForm renderer failed: fdid={} baseUrl={} reason={}", fdid, baseUrl, RenderLogRedaction.redactUrls(e.getMessage()));
             throw e;
@@ -1070,18 +1122,28 @@ public class EFormBrowserPdfService {
         }
     }
 
-    private void settle(ChromeDriver driver, long deadlineNanos) throws InterruptedException, PDFGenerationException {
+    private void settle(ChromeDriver driver, long deadlineNanos, int fdid) throws InterruptedException, PDFGenerationException {
         Thread.sleep(SETTLE_DELAY_MILLIS);
         checkDeadline(deadlineNanos);
-        Object settleError = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
-        if (settleError != null) {
-            // settleError is page-controlled: a hostile eForm can throw an Error whose message carries
-            // arbitrary text — potentially PHI read from the form's own rendered fields — and
-            // redactUrls() only strips URLs/paths, not free text. Never propagate or log its content;
-            // use a fixed message (which then flows to callers/UI/logs safely) and record only that a
-            // stabilization error occurred.
-            logger.warn("eForm page stabilization reported an error (content suppressed as potential PHI)");
-            throw new PDFGenerationException("Browser rendering failed while stabilizing the eForm page.");
+        Object settleResult = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
+        if (settleResult != null) {
+            if ("CAPPED".equals(settleResult)) {
+                // The DOM never reached a quiet window before the 5s cap — a form with a perpetual
+                // timer/animation, or a broken editor that keeps mutating. The render deliberately
+                // proceeds with the captured-as-is page (the gates still apply), but this is NOT an
+                // ordinary settle: surface it so an operator investigating a half-built captured
+                // letter has the correlating breadcrumb instead of a render that logged as clean.
+                // Fixed string + fdid only — no page content.
+                logger.warn("eForm page DOM never quiesced within the stabilization cap; capturing as-is: fdid={}", fdid);
+            } else {
+                // A non-null, non-CAPPED result is a page-controlled error string: a hostile eForm can
+                // throw an Error whose message carries arbitrary text — potentially PHI read from the
+                // form's own rendered fields — and redactUrls() only strips URLs/paths, not free text.
+                // Never propagate or log its content; use a fixed message and record only that a
+                // stabilization error occurred.
+                logger.warn("eForm page stabilization reported an error (content suppressed as potential PHI)");
+                throw new PDFGenerationException("Browser rendering failed while stabilizing the eForm page.");
+            }
         }
         checkDeadline(deadlineNanos);
     }
@@ -1127,22 +1189,33 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException("Browser rendering returned an unexpected page-geometry result.");
         }
         List<PageSize> pages = readPageSizes(rawMap.get("pages"));
+        // The exclusion counters are advisory (WARN only), so each is clamped independently: a
+        // malformed/non-finite/negative value degrades that one field to zero without discarding a
+        // valid sibling. A count present without a usable height still WARNs (extent reported as ~0).
         int excludedCount = 0;
-        double excludedHeight = 0;
-        if (rawMap.get("excludedCount") instanceof Number count && rawMap.get("excludedHeight") instanceof Number height) {
+        if (rawMap.get("excludedCount") instanceof Number count) {
             double rawCount = count.doubleValue();
-            double rawHeight = height.doubleValue();
-            if (Double.isFinite(rawCount) && rawCount > 0 && Double.isFinite(rawHeight) && rawHeight >= 0) {
+            if (Double.isFinite(rawCount) && rawCount > 0) {
                 excludedCount = (int) Math.min(rawCount, Integer.MAX_VALUE);
+            }
+        }
+        double excludedHeight = 0;
+        if (rawMap.get("excludedHeight") instanceof Number height) {
+            double rawHeight = height.doubleValue();
+            if (Double.isFinite(rawHeight) && rawHeight >= 0) {
                 excludedHeight = rawHeight;
             }
         }
-        return new PageGeometry(pages, excludedCount, excludedHeight);
+        // Present only when the DOM carried a spliced-but-broken signature image; absent/non-boolean
+        // means "no signed-signature problem observed" and must not halt the render.
+        boolean signatureBroken = Boolean.TRUE.equals(rawMap.get("signatureBroken"));
+        return new PageGeometry(pages, excludedCount, excludedHeight, signatureBroken);
     }
 
     /**
-     * Validates the raw page-geometry list from {@link #COMPUTE_PAGE_GEOMETRY_JS} into bounded
-     * {@link PageSize} values. The geometry comes from the (clinic-authored) eForm DOM, so it is
+     * Validates the {@code pages} list (extracted by {@link #readPageGeometry} from the
+     * {@link #COMPUTE_PAGE_GEOMETRY_JS} result) into bounded {@link PageSize} values. The geometry
+     * comes from the (clinic-authored) eForm DOM, so it is
      * fail-closed: too many pages, a non-finite dimension, or a dimension past
      * {@link #MAX_PAGE_DIMENSION} aborts the render rather than feeding a pathological {@code @page}
      * size into Chromium. A zero/negative measured box is skipped (that page falls back to Chromium's
@@ -1258,12 +1331,15 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Full page-geometry measurement: the authored page sizes plus advisory diagnostics about
-     * substantive in-flow content found outside the page divs and excluded from the printed PDF
-     * (see {@link #COMPUTE_PAGE_GEOMETRY_JS}). {@code excludedCount}/{@code excludedHeight} drive
-     * the operator WARN only — they never affect the print itself.
+     * Full page-geometry measurement: the authored page sizes, advisory diagnostics about substantive
+     * in-flow content excluded from the printed PDF, and whether a signed form's spliced signature
+     * image failed to load (see {@link #COMPUTE_PAGE_GEOMETRY_JS}). {@code excludedCount}/
+     * {@code excludedHeight} drive the operator WARN only — they never affect the print itself.
+     * {@code signatureBroken} is the one geometry signal that can halt a render: a clinician-signed
+     * document must never silently produce a signature-less PDF, so it raises the user-recoverable
+     * {@link EformContentUnavailableException} unless the clinician has chosen "render anyway".
      */
-    record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight) {
+    record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight, boolean signatureBroken) {
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -1277,10 +1353,12 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * @param allowMissingContent when {@code true}, a failure of the eForm's own same-origin visual
-     *        assets is logged and tolerated instead of throwing {@link EformContentUnavailableException}
-     *        — the "render anyway" path. The always-hard gates (main document, live egress channels,
-     *        unparseable evidence) are unaffected.
+     * @param allowMissingContent the clinician's "render anyway" choice, threaded here only to
+     *        label the advisory WARN. This gate treats <em>all</em> failed same-origin subresources
+     *        as advisory (WARN, never throw) on both values of the flag; the one content failure that
+     *        can halt a render — a signed form's broken signature image — is detected in the DOM and
+     *        handled in {@code renderWithSlot}, not here. The always-hard gates (main document, live
+     *        egress channels, unparseable evidence) are unaffected by the flag.
      */
     void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
             Integer latchedMainStatus, String baseUrl, int fdid, boolean allowMissingContent) throws PDFGenerationException {
@@ -1336,15 +1414,16 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException(
                     "Browser rendering attempted a live egress channel. liveChannelAttempts=" + scan.liveChannelAttempts());
         }
-        // The render's OWN same-origin (CARLOS) visual content failed to load — a missing signature
-        // block, form image, or stylesheet served by our EMR means the produced PDF may be visually
-        // incomplete. POLICY: this is ADVISORY, never a hard failure — only security gates (main
-        // document, live egress channels, unverifiable network evidence) abort a render. The legacy
-        // corpus routinely references optional per-provider assets (signature stamps, letterheads)
-        // that legitimately 404 for most users; failing the render on them dead-ended routine
-        // downloads. The WARN below is the operator's signal that a form's own content is missing.
-        // Counts only — never request URLs, which can carry eForm content. (allowMissingContent is
-        // retained for API compatibility; both paths log-and-continue now.)
+        // The render's OWN same-origin (CARLOS) visual content failed to load — a missing form image,
+        // stylesheet, or per-provider letterhead served by our EMR means the produced PDF may be
+        // visually incomplete. POLICY: this network-level signal is ADVISORY, never a hard failure —
+        // only security gates (main document, live egress channels, unverifiable network evidence)
+        // abort a render. The legacy corpus routinely references optional per-provider assets that
+        // legitimately 404 for most users; failing the render on them dead-ended routine downloads.
+        // The one content failure that DOES halt a render — a signed form's spliced signature image
+        // failing to load — is caught precisely in the DOM (renderWithSlot's signatureBroken check),
+        // not from this URL-blind network count. Counts only — never request URLs, which can carry
+        // eForm content. allowMissingContent only labels the WARN here.
         if (scan.failedCriticalSubresources() > 0) {
             logger.warn("Browser eForm renderer producing a possibly INCOMPLETE eForm ({}): fdid={} failedCriticalSubresources={}",
                     allowMissingContent ? "per render-anyway choice" : "missing same-origin content is advisory",
@@ -1480,9 +1559,12 @@ public class EFormBrowserPdfService {
      * Both are restricted to {@link #RENDER_CRITICAL_RESOURCE_TYPES} so Chrome's own speculative
      * requests cannot fail a visually-intact render. Failures are further split by origin and type:
      * a same-origin (CARLOS) failure of a painted {@link #RENDER_CRITICAL_VISUAL_TYPES visual type}
-     * is <em>critical</em> (our EMR failed to serve the form's own content — a hard fail), while
-     * off-origin failures and non-visual same-origin failures (helper scripts that never paint) are
-     * <em>advisory</em>. {@code loadingFailed} carries no URL, so it is treated as advisory.</p>
+     * is <em>critical</em> (our EMR failed to serve the form's own content), while off-origin failures
+     * and non-visual same-origin failures (helper scripts that never paint) are <em>advisory</em>.
+     * {@code loadingFailed} carries no URL, so it is treated as advisory. Critical here drives an
+     * operator WARN, not a hard fail — the render still completes (a routinely-404'd per-provider
+     * letterhead must not dead-end a download); the one signed-signature exception is caught in the
+     * DOM (see {@code COMPUTE_PAGE_GEOMETRY_JS} {@code signatureBroken}), not here.</p>
      */
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
         int disallowedRequests = 0;
@@ -1531,8 +1613,8 @@ public class EFormBrowserPdfService {
                     // already-rendered form. A subresource fetch of the MAIN DOCUMENT URL itself is
                     // also advisory: it is the legacy empty-src placeholder idiom (<img src=""> — a
                     // JS-populated signature stamp) resolving to the page's own URL, not real form
-                    // content failing to load; the single-use render token has already been consumed
-                    // by the page navigation, so this self-fetch can never succeed and never paints.
+                    // content failing to load; the render-scoped token's page navigation has already
+                    // resolved, so this self-fetch can never succeed and never paints.
                     if (sameOrigin && RENDER_CRITICAL_VISUAL_TYPES.contains(resourceType)
                             && !responseUrl.equals(mainDocumentUrl)) {
                         failedCriticalSubresources++;
