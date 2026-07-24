@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Streams shared eForm template assets (background images, JS, CSS — plus the
  * {@code vaccine-brands.json} data file) to the loopback browser PDF renderer and to
@@ -57,6 +59,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     private static final Logger logger = MiscUtils.getLogger();
     private static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal allowlist content-type
+    // string against "image/svg+xml" to decide the sandbox CSP; not a security/identity decision on
+    // user input (mirrors the sibling suppression on DisplayImage2Action.process).
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal content-type string against image/svg+xml for the sandbox-CSP decision; not user-identity folding")
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String remoteAddress = request.getRemoteAddr();
