@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ service_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
 </head>
 <body>
   <main class="app-shell">
     <section class="portal-screen" aria-label="MFA verification">
-      <header class="patient-topbar">
+      <header class="patient-topbar mfa-topbar">
         <div class="brand-lockup">
           <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="CARLOS" class="brand-logo">
           <div>
@@ -17,11 +18,26 @@
             <span>{{ clinic_name }}</span>
           </div>
         </div>
+        <button
+          class="link-action modal-trigger topbar-help"
+          type="button"
+          data-modal-title="Clinic help"
+          data-modal-message="Contact {{ clinic_name }} if you cannot receive or use your verification code."
+        >Help</button>
       </header>
 
       <div class="auth-layout">
         <section class="auth-panel" aria-labelledby="mfa-title">
           <h1 id="mfa-title">Verification code</h1>
+          {% if error_message %}
+            <p class="form-error" role="alert">{{ error_message }}</p>
+          {% endif %}
+          {% if notice_message %}
+            <p class="form-notice" role="status">{{ notice_message }}</p>
+          {% endif %}
+          <p class="mfa-destination" aria-live="polite">
+            Code sent to {{ masked_mfa_destination }} by {{ mfa_delivery_method|upper }}.
+          </p>
           <form class="form-stack" method="post" action="{{ url_for('verify_mfa') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">
@@ -35,12 +51,58 @@
                 maxlength="16"
               >
             </label>
-            <button class="primary-action" type="submit">Continue</button>
-            <p class="clinic-help-line">Sent by {{ mfa_delivery_method|upper }}</p>
+            <button class="primary-action" type="submit">Verify</button>
+          </form>
+
+          <form class="mfa-resend-form" method="post" action="{{ url_for('resend_mfa') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">
+            <fieldset class="mfa-method-switch">
+              <legend>Send code by</legend>
+              <div class="segmented-control">
+                <label class="segmented-option">
+                  <input
+                    type="radio"
+                    name="mfa_delivery_method"
+                    value="email"
+                    {% if mfa_email_selected %}checked{% endif %}
+                    {% if not mfa_email_available %}disabled{% endif %}
+                  >
+                  <span>Email</span>
+                </label>
+                <label class="segmented-option{% if not mfa_sms_available %} disabled{% endif %}">
+                  <input
+                    type="radio"
+                    name="mfa_delivery_method"
+                    value="sms"
+                    {% if mfa_sms_selected %}checked{% endif %}
+                    {% if not mfa_sms_available %}disabled{% endif %}
+                  >
+                  <span>SMS</span>
+                </label>
+              </div>
+            </fieldset>
+            <button class="secondary-action" type="submit">Resend code</button>
+            <p class="clinic-help-line">{{ mfa_rate_limit_message }}</p>
             {% if development_mfa_code %}
               <p class="clinic-help-line">Development MFA code (same code as sent by email, to make testing quicker, will be removed later): {{ development_mfa_code }}</p>
             {% endif %}
           </form>
+          <a class="auth-back-link" href="/">Back to sign in</a>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="portal-message-modal" hidden>
+        <section
+          class="portal-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="portal-message-title"
+          aria-describedby="portal-message-body"
+        >
+          <h2 id="portal-message-title"></h2>
+          <p id="portal-message-body"></p>
+          <button class="primary-action" type="button" data-modal-close>OK</button>
         </section>
       </div>
     </section>

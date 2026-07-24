@@ -114,12 +114,17 @@ function screenshotPath(name) {
   const page = await context.newPage();
 
   page.on('response', (response) => {
-    if (response.status() >= 400) {
+    const isExpectedMfaCooldown = response.status() === 429
+      && new URL(response.url()).pathname === '/auth/mfa/resend';
+    if (response.status() >= 400 && !isExpectedMfaCooldown) {
       badResponses.push({ status: response.status(), url: response.url() });
     }
   });
   page.on('console', (message) => {
-    if (message.type() === 'error') {
+    const isExpectedMfaCooldownConsoleError = message.text().includes(
+      'Failed to load resource: the server responded with a status of 429'
+    );
+    if (message.type() === 'error' && !isExpectedMfaCooldownConsoleError) {
       browserIssues.push(`console: ${message.text()}`);
     }
   });
@@ -153,6 +158,29 @@ function screenshotPath(name) {
     ]);
     await page.getByRole('heading', { name: 'Verification code' }).waitFor();
 
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mfaMobileLayout = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    assert(
+      mfaMobileLayout.documentWidth <= mfaMobileLayout.viewportWidth + 1,
+      `mobile MFA page overflows horizontally: ${mfaMobileLayout.documentWidth}px > ${mfaMobileLayout.viewportWidth}px`
+    );
+    assert(
+      await page.locator('.mfa-method-switch input[type="radio"]').count() === 2,
+      'expected email and SMS MFA delivery options'
+    );
+    await page.getByRole('button', { name: 'Help' }).click();
+    await modal.waitFor({ state: 'visible' });
+    await modal.getByRole('heading', { name: 'Clinic help' }).waitFor();
+    await modal.locator('[data-modal-close]').click();
+    await modal.waitFor({ state: 'hidden' });
+    await page.screenshot({
+      path: screenshotPath('patient-portal-mfa-mobile'),
+      fullPage: true,
+    });
+
     const capturedMail = readCapturedMfaCode();
     assert(
       capturedMail.recipient === 'example.patient@example.com',
@@ -162,10 +190,20 @@ function screenshotPath(name) {
       capturedMail.subject === 'Your CARLOS Patient Portal verification code',
       `unexpected MFA subject ${capturedMail.subject}`
     );
+    const resendResponsePromise = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === '/auth/mfa/resend'
+    );
+    await page.getByRole('button', { name: 'Resend code' }).click();
+    const resendResponse = await resendResponsePromise;
+    assert(resendResponse.status() === 429, `expected resend cooldown, got ${resendResponse.status()}`);
+    await page.getByRole('alert').filter({ hasText: 'A code was sent recently.' }).waitFor();
+    await page.getByRole('heading', { name: 'Verification code' }).waitFor();
+
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.locator('input[name="code"]').fill(capturedMail.code);
     await Promise.all([
       page.waitForURL(/\/portal$/, { timeout: 30000 }),
-      page.getByRole('button', { name: 'Continue' }).click(),
+      page.getByRole('button', { name: 'Verify' }).click(),
     ]);
 
     await page.getByRole('heading', { name: 'Account' }).waitFor();
@@ -213,6 +251,7 @@ function screenshotPath(name) {
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses)}`);
     assert(browserIssues.length === 0, `browser errors: ${JSON.stringify(browserIssues)}`);
     console.log('Patient portal Playwright smoke test passed');
+    console.log(`MFA mobile screenshot: ${screenshotPath('patient-portal-mfa-mobile')}`);
     console.log(`Desktop screenshot: ${screenshotPath('patient-portal-live-desktop')}`);
     console.log(`Mobile screenshot: ${screenshotPath('patient-portal-live-mobile')}`);
   } finally {

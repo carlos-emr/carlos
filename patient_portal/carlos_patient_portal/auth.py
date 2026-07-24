@@ -131,6 +131,7 @@ class MfaChallengeDelivery:
     code: str
     delivery_method: str
     destination: str
+    available_delivery_methods: tuple[str, ...]
     expires_at: datetime
 
 
@@ -400,6 +401,7 @@ def create_mfa_challenge(
         code=code,
         delivery_method=normalized_delivery_method,
         destination=destination,
+        available_delivery_methods=available_mfa_delivery_methods(account),
         expires_at=challenge.expires_at,
     )
 
@@ -591,6 +593,63 @@ def get_mfa_challenge_for_token(
     )
 
 
+def available_mfa_delivery_methods(
+    account: PatientPortalAccount,
+) -> tuple[str, ...]:
+    methods = [MFA_DELIVERY_METHOD_EMAIL]
+    if normalize_phone_number(account.phone_number) is not None:
+        methods.append(MFA_DELIVERY_METHOD_SMS)
+    return tuple(methods)
+
+
+def get_mfa_challenge_delivery_state(
+    session: Session,
+    challenge_token: str,
+    *,
+    token_secret: str,
+    preferred_delivery_method: str | None = None,
+) -> MfaChallengeDelivery | None:
+    challenge = get_mfa_challenge_for_token(
+        session,
+        challenge_token,
+        token_secret=token_secret,
+    )
+    if challenge is None or challenge.status != MFA_CHALLENGE_STATUS_PENDING:
+        return None
+    account = session.get(PatientPortalAccount, challenge.account_id)
+    if account is None or account.status != ACCOUNT_STATUS_ACTIVE:
+        return None
+
+    available_methods = available_mfa_delivery_methods(account)
+    delivery_method = challenge.delivery_method
+    if preferred_delivery_method is not None:
+        try:
+            normalized_preferred_method = normalize_mfa_delivery_method(
+                preferred_delivery_method
+            )
+        except ValueError:
+            normalized_preferred_method = delivery_method
+        if normalized_preferred_method in available_methods:
+            delivery_method = normalized_preferred_method
+
+    destination = (
+        account.email
+        if delivery_method == MFA_DELIVERY_METHOD_EMAIL
+        else normalize_phone_number(account.phone_number)
+    )
+    if destination is None:
+        return None
+    return MfaChallengeDelivery(
+        challenge_id=challenge.id,
+        challenge_token=challenge_token,
+        code="",
+        delivery_method=delivery_method,
+        destination=destination,
+        available_delivery_methods=available_methods,
+        expires_at=challenge.expires_at,
+    )
+
+
 def resend_mfa_challenge(
     session: Session,
     *,
@@ -685,6 +744,7 @@ def resend_mfa_challenge(
         code=code,
         delivery_method=normalized_delivery_method,
         destination=destination,
+        available_delivery_methods=available_mfa_delivery_methods(account),
         expires_at=challenge.expires_at,
     )
 

@@ -63,6 +63,7 @@ from carlos_patient_portal.auth import (
     PortalSessionInvalidError,
     authenticate_session_token,
     complete_password_reset,
+    get_mfa_challenge_delivery_state,
     logout_patient_session,
     record_mfa_delivery_outcome,
     request_password_reset,
@@ -119,6 +120,7 @@ from carlos_patient_portal.models import (
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
     MFA_DELIVERY_METHOD_EMAIL,
+    MFA_DELIVERY_METHOD_SMS,
     UNLOCK_SECRET_STATUS_ACTIVE,
     UNLOCK_SECRET_TYPE_EMAIL,
     PatientPortalAccount,
@@ -706,16 +708,51 @@ def mfa_template_context(
     settings: Settings,
     delivery: MfaChallengeDelivery,
     csrf_token: str,
+    error_message: str | None = None,
+    notice_message: str | None = None,
 ) -> dict[str, object]:
+    is_email = delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL
     return {
         "request": request,
         "clinic_name": settings.clinic_name,
         "csrf_token": csrf_token,
-        "development_mfa_code": delivery.code if settings.is_development else None,
+        "development_mfa_code": (
+            delivery.code if settings.is_development and delivery.code else None
+        ),
+        "error_message": error_message,
+        "notice_message": notice_message,
+        "masked_mfa_destination": mask_mfa_destination(delivery),
         "mfa_challenge_token": delivery.challenge_token,
         "mfa_delivery_method": delivery.delivery_method,
+        "mfa_email_available": (
+            MFA_DELIVERY_METHOD_EMAIL in delivery.available_delivery_methods
+        ),
+        "mfa_email_selected": is_email,
+        "mfa_rate_limit_message": (
+            "Email codes can be resent once per minute."
+            if is_email
+            else "SMS codes can be resent once every five minutes."
+        ),
+        "mfa_sms_available": (
+            MFA_DELIVERY_METHOD_SMS in delivery.available_delivery_methods
+        ),
+        "mfa_sms_selected": not is_email,
         "service_name": settings.service_name,
     }
+
+
+def mask_mfa_destination(delivery: MfaChallengeDelivery) -> str:
+    if delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL:
+        local_part, separator, domain = delivery.destination.partition("@")
+        if not separator:
+            return "your email address"
+        visible_prefix = local_part[:2] if len(local_part) > 1 else local_part[:1]
+        return f"{visible_prefix}***@{domain}"
+
+    digits = "".join(character for character in delivery.destination if character.isdigit())
+    if len(digits) < 4:
+        return "your mobile number"
+    return f"***-***-{digits[-4:]}"
 
 
 def portal_modules(active_module: str) -> tuple[dict[str, object], ...]:
@@ -974,6 +1011,46 @@ async def get_mfa_resend_request(request: Request) -> MfaResendRequest:
         MfaResendRequest,
         "MFA resend requires an application/json request body",
     )
+
+
+async def get_mfa_resend_request_from_request(
+    request: Request,
+    csrf_secret: str,
+) -> MfaResendRequest:
+    if is_json_request(request):
+        return await get_mfa_resend_request(request)
+
+    if not is_urlencoded_form_request(request):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="MFA resend requires an application/json or form request body",
+        )
+
+    form_values = await get_urlencoded_form_values(
+        request,
+        MAX_FORM_BODY_BYTES,
+        MAX_FORM_FIELD_COUNT,
+    )
+    csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
+    csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+    if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
+        raise HTTPException(status_code=403, detail="invalid CSRF token")
+
+    try:
+        return MfaResendRequest.model_validate(
+            {
+                "mfa_challenge_token": first_form_value(
+                    form_values,
+                    "mfa_challenge_token",
+                ),
+                "mfa_delivery_method": first_form_value(
+                    form_values,
+                    "mfa_delivery_method",
+                ),
+            }
+        )
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
 
 
 async def get_password_reset_request(request: Request) -> PasswordResetRequest:
@@ -1601,6 +1678,47 @@ def register_auth_routes(
     audit_hash_secret = runtime.audit_hash_secret
     auth_policy = runtime.auth_policy
 
+    def render_mfa_page(
+        request: Request,
+        delivery: MfaChallengeDelivery,
+        *,
+        status_code: int = status.HTTP_200_OK,
+        error_message: str | None = None,
+        notice_message: str | None = None,
+        retry_after_seconds: int | None = None,
+    ) -> Response:
+        csrf_token = create_csrf_token(csrf_secret)
+        response = templates.TemplateResponse(
+            request=request,
+            name="mfa.jinja",
+            context=mfa_template_context(
+                request,
+                settings=settings,
+                delivery=delivery,
+                csrf_token=csrf_token,
+                error_message=error_message,
+                notice_message=notice_message,
+            ),
+            status_code=status_code,
+        )
+        if retry_after_seconds is not None:
+            response.headers["Retry-After"] = str(retry_after_seconds)
+        set_csrf_cookie(response, csrf_token, settings=settings, path=CSRF_COOKIE_PATH)
+        return response
+
+    def get_browser_mfa_delivery_state(
+        session: Session,
+        payload: MfaResendRequest | MfaVerifyRequest,
+        *,
+        preferred_delivery_method: str | None = None,
+    ) -> MfaChallengeDelivery | None:
+        return get_mfa_challenge_delivery_state(
+            session,
+            payload.mfa_challenge_token,
+            token_secret=csrf_secret,
+            preferred_delivery_method=preferred_delivery_method,
+        )
+
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
         request: Request,
@@ -1684,19 +1802,7 @@ def register_auth_routes(
                 outcome=AUDIT_OUTCOME_SUCCESS,
             )
         if is_browser_form and result.mfa_challenge is not None:
-            csrf_token = create_csrf_token(csrf_secret)
-            response = templates.TemplateResponse(
-                request=request,
-                name="mfa.jinja",
-                context=mfa_template_context(
-                    request,
-                    settings=settings,
-                    delivery=result.mfa_challenge,
-                    csrf_token=csrf_token,
-                ),
-            )
-            set_csrf_cookie(response, csrf_token, settings=settings, path=CSRF_COOKIE_PATH)
-            return response
+            return render_mfa_page(request, result.mfa_challenge)
         if is_browser_form and result.session_token is not None:
             redirect_response = RedirectResponse(
                 "/portal",
@@ -1711,10 +1817,12 @@ def register_auth_routes(
         return login_response_payload(result, settings=settings)
 
     @app.post("/auth/mfa/resend", response_model=MfaChallengeResponse)
-    def resend_mfa(
-        payload: Annotated[MfaResendRequest, Depends(get_mfa_resend_request)],
+    async def resend_mfa(
+        request: Request,
         session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> dict[str, object] | JSONResponse:
+    ) -> dict[str, object] | Response:
+        is_browser_form = is_urlencoded_form_request(request)
+        payload = await get_mfa_resend_request_from_request(request, csrf_secret)
         try:
             delivery = resend_mfa_challenge(
                 session,
@@ -1725,37 +1833,90 @@ def register_auth_routes(
                 code_secret=csrf_secret,
             )
         except MfaRateLimitedError as exc:
+            if is_browser_form:
+                delivery_state = get_browser_mfa_delivery_state(
+                    session,
+                    payload,
+                    preferred_delivery_method=payload.mfa_delivery_method,
+                )
+                if delivery_state is not None:
+                    return render_mfa_page(
+                        request,
+                        delivery_state,
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        error_message=(
+                            "A code was sent recently. "
+                            f"Try again in {exc.retry_after_seconds} seconds."
+                        ),
+                        retry_after_seconds=exc.retry_after_seconds,
+                    )
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={"detail": "MFA code was sent recently; try again later"},
                 headers={"Retry-After": str(exc.retry_after_seconds)},
             )
         except (MfaChallengeNotFoundError, ValueError):
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message="Sign in again to request a new verification code.",
+                )
             return JSONResponse(status_code=400, content={"detail": "MFA could not be verified"})
         except AccountLockedError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_423_LOCKED,
+                    error_message="Account access is locked; contact the clinic for help.",
+                )
             return JSONResponse(
                 status_code=status.HTTP_423_LOCKED,
                 content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
+            if is_browser_form:
+                return render_index_response(
+                    request,
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    error_message="Password reset is required before sign-in.",
+                )
             return JSONResponse(
                 status_code=403,
                 content={"status": "password_reset_required"},
             )
         except MfaDeliveryUnavailableError:
+            if is_browser_form:
+                delivery_state = get_browser_mfa_delivery_state(session, payload)
+                if delivery_state is not None:
+                    return render_mfa_page(
+                        request,
+                        delivery_state,
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        error_message="That delivery method is unavailable.",
+                    )
             return JSONResponse(
                 status_code=400,
                 content={"detail": "MFA delivery method is unavailable"},
             )
         session.commit()
         try:
-            send_mfa_challenge(runtime, delivery)
+            await run_in_threadpool(send_mfa_challenge, runtime, delivery)
         except MfaEmailDeliveryError:
             record_mfa_delivery_and_commit(
                 session,
                 delivery=delivery,
                 outcome=AUDIT_OUTCOME_FAILURE,
             )
+            if is_browser_form:
+                delivery_state = get_browser_mfa_delivery_state(session, payload)
+                if delivery_state is not None:
+                    return render_mfa_page(
+                        request,
+                        delivery_state,
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        error_message="Verification code could not be sent. Please try again.",
+                    )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"detail": "verification code could not be sent"},
@@ -1765,6 +1926,14 @@ def register_auth_routes(
             delivery=delivery,
             outcome=AUDIT_OUTCOME_SUCCESS,
         )
+        if is_browser_form:
+            return render_mfa_page(
+                request,
+                delivery,
+                notice_message=(
+                    f"A new code was sent by {delivery.delivery_method.upper()}."
+                ),
+            )
         return mfa_challenge_response_payload(delivery, settings=settings)
 
     @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)
@@ -1784,6 +1953,15 @@ def register_auth_routes(
                 code_secret=csrf_secret,
             )
         except InvalidMfaCodeError:
+            if is_browser_form:
+                delivery_state = get_browser_mfa_delivery_state(session, payload)
+                if delivery_state is not None:
+                    return render_mfa_page(
+                        request,
+                        delivery_state,
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        error_message="The code was not accepted. Try again or request a new code.",
+                    )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,

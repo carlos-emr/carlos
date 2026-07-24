@@ -821,7 +821,7 @@ def test_form_login_error_renders_sign_in_page() -> None:
     assert response.headers["content-type"].startswith("text/html")
 
 
-def test_form_mfa_error_renders_sign_in_page() -> None:
+def test_form_mfa_error_keeps_retry_and_resend_screen() -> None:
     app = migrated_development_app()
     client = TestClient(app)
     activate_seeded_patient_account(app, client)
@@ -853,9 +853,163 @@ def test_form_mfa_error_renders_sign_in_page() -> None:
     )
 
     assert response.status_code == 401
-    assert "Sign in" in response.text
-    assert "MFA could not be verified." in response.text
+    assert "Verification code" in response.text
+    assert "The code was not accepted. Try again or request a new code." in response.text
+    assert "Resend code" in response.text
+    assert 'value="email"' in response.text
+    assert 'value="sms"' in response.text
     assert response.headers["content-type"].startswith("text/html")
+
+
+def test_form_mfa_resend_sends_new_email_after_cooldown() -> None:
+    sender = RecordingMfaEmailSender()
+    app = migrated_development_app(mfa_email_sender=sender)
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    csrf_token = get_csrf_token(client)
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+        },
+    )
+    challenge_token_match = MFA_CHALLENGE_TOKEN_PATTERN.search(login_response.text)
+    original_code_match = DEVELOPMENT_MFA_CODE_PATTERN.search(login_response.text)
+    resend_csrf_match = CSRF_TOKEN_PATTERN.search(login_response.text)
+    assert challenge_token_match is not None
+    assert original_code_match is not None
+    assert resend_csrf_match is not None
+    assert "Code sent to ex***@example.com by EMAIL." in login_response.text
+    assert "Resend code" in login_response.text
+    with app.state.session_factory() as session:
+        challenge = session.scalar(select(PatientPortalMfaChallenge))
+        assert challenge is not None
+        assert challenge.last_email_sent_at is not None
+        challenge.last_email_sent_at -= timedelta(seconds=61)
+        session.commit()
+
+    response = client.post(
+        "/auth/mfa/resend",
+        data={
+            "csrf_token": resend_csrf_match.group(1),
+            "mfa_challenge_token": challenge_token_match.group(1),
+            "mfa_delivery_method": "email",
+        },
+    )
+
+    resent_code_match = DEVELOPMENT_MFA_CODE_PATTERN.search(response.text)
+    assert response.status_code == 200
+    assert "A new code was sent by EMAIL." in response.text
+    assert resent_code_match is not None
+    assert resent_code_match.group(1) != original_code_match.group(1)
+    assert len(sender.messages) == 2
+    assert sender.messages[-1]["code"] == resent_code_match.group(1)
+
+
+def test_form_mfa_resend_shows_cooldown_without_leaving_screen() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    csrf_token = get_csrf_token(client)
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+        },
+    )
+    challenge_token_match = MFA_CHALLENGE_TOKEN_PATTERN.search(login_response.text)
+    resend_csrf_match = CSRF_TOKEN_PATTERN.search(login_response.text)
+    assert challenge_token_match is not None
+    assert resend_csrf_match is not None
+
+    response = client.post(
+        "/auth/mfa/resend",
+        data={
+            "csrf_token": resend_csrf_match.group(1),
+            "mfa_challenge_token": challenge_token_match.group(1),
+            "mfa_delivery_method": "email",
+        },
+    )
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "60"
+    assert "A code was sent recently. Try again in 60 seconds." in response.text
+    assert "Verification code" in response.text
+    assert "Resend code" in response.text
+
+
+def test_form_mfa_resend_can_switch_to_available_sms() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        account.phone_number = "+1 555 123 4567"
+        session.commit()
+    csrf_token = get_csrf_token(client)
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+        },
+    )
+    challenge_token_match = MFA_CHALLENGE_TOKEN_PATTERN.search(login_response.text)
+    resend_csrf_match = CSRF_TOKEN_PATTERN.search(login_response.text)
+    assert challenge_token_match is not None
+    assert resend_csrf_match is not None
+
+    response = client.post(
+        "/auth/mfa/resend",
+        data={
+            "csrf_token": resend_csrf_match.group(1),
+            "mfa_challenge_token": challenge_token_match.group(1),
+            "mfa_delivery_method": "sms",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "A new code was sent by SMS." in response.text
+    assert "Code sent to ***-***-4567 by SMS." in response.text
+    assert 'value="sms"\n                    checked' in response.text
+    assert "SMS codes can be resent once every five minutes." in response.text
+
+
+def test_form_mfa_resend_rejects_tampered_csrf_token() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    csrf_token = get_csrf_token(client)
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+        },
+    )
+    challenge_token_match = MFA_CHALLENGE_TOKEN_PATTERN.search(login_response.text)
+    resend_csrf_match = CSRF_TOKEN_PATTERN.search(login_response.text)
+    assert challenge_token_match is not None
+    assert resend_csrf_match is not None
+
+    response = client.post(
+        "/auth/mfa/resend",
+        data={
+            "csrf_token": f"{resend_csrf_match.group(1)}0",
+            "mfa_challenge_token": challenge_token_match.group(1),
+            "mfa_delivery_method": "email",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "invalid CSRF token"
 
 
 def test_dashboard_shell_requires_session_cookie() -> None:

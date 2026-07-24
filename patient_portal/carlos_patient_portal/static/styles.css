@@ -193,6 +193,103 @@ h2 {
   line-height: 1.35;
 }
 
+.topbar-help {
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+.mfa-destination {
+  margin: 0 0 12px;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.mfa-resend-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.mfa-method-switch {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mfa-method-switch legend {
+  margin-bottom: 6px;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  border: 1px solid #aeb7c8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.segmented-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  color: var(--carlos-blue-dark);
+  background: #fff;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.segmented-option + .segmented-option {
+  border-left: 1px solid #aeb7c8;
+}
+
+.segmented-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.segmented-option:has(input:checked) {
+  color: #fff;
+  background: var(--carlos-blue);
+}
+
+.segmented-option:has(input:focus-visible) {
+  z-index: 1;
+  outline: 3px solid #f5b82e;
+  outline-offset: -3px;
+}
+
+.segmented-option.disabled {
+  color: #7b8492;
+  background: #eef0f4;
+  cursor: not-allowed;
+}
+
+.mfa-resend-form .secondary-action {
+  width: 100%;
+}
+
+.auth-back-link {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--carlos-blue-dark);
+  font-size: 13px;
+  font-weight: bold;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -522,6 +619,19 @@ h2 {
   .patient-topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .mfa-topbar {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .mfa-topbar .brand-lockup {
+    min-width: 0;
+  }
+
+  .mfa-topbar .topbar-help {
+    margin-left: auto;
   }
 
   .portal-topbar {
