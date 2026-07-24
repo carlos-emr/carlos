@@ -263,10 +263,32 @@ public final class EFormRenderPdfHtmlComposer {
                 throw new IllegalStateException("Signed eForm cannot be rendered: stored signature URL is invalid");
             }
             String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
-            eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
-                    buildSignatureImageMarkup(sign, left, top, width, height)));
+            String spliced = html.replace("<div id=\"signatureDisplay\"></div>",
+                    buildSignatureImageMarkup(sign, left, top, width, height));
+            if (spliced.equals(html)) {
+                // The exact placeholder <div id="signatureDisplay"></div> was altered or removed
+                // (e.g. the visual editor runs $("#signatureDisplay").remove()), so String.replace was
+                // a SILENT no-op and the stored signature was NOT placed — a signed document would fax
+                // and archive unsigned. No <img> remains, so the renderer's naturalWidth==0 backstop
+                // cannot see it; inject a hidden marker the render geometry scan detects
+                // (COMPUTE_PAGE_GEOMETRY_JS -> signatureBroken) so the clinician is prompted to confirm
+                // rendering without the signature instead of the failure being silent.
+                logger.error("eForm PDF: signed form's signature placeholder was altered/removed; "
+                        + "signature not rendered, prompting the clinician (fdid logged by caller)");
+                eForm.setFormHtml(html + SIGNATURE_UNRENDERED_MARKER);
+            } else {
+                eForm.setFormHtml(spliced);
+            }
         }
     }
+
+    /**
+     * Hidden marker injected when a non-blank stored signature could not be spliced because the
+     * placeholder was altered/removed. {@code COMPUTE_PAGE_GEOMETRY_JS} treats its presence as a
+     * broken signature so the clinician-confirm ("render anyway") prompt fires.
+     */
+    static final String SIGNATURE_UNRENDERED_MARKER =
+            "<div id=\"carlos-signature-unrendered\" style=\"display:none\"></div>";
 
     /**
      * Validates and canonicalizes a stored signature reference into a safe, local

@@ -111,12 +111,12 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("getBoundingClientRect")
                 .contains("/^page\\d+$/i")
                 .contains("id: pageNode.id")
-                // Width hugs the content union (region-capture parity — a block page div stretches
-                // to the viewport and would print a giant blank right margin); height takes the
-                // LARGER of flow extent and content so vertical under-measurement can never spill
-                // blank pages or clip fields.
-                .contains("width: box.width > 0 ? box.width : own.width")
-                .contains("Math.max(own.height, box.height)")
+                // Width is the content extent FROM THE PAGE-DIV ORIGIN (box.right - own.left), not the
+                // content span: sizing to the span discarded the content's left offset and cropped
+                // offset content when a full-width background 404'd. Height takes the LARGER of the
+                // div's flow extent and the content extent from the div top.
+                .contains("width: (box.has && (box.right - own.left) > 0) ? (box.right - own.left) : own.width")
+                .contains("Math.max(own.height, box.has ? (box.bottom - own.top) : 0)")
                 // In-flow body children that neither are nor contain a page div are marked for
                 // hiding (interstitial/trailing corpus content the raster path never captured);
                 // absolutely-positioned overlays are deliberately left visible.
@@ -128,10 +128,13 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("excludedCount")
                 .contains("excludedHeight")
                 // Signed-form safety: a spliced-but-failed-to-load signature image is detected and
-                // reported so the JVM can offer the clinician the render-anyway choice.
+                // reported so the JVM can offer the clinician the render-anyway choice. The
+                // #carlos-signature-unrendered marker covers the no-op-splice case where the composer
+                // could not place the signature at all (no img exists to test naturalWidth on).
                 .contains("signatureBroken")
                 .contains("#signatureDisplay img")
-                .contains("naturalWidth === 0");
+                .contains("naturalWidth === 0")
+                .contains("#carlos-signature-unrendered");
         // Ordering is load-bearing: the element must be MEASURED (getBoundingClientRect / substantive)
         // BEFORE it is hidden — the baseline print stylesheet display:none-s .carlos-render-nonpage, so
         // adding the class first would collapse every candidate to 0x0 and the WARN could never fire.

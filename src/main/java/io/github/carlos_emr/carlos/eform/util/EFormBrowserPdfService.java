@@ -200,6 +200,10 @@ public class EFormBrowserPdfService {
     // a compressed PDF straight from Chromium, so unlike the former raster path there is no decoded
     // per-page image retained on the JVM heap — these caps bound the injected @page CSS, not memory.)
     private static final int MAX_PAGE_COUNT = 200;
+    // Hard ceiling on a single rendered PDF's decoded byte size. Bounds the heap a pathological or
+    // very large render (many high-res image pages) can allocate; ~150MB is generous for any real
+    // clinical eForm packet while preventing a runaway render from exhausting the Tomcat JVM.
+    private static final long MAX_PDF_BYTES = 150L * 1024L * 1024L;
     private static final double MAX_PAGE_DIMENSION = 20_000;
 
     // ---------------------------------------------------------------------------------------------
@@ -381,9 +385,13 @@ public class EFormBrowserPdfService {
             + "    bottom = Math.max(bottom, rect.bottom);\n"
             + "  }\n"
             + "  if (!Number.isFinite(left) || right <= left || bottom <= top) {\n"
-            + "    return { width: 0, height: 0 };\n"
+            + "    return { right: 0, bottom: 0, has: false };\n"
             + "  }\n"
-            + "  return { width: right - left, height: bottom - top };\n"
+            // Return the ABSOLUTE right/bottom edges (not the width/height span). The caller sizes each
+            // page from the page-div origin (own.left/own.top), so it must know how far the content
+            // reaches from that origin — using right-left (the span) discarded the content's offset and
+            // sized the @page too narrow, cropping offset content when a full-width background 404'd.
+            + "  return { right: right, bottom: bottom, has: true };\n"
             + "};\n"
             + "const pageNodes = Array.from(document.body ? document.body.querySelectorAll('*') : [])\n"
             + "  .filter((el) => /^page\\d+$/i.test(el.id));\n"
@@ -431,19 +439,26 @@ public class EFormBrowserPdfService {
             + "if (signatureImage && signatureImage.complete && signatureImage.naturalWidth === 0) {\n"
             + "  signatureBroken = true;\n"
             + "}\n"
+            // Composer marker: a non-blank stored signature whose placeholder was altered/removed, so
+            // no signature <img> exists at all (the naturalWidth check above cannot see that case).
+            + "if (document.querySelector('#carlos-signature-unrendered')) {\n"
+            + "  signatureBroken = true;\n"
+            + "}\n"
             + "return {\n"
             + "  pages: pageNodes.map((pageNode) => {\n"
             + "    const own = rectOf(pageNode);\n"
             + "    const box = contentBox(pageNode);\n"
             + "    return {\n"
-            // Width hugs the CONTENT union (the background image / field extent), exactly as the
-            // legacy region capture did: a plain block page div stretches to the full viewport
-            // width, and printing that stretched box would emit pages with a giant blank right
-            // margin. Height instead takes the LARGER of the div's flow extent and its content:
-            // vertical under-measurement is what spills blank pages or clips fields.
+            // Width hugs the CONTENT extent FROM THE PAGE-DIV ORIGIN (box.right - own.left), not the
+            // content span: a plain block page div stretches to the full viewport, so printing its own
+            // width would emit a giant blank right margin, but sizing to the span (right-left) cropped
+            // content inset from the div's left edge (e.g. a field at left:700 when the full-width
+            // background 404'd). Fall back to own.width when there is no measurable content. Height
+            // takes the LARGER of the div's flow extent and its content extent from the div top, so
+            // vertical under-measurement can never spill blank pages or clip fields.
             + "      id: pageNode.id,\n"
-            + "      width: box.width > 0 ? box.width : own.width,\n"
-            + "      height: Math.max(own.height, box.height),\n"
+            + "      width: (box.has && (box.right - own.left) > 0) ? (box.right - own.left) : own.width,\n"
+            + "      height: Math.max(own.height, box.has ? (box.bottom - own.top) : 0),\n"
             + "    };\n"
             + "  }),\n"
             + "  excludedCount: excludedCount,\n"
@@ -1174,6 +1189,13 @@ public class EFormBrowserPdfService {
         if (!(data instanceof String encoded) || encoded.isEmpty()) {
             throw new PDFGenerationException("Browser rendering returned an empty PDF for the eForm.");
         }
+        // Bound the output size BEFORE decoding: ReturnAsBase64 already materialized the full string on
+        // the heap, but a hard cap here prevents the second (decoded byte[]) allocation and an
+        // over-cap file, so a pathological/huge render (many high-res image pages, a runaway form) can
+        // spike Tomcat heap by at most ~1 PDF worth, not several. base64 is ~4/3 the byte size.
+        if ((long) encoded.length() > (MAX_PDF_BYTES / 3L) * 4L) {
+            throw new PDFGenerationException("Browser rendering produced a PDF larger than the allowed maximum.");
+        }
         Files.write(outputPdfPath, Base64.getDecoder().decode(encoded));
         logger.debug("Browser eForm renderer printed the eForm to a native PDF");
     }
@@ -1463,8 +1485,9 @@ public class EFormBrowserPdfService {
     /**
      * True for Chrome console entries reporting a resource load failure ("Failed to load
      * resource: ..."). Resource failures are gated <em>type-aware</em> by the network scan
-     * ({@link NetworkGateScan#failedSubresources()} — render-critical types fail the render,
-     * speculative loads such as favicons deliberately do not), so counting them in the console
+     * ({@link NetworkGateScan#failedSubresources()} — render-critical types drive an operator WARN
+     * (advisory by default; see the strict-gate switch), speculative loads such as favicons
+     * deliberately do not), so counting them in the console
      * gate too made every render fail on the origin-root {@code /favicon.ico} 404 that headless
      * Chrome's own speculative fetch produces. The console gate's remaining job is what the
      * network events cannot see: JavaScript errors on the render surface. Only the message
@@ -1529,10 +1552,14 @@ public class EFormBrowserPdfService {
      * the captured PDF — the form's own visual/structural content: images (including the signature
      * block), secondary {@code Document} iframes (e.g. the signature frame), stylesheets, and fonts.
      * A failure of one of these <em>from the render's own same-origin (CARLOS) endpoints</em> is our
-     * EMR failing to serve the form's declared content, so it hard-fails the render. Non-visual types
-     * ({@code Script}, {@code XHR}, {@code Fetch}, {@code Media}) do not paint — a legacy helper
-     * script that 404s (e.g. {@code faxControl.js}) leaves the already-painted form intact — and are
-     * treated as advisory, as are all off-origin failures.
+     * EMR failing to serve the form's declared content, so it is counted as <em>critical</em> and
+     * drives an operator WARN. POLICY: that WARN is advisory — the render still completes (only the
+     * strict-gate switch turns it into a hard failure), because the legacy corpus routinely 404s
+     * optional per-provider assets. The one content failure that DOES halt a render — a signed form's
+     * signature not rendering — is caught in the DOM ({@code signatureBroken}), not from this
+     * URL-blind network count. Non-visual types ({@code Script}, {@code XHR}, {@code Fetch},
+     * {@code Media}) do not paint — a legacy helper script that 404s (e.g. {@code faxControl.js})
+     * leaves the already-painted form intact — and are advisory, as are all off-origin failures.
      */
     private static final Set<String> RENDER_CRITICAL_VISUAL_TYPES =
             Set.of("Document", "Image", "Stylesheet", "Font");
@@ -1665,13 +1692,16 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Strict allowlist gate. Permitted requests are exactly the inert pseudo-schemes
-     * ({@code data:}/{@code blob:}/{@code about:}) or http(s) to the validated loopback origin.
-     * Everything else — {@code file:}, {@code filesystem:}, {@code chrome:}, {@code view-source:},
-     * {@code ftp:}, etc. — is disallowed and fails the render. This is defense-in-depth against
-     * <em>local file disclosure into the captured PDF</em> (a {@code file://} subresource is
-     * already blocked by Chromium's default cross-scheme policy; this gate is the CARLOS-side
-     * backstop if that default is ever weakened), not merely an exfiltration control.
+     * Allowlist classifier for the network gate. Permitted requests are exactly the inert
+     * pseudo-schemes ({@code data:}/{@code blob:}/{@code about:}) or http(s) to the validated loopback
+     * origin. Everything else — {@code file:}, {@code filesystem:}, {@code chrome:},
+     * {@code view-source:}, {@code ftp:}, etc. — is classified as a <em>disallowed request</em>.
+     * IMPORTANT: a disallowed request is <em>advisory</em> by default — it increments the
+     * {@code disallowedRequests} counter that drives an operator WARN, and only hard-fails the render
+     * when the strict network gate ({@code eform_pdf_browser_strict_network_gate}) is enabled. So this
+     * is a defense-in-depth <em>signal</em> against local file disclosure into the captured PDF (a
+     * {@code file://} subresource is already blocked by Chromium's default cross-scheme policy); it is
+     * a hard CARLOS-side backstop only under the strict gate, not by default.
      */
     // IMPROPER_UNICODE: equalsIgnoreCase compares the literal request scheme against "http"/"https"
     // to fail-close non-web schemes; a case-insensitive protocol-name compare, not identity folding.

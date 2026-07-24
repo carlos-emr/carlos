@@ -179,18 +179,23 @@ heuristic.
   the browser physically cannot reach non-loopback hosts, other loopback aliases (e.g.
   `localhost` when the origin is `127.0.0.1`), *or other local services on different ports* —
   such requests are blocked before they are sent. Independently, the renderer replays
-  Chrome's network log and **fails the render** if any request targeted an origin other than the
-  configured loopback base — a form whose content tries (or needs) to fetch elsewhere is never
-  silently faxed.
+  Chrome's network log and **records** any request that targeted an origin other than the configured
+  loopback base. By default this is *advisory* — it drives an operator WARN, not a hard failure,
+  because the legacy corpus routinely references optional off-origin assets, and the off-origin
+  request was physically blocked anyway. Set `eform_pdf_browser_strict_network_gate=true` to make
+  such an observation fail the render. (Live WebSocket/WebTransport egress channels always hard-fail,
+  regardless of the switch.)
 - **No attachable browser control channel.** Chromium runs with `--remote-debugging-pipe`, so
   DevTools is a parent-process pipe rather than a localhost TCP port another local process could
   connect to.
 - **No local file access.** A malicious eForm cannot read server files (`file:///etc/passwd`,
   `/var/lib/OscarDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
   policy blocks `file://` subresources from the http render origin, and the renderer's request
-  gate fails the render on any non-web scheme (`file:`, `filesystem:`, `chrome:`, `view-source:`,
-  …) **other than** the non-network pseudo-schemes `data:`/`blob:`/`about:`, which are explicitly
-  allowed (matching `isDisallowedRendererRequestUrl`). These are permitted because they cannot reach
+  gate classifies any non-web scheme (`file:`, `filesystem:`, `chrome:`, `view-source:`, …)
+  **other than** the non-network pseudo-schemes `data:`/`blob:`/`about:` as a disallowed request
+  (matching `isDisallowedRendererRequestUrl`). That classification is advisory by default (WARN) and
+  only fails the render under the strict network gate — Chromium's cross-scheme policy is the primary
+  block; the CARLOS scheme gate is a hard backstop only when the strict gate is enabled. These are permitted because they cannot reach
   the network — **not** because their content is inert: `data:`/`blob:` can carry executable script
   and `about:blank` can inherit the opener origin, so in-render script is contained by the egress
   lockdown, not by this scheme gate. The launch config must **never** add `--allow-file-access-from-files` or
