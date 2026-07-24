@@ -354,6 +354,17 @@ public class FaxManagerImpl implements FaxManager {
         faxJob.setRecipient(recipient);
         faxJob.setDestination(recipientFaxNumber);
 
+        // Reject a primary recipient with no usable (digit) fax number: an all-non-digit input (e.g.
+        // "-------") normalized to "" above and would otherwise queue a WAITING job with an empty
+        // destination (the middleware provider does not guard empty destinations at transmit). The
+        // copy-to recipients already enforce this via FaxRecipient.hasUsableFax — apply it to the
+        // primary too. Display-ready ERROR return, same as the account/promotion failures below.
+        if (recipientFaxNumber.isEmpty()) {
+            faxJob.setStatus(STATUS.ERROR);
+            faxJob.setStatusString("The recipient fax number is missing or contains no digits.");
+            return faxJob;
+        }
+
         //TODO Possible that this could be multiple accounts using the same return fax line.
         FaxConfig faxConfig = faxConfigDao.getActiveConfigByNumber(senderFaxNumber);
 
@@ -603,7 +614,12 @@ public class FaxManagerImpl implements FaxManager {
             List<Object> documentList = new ArrayList<>();
             documentList.add(coverPageStream);
             documentList.add(currentDocumentStream);
-            ConcatPDF.concat(documentList, newDocumentStream);
+            int skipped = ConcatPDF.concat(documentList, newDocumentStream);
+            if (skipped > 0) {
+                // The document (or the cover page) could not be parsed and was dropped — a cover
+                // sheet with no clinical content behind it must never be queued as a sendable fax.
+                throw new IOException(skipped + " document(s) could not be included when prepending the fax cover page.");
+            }
         } catch (IOException | RuntimeException e) {
             // The cover target lives in the permanent document store; a failed concat must not
             // leave a partial PHI-bearing Cover_* file behind.
@@ -706,6 +722,24 @@ public class FaxManagerImpl implements FaxManager {
             faxJobDao.persist(faxJob);
             logFaxJob(loggedInInfo, faxJob, TransactionType.CONSULTATION, requestId);
         }
+    }
+
+    @Transactional
+    @Override
+    public List<FaxJob> persistAndLogFaxJobs(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap,
+            TransactionType transactionType, int transactionId) {
+        // Self-invocation of createAndSaveFaxJob joins THIS transaction (its own @Transactional advice
+        // is bypassed on the in-bean call), so the persist and the per-job audit log below commit
+        // together — a log failure rolls the persisted WAITING jobs back rather than leaving a
+        // sendable set behind that a retry would duplicate.
+        List<FaxJob> faxJobList = createAndSaveFaxJob(loggedInInfo, faxJobMap);
+        for (FaxJob faxJob : faxJobList) {
+            // ERROR jobs come back un-persisted (no id): nothing to correlate a FaxClientLog row with.
+            if (faxJob.getId() != null) {
+                logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
+            }
+        }
+        return faxJobList;
     }
 
     /**

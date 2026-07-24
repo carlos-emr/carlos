@@ -200,7 +200,7 @@ public class Fax2Action extends ActionSupport {
     private void validateFaxInputs(LoggedInInfo loggedInInfo) {
         // Validate fax privilege
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "w", null)) {
-            throw new SecurityException("User lacks required fax privileges");
+            throw new SecurityException("missing required sec object (_fax)");
         }
 
         // Validate demographic number and access
@@ -327,16 +327,12 @@ public class Fax2Action extends ActionSupport {
                 .copyToRecipients(copyToRecipients)
                 .build();
 
-        List<FaxJob> faxJobList = faxManager.createAndSaveFaxJob(loggedInInfo, params.toMap());
+        // Persist AND audit-log in one transaction: a post-commit log failure must not leave a
+        // sendable WAITING set behind that a retry would duplicate (double PHI transmission).
+        List<FaxJob> faxJobList = faxManager.persistAndLogFaxJobs(loggedInInfo, params.toMap(), transactionType, transactionId);
 
         boolean success = true;
         for (FaxJob faxJob : faxJobList) {
-            // ERROR jobs come back un-persisted (no id): there is no queued fax to correlate a
-            // FaxClientLog row with, and logFaxJob would persist a null faxId.
-            if (faxJob.getId() != null) {
-                faxManager.logFaxJob(loggedInInfo, faxJob, transactionType, transactionId);
-            }
-
             /*
              * only one error will derail the entire fax job.
              */
@@ -347,6 +343,9 @@ public class Fax2Action extends ActionSupport {
 
         request.setAttribute("faxSuccessful", success);
         request.setAttribute("faxJobList", faxJobList);
+        // Repopulate the sender-account list so a failed submit re-renders CoverPage.jsp with a
+        // working sender dropdown (only prepareFax set it before; queue() left it empty on failure).
+        request.setAttribute("accounts", faxManager.getFaxGatewayAccounts(loggedInInfo));
 
         return "preview";
     }

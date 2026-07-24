@@ -278,7 +278,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             if (alist.size() > 0) {
 
                 bos = new ByteOutputStream();
-                ConcatPDF.concat(alist, bos);
+                int skipped = ConcatPDF.concat(alist, bos);
+                if (skipped > 0) {
+                    // A document PDFBox could not parse was dropped — do not stream a consultation
+                    // packet silently missing content; surface it via the error path below.
+                    throw new IOException(skipped + " document(s) could not be included in the combined consultation PDF.");
+                }
                 response.setContentType("application/pdf"); // octet-stream
                 response.setHeader(
                         "Content-Disposition",

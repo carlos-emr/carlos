@@ -414,7 +414,17 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      */
     private CloseableHttpClient createDownloadClient(FaxConfig faxConfig) {
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(new AuthScope(null, -1),
+        // Scope credentials to the configured middleware host/port so they can never be offered to an
+        // unexpected host (defense-in-depth behind the disabled redirects below); fall back to any-scope
+        // only if the (already validateMiddlewareUrl-checked) URL cannot be parsed.
+        AuthScope authScope;
+        try {
+            URI base = new URI(faxConfig.getUrl());
+            authScope = new AuthScope(base.getHost(), base.getPort());
+        } catch (URISyntaxException | RuntimeException e) {
+            authScope = new AuthScope(null, -1);
+        }
+        credentialsProvider.setCredentials(authScope,
                 new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd().toCharArray()));
 
         RequestConfig requestConfig = RequestConfig.custom()
@@ -425,6 +435,11 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
         return HttpClientBuilder.create()
                 .setDefaultCredentialsProvider(credentialsProvider)
                 .setDefaultRequestConfig(requestConfig)
+                // Pull endpoints are single-shot API calls that must never redirect: following a 3xx
+                // would let a validated (or compromised) middleware host 302 the credentialed request
+                // to loopback/link-local (cloud metadata, internal admin) — the exact targets
+                // validateMiddlewareUrl blocks on the first hop but cannot re-check on a redirect.
+                .disableRedirectHandling()
                 .build();
     }
 }

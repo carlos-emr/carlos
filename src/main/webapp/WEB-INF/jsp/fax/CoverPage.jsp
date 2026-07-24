@@ -356,7 +356,7 @@
 						 	</div>
 
 					  		<%-- Only show existing recipients if not displaying submission results --%>
-					  		<c:if test="${ empty faxSuccessful }">
+					  		<c:if test="${ empty faxSuccessful or not faxSuccessful }">
 						  		<c:forEach items="${ copyToRecipients }" var="recipient" >
 							  			<div class="row">
 								  			<div class="col-sm-12 input-group recipientGroup">
@@ -449,7 +449,7 @@
                 </div>
             </form>
             <%-- Only show preview before submission, not after --%>
-            <c:if test="${ transactionType ne 'CONSULTATION' and empty faxSuccessful }">
+            <c:if test="${ transactionType ne 'CONSULTATION' and (empty faxSuccessful or not faxSuccessful) }">
                 <div class="card" id="preview-panel">
                     <div class="card-header">
                         <h3 class="card-title">Preview</h3>

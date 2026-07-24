@@ -122,6 +122,15 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {
             throw new SecurityException("missing required sec object (_con)");
         }
+
+        // Cancel is a no-op navigation (no render, persist, or file write), so it must stay reachable
+        // for a consult-only (_con read, no _fax write) user backing out of the dialog. Short-circuit
+        // it BEFORE the _fax write and method-verb gates below, which exist only to guard the
+        // side-effecting fax path.
+        if ("cancel".equals(this.getMethod())) {
+            return "cancel";
+        }
+
         // Faxing PHI to a request-selected recipient is a fax mutation, so it must also carry _fax
         // write — the same gate Fax2Action enforces. _con read alone let a consult-only user queue
         // PHI to an arbitrary fax number.
@@ -131,9 +140,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         // Reject GET/HEAD before any side effect (render, cover-page write, FaxJob persist): this
         // action queues a PHI fax to a request-supplied number, and CSRFGuard validates non-GET
         // requests only — a bare <img src="...ConsultationFormFax?..."> in the clinician's browser
-        // could otherwise fire a fax with no CSRF token. CoverPage.jsp submits via <form method="post">
-        // (cancel is a `method=cancel` body param on the same POST), so no UI change is required.
-        // Mirrors the gate the same PR added to Fax2Action.
+        // could otherwise fire a fax with no CSRF token. CoverPage.jsp submits via <form method="post">.
         String httpMethod = request.getMethod();
         if ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod)) {
             sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
@@ -141,10 +148,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
 
         //EctConsultationFaxForm ectConsultationFaxForm = (EctConsultationFaxForm) form;
-
-        if ("cancel".equals(this.getMethod())) {
-            return "cancel";
-        }
 
     	this.setRequest(request);
 	   	String reqId = this.getRequestId();

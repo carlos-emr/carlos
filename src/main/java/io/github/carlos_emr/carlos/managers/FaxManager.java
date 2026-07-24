@@ -183,6 +183,17 @@ public interface FaxManager {
     void persistAndLogConsultationFaxJobs(LoggedInInfo loggedInInfo, List<FaxJob> faxJobs, int requestId);
 
     /**
+     * Creates, persists, and audit-logs a fax batch (primary + copy-to recipients) in a single
+     * transaction. Equivalent to {@link #createAndSaveFaxJob} followed by {@link #logFaxJob} for each
+     * persisted job, but bundled so a log failure rolls the persisted jobs back — otherwise the jobs
+     * commit, the clinician sees an error when the post-commit log throws, and a retry queues a second
+     * sendable set (the PHI fax transmits twice). Returns the job list (persisted WAITING jobs and
+     * un-persisted ERROR jobs) for the caller to render per-job status.
+     */
+    List<FaxJob> persistAndLogFaxJobs(LoggedInInfo loggedInInfo, java.util.Map<String, Object> faxJobMap,
+            TransactionType transactionType, int transactionId);
+
+    /**
      * Update the transaction logs with a new status.
      */
     void updateFaxLog(LoggedInInfo loggedInInfo, FaxJob faxJob);

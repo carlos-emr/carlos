@@ -390,7 +390,15 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public Path concatPDF(ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
         Path path = null;
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            ConcatPDF.concat(pdfDocumentList, outputStream);
+            int skipped = ConcatPDF.concat(pdfDocumentList, outputStream);
+            if (skipped > 0) {
+                // A document PDFBox could not parse/open was dropped from the merge (ConcatPDF logs
+                // which). Do NOT ship a clinical packet silently missing content — a consult faxed
+                // without its lab attachment, or a cover page with nothing behind it — so fail here
+                // and let the caller surface it rather than mark the job WAITING/complete.
+                throw new PDFGenerationException(skipped + " of " + pdfDocumentList.size()
+                        + " document(s) could not be included in the merged PDF.");
+            }
             path = nioFileManager.saveTempFile("combinedPDF_" + new Date().getTime(), outputStream);
             flattenPDFFormFields(path);
             logger.debug("Concatenated {} PDF document(s) into a combined PDF ({} bytes)",
@@ -788,8 +796,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             if (flattenedTemp != null) {
                 try {
                     Files.deleteIfExists(flattenedTemp);
-                } catch (IOException ignore) {
-                    // Best-effort cleanup of the orphaned temp on a failed move; the original file is intact.
+                } catch (IOException cleanupFailure) {
+                    // Best-effort cleanup on a failed move; the original file is intact. Log it (basename
+                    // only) so an orphaned flatten temp is recorded rather than silently left on disk.
+                    logger.warn("Could not remove orphaned flatten temp file: {}",
+                            LogSafe.sanitize(flattenedTemp.getFileName().toString()));
                 }
             }
         }
