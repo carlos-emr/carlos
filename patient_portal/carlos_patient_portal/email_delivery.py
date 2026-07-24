@@ -100,7 +100,8 @@ class SmtpPortalEmailSender:
                 timeout=self.timeout_seconds,
             ) as smtp:
                 if self.starttls:
-                    smtp.starttls(context=ssl.create_default_context())
+                    # create_default_context enables CA validation and hostname checking.
+                    smtp.starttls(context=ssl.create_default_context())  # NOSONAR
                 if self.username is not None and self.password is not None:
                     smtp.login(self.username, self.password)
                 refused_recipients = smtp.send_message(message)

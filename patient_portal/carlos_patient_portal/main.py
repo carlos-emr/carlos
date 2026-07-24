@@ -466,6 +466,13 @@ def is_maintenance_exempt_path(path: str) -> bool:
     return path == "/health" or path.startswith("/internal/")
 
 
+def function_scoped_database_dependency(
+    dependency: Callable[[], Generator[Session, None, None]],
+) -> object:
+    # FastAPI supports dependency teardown before response delivery with scope="function".
+    return Depends(dependency, scope="function")  # NOSONAR - Sonar's FastAPI stub lacks scope.
+
+
 def is_json_request(request: Request) -> bool:
     return request.headers.get("content-type", "").partition(";")[0].strip().lower() == (
         "application/json"
@@ -1760,7 +1767,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
 
     def get_authenticated_portal_session(
         session_token: Annotated[str, Depends(get_authorization_bearer_token)],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> AuthenticatedPortalSession:
         try:
             return authenticate_session_token(
@@ -1772,7 +1779,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             raise HTTPException(status_code=401, detail="authentication required") from exc
 
     def get_authenticated_fhir_session(
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         authorization: Annotated[str | None, Header()] = None,
     ) -> AuthenticatedPortalSession:
         scheme, _, supplied_token = (authorization or "").partition(" ")
@@ -1987,7 +1994,7 @@ def register_public_routes(
     @app.get("/internal/health/db", include_in_schema=False)
     def database_health(
         _: Annotated[None, Depends(require_internal_health_token)],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, str]:
         try:
             check_database(session)
@@ -1998,7 +2005,7 @@ def register_public_routes(
     @app.get("/internal/readiness", include_in_schema=False)
     def readiness(
         _: Annotated[None, Depends(require_internal_health_token)],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         try:
             check_database(session)
@@ -2113,7 +2120,7 @@ def register_auth_routes(
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_login_request_from_request(request, csrf_secret)
@@ -2219,7 +2226,7 @@ def register_auth_routes(
     @app.post("/auth/mfa/resend", response_model=MfaChallengeResponse)
     async def resend_mfa(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_mfa_resend_request_from_request(request, csrf_secret)
@@ -2336,7 +2343,7 @@ def register_auth_routes(
     @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)
     async def verify_mfa(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_mfa_verify_request_from_request(request, csrf_secret)
@@ -2434,7 +2441,7 @@ def register_auth_routes(
     )
     async def request_reset(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
@@ -2525,7 +2532,7 @@ def register_auth_routes(
     @app.post("/auth/password-reset/complete", response_model=PasswordResetCompleteResponse)
     async def complete_reset(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
@@ -2657,7 +2664,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
         records = list_unlock_secrets(
@@ -2689,7 +2696,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
         record_id = parse_fhir_numeric_id(document_reference_id)
@@ -2758,7 +2765,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
         records = list_unlock_secrets(
@@ -2787,7 +2794,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
         records = list_unlock_secrets(
@@ -2823,7 +2830,7 @@ def register_patient_email_password_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_portal_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         limit: Annotated[
             int,
             Query(ge=1, le=MAX_UNLOCK_SECRET_LIST_LIMIT),
@@ -2865,7 +2872,7 @@ def register_patient_email_password_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_portal_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response | dict[str, object]:
         account = authenticated_session.account
         try:
@@ -2937,7 +2944,7 @@ def register_logout_route(
     def logout(
         session_token: Annotated[str, Depends(get_authorization_bearer_token)],
         response: Response,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, str]:
         try:
             logout_patient_session(
@@ -2969,14 +2976,14 @@ def register_portal_routes(
     @app.get("/portal")
     def portal_dashboard(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         return render_portal_page(request, session, active_module="dashboard")
 
     @app.get("/portal/account")
     def portal_account(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         account_status: Annotated[
             str | None,
             Query(alias="status", max_length=32),
@@ -2994,7 +3001,7 @@ def register_portal_routes(
     @app.post("/portal/account/password")
     async def portal_account_password(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         form_values = await get_portal_account_form_values(
             request,
@@ -3033,7 +3040,7 @@ def register_portal_routes(
     @app.post("/portal/account/contact")
     async def portal_account_contact(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         form_values = await get_portal_account_form_values(
             request,
@@ -3073,7 +3080,7 @@ def register_portal_routes(
     @app.post("/portal/account/mfa")
     async def portal_account_mfa(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         form_values = await get_portal_account_form_values(
             request,
@@ -3114,7 +3121,7 @@ def register_portal_routes(
     @app.get("/portal/email-passwords")
     def portal_email_passwords(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         q: Annotated[str | None, Query(max_length=MAX_UNLOCK_SECRET_SEARCH_LENGTH)] = None,
         provider: Annotated[
             str | None,
@@ -3158,7 +3165,7 @@ def register_portal_routes(
     async def reveal_portal_email_password(
         email_password_id: Annotated[int, PathParam(gt=0)],
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         await get_portal_account_form_values(
             request,
@@ -3221,14 +3228,14 @@ def register_portal_routes(
     @app.get("/portal/help")
     def portal_help(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         return render_portal_page(request, session, active_module="help")
 
     @app.post("/portal/logout")
     async def portal_logout(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
         form_values = await get_urlencoded_form_values(
             request,
@@ -3279,7 +3286,7 @@ def register_activation_routes(
     )
     async def activate_invite(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
@@ -3405,7 +3412,10 @@ def register_dev_admin_routes(
         def dev_create_invite(
             actor: Annotated[str, Depends(get_dev_admin_actor)],
             payload: Annotated[InviteCreateRequest, Depends(get_invite_create_request)],
-            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+            session: Annotated[
+                Session,
+                function_scoped_database_dependency(get_app_database_session),
+            ],
         ) -> dict[str, object]:
             identity_proof = IdentityProof(
                 email=payload.email,
@@ -3436,7 +3446,10 @@ def register_dev_admin_routes(
         @app.get("/dev/admin/invites", response_model=list[InviteResponse])
         def dev_list_invites(
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+            session: Annotated[
+                Session,
+                function_scoped_database_dependency(get_app_database_session),
+            ],
             demographic_no: Annotated[int | None, Query(gt=0)] = None,
             limit: Annotated[
                 int,
@@ -3469,7 +3482,10 @@ def register_dev_admin_routes(
         def dev_resend_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+            session: Annotated[
+                Session,
+                function_scoped_database_dependency(get_app_database_session),
+            ],
         ) -> dict[str, object]:
             try:
                 invite, invite_token = resend_invite(
@@ -3493,7 +3509,10 @@ def register_dev_admin_routes(
         def dev_revoke_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+            session: Annotated[
+                Session,
+                function_scoped_database_dependency(get_app_database_session),
+            ],
         ) -> dict[str, object]:
             try:
                 invite = revoke_invite(
@@ -3518,7 +3537,10 @@ def register_dev_admin_routes(
         def dev_unlock_account(
             account_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+            session: Annotated[
+                Session,
+                function_scoped_database_dependency(get_app_database_session),
+            ],
         ) -> dict[str, object]:
             try:
                 account = unlock_patient_account(

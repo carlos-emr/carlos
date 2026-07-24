@@ -127,7 +127,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "open_reset_page": "Open reset page",
         "page": "Page",
         "password_label": "Password",
-        "password_hidden": "Hidden",
+        "password_hidden": "Hidden",  # NOSONAR - translation label, not a credential
         "password_for": "Password for {subject}",
         "password_confirmation": "Confirm password",
         "password_invalid": "The new password does not meet the password requirements.",
@@ -147,7 +147,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
             "Enter your portal username and the email address registered with your clinic."
         ),
         "password_reset_request_heading": "Reset your password",
-        "password_reset_send": "Send reset link",
+        "password_reset_send": "Send reset link",  # NOSONAR - translation label
         "password_reset_success": "Your password has been reset. Sign in with the new password.",
         "password_reset_success_heading": "Password reset",
         "password_reset_update": "Update password",
