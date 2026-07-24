@@ -22,11 +22,11 @@ class MfaEmailSender(Protocol):
 
 class SmtpMfaEmailSender:
     def __init__(self, settings: Settings) -> None:
-        if settings.smtp_host is None or settings.smtp_from_address is None:
+        if settings.smtp_host is None or settings.resolved_smtp_from_address is None:
             raise ValueError("SMTP host and from address are required")
         self.host = settings.smtp_host
         self.port = settings.smtp_port
-        self.from_address = settings.smtp_from_address
+        self.from_address = settings.resolved_smtp_from_address
         self.starttls = settings.smtp_starttls
         self.username = settings.smtp_username
         self.password = (

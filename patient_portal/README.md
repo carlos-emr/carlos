@@ -79,7 +79,6 @@ export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_p
 # The development Postfix capture service listens locally without TLS or authentication.
 export PATIENT_PORTAL_SMTP_HOST=127.0.0.1
 export PATIENT_PORTAL_SMTP_PORT=25
-export PATIENT_PORTAL_SMTP_FROM_ADDRESS=noreply@openo-dev.local
 # Set PATIENT_PORTAL_DEV_ADMIN_TOKEN to a 32+ character random value before using
 # the development invite API.
 # Set PATIENT_PORTAL_IDENTITY_PROOF_SECRET to a 32+ character random value when
@@ -97,8 +96,9 @@ running PostgreSQL instance.
 The portal defaults to `production`, so deployments fail closed unless required secrets are set.
 Local development should explicitly set `PATIENT_PORTAL_ENVIRONMENT=development`.
 
-When `PATIENT_PORTAL_SMTP_HOST` is configured, `PATIENT_PORTAL_SMTP_FROM_ADDRESS` is also required.
-Production SMTP relays can enable `PATIENT_PORTAL_SMTP_STARTTLS` and set
+Development SMTP defaults to `carlos-test@openo-dev.local`; override it with
+`PATIENT_PORTAL_SMTP_FROM_ADDRESS` when needed. A sender address is always required outside
+development. Production SMTP relays can enable `PATIENT_PORTAL_SMTP_STARTTLS` and set
 `PATIENT_PORTAL_SMTP_USERNAME` and `PATIENT_PORTAL_SMTP_PASSWORD`; the username and password must be
 configured together. `PATIENT_PORTAL_SMTP_TIMEOUT_SECONDS` defaults to 10 seconds. MFA email bodies
 contain only the verification code, expiry, service name, and clinic contact direction. They do not

@@ -3,7 +3,10 @@ from email.message import EmailMessage
 
 import pytest
 
-from carlos_patient_portal.config import Settings
+from carlos_patient_portal.config import (
+    DEFAULT_DEVELOPMENT_SMTP_FROM_ADDRESS,
+    Settings,
+)
 from carlos_patient_portal.email_delivery import (
     MfaEmailDeliveryError,
     SmtpMfaEmailSender,
@@ -109,10 +112,18 @@ def test_smtp_sender_is_only_built_for_complete_configuration() -> None:
     assert isinstance(build_mfa_email_sender(smtp_settings()), SmtpMfaEmailSender)
 
 
+def test_development_smtp_sender_uses_safe_default_from_address() -> None:
+    sender = build_mfa_email_sender(
+        Settings(environment="development", smtp_host="mail.internal")
+    )
+
+    assert isinstance(sender, SmtpMfaEmailSender)
+    assert sender.from_address == DEFAULT_DEVELOPMENT_SMTP_FROM_ADDRESS
+
+
 @pytest.mark.parametrize(
     "settings_values",
     [
-        {"smtp_host": "mail.internal"},
         {"smtp_from_address": "portal@example.test"},
         {"smtp_host": "mail.internal", "smtp_from_address": "portal@example.test",
          "smtp_username": "portal-user"},
@@ -125,3 +136,8 @@ def test_smtp_configuration_rejects_incomplete_settings(
 ) -> None:
     with pytest.raises(ValueError):
         Settings(environment="development", **settings_values)
+
+
+def test_non_development_smtp_configuration_requires_from_address() -> None:
+    with pytest.raises(ValueError, match="PATIENT_PORTAL_SMTP_FROM_ADDRESS"):
+        Settings(environment="staging", smtp_host="mail.internal")

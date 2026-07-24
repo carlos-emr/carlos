@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 Environment = Literal["development", "staging", "test", "production"]
 TrustedClientIpHeader = Literal["x-forwarded-for", "x-real-ip"]
 DEFAULT_DATABASE_URL = "postgresql+psycopg://localhost:5432/carlos_portal"
+DEFAULT_DEVELOPMENT_SMTP_FROM_ADDRESS = "carlos-test@openo-dev.local"
 MIN_PRODUCTION_SECRET_LENGTH = 32
 MAX_CLINIC_ID_LENGTH = 64
 DEFAULT_AUDIT_RETENTION_DAYS = 25 * 365
@@ -73,6 +74,14 @@ class Settings(BaseSettings):
     @property
     def is_dev_admin_enabled(self) -> bool:
         return self.is_development and self.enable_dev_admin
+
+    @property
+    def resolved_smtp_from_address(self) -> str | None:
+        if self.smtp_from_address is not None:
+            return self.smtp_from_address
+        if self.is_development and self.smtp_host is not None:
+            return DEFAULT_DEVELOPMENT_SMTP_FROM_ADDRESS
+        return None
 
     @field_validator("environment", mode="before")
     @classmethod
@@ -177,7 +186,7 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "PATIENT_PORTAL_SMTP_HOST is required when SMTP credentials are set"
                 )
-        elif self.smtp_from_address is None:
+        elif self.resolved_smtp_from_address is None:
             raise ValueError(
                 "PATIENT_PORTAL_SMTP_FROM_ADDRESS is required when "
                 "PATIENT_PORTAL_SMTP_HOST is set"
