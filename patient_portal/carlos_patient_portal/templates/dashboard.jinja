@@ -281,7 +281,9 @@
               {% else %}
                 <span class="pagination-disabled">{{ text.previous }}</span>
               {% endif %}
-              <span class="page-indicator">{{ text.page }} {{ email_passwords.page }}</span>
+              <span class="page-indicator">
+                {{ text.page }} {{ email_passwords.page }} {{ text.of }} {{ email_passwords.total_pages }}
+              </span>
               {% if email_passwords.next_href %}
                 <a class="secondary-action" href="{{ email_passwords.next_href }}">{{ text.next }}</a>
               {% else %}

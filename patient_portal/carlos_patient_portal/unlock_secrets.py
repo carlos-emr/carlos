@@ -9,7 +9,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
@@ -353,8 +353,7 @@ def revoke_unlock_secret(
     return unlock_secret
 
 
-def list_unlock_secrets(
-    session: Session,
+def _filtered_unlock_secret_statement(
     *,
     clinic_id: str,
     account_id: int | None = None,
@@ -365,11 +364,7 @@ def list_unlock_secrets(
     provider: str | None = None,
     created_from: datetime | None = None,
     created_before: datetime | None = None,
-    limit: int = DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
-    offset: int = 0,
-) -> list[PatientPortalUnlockSecret]:
-    normalized_limit = normalize_list_limit(limit)
-    normalized_offset = normalize_list_offset(offset)
+) -> Select[tuple[PatientPortalUnlockSecret]]:
     statement = scoped_unlock_secret_statement(
         clinic_id=clinic_id,
         account_id=account_id,
@@ -411,8 +406,73 @@ def list_unlock_secrets(
         and created_from >= created_before
     ):
         raise ValueError("created_from must be earlier than created_before")
+    return statement
+
+
+def count_unlock_secrets(
+    session: Session,
+    *,
+    clinic_id: str,
+    account_id: int | None = None,
+    demographic_no: int | None = None,
+    include_revoked: bool = False,
+    secret_type: str | None = None,
+    search: str | None = None,
+    provider: str | None = None,
+    created_from: datetime | None = None,
+    created_before: datetime | None = None,
+) -> int:
+    filtered_statement = _filtered_unlock_secret_statement(
+        clinic_id=clinic_id,
+        account_id=account_id,
+        demographic_no=demographic_no,
+        include_revoked=include_revoked,
+        secret_type=secret_type,
+        search=search,
+        provider=provider,
+        created_from=created_from,
+        created_before=created_before,
+    )
+    count_statement = filtered_statement.with_only_columns(
+        func.count(PatientPortalUnlockSecret.id),
+        maintain_column_froms=True,
+    ).order_by(None)
+    return int(session.scalar(count_statement) or 0)
+
+
+def list_unlock_secrets(
+    session: Session,
+    *,
+    clinic_id: str,
+    account_id: int | None = None,
+    demographic_no: int | None = None,
+    include_revoked: bool = False,
+    secret_type: str | None = None,
+    search: str | None = None,
+    provider: str | None = None,
+    created_from: datetime | None = None,
+    created_before: datetime | None = None,
+    limit: int = DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
+    offset: int = 0,
+) -> list[PatientPortalUnlockSecret]:
+    normalized_limit = normalize_list_limit(limit)
+    normalized_offset = normalize_list_offset(offset)
+    statement = _filtered_unlock_secret_statement(
+        clinic_id=clinic_id,
+        account_id=account_id,
+        demographic_no=demographic_no,
+        include_revoked=include_revoked,
+        secret_type=secret_type,
+        search=search,
+        provider=provider,
+        created_from=created_from,
+        created_before=created_before,
+    )
     statement = (
-        statement.order_by(PatientPortalUnlockSecret.created_at.desc())
+        statement.order_by(
+            PatientPortalUnlockSecret.created_at.desc(),
+            PatientPortalUnlockSecret.id.desc(),
+        )
         .limit(normalized_limit)
         .offset(normalized_offset)
     )

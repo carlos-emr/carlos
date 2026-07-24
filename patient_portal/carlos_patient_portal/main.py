@@ -161,6 +161,7 @@ from carlos_patient_portal.unlock_secrets import (
     UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
     UnlockSecretRevokedError,
+    count_unlock_secrets,
     get_scoped_unlock_secret,
     list_unlock_secret_providers,
     list_unlock_secrets,
@@ -954,7 +955,26 @@ def email_password_dashboard_context(
         if date_to is not None
         else None
     )
-    normalized_page = max(page, 1)
+    total_records = (
+        0
+        if has_filter_error
+        else count_unlock_secrets(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            search=normalized_search,
+            provider=normalized_provider,
+            created_from=created_from,
+            created_before=created_before,
+        )
+    )
+    total_pages = max(
+        1,
+        (total_records + EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE - 1)
+        // EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE,
+    )
+    normalized_page = min(max(page, 1), total_pages)
     offset = (normalized_page - 1) * EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
     records = (
         []
@@ -968,16 +988,14 @@ def email_password_dashboard_context(
             provider=normalized_provider,
             created_from=created_from,
             created_before=created_before,
-            limit=EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE + 1,
+            limit=EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE,
             offset=offset,
         )
     )
-    visible_records = records[:EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE]
-    has_next = len(records) > EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
     return {
         "rows": [
             email_password_dashboard_row(record)
-            for record in visible_records
+            for record in records
         ],
         "search": normalized_search or "",
         "provider": normalized_provider or "",
@@ -1002,6 +1020,7 @@ def email_password_dashboard_context(
             or (text["date_range_error"] if invalid_date_range else None)
         ),
         "page": normalized_page,
+        "total_pages": total_pages,
         "empty_message": (
             text["no_matching_email_passwords"]
             if any((normalized_search, normalized_provider, date_from, date_to))
@@ -1026,7 +1045,7 @@ def email_password_dashboard_context(
                 date_to=date_to,
                 page=normalized_page + 1,
             )
-            if has_next
+            if normalized_page < total_pages
             else None
         ),
     }

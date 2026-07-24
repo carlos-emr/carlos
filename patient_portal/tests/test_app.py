@@ -117,6 +117,7 @@ from carlos_patient_portal.unlock_secrets import (
     UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
     UnlockSecretRevokedError,
+    count_unlock_secrets,
     create_unlock_secret,
     generate_unlock_secret_value,
     list_unlock_secrets,
@@ -1517,6 +1518,7 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
         data={"csrf_token": csrf_token_match.group(1)},
     )
     page_two_response = client.get("/portal/email-passwords?page=2")
+    out_of_range_page_response = client.get("/portal/email-passwords?page=99")
     search_response = client.get(
         "/portal/email-passwords",
         params={"q": "lab", "provider": "", "date_from": "", "date_to": ""},
@@ -1554,7 +1556,7 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     assert 'data-copy-target="email-password-' in page_one_response.text
     assert 'data-reveal-url="/portal/email-passwords/' in page_one_response.text
     assert 'href="/portal/email-passwords?page=2"' in page_one_response.text
-    assert '<span class="page-indicator">Page 1</span>' in page_one_response.text
+    assert "Page 1 of 2" in page_one_response.text
     assert reveal_response.status_code == 200
     assert reveal_response.json()["passphrase"] == secret_values[11]
 
@@ -1563,13 +1565,18 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     assert "Message 00" in page_two_response.text
     assert "Message 02" not in page_two_response.text
     assert 'href="/portal/email-passwords"' in page_two_response.text
-    assert '<span class="page-indicator">Page 2</span>' in page_two_response.text
+    assert "Page 2 of 2" in page_two_response.text
+
+    assert out_of_range_page_response.status_code == 200
+    assert "Message 01" in out_of_range_page_response.text
+    assert "Page 2 of 2" in out_of_range_page_response.text
 
     assert search_response.status_code == 200
     assert "Lab report" in search_response.text
     assert "Message 06" not in search_response.text
     assert "PortalPwd06!A" not in search_response.text
     assert 'value="lab"' in search_response.text
+    assert "Page 1 of 1" in search_response.text
 
     assert provider_response.status_code == 200
     assert "Lab report" in provider_response.text
@@ -1617,8 +1624,10 @@ def test_email_password_dashboard_empty_search_and_unavailable_password_states()
 
     assert empty_response.status_code == 200
     assert "No email passwords" in empty_response.text
+    assert "Page 1 of 1" in empty_response.text
     assert empty_search_response.status_code == 200
     assert "No matching email passwords" in empty_search_response.text
+    assert "Page 1 of 1" in empty_search_response.text
 
     with app.state.session_factory() as session:
         with session.begin():
@@ -3351,8 +3360,22 @@ def test_unlock_secret_lifecycle_encrypts_decrypts_revokes_and_audits() -> None:
                 clinic_id="default",
                 account_id=account_id,
             )
+            counted_secrets = count_unlock_secrets(
+                session,
+                clinic_id="default",
+                account_id=account_id,
+                search="Email",
+            )
+            missing_secret_count = count_unlock_secrets(
+                session,
+                clinic_id="default",
+                account_id=account_id,
+                search="missing",
+            )
             with pytest.raises(ValueError, match="account_id or demographic_no"):
                 list_unlock_secrets(session, clinic_id="default")
+            with pytest.raises(ValueError, match="account_id or demographic_no"):
+                count_unlock_secrets(session, clinic_id="default")
             with pytest.raises(ValueError, match="limit"):
                 list_unlock_secrets(
                     session,
@@ -3397,6 +3420,8 @@ def test_unlock_secret_lifecycle_encrypts_decrypts_revokes_and_audits() -> None:
             )
 
             assert [secret.id for secret in listed_secrets] == [unlock_secret_id]
+            assert counted_secrets == 1
+            assert missing_secret_count == 0
             assert decrypted_secret == raw_secret
             assert revoked_secret.status == UNLOCK_SECRET_STATUS_REVOKED
             assert revoked_secret.last_viewed_at is not None

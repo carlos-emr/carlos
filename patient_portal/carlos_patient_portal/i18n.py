@@ -123,6 +123,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "no_account_changes": "No account changes.",
         "no_email_passwords": "No email passwords",
         "no_matching_email_passwords": "No matching email passwords",
+        "of": "of",
         "open_reset_page": "Open reset page",
         "page": "Page",
         "password_label": "Password",
