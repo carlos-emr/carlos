@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -110,7 +111,13 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         entityManager.persist(o);
     }
 
+    // SUPPORTS (not the class-default REQUIRED): batchPersist manages its OWN EntityManager and
+    // per-chunk resource-local transactions, so it must not open a Spring transaction of its own.
+    // With SUPPORTS the batch runs non-transactionally when the caller has no transaction (the
+    // standalone-import case), and only joins — and so warnIfInSpringManagedTransaction only warns
+    // about — a genuinely pre-existing caller transaction whose rollback the per-chunk commits escape.
     @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchPersist(List<T> oList) {
         batchPersist(oList, 25);
     }
@@ -126,6 +133,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      * {@code @CacheEvict} annotations.</p>
      */
     @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchPersist(List<T> oList, int batchSize) {
         warnIfInSpringManagedTransaction("batchPersist");
         EntityManager batchEntityManager = null;
@@ -169,6 +177,12 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      * transactional service is almost always a mistake, so it is surfaced here rather than silently
      * escaping the transaction. (Reworking the semantics to join the ambient transaction would collapse
      * large imports into a single long transaction and is tracked as separate work.)</p>
+     *
+     * <p>The batch methods declare {@link Propagation#SUPPORTS} precisely so this check is meaningful:
+     * they never start a Spring transaction of their own, so an active transaction here can only be a
+     * <em>pre-existing caller</em> transaction (the risky case). Under the class-default
+     * {@code REQUIRED} this warning fired on every call — including standalone imports — because the
+     * batch call itself would have started one.</p>
      */
     private static void warnIfInSpringManagedTransaction(String method) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -186,7 +200,11 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         entityManager.remove(o);
     }
 
+    // SUPPORTS for the same reason as batchPersist: batchRemove owns its EntityManager and per-chunk
+    // transactions, so it must not start a Spring transaction — that is what made the warning fire on
+    // every call. See batchPersist(List) above.
     @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchRemove(List<T> oList) {
         batchRemove(oList, 25);
     }
@@ -202,6 +220,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      * {@code @CacheEvict} annotations.</p>
      */
     @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchRemove(List<T> oList, int batchSize) {
         warnIfInSpringManagedTransaction("batchRemove");
         EntityManager batchEntityManager = null;

@@ -290,12 +290,18 @@ public class FrmPDFServlet extends HttpServlet {
 
             String title = req.getParameter("__title" + suffix) != null ? req.getParameter("__title" + suffix) : "Unknown";
 
-            String template = req.getParameter("__template" + suffix) != null ? req.getParameter("__template" + suffix) + ".pdf" : "";
-            if (!template.isEmpty()) {
+            // Existing client code submits a present-but-blank __template= (see form/formScripts.js),
+            // which means "no template". Treat blank/whitespace-only as no template BEFORE appending the
+            // ".pdf" suffix — otherwise a blank value becomes ".pdf", whose leading dot validatePathComponent
+            // rejects, turning a routine "no template" request into a hard failure.
+            String templateParam = req.getParameter("__template" + suffix);
+            String template = "";
+            if (templateParam != null && !templateParam.isBlank()) {
                 // __template is user-controlled and gets concatenated into a filesystem path read by
-                // PdfReader (pdfFORMDIR and the /oscar/form/prop fallback). Validate it as a single path
-                // component so "../" or an absolute path cannot escape the configured template directory.
-                template = PathValidationUtils.validatePathComponent(template, "__template");
+                // PdfReader (pdfFORMDIR and the /oscar/form/prop fallback). Validate the raw component
+                // (before the ".pdf" suffix) so "../" or an absolute path cannot escape the configured
+                // template directory; only then append the extension.
+                template = PathValidationUtils.validatePathComponent(templateParam.trim(), "__template") + ".pdf";
             }
 
             int numPages = 1;
