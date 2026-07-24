@@ -137,6 +137,29 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         });
     }
 
+    @Test
+    @DisplayName("should record actual attachment content type when attachment is not a PDF")
+    void shouldRecordActualAttachmentContentType_whenAttachmentIsNotAPdf() throws Exception {
+        // The declared type is copied into the archived payload and becomes a durable claim in the
+        // outbound email archive, so it must not report every artifact as application/pdf.
+        Path attachmentPath = tempDir.resolve("results.txt");
+        Files.write(attachmentPath, "plain text results".getBytes(StandardCharsets.UTF_8));
+        EmailAttachment attachment = new EmailAttachment("results.txt", attachmentPath.toString(), DocumentType.DOC, 78);
+        EmailConfig emailConfig = sendGridEmailConfig();
+        EmailData emailData = emailData(List.of(attachment));
+        EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.FAILED);
+        injectDependency(emailLog, "id", 46);
+
+        EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+
+        OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+
+        String payload = new String(archiveRequest.getArtifactBytes(), StandardCharsets.UTF_8);
+        assertThat(payload).contains("\"type\":\"text/plain\"");
+        assertThat(archiveRequest.getAttachments()).singleElement().satisfies(attachmentDto ->
+                assertThat(attachmentDto.getContentType()).isEqualTo("text/plain"));
+    }
+
     private EmailData emailData(List<EmailAttachment> attachments) {
         EmailData emailData = new EmailData();
         emailData.setRecipients(new String[]{"patient@example.test"});

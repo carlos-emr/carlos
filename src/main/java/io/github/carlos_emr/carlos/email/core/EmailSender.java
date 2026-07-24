@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class EmailSender {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String JSON_CONTENT_TYPE = "application/json";
-    private static final String PDF_CONTENT_TYPE = "application/pdf";
+    private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
 
     private LoggedInInfo loggedInInfo;
 
@@ -340,6 +340,17 @@ public class EmailSender {
         }
     }
 
+    /**
+     * Reads the declared attachment content type from the prepared payload.
+     *
+     * @param payloadAttachment attachment node from the prepared SendGrid payload
+     * @return the declared content type, or {@code application/octet-stream} if absent or blank
+     */
+    private String payloadAttachmentContentType(JsonNode payloadAttachment) {
+        String contentType = payloadAttachment != null ? payloadAttachment.path("type").asText(null) : null;
+        return contentType != null && !contentType.isBlank() ? contentType : DEFAULT_ATTACHMENT_CONTENT_TYPE;
+    }
+
     private OutboundEmailArchiveAttachmentDto buildAttachmentArchiveMetadata(EmailAttachment attachment, JsonNode payloadAttachment) throws EmailSendingException {
         if (attachment == null) {
             throw new EmailSendingException("Email attachment is required for archive metadata");
@@ -352,7 +363,9 @@ public class EmailSender {
 
         OutboundEmailArchiveAttachmentDto attachmentDto = new OutboundEmailArchiveAttachmentDto();
         attachmentDto.setFileName(attachment.getFileName());
-        attachmentDto.setContentType(PDF_CONTENT_TYPE);
+        // Read the type back out of the prepared payload rather than restating it, so the archived
+        // metadata cannot drift from the artifact it describes.
+        attachmentDto.setContentType(payloadAttachmentContentType(payloadAttachment));
         attachmentDto.setSha256Hash(DigestUtils.sha256Hex(attachmentBytes));
         attachmentDto.setByteSize((long) attachmentBytes.length);
         attachmentDto.setSourceDocumentType(attachment.getDocumentType() != null ? attachment.getDocumentType().name() : null);

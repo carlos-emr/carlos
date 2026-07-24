@@ -5,6 +5,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -66,7 +67,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class APISendGridEmailSender {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String DEFAULT_ENDPOINT = "https://api.sendgrid.com/v3/mail/send";
-    private static final String PDF_CONTENT_TYPE = "application/pdf";
+    private static final String DEFAULT_ATTACHMENT_CONTENT_TYPE = "application/octet-stream";
 
     private LoggedInInfo loggedInInfo;
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -294,7 +295,7 @@ public class APISendGridEmailSender {
                 Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
                 jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
-                jsonAttachment.put("type", PDF_CONTENT_TYPE);
+                jsonAttachment.put("type", resolveAttachmentContentType(path, emailAttachment.getFileName()));
                 jsonAttachment.put("disposition", "attachment");
                 jsonAttachments.add(jsonAttachment);
             } catch (IOException | IllegalArgumentException | SecurityException e) {
@@ -302,6 +303,37 @@ public class APISendGridEmailSender {
             }
         }
         emailJson.set("attachments", jsonAttachments);
+    }
+
+    /**
+     * Resolves the declared content type for an outbound attachment.
+     *
+     * <p>The compose flow currently attaches PDFs only, but the declared type is copied verbatim
+     * into the archived payload and becomes a durable claim in the outbound email archive. Probing
+     * the actual file keeps that claim honest if a non-PDF attachment ever reaches this path,
+     * rather than recording every artifact as {@code application/pdf}.</p>
+     *
+     * @param path validated path to the attachment on disk
+     * @param fileName attachment file name as it will appear to the recipient
+     * @return the resolved content type, falling back to {@code application/octet-stream}
+     */
+    private String resolveAttachmentContentType(Path path, String fileName) {
+        String contentType = null;
+        try {
+            contentType = Files.probeContentType(path);
+        } catch (IOException ignored) {
+            // Probing is best-effort; fall through to the name-based lookup below.
+        }
+
+        if (isBlankOrDefaultContentType(contentType) && fileName != null && !fileName.isBlank()) {
+            contentType = URLConnection.guessContentTypeFromName(fileName);
+        }
+
+        return !isBlankOrDefaultContentType(contentType) ? contentType : DEFAULT_ATTACHMENT_CONTENT_TYPE;
+    }
+
+    private boolean isBlankOrDefaultContentType(String contentType) {
+        return contentType == null || contentType.isBlank() || DEFAULT_ATTACHMENT_CONTENT_TYPE.equals(contentType);
     }
 
     private void requireEmailWritePrivilege() {
