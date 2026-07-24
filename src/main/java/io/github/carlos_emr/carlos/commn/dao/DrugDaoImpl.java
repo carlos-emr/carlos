@@ -488,12 +488,9 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
         if (!FIND_BY_PARAMETER_ALLOWED_COLUMNS.contains(parameter)) {
-            throw new IllegalArgumentException("Invalid column name: " + parameter);
+            throw new IllegalArgumentException("Unsupported parameter: " + parameter);
         }
-        // The column name is selected from the allowlist, and the value stays bound
-        // as a named parameter so apostrophes in drug names are handled safely.
-        String sql = "select special,special_instruction from drugs where "
-                + parameter + " = :value order by drugid desc";
+        String sql = "select special, special_instruction from drugs where " + parameter + " = :value order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter("value", value);
         return query.getResultList();
