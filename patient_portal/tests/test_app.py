@@ -163,7 +163,7 @@ def migrated_development_app(**overrides: object) -> main.FastAPI:
 def dev_admin_headers(
     token: str = DEV_ADMIN_TOKEN,
     *,
-    actor: str = "Dr example",
+    actor: str = "CarlosDoc",
 ) -> dict[str, str]:
     return {
         "Authorization": f"Bearer {token}",
@@ -213,7 +213,7 @@ def seeded_identity_proof(**overrides: object) -> IdentityProof:
 def create_service_invite(
     session: Session,
     demographic_no: int = 1234,
-    actor: str = "Dr example",
+    actor: str = "CarlosDoc",
     *,
     clinic_id: str = "default",
     identity_proof: IdentityProof | None = None,
@@ -374,6 +374,8 @@ def test_index_renders_sign_in_shell() -> None:
     text = portal_text(DEFAULT_LOCALE)
 
     assert response.status_code == 200
+    assert text["username_placeholder"] == "username"
+    assert text["password_placeholder"] == "password"
     assert "CARLOS Patient Portal" in response.text
     assert 'src="http://testserver/static/carlos-logo.png"' in response.text
     assert f'placeholder="{text["username_placeholder"]}"' in response.text
@@ -455,7 +457,7 @@ def test_non_development_csrf_cookie_is_secure() -> None:
     assert "Secure" in set_cookie
 
 
-def test_non_development_sign_in_does_not_show_example_credentials() -> None:
+def test_non_development_sign_in_shows_generic_field_hints() -> None:
     app = main.create_app(
         Settings(
             environment="staging",
@@ -470,8 +472,8 @@ def test_non_development_sign_in_does_not_show_example_credentials() -> None:
     text = portal_text(DEFAULT_LOCALE)
 
     assert response.status_code == 200
-    assert text["username_placeholder"] not in response.text
-    assert text["password_placeholder"] not in response.text
+    assert f'placeholder="{text["username_placeholder"]}"' in response.text
+    assert f'placeholder="{text["password_placeholder"]}"' in response.text
 
 
 def test_internal_database_health_uses_app_database_settings() -> None:
@@ -1033,7 +1035,7 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
                     account_id=account_id,
                     secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                     secret=f"PortalPwd{index:02d}!A",
-                    created_by="Dr example",
+                    created_by="CarlosDoc",
                     encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                     label="Lab report" if index == 5 else f"Message {index:02d}",
                     source_reference=f"message-{3135 + index}",
@@ -1118,7 +1120,7 @@ def test_email_password_dashboard_empty_search_and_unavailable_password_states()
                 account_id=account_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret="v" * MIN_PRODUCTION_SECRET_LENGTH,
                 label="Broken message",
                 source_reference="message-4000",
@@ -1653,7 +1655,7 @@ def test_dev_admin_invite_lifecycle() -> None:
     client = TestClient(app)
     create_response = client.post(
         "/dev/admin/invites",
-        headers=dev_admin_headers(actor=" Dr example "),
+        headers=dev_admin_headers(actor=" CarlosDoc "),
         json=seeded_invite_request(),
     )
 
@@ -1664,8 +1666,8 @@ def test_dev_admin_invite_lifecycle() -> None:
     assert created_invite["clinic_id"] == "default"
     assert created_invite["demographic_no"] == 1234
     assert created_invite["status"] == "pending"
-    assert created_invite["created_by"] == "Dr example"
-    assert created_invite["last_sent_by"] == "Dr example"
+    assert created_invite["created_by"] == "CarlosDoc"
+    assert created_invite["last_sent_by"] == "CarlosDoc"
     assert created_invite["sent_count"] == 1
     assert created_invite["has_identity_proof"] is True
     assert created_invite["accepted_at"] is None
@@ -1742,7 +1744,7 @@ def test_new_invite_replaces_older_pending_invite_for_patient() -> None:
 
     first_create_response = client.post(
         "/dev/admin/invites",
-        headers=dev_admin_headers(actor="Dr example"),
+        headers=dev_admin_headers(actor="CarlosDoc"),
         json=seeded_invite_request(),
     )
     second_create_response = client.post(
@@ -2383,7 +2385,7 @@ def test_invite_list_writes_audit_event() -> None:
     client = TestClient(app)
     create_response = client.post(
         "/dev/admin/invites",
-        headers=dev_admin_headers(actor="Dr example"),
+        headers=dev_admin_headers(actor="CarlosDoc"),
         json=seeded_invite_request(),
     )
 
@@ -2440,12 +2442,12 @@ def test_invite_constraints_allow_only_one_pending_invite_per_patient() -> None:
             demographic_no=first_invite.demographic_no,
             token_hash=hash_invite_token("manual-duplicate-token"),
             status=INVITE_STATUS_PENDING,
-            created_by="Dr example",
+            created_by="CarlosDoc",
             created_at=utc_now(),
             updated_at=utc_now(),
             sent_count=1,
             last_sent_at=utc_now(),
-            last_sent_by="Dr example",
+            last_sent_by="CarlosDoc",
             expires_at=utc_now() + DEFAULT_INVITE_TTL,
             proof_email_hash=first_invite.proof_email_hash,
             proof_date_of_birth_hash=first_invite.proof_date_of_birth_hash,
@@ -2465,7 +2467,7 @@ def test_invite_service_validates_future_carlos_callers() -> None:
             create_invite(
                 session,
                 0,
-                "Dr example",
+                "CarlosDoc",
                 identity_proof=seeded_identity_proof(),
                 proof_secret=IDENTITY_PROOF_SECRET,
             )
@@ -2489,7 +2491,7 @@ def test_invite_service_validates_future_carlos_callers() -> None:
             create_invite(
                 session,
                 1234,
-                "Dr example",
+                "CarlosDoc",
                 identity_proof=seeded_identity_proof(),
                 proof_secret=" ",
             )
@@ -2513,13 +2515,13 @@ def test_invite_service_scopes_records_by_clinic() -> None:
         clinic_a_invite, _ = create_service_invite(
             session,
             1234,
-            "Dr example",
+            "CarlosDoc",
             clinic_id="clinic-a",
         )
         clinic_b_invite, _ = create_service_invite(
             session,
             1234,
-            "Dr example",
+            "CarlosDoc",
             clinic_id="clinic-b",
         )
         session.commit()
@@ -2533,7 +2535,7 @@ def test_invite_service_scopes_records_by_clinic() -> None:
             resend_invite(
                 session,
                 clinic_a_invite.id,
-                "Dr example",
+                "CarlosDoc",
                 clinic_id="clinic-b",
             )
 
@@ -2577,7 +2579,7 @@ def test_unlock_secret_lifecycle_encrypts_decrypts_revokes_and_audits() -> None:
                 account_id=account_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                 label="Email password",
                 source_reference="message-3135",
@@ -2638,7 +2640,7 @@ def test_unlock_secret_lifecycle_encrypts_decrypts_revokes_and_audits() -> None:
                 unlock_secret_id,
                 clinic_id="default",
                 demographic_no=1234,
-                revoked_by="Dr example",
+                revoked_by="CarlosDoc",
                 reason="staff_requested",
             )
 
@@ -2740,7 +2742,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 account_id=account_a_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret_a,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                 label="Specialist reply",
                 source_reference="message-3135",
@@ -2752,7 +2754,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 account_id=account_b_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret_b,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                 label="Other patient reply",
                 source_reference="message-3136",
@@ -2764,7 +2766,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 account_id=account_a_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret_revoked,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                 label="Revoked reply",
                 source_reference="message-3137",
@@ -2776,7 +2778,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 account_id=account_a_id,
                 secret_type=UNLOCK_SECRET_TYPE_PDF,
                 secret=raw_secret_pdf,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                 label="PDF password",
                 source_reference="document-3138",
@@ -2788,7 +2790,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 account_id=account_a_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret_unavailable,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret="v" * MIN_PRODUCTION_SECRET_LENGTH,
                 label="Temporarily unavailable reply",
                 source_reference="message-3139",
@@ -2798,7 +2800,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 created_revoked.unlock_secret.id,
                 clinic_id="default",
                 demographic_no=1234,
-                revoked_by="Dr example",
+                revoked_by="CarlosDoc",
                 reason="staff_requested",
             )
             active_a_id = created_a.unlock_secret.id
@@ -3055,7 +3057,7 @@ def test_fhir_document_organization_and_practitioner_resources_are_scoped() -> N
                 account_id=account_a_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret_a,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                 label="Specialist message",
                 source_reference="message-3135",
@@ -3079,7 +3081,7 @@ def test_fhir_document_organization_and_practitioner_resources_are_scoped() -> N
                 account_id=account_a_id,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                 secret=raw_secret_revoked,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                 label="Revoked message",
                 source_reference="message-3137",
@@ -3089,7 +3091,7 @@ def test_fhir_document_organization_and_practitioner_resources_are_scoped() -> N
                 created_revoked.unlock_secret.id,
                 clinic_id="default",
                 demographic_no=1234,
-                revoked_by="Dr example",
+                revoked_by="CarlosDoc",
                 reason="staff_requested",
             )
             active_a_id = created_a.unlock_secret.id
@@ -3180,10 +3182,10 @@ def test_fhir_document_organization_and_practitioner_resources_are_scoped() -> N
     assert practitioner_search_payload["entry"][0]["fullUrl"] == (
         f"http://testserver/fhir/Practitioner/{practitioner_id}"
     )
-    assert practitioner_search_payload["entry"][0]["resource"]["name"][0]["text"] == "Dr example"
+    assert practitioner_search_payload["entry"][0]["resource"]["name"][0]["text"] == "CarlosDoc"
     Practitioner(practitioner_search_payload["entry"][0]["resource"])
     assert practitioner_read_response.status_code == 200
-    assert practitioner_read_response.json()["name"][0]["text"] == "Dr example"
+    assert practitioner_read_response.json()["name"][0]["text"] == "CarlosDoc"
     Practitioner(practitioner_read_response.json())
 
 
@@ -3199,7 +3201,7 @@ def test_unlock_secret_decryption_rejects_wrong_encryption_secret() -> None:
                 clinic_id="default",
                 demographic_no=1234,
                 account_id=account_id,
-                created_by="Dr example",
+                created_by="CarlosDoc",
                 encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             )
             unlock_secret_id = created.unlock_secret.id
@@ -3328,7 +3330,7 @@ def test_session_scope_commits_success() -> None:
     session_factory = create_session_factory(engine)
 
     with session_scope(session_factory) as session:
-        committed_invite, _ = create_service_invite(session, 1234, "Dr example")
+        committed_invite, _ = create_service_invite(session, 1234, "CarlosDoc")
         committed_invite_id = committed_invite.id
 
     with session_factory() as session:

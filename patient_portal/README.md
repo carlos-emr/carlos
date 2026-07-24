@@ -218,7 +218,7 @@ intentionally hidden outside development until real CARLOS staff authentication 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
-  -H "X-CARLOS-Staff-Actor: Dr example" \
+  -H "X-CARLOS-Staff-Actor: CarlosDoc" \
   -d '{
     "demographic_no": 1234,
     "email": "example.patient@example.com",
@@ -227,20 +227,20 @@ curl -X POST http://127.0.0.1:8090/dev/admin/invites \
   }'
 
 curl -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
-  -H "X-CARLOS-Staff-Actor: Dr example" \
+  -H "X-CARLOS-Staff-Actor: CarlosDoc" \
   http://127.0.0.1:8090/dev/admin/invites?demographic_no=1234
 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/resend \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
-  -H "X-CARLOS-Staff-Actor: Dr example"
+  -H "X-CARLOS-Staff-Actor: CarlosDoc"
 
 curl -X POST http://127.0.0.1:8090/dev/admin/invites/1/revoke \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
-  -H "X-CARLOS-Staff-Actor: Dr example"
+  -H "X-CARLOS-Staff-Actor: CarlosDoc"
 
 curl -X POST http://127.0.0.1:8090/dev/admin/accounts/1/unlock \
   -H "Authorization: Bearer $PATIENT_PORTAL_DEV_ADMIN_TOKEN" \
-  -H "X-CARLOS-Staff-Actor: Dr example"
+  -H "X-CARLOS-Staff-Actor: CarlosDoc"
 ```
 
 Invite tokens are shown only on create/resend responses. The database stores only the token hash.

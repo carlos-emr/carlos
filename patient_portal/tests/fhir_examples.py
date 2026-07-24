@@ -33,7 +33,7 @@ def write_fhir_examples(output_dir: Path) -> None:
         id=1,
         clinic_id="default",
         created_at=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
-        created_by="Dr example",
+        created_by="CarlosDoc",
         label="Specialist message",
         source_reference="message-3135",
     )
@@ -49,7 +49,7 @@ def write_fhir_examples(output_dir: Path) -> None:
     )
     practitioner = build_fhir_r4_practitioner(
         clinic_id="default",
-        name="Dr example",
+        name="CarlosDoc",
     )
 
     examples = {

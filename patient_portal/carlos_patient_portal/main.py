@@ -660,7 +660,6 @@ def index_template_context(
         "csrf_token": csrf_token,
         "error_message": error_message,
         "service_name": settings.service_name,
-        "show_example_login": settings.is_development,
         "supported_locales": supported_locale_options(DEFAULT_LOCALE),
         "text": portal_text(DEFAULT_LOCALE),
     }

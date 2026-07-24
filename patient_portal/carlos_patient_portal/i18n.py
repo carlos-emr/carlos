@@ -34,11 +34,11 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "logo_alt": "CARLOS",
         "modal_close": "OK",
         "password_label": "Password",
-        "password_placeholder": "Carlos2026!",
+        "password_placeholder": "password",
         "sign_in_aria_label": "Sign in",
         "sign_in_heading": "Sign in",
         "username_label": "User Name",
-        "username_placeholder": "CarlosPatient",
+        "username_placeholder": "username",
     }
 }
 
