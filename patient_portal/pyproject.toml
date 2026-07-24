@@ -44,7 +44,7 @@ carlos_patient_portal = [
   "static/*.css",
   "static/*.js",
   "static/*.svg",
-  "templates/*.html",
+  "templates/*.jinja",
   "interop_profiles/*.json",
   "migrations/README",
   "migrations/script.py.mako",

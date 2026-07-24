@@ -22,7 +22,6 @@
       <div class="auth-layout">
         <section class="auth-panel" aria-labelledby="mfa-title">
           <h1 id="mfa-title">Verification code</h1>
-          {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
           <form class="form-stack" method="post" action="{{ url_for('verify_mfa') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">

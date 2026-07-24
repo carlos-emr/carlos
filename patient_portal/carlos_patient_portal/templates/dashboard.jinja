@@ -21,8 +21,6 @@
         <div class="portal-user-actions">
           <span class="signed-in-user">{{ account.username }}</span>
           <form class="logout-form" method="post" action="{{ url_for('portal_logout') }}">
-            <span hidden aria-hidden="true">{% raw %}{% csrf_token %}{% endraw %}</span>
-            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="secondary-action" type="submit">Logout</button>
           </form>
@@ -73,8 +71,6 @@
               <section class="settings-section">
                 <h2>Change password</h2>
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_password') }}">
-                  <span hidden aria-hidden="true">{% raw %}{% csrf_token %}{% endraw %}</span>
-                  <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
                     Current password
@@ -91,8 +87,6 @@
               <section class="settings-section">
                 <h2>Contact info</h2>
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_contact') }}">
-                  <span hidden aria-hidden="true">{% raw %}{% csrf_token %}{% endraw %}</span>
-                  <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
                     Email
@@ -119,8 +113,6 @@
               <section class="settings-section">
                 <h2>MFA settings</h2>
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_mfa') }}">
-                  <span hidden aria-hidden="true">{% raw %}{% csrf_token %}{% endraw %}</span>
-                  <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
                     Method

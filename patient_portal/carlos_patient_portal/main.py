@@ -1255,7 +1255,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
             request=request,
-            name="index.html",
+            name="index.jinja",
             context=index_template_context(
                 request,
                 settings=settings,
@@ -1355,7 +1355,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
             request=request,
-            name="dashboard.html",
+            name="dashboard.jinja",
             context=portal_template_context(
                 request,
                 authenticated_session=authenticated_session,
@@ -1607,7 +1607,7 @@ def register_auth_routes(
             csrf_token = create_csrf_token(csrf_secret)
             response = templates.TemplateResponse(
                 request=request,
-                name="mfa.html",
+                name="mfa.jinja",
                 context=mfa_template_context(
                     request,
                     settings=settings,
