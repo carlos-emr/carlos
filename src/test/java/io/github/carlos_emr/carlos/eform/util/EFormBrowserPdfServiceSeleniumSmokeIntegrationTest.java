@@ -106,7 +106,7 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
             driver.executeScript(EFormBrowserPdfService.PREPARE_PRINT_JS);
 
             List<EFormBrowserPdfService.PageSize> pageSizes =
-                    EFormBrowserPdfService.readPageSizes(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS));
+                    EFormBrowserPdfService.readPageGeometry(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS)).pages();
             // The fixture authors exactly two pageN divs; native print must preserve that pagination.
             assertThat(pageSizes).as("measured authored page sizes").hasSize(2);
             driver.executeScript(EFormBrowserPdfService.INJECT_PAGE_SIZE_CSS_JS,
@@ -200,7 +200,7 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
             driver.executeScript(EFormBrowserPdfService.PREPARE_PRINT_JS);
 
             List<EFormBrowserPdfService.PageSize> pageSizes =
-                    EFormBrowserPdfService.readPageSizes(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS));
+                    EFormBrowserPdfService.readPageGeometry(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS)).pages();
             // A free-flow form authors no pageN divs, so no authored @page sizes are measured or
             // injected — Chromium paginates on its own (or on the form's own @page rule).
             assertThat(pageSizes).as("free-flow form authors no page sizes").isEmpty();

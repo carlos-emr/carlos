@@ -285,14 +285,20 @@ public class EFormBrowserPdfService {
      *
      * <p>When page divs exist, this also marks every <em>in-flow</em> {@code body} child that neither
      * is nor contains a page div with the {@code carlos-render-nonpage} class (hidden by the baseline
-     * print stylesheet): corpus forms carry interstitial/trailing flow content (license text, spacer
-     * markup) that the legacy region capture never photographed but that native print would paginate
-     * into stray extra pages. Absolutely/fixed-positioned siblings are left visible — they are out of
-     * flow (cost no pagination space), and some corpus forms overlay inputs onto pages from outside
-     * the page divs.</p>
+     * print stylesheet): corpus forms carry interstitial/trailing flow content that the legacy region
+     * capture never photographed but that native print would paginate into stray extra pages — and
+     * interstitial in-flow content structurally CANNOT stay in flow, because it shifts every
+     * subsequent authored page off its page boundary (the checkbox-misalignment bug). Invisible
+     * layout junk (spacer divs, empty paragraphs) is excluded silently; SUBSTANTIVE content (real
+     * text or visual elements, e.g. a license notice) is counted and measured so the render logs an
+     * operator WARN that authored content was excluded from the printed PDF (the on-screen eForm
+     * still shows it). Absolutely/fixed-positioned siblings are left visible — they are out of flow
+     * (cost no pagination space), and some corpus forms overlay inputs onto pages from outside the
+     * page divs.</p>
      *
-     * <p>Returns {@code [{id,width,height}, ...]}, empty for a free-flow form (e.g. the Rich Text
-     * Letter) that authored no {@code pageN} divs.</p>
+     * <p>Returns {@code {pages: [{id,width,height}, ...], excludedCount, excludedHeight}};
+     * {@code pages} is empty for a free-flow form (e.g. the Rich Text Letter) that authored no
+     * {@code pageN} divs (no marking happens in that case — the whole document prints).</p>
      */
     static final String COMPUTE_PAGE_GEOMETRY_JS =
             "const rectOf = (el) => {\n"
@@ -335,6 +341,8 @@ public class EFormBrowserPdfService {
             + "};\n"
             + "const pageNodes = Array.from(document.body ? document.body.querySelectorAll('*') : [])\n"
             + "  .filter((el) => /^page\\d+$/i.test(el.id));\n"
+            + "let excludedCount = 0;\n"
+            + "let excludedHeight = 0;\n"
             + "if (pageNodes.length > 0 && document.body) {\n"
             + "  for (const child of Array.from(document.body.children)) {\n"
             + "    if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE') {\n"
@@ -347,23 +355,39 @@ public class EFormBrowserPdfService {
             + "    const position = window.getComputedStyle(child).position;\n"
             + "    if (position !== 'absolute' && position !== 'fixed') {\n"
             + "      child.classList.add('carlos-render-nonpage');\n"
+            // Substantive = visible, taller than a spacer, and carrying real text or a visual
+            // element. Invisible layout junk (whitespace divs, empty paragraphs, <br> runs) is
+            // excluded silently; substantive authored content is counted so the JVM can WARN that
+            // it was excluded from the printed PDF (legacy region-capture parity).
+            + "      const rect = child.getBoundingClientRect();\n"
+            + "      const substantive = isVisible(child) && rect.height > 4 && (\n"
+            + "        (child.textContent || '').trim().length > 0\n"
+            + "        || child.querySelector('img, canvas, svg, video, input, textarea, select') !== null);\n"
+            + "      if (substantive) {\n"
+            + "        excludedCount += 1;\n"
+            + "        excludedHeight += rect.height;\n"
+            + "      }\n"
             + "    }\n"
             + "  }\n"
             + "}\n"
-            + "return pageNodes.map((pageNode) => {\n"
-            + "  const own = rectOf(pageNode);\n"
-            + "  const box = contentBox(pageNode);\n"
-            + "  return {\n"
+            + "return {\n"
+            + "  pages: pageNodes.map((pageNode) => {\n"
+            + "    const own = rectOf(pageNode);\n"
+            + "    const box = contentBox(pageNode);\n"
+            + "    return {\n"
             // Width hugs the CONTENT union (the background image / field extent), exactly as the
             // legacy region capture did: a plain block page div stretches to the full viewport
             // width, and printing that stretched box would emit pages with a giant blank right
             // margin. Height instead takes the LARGER of the div's flow extent and its content:
             // vertical under-measurement is what spills blank pages or clips fields.
-            + "    id: pageNode.id,\n"
-            + "    width: box.width > 0 ? box.width : own.width,\n"
-            + "    height: Math.max(own.height, box.height),\n"
-            + "  };\n"
-            + "});";
+            + "      id: pageNode.id,\n"
+            + "      width: box.width > 0 ? box.width : own.width,\n"
+            + "      height: Math.max(own.height, box.height),\n"
+            + "    };\n"
+            + "  }),\n"
+            + "  excludedCount: excludedCount,\n"
+            + "  excludedHeight: excludedHeight,\n"
+            + "};";
 
     /**
      * Applies the JVM-computed {@code @page} sizing CSS (argument 0) into a dedicated style element,
@@ -577,9 +601,21 @@ public class EFormBrowserPdfService {
             // native print reproduces the legacy per-page geometry. An empty list is valid: a free-flow
             // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
             // form's own @page rules or Chromium's default paper drive natural pagination.
-            List<PageSize> pageSizes = readPageSizes(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            List<PageSize> pageSizes = geometry.pages();
             if (!pageSizes.isEmpty()) {
                 js.executeScript(INJECT_PAGE_SIZE_CSS_JS, buildPageSizeCss(pageSizes));
+            }
+            if (geometry.excludedCount() > 0) {
+                // Authored in-flow content outside the pageN divs was excluded from the printed PDF
+                // (legacy region-capture parity — interstitial flow content would shift every later
+                // authored page off its boundary). Surface it: the form author intended that content,
+                // and an operator/form designer must be able to see WHY it is absent from the PDF.
+                // Counts and extent only — never element text, which can carry eForm content.
+                logger.warn("Browser eForm renderer excluded {} substantive in-flow element(s) (~{}px tall) "
+                        + "outside the authored page divs from the printed PDF (legacy region-capture parity; "
+                        + "the on-screen eForm still shows them): fdid={}",
+                        geometry.excludedCount(), Math.round(geometry.excludedHeight()), fdid);
             }
             logger.debug("Browser eForm renderer measured {} authored page size(s): fdid={}", pageSizes.size(), fdid);
 
@@ -1049,6 +1085,30 @@ public class EFormBrowserPdfService {
     }
 
     /**
+     * Validates the full result of {@link #COMPUTE_PAGE_GEOMETRY_JS}: the bounded page sizes plus the
+     * excluded-content diagnostics. The exclusion counters are advisory operator telemetry, so they
+     * are CLAMPED rather than fail-closed: a malformed/non-finite/negative value degrades to zero
+     * (no WARN) instead of aborting a render whose page geometry is perfectly valid.
+     */
+    static PageGeometry readPageGeometry(Object rawGeometry) throws PDFGenerationException {
+        if (!(rawGeometry instanceof Map<?, ?> rawMap)) {
+            throw new PDFGenerationException("Browser rendering returned an unexpected page-geometry result.");
+        }
+        List<PageSize> pages = readPageSizes(rawMap.get("pages"));
+        int excludedCount = 0;
+        double excludedHeight = 0;
+        if (rawMap.get("excludedCount") instanceof Number count && rawMap.get("excludedHeight") instanceof Number height) {
+            double rawCount = count.doubleValue();
+            double rawHeight = height.doubleValue();
+            if (Double.isFinite(rawCount) && rawCount > 0 && Double.isFinite(rawHeight) && rawHeight >= 0) {
+                excludedCount = (int) Math.min(rawCount, Integer.MAX_VALUE);
+                excludedHeight = rawHeight;
+            }
+        }
+        return new PageGeometry(pages, excludedCount, excludedHeight);
+    }
+
+    /**
      * Validates the raw page-geometry list from {@link #COMPUTE_PAGE_GEOMETRY_JS} into bounded
      * {@link PageSize} values. The geometry comes from the (clinic-authored) eForm DOM, so it is
      * fail-closed: too many pages, a non-finite dimension, or a dimension past
@@ -1163,6 +1223,15 @@ public class EFormBrowserPdfService {
 
     /** Immutable authored page size in CSS px, tagged with the source {@code pageN} div id. */
     record PageSize(String id, double width, double height) {
+    }
+
+    /**
+     * Full page-geometry measurement: the authored page sizes plus advisory diagnostics about
+     * substantive in-flow content found outside the page divs and excluded from the printed PDF
+     * (see {@link #COMPUTE_PAGE_GEOMETRY_JS}). {@code excludedCount}/{@code excludedHeight} drive
+     * the operator WARN only — they never affect the print itself.
+     */
+    record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight) {
     }
 
     // ---------------------------------------------------------------------------------------------

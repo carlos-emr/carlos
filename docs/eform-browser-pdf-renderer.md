@@ -39,19 +39,31 @@ closes that gap by **measuring each authored page div's content box and injectin
 
 - `Emulation.setEmulatedMedia` is set to `print` before the page settles, so the layout that is
   measured and gated is exactly the layout that prints (a form's own `@media print` rules apply).
-- `COMPUTE_PAGE_GEOMETRY_JS` measures each `pageN` div's content bounding box (the union of its
-  visible descendants — the background image is the largest descendant for a scanned form, so the
-  box equals the scan dimensions; a synthetic/text page still encloses every field). Measuring the
-  content box rather than the background `<img>` avoids a degenerate placeholder background (a tiny
-  asset the page's real content overflows) driving Chromium to paginate that content across many
-  tiny pages.
-- `readPageSizes` validates the geometry fail-closed (page-count and per-dimension caps, non-finite
-  rejection), then `buildPageSizeCss` emits either one anonymous `@page { size }` (all pages share a
-  size — the common single-scan-geometry form) or CSS **named pages** bound to each page div by id
-  (sizes differ), and `Page.printToPDF` runs with `preferCSSPageSize:true`, `printBackground:true`,
+- `COMPUTE_PAGE_GEOMETRY_JS` measures each `pageN` div: printed page height is the LARGER of the
+  div's own flow extent and its visible-descendant union (vertical under-measurement spills blank
+  pages or clips fields), while printed page width hugs the content union (region-capture parity —
+  a plain block page div stretches to the viewport and would print a giant blank right margin).
+- Corpus forms author **no page-break CSS at all** (the legacy region capture never needed it), so
+  `buildPageSizeCss` injects an explicit per-div pagination contract: pinned `height`,
+  `overflow: hidden` (region-capture clipping parity), `margin: 0`, and `break-after: page` on every
+  page div but the last (`auto` on the last, so an authored inline `page-break-after` cannot emit a
+  trailing blank page). It emits either one anonymous `@page { size }` (all pages share a size — the
+  common single-scan-geometry form) or CSS **named pages** bound to each page div by id (sizes
+  differ), and `Page.printToPDF` runs with `preferCSSPageSize:true`, `printBackground:true`,
   `scale:1`, and zero margins so those authored sizes drive the PDF page boxes 1:1.
+  `readPageGeometry`/`readPageSizes` validate the measured geometry fail-closed (page-count and
+  per-dimension caps, non-finite rejection).
+- **In-flow content outside the page divs is excluded from the printed PDF, with an operator WARN
+  when it is substantive.** Interstitial in-flow content structurally cannot stay in flow — it
+  shifts every subsequent authored page off its page boundary — and the legacy region capture never
+  photographed it. Invisible layout junk (spacer divs, empty paragraphs) is excluded silently;
+  substantive content (real text or visual elements, e.g. a trailing license notice) triggers a
+  WARN with a count and pixel extent (never the content itself) so a form designer can see why it
+  is absent from the PDF. The on-screen eForm view still shows it. Absolutely-positioned siblings
+  stay visible (out of flow; some corpus forms overlay inputs onto pages from outside the divs).
 - A **free-flow form** (the Rich Text Letter) authors no `pageN` divs, so no `@page` size is
-  injected and the form's own `@page` rule (or Chromium's default paper) drives natural pagination.
+  injected, nothing is excluded, and the form's own `@page` rule (or Chromium's default paper)
+  drives natural pagination.
 
 This preserves the legacy per-page geometry contract the form corpus depends on **and** yields a
 text-layer PDF. (The previous implementation screenshotted each `pageN` region via

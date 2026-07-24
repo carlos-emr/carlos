@@ -121,7 +121,38 @@ class EFormBrowserPdfServiceUnitTest {
                 // hiding (interstitial/trailing corpus content the raster path never captured);
                 // absolutely-positioned overlays are deliberately left visible.
                 .contains("carlos-render-nonpage")
-                .contains("position !== 'absolute' && position !== 'fixed'");
+                .contains("position !== 'absolute' && position !== 'fixed'")
+                // Substantive excluded content (real text/visual elements, vs invisible spacer junk)
+                // is counted and measured so the JVM can WARN that authored content was excluded.
+                .contains("const substantive")
+                .contains("excludedCount")
+                .contains("excludedHeight");
+    }
+
+    @Test
+    @DisplayName("should read pages and clamp advisory exclusion counters from the geometry result")
+    void shouldReadPagesAndClampExclusionCounters_fromGeometryResult() throws PDFGenerationException {
+        EFormBrowserPdfService.PageGeometry geometry = EFormBrowserPdfService.readPageGeometry(Map.of(
+                "pages", List.of(Map.of("id", "page1", "width", 750L, "height", 971L)),
+                "excludedCount", 2L,
+                "excludedHeight", 210.5d));
+
+        assertThat(geometry.pages()).hasSize(1);
+        assertThat(geometry.excludedCount()).isEqualTo(2);
+        assertThat(geometry.excludedHeight()).isEqualTo(210.5d);
+
+        // The exclusion counters are advisory telemetry: malformed values degrade to zero (no WARN)
+        // instead of failing a render whose page geometry is perfectly valid.
+        EFormBrowserPdfService.PageGeometry clamped = EFormBrowserPdfService.readPageGeometry(Map.of(
+                "pages", List.of(),
+                "excludedCount", -3L,
+                "excludedHeight", Double.NaN));
+        assertThat(clamped.excludedCount()).isZero();
+        assertThat(clamped.excludedHeight()).isZero();
+
+        // A non-map geometry result is still rejected fail-closed (the pages payload is load-bearing).
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageGeometry("not-a-map"))
+                .isInstanceOf(PDFGenerationException.class);
     }
 
     @Test
