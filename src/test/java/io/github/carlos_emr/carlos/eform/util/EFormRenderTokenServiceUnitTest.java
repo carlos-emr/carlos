@@ -103,13 +103,35 @@ class EFormRenderTokenServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should return null when peeking unknown or empty tokens")
-    void shouldReturnNull_whenPeekingUnknownOrEmptyTokens() {
+    @DisplayName("should return null when peeking a null or unknown token")
+    void shouldReturnNull_whenPeekingNullOrUnknownToken() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
 
+        // An empty token can no longer be constructed (see the RenderToken invariant test), so the
+        // "empty" case at the peek boundary is a null token.
         assertThat(service.peek(null)).isNull();
-        assertThat(service.peek(new EFormRenderTokenService.RenderToken(""))).isNull();
         assertThat(service.peek(new EFormRenderTokenService.RenderToken("never-issued"))).isNull();
+    }
+
+    @Test
+    @DisplayName("should reject null or empty token values while mapping absent request params to null")
+    void shouldRejectEmptyValue_forRenderTokenInvariant() {
+        // The factory maps an absent/empty request parameter to a null token rather than throwing.
+        assertThat(EFormRenderTokenService.RenderToken.fromRequestValue(null)).isNull();
+        assertThat(EFormRenderTokenService.RenderToken.fromRequestValue("")).isNull();
+
+        // Direct construction of a null/empty token violates the structural invariant and is rejected,
+        // so callers only ever need a null check on a RenderToken (never a redundant isEmpty()).
+        assertThatThrownBy(() -> new EFormRenderTokenService.RenderToken(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new EFormRenderTokenService.RenderToken(""))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        // A non-empty value round-trips through queryValue().
+        EFormRenderTokenService.RenderToken token =
+                EFormRenderTokenService.RenderToken.fromRequestValue("abc123");
+        assertThat(token).isNotNull();
+        assertThat(token.queryValue()).isEqualTo("abc123");
     }
 
     @Test

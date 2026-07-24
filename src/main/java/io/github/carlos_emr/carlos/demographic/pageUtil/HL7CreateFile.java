@@ -388,10 +388,12 @@ public class HL7CreateFile {
     }
 
     /**
-     * Attempts to parse a Date object from the provided DateTimeFullOrPartial
+     * Attempts to parse a Date from the provided DateTimeFullOrPartial across the known input formats.
      *
      * @param dateObj The provided DateTimeFullOrPartial object
-     * @return A parsed date string of the DateTimeFullOrPartial or if not parsable it takes the current Date()
+     * @return the formatted {@code yyyyMMddHHmmss} timestamp, or an empty string when the date is
+     *         absent or unparseable. It deliberately does NOT substitute the current time: fabricating
+     *         a plausible-but-wrong clinical timestamp is worse than an empty field.
      */
     private String getDateTime(DateTimeFullOrPartial dateObj) {
         Date date = null;
@@ -405,14 +407,22 @@ public class HL7CreateFile {
                     } else if (dateObj.isSetFullDateTime()) {
                         date = format.parse(dateObj.getFullDateTime().toString());
                     }
-                } catch (ParseException e) { /* Do nothing */ }
+                } catch (ParseException e) {
+                    // Expected while probing formats: this one did not match, try the next. The
+                    // terminal all-formats-failed case is surfaced below rather than swallowed.
+                }
                 if (date != null) {
                     break;
                 }
             }
         }
         if (date == null) {
-            date = new Date();
+            // Do NOT fabricate the current time for an absent/unparseable clinical date: a wrong but
+            // plausible collection/requisition timestamp silently corrupts the lab record downstream and
+            // is undebuggable months later. Surface it (no PHI) and emit an empty HL7 date component.
+            logger.warn("HL7 export: a date component was absent or could not be parsed in any known "
+                    + "format; emitting an empty timestamp instead of a fabricated one");
+            return "";
         }
 
         return new SimpleDateFormat(FULL_DATE_TIME).format(date);

@@ -51,6 +51,13 @@ public class ProEditPhoneNum2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() throws Exception {
+        // Mutator: this action persists the provider's rxPhone (propertyDao.saveProp below), so it
+        // MUST reject GET/HEAD before any side-effect fires (GET/HEAD Rejection Contract). CSRFGuard
+        // does not validate GET, so without this a CSRF-via-GET could change the stored value.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
             throw new SecurityException("missing required sec object (_pref)");

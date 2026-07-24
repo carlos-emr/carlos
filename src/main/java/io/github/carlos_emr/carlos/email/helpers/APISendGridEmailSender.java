@@ -7,6 +7,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 
 import javax.net.ssl.SSLContext;
 
@@ -176,7 +181,9 @@ public class APISendGridEmailSender {
             try (CloseableHttpClient httpClient = HttpClients.custom()
                     .setConnectionManager(connectionManager).build()) {
 
-                HttpPost httpPost = new HttpPost(getEndPoint());
+                String endPoint = getEndPoint();
+                validateEndpoint(endPoint);
+                HttpPost httpPost = new HttpPost(endPoint);
                 httpPost.setHeader("Content-Type", "application/json");
                 httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
 
@@ -279,6 +286,61 @@ public class APISendGridEmailSender {
             throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
         }
         return apiKey;
+    }
+
+    /**
+     * Defense-in-depth on the admin-configured SendGrid endpoint before the bearer key + email payload
+     * are POSTed to it. Mirrors the fax middleware SSRF guard: require an http(s) scheme with no
+     * embedded user-info and a host that does not resolve to a loopback / link-local / any-local /
+     * multicast address (private LAN is allowed for legitimate internal relays). An operator can
+     * allowlist specific hosts via {@code carlos.email.sendgrid.allowedHosts} (comma-separated). The
+     * endpoint is trusted operator config, but this bounds the blast radius if it is misconfigured or
+     * tampered with. TLS is enforced at deployment, not here.
+     */
+    private void validateEndpoint(String endpoint) throws EmailSendingException {
+        URI uri;
+        try {
+            uri = new URI(endpoint == null ? "" : endpoint.trim());
+        } catch (URISyntaxException e) {
+            throw new EmailSendingException("Configured email endpoint is not a valid URI");
+        }
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+        if (!"http".equals(scheme) && !"https".equals(scheme)) {
+            throw new EmailSendingException("Configured email endpoint must use http or https");
+        }
+        if (uri.getUserInfo() != null) {
+            throw new EmailSendingException("Configured email endpoint must not embed user-info credentials");
+        }
+        String host = uri.getHost();
+        if (host == null || host.isEmpty()) {
+            throw new EmailSendingException("Configured email endpoint must include a host");
+        }
+        if (isEndpointHostAllowlisted(host)) {
+            return;
+        }
+        try {
+            for (InetAddress addr : InetAddress.getAllByName(host)) {
+                if (addr.isLoopbackAddress() || addr.isLinkLocalAddress()
+                        || addr.isAnyLocalAddress() || addr.isMulticastAddress()) {
+                    throw new EmailSendingException("Configured email endpoint host resolves to a disallowed address");
+                }
+            }
+        } catch (UnknownHostException e) {
+            throw new EmailSendingException("Configured email endpoint host could not be resolved");
+        }
+    }
+
+    private boolean isEndpointHostAllowlisted(String host) {
+        String allow = System.getProperty("carlos.email.sendgrid.allowedHosts", "");
+        if (allow == null || allow.isBlank()) {
+            return false;
+        }
+        for (String allowed : allow.split(",")) {
+            if (allowed.trim().equalsIgnoreCase(host)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String getEndPoint() throws EmailSendingException {

@@ -72,20 +72,48 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         try {
             digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
         } catch (Exception e) {
-            // Decryption failed. This was previously treated as proof the record is legacy plaintext,
-            // and the ORIGINAL bytes were re-encrypted and PERSISTED (merge/flush) during this read.
-            // That is destructive: a ciphertext that merely cannot be decrypted right now (rotated or
-            // missing key, provider outage, corruption) is indistinguishable from genuine plaintext,
-            // because the byte[] cipher format carries no marker — so a valid record would be
-            // double-encrypted and permanently corrupted. Do NOT mutate the stored record here.
+            // Decryption failed. The record is NOT mutated here (the old code destructively re-encrypted
+            // and persisted the bytes, permanently double-encrypting a merely-undecryptable record).
+            // setSignatureImage was not reached, so the entity still holds its original stored bytes.
             //
-            // setSignatureImage was not reached, so the entity still holds its original bytes: return
-            // them (the legacy-plaintext read path). Migrating legacy plaintext to ciphertext belongs
-            // in an explicit, verified offline process, not a getter.
-            logger.warn("Could not decrypt signature ID {}; returning the stored bytes without modifying the record", id, e);
+            // Those bytes are only safe to return when they really are a plaintext image (the legacy
+            // case). For a genuinely encrypted record whose key is currently unavailable (rotation,
+            // outage), the ciphertext is undecodable — returning it would stream garbage as image/jpeg
+            // with HTTP 200, and a signed eForm would fax/archive with a blank signature block while the
+            // render gate (which only trips on >= 400) sees success. So sniff the bytes: keep them only
+            // if they look like a real image; otherwise null the image so the signature servlet 404s and
+            // the render fails honestly.
+            byte[] stored = digitalSignature.getSignatureImage();
+            if (looksLikeImage(stored)) {
+                logger.warn("Could not decrypt signature ID {}; stored bytes look like a legacy plaintext image, returning as-is", id);
+            } else {
+                logger.error("Could not decrypt signature ID {} and the stored bytes are not a recognizable image "
+                        + "(likely encrypted with a currently-unavailable key); returning no image", id, e);
+                digitalSignature.setSignatureImage(null);
+            }
         }
 
         return digitalSignature;
+    }
+
+    /**
+     * True when the bytes begin with a known raster-image magic number (JPEG, PNG, GIF, or BMP).
+     * Used to distinguish a legacy plaintext signature image from undecryptable ciphertext on the
+     * decrypt-failure path so a broken signature is never streamed as a valid image.
+     */
+    private static boolean looksLikeImage(byte[] bytes) {
+        if (bytes == null || bytes.length < 4) {
+            return false;
+        }
+        int b0 = bytes[0] & 0xFF;
+        int b1 = bytes[1] & 0xFF;
+        int b2 = bytes[2] & 0xFF;
+        int b3 = bytes[3] & 0xFF;
+        boolean jpeg = b0 == 0xFF && b1 == 0xD8 && b2 == 0xFF;
+        boolean png = b0 == 0x89 && b1 == 0x50 && b2 == 0x4E && b3 == 0x47;
+        boolean gif = b0 == 0x47 && b1 == 0x49 && b2 == 0x46 && b3 == 0x38;
+        boolean bmp = b0 == 0x42 && b1 == 0x4D;
+        return jpeg || png || gif || bmp;
     }
 
     @Override

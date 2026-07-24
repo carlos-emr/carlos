@@ -869,7 +869,11 @@ public class EFormBrowserPdfService {
      * back to the render thread through {@link Future#get}, which establishes the needed happens-before.
      */
     private ChromeDriver startSessionWithinBudget(ChromeDriverService service, ChromeOptions options) {
-        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> {
+        // The executor is closed in the finally below via shutdownNow(). shutdownNow() is deliberate,
+        // NOT try-with-resources close(): close() awaits task termination, which would re-block the
+        // request thread on a wedged ChromeDriver constructor — the exact hang this watchdog exists to
+        // bound. The worker is a daemon, so a still-running cancelled task never keeps the JVM alive.
+        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> { // NOSONAR java:S2095 - closed via shutdownNow() in finally; try-with-resources close() would block the watchdog
             Thread thread = new Thread(runnable, "eform-render-driver-start");
             thread.setDaemon(true);
             return thread;
@@ -989,7 +993,13 @@ public class EFormBrowserPdfService {
         checkDeadline(deadlineNanos);
         Object settleError = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
         if (settleError != null) {
-            throw new PDFGenerationException("Browser rendering failed while stabilizing the eForm page: " + RenderLogRedaction.redactUrls(String.valueOf(settleError)));
+            // settleError is page-controlled: a hostile eForm can throw an Error whose message carries
+            // arbitrary text — potentially PHI read from the form's own rendered fields — and
+            // redactUrls() only strips URLs/paths, not free text. Never propagate or log its content;
+            // use a fixed message (which then flows to callers/UI/logs safely) and record only that a
+            // stabilization error occurred.
+            logger.warn("eForm page stabilization reported an error (content suppressed as potential PHI)");
+            throw new PDFGenerationException("Browser rendering failed while stabilizing the eForm page.");
         }
         checkDeadline(deadlineNanos);
     }

@@ -250,7 +250,11 @@ public class Download2Action extends ActionSupport {
             File inboxDir = PathValidationUtils.validateConfiguredDirectory(
                     CarlosProperties.getInstance().getProperty("ONEDT_INBOX"), "ONEDT_INBOX");
             for (DownloadData d : downloadResult.getData()) {
-                File document = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
+                // Sanitize the remote description to a bare filename, then prefix it with the resource ID
+                // so two downloads that share a description cannot silently overwrite each other in the
+                // inbox. validatePath re-confines the assembled name to inboxDir and strips any traversal.
+                String safeDescription = PathValidationUtils.validatePath(d.getDescription(), inboxDir).getName();
+                File document = PathValidationUtils.validatePath(d.getResourceID() + "_" + safeDescription, inboxDir);
                 byte[] inputBytes = d.getContent();
 
 
@@ -336,7 +340,12 @@ public class Download2Action extends ActionSupport {
             FileUtils.write(document, lastID, false);
 
         } catch (Exception e) {
-            logger.error("Unable to update Last Download ID ", e);
+            // Do NOT swallow: the last-downloaded id is the durable resume checkpoint. Losing it
+            // silently means the next run re-downloads already-fetched messages or skips new ones. Surface
+            // it so the download reports failure (the caller's catch returns ERROR) rather than continuing
+            // with a corrupt checkpoint.
+            logger.error("Unable to update the MCEDT last-downloaded checkpoint", e);
+            throw new RuntimeException("Failed to persist the MCEDT last-downloaded checkpoint", e);
         }
 
     }

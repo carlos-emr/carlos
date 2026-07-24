@@ -440,22 +440,25 @@ public class CommonLabResultData {
         }
 
         if (!"0".equals(providerNo)) {
-            List<ProviderLabRoutingModel> modelRecords = providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
-            ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
-            int archived = adr.recordRowsToBeDeleted(modelRecords, "" + providerNo, "providerLabRouting");
-            if (archived < 0) {
-                // Archival failed. The result was previously ignored and deletion proceeded regardless,
-                // so rows could be deleted with no audit archive; at least surface the failure now.
-                logger.warn("Provider-lab routing archival failed before deletion; deletion of provider-0 rows still proceeded");
-            }
-
-            // NOTE (needs domain review): the rows archived above are the provider-specific rows
-            // (providerNo), but the rows deleted below are the provider-"0" (unassigned) rows — two
-            // different sets. If archival is meant to cover the deleted rows, the archive target is
-            // wrong. Behavior is left unchanged pending a domain decision; this change only makes the
-            // archive failure observable rather than silent.
-            for (ProviderLabRoutingModel plr : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0")) {
-                providerLabRoutingDao.remove(plr.getId());
+            // The unassigned ("0") placeholder rows are now obsolete because the lab has been assigned
+            // to a real provider, so they are deleted. Archive the EXACT rows being deleted (not the
+            // provider-specific rows, which are kept) and fail closed if the archive fails: never
+            // destroy a routing row without a successful audit copy. recordRowsToBeDeleted returns -1
+            // on failure, >= 0 on success.
+            List<ProviderLabRoutingModel> rowsToDelete =
+                    providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0");
+            if (rowsToDelete != null && !rowsToDelete.isEmpty()) {
+                ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
+                int archived = adr.recordRowsToBeDeleted(rowsToDelete, "0", "providerLabRouting");
+                if (archived < 0) {
+                    logger.error("Provider-lab routing deletion aborted for lab {}: archival of the "
+                            + "unassigned (provider-0) rows failed, so they are left in place to "
+                            + "preserve the audit trail", labNo);
+                    return false;
+                }
+                for (ProviderLabRoutingModel plr : rowsToDelete) {
+                    providerLabRoutingDao.remove(plr.getId());
+                }
             }
         }
         return Boolean.TRUE;

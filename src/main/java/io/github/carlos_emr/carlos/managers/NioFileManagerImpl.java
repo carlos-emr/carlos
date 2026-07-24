@@ -320,7 +320,13 @@ public class NioFileManagerImpl implements NioFileManager {
                         log.error("Failed to write PNG image to cache file: {}", LogSafe.sanitize(String.valueOf(cacheFilePath)));
                         return null;
                     }
-                    promotePartialIntoPlace(partialFile, cacheFilePath);
+                    // Serialize the promotion against a concurrent flush of the SAME source (keyed on the
+                    // shared scoped base name). Without this, a page promoted between removeCacheVersions'
+                    // directory snapshot and its deletions slips through and survives a "successful" flush
+                    // (a stale PHI preview page). See previewCacheLock.
+                    synchronized (previewCacheLock(scopedCacheName)) {
+                        promotePartialIntoPlace(partialFile, cacheFilePath);
+                    }
                 } finally {
                     Files.deleteIfExists(partialFile);
                 }
@@ -450,7 +456,8 @@ public class NioFileManagerImpl implements NioFileManager {
             // PHI preview pages are gone. Fail loudly rather than return a misleading 0.
             throw new IllegalArgumentException("source directory is not an allowed preview source");
         }
-        String scopedPrefix = scopedCacheBaseName(sanitizeFileName(filename), normalizedSourceDir) + "_";
+        String scopedBase = scopedCacheBaseName(sanitizeFileName(filename), normalizedSourceDir);
+        String scopedPrefix = scopedBase + "_";
 
         Path normalizedCacheDir = resolveDocumentCacheDirectory().normalize().toAbsolutePath();
         if (!Files.isDirectory(normalizedCacheDir)) {
@@ -459,30 +466,36 @@ public class NioFileManagerImpl implements NioFileManager {
 
         int removed = 0;
         int failedRemovals = 0;
-        try (DirectoryStream<Path> entries = Files.newDirectoryStream(normalizedCacheDir)) {
-            for (Path entry : entries) {
-                String name = entry.getFileName().toString();
-                // Only this source's page images: "<scopedPrefix><digits>.png".
-                if (!name.startsWith(scopedPrefix) || !name.endsWith(".png")) {
-                    continue;
-                }
-                String pageSegment = name.substring(scopedPrefix.length(), name.length() - ".png".length());
-                if (pageSegment.isEmpty() || !pageSegment.chars().allMatch(Character::isDigit)) {
-                    continue;
-                }
-                try {
-                    Path validated = PathValidationUtils.validateExistingPath(entry.toFile(), normalizedCacheDir.toFile()).toPath();
-                    if (!Files.isDirectory(validated) && Files.deleteIfExists(validated)) {
-                        removed++;
+        // Hold the same per-source stripe lock the writer takes around promotion, so the snapshot AND
+        // the deletions are atomic with respect to a concurrent createCacheVersion2 promotion: a page
+        // is either seen (and removed) here or promoted entirely after this flush completes (a new
+        // render), never promoted into the window between this snapshot and its deletions.
+        synchronized (previewCacheLock(scopedBase)) {
+            try (DirectoryStream<Path> entries = Files.newDirectoryStream(normalizedCacheDir)) {
+                for (Path entry : entries) {
+                    String name = entry.getFileName().toString();
+                    // Only this source's page images: "<scopedPrefix><digits>.png".
+                    if (!name.startsWith(scopedPrefix) || !name.endsWith(".png")) {
+                        continue;
                     }
-                } catch (SecurityException | IOException e) {
-                    failedRemovals++;
-                    log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name), e);
+                    String pageSegment = name.substring(scopedPrefix.length(), name.length() - ".png".length());
+                    if (pageSegment.isEmpty() || !pageSegment.chars().allMatch(Character::isDigit)) {
+                        continue;
+                    }
+                    try {
+                        Path validated = PathValidationUtils.validateExistingPath(entry.toFile(), normalizedCacheDir.toFile()).toPath();
+                        if (!Files.isDirectory(validated) && Files.deleteIfExists(validated)) {
+                            removed++;
+                        }
+                    } catch (SecurityException | IOException e) {
+                        failedRemovals++;
+                        log.error("Unable to remove preview cache page {}", LogSafe.sanitize(name), e);
+                    }
                 }
+            } catch (IOException e) {
+                log.error("Error while clearing source-scoped preview cache", e);
+                throw e;
             }
-        } catch (IOException e) {
-            log.error("Error while clearing source-scoped preview cache", e);
-            throw e;
         }
         if (removed > 0) {
             log.debug("Cleared {} preview cache page image(s) for {} (provider={})", removed,
@@ -597,6 +610,27 @@ public class NioFileManagerImpl implements NioFileManager {
      */
     private static String scopedCacheBaseName(String sanitizedFilename, Path normalizedSourceDir) {
         return boundedCacheBaseName(sanitizedFilename) + "_" + sourceDirectoryCacheKey(normalizedSourceDir);
+    }
+
+    /**
+     * Fixed pool of monitor objects used to serialize a source's preview-cache page promotion
+     * ({@link #createCacheVersion2}) against its flush ({@link #removeCacheVersions}). Striping (rather
+     * than a per-key map) bounds memory and needs no cleanup; a hash collision only means two unrelated
+     * sources briefly share a lock, which is harmless. Keyed on the shared {@link #scopedCacheBaseName}.
+     */
+    private static final int PREVIEW_CACHE_LOCK_STRIPES = 64;
+    private static final Object[] PREVIEW_CACHE_LOCKS = newStripeLocks(PREVIEW_CACHE_LOCK_STRIPES);
+
+    private static Object[] newStripeLocks(int count) {
+        Object[] locks = new Object[count];
+        for (int i = 0; i < count; i++) {
+            locks[i] = new Object();
+        }
+        return locks;
+    }
+
+    private static Object previewCacheLock(String scopedCacheBaseName) {
+        return PREVIEW_CACHE_LOCKS[Math.floorMod(scopedCacheBaseName.hashCode(), PREVIEW_CACHE_LOCK_STRIPES)];
     }
 
     /**

@@ -352,11 +352,12 @@ public class DocumentPreview2Action extends ActionSupport {
      * Renders a PDF file from a validated file path and streams it directly to the HTTP response.
      *
      * This method performs comprehensive security validation to prevent path traversal attacks
-     * before serving PDF files. It validates that the requested file path exists within allowed
-     * directories (DOCUMENT_DIR, TMP_DIR, eform_image, or system temp directory) using
-     * PathValidationUtils. Only files that pass canonical path validation and exist as regular
-     * files are served. This method is critical for maintaining PHI security and preventing
-     * unauthorized file access.
+     * before serving PDF files. It validates that the requested file path exists within the
+     * document-store directories (DOCUMENT_DIR, eform_image) or the CARLOS-owned application temp
+     * subtree (via PathValidationUtils.isInApplicationTempDirectory). Generic temp roots are
+     * intentionally excluded so unrelated /tmp artifacts cannot be served. Only files that pass
+     * canonical path validation and exist as regular files are served. This method is critical for
+     * maintaining PHI security and preventing unauthorized file access.
      *
      * Expected request parameters:
      * - pdfPath: String the file system path to the PDF file to render
@@ -416,12 +417,14 @@ public class DocumentPreview2Action extends ActionSupport {
             boolean isValidPath = PathValidationUtils.isInApplicationTempDirectory(canonicalPdfPath.toFile());
 
             if (!isValidPath) {
-                // Define allowed document-store directories based on OSCAR configuration
+                // Allowed document-store directories only. The generic temp roots (TMP_DIR /
+                // java.io.tmpdir) are deliberately NOT listed: they would let any _edoc-read user
+                // stream any Tomcat-readable file under /tmp, including other patients' rendered
+                // preview PDFs, defeating demographic scoping. CARLOS-owned renderer temp output is
+                // already accepted by the isInApplicationTempDirectory fast-path above.
                 String[] allowedBasePaths = {
                     CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
-                    CarlosProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
-                    CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
-                    System.getProperty("java.io.tmpdir")
+                    CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/")
                 };
                 for (String basePath : allowedBasePaths) {
                     if (basePath != null && !basePath.isEmpty()) {

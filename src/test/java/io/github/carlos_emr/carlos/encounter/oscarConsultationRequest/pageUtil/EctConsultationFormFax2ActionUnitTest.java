@@ -129,6 +129,9 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should return the error result when the rendered fax PDF cannot be promoted into the document store")
     void shouldReturnError_whenFaxPdfPromotionReturnsNull() throws Exception {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        // Faxing now also requires _fax write (mirrors Fax2Action); grant it so the test reaches the
+        // PDF-promotion path it is exercising rather than stopping at the authorization gate.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
         Path rendered = Paths.get("/tmp/consult-fax-source.pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(rendered);
         // copyFileToOscarDocuments returning null used to NPE the next line's Paths.get(null); the

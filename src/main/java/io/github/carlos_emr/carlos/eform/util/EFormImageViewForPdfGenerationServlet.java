@@ -76,7 +76,9 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
             if (loggedInInfo != null) {
                 enforceAssetReadPrivilege(loggedInInfo, fileName);
-                logger.debug("eForm asset request authorized via _eform session");
+                // Neutral wording: enforceAssetReadPrivilege accepts either _eform READ or, for
+                // vaccine-brands.json, _prevention READ — so do not claim it was specifically _eform.
+                logger.debug("eForm asset request authorized via authenticated session");
             } else {
                 EFormRenderTokenService.RenderGrant grant = liveRenderGrant(request);
                 if (grant == null) {

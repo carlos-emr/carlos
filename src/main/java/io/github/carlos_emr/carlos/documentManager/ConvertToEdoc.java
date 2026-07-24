@@ -288,6 +288,13 @@ public final class ConvertToEdoc {
      * @return Path the path to the saved temporary PDF, or null if conversion fails
      */
     private static Path execute(final String eformString, final String filename) {
+        if (eformString == null) {
+            // No source HTML to render. Return null per this method's documented failure contract
+            // instead of NPE-ing deep in the Jsoup/Flying Saucer pipeline; callers treat null as a
+            // conversion failure and surface it.
+            logger.error("Cannot render PDF: source HTML was null for {}", LogSafe.sanitize(filename));
+            return null;
+        }
         Path path = null;
         String document = tidyDocument(eformString);
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
@@ -443,7 +450,9 @@ public final class ConvertToEdoc {
      * Prepare document for Flying Saucer which requires strict XHTML
      */
     static Document prepareDocumentForFlyingSaucer(String document) {
-        Document doc = Jsoup.parse(document);
+        // Defensive: execute() already returns early on null HTML, but keep the sink null-safe so a
+        // future caller of this package-visible helper cannot NPE Jsoup.parse.
+        Document doc = Jsoup.parse(document == null ? "" : document);
         normalizeHtmlCommentsForXml(doc);
         
         // Flying Saucer requires XML/XHTML syntax

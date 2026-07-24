@@ -135,7 +135,12 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
 
             HtmlResponse.of(HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET, html).writeTo(response);
         } catch (IOException e) {
-            throw e;
+            // A write/sendError I/O failure is almost always a client disconnect mid-response; the
+            // response is already (partly) committed. Handle it here rather than letting it escape the
+            // servlet method (S1989) — there is nothing left to send. URL-redacted: the request URI can
+            // carry the fdid/render token.
+            logger.debug("EFormBrowserRenderPageServlet response I/O failed (client likely disconnected): {}",
+                    RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         } catch (Exception e) {
             // Same redaction rule as the renderer: this route's request URL carries the fdid and
             // render token, and container/machinery exceptions can embed the request URI — log
@@ -146,8 +151,14 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
                     RenderLogRedaction.stackSummary(e));
             if (!response.isCommitted()) {
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                        "An internal error occurred. Please try again or contact your system administrator.");
+                } catch (IOException io) {
+                    // Client went away before we could send the error page; nothing more to do.
+                    logger.debug("EFormBrowserRenderPageServlet could not send error response (client likely disconnected): {}",
+                            RenderLogRedaction.redactUrls(String.valueOf(io.getMessage())));
+                }
             }
         }
     }

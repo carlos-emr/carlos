@@ -166,7 +166,7 @@ public class DisplayImage2Action extends ActionSupport {
 
     private void validateRequestedFileName(String fileName) {
         if (!fileName.equals(FilenameUtils.getName(fileName))) {
-            logger.warn("Path traversal attempt in imagefile parameter: {}", LogSafe.sanitize(fileName));
+            logger.warn("Path traversal attempt in imagefile parameter: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Path traversal detected in imagefile parameter");
         }
     }

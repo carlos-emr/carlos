@@ -82,12 +82,10 @@ public class EForm extends EFormBase {
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
     private static final String LOAD_SIG_CALL = "loadSig()";
+    // Idempotent: a real loadSig defined earlier in the body wins via the "||", a missing one gets the
+    // no-op. Injected unconditionally whenever the page calls loadSig(), so no definition-detection is
+    // needed (a heuristic that scanned for a definition false-matched loadSig text in comments/strings).
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
-    // Detect a real loadSig DEFINITION (function declaration or assignment), not a bare call such as
-    // an inline "window.loadSig()" — treating a call as a definition would suppress the fallback and
-    // leave loadSig undefined, breaking the form's onload.
-    private static final Pattern LOAD_SIG_DEFINITION =
-            Pattern.compile("function\\s+loadSig\\s*\\(|window\\s*\\.\\s*loadSig\\s*=");
     // Matches legacy string-argument timer calls with either quote style. The backreference \1 pins
     // the closing quote to the opening one, while the body consumes either escaped characters or
     // any non-delimiter, non-line-break content so escaped quotes do not terminate the match early.
@@ -478,14 +476,14 @@ public class EForm extends EFormBase {
                 .replace("src=\"/eform/jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"");
     }
 
-    private static boolean definesLoadSig(String content) {
-        return content != null && LOAD_SIG_DEFINITION.matcher(content).find();
-    }
-
     private String injectLoadSigFallback(String html) {
         if (StringUtils.isBlank(html)) return html;
         if (!html.contains(LOAD_SIG_CALL)) return html;
-        if (definesLoadSig(html)) return html;
+        // Always inject when the page calls loadSig(): LOAD_SIG_FALLBACK is idempotent
+        // ("window.loadSig = window.loadSig || function loadSig(){}"), so a real definition — which is
+        // injected earlier in the body and runs first — is preserved via the ||, and a missing one gets
+        // the no-op. The previous definition-detection heuristic false-matched loadSig text inside
+        // comments/strings/nested functions and then suppressed the fallback, breaking the form's onload.
 
         String fallback = "<" + SCRIPT_TAG + ">" + LOAD_SIG_FALLBACK + "</" + SCRIPT_TAG + ">";
         int bodyClose = StringUtils.lastIndexOfIgnoreCase(html, "</body>");
@@ -608,12 +606,10 @@ public class EForm extends EFormBase {
         Element body = getDocument().body();
         if (!body.attr("onload").contains(LOAD_SIG_CALL)) return;
 
-        boolean hasLoadSigDefinition = getDocument().select(SCRIPT_TAG + ":not([src])").stream()
-                .map(Element::data)
-                .anyMatch(EForm::definesLoadSig);
-        if (!hasLoadSigDefinition) {
-            body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
-        }
+        // Always append the idempotent fallback (see injectLoadSigFallback): a real definition earlier
+        // in the body wins via the "|| function" guard, so no definition-detection heuristic is needed
+        // — and the previous one false-matched loadSig text in comments/strings and broke onload.
+        body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
     }
 
     private static String rewriteLegacyTimerCalls(String html, Pattern pattern, String timerFunction) {

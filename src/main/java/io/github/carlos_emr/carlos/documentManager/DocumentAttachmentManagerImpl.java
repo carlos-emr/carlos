@@ -33,6 +33,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.util.*;
 
 /**
@@ -506,7 +507,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
         attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-        return concatPDF(pdfDocumentList);
+        Path result = concatPDF(pdfDocumentList);
+        cleanupRenderedTempInputs(pdfDocumentList, result);
+        return result;
     }
 
     /**
@@ -573,7 +576,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
         attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-        return preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList);
+        Path result = preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList);
+        cleanupRenderedTempInputs(pdfDocumentList, result);
+        return result;
     }
 
     Path preserveSingleEformPdfWhenUnattached(Path eFormPath, List<Object> pdfDocumentList) throws PDFGenerationException {
@@ -581,6 +586,36 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             return eFormPath;
         }
         return concatPDF(new ArrayList<>(pdfDocumentList));
+    }
+
+    /**
+     * Deletes the intermediate renderer temp inputs once they have been folded into {@code result}.
+     * Two hard safety rules: never delete the returned {@code result} itself, and only ever delete a
+     * file that lives under the CARLOS-owned application temp subtree
+     * ({@link PathValidationUtils#isInApplicationTempDirectory}). The second rule makes it impossible
+     * to delete a document-store edoc/lab/HRM file that was referenced (not copied) into the list —
+     * so a stored patient document can never be removed by this cleanup. Best-effort only: the
+     * scheduled ApplicationTempPurgeJob remains the backstop, so a failed delete never fails the render.
+     */
+    private void cleanupRenderedTempInputs(List<Object> pdfDocumentList, Path result) {
+        String resultPath = (result == null) ? null : result.toString();
+        for (Object entry : pdfDocumentList) {
+            if (!(entry instanceof String path)) {
+                continue;
+            }
+            if (path.equals(resultPath)) {
+                continue;
+            }
+            try {
+                java.io.File file = new java.io.File(path);
+                if (PathValidationUtils.isInApplicationTempDirectory(file)) {
+                    Files.deleteIfExists(file.toPath());
+                }
+            } catch (RuntimeException | java.io.IOException e) {
+                logger.warn("Best-effort cleanup could not remove an intermediate renderer temp input; "
+                        + "the scheduled temp purge is the backstop");
+            }
+        }
     }
 
     /**

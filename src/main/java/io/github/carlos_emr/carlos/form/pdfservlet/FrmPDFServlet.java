@@ -139,6 +139,12 @@ public class FrmPDFServlet extends HttpServlet {
 
         ByteArrayOutputStream baosPDF = null;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        if (loggedInInfo == null) {
+            // This servlet renders form templates overlaid with patient data; require an authenticated
+            // session rather than serving anonymous requests.
+            res.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
         List<File> tempFiles = new ArrayList<>();
 
         try {
@@ -280,6 +286,12 @@ public class FrmPDFServlet extends HttpServlet {
             String title = req.getParameter("__title" + suffix) != null ? req.getParameter("__title" + suffix) : "Unknown";
 
             String template = req.getParameter("__template" + suffix) != null ? req.getParameter("__template" + suffix) + ".pdf" : "";
+            if (!template.isEmpty()) {
+                // __template is user-controlled and gets concatenated into a filesystem path read by
+                // PdfReader (pdfFORMDIR and the /oscar/form/prop fallback). Validate it as a single path
+                // component so "../" or an absolute path cannot escape the configured template directory.
+                template = PathValidationUtils.validatePathComponent(template, "__template");
+            }
 
             int numPages = 1;
             String pages = req.getParameter("__numPages" + suffix);

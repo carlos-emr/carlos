@@ -143,6 +143,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // privilege-tuple fields below are left as empty strings — the contract assertion
             // skips the privilege check when hasPrivilege is never invoked.
             Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
+            // --- providers ---
+            // ProEditPhoneNum2Action persists the provider's rxPhone on every POST. Its POST-only
+            // guard runs before the _pref privilege check, so on GET hasPrivilege is never invoked —
+            // register with an empty privilege tuple (the contract assertion then skips the privilege
+            // check, as it does for Logout2Action).
+            Arguments.of("io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action", "", ""),
             // --- appointment ---
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action",
                     "_appointment", "w"),
@@ -342,7 +348,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
         // Fax slice: only Fax2Action is registered; the fax package is not in
         // IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
-        "io.github.carlos_emr.carlos.fax.action.Fax2Action"
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action",
+        // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
+        // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
+        "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

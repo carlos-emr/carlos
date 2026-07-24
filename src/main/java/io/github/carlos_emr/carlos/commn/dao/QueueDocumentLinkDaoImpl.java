@@ -106,6 +106,19 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         return (queues.size() > 0);
     }
 
+    /**
+     * True only when an <em>active</em> ("A") link already exists for this document/queue pair. Used to
+     * guard active-link creation so an inactive ("I") link from a previous routing does not block
+     * re-routing the document back to a queue it had left.
+     */
+    private boolean hasActiveQueueDocumentLink(Integer dId, Integer qId) {
+        Query query = entityManager.createQuery(
+                "SELECT q from QueueDocumentLink q where q.docId=?1 and q.queueId=?2 and q.status='A'");
+        query.setParameter(1, dId);
+        query.setParameter(2, qId);
+        return !query.getResultList().isEmpty();
+    }
+
     @Override
     public boolean setStatusInactive(Integer docId) {
         if (docId == null) return false;
@@ -128,7 +141,11 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
     @Override
     public void addActiveQueueDocumentLink(Integer qId, Integer dId) {
         try {
-            if (!hasQueueBeenLinkedWithDocument(dId, qId)) {
+            // Guard on ACTIVE links only (was: any-status), so an inactive link left by a previous
+            // routing no longer blocks re-linking the document to this queue. NOTE: a DB unique index on
+            // (queue_id, document_id) is the complete defense against a concurrent check-then-insert
+            // creating duplicates; that migration is tracked as a separate DB follow-up.
+            if (!hasActiveQueueDocumentLink(dId, qId)) {
                 QueueDocumentLink qdl = new QueueDocumentLink();
                 qdl.setDocId(dId);
                 qdl.setStatus("A");

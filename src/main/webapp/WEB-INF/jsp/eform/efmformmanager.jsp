@@ -31,6 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -199,39 +200,39 @@
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
-                        class="fa-solid fa-file" title="<%=curForm.get("formFileName").toString()%>"></i><%}%></td>
-                <td title="<%=curForm.get("formName")%>">
+                        class="fa-solid fa-file" title="<%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formFileName")))%>"></i><%}%></td>
+                <td title="<%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>">
                     <a href="#"
-                       onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=curForm.get("fid")%>', '<%="Form"+i%>'); return false;"><%=curForm.get("formName")%>
+                       onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScript(String.valueOf(curForm.get("fid")))%>', '<%="Form"+i%>'); return false;"><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formName")))%>
                     </a>
                 </td>
-                <td><%=curForm.get("formSubject")%>
+                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formSubject")))%>
                 </td>
-                <td><%=curForm.get("formDate")%>
+                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formDate")))%>
                 </td>
-                <td><%=curForm.get("formTime")%>
+                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formTime")))%>
                 </td>
-                <td><%=curForm.get("roleType")%>
+                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("roleType")))%>
                 </td>
                 <td>
 
                     <div class="btn-group">
                         <a class="btn btn-link contentLink"
-                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= curForm.get("fid")%>"
-                           title='<fmt:message key="eform.uploadhtml.editform"/><%=curForm.get("formName")%>'><i
+                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("fid")))%>"
+                           title='<fmt:message key="eform.uploadhtml.editform"/><%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>'><i
                                 class="fa-solid fa-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
 
 
                         <a class="btn btn-link"
-                           href='<%= request.getContextPath() %>/eform/manageEForm?method=exportEForm&fid=<%=curForm.get("fid")%>'
-                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=curForm.get("formName")%>'><i
+                           href='<%= request.getContextPath() %>/eform/manageEForm?method=exportEForm&fid=<%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("fid")))%>'
+                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>'><i
                                 class="fa-solid fa-download" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
                         <% if (canDelete) { %>
                         <a class="btn btn-link contentLink"
-                           href='javascript:void(0);' onclick='confirmNDelete("<%=curForm.get("fid")%>")'
-                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
+                           href='javascript:void(0);' onclick='confirmNDelete("<%=SafeEncode.forJavaScript(String.valueOf(curForm.get("fid")))%>")'
+                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>'><i
                                 class="fa-solid fa-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
                         <% } %>
                     </div>

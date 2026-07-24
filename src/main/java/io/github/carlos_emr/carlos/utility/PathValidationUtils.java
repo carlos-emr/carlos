@@ -1084,7 +1084,10 @@ public final class PathValidationUtils {
         if (applicationTempRoots == null) {
             synchronized (PathValidationUtils.class) {
                 if (applicationTempRoots == null) {
-                    applicationTempRoots = Collections.unmodifiableMap(buildApplicationTempRoots());
+                    // buildApplicationTempRoots() returns a deep-immutable map (frozen keys AND value
+                    // sets), so publishing it through this volatile reference is fully safe — nothing
+                    // can mutate it via a leaked value reference after publication.
+                    applicationTempRoots = buildApplicationTempRoots();
                 }
             }
         }
@@ -1103,7 +1106,12 @@ public final class PathValidationUtils {
         addApplicationTempRoot(roots, TMPDIR_APPLICATION_TEMP_SEGMENTS, System.getProperty("java.io.tmpdir"), null);
         addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.base"), "work");
         addApplicationTempRoot(roots, WORK_APPLICATION_TEMP_SEGMENTS, System.getProperty("catalina.home"), "work");
-        return roots;
+        // Freeze the value sets too (not just the map): a volatile reference only guarantees safe
+        // publication of the top-level map, so the contained per-root segment sets must be immutable
+        // for the whole structure to be thread-safe after publication.
+        Map<String, Set<String>> frozen = new LinkedHashMap<>();
+        roots.forEach((root, segments) -> frozen.put(root, Set.copyOf(segments)));
+        return Collections.unmodifiableMap(frozen);
     }
 
     private static void addApplicationTempRoot(Map<String, Set<String>> roots, Set<String> segments, String basePath, String subDir) {

@@ -81,6 +81,15 @@ final class EFormRenderTokenService {
      */
     record RenderToken(String queryValue) {
 
+        RenderToken {
+            // A RenderToken never holds a null/empty value: the only factory (fromRequestValue) maps
+            // absent/empty input to a null token instead. Enforcing it here makes the invariant
+            // structural, so callers only ever need a null check (no redundant isEmpty() guard).
+            if (queryValue == null || queryValue.isEmpty()) {
+                throw new IllegalArgumentException("RenderToken value must be non-empty");
+            }
+        }
+
         /** Wraps a request-supplied parameter value; null/empty (absent param) maps to null. */
         static RenderToken fromRequestValue(String rawValue) {
             return (rawValue == null || rawValue.isEmpty()) ? null : new RenderToken(rawValue);
@@ -145,7 +154,7 @@ final class EFormRenderTokenService {
      * @return the grant, or null when the token is unknown, expired, or invalidated
      */
     RenderGrant peek(RenderToken token) {
-        if (token == null || token.queryValue().isEmpty()) {
+        if (token == null) {
             return null;
         }
         RenderGrant grant = cache.getIfPresent(token.queryValue());
@@ -164,7 +173,7 @@ final class EFormRenderTokenService {
      * already-consumed tokens.
      */
     void invalidate(RenderToken token) {
-        if (token == null || token.queryValue().isEmpty()) {
+        if (token == null) {
             return;
         }
         cache.invalidate(token.queryValue());

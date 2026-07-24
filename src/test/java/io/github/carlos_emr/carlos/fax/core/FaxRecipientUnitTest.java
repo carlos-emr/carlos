@@ -58,4 +58,34 @@ class FaxRecipientUnitTest {
         assertThat(recipient.getName()).isEqualTo("Jane Doe");
         assertThat(recipient.getFax()).isEqualTo("5551234567");
     }
+
+    @Test
+    @DisplayName("should clear the fax to null when set to a blank value instead of keeping a stale one")
+    void shouldClearFaxToNull_whenSetBlank() {
+        FaxRecipient recipient = new FaxRecipient("Jane Doe", "5551234567");
+        assertThat(recipient.getFax()).isEqualTo("5551234567");
+
+        recipient.setFax("   ");
+
+        assertThat(recipient.getFax()).as("blank input must clear, not retain the previous value").isNull();
+        assertThat(recipient.hasUsableFax()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should store null rather than an empty string when the input has no digits")
+    void shouldStoreNull_whenInputHasNoDigits() {
+        FaxRecipient recipient = new FaxRecipient();
+        recipient.setFax("ext.");
+
+        assertThat(recipient.getFax()).as("digit-less input must not produce an empty-string trap state").isNull();
+        assertThat(recipient.hasUsableFax()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should report a usable fax only when digits are present")
+    void shouldReportUsableFax_whenDigitsPresent() {
+        assertThat(new FaxRecipient("A", "555-000-1234").hasUsableFax()).isTrue();
+        assertThat(new FaxRecipient("A", null).hasUsableFax()).isFalse();
+        assertThat(new FaxRecipient("A", "").hasUsableFax()).isFalse();
+    }
 }

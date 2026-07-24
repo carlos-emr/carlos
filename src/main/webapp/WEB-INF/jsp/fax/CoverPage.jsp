@@ -682,28 +682,30 @@
             }
 
             // For display
-            var inputValue = escapeHtml(name + " " + fax);
-            
+            var inputValue = name + " " + fax;
+
             // For the data format the server expects
-            // First escape double quotes and backslashes in the actual values to prevent breaking the JSON format
+            // First escape double quotes and backslashes in the actual values to keep the JSON valid
             var safeName = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
             var safeFax = fax.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
             // Build the format the server expects (proper JSON format with double quotes)
             var submitValue = '"name":"' + safeName + '","fax":"' + safeFax + '"';
 
-            $("#fax-additional-recipients").append(
-                '<div class="row">\
-                    <div class="col-sm-12 input-group recipientGroup">\
-                        <input type="text" class="form-control" value="' + inputValue + '" disabled/>\
-						      <button class="btn btn-danger remove-additional-recipient-btn" type="button" onclick="removeRecipient(this)" >\
-						        <span class="fa-solid fa-trash"></span>\
-						      </button>\
-					    </div>\
-						<input type="hidden" name="copyToRecipients" value=\'' + submitValue + '\' />\
-						<input type="hidden" name="faxRecipients" value=\'' + submitValue + '\' />\
-					</div>'
-            );
+            // Build the row as DOM nodes and assign the user-derived values with .val(), never by
+            // splicing them into an HTML string. A name containing an apostrophe (e.g. O'Brien) would
+            // otherwise break out of a single-quoted value attribute and inject markup (DOM XSS);
+            // .val() sets the value property directly, so no HTML parsing of the value occurs.
+            var $group = $('<div class="col-sm-12 input-group recipientGroup"></div>')
+                .append($('<input type="text" class="form-control" disabled/>').val(inputValue))
+                .append($('<button class="btn btn-danger remove-additional-recipient-btn" type="button"></button>')
+                    .attr('onclick', 'removeRecipient(this)')
+                    .append('<span class="fa-solid fa-trash"></span>'));
+            var $row = $('<div class="row"></div>')
+                .append($group)
+                .append($('<input type="hidden" name="copyToRecipients"/>').val(submitValue))
+                .append($('<input type="hidden" name="faxRecipients"/>').val(submitValue));
+            $("#fax-additional-recipients").append($row);
 
             faxElement.val("");
             nameElement.val("");

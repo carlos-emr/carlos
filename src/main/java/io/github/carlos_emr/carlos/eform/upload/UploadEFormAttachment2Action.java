@@ -30,16 +30,10 @@
 package io.github.carlos_emr.carlos.eform.upload;
 
 import java.io.IOException;
-import java.util.Date;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
-import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
-import io.github.carlos_emr.carlos.commn.model.CtlDocument;
-import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
-import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -50,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 public class UploadEFormAttachment2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -64,57 +58,20 @@ public class UploadEFormAttachment2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
-        String docFileName = this.getUploadFileName();
         if (uploadValidationError != null) {
             writeError("Invalid filename");
             return NONE;
         }
-        try {
-            Date eformUploadDate = new Date();
-            String user = (String) request.getSession().getAttribute("user");
-            String demographicNo = request.getParameter("efmdemographic_no");
-
-            Document document = new Document();
-            document.setDocdesc("EForm attachment document");
-            document.setContenttype("image/jpeg");
-            document.setDocfilename(docFileName);
-            document.setDoccreator(user);
-            document.setPublic1(Byte.valueOf("0"));
-            document.setStatus('A');
-            document.setObservationdate(eformUploadDate);
-            document.setUpdatedatetime(eformUploadDate);
-            document.setDoctype("others");
-
-            DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
-            CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
-            documentDao.persist(document);
-
-            CtlDocumentPK ctlDocumentPK = new CtlDocumentPK(Integer.parseInt("" + document.getId()), "demographic");
-
-            CtlDocument ctlDocument = new CtlDocument();
-            ctlDocument.setId(ctlDocumentPK);
-            ctlDocument.getId().setModuleId(Integer.parseInt(demographicNo));
-            ctlDocument.setStatus("A");
-            ctlDocumentDao.persist(ctlDocument);
-
-
-            String successMsg = "<div id=\"status\">success</div> <div id=\"message\">Uploaded Successfully</div> <div id=\"fileName\">" + Encode.forHtml(docFileName) + "</div> <div id=\"docId\">" + document.getId() + "</div>";
-            response.getOutputStream().write(successMsg.getBytes());
-            response.getOutputStream().flush();
-            response.getOutputStream().close();
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            String errorMsg = "<div id=\"error\">error</div><div id=\"message\">Error in file upload</div>";
-            try {
-                response.getOutputStream().write(errorMsg.getBytes());
-                response.getOutputStream().flush();
-                response.getOutputStream().close();
-            } catch (IOException e1) {
-                //ignore
-            }
-        }
-
-        return null;
+        // This action has NO uploaded-file binding, so the attachment bytes were never stored: the
+        // previous implementation persisted Document/CtlDocument rows and reported "Uploaded
+        // Successfully" for a file that was never saved, leaving orphan document metadata. Fail honestly
+        // instead of creating orphan rows. The route (eform/eFormAttachmentForm) currently has no caller;
+        // a real implementation must add a validated multipart File field and store the bytes via
+        // PathValidationUtils.validateUpload before persisting any metadata.
+        MiscUtils.getLogger().warn("eForm attachment upload invoked but is not implemented (no file storage); rejecting without persisting metadata");
+        response.setStatus(HttpServletResponse.SC_NOT_IMPLEMENTED);
+        writeError("eForm attachment upload is not available.");
+        return NONE;
     }
     private String uploadFileName = null;
     private String uploadValidationError;
@@ -134,13 +91,14 @@ public class UploadEFormAttachment2Action extends ActionSupport {
     }
 
     private void writeError(String message) {
-        String errorMsg = "<div id=\"error\">error</div><div id=\"message\">" + Encode.forHtml(message) + "</div>";
+        String errorMsg = "<div id=\"error\">error</div><div id=\"message\">" + SafeEncode.forHtmlContent(message) + "</div>";
         try {
             response.getOutputStream().write(errorMsg.getBytes());
             response.getOutputStream().flush();
             response.getOutputStream().close();
         } catch (IOException e1) {
-            //ignore
+            // Client went away before the error body could be written; nothing more to do but record it.
+            MiscUtils.getLogger().debug("Could not write eForm attachment error response (client likely disconnected)");
         }
     }
 }

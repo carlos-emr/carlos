@@ -190,9 +190,12 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_form)");
         }
 
-        logger.info("Rendering form number {} for fax preview.", formId);
-
-        return null;
+        // Not implemented: this (formId, demographicNo) overload has no renderer wired up. Returning
+        // null silently handed callers an NPE; fail fast and unambiguously instead. Use the
+        // FormTransportContainer overload below, which is the supported form-fax render path.
+        throw new UnsupportedOperationException(
+                "renderForm(loggedInInfo, formId, demographicNo) is not implemented; "
+                + "use renderForm(loggedInInfo, FormTransportContainer)");
     }
 
     @Override
@@ -666,7 +669,7 @@ public class FaxManagerImpl implements FaxManager {
             // No source PDF on disk means no preview can be generated; surface it rather than returning
             // a silent null the caller may render as a broken image. The basename (a server-generated
             // temp/document name, not PHI) is what lets a busy system correlate this with its request.
-            logger.warn("Fax preview source is missing; no preview image generated (file {}, page {})",
+            logger.warn("Fax preview source is missing; no preview image generated (file {}, page {})", // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     LogSafe.sanitize(filePath == null ? null : filePath.getFileName().toString()), pageNumber);
         }
         return outfile;
