@@ -11,9 +11,9 @@ from fhir.resources.organization import Organization
 from fhir.resources.patient import Patient
 from fhir.resources.practitioner import Practitioner
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal import cli, main
@@ -3294,12 +3294,6 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
 
-    def create_invite_and_maybe_fail(*, should_fail: bool) -> None:
-        with session_scope(session_factory) as session:
-            create_service_invite(session, 5678, "Dr example")
-            if should_fail:
-                raise RuntimeError("force rollback")
-
     with session_scope(session_factory) as session:
         committed_invite, _ = create_service_invite(session, 1234, "Dr example")
         committed_invite_id = committed_invite.id
@@ -3307,12 +3301,10 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     with session_factory() as session:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
-    rollback_error = pytest.raises(
-        RuntimeError,
-        create_invite_and_maybe_fail,
-        should_fail=committed_invite_id > 0,
-    )
-    assert str(rollback_error.value) == "force rollback"
+    with pytest.raises(SQLAlchemyError):
+        with session_scope(session_factory) as session:
+            create_service_invite(session, 5678, "Dr example")
+            session.execute(text("SELECT * FROM patient_portal_missing_table"))
 
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
