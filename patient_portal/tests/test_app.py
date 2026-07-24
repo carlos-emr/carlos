@@ -11,9 +11,9 @@ from fhir.resources.organization import Organization
 from fhir.resources.patient import Patient
 from fhir.resources.practitioner import Practitioner
 from pydantic import ValidationError
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.engine import make_url
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal import cli, main
@@ -3290,6 +3290,9 @@ def test_hl7_patient_identity_rejects_unsafe_hl7_values() -> None:
 
 
 def test_session_scope_commits_success_and_rolls_back_failure() -> None:
+    class RollbackProbeError(Exception):
+        pass
+
     engine = create_portal_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -3301,11 +3304,15 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     with session_factory() as session:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
-    with pytest.raises(SQLAlchemyError):
+    rollback_was_triggered = False
+    try:
         with session_scope(session_factory) as session:
             create_service_invite(session, 5678, "Dr example")
-            session.execute(text("SELECT * FROM patient_portal_missing_table"))
+            raise RollbackProbeError
+    except RollbackProbeError:
+        rollback_was_triggered = True
 
+    assert rollback_was_triggered is True
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
 
