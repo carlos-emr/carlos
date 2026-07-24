@@ -102,6 +102,7 @@
         </action>
         <action name="mcedt/kaiautodl" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoDownload.jsp</result>
+            <result name="error">/WEB-INF/jsp/mcedt/mailbox/autoDownload.jsp</result>
             <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/download" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">

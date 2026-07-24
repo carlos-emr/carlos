@@ -296,7 +296,10 @@ public class Download2Action extends ActionSupport {
             logger.error("Unable to load resource list ", e);
             String errorMessage = McedtMessageCreator.exceptionToString(e);
             addActionError(getText("resourceAction.getResourceList.fault", new String[]{errorMessage}));
-            return SUCCESS;
+            // Return ERROR, not SUCCESS: a failed download must not resolve to the success result
+            // (which reads as a completed download). The error result renders the same download tab
+            // so the action error is shown to the user.
+            return ERROR;
         }
 
         //return null;

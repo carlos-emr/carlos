@@ -65,11 +65,15 @@ public class HL7CreateFile {
     String LAB_TYPE = "CML";
     Integer resultCount = 1;
     private static final Logger logger = MiscUtils.getLogger();
-    private static final SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private static final SimpleDateFormat inputDateOnlyFormat = new SimpleDateFormat("yyyy-MM-dd");
-    private static final SimpleDateFormat xmlTimezoneOffSetDateTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-    private static final SimpleDateFormat fullDateTime = new SimpleDateFormat("yyyyMMddHHmmss");
-    private static final SimpleDateFormat fullDate = new SimpleDateFormat("yyyyMMdd");
+    // SimpleDateFormat is NOT thread-safe. These were previously shared static instances used for
+    // parse/format without synchronization, which corrupts dates under concurrent HL7 generation.
+    // They are now pattern constants; each use site builds its own short-lived formatter (default
+    // locale/timezone, identical behavior) so no formatter state is shared across threads.
+    private static final String INPUT_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    private static final String INPUT_DATE_ONLY_FORMAT = "yyyy-MM-dd";
+    private static final String XML_TIMEZONE_OFFSET_DATE_TIME = "yyyy-MM-dd'T'HH:mm:ssXXX";
+    private static final String FULL_DATE_TIME = "yyyyMMddHHmmss";
+    private static final String FULL_DATE = "yyyyMMdd";
 
 
     /**
@@ -307,7 +311,7 @@ public class HL7CreateFile {
             pid19 = "X" + healthCard;
         }
 
-        return "PID|1|" + StringUtils.noNull(demographic.getHin()) + "|" + lab.getAccessionNumber() + "|" + healthCard + "|" + demographic.getLastName() + "^" + demographic.getFirstName() + "||" + fullDate.format(demographic.getBirthDay().getTime()) + "|" + demographic.getSex() + "|||||" + demographicPhone + "|" + demographicPhone2 + "|||||" + pid19;
+        return "PID|1|" + StringUtils.noNull(demographic.getHin()) + "|" + lab.getAccessionNumber() + "|" + healthCard + "|" + demographic.getLastName() + "^" + demographic.getFirstName() + "||" + new SimpleDateFormat(FULL_DATE).format(demographic.getBirthDay().getTime()) + "|" + demographic.getSex() + "|||||" + demographicPhone + "|" + demographicPhone2 + "|||||" + pid19;
     }
 
     private String generateZFR(LaboratoryResultsDocument.LaboratoryResults lab) {
@@ -392,7 +396,8 @@ public class HL7CreateFile {
     private String getDateTime(DateTimeFullOrPartial dateObj) {
         Date date = null;
         if (dateObj != null) {
-            SimpleDateFormat[] formats = {inputFormat, xmlTimezoneOffSetDateTime, inputDateOnlyFormat};
+            SimpleDateFormat[] formats = {new SimpleDateFormat(INPUT_FORMAT),
+                    new SimpleDateFormat(XML_TIMEZONE_OFFSET_DATE_TIME), new SimpleDateFormat(INPUT_DATE_ONLY_FORMAT)};
             for (SimpleDateFormat format : formats) {
                 try {
                     if (dateObj.isSetFullDate()) {
@@ -410,7 +415,7 @@ public class HL7CreateFile {
             date = new Date();
         }
 
-        return fullDateTime.format(date);
+        return new SimpleDateFormat(FULL_DATE_TIME).format(date);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
