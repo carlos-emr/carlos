@@ -261,6 +261,18 @@ public class RxManagerImpl implements RxManager {
             return null;
         }
 
+        // Cross-patient guard: 'old' is loaded by primary key alone, so a caller authorized for their
+        // own patient could pass another patient's drugId and have that drug archived below. Reject when
+        // the loaded drug does not belong to the demographic being updated — the same check discontinue()
+        // and archiveDrug() already perform. Objects.equals (not !=) because getDemographicId() is a
+        // nullable Integer and != would compare references. Done before addDrug() so a rejected request
+        // never creates a replacement drug.
+        if (!java.util.Objects.equals(old.getDemographicId(), d.getDemographicId())) {
+            logger.info("Drug demographic (" + old.getDemographicId() + ") does not match input "
+                    + "demographic (" + d.getDemographicId() + "), failed to update.");
+            return null;
+        }
+
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
 

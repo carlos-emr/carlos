@@ -16,7 +16,6 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -274,7 +273,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void writeLocalFile(File docFile, String fileName) throws Exception {
         InputStream fis = null;
-        FileOutputStream fos = null;
+        OutputStream fos = null;
         try {
             fis = Files.newInputStream(docFile.toPath());
             String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -285,7 +284,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             File baseDir = new File(documentDir);
             File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
 
-            fos = new FileOutputStream(destinationFile);
+            // CREATE_NEW (not truncate/overwrite): the upload filename carries only a one-second
+            // timestamp prefix, so two same-named uploads in the same second previously resolved to
+            // one path and the second silently overwrote the first — leaving a document row pointing
+            // at another patient's bytes. Failing closed here turns that silent cross-patient
+            // overwrite into a loud FileAlreadyExistsException the caller surfaces.
+            fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
             byte[] buf = new byte[128 * 1024];
             int i = 0;
             while ((i = fis.read(buf)) != -1) {

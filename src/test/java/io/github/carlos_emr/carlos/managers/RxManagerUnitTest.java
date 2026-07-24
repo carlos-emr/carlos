@@ -230,6 +230,32 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(result).isNull();
             assertThat(mergedDrug).isNull();
         }
+
+        @Test
+        @DisplayName("should not archive another patient's drug when a foreign drug id is supplied")
+        void shouldNotArchiveDrug_whenDemographicDoesNotMatch() {
+            // A victim's drug that belongs to demographic 9.
+            Drug victim = new Drug();
+            victim.setId(3);
+            victim.setDemographicId(9);
+            victim.setGenericName("ASA"); // so addNewDrug would succeed IF the guard were reached
+            victim.setArchived(false);
+            ((MockDrugDao) drugDao).seed(victim);
+
+            // Attacker is authorized for their own demographic (1, which passes writeCheck's <5 rule)
+            // but points the drug id at the victim's drug (3).
+            LoggedInInfo info = new LoggedInInfo();
+            Drug request = new Drug();
+            request.setDemographicId(1);
+            request.setId(3);
+            request.setGenericName("ASA");
+
+            Drug result = updateDrug(info, request);
+
+            assertThat(result).isNull();            // request rejected
+            assertThat(mergedDrug).isNull();         // no drug archived
+            assertThat(victim.isArchived()).isFalse(); // victim's drug untouched
+        }
     }
 
     @Nested
@@ -617,6 +643,11 @@ class RxManagerUnitTest extends RxManagerImpl {
             d2.setBrandName("Tylenol");
             d2.setArchived(false);
             drugs.add(d2);
+        }
+
+        /** Seed an extra drug (e.g. one belonging to a different demographic) for a single test. */
+        void seed(Drug d) {
+            this.drugs.add(d);
         }
 
         @Override
