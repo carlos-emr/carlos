@@ -110,20 +110,19 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
     public boolean setStatusInactive(Integer docId) {
         if (docId == null) return false;
 
+        // Update EVERY active link, not just the first (qs.get(0)): a document may be linked to more
+        // than one queue, and legacy duplicate rows can exist, so deactivating only the first row left
+        // the document still routed to a queue it should have left.
         List<QueueDocumentLink> qs = getQueueFromDocument(docId);
-        if (qs.size() > 0) {
-            QueueDocumentLink q = qs.get(0);
+        boolean changed = false;
+        for (QueueDocumentLink q : qs) {
             if (q.getStatus() != null && !q.getStatus().equals("I")) {
                 q.setStatus("I");
                 merge(q);
-                return true;
-            } else {
-                return false;
+                changed = true;
             }
         }
-        return false;
-        //if status is not I, change to I
-        //if status is I, do nothing
+        return changed;
     }
 
     @Override
@@ -136,8 +135,12 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
                 qdl.setQueueId(qId);
                 persist(qdl);
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+        } catch (RuntimeException e) {
+            // Do NOT swallow: a swallowed persist failure looked like success and left the incoming
+            // clinical document outside its intended work queue (never reviewed). Propagate so the
+            // caller surfaces the error and the operation can be retried.
+            MiscUtils.getLogger().error("Failed to link document {} to queue {}", dId, qId, e);
+            throw e;
         }
     }
 
@@ -150,8 +153,11 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
                 qdl.setQueueId(qId);
                 persist(qdl);
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+        } catch (RuntimeException e) {
+            // Do NOT swallow: see addActiveQueueDocumentLink — a lost queue link means an incoming
+            // clinical document silently drops out of its work queue. Propagate the failure.
+            MiscUtils.getLogger().error("Failed to link document {} to queue {}", dId, qId, e);
+            throw e;
         }
     }
 }

@@ -72,20 +72,17 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         try {
             digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
         } catch (Exception e) {
-            logger.warn("Decryption failed for signature ID {} — attempting legacy re-encryption", id, e);
-
-            // The data is not encrypted (legacy record). Re-attach, encrypt, and persist for future access.
-            try {
-                digitalSignature.setSignatureImage(EncryptionUtils.encrypt(digitalSignature.getSignatureImage()));
-                this.digitalSignatureDao.merge(digitalSignature);
-                this.digitalSignatureDao.flush();
-
-                this.digitalSignatureDao.detach(digitalSignature);
-                digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
-            } catch (Exception ex) {
-                logger.error("Re-encryption and decryption both failed for signature ID {} — returning null to avoid corrupted data", id, ex);
-                return null;
-            }
+            // Decryption failed. This was previously treated as proof the record is legacy plaintext,
+            // and the ORIGINAL bytes were re-encrypted and PERSISTED (merge/flush) during this read.
+            // That is destructive: a ciphertext that merely cannot be decrypted right now (rotated or
+            // missing key, provider outage, corruption) is indistinguishable from genuine plaintext,
+            // because the byte[] cipher format carries no marker — so a valid record would be
+            // double-encrypted and permanently corrupted. Do NOT mutate the stored record here.
+            //
+            // setSignatureImage was not reached, so the entity still holds its original bytes: return
+            // them (the legacy-plaintext read path). Migrating legacy plaintext to ciphertext belongs
+            // in an explicit, verified offline process, not a getter.
+            logger.warn("Could not decrypt signature ID {}; returning the stored bytes without modifying the record", id, e);
         }
 
         return digitalSignature;
