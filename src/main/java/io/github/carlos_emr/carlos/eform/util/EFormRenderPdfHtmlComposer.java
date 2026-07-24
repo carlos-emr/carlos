@@ -20,6 +20,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.Logger;
+import org.jsoup.nodes.Attribute;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -134,20 +137,29 @@ public final class EFormRenderPdfHtmlComposer {
         applySignatureHtml(eForm, eFormValues, contextPath);
 
         String html = eForm.getFormHtml();
+        // Normalize the legacy ".do" spelling FIRST (corpus forms hardcode
+        // "../eform/displayImage.do?imagefile=…" in signature-stamp scripts): replacing the bare
+        // variant alone would leave a stray ".do" glued onto the servlet name
+        // ("…Servlet.do?…"), which misses the exact-match servlet mapping and 404s — failing the
+        // render's content gate on forms that never even show a stamp.
+        html = html.replace("../eform/displayImage.do", imageViewServletBase(projectHome, contextPath));
         html = html.replace("../eform/displayImage", imageViewServletBase(projectHome, contextPath));
         // Legacy eForms reference the calendar widget relative to the /eform/ viewer base
         // ("../share/..." -> /<context>/share/...); on the render servlet's path that same
         // reference resolves to the origin ROOT and 404s, leaving date-picker forms unstyled and
         // failing the render gates. Anchor it to the context explicitly.
         html = html.replace("../share/", contextPath + "/share/");
-        html = html.replace("${oscar_image_path}", imageViewServletImagePrefix(projectHome, contextPath));
-        html = html.replace("$%7Boscar_image_path%7D", imageViewServletImagePrefix(projectHome, contextPath));
+        html = replaceImagePathMarkerInAttributes(html, imageViewServletImagePrefix(projectHome, contextPath));
         html = html.replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;");
         eForm.setFormHtml(html);
         eForm.setImagePath(contextPath);
         html = eForm.getFormHtml();
         String imageViewServletPath = contextPath + "/" + IMAGE_VIEW_SERVLET_NAME;
+        // Same ".do"-first ordering for the context-prefixed and bare display routes (the saved
+        // instance html carries the context-prefixed spelling baked by the live display path).
+        html = html.replace(contextPath + "/eform/displayImage.do", imageViewServletPath);
         html = html.replace(contextPath + "/eform/displayImage", imageViewServletPath);
+        html = html.replace("/eform/displayImage.do", imageViewServletPath);
         html = html.replace("/eform/displayImage", imageViewServletPath);
         html = appendRenderTokenToAssetUrls(html, renderToken);
         eForm.setFormHtml(html);
@@ -323,17 +335,72 @@ public final class EFormRenderPdfHtmlComposer {
         return false;
     }
 
+    /** Legacy eForm image-path marker and the URL-encoded form browsers bake into resolved src attributes. */
+    private static final String IMAGE_PATH_MARKER = "${oscar_image_path}";
+    private static final String IMAGE_PATH_MARKER_URLENCODED = "$%7Boscar_image_path%7D";
+
+    /**
+     * Replaces the legacy {@code ${oscar_image_path}} marker (and its URL-encoded form) with the
+     * render-asset servlet prefix — but ONLY inside element <em>attribute values</em>, never inside
+     * {@code <script>} text. A blind whole-string replace also rewrote the marker where corpus forms
+     * use it as a JavaScript string literal: the widespread "standalone development" helper
+     * {@code src.replace("$%7Boscar_image_path%7D","")} then became
+     * {@code src.replace("<asset-servlet-prefix>","")}, and on the HTTP loopback render surface
+     * (which the helper's {@code indexOf("https") == -1} check treats as standalone dev) it stripped
+     * the entire rewritten prefix from every background image, blanking the form. Scoping the
+     * replacement to attributes leaves such script literals untouched (their replace becomes a
+     * harmless no-op at render time) while still rewriting every real asset reference, including
+     * {@code style} attributes with {@code url(${oscar_image_path}…)} backgrounds.
+     *
+     * <p>Skips the jsoup round-trip entirely when neither marker form is present. The round-trip
+     * itself is safe here: this composer output is exclusively the browser-render surface, whose
+     * content is already jsoup-normalized by {@link EForm#getFormHtml()} on this path (the parse
+     * settings below mirror {@code ConvertToEdoc.parseDocument}, which that pass uses — inlined
+     * rather than called so this pure string helper never triggers ConvertToEdoc's app-context
+     * static initialization).</p>
+     */
+    static String replaceImagePathMarkerInAttributes(String html, String assetPrefix) {
+        if (!html.contains(IMAGE_PATH_MARKER) && !html.contains(IMAGE_PATH_MARKER_URLENCODED)) {
+            return html;
+        }
+        // DOCTYPE declarations are mandatory for a stable round-trip. HTML5 if none is declared.
+        String documentString = html.trim().toLowerCase(java.util.Locale.ROOT).startsWith("<!doctype")
+                ? html
+                : "<!DOCTYPE html>\n" + html;
+        Document document = org.jsoup.Jsoup.parse(documentString);
+        document.outputSettings()
+                .syntax(Document.OutputSettings.Syntax.html)
+                .escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml)
+                .charset("UTF-8")
+                .prettyPrint(false);
+        for (Element element : document.getAllElements()) {
+            for (Attribute attribute : element.attributes().asList()) {
+                String value = attribute.getValue();
+                if (value.contains(IMAGE_PATH_MARKER) || value.contains(IMAGE_PATH_MARKER_URLENCODED)) {
+                    element.attr(attribute.getKey(), value
+                            .replace(IMAGE_PATH_MARKER, assetPrefix)
+                            .replace(IMAGE_PATH_MARKER_URLENCODED, assetPrefix));
+                }
+            }
+        }
+        return document.outerHtml();
+    }
+
     // Package-private for the slash-normalization unit test.
     static String imageViewServletBase(String projectHome, String contextPath) {
-        // Prefer the configured project_home. When it is blank/unset, fall back to the servlet
-        // context path so a non-root deployment (e.g. /carlos) still resolves — never emit a leading
-        // "//…" (a protocol-relative URL to an external host) or drop the context prefix entirely.
-        // project_home may legitimately carry a leading slash (buildDefaultBaseUrl strips one too);
-        // "/" + "/oscar" would be exactly the protocol-relative //oscar/... this guards against.
-        String normalizedProjectHome = projectHome == null ? "" : stripSlashes(projectHome.trim());
-        String base = normalizedProjectHome.isEmpty()
-                ? normalizeContextPath(contextPath)
-                : "/" + normalizedProjectHome;
+        // Prefer the ACTUAL servlet context path: it is where this webapp — and therefore the image
+        // servlet — is really mounted. project_home is a legacy OscarDocument DIRECTORY name (e.g.
+        // "oscar" in EFORM_IMAGES_DIR=/var/lib/OscarDocument/oscar/...), not a URL path; deployments
+        // routinely set it differently from the context (dev: project_home=oscar, context=/carlos),
+        // and preferring it emitted /oscar/EFormImageViewForPdfGenerationServlet URLs that 404 and
+        // fail the render's content gate. Fall back to project_home only when no context path is
+        // available at all — never emit a leading "//…" (a protocol-relative URL to an external
+        // host): project_home may carry a leading slash, so it is slash-stripped before prefixing.
+        String base = normalizeContextPath(contextPath);
+        if (base.isEmpty()) {
+            String normalizedProjectHome = projectHome == null ? "" : stripSlashes(projectHome.trim());
+            base = normalizedProjectHome.isEmpty() ? "" : "/" + normalizedProjectHome;
+        }
         return base + "/" + IMAGE_VIEW_SERVLET_NAME;
     }
 

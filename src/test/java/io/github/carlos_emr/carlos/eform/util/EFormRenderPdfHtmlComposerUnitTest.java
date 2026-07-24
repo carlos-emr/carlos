@@ -46,27 +46,38 @@ import static org.mockito.Mockito.when;
 class EFormRenderPdfHtmlComposerUnitTest {
 
     @Test
-    @DisplayName("should normalize project_home slashes when building the image servlet base")
-    void shouldNormalizeProjectHomeSlashes_whenBuildingImageServletBase() {
-        // A configured project_home may legitimately carry slashes (buildDefaultBaseUrl strips a
-        // leading one too); "/" + "/oscar" would emit a protocol-relative //oscar/... URL that
-        // Chromium resolves to host "oscar" — the dead proxy then blocks every asset.
+    @DisplayName("should prefer the servlet context path over project_home when building the image servlet base")
+    void shouldPreferContextPath_whenBuildingImageServletBase() {
+        // The context path is where this webapp — and the image servlet — is actually mounted.
+        // project_home is a legacy OscarDocument DIRECTORY name and routinely differs from the
+        // context (dev: project_home=oscar, context=/carlos); preferring it emitted
+        // /oscar/EFormImageViewForPdfGenerationServlet URLs that 404 and blank the render.
         assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/oscar", "/carlos"))
-                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+                .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
         assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("oscar", "/carlos"))
-                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
-        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/oscar/", "/carlos"))
-                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
-        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("oscar/", "/carlos"))
-                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
-        // Blank/null project_home falls back to the servlet context path (existing behavior).
+                .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
         assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("", "/carlos"))
                 .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
         assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase(null, "/carlos"))
                 .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
-        // A slashes-only value normalizes to empty and must fall back too, never emit "//".
-        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/", "/carlos"))
-                .isEqualTo("/carlos/EFormImageViewForPdfGenerationServlet");
+    }
+
+    @Test
+    @DisplayName("should fall back to normalized project_home slashes when no context path is available")
+    void shouldFallBackToNormalizedProjectHome_whenContextPathBlank() {
+        // Only with no context path at all does project_home apply — and its slashes are normalized
+        // so "/" + "/oscar" can never emit a protocol-relative //oscar/... URL that Chromium
+        // resolves to host "oscar" (which the dead proxy would then block).
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/oscar", ""))
+                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("oscar/", null))
+                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/oscar/", "/"))
+                .isEqualTo("/oscar/EFormImageViewForPdfGenerationServlet");
+        // A slashes-only value normalizes to empty with no context path: the servlet name resolves
+        // context-relative ("/<name>"), never "//".
+        assertThat(EFormRenderPdfHtmlComposer.imageViewServletBase("/", ""))
+                .isEqualTo("/EFormImageViewForPdfGenerationServlet");
     }
 
     @Test
@@ -150,6 +161,30 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
                 .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
                 .contains("<body style='width:640px;'>");
+    }
+
+    @Test
+    @DisplayName("should rewrite the image-path marker in attributes only, leaving script literals untouched")
+    void shouldRewriteMarkerInAttributesOnly_leavingScriptLiteralsUntouched() {
+        EForm eForm = mockEformWithHtml("");
+        // The widespread "standalone development" helper strips the URL-encoded marker from image
+        // srcs when the page is not https. A blind whole-string replace rewrote the marker inside
+        // that script's string literal too, turning the helper into
+        // src.replace("<asset-servlet-prefix>","") — which on the HTTP loopback render surface
+        // stripped the entire rewritten prefix and blanked every background image.
+        EFormValue letter = eformValue("Letter",
+                "<img id=\"BGImage1\" src=\"${oscar_image_path}bg.png\" />"
+                + "<script>var s1 = document.getElementById('BGImage1').src;"
+                + " document.getElementById('BGImage1').src = s1.replace(\"$%7Boscar_image_path%7D\",\"\");</script>");
+
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(eForm, List.of(letter), "/carlos", "oscar", null);
+
+        assertThat(html)
+                // The attribute reference is rewritten onto the render-asset servlet…
+                .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
+                // …while the script literal keeps the marker text, so the legacy helper's replace is
+                // a harmless no-op at render time instead of a src-destroying prefix strip.
+                .contains("s1.replace(\"$%7Boscar_image_path%7D\",\"\")");
     }
 
     @Test

@@ -120,6 +120,13 @@
             <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <!-- LEGACY BACKWARD-COMPATIBILITY ALIAS (keep): the eForm corpus and saved eform_data
+             hardcode the pre-migration "../eform/displayImage.do?imagefile=…" route in form HTML
+             and signature-stamp JavaScript. Same action, same security gate as the extensionless
+             route above — do NOT add further .do aliases unless a concrete corpus reference to a
+             specific route is demonstrated (no generic .do catch-all). The browser-PDF render
+             surface does not rely on this alias: EFormRenderPdfHtmlComposer normalizes .do
+             references onto the token-authorized image servlet instead. -->
         <action name="eform/displayImage.do" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
 

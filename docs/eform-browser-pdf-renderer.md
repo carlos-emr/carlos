@@ -64,6 +64,15 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 ## Deployment requirements
 
+> **Containerized deployments MUST run an init process (zombie reaping).** Each render launches a
+> Chromium process tree; on an abnormal teardown (a killed chromedriver, a deploy mid-render, an
+> OOM-killed helper) orphaned helper processes reparent to PID 1 and become zombies. A container
+> whose PID 1 is not an init (e.g. a bare `tail -f /dev/null` or the JVM itself) never reaps them,
+> and each zombie permanently consumes a pids-cgroup slot — a long-lived deployment can exhaust
+> `pids.max` and every later browser launch fails with "unable to create native thread". Run the
+> container with `docker run --init` (or tini/dumb-init as PID 1, or a systemd-managed service) so
+> orphans are reaped.
+
 > **Runbook: provision the browser BEFORE deploying.** Because the startup gate below defaults to
 > `required`, deployment ordering matters: install Chromium and a matching chromedriver (and set
 > `eform_pdf_browser_chromium_path` / `eform_pdf_browser_chromedriver_path`) **before** the webapp

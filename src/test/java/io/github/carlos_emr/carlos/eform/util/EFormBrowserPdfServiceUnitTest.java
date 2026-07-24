@@ -94,6 +94,9 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("#BaseSelect")
                 .contains("#SupplementalInfo")
                 .contains("#labDetail")
+                // Stray in-flow non-page content (marked by the geometry script) must be hidden so it
+                // cannot paginate into extra pages the raster path never produced.
+                .contains(".carlos-render-nonpage")
                 .contains("resize: none !important")
                 // The raster-era screenshot hacks must NOT come back: they broke native pagination.
                 .doesNotContain("max-content")
@@ -101,15 +104,24 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should measure each pageN div content box in the page geometry script")
-    void shouldMeasurePageContentBox_inPageGeometryScript() {
+    @DisplayName("should measure the larger of div box and content box in the page geometry script")
+    void shouldMeasureMaxOfDivAndContentBox_inPageGeometryScript() {
         assertThat(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS)
                 .contains("contentBox")
                 .contains("getBoundingClientRect")
                 .contains("/^page\\d+$/i")
                 .contains("id: pageNode.id")
-                .contains("width: box.width")
-                .contains("height: box.height");
+                // Width hugs the content union (region-capture parity — a block page div stretches
+                // to the viewport and would print a giant blank right margin); height takes the
+                // LARGER of flow extent and content so vertical under-measurement can never spill
+                // blank pages or clip fields.
+                .contains("width: box.width > 0 ? box.width : own.width")
+                .contains("Math.max(own.height, box.height)")
+                // In-flow body children that neither are nor contain a page div are marked for
+                // hiding (interstitial/trailing corpus content the raster path never captured);
+                // absolutely-positioned overlays are deliberately left visible.
+                .contains("carlos-render-nonpage")
+                .contains("position !== 'absolute' && position !== 'fixed'");
     }
 
     @Test
@@ -186,16 +198,24 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should emit a single anonymous @page rule when every page shares a size")
+    @DisplayName("should emit a single anonymous @page rule plus per-div pagination when every page shares a size")
     void shouldEmitSingleAnonymousPageRule_whenPagesUniform() {
         String css = EFormBrowserPdfService.buildPageSizeCss(List.of(
                 new EFormBrowserPdfService.PageSize("page1", 816d, 1056d),
                 new EFormBrowserPdfService.PageSize("page2", 816d, 1056d)));
 
         assertThat(css)
-                .isEqualTo("@page { size: 816px 1056px; margin: 0; }")
+                .contains("@page { size: 816px 1056px; margin: 0; }")
                 // A uniform corpus must not fall into the named-page branch.
-                .doesNotContain("carlosPage");
+                .doesNotContain("carlosPage")
+                // Every div gets the explicit pagination contract: pinned height (its flow extent can
+                // never spill a blank page), region-capture clipping parity, no inter-page gaps, and a
+                // forced break after every page BUT the last (a trailing forced break would emit a
+                // blank final page on forms that author inline page-break-after on the last div).
+                .contains("#page1 { height: 1056px !important; margin: 0 !important; overflow: hidden !important;"
+                        + " break-inside: avoid !important; break-after: page !important; }")
+                .contains("#page2 { height: 1056px !important; margin: 0 !important; overflow: hidden !important;"
+                        + " break-inside: avoid !important; break-after: auto !important; }");
     }
 
     @Test
@@ -208,8 +228,10 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(css)
                 .contains("@page carlosPage1 { size: 816px 1056px; margin: 0; }")
                 .contains("@page carlosPage2 { size: 1056px 816px; margin: 0; }")
-                .contains("#page1 { page: carlosPage1; }")
-                .contains("#page2 { page: carlosPage2; }");
+                .contains("#page1 { page: carlosPage1; height: 1056px !important;")
+                .contains("#page2 { page: carlosPage2; height: 816px !important;")
+                .contains("break-after: page !important; }")
+                .contains("break-after: auto !important; }");
     }
 
     @Test
@@ -219,7 +241,9 @@ class EFormBrowserPdfServiceUnitTest {
                 new EFormBrowserPdfService.PageSize("page1", 815.2d, 1055.1d)));
 
         // Ceil, so a fractional content box is never a hair too small to hold its content.
-        assertThat(css).isEqualTo("@page { size: 816px 1056px; margin: 0; }");
+        assertThat(css)
+                .contains("@page { size: 816px 1056px; margin: 0; }")
+                .contains("#page1 { height: 1056px !important;");
     }
 
     @Test
@@ -590,6 +614,26 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should classify a failed self-URL image fetch as advisory for the empty-src idiom")
+    void shouldClassifySelfUrlImageFailure_asAdvisory() {
+        // Legacy corpus forms carry <img src=""> placeholders (JS-populated signature stamps); an
+        // empty src resolves to the page's own URL, and the single-use render token has already been
+        // consumed by the navigation, so this self-fetch always fails — but it is not real form
+        // content failing, so it must be advisory, never a missing-content signal.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        String mainDocUrl = "http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1";
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"" + mainDocUrl + "\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"" + mainDocUrl + "\",\"status\":403}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.mainDocumentStatus()).isEqualTo(200);
+        assertThat(scan.failedCriticalSubresources()).isZero();
+        assertThat(scan.failedSubresources()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("should count failed render-critical subresources from both CDP failure legs")
     void shouldCountFailedSubresources_forHttpErrorAndConnectionFailures() {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
@@ -824,11 +868,12 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should fail the render when the eForm's own same-origin visual content failed to load")
-    void shouldFailRender_whenSameOriginVisualSubresourceFailed() {
-        // A same-origin (CARLOS-served) Image 404 — e.g. a form background or signature image the EMR
-        // could not serve — is our own eForm content failing to render, so the captured PDF is wrong
-        // and it must hard-fail regardless of the lenient default.
+    @DisplayName("should render past missing same-origin visual content as advisory by policy")
+    void shouldRenderPastMissingContent_asAdvisoryByPolicy() {
+        // POLICY: only security gates hard-fail. A same-origin (CARLOS-served) Image 404 — e.g. an
+        // optional per-provider signature stamp or letterhead the EMR has no file for — is a
+        // missing-content ADVISORY (logged WARN), never a render failure: the corpus routinely
+        // references such optional assets, and hard-failing dead-ended routine downloads.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
@@ -836,17 +881,15 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(responseReceivedJson("Image",
                         "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
 
-        assertThatThrownBy(() -> service.enforceRenderGates(
+        assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
-                .isInstanceOf(io.github.carlos_emr.carlos.utility.EformContentUnavailableException.class)
-                .hasMessageContaining("failedCriticalSubresources=1");
+                .doesNotThrowAnyException();
     }
 
     @Test
     @DisplayName("should render past missing same-origin content when render-anyway is chosen")
     void shouldRenderPastMissingContent_whenRenderAnywayChosen() {
-        // The clinician's "render anyway" choice (allowMissingContent=true) tolerates the missing
-        // same-origin visual asset and produces the incomplete PDF instead of failing.
+        // The allowMissingContent flag is retained for API compatibility; both paths are advisory now.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(

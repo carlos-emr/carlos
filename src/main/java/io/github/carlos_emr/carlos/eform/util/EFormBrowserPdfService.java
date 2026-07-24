@@ -254,6 +254,9 @@ public class EFormBrowserPdfService {
             + "      display: none !important;\n"
             + "      visibility: hidden !important;\n"
             + "    }\n"
+            + "    .carlos-render-nonpage {\n"
+            + "      display: none !important;\n"
+            + "    }\n"
             + "    textarea {\n"
             + "      resize: none !important;\n"
             + "    }\n"
@@ -273,15 +276,23 @@ public class EFormBrowserPdfService {
             + "}";
 
     /**
-     * Page-geometry measurement: for each authored {@code pageN} div, the content bounding box
-     * (the visible-descendant union) in CSS px, tagged with the div id. That content box — not the
-     * background image — is the authoritative page size: for a real scanned-background form the
-     * background {@code <img>} is the largest descendant so the box equals the scan dimensions, and
-     * for a synthetic/text page with no full-page background the box still encloses every field.
-     * Measuring the background image directly would be wrong when it is a degenerate placeholder
-     * (a 1px asset scaled to a small box) that the page's real content overflows — Chromium would
-     * then paginate that content across many tiny pages. Returns {@code [{id,width,height}, ...]},
-     * empty for a free-flow form (e.g. the Rich Text Letter) that authored no {@code pageN} divs.
+     * Page-geometry measurement and page-content isolation. For each authored {@code pageN} div this
+     * returns the LARGER of the div's own border box and its visible-descendant union, per dimension,
+     * tagged with the div id — the printed page must hold both the div's full flow extent (or the div
+     * spills a mostly-blank page after it) and any content overflowing the div (or that content is
+     * clipped). The union alone under-measures a div taller than its contents; the border box alone
+     * under-measures a degenerate div (e.g. a placeholder background) its content overflows.
+     *
+     * <p>When page divs exist, this also marks every <em>in-flow</em> {@code body} child that neither
+     * is nor contains a page div with the {@code carlos-render-nonpage} class (hidden by the baseline
+     * print stylesheet): corpus forms carry interstitial/trailing flow content (license text, spacer
+     * markup) that the legacy region capture never photographed but that native print would paginate
+     * into stray extra pages. Absolutely/fixed-positioned siblings are left visible — they are out of
+     * flow (cost no pagination space), and some corpus forms overlay inputs onto pages from outside
+     * the page divs.</p>
+     *
+     * <p>Returns {@code [{id,width,height}, ...]}, empty for a free-flow form (e.g. the Rich Text
+     * Letter) that authored no {@code pageN} divs.</p>
      */
     static final String COMPUTE_PAGE_GEOMETRY_JS =
             "const rectOf = (el) => {\n"
@@ -318,16 +329,40 @@ public class EFormBrowserPdfService {
             + "    bottom = Math.max(bottom, rect.bottom);\n"
             + "  }\n"
             + "  if (!Number.isFinite(left) || right <= left || bottom <= top) {\n"
-            + "    const own = rectOf(pageNode);\n"
-            + "    return { width: own.width, height: own.height };\n"
+            + "    return { width: 0, height: 0 };\n"
             + "  }\n"
             + "  return { width: right - left, height: bottom - top };\n"
             + "};\n"
             + "const pageNodes = Array.from(document.body ? document.body.querySelectorAll('*') : [])\n"
             + "  .filter((el) => /^page\\d+$/i.test(el.id));\n"
+            + "if (pageNodes.length > 0 && document.body) {\n"
+            + "  for (const child of Array.from(document.body.children)) {\n"
+            + "    if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE') {\n"
+            + "      continue;\n"
+            + "    }\n"
+            + "    const isOrHasPage = pageNodes.some((pageNode) => child === pageNode || child.contains(pageNode));\n"
+            + "    if (isOrHasPage) {\n"
+            + "      continue;\n"
+            + "    }\n"
+            + "    const position = window.getComputedStyle(child).position;\n"
+            + "    if (position !== 'absolute' && position !== 'fixed') {\n"
+            + "      child.classList.add('carlos-render-nonpage');\n"
+            + "    }\n"
+            + "  }\n"
+            + "}\n"
             + "return pageNodes.map((pageNode) => {\n"
+            + "  const own = rectOf(pageNode);\n"
             + "  const box = contentBox(pageNode);\n"
-            + "  return { id: pageNode.id, width: box.width, height: box.height };\n"
+            + "  return {\n"
+            // Width hugs the CONTENT union (the background image / field extent), exactly as the
+            // legacy region capture did: a plain block page div stretches to the full viewport
+            // width, and printing that stretched box would emit pages with a giant blank right
+            // margin. Height instead takes the LARGER of the div's flow extent and its content:
+            // vertical under-measurement is what spills blank pages or clips fields.
+            + "    id: pageNode.id,\n"
+            + "    width: box.width > 0 ? box.width : own.width,\n"
+            + "    height: Math.max(own.height, box.height),\n"
+            + "  };\n"
             + "});";
 
     /**
@@ -1062,12 +1097,27 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Builds the {@code @page} sizing CSS for {@link #INJECT_PAGE_SIZE_CSS_JS}. When every page shares
-     * a size (the common single-scan-geometry form) one anonymous {@code @page { size }} rule covers
-     * them all; when sizes differ (e.g. a portrait page followed by a landscape one) a CSS named page
-     * is emitted per page div and bound to it by id, so each printed page keeps its authored geometry.
-     * Sizes are px (Chromium converts to the PDF's points at 96dpi), matching the legacy raster path's
-     * {@code px * 72/96} page boxes. Returns empty CSS for an empty list (never injected).
+     * Builds the {@code @page} sizing and pagination CSS for {@link #INJECT_PAGE_SIZE_CSS_JS}. When
+     * every page shares a size (the common single-scan-geometry form) one anonymous
+     * {@code @page { size }} rule covers them all; when sizes differ (e.g. a portrait page followed
+     * by a landscape one) a CSS named page is emitted per page div and bound to it by id, so each
+     * printed page keeps its authored geometry.
+     *
+     * <p>Every page div additionally gets an explicit pagination contract, because the legacy corpus
+     * authors <em>no</em> page-break CSS at all (the raster path photographed regions and never
+     * needed any): its {@code height} is pinned to the printed page height so the div's flow extent
+     * can never exceed one page (a fractional-height background otherwise spills a mostly-blank
+     * page and shifts every later field off its background — the "extra blank pages between pages,
+     * checkboxes misaligned" corpus regression), {@code overflow: hidden} clips content past the
+     * page box exactly as the region capture did, {@code margin: 0} removes inter-page gaps, and
+     * {@code break-after: page} forces each div onto its own printed page. The LAST div instead gets
+     * {@code break-after: auto} so a form whose final div carries an authored inline
+     * {@code page-break-after: always} does not emit a trailing blank page ({@code !important} in an
+     * author stylesheet outranks a non-important inline declaration, so these rules win over inline
+     * authored styles in both directions).</p>
+     *
+     * <p>Sizes are px (Chromium converts to the PDF's points at 96dpi), matching the legacy raster
+     * path's {@code px * 72/96} page boxes. Returns empty CSS for an empty list (never injected).</p>
      */
     static String buildPageSizeCss(List<PageSize> pages) {
         if (pages.isEmpty()) {
@@ -1079,19 +1129,29 @@ public class EFormBrowserPdfService {
                 (long) Math.ceil(page.width()) == firstWidth && (long) Math.ceil(page.height()) == firstHeight);
         StringBuilder css = new StringBuilder();
         if (uniform) {
-            return css.append("@page { size: ").append(cssPx(pages.get(0).width())).append(' ')
-                    .append(cssPx(pages.get(0).height())).append("; margin: 0; }").toString();
+            css.append("@page { size: ").append(cssPx(pages.get(0).width())).append(' ')
+                    .append(cssPx(pages.get(0).height())).append("; margin: 0; }\n");
+        } else {
+            for (int index = 0; index < pages.size(); index++) {
+                PageSize page = pages.get(index);
+                css.append("@page carlosPage").append(index + 1).append(" { size: ")
+                        .append(cssPx(page.width())).append(' ').append(cssPx(page.height()))
+                        .append("; margin: 0; }\n");
+            }
         }
         for (int index = 0; index < pages.size(); index++) {
             PageSize page = pages.get(index);
-            css.append("@page carlosPage").append(index + 1).append(" { size: ")
-                    .append(cssPx(page.width())).append(' ').append(cssPx(page.height()))
-                    .append("; margin: 0; }\n");
-        }
-        for (int index = 0; index < pages.size(); index++) {
+            boolean last = index == pages.size() - 1;
             // The id came through the /^page\d+$/i geometry filter, so it is a safe CSS id selector.
-            css.append('#').append(pages.get(index).id()).append(" { page: carlosPage")
-                    .append(index + 1).append("; }\n");
+            css.append('#').append(page.id()).append(" {");
+            if (!uniform) {
+                css.append(" page: carlosPage").append(index + 1).append(';');
+            }
+            css.append(" height: ").append(cssPx(page.height())).append(" !important;")
+                    .append(" margin: 0 !important;")
+                    .append(" overflow: hidden !important;")
+                    .append(" break-inside: avoid !important;")
+                    .append(" break-after: ").append(last ? "auto" : "page").append(" !important; }\n");
         }
         return css.toString();
     }
@@ -1176,22 +1236,18 @@ public class EFormBrowserPdfService {
                     "Browser rendering attempted a live egress channel. liveChannelAttempts=" + scan.liveChannelAttempts());
         }
         // The render's OWN same-origin (CARLOS) visual content failed to load — a missing signature
-        // block, form image, or stylesheet served by our EMR means the captured PDF is visually
-        // incomplete. By default this fails closed with a distinct, user-recoverable exception so the
-        // web layer can offer a "render anyway" choice; when the clinician has taken that choice
-        // (allowMissingContent), it is logged and tolerated. Counts only — never request URLs, which
-        // can carry eForm content.
+        // block, form image, or stylesheet served by our EMR means the produced PDF may be visually
+        // incomplete. POLICY: this is ADVISORY, never a hard failure — only security gates (main
+        // document, live egress channels, unverifiable network evidence) abort a render. The legacy
+        // corpus routinely references optional per-provider assets (signature stamps, letterheads)
+        // that legitimately 404 for most users; failing the render on them dead-ended routine
+        // downloads. The WARN below is the operator's signal that a form's own content is missing.
+        // Counts only — never request URLs, which can carry eForm content. (allowMissingContent is
+        // retained for API compatibility; both paths log-and-continue now.)
         if (scan.failedCriticalSubresources() > 0) {
-            if (allowMissingContent) {
-                logger.warn("Browser eForm renderer producing an INCOMPLETE eForm per render-anyway choice: fdid={} failedCriticalSubresources={}",
-                        fdid, scan.failedCriticalSubresources());
-            } else {
-                logger.error("Browser eForm renderer could not load its own eForm content: fdid={} failedCriticalSubresources={}",
-                        fdid, scan.failedCriticalSubresources());
-                throw new EformContentUnavailableException(
-                        "Browser rendering could not load the eForm's own content. failedCriticalSubresources="
-                                + scan.failedCriticalSubresources(), scan.failedCriticalSubresources());
-            }
+            logger.warn("Browser eForm renderer producing a possibly INCOMPLETE eForm ({}): fdid={} failedCriticalSubresources={}",
+                    allowMissingContent ? "per render-anyway choice" : "missing same-origin content is advisory",
+                    fdid, scan.failedCriticalSubresources());
         }
         if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
             // Off-origin HTTP requests, failed render-critical subresources, and severe page-script
@@ -1330,6 +1386,7 @@ public class EFormBrowserPdfService {
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
         int disallowedRequests = 0;
         Integer mainDocumentStatus = null;
+        String mainDocumentUrl = null;
         int failedSubresources = 0;
         int parseFailures = 0;
         int liveChannelAttempts = 0;
@@ -1363,13 +1420,20 @@ public class EFormBrowserPdfService {
                 boolean sameOrigin = allowedOrigin != null && allowedOrigin.equals(originOf(responseUrl));
                 if (mainDocumentStatus == null && "Document".equals(resourceType) && sameOrigin) {
                     mainDocumentStatus = params.path("response").path("status").asInt();
+                    mainDocumentUrl = responseUrl;
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
                         && params.path("response").path("status").asInt() >= 400) {
                     // A same-origin failure of a painted type (signature/image/stylesheet/font served
-                    // by CARLOS) is our EMR failing to serve the form's own content → hard fail.
-                    // Off-origin failures and non-visual same-origin failures (helper scripts that do
-                    // not paint) are advisory: they do not blank the already-rendered form.
-                    if (sameOrigin && RENDER_CRITICAL_VISUAL_TYPES.contains(resourceType)) {
+                    // by CARLOS) is our EMR failing to serve the form's own content → missing-content
+                    // signal (user-promptable). Off-origin failures and non-visual same-origin
+                    // failures (helper scripts that do not paint) are advisory: they do not blank the
+                    // already-rendered form. A subresource fetch of the MAIN DOCUMENT URL itself is
+                    // also advisory: it is the legacy empty-src placeholder idiom (<img src=""> — a
+                    // JS-populated signature stamp) resolving to the page's own URL, not real form
+                    // content failing to load; the single-use render token has already been consumed
+                    // by the page navigation, so this self-fetch can never succeed and never paints.
+                    if (sameOrigin && RENDER_CRITICAL_VISUAL_TYPES.contains(resourceType)
+                            && !responseUrl.equals(mainDocumentUrl)) {
                         failedCriticalSubresources++;
                     } else {
                         failedSubresources++;
