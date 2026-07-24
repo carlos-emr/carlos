@@ -32,8 +32,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.util.*;
 
@@ -745,12 +747,16 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * and platforms. This is particularly important for healthcare documents that must maintain
      * data integrity and comply with record-keeping regulations.
      *
-     * The operation modifies the PDF file in place, replacing the original file with the flattened version.
+     * <p>When the document carries an AcroForm the file is replaced with the flattened version,
+     * written to a sibling temp file and atomically moved over the original (never {@code save()}
+     * onto the live backing file). When there is no AcroForm the file is deliberately left
+     * byte-for-byte untouched (see the inline note below).</p>
      *
      * @param pdfPath Path the file system path to the PDF document to flatten
      * @throws PDFGenerationException if an error occurs while loading, processing, or saving the PDF file
      */
     public void flattenPDFFormFields(Path pdfPath) throws PDFGenerationException {
+        Path flattenedTemp = null;
         try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
             PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
             if (acroForm == null) {
@@ -762,12 +768,30 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 return;
             }
             acroForm.flatten();
-            // Save to a buffer first, then replace the file — never save() onto the live backing file.
-            java.io.ByteArrayOutputStream flattened = new java.io.ByteArrayOutputStream();
-            document.save(flattened);
-            Files.write(pdfPath, flattened.toByteArray());
+            // Save to a SIBLING temp file, then atomically move it over the original. This never
+            // save()s onto the live backing file (the self-clobber above), never truncates the input
+            // in place (a save/IO failure mid-write would otherwise destroy a valid merged PDF), and
+            // streams to disk instead of holding a second full in-heap copy of a possibly-large
+            // merged packet. document.save() fully reads every referenced stream before returning, so
+            // moving the backing file afterward is safe while the document is still open.
+            flattenedTemp = pdfPath.resolveSibling(pdfPath.getFileName() + ".flatten.tmp");
+            document.save(flattenedTemp.toFile());
+            try {
+                Files.move(flattenedTemp, pdfPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(flattenedTemp, pdfPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+            flattenedTemp = null;
         } catch (IOException e) {
             throw new PDFGenerationException("Error while flattening the " + pdfPath.getFileName() + " file. " + e.getMessage(), e);
+        } finally {
+            if (flattenedTemp != null) {
+                try {
+                    Files.deleteIfExists(flattenedTemp);
+                } catch (IOException ignore) {
+                    // Best-effort cleanup of the orphaned temp on a failed move; the original file is intact.
+                }
+            }
         }
     }
 }

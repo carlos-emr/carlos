@@ -235,7 +235,7 @@ public class DocumentManagerImpl implements DocumentManager {
      * single path and the second silently overwrote the first. Because the {@code document} table
      * has no unique constraint on {@code docfilename}, both DB rows survived — one of them then
      * pointing at the other patient's bytes (cross-patient PHI exposure). The name is now
-     * server-generated as {@code yyyyMMdd-HHmmss-NNNNN-<name>} with an atomic sequence, and the
+     * server-generated as {@code yyyyMMddHHmmss_NNNNN_<name>} with an atomic sequence, and the
      * write uses {@link StandardOpenOption#CREATE_NEW} so an existing file is never truncated; on
      * the rare residual collision the name is regenerated and the write retried.
      */

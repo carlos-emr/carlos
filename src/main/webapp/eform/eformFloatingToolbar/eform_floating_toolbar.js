@@ -92,22 +92,57 @@ function submitEForm() {
 	return true;
 }
 
+let editorLoadingBlockCount = 0;
+
+/**
+ * True when the Rich Text Letter editor is still initializing: its template dropdown still shows the
+ * legacy " loading... " placeholder. Saving now would serialize the half-built editor and persist a
+ * broken snapshot that renders as an empty "loading" page forever, so every save/download/fax/email
+ * entry point checks this BEFORE showing a (locked) spinner or appending action inputs — otherwise
+ * an abort would leave an undismissable overlay and stale hidden inputs behind. After a few
+ * consecutive blocks the editor is probably broken (a failed template fetch never leaves the
+ * placeholder), so escalate the message and post a marker to the server rather than telling the
+ * clinician to "wait" forever. The (visible) alert is raised here so callers stay simple.
+ */
+function editorStillLoading() {
+	const stillLoading = Array.from(document.querySelectorAll('select option'))
+		.some((option) => option.textContent.trim() === 'loading...');
+	if (!stillLoading) {
+		editorLoadingBlockCount = 0;
+		return false;
+	}
+	editorLoadingBlockCount += 1;
+	if (editorLoadingBlockCount >= 3) {
+		alert('The letter editor did not finish loading. Close and reopen the letter; if this keeps happening, contact support.');
+		try {
+			const contextEl = document.getElementById('context');
+			const fidEl = document.getElementById('fid');
+			if (contextEl && fidEl) {
+				jQuery.post(contextEl.value + '/eform/logEformError',
+					{ formId: fidEl.value, error: 'RTL editor never left loading state; save blocked' });
+			}
+		} catch (e) {
+			// best-effort telemetry only; never let it block the guard
+		}
+	} else {
+		alert('The letter editor is still loading. Please wait a moment and try again.');
+	}
+	return true;
+}
+
 	/**
 	 * Triggers the eForm save/submit function
 	 */
 function remoteSave() {
 
 	try {
-		// Guard: the Rich Text Letter editor builds its UI (and the letter content) asynchronously
-		// after page load. Saving while it is still initializing serializes the half-built editor —
-		// its template dropdown still shows the legacy " loading... " placeholder — and stores that
-		// broken snapshot as the letter, which then renders as an empty "loading" page forever.
-		// Block the save until the editor is ready rather than persist a corrupted letter.
-		const stillLoading = Array.from(document.querySelectorAll('select option'))
-			.some((option) => option.textContent.trim() === 'loading...');
-		if (stillLoading) {
-			alert('The letter editor is still loading. Please wait a moment and try again.');
-			return;
+		// Last line of defense for direct callers (the plain Save button): composite callers
+		// (remoteDownload/remoteFax/remoteEmail) check editorStillLoading() BEFORE their own
+		// spinner/input mutations, so by the time they reach here the check is already clear. Hide any
+		// spinner a caller may have shown and abort with the function's boolean contract.
+		if (editorStillLoading()) {
+			HideSpin();
+			return false;
 		}
 
 		// bind the spinner to the form submit event.
@@ -309,13 +344,23 @@ function addEFormAttachments() {
  * open 'Save as' window dialog
  */
 function remoteDownload() {
+    // Check BEFORE ShowSpin(true) (a locked overlay) and before appending the action input: if the
+    // editor is still loading, aborting after either would strand an undismissable spinner and a
+    // stale saveAndDownloadEForm=true that a later plain Save would silently ride into a download.
+    if (editorStillLoading()) {
+        return;
+    }
     ShowSpin(true);
-    const newElement = document.createElement("input");
-    newElement.setAttribute("id", "saveAndDownloadEForm");
-    newElement.setAttribute("name", "saveAndDownloadEForm");
-    newElement.setAttribute("value", "true");
-    newElement.setAttribute("type", "hidden");
-    document.forms[0].appendChild(newElement);
+    // Reuse-by-id so repeated attempts do not accumulate duplicate hidden inputs.
+    let saveAndDownload = document.getElementById("saveAndDownloadEForm");
+    if (!saveAndDownload) {
+        saveAndDownload = document.createElement("input");
+        saveAndDownload.setAttribute("id", "saveAndDownloadEForm");
+        saveAndDownload.setAttribute("name", "saveAndDownloadEForm");
+        saveAndDownload.setAttribute("type", "hidden");
+        document.forms[0].appendChild(saveAndDownload);
+    }
+    saveAndDownload.value = "true";
 
     remoteSave();
 }
@@ -342,12 +387,13 @@ function downloadEForm() {
  * open the Oscar Fax dialog.
  */
 function remoteFax() {
-    const newElement = document.createElement("input");
-    newElement.setAttribute("id", "faxAction");
-    newElement.setAttribute("name", "faxEForm");
-    newElement.setAttribute("value", "true");
-    newElement.setAttribute("type", "hidden");
-    document.forms[0].appendChild(newElement);
+    // Check before appending any action input: aborting the save after appending faxEForm=true (and
+    // stale recipient values) would leave them on the form for a later plain Save to ride into the
+    // fax workflow unexpectedly.
+    if (editorStillLoading()) {
+        return;
+    }
+    setHiddenFormInput("faxAction", "faxEForm", "true");
 
     /*
      * This helps carry forward the select list values of fax recipients
@@ -360,25 +406,31 @@ function remoteFax() {
         const recipient = selectedOption.getAttribute('name');
 
         if (recipientFaxNumber) {
-            const recipientElement = document.createElement("input");
-            recipientElement.setAttribute("id", "recipient");
-            recipientElement.setAttribute("name", "recipient");
-            recipientElement.setAttribute("value", recipient);
-            recipientElement.setAttribute("type", "hidden");
-
-            document.forms[0].appendChild(recipientElement);
-
-            const recipientNumberElement = document.createElement("input");
-            recipientNumberElement.setAttribute("id", "recipientFaxNumber");
-            recipientNumberElement.setAttribute("name", "recipientFaxNumber");
-            recipientNumberElement.setAttribute("value", recipientFaxNumber);
-            recipientNumberElement.setAttribute("type", "hidden");
-
-            document.forms[0].appendChild(recipientNumberElement);
+            // Reuse-by-id so repeated fax attempts refresh (not duplicate) the recipient inputs.
+            setHiddenFormInput("recipient", "recipient", recipient);
+            setHiddenFormInput("recipientFaxNumber", "recipientFaxNumber", recipientFaxNumber);
         }
     }
 
     remoteSave();
+}
+
+/**
+ * Sets (creating once, then reusing by id) a hidden input on the primary form. Reuse-by-id keeps
+ * repeated aborted/retried actions from accumulating duplicate id/name inputs (form encoding takes
+ * the first, so a stale duplicate could otherwise win over a fresh value).
+ */
+function setHiddenFormInput(id, name, value) {
+    let input = document.getElementById(id);
+    if (!input) {
+        input = document.createElement("input");
+        input.setAttribute("id", id);
+        input.setAttribute("name", name);
+        input.setAttribute("type", "hidden");
+        document.forms[0].appendChild(input);
+    }
+    input.setAttribute("value", value);
+    input.value = value;
 }
 
 /**
@@ -407,12 +459,12 @@ function remoteEmail() {
         }
     }
 
-    const newElement = document.createElement("input");
-    newElement.setAttribute("id", "emailAction");
-    newElement.setAttribute("name", "emailEForm");
-    newElement.setAttribute("value", "true");
-    newElement.setAttribute("type", "hidden");
-    document.forms[0].appendChild(newElement);
+    // Check before appending emailEForm=true so an editor-still-loading abort does not leave it on
+    // the form for a later plain Save to ride into the email workflow.
+    if (editorStillLoading()) {
+        return;
+    }
+    setHiddenFormInput("emailAction", "emailEForm", "true");
     remoteSave();
 
 }

@@ -85,7 +85,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("documentManager")
-class DocumentPreview2ActionTest extends CarlosUnitTestBase {
+class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;

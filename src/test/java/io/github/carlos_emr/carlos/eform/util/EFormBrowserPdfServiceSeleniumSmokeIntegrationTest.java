@@ -303,15 +303,21 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
         } catch (WebDriverException e) {
             // Skip ONLY when chromedriver itself is genuinely unobtainable (offline host, Selenium
             // Manager can't resolve/download a matching driver). findChromiumBinary() already
-            // guarantees a real Chromium binary exists before this call, so a browser that starts
-            // then crashes, or otherwise fails to launch from a FOUND binary, is a renderer
-            // regression and must fail the test, not be silently converted into a green skip.
-            String message = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
-            boolean driverUnavailable = message.contains("cannot find")
-                    || message.contains("unable to find")
-                    || message.contains("no such file")
-                    || message.contains("unable to obtain")
-                    || message.contains("executable");
+            // guarantees a real Chromium binary exists, so a browser that starts then crashes, is
+            // missing shared libraries ("...libnss3.so: No such file"), or is a stale wrapper
+            // ("cannot find Chrome binary") is a renderer regression and must FAIL, not become a
+            // green skip. NoSuchDriverException is Selenium Manager's precise "could not obtain a
+            // driver" signal; the substring fallback is narrowed to messages that name chromedriver,
+            // so a broken BROWSER (whose errors never name chromedriver) can never be misclassified as
+            // an absent DRIVER — the earlier bare "no such file"/"executable" tokens did exactly that.
+            boolean driverUnavailable = e instanceof org.openqa.selenium.remote.NoSuchDriverException;
+            if (!driverUnavailable) {
+                String message = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
+                driverUnavailable = message.contains("chromedriver")
+                        && (message.contains("cannot find")
+                            || message.contains("unable to find")
+                            || message.contains("unable to obtain"));
+            }
             if (driverUnavailable) {
                 assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
                 throw new IllegalStateException("unreachable");

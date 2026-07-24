@@ -54,7 +54,6 @@ io.github.carlos_emr.carlos.demographic.pageUtil.DemographicPdfLabel2ActionTest
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicSearch2ActionTest
 io.github.carlos_emr.carlos.demographic.pageUtil.DemographicUpdate2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentDelete2ActionTest
-io.github.carlos_emr.carlos.documentManager.actions.DocumentPreview2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentRefile2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentUndelete2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2ActionFilenameValidationTest
