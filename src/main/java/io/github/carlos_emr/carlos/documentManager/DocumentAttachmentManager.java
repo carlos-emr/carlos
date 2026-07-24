@@ -56,6 +56,7 @@ public interface DocumentAttachmentManager {
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;String&gt; list of document identifiers attached to the consultation
+     * @throws SecurityException if the user lacks the required "_con" read privilege
      */
     public List<String> getConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, DocumentType documentType, Integer demographicNo);
 
@@ -115,6 +116,7 @@ public interface DocumentAttachmentManager {
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo);
 
@@ -143,6 +145,7 @@ public interface DocumentAttachmentManager {
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
      * @param editOnOcean Boolean true if the consultation was created by OceanMD and requires automatic synchronization, false for standard attach/detach operations
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean);
 
