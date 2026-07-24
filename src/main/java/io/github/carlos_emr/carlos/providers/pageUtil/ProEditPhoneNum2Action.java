@@ -60,6 +60,15 @@ public class ProEditPhoneNum2Action extends ActionSupport {
         if (providerNo == null)
             return "eject";
 
+        // Server-side validation. The browser-side validate() is bypassable via a direct POST, so the
+        // value MUST be constrained here before it is stored and later rendered back into the page.
+        // Allow only telephone punctuation and bound the length; reject anything else (e.g. markup),
+        // which is both a data-quality and a stored-XSS defense.
+        if (faxNumber != null && !faxNumber.matches("[0-9+()\\-.\\sxX]{0,40}")) {
+            request.setAttribute("phoneError", Boolean.TRUE);
+            return SUCCESS;
+        }
+
         UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop = propertyDao.getProp(providerNo, "rxPhone");
         if (prop != null) {
