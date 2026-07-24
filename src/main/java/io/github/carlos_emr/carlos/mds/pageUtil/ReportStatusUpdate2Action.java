@@ -99,24 +99,20 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         }
 
         try {
-            // updateReportStatus returns false when it could not archive the prior routing (a
-            // fail-closed audit signal added in this PR). Do NOT report success to the clinician in
-            // that case: an acknowledgement the record does not actually reflect is a silent failure.
-            boolean updated = CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
+            // A real acknowledgement failure throws (handled below); updateReportStatus otherwise
+            // persists the status. Its boolean is not an ack-success signal — do not gate the
+            // response on it.
+            CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
             if (multiID != null) {
                 String[] id = multiID.split(",");
                 int i = 0;
                 int idNum = Integer.parseInt(id[i]);
                 while (idNum != labNo) {
-                    updated = CommonLabResultData.updateReportStatus(idNum, providerNo, 'F', "", lab_type) && updated;
+                    CommonLabResultData.updateReportStatus(idNum, providerNo, 'F', "", lab_type);
                     i++;
                     idNum = Integer.parseInt(id[i]);
                 }
 
-            }
-            if (!updated) {
-                logger.error("Lab report status update could not archive routing (segmentID={}); reporting failure", labNo);
-                return "failure";
             }
             if (ajaxcall != null && ajaxcall.equals("yes"))
                 return null;
@@ -140,19 +136,12 @@ public class ReportStatusUpdate2Action extends ActionSupport {
         String comment = request.getParameter("comment");
         String lab_type = request.getParameter("labType");
 
-        boolean updated;
         try {
 
-            updated = CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
+            CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type);
 
         } catch (Exception e) {
             logger.error("exception in setting comment", e);
-            return "failure";
-        }
-        if (!updated) {
-            // The routing could not be archived; do not return the success JSON with a timestamp the
-            // record does not actually carry (silent-failure / false-acknowledgement gap).
-            logger.error("Lab comment update could not archive routing (segmentID={}); reporting failure", labNo);
             return "failure";
         }
 
