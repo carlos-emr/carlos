@@ -114,14 +114,19 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
-    @DisplayName("should not inject a loadSig fallback when a real definition is present")
-    void shouldNotInjectLoadSigFallback_whenDefinitionPresent() {
+    @DisplayName("should inject the idempotent loadSig fallback even when a definition is present")
+    void shouldInjectIdempotentFallback_whenDefinitionPresent() {
         EForm eform = new EForm();
         eform.setFormHtml("<html><body onload=\"loadSig();\"><script>window.loadSig = function(){};</script></body></html>");
 
         eform.setContextPath("/carlos");
 
-        assertThat(eform.getFormHtml()).doesNotContain("|| function loadSig() {};");
+        // The fallback is idempotent (window.loadSig || function loadSig(){}), so it is injected
+        // unconditionally whenever the page calls loadSig(); a real definition earlier in the body is
+        // preserved via the ||. This replaced a definition-detection heuristic that false-matched
+        // loadSig text inside comments/strings and could suppress the fallback, breaking form onload.
+        assertThat(eform.getFormHtml())
+                .contains("window.loadSig = window.loadSig || function loadSig() {};");
     }
 
     @Test
