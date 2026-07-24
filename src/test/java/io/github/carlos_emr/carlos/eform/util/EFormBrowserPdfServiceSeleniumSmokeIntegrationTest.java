@@ -30,7 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
@@ -52,8 +51,11 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * End-to-end fidelity smoke: serves the repo's realistic eForm test-pattern fixture over a
- * loopback HTTP server (same origin semantics as production) and drives the full Selenium
- * capture path — stabilization, region computation, CDP clip screenshots, PDFBox assembly.
+ * loopback HTTP server (same origin semantics as production) and drives the full Selenium native
+ * print path — print-media emulation, stabilization, page-geometry measurement, {@code @page}
+ * sizing, and {@code Page.printToPDF} — then asserts the result is a multi-page PDF whose page
+ * count matches the authored {@code pageN} divs and that carries a real text layer (the raster
+ * path this replaced produced image-only pages with zero extractable text).
  *
  * <p>Skips cleanly when no Chromium binary or matching chromedriver is available, so CI hosts
  * without a browser stay green while browser-equipped environments verify the real pipeline.</p>
@@ -92,56 +94,139 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
                     .pageLoadTimeout(Duration.ofSeconds(30))
                     .scriptTimeout(Duration.ofSeconds(30));
 
+            // Emulate PRINT media before settling so the page is measured and printed in the same
+            // layout Page.printToPDF will emit (mirrors EFormBrowserPdfService.renderWithSlot).
+            HasCdp cdp = driver;
+            cdp.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
+
             driver.get("http://127.0.0.1:" + server.getAddress().getPort() + "/test-pattern.html");
             Thread.sleep(1500);
             Object settleError = driver.executeAsyncScript(EFormBrowserPdfService.STABILIZE_ASYNC_JS);
             assertThat(settleError).as("stabilization script error").isNull();
-            driver.executeScript(EFormBrowserPdfService.PREPARE_CAPTURE_JS);
+            driver.executeScript(EFormBrowserPdfService.PREPARE_PRINT_JS);
 
-            List<EFormBrowserPdfService.CaptureRegion> regions =
-                    EFormBrowserPdfService.readRegions(driver.executeScript(EFormBrowserPdfService.COMPUTE_REGIONS_JS));
-            assertThat(regions).as("computed capture regions").isNotEmpty();
+            List<EFormBrowserPdfService.PageSize> pageSizes =
+                    EFormBrowserPdfService.readPageSizes(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS));
+            // The fixture authors exactly two pageN divs; native print must preserve that pagination.
+            assertThat(pageSizes).as("measured authored page sizes").hasSize(2);
+            driver.executeScript(EFormBrowserPdfService.INJECT_PAGE_SIZE_CSS_JS,
+                    EFormBrowserPdfService.buildPageSizeCss(pageSizes));
 
-            HasCdp cdp = driver;
-            List<Path> captures = new ArrayList<>();
-            for (int index = 0; index < regions.size(); index++) {
-                EFormBrowserPdfService.CaptureRegion region = regions.get(index);
-                Map<String, Object> result = cdp.executeCdpCommand("Page.captureScreenshot", Map.of(
-                        "format", "png",
-                        "clip", Map.of(
-                                "x", Math.max(0, Math.floor(region.x())),
-                                "y", Math.max(0, Math.floor(region.y())),
-                                "width", Math.ceil(region.width()),
-                                "height", Math.ceil(region.height()),
-                                "scale", 1.0d),
-                        "captureBeyondViewport", Boolean.TRUE));
-                byte[] png = Base64.getDecoder().decode(String.valueOf(result.get("data")));
-                assertThat(png).as("capture %s bytes", index).isNotEmpty();
-                Path capturePath = tempDir.resolve(String.format("page-%03d.png", index + 1));
-                Files.write(capturePath, png);
-                captures.add(capturePath);
-            }
-
+            Map<String, Object> printResult = cdp.executeCdpCommand("Page.printToPDF", Map.of(
+                    "preferCSSPageSize", Boolean.TRUE,
+                    "printBackground", Boolean.TRUE,
+                    "scale", 1.0d,
+                    "marginTop", 0.0d,
+                    "marginBottom", 0.0d,
+                    "marginLeft", 0.0d,
+                    "marginRight", 0.0d,
+                    "transferMode", "ReturnAsBase64"));
+            byte[] pdfBytes = Base64.getDecoder().decode(String.valueOf(printResult.get("data")));
             Path pdfPath = tempDir.resolve("test-pattern.pdf");
-            EFormBrowserPdfService.convertCapturesToPdf(captures, pdfPath, tempDir);
+            Files.write(pdfPath, pdfBytes);
 
-            byte[] header = new byte[4];
-            try (var in = Files.newInputStream(pdfPath)) {
-                assertThat(in.read(header)).isEqualTo(4);
-            }
-            assertThat(new String(header, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+            assertThat(new String(pdfBytes, 0, 4, java.nio.charset.StandardCharsets.US_ASCII))
+                    .as("PDF magic bytes").isEqualTo("%PDF");
             assertThat(Files.size(pdfPath)).isGreaterThan(1000);
-            // Structural fidelity beyond the magic bytes: the assembled document must be a
-            // loadable PDF whose pages carry real geometry, not merely a well-prefixed blob.
+            // Structural + fidelity assertions beyond the magic bytes.
             try (org.apache.pdfbox.pdmodel.PDDocument renderedPdf =
                     org.apache.pdfbox.Loader.loadPDF(pdfPath.toFile())) {
-                assertThat(renderedPdf.getNumberOfPages()).isGreaterThanOrEqualTo(1);
+                // One PDF page per authored pageN div — the legacy per-page pagination is preserved.
+                assertThat(renderedPdf.getNumberOfPages()).isEqualTo(pageSizes.size());
                 assertThat(renderedPdf.getPage(0).getMediaBox().getWidth()).isGreaterThan(0);
                 assertThat(renderedPdf.getPage(0).getMediaBox().getHeight()).isGreaterThan(0);
+                // The core win over the former raster pipeline: a real, selectable text layer. The
+                // raster (screenshot) path produced image-only pages whose extracted text was empty
+                // (length 0); native print must yield the form's actual text.
+                String extractedText = new org.apache.pdfbox.text.PDFTextStripper().getText(renderedPdf);
+                assertThat(extractedText).as("native print text layer")
+                        .contains("CARLOS Test Pattern eForm");
             }
         } finally {
             // Nest so a throw from any one cleanup step still runs the rest (a failed driver.quit()
             // must not leak the loopback server or orphan the temp dir).
+            try {
+                if (driver != null) {
+                    driver.quit();
+                }
+            } finally {
+                try {
+                    server.stop(0);
+                } finally {
+                    deleteRecursively(tempDir);
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should render a free-flow eForm with no page divs to a text-layer PDF (Rich Text Letter path)")
+    void shouldRenderFreeFlowForm_toTextLayerPdfWithNoPageDivs() throws Exception {
+        String chromiumBinary = findChromiumBinary();
+        assumeTrue(chromiumBinary != null, "no headless Chromium binary available on this host");
+
+        // The Rich Text Letter shape: a free-flow prose body with its own @page margin and NO pageN
+        // divs, so the geometry step returns empty and the renderer injects no @page size — Chromium's
+        // own pagination applies. This is the path exercised for every free-flow eForm (the letter).
+        String html = "<!doctype html><html><head><style>@page { margin: 2cm; }</style></head>"
+                + "<body contenteditable=\"true\"><h1>Consultation Letter</h1>"
+                + "<p>Dear colleague, this free-flow letter body verifies the native print path for "
+                + "forms that author no page divisions, and must still carry a selectable text layer.</p>"
+                + "</body></html>";
+        byte[] pageBytes = html.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
+            exchange.sendResponseHeaders(200, pageBytes.length);
+            try (OutputStream body = exchange.getResponseBody()) {
+                body.write(pageBytes);
+            }
+        });
+        server.start();
+
+        ChromeDriver driver = null;
+        Path tempDir = Files.createTempDirectory("eform-selenium-freeflow-");
+        try {
+            String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
+            driver = startDriverOrSkip(EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin));
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30)).scriptTimeout(Duration.ofSeconds(30));
+            HasCdp cdp = driver;
+            cdp.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
+
+            driver.get(allowedOrigin + "/letter.html");
+            Thread.sleep(1000);
+            Object settleError = driver.executeAsyncScript(EFormBrowserPdfService.STABILIZE_ASYNC_JS);
+            assertThat(settleError).as("stabilization script error").isNull();
+            driver.executeScript(EFormBrowserPdfService.PREPARE_PRINT_JS);
+
+            List<EFormBrowserPdfService.PageSize> pageSizes =
+                    EFormBrowserPdfService.readPageSizes(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS));
+            // A free-flow form authors no pageN divs, so no authored @page sizes are measured or
+            // injected — Chromium paginates on its own (or on the form's own @page rule).
+            assertThat(pageSizes).as("free-flow form authors no page sizes").isEmpty();
+
+            Map<String, Object> printResult = cdp.executeCdpCommand("Page.printToPDF", Map.of(
+                    "preferCSSPageSize", Boolean.TRUE,
+                    "printBackground", Boolean.TRUE,
+                    "scale", 1.0d,
+                    "marginTop", 0.0d,
+                    "marginBottom", 0.0d,
+                    "marginLeft", 0.0d,
+                    "marginRight", 0.0d,
+                    "transferMode", "ReturnAsBase64"));
+            byte[] pdfBytes = Base64.getDecoder().decode(String.valueOf(printResult.get("data")));
+            assertThat(new String(pdfBytes, 0, 4, java.nio.charset.StandardCharsets.US_ASCII))
+                    .as("PDF magic bytes").isEqualTo("%PDF");
+            try (org.apache.pdfbox.pdmodel.PDDocument renderedPdf =
+                    org.apache.pdfbox.Loader.loadPDF(pdfBytes)) {
+                assertThat(renderedPdf.getNumberOfPages()).isGreaterThanOrEqualTo(1);
+                // The free-flow path must carry a real text layer just like the page-div path.
+                String extractedText = new org.apache.pdfbox.text.PDFTextStripper().getText(renderedPdf);
+                assertThat(extractedText)
+                        .contains("Consultation Letter")
+                        .contains("free-flow letter body");
+            }
+        } finally {
             try {
                 if (driver != null) {
                     driver.quit();

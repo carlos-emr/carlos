@@ -18,31 +18,49 @@ EformDataManagerImpl.createEformPDF (checks _eform read privilege)
        │    └─ rewrites the eForm's ${oscar_image_path}/displayImage asset URLs to
        │         /EFormImageViewForPdfGenerationServlet?renderToken=…&imagefile=…, so the sessionless
        │         browser fetches each background/asset image under the same grant (loopback + token)
-       ├─ stabilizes the page (fonts, images, animation frames), computes capture regions,
-       │    takes clipped CDP screenshots (page-NNN.png)
-       └─ assembles the captures into eform-browser-render-*.pdf with PDFBox
+       ├─ emulates print media, stabilizes the page (fonts, images, animation frames),
+       │    measures each authored page div's content box, and sizes the CSS @page boxes to match
+       └─ prints the page to a native, text-layer eform-browser-render-*.pdf via CDP Page.printToPDF
 ```
 
 The token replaces any session forwarding: the browser never holds a user's session cookie, so
 script on a rendered eForm can act as no one. Authorization is anchored at the manager's
 `SecurityInfoManager.hasPrivilege(_eform)` check, which is the only place tokens are minted.
 
-### Why region capture instead of native print-to-PDF
+### Native print-to-PDF with authored @page sizing
 
-Chromium exposes a native print pipeline (`Page.printToPDF`, Selenium's
-`driver.print(PrintOptions)`) that produces text-layer PDFs. The renderer deliberately does not
-use it: legacy eForms are absolutely-positioned documents built from `page1..pageN` divs sized in
-CSS pixels over background images, and native print paginates by **paper geometry** — it would
-split or rescale those authored page boundaries wherever a div does not fit the paper size. The
-region-capture approach reproduces each authored page exactly as the form designer laid it out,
-which is the compatibility contract the legacy form corpus depends on. Fax transmission — the
-primary consumer — is raster end-to-end regardless, so nothing is lost on that path.
+The renderer uses Chromium's native print pipeline (`Page.printToPDF`) so every eForm PDF carries a
+real, selectable/searchable **text layer** (accessibility, archive search, smaller files). Native
+print paginates by **paper geometry**, and legacy eForms are absolutely-positioned documents built
+from `page1..pageN` divs sized in CSS pixels over background images — so left alone, native print
+would split or rescale those authored page boundaries to fit a default paper size. The renderer
+closes that gap by **measuring each authored page div's content box and injecting a matching CSS
+`@page` size** before printing:
 
-Native print was **not** prototyped against the legacy form corpus when this pipeline was built.
-If a future need for text-layer archive PDFs arises (searchability, accessibility), that
-prototype — measuring how `printToPDF` paginates representative `page1..N` forms — is the first
-step; a hybrid (native print for forms that declare compatible geometry) would be the likely
-shape.
+- `Emulation.setEmulatedMedia` is set to `print` before the page settles, so the layout that is
+  measured and gated is exactly the layout that prints (a form's own `@media print` rules apply).
+- `COMPUTE_PAGE_GEOMETRY_JS` measures each `pageN` div's content bounding box (the union of its
+  visible descendants — the background image is the largest descendant for a scanned form, so the
+  box equals the scan dimensions; a synthetic/text page still encloses every field). Measuring the
+  content box rather than the background `<img>` avoids a degenerate placeholder background (a tiny
+  asset the page's real content overflows) driving Chromium to paginate that content across many
+  tiny pages.
+- `readPageSizes` validates the geometry fail-closed (page-count and per-dimension caps, non-finite
+  rejection), then `buildPageSizeCss` emits either one anonymous `@page { size }` (all pages share a
+  size — the common single-scan-geometry form) or CSS **named pages** bound to each page div by id
+  (sizes differ), and `Page.printToPDF` runs with `preferCSSPageSize:true`, `printBackground:true`,
+  `scale:1`, and zero margins so those authored sizes drive the PDF page boxes 1:1.
+- A **free-flow form** (the Rich Text Letter) authors no `pageN` divs, so no `@page` size is
+  injected and the form's own `@page` rule (or Chromium's default paper) drives natural pagination.
+
+This preserves the legacy per-page geometry contract the form corpus depends on **and** yields a
+text-layer PDF. (The previous implementation screenshotted each `pageN` region via
+`Page.captureScreenshot` and glued the PNGs with PDFBox `LosslessFactory`, which produced image-only
+PDFs with no extractable text — and clipped pages whose background image was smaller than their
+content.) Equivalence is pinned by the Selenium smoke test
+(`EFormBrowserPdfServiceSeleniumSmokeIntegrationTest`): the page-div fixture prints to a 2-page PDF
+whose page count matches the authored divs and whose text layer contains the form's text, and the
+free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 ## Deployment requirements
 
@@ -188,7 +206,7 @@ heuristic.
   to read it is a WebDriver fault, not a capability gap); and **a failed *same-origin* (CARLOS)
   render-critical *visual* subresource** — an `Image`, secondary `Document` iframe (the signature
   block), `Stylesheet`, or `Font` served by the EMR that returns an HTTP 4xx/5xx. That last one is the
-  "our own eForm content failed to render" case (a missing signature or form image): the captured PDF
+  "our own eForm content failed to render" case (a missing signature or form image): the printed PDF
   is genuinely wrong, so it must not be faxed. **Advisory by default** (logged at WARN, render proceeds
   — set `eform_pdf_browser_strict_network_gate=true` to make them hard again): an off-origin HTTP
   request (already physically blocked by the dead proxy); a failed *off-origin* subresource or a
@@ -261,11 +279,13 @@ These are inherited from the original browser-render feature (PR #3164) and are 
 **not** changed here, because a code change would be either behavior-breaking for rendering or an
 operational configuration matter:
 
-- **Output is raster-only.** Captured pages become images inside the PDF: no selectable or
-  searchable text, no accessibility tags, and larger files than a text-layer PDF of the same
-  content. Acceptable for fax (raster end-to-end anyway); a real trade-off for archived eDocs —
-  see "Why region capture instead of native print-to-PDF" above for the compatibility rationale
-  and the prototype that would precede any change.
+- **Output is a native text-layer PDF, sized by measured page geometry.** Pages carry selectable/
+  searchable text and are smaller than the equivalent image-only PDF. The page boxes come from the
+  authored page divs' measured content boxes (see "Native print-to-PDF with authored @page sizing"
+  above), not the physical paper — a form whose `@media print` rules or absolute layout differ
+  sharply from its on-screen layout will print per those print rules. Because there is no runtime
+  fallback to the old raster path, a **staging soak against a real form corpus** is recommended
+  before a production cutover so any form with surprising print-media behavior is caught early.
 - **eForm HTML rewrites run on display and save, not only on render.** `EForm.setContextPath()` /
   `getFormHtml()` normalize asset URLs on the ordinary display and save paths as well as the render
   path, so saving can persist transformed HTML and perturb the `sameform` de-duplication. The render
@@ -294,7 +314,7 @@ from PR #3164:
   resends.
 - **The 90-second render timeout is a cooperative budget, not a hard preemptive cutoff.**
   `RENDER_TIMEOUT` is only checked between browser commands (`checkDeadline`, called before
-  `settle()` and before each capture region) — a command already dispatched is never cancelled
+  `settle()` and before the `Page.printToPDF` call) — a command already dispatched is never cancelled
   mid-flight. So a genuinely wedged Chromium (one that stops answering the WebDriver protocol
   entirely, rather than erroring cleanly) can consume close to the full 90-second budget as
   legitimate elapsed time, then hang the one command already in flight when the deadline is
@@ -310,8 +330,9 @@ from PR #3164:
 
 The rendered PDF is written beneath the managed temp root
 (`$CATALINA_BASE/work/carlos/eform-browser-pdf-temp`, or a namespaced `java.io.tmpdir`
-fallback), which fax path validation (`FaxManagerImpl`) already whitelists. Pages are lossless
-raster captures at 96 CSS px → 72 pt scale; callers own cleanup of the returned file.
+fallback), which fax path validation (`FaxManagerImpl`) already whitelists. Pages are native
+Chromium print output; the injected `@page` sizes are expressed in CSS px, which Chromium converts
+to PDF points at 96 px → 72 pt. Callers own cleanup of the returned file.
 
 ## Application-temp purge job
 
@@ -357,5 +378,7 @@ subsequent cycles.
 - Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormBrowserRenderPageServletUnitTest,EformViewForPdfGenerationServletUnitTest` (the last is the legacy session-gate servlet, kept alongside the browser render servlet)
 - End-to-end smoke (skips cleanly without a browser):
   `mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest` — serves
-  `scripts/fixtures/eform/test-pattern.html` over loopback and asserts real regions, captures,
-  and a valid `%PDF` output.
+  `scripts/fixtures/eform/test-pattern.html` over loopback and drives the native print path,
+  asserting the PDF page count matches the authored `pageN` divs and that a real text layer is
+  present (the raster path this replaced produced zero extractable text); a companion case prints a
+  free-flow (no-`pageN`-div) letter and asserts a text-layer `%PDF` with no injected `@page` size.

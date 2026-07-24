@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -36,8 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
-
-import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -86,26 +83,42 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should keep print-only cleanup rules in the capture preparation script")
-    void shouldKeepPrintCleanupRules_inCapturePreparationScript() {
-        assertThat(EFormBrowserPdfService.PREPARE_CAPTURE_JS)
+    @DisplayName("should keep the zero-margin, exact-color and chrome-hiding rules in the print preparation script")
+    void shouldKeepPrintRules_inPrintPreparationScript() {
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
+                .contains("@page")
+                .contains("margin: 0")
+                .contains("print-color-adjust: exact !important")
                 .contains(".DoNotPrint")
                 .contains("#BottomButtons")
                 .contains("#BaseSelect")
                 .contains("#SupplementalInfo")
                 .contains("#labDetail")
-                .contains("resize: none !important");
+                .contains("resize: none !important")
+                // The raster-era screenshot hacks must NOT come back: they broke native pagination.
+                .doesNotContain("max-content")
+                .doesNotContain("overflow");
     }
 
     @Test
-    @DisplayName("should keep the region heuristics in the region computation script")
-    void shouldKeepRegionHeuristics_inRegionComputationScript() {
-        assertThat(EFormBrowserPdfService.COMPUTE_REGIONS_JS)
-                .contains("backgroundCandidates")
-                .contains(".filter(isVisibleCaptureCandidate)")
-                .contains("pageBackgroundCaptures")
-                .contains("dedupeAndSortCaptureRects")
-                .contains("/^page\\d+$/i");
+    @DisplayName("should measure each pageN div content box in the page geometry script")
+    void shouldMeasurePageContentBox_inPageGeometryScript() {
+        assertThat(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS)
+                .contains("contentBox")
+                .contains("getBoundingClientRect")
+                .contains("/^page\\d+$/i")
+                .contains("id: pageNode.id")
+                .contains("width: box.width")
+                .contains("height: box.height");
+    }
+
+    @Test
+    @DisplayName("should inject the page-size CSS into a dedicated style element from argument zero")
+    void shouldInjectPageSizeCss_intoDedicatedStyleElement() {
+        assertThat(EFormBrowserPdfService.INJECT_PAGE_SIZE_CSS_JS)
+                .contains("arguments[0]")
+                .contains("eform-browser-pdf-page-size")
+                .contains("style.textContent = css");
     }
 
     @Test
@@ -152,27 +165,6 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should create a secure temporary renderer directory inside the managed temp root")
-    void shouldCreateSecureTempDirectory_insideManagedTempRoot() throws IOException {
-        Path root = Files.createTempDirectory("eform-browser-render-root-");
-        Path directory = EFormBrowserPdfService.createSecureTempDirectory(root, "eform-browser-render-test-");
-        try {
-            assertThat(Files.isDirectory(directory)).isTrue();
-            assertThat(directory).hasParentRaw(root);
-            if (Files.getFileStore(directory).supportsFileAttributeView("posix")) {
-                assertThat(Files.getPosixFilePermissions(directory))
-                        .containsExactlyInAnyOrder(
-                                PosixFilePermission.OWNER_READ,
-                                PosixFilePermission.OWNER_WRITE,
-                                PosixFilePermission.OWNER_EXECUTE);
-            }
-        } finally {
-            Files.deleteIfExists(directory);
-            Files.deleteIfExists(root);
-        }
-    }
-
-    @Test
     @DisplayName("should create a secure temporary renderer pdf file inside the managed temp root")
     void shouldCreateSecureTempFile_insideManagedTempRoot() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-root-");
@@ -194,24 +186,46 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should assemble captures into a PDF using a file-backed scratch under the managed workspace")
-    void shouldAssemblePdf_withFileBackedScratch(@TempDir Path tempDir) throws Exception {
-        Path capture = tempDir.resolve("page-001.png");
-        ImageIO.write(new BufferedImage(120, 80, BufferedImage.TYPE_INT_RGB), "png", capture.toFile());
-        Path out = tempDir.resolve("out.pdf");
-        Path scratch = Files.createDirectory(tempDir.resolve("scratch"));
+    @DisplayName("should emit a single anonymous @page rule when every page shares a size")
+    void shouldEmitSingleAnonymousPageRule_whenPagesUniform() {
+        String css = EFormBrowserPdfService.buildPageSizeCss(List.of(
+                new EFormBrowserPdfService.PageSize("page1", 816d, 1056d),
+                new EFormBrowserPdfService.PageSize("page2", 816d, 1056d)));
 
-        EFormBrowserPdfService.convertCapturesToPdf(List.of(capture), out, scratch);
+        assertThat(css)
+                .isEqualTo("@page { size: 816px 1056px; margin: 0; }")
+                // A uniform corpus must not fall into the named-page branch.
+                .doesNotContain("carlosPage");
+    }
 
-        assertThat(out).exists();
-        assertThat(Files.size(out)).isGreaterThan(0);
-        try (var reader = Files.newInputStream(out)) {
-            byte[] head = reader.readNBytes(4);
-            assertThat(new String(head, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        }
-        try (var entries = Files.list(scratch)) {
-            assertThat(entries).isEmpty(); // scratch reclaimed on document close
-        }
+    @Test
+    @DisplayName("should emit named @page rules bound by id when page sizes differ")
+    void shouldEmitNamedPageRules_whenPageSizesDiffer() {
+        String css = EFormBrowserPdfService.buildPageSizeCss(List.of(
+                new EFormBrowserPdfService.PageSize("page1", 816d, 1056d),
+                new EFormBrowserPdfService.PageSize("page2", 1056d, 816d)));
+
+        assertThat(css)
+                .contains("@page carlosPage1 { size: 816px 1056px; margin: 0; }")
+                .contains("@page carlosPage2 { size: 1056px 816px; margin: 0; }")
+                .contains("#page1 { page: carlosPage1; }")
+                .contains("#page2 { page: carlosPage2; }");
+    }
+
+    @Test
+    @DisplayName("should round fractional page dimensions up to whole css pixels")
+    void shouldRoundFractionalDimensionsUp_toWholeCssPixels() {
+        String css = EFormBrowserPdfService.buildPageSizeCss(List.of(
+                new EFormBrowserPdfService.PageSize("page1", 815.2d, 1055.1d)));
+
+        // Ceil, so a fractional content box is never a hair too small to hold its content.
+        assertThat(css).isEqualTo("@page { size: 816px 1056px; margin: 0; }");
+    }
+
+    @Test
+    @DisplayName("should return empty page-size CSS for a free-flow form with no page divs")
+    void shouldReturnEmptyPageSizeCss_forFreeFlowForm() {
+        assertThat(EFormBrowserPdfService.buildPageSizeCss(List.of())).isEmpty();
     }
 
     @Test
@@ -492,61 +506,59 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should convert script region maps into typed capture regions")
-    void shouldConvertScriptRegionMaps_toCaptureRegions() throws PDFGenerationException {
-        List<EFormBrowserPdfService.CaptureRegion> regions = EFormBrowserPdfService.readRegions(List.of(
-                Map.of("x", 0L, "y", 10.5d, "width", 1650L, "height", 2200L),
-                Map.of("x", 0L, "y", 2210L, "width", 1650L, "height", 0L)));
+    @DisplayName("should convert script page-geometry maps into typed page sizes")
+    void shouldConvertScriptGeometryMaps_toPageSizes() throws PDFGenerationException {
+        List<EFormBrowserPdfService.PageSize> sizes = EFormBrowserPdfService.readPageSizes(List.of(
+                Map.of("id", "page1", "width", 1650L, "height", 2200.5d),
+                // A zero-area measured box is skipped (that page falls back to Chromium default paper).
+                Map.of("id", "page2", "width", 1650L, "height", 0L)));
 
-        assertThat(regions).hasSize(1);
-        assertThat(regions.get(0).width()).isEqualTo(1650d);
-        assertThat(regions.get(0).y()).isEqualTo(10.5d);
+        assertThat(sizes).hasSize(1);
+        assertThat(sizes.get(0).id()).isEqualTo("page1");
+        assertThat(sizes.get(0).width()).isEqualTo(1650d);
+        assertThat(sizes.get(0).height()).isEqualTo(2200.5d);
     }
 
     @Test
-    @DisplayName("should reject unexpected region payload shapes from the page script")
-    void shouldRejectUnexpectedRegionPayload_fromPageScript() {
-        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions("not-a-list"))
-                .isInstanceOf(PDFGenerationException.class);
-        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(Map.of("x", "NaN"))))
-                .isInstanceOf(PDFGenerationException.class);
+    @DisplayName("should accept an empty geometry list for a free-flow form")
+    void shouldAcceptEmptyGeometry_forFreeFlowForm() throws PDFGenerationException {
+        assertThat(EFormBrowserPdfService.readPageSizes(List.of())).isEmpty();
     }
 
     @Test
-    @DisplayName("should reject a page region with non-finite geometry")
-    void shouldRejectRegion_whenGeometryNonFinite() {
-        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
-                Map.of("x", 0d, "y", 0d, "width", Double.NaN, "height", 100d))))
+    @DisplayName("should reject unexpected page-geometry payload shapes from the page script")
+    void shouldRejectUnexpectedGeometryPayload_fromPageScript() {
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageSizes("not-a-list"))
                 .isInstanceOf(PDFGenerationException.class);
-        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
-                Map.of("x", 0d, "y", 0d, "width", 100d, "height", Double.POSITIVE_INFINITY))))
-                .isInstanceOf(PDFGenerationException.class);
-    }
-
-    @Test
-    @DisplayName("should reject a single region that exceeds the per-page pixel budget")
-    void shouldRejectRegion_whenPerRegionPixelsExceedBudget() {
-        // 15000 x 15000 = 225M px is under the per-region dimension cap but over the per-region
-        // pixel budget, so it must fail closed even as the only region.
-        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
-                Map.of("x", 0L, "y", 0L, "width", 15_000L, "height", 15_000L))))
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageSizes(List.of(Map.of("id", "page1", "width", "NaN"))))
                 .isInstanceOf(PDFGenerationException.class);
     }
 
     @Test
-    @DisplayName("should reject a page region that exceeds the maximum capture dimension")
-    void shouldRejectRegion_whenDimensionExceedsCap() {
-        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(List.of(
-                Map.of("x", 0L, "y", 0L, "width", 999_999L, "height", 100L))))
+    @DisplayName("should reject a page with non-finite geometry")
+    void shouldRejectPage_whenGeometryNonFinite() {
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageSizes(List.of(
+                Map.of("id", "page1", "width", Double.NaN, "height", 100d))))
+                .isInstanceOf(PDFGenerationException.class);
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageSizes(List.of(
+                Map.of("id", "page1", "width", 100d, "height", Double.POSITIVE_INFINITY))))
                 .isInstanceOf(PDFGenerationException.class);
     }
 
     @Test
-    @DisplayName("should reject a region set whose total pixel area exceeds the budget")
-    void shouldRejectRegions_whenTotalPixelsExceedBudget() {
-        List<Map<String, Object>> huge = java.util.Collections.nCopies(50,
-                Map.of("x", 0L, "y", 0L, "width", 19_000L, "height", 19_000L));
-        assertThatThrownBy(() -> EFormBrowserPdfService.readRegions(huge))
+    @DisplayName("should reject a page that exceeds the maximum page dimension")
+    void shouldRejectPage_whenDimensionExceedsCap() {
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageSizes(List.of(
+                Map.of("id", "page1", "width", 999_999L, "height", 100L))))
+                .isInstanceOf(PDFGenerationException.class);
+    }
+
+    @Test
+    @DisplayName("should reject a form with more pages than the safe page cap")
+    void shouldRejectForm_whenPageCountExceedsCap() {
+        List<Map<String, Object>> tooMany = java.util.Collections.nCopies(201,
+                Map.of("id", "page1", "width", 816L, "height", 1056L));
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageSizes(tooMany))
                 .isInstanceOf(PDFGenerationException.class);
     }
 
@@ -1042,48 +1054,47 @@ class EFormBrowserPdfServiceUnitTest {
 
     @Test
     @DisplayName("should throw a plain IllegalArgumentException, not a base-URL diagnosis, "
-            + "when a captured screenshot payload is corrupt base64")
-    void shouldThrowIllegalArgumentException_whenCaptureScreenshotPayloadIsCorruptBase64(@TempDir Path tempDir)
+            + "when a printed PDF payload is corrupt base64")
+    void shouldThrowIllegalArgumentException_whenPrintToPdfPayloadIsCorruptBase64(@TempDir Path tempDir)
             throws Exception {
-        // Regression pin for the review finding on this task: a corrupt CDP screenshot payload
-        // makes Base64.getDecoder().decode(encoded) inside captureRegions() throw a plain
-        // IllegalArgumentException. Before this fix, renderWithSlot's IllegalArgumentException
-        // catch wrapped the ENTIRE render body, so this downstream IAE was misreported as
+        // Regression pin for the review finding on this task: a corrupt CDP Page.printToPDF payload
+        // makes Base64.getDecoder().decode(encoded) inside printToPdf() throw a plain
+        // IllegalArgumentException. If renderWithSlot's IllegalArgumentException catch wrapped the
+        // ENTIRE render body, this downstream IAE would be misreported as
         // "Browser renderer base URL configuration is invalid: Illegal base64 character..." even
         // though the base URL was perfectly valid.
         //
         // renderWithSlot() itself cannot be driven end-to-end in a pure unit test past this point:
-        // captureRegions() runs only after createDriver()/buildChromeOptions() launch a real
-        // Chromium via chromedriver, which a unit test does not have available (see
+        // printToPdf() runs only after createDriver()/buildChromeOptions() launch a real Chromium via
+        // chromedriver, which a unit test does not have available (see
         // EFormBrowserPdfServiceSeleniumSmokeIntegrationTest for the real-browser, full-pipeline coverage
         // that assumeTrue()-skips when no Chromium/chromedriver is present). So this test pins the
-        // downstream failure at its source instead: captureRegions() (invoked here directly via
+        // downstream failure at its source instead: printToPdf() (invoked here directly via
         // reflection, since it is private) throws a raw IllegalArgumentException — never a
-        // PDFGenerationException naming "configuration" — for corrupt capture data.
+        // PDFGenerationException naming "configuration" — for corrupt print data.
         //
         // The structural half of the guarantee is verified by reading renderWithSlot(): the
         // catch (IllegalArgumentException e) block is now lexically scoped to ONLY the
         // validateRendererBaseUrl(resolveBaseUrl(...)) call in its own try/catch, which executes
         // and completes (successfully, on the normal path) before the main try block — and
-        // therefore before captureRegions() — ever runs. There is no catch (IllegalArgumentException
+        // therefore before printToPdf() — ever runs. There is no catch (IllegalArgumentException
         // e) around the main try any more, so an IAE raised here necessarily falls through to
         // catch (RuntimeException e) and gets the honest generic "Browser rendering failed..."
         // message instead of a false base-URL configuration diagnosis.
         ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
-        when(driver.executeCdpCommand(eq("Page.captureScreenshot"), anyMap()))
+        when(driver.executeCdpCommand(eq("Page.printToPDF"), anyMap()))
                 .thenReturn(Map.of("data", "!!!not-valid-base64!!!"));
-        List<EFormBrowserPdfService.CaptureRegion> regions =
-                List.of(new EFormBrowserPdfService.CaptureRegion(0, 0, 100, 100));
+        Path outputPdfPath = tempDir.resolve("eform-browser-render-out.pdf");
         long deadlineNanos = System.nanoTime() + Duration.ofMinutes(1).toNanos();
 
-        Method captureRegionsMethod = EFormBrowserPdfService.class.getDeclaredMethod(
-                "captureRegions", ChromeDriver.class, List.class, Path.class, long.class);
-        captureRegionsMethod.setAccessible(true);
+        Method printToPdfMethod = EFormBrowserPdfService.class.getDeclaredMethod(
+                "printToPdf", ChromeDriver.class, Path.class, long.class);
+        printToPdfMethod.setAccessible(true);
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
         assertThatThrownBy(() -> {
             try {
-                captureRegionsMethod.invoke(service, driver, regions, tempDir, deadlineNanos);
+                printToPdfMethod.invoke(service, driver, outputPdfPath, deadlineNanos);
             } catch (InvocationTargetException e) {
                 throw e.getCause();
             }

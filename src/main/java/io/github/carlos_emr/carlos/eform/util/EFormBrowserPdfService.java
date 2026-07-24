@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,21 +51,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 
-import javax.imageio.ImageIO;
-
 import jakarta.servlet.http.HttpServletRequest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
-import org.apache.pdfbox.io.MemoryUsageSetting;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
-import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.struts2.ServletActionContext;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -92,8 +82,9 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
  *
  * <p>Selenium launches a pinned headless Chromium (no Node.js runtime anywhere), navigates over
  * loopback to {@link EFormBrowserRenderPageServlet} using a render-scoped token from
- * {@link EFormRenderTokenService}, captures stabilized page regions via CDP screenshots, and
- * assembles the captures into a PDF for fax and eDoc workflows.</p>
+ * {@link EFormRenderTokenService}, and prints the stabilized page to a native, text-layer PDF via
+ * CDP {@code Page.printToPDF} (sizing each {@code @page} to the authored page geometry) for fax and
+ * eDoc workflows.</p>
  *
  * <p>Security invariants (change together or not at all):</p>
  * <ul>
@@ -125,7 +116,7 @@ public class EFormBrowserPdfService {
 
     /**
      * Client-side HTTP read timeout for every WebDriver/CDP command sent to chromedriver
-     * (screenshots, script execution, quit). Aligned to the render budget — and deliberately 3x
+     * (print-to-PDF, script execution, quit). Aligned to the render budget — and deliberately 3x
      * the 30s in-band {@link #PAGE_LOAD_TIMEOUT}/{@link #SCRIPT_TIMEOUT} so legitimate slow pages
      * always hit the in-band timeout first — this replaces Selenium's ~180s default, which let a
      * wedged Chromium hold one of the {@link #MAX_CONCURRENT_RENDERS} global render slots for
@@ -152,10 +143,12 @@ public class EFormBrowserPdfService {
     private static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
 
     /**
-     * Filename prefix shared by every renderer artifact — the per-render capture directory and the
-     * output PDF. The {@link RenderedEformPdf} guard keys on it (plus a {@code .pdf} suffix) so the
-     * AutoCloseable can only ever delete this renderer's own output, and the stale-artifact sweep
-     * keys on it too.
+     * Filename prefix of the renderer's output PDF. The {@link RenderedEformPdf} guard keys on it
+     * (plus a {@code .pdf} suffix) so the AutoCloseable can only ever delete this renderer's own
+     * output, and the stale-artifact sweep keys on it too. The native print path creates only this
+     * PDF file per render; the sweep still recognises same-prefixed <em>directories</em> because a
+     * prior (raster) build created a per-render capture directory under this prefix — those are
+     * cleaned up as an upgrade-time backstop (see {@link #sweepStaleRendererRoots}).
      */
     static final String RENDER_ARTIFACT_PREFIX = "eform-browser-render-";
 
@@ -194,27 +187,25 @@ public class EFormBrowserPdfService {
      */
     static final String DEAD_PROXY = "http://127.0.0.1:1";
 
-    private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
     private static final int VIEWPORT_WIDTH = 1800;
     private static final int VIEWPORT_HEIGHT = 3200;
 
-    // DOM-controlled capture geometry caps (fail-closed): a clinic-authored form cannot drive
-    // unbounded Chromium/JVM memory or temp storage. Generous vs. any real multi-page eForm.
-    private static final int MAX_CAPTURE_REGIONS = 200;
-    private static final double MAX_CAPTURE_DIMENSION = 20_000;
-    // Peak decoded-image memory is one region at a time (~4 bytes/pixel); 64M px ≈ 256 MB, generous
-    // vs. any real eForm page yet far below a single 20000×20000 (1.6 GB) region. This is now also
-    // the effective ceiling on *retained* JVM memory across the whole render: convertCapturesToPdf
-    // uses a file-backed PDDocument stream cache, so the Flate-compressed page-image streams that
-    // would otherwise accumulate on-heap up to MAX_CAPTURE_TOTAL_PIXELS (times MAX_CONCURRENT_RENDERS
-    // concurrent renders) are spilled to a scratch file under the managed render workspace instead.
-    private static final double MAX_CAPTURE_REGION_PIXELS = 64_000_000d;
-    private static final double MAX_CAPTURE_TOTAL_PIXELS = 300_000_000d;
+    // DOM-controlled page-geometry caps (fail-closed): a clinic-authored form cannot drive an
+    // unbounded number of CSS @page sizes, or a pathological single-page dimension, into Chromium's
+    // native print pipeline. Generous vs. any real multi-page eForm. (Native Page.printToPDF returns
+    // a compressed PDF straight from Chromium, so unlike the former raster path there is no decoded
+    // per-page image retained on the JVM heap — these caps bound the injected @page CSS, not memory.)
+    private static final int MAX_PAGE_COUNT = 200;
+    private static final double MAX_PAGE_DIMENSION = 20_000;
 
     // ---------------------------------------------------------------------------------------------
-    // Browser-side JS. Each script owns one capture guarantee: STABILIZE_ASYNC_JS waits until
-    // fonts and images have settled, PREPARE_CAPTURE_JS applies print-cleanup styling and page
-    // flattening, and COMPUTE_REGIONS_JS derives the page capture rectangles from the form's DOM.
+    // Browser-side JS. Each script owns one print guarantee: STABILIZE_ASYNC_JS waits until fonts
+    // and images have settled, PREPARE_PRINT_JS injects the baseline print stylesheet (zero page
+    // margin, exact color/background reproduction, non-print chrome hidden), COMPUTE_PAGE_GEOMETRY_JS
+    // measures each authored page div's content box so the JVM can size the CSS @page boxes, and
+    // INJECT_PAGE_SIZE_CSS_JS applies those computed @page sizes. Chromium's native Page.printToPDF
+    // then emits a real text-layer PDF (the former raster path screenshotted each region and glued
+    // the PNGs with PDFBox, which produced an image-only, unsearchable document).
     // ---------------------------------------------------------------------------------------------
 
     /** Async settle: fonts ready, pending images resolved, two animation frames. */
@@ -232,13 +223,29 @@ public class EFormBrowserPdfService {
             + "  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n"
             + "})().then(() => callback(null)).catch((error) => callback(String(error)));";
 
-    /** Print-cleanup style injection and page-flattening layout prep before capture. */
-    static final String PREPARE_CAPTURE_JS =
+    /**
+     * Baseline print stylesheet injected before printing. This is a <em>safety net</em>: a
+     * well-authored eForm already carries its own {@code @media print} rules (the corpus fixtures
+     * toggle {@code .DoNotPrint}/{@code .PrintOnly} themselves), so this only guarantees zero page
+     * margin, exact color/background reproduction (the page-background <img> elements are content
+     * and print regardless; {@code print-color-adjust} matters only for CSS {@code background-*}
+     * decorations), and that the non-print viewer chrome is hidden for forms that lack their own
+     * print CSS. It deliberately does NOT set {@code width: max-content} or {@code overflow: visible}
+     * (those were raster screenshot hacks); native print lays the form out at its natural width.
+     */
+    static final String PREPARE_PRINT_JS =
             "const existingCleanupStyle = document.getElementById('eform-browser-pdf-render-cleanup');\n"
             + "if (!existingCleanupStyle) {\n"
             + "  const cleanupStyle = document.createElement('style');\n"
             + "  cleanupStyle.id = 'eform-browser-pdf-render-cleanup';\n"
             + "  cleanupStyle.textContent = `\n"
+            + "    @page {\n"
+            + "      margin: 0;\n"
+            + "    }\n"
+            + "    * {\n"
+            + "      -webkit-print-color-adjust: exact !important;\n"
+            + "      print-color-adjust: exact !important;\n"
+            + "    }\n"
             + "    .DoNotPrint,\n"
             + "    #BottomButtons,\n"
             + "    #BaseSelect,\n"
@@ -257,44 +264,51 @@ public class EFormBrowserPdfService {
             + "if (body) {\n"
             + "  body.style.margin = '0';\n"
             + "  body.style.padding = '0';\n"
-            + "  body.style.width = 'max-content';\n"
-            + "  body.style.overflow = 'visible';\n"
             + "}\n"
             + "const html = document.documentElement;\n"
             + "if (html) {\n"
             + "  html.style.margin = '0';\n"
             + "  html.style.padding = '0';\n"
             + "  html.style.background = 'white';\n"
-            + "  html.style.overflow = 'visible';\n"
             + "}";
 
-    /** Region computation: pageN nodes, BGImage candidates, dedupe/sort, visible-union fallback. */
-    static final String COMPUTE_REGIONS_JS =
-            "const rectFromElement = (el) => {\n"
-            + "  const elementRect = el.getBoundingClientRect();\n"
+    /**
+     * Page-geometry measurement: for each authored {@code pageN} div, the content bounding box
+     * (the visible-descendant union) in CSS px, tagged with the div id. That content box — not the
+     * background image — is the authoritative page size: for a real scanned-background form the
+     * background {@code <img>} is the largest descendant so the box equals the scan dimensions, and
+     * for a synthetic/text page with no full-page background the box still encloses every field.
+     * Measuring the background image directly would be wrong when it is a degenerate placeholder
+     * (a 1px asset scaled to a small box) that the page's real content overflows — Chromium would
+     * then paginate that content across many tiny pages. Returns {@code [{id,width,height}, ...]},
+     * empty for a free-flow form (e.g. the Rich Text Letter) that authored no {@code pageN} divs.
+     */
+    static final String COMPUTE_PAGE_GEOMETRY_JS =
+            "const rectOf = (el) => {\n"
+            + "  const r = el.getBoundingClientRect();\n"
             + "  return {\n"
-            + "    left: elementRect.left + window.scrollX,\n"
-            + "    top: elementRect.top + window.scrollY,\n"
-            + "    right: elementRect.right + window.scrollX,\n"
-            + "    bottom: elementRect.bottom + window.scrollY,\n"
-            + "    width: elementRect.width,\n"
-            + "    height: elementRect.height,\n"
+            + "    left: r.left + window.scrollX,\n"
+            + "    top: r.top + window.scrollY,\n"
+            + "    right: r.right + window.scrollX,\n"
+            + "    bottom: r.bottom + window.scrollY,\n"
+            + "    width: r.width,\n"
+            + "    height: r.height,\n"
             + "  };\n"
             + "};\n"
-            + "const isVisibleCaptureCandidate = (el) => {\n"
+            + "const isVisible = (el) => {\n"
             + "  const style = window.getComputedStyle(el);\n"
             + "  return style.display !== 'none' && style.visibility !== 'hidden' && style.position !== 'fixed';\n"
             + "};\n"
-            + "const unionRects = (elements) => {\n"
+            + "const contentBox = (pageNode) => {\n"
             + "  let left = Number.POSITIVE_INFINITY;\n"
             + "  let top = Number.POSITIVE_INFINITY;\n"
             + "  let right = 0;\n"
             + "  let bottom = 0;\n"
-            + "  for (const el of elements) {\n"
-            + "    if (!isVisibleCaptureCandidate(el)) {\n"
+            + "  for (const el of pageNode.querySelectorAll('*')) {\n"
+            + "    if (!isVisible(el)) {\n"
             + "      continue;\n"
             + "    }\n"
-            + "    const rect = rectFromElement(el);\n"
+            + "    const rect = rectOf(el);\n"
             + "    if (rect.width <= 0 || rect.height <= 0) {\n"
             + "      continue;\n"
             + "    }\n"
@@ -303,66 +317,34 @@ public class EFormBrowserPdfService {
             + "    right = Math.max(right, rect.right);\n"
             + "    bottom = Math.max(bottom, rect.bottom);\n"
             + "  }\n"
-            + "  if (!Number.isFinite(left) || !Number.isFinite(top) || right <= left || bottom <= top) {\n"
-            + "    return null;\n"
+            + "  if (!Number.isFinite(left) || right <= left || bottom <= top) {\n"
+            + "    const own = rectOf(pageNode);\n"
+            + "    return { width: own.width, height: own.height };\n"
             + "  }\n"
-            + "  return { x: Math.max(0, left), y: Math.max(0, top), width: right - left, height: bottom - top };\n"
+            + "  return { width: right - left, height: bottom - top };\n"
             + "};\n"
-            + "const backgroundCandidates = (elements) => elements\n"
-            + "  .filter((el) => el.tagName === 'IMG')\n"
-            + "  .filter((el) => /(^BGImage$|background image|bgimage)/i.test(el.id || '')\n"
-            + "    || /background image/i.test(el.getAttribute('alt') || ''))\n"
-            + "  .filter(isVisibleCaptureCandidate)\n"
-            + "  .map(rectFromElement)\n"
-            + "  .filter((rect) => rect.width > 0 && rect.height > 0)\n"
-            + "  .sort((a, b) => (b.width * b.height) - (a.width * a.height));\n"
-            + "const rectFromLargestCandidate = (candidateRects) => {\n"
-            + "  if (candidateRects.length === 0) {\n"
-            + "    return null;\n"
-            + "  }\n"
-            + "  const rect = candidateRects[0];\n"
-            + "  return {\n"
-            + "    x: Math.max(0, rect.left),\n"
-            + "    y: Math.max(0, rect.top),\n"
-            + "    width: rect.width,\n"
-            + "    height: rect.height,\n"
-            + "  };\n"
-            + "};\n"
-            + "const dedupeAndSortCaptureRects = (rects) => rects\n"
-            + "  .sort((a, b) => a.top - b.top || a.left - b.left)\n"
-            + "  .filter((rect, index, sorted) => {\n"
-            + "    if (index === 0) {\n"
-            + "      return true;\n"
-            + "    }\n"
-            + "    const previous = sorted[index - 1];\n"
-            + "    return Math.abs(rect.left - previous.left) > 2\n"
-            + "      || Math.abs(rect.top - previous.top) > 2\n"
-            + "      || Math.abs(rect.width - previous.width) > 2\n"
-            + "      || Math.abs(rect.height - previous.height) > 2;\n"
-            + "  })\n"
-            + "  .map((rect) => ({\n"
-            + "    x: Math.max(0, rect.left),\n"
-            + "    y: Math.max(0, rect.top),\n"
-            + "    width: rect.width,\n"
-            + "    height: rect.height,\n"
-            + "  }));\n"
-            + "const allElements = Array.from(document.body ? document.body.querySelectorAll('*') : []);\n"
-            + "const pageNodes = allElements.filter((el) => /^page\\d+$/i.test(el.id));\n"
-            + "const captures = pageNodes\n"
-            + "  .map((pageNode) => {\n"
-            + "    const pageElements = [pageNode, ...pageNode.querySelectorAll('*')];\n"
-            + "    return rectFromLargestCandidate(backgroundCandidates(pageElements)) || unionRects(pageElements);\n"
-            + "  })\n"
-            + "  .filter(Boolean);\n"
-            + "if (captures.length > 0) {\n"
-            + "  return captures;\n"
+            + "const pageNodes = Array.from(document.body ? document.body.querySelectorAll('*') : [])\n"
+            + "  .filter((el) => /^page\\d+$/i.test(el.id));\n"
+            + "return pageNodes.map((pageNode) => {\n"
+            + "  const box = contentBox(pageNode);\n"
+            + "  return { id: pageNode.id, width: box.width, height: box.height };\n"
+            + "});";
+
+    /**
+     * Applies the JVM-computed {@code @page} sizing CSS (argument 0) into a dedicated style element,
+     * so Chromium's {@code Page.printToPDF} with {@code preferCSSPageSize:true} sizes each printed
+     * page to its authored page div. Kept as its own element (never merged into the baseline cleanup
+     * style) so the sizing is idempotent and the two concerns stay independently pinned by tests.
+     */
+    static final String INJECT_PAGE_SIZE_CSS_JS =
+            "const css = arguments[0];\n"
+            + "let style = document.getElementById('eform-browser-pdf-page-size');\n"
+            + "if (!style) {\n"
+            + "  style = document.createElement('style');\n"
+            + "  style.id = 'eform-browser-pdf-page-size';\n"
+            + "  document.head.appendChild(style);\n"
             + "}\n"
-            + "const pageBackgroundCaptures = dedupeAndSortCaptureRects(backgroundCandidates(allElements));\n"
-            + "if (pageBackgroundCaptures.length > 0) {\n"
-            + "  return pageBackgroundCaptures;\n"
-            + "}\n"
-            + "const fallback = unionRects(allElements);\n"
-            + "return fallback ? [fallback] : [];";
+            + "style.textContent = css;";
 
     /**
      * A rendered eForm PDF whose on-disk lifetime the holder owns: {@link #close()} deletes the
@@ -409,7 +391,8 @@ public class EFormBrowserPdfService {
 
     /**
      * Renders a saved eForm by loading the token-authorized local servlet route in headless
-     * Chromium, capturing page regions, and assembling those captures into a PDF.
+     * Chromium and printing the stabilized page to a native, text-layer PDF via CDP
+     * {@code Page.printToPDF} (with each {@code @page} sized to the authored page geometry).
      *
      * <p>Callers MUST have passed an {@code _eform} privilege check (today:
      * {@code EformDataManagerImpl.createEformPDF}) before calling; this service mints the render
@@ -488,8 +471,8 @@ public class EFormBrowserPdfService {
         String baseUrl = null;
         // Scoped to ONLY this validation call, deliberately OUTSIDE the main try/finally below:
         // an IllegalArgumentException thrown later in the render (e.g.
-        // Base64.getDecoder().decode(...) on a corrupt CDP screenshot payload inside
-        // captureRegions) must never be misattributed to base-URL configuration. Keeping this
+        // Base64.getDecoder().decode(...) on a corrupt Page.printToPDF payload inside
+        // printToPdf) must never be misattributed to base-URL configuration. Keeping this
         // catch lexically scoped to only the validateRendererBaseUrl(...) call means any other
         // IllegalArgumentException raised further down falls through to the main try's
         // catch (RuntimeException e) below instead, which reports the honest generic
@@ -501,7 +484,6 @@ public class EFormBrowserPdfService {
             logger.error("Browser eForm renderer rejected its base-URL configuration: {}", reason);
             throw new PDFGenerationException("Browser renderer base URL configuration is invalid: " + reason);
         }
-        Path outputDirectory = null;
         Path outputPdfPath = null;
         ChromeDriver driver = null;
         ChromeDriverService driverService = null;
@@ -521,7 +503,6 @@ public class EFormBrowserPdfService {
             if (allowedOrigin == null) {
                 throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.");
             }
-            outputDirectory = createSecureTempDirectory(tempRoot, RENDER_ARTIFACT_PREFIX);
             outputPdfPath = createSecureTempFile(tempRoot, RENDER_ARTIFACT_PREFIX, ".pdf");
 
             boolean unsandboxed = !sandboxEnabled();
@@ -536,7 +517,10 @@ public class EFormBrowserPdfService {
             logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
                     fdid, unsandboxed ? "disabled" : "enabled");
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
-            ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "screen"));
+            // Emulate PRINT media (not screen): the page then settles and is measured in the exact
+            // layout Page.printToPDF will emit, and each form's own {@code @media print} rules (e.g.
+            // the corpus fixture's PrintOnly/DoNotPrint toggles) take effect for the captured PDF.
+            ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
 
             List<LogEntry> performanceEntries = new ArrayList<>();
             // Navigate the sessionless render browser to the loopback render page. Do NOT log the full
@@ -553,39 +537,35 @@ public class EFormBrowserPdfService {
             settle(driver, deadlineNanos);
 
             JavascriptExecutor js = driver;
-            js.executeScript(PREPARE_CAPTURE_JS);
-            List<CaptureRegion> regions = readRegions(js.executeScript(COMPUTE_REGIONS_JS));
-            if (regions.isEmpty()) {
-                throw new PDFGenerationException("Browser rendering could not determine any eForm page regions to capture.");
+            js.executeScript(PREPARE_PRINT_JS);
+            // Measure each authored page div's content box, then size the CSS @page boxes to match so
+            // native print reproduces the legacy per-page geometry. An empty list is valid: a free-flow
+            // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
+            // form's own @page rules or Chromium's default paper drive natural pagination.
+            List<PageSize> pageSizes = readPageSizes(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            if (!pageSizes.isEmpty()) {
+                js.executeScript(INJECT_PAGE_SIZE_CSS_JS, buildPageSizeCss(pageSizes));
             }
-            logger.debug("Browser eForm renderer computed {} page region(s) to capture: fdid={}", regions.size(), fdid);
+            logger.debug("Browser eForm renderer measured {} authored page size(s): fdid={}", pageSizes.size(), fdid);
 
-            captureRegions(driver, regions, outputDirectory, deadlineNanos);
+            printToPdf(driver, outputPdfPath, deadlineNanos);
             drainPerformanceLog(driver, performanceEntries);
             enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid, allowMissingContent);
 
-            List<Path> captureFiles = listCaptureFiles(outputDirectory);
-            if (captureFiles.isEmpty()) {
-                throw new PDFGenerationException("Browser rendering completed without producing any page captures.");
-            }
-            // outputDirectory is the per-render workspace (created 0700, recursively deleted in the
-            // finally below), so routing the PDF assembly stream cache there keeps scratch storage
-            // inside the same managed, single-render-scoped lifecycle as the page capture PNGs.
-            convertCapturesToPdf(captureFiles, outputPdfPath, outputDirectory);
             // Capture the size once, before declaring success: a second Files.size inside the
             // success log could race an external sweep and turn a completed render into a
             // misreported failure with the finished PDF orphaned.
             long outputPdfBytes = Files.isReadable(outputPdfPath) ? Files.size(outputPdfPath) : 0;
             // Magic-byte check per the direct-response guidance: the fax/eDoc pipeline must never
-            // receive a nonempty-but-not-PDF output (a crashed assembly, a stray file).
+            // receive a nonempty-but-not-PDF output (a crashed print, a stray file).
             if (outputPdfBytes == 0 || !hasPdfMagicBytes(outputPdfPath)) {
                 throw new PDFGenerationException("Browser rendering completed without producing a readable eForm PDF.");
             }
             success = true;
-            // Success record: fdid, region count, output size and elapsed time give operators an
+            // Success record: fdid, page count, output size and elapsed time give operators an
             // end-to-end render trace. No PHI, no render URL/token — origin/counts/bytes only.
             logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={}",
-                    fdid, regions.size(), outputPdfBytes,
+                    fdid, pageSizes.size(), outputPdfBytes,
                     (System.nanoTime() - startNanos) / 1_000_000L);
             return outputPdfPath;
         } catch (PDFGenerationException e) {
@@ -603,8 +583,8 @@ public class EFormBrowserPdfService {
         } catch (RuntimeException e) {
             // Deliberately no catch (IllegalArgumentException e) here: that would re-widen this
             // handler back over the whole render body and risk mislabeling an unrelated IAE (e.g.
-            // Base64.getDecoder().decode(...) on a corrupt CDP screenshot payload inside
-            // captureRegions) as a base-URL configuration failure. The only IAE this method
+            // Base64.getDecoder().decode(...) on a corrupt Page.printToPDF payload inside
+            // printToPdf) as a base-URL configuration failure. The only IAE this method
             // converts to a configuration diagnosis is the one from validateRendererBaseUrl(...)
             // above, in its own narrowly-scoped try/catch before this try block even starts. Any
             // other IllegalArgumentException (a RuntimeException subtype) is caught here and gets
@@ -633,7 +613,6 @@ public class EFormBrowserPdfService {
             if (!success) {
                 deleteQuietly(outputPdfPath);
             }
-            deleteRecursivelyQuietly(outputDirectory);
         }
     }
 
@@ -1004,89 +983,126 @@ public class EFormBrowserPdfService {
         checkDeadline(deadlineNanos);
     }
 
-    private void captureRegions(ChromeDriver driver, List<CaptureRegion> regions, Path outputDirectory, long deadlineNanos)
+    /**
+     * Emits the fully-settled render surface as a native, text-layer PDF via Chromium's
+     * {@code Page.printToPDF} and writes it to {@code outputPdfPath}. All margins are zeroed and
+     * {@code preferCSSPageSize} is set so the injected {@code @page} sizes (see
+     * {@link #buildPageSizeCss}) — or the form's own {@code @page} rules — drive geometry, and
+     * {@code scale} is pinned to 1 so Chromium never rescales the form to fit a default paper.
+     * {@code printBackground} is on so the page-background {@code <img>} content and any CSS
+     * backgrounds print. {@code ReturnAsBase64} hands the PDF back inline in the command result (the
+     * same transport as the former screenshot path), so there is no CDP stream to read back.
+     */
+    private void printToPdf(ChromeDriver driver, Path outputPdfPath, long deadlineNanos)
             throws IOException, PDFGenerationException {
-        HasCdp cdp = driver;
-        for (int index = 0; index < regions.size(); index++) {
-            checkDeadline(deadlineNanos);
-            CaptureRegion region = regions.get(index);
-            Map<String, Object> clip = Map.of(
-                    "x", (double) Math.max(0, Math.floor(region.x())),
-                    "y", (double) Math.max(0, Math.floor(region.y())),
-                    "width", (double) Math.ceil(region.width()),
-                    "height", (double) Math.ceil(region.height()),
-                    "scale", 1.0d);
-            Map<String, Object> result = cdp.executeCdpCommand("Page.captureScreenshot", Map.of(
-                    "format", "png",
-                    "clip", clip,
-                    "captureBeyondViewport", Boolean.TRUE));
-            Object data = result.get("data");
-            if (!(data instanceof String encoded) || encoded.isEmpty()) {
-                throw new PDFGenerationException("Browser rendering returned an empty capture for an eForm page region.");
-            }
-            Path outputPath = outputDirectory.resolve(String.format("page-%03d.png", index + 1));
-            Files.write(outputPath, Base64.getDecoder().decode(encoded));
+        checkDeadline(deadlineNanos);
+        Map<String, Object> result = ((HasCdp) driver).executeCdpCommand("Page.printToPDF", Map.of(
+                "preferCSSPageSize", Boolean.TRUE,
+                "printBackground", Boolean.TRUE,
+                "scale", 1.0d,
+                "marginTop", 0.0d,
+                "marginBottom", 0.0d,
+                "marginLeft", 0.0d,
+                "marginRight", 0.0d,
+                "transferMode", "ReturnAsBase64"));
+        Object data = result.get("data");
+        if (!(data instanceof String encoded) || encoded.isEmpty()) {
+            throw new PDFGenerationException("Browser rendering returned an empty PDF for the eForm.");
         }
-        logger.debug("Browser eForm renderer captured {} page image(s)", regions.size());
+        Files.write(outputPdfPath, Base64.getDecoder().decode(encoded));
+        logger.debug("Browser eForm renderer printed the eForm to a native PDF");
     }
 
-    static List<CaptureRegion> readRegions(Object rawRegions) throws PDFGenerationException {
-        if (!(rawRegions instanceof List<?> rawList)) {
-            throw new PDFGenerationException("Browser rendering returned an unexpected page-region result.");
+    /**
+     * Validates the raw page-geometry list from {@link #COMPUTE_PAGE_GEOMETRY_JS} into bounded
+     * {@link PageSize} values. The geometry comes from the (clinic-authored) eForm DOM, so it is
+     * fail-closed: too many pages, a non-finite dimension, or a dimension past
+     * {@link #MAX_PAGE_DIMENSION} aborts the render rather than feeding a pathological {@code @page}
+     * size into Chromium. A zero/negative measured box is skipped (that page falls back to Chromium's
+     * default paper). An empty result is legal — a free-flow form authored no {@code pageN} divs.
+     */
+    static List<PageSize> readPageSizes(Object rawSizes) throws PDFGenerationException {
+        if (!(rawSizes instanceof List<?> rawList)) {
+            throw new PDFGenerationException("Browser rendering returned an unexpected page-geometry result.");
         }
-        // The region geometry comes from the (clinic-authored) eForm DOM. Bound it so a malicious or
-        // pathological form cannot drive Chromium/JVM memory or temp storage arbitrarily high despite
-        // the render semaphore — reject rather than attempt an enormous capture.
-        if (rawList.size() > MAX_CAPTURE_REGIONS) {
-            throw new PDFGenerationException("Browser rendering produced too many page regions to capture safely.");
+        if (rawList.size() > MAX_PAGE_COUNT) {
+            throw new PDFGenerationException("Browser rendering produced too many pages to size safely.");
         }
-        List<CaptureRegion> regions = new ArrayList<>();
-        double totalPixels = 0;
-        for (Object rawRegion : rawList) {
-            if (!(rawRegion instanceof Map<?, ?> rawMap)) {
-                throw new PDFGenerationException("Browser rendering returned an unexpected page-region entry.");
+        List<PageSize> sizes = new ArrayList<>();
+        for (Object rawSize : rawList) {
+            if (!(rawSize instanceof Map<?, ?> rawMap)) {
+                throw new PDFGenerationException("Browser rendering returned an unexpected page-geometry entry.");
             }
-            double x = regionValue(rawMap, "x");
-            double y = regionValue(rawMap, "y");
-            double width = regionValue(rawMap, "width");
-            double height = regionValue(rawMap, "height");
+            String id = String.valueOf(rawMap.get("id"));
+            double width = numberValue(rawMap, "width");
+            double height = numberValue(rawMap, "height");
             // Fail closed on non-finite geometry (NaN/Infinity): every comparison below is false for
-            // NaN, so it would otherwise slip through the size/budget checks and reach the CDP
-            // screenshot with NaN coordinates, failing the whole render unpredictably.
-            if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(width) || !Double.isFinite(height)) {
-                throw new PDFGenerationException("Browser rendering returned a non-finite page-region value.");
+            // NaN, so it would otherwise slip through the bounds checks and reach the injected @page
+            // CSS as an invalid size, failing the whole render unpredictably.
+            if (!Double.isFinite(width) || !Double.isFinite(height)) {
+                throw new PDFGenerationException("Browser rendering returned a non-finite page dimension.");
             }
             if (width <= 0 || height <= 0) {
                 continue;
             }
-            if (width > MAX_CAPTURE_DIMENSION || height > MAX_CAPTURE_DIMENSION) {
-                throw new PDFGenerationException("Browser rendering page region exceeds the maximum capture dimension.");
+            if (width > MAX_PAGE_DIMENSION || height > MAX_PAGE_DIMENSION) {
+                throw new PDFGenerationException("Browser rendering page exceeds the maximum page dimension.");
             }
-            // Per-region pixel cap bounds peak decoded-image memory (one region is held at a time in
-            // PDF assembly), independent of the cumulative budget below.
-            double regionPixels = width * height;
-            if (regionPixels > MAX_CAPTURE_REGION_PIXELS) {
-                throw new PDFGenerationException("Browser rendering page region exceeds the safe per-page pixel budget.");
-            }
-            totalPixels += regionPixels;
-            if (totalPixels > MAX_CAPTURE_TOTAL_PIXELS) {
-                throw new PDFGenerationException("Browser rendering total capture area exceeds the safe pixel budget.");
-            }
-            regions.add(new CaptureRegion(x, y, width, height));
+            sizes.add(new PageSize(id, width, height));
         }
-        return regions;
+        return sizes;
     }
 
-    private static double regionValue(Map<?, ?> rawMap, String key) throws PDFGenerationException {
+    private static double numberValue(Map<?, ?> rawMap, String key) throws PDFGenerationException {
         Object value = rawMap.get(key);
         if (value instanceof Number number) {
             return number.doubleValue();
         }
-        throw new PDFGenerationException("Browser rendering returned a non-numeric page-region value.");
+        throw new PDFGenerationException("Browser rendering returned a non-numeric page dimension.");
     }
 
-    /** Immutable capture rectangle in CSS page coordinates. */
-    record CaptureRegion(double x, double y, double width, double height) {
+    /**
+     * Builds the {@code @page} sizing CSS for {@link #INJECT_PAGE_SIZE_CSS_JS}. When every page shares
+     * a size (the common single-scan-geometry form) one anonymous {@code @page { size }} rule covers
+     * them all; when sizes differ (e.g. a portrait page followed by a landscape one) a CSS named page
+     * is emitted per page div and bound to it by id, so each printed page keeps its authored geometry.
+     * Sizes are px (Chromium converts to the PDF's points at 96dpi), matching the legacy raster path's
+     * {@code px * 72/96} page boxes. Returns empty CSS for an empty list (never injected).
+     */
+    static String buildPageSizeCss(List<PageSize> pages) {
+        if (pages.isEmpty()) {
+            return "";
+        }
+        long firstWidth = (long) Math.ceil(pages.get(0).width());
+        long firstHeight = (long) Math.ceil(pages.get(0).height());
+        boolean uniform = pages.stream().allMatch(page ->
+                (long) Math.ceil(page.width()) == firstWidth && (long) Math.ceil(page.height()) == firstHeight);
+        StringBuilder css = new StringBuilder();
+        if (uniform) {
+            return css.append("@page { size: ").append(cssPx(pages.get(0).width())).append(' ')
+                    .append(cssPx(pages.get(0).height())).append("; margin: 0; }").toString();
+        }
+        for (int index = 0; index < pages.size(); index++) {
+            PageSize page = pages.get(index);
+            css.append("@page carlosPage").append(index + 1).append(" { size: ")
+                    .append(cssPx(page.width())).append(' ').append(cssPx(page.height()))
+                    .append("; margin: 0; }\n");
+        }
+        for (int index = 0; index < pages.size(); index++) {
+            // The id came through the /^page\d+$/i geometry filter, so it is a safe CSS id selector.
+            css.append('#').append(pages.get(index).id()).append(" { page: carlosPage")
+                    .append(index + 1).append("; }\n");
+        }
+        return css.toString();
+    }
+
+    /** CSS px length rounded up to a whole pixel, so a fractional content box never clips content. */
+    private static String cssPx(double value) {
+        return ((long) Math.ceil(value)) + "px";
+    }
+
+    /** Immutable authored page size in CSS px, tagged with the source {@code pageN} div id. */
+    record PageSize(String id, double width, double height) {
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -1678,62 +1694,6 @@ public class EFormBrowserPdfService {
         return Path.of(tempDir.getPath(), "carlos-eform-browser-pdf-temp");
     }
 
-    private List<Path> listCaptureFiles(Path outputDirectory) throws IOException {
-        try (var stream = Files.newDirectoryStream(outputDirectory, "page-*.png")) {
-            List<Path> captures = new ArrayList<>();
-            for (Path capture : stream) {
-                captures.add(capture);
-            }
-            // Sort by the numeric page index, not lexically, so ordering is correct past 999 pages.
-            return captures.stream()
-                    .sorted(Comparator.comparingInt(EFormBrowserPdfService::capturePageIndex)
-                            .thenComparing(path -> path.getFileName().toString()))
-                    .toList();
-        }
-    }
-
-    private static int capturePageIndex(Path capture) {
-        String name = capture.getFileName().toString();
-        String digits = name.replaceAll("\\D", "");
-        if (digits.isEmpty()) {
-            return Integer.MAX_VALUE;
-        }
-        try {
-            return Integer.parseInt(digits);
-        } catch (NumberFormatException e) {
-            // Overflow on an absurdly long numeric name: sort it last rather than crash the sort.
-            return Integer.MAX_VALUE;
-        }
-    }
-
-    static void convertCapturesToPdf(List<Path> captureFiles, Path outputPdfPath, Path scratchDirectory) throws PDFGenerationException {
-        // File-backed stream cache: Flate-compressed page-image streams otherwise accumulate
-        // on-heap in the PDDocument until save() — up to the full MAX_CAPTURE_TOTAL_PIXELS budget
-        // per render, times MAX_CONCURRENT_RENDERS. Spilling to a scratch file under the managed
-        // render workspace bounds retained JVM memory to one decoded region regardless of form size.
-        try (PDDocument document = new PDDocument(
-                MemoryUsageSetting.setupTempFileOnly().setTempDir(scratchDirectory.toFile()).streamCache)) {
-            for (Path captureFile : captureFiles) {
-                BufferedImage image = ImageIO.read(captureFile.toFile());
-                if (image == null) {
-                    throw new PDFGenerationException("Unable to read eForm browser capture image: " + captureFile.getFileName());
-                }
-                float pageWidth = image.getWidth() * CSS_PIXEL_TO_POINTS;
-                float pageHeight = image.getHeight() * CSS_PIXEL_TO_POINTS;
-                PDPage page = new PDPage(new PDRectangle(pageWidth, pageHeight));
-                document.addPage(page);
-                PDImageXObject pdImage = LosslessFactory.createFromImage(document, image);
-                try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                    contentStream.drawImage(pdImage, 0, 0, pageWidth, pageHeight);
-                }
-            }
-            document.save(outputPdfPath.toFile());
-            logger.debug("Assembled {} eForm capture(s) into a {}-page PDF", captureFiles.size(), document.getNumberOfPages());
-        } catch (IOException e) {
-            throw new PDFGenerationException("Unable to assemble the browser-rendered eForm captures into a PDF.", e);
-        }
-    }
-
     /**
      * True when {@code path} starts with the {@code %PDF} magic bytes. Read failures (including a
      * missing file) return false — at the success gate, "cannot prove it is a PDF" and "is not a
@@ -1754,45 +1714,30 @@ public class EFormBrowserPdfService {
         }
     }
 
-    static Path createSecureTempDirectory(Path tempRoot, String prefix) throws IOException {
-        return createSecureTempPath(tempRoot, true, prefix, null);
-    }
-
+    // FindSecBugs PATH_TRAVERSAL_IN: the renderer output PDF is created only under a validated managed temp root, with caller-controlled filenames disallowed.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Renderer temp files are created only beneath resolveRendererTempRoot(), which validates configured roots before creating a managed private temp file.")
     static Path createSecureTempFile(Path tempRoot, String prefix, String suffix) throws IOException {
-        return createSecureTempPath(tempRoot, false, prefix, suffix);
-    }
-
-    // FindSecBugs PATH_TRAVERSAL_IN: temp artifacts are created only under a validated managed temp root, with caller-controlled filenames disallowed.
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Renderer temp files are created only beneath resolveRendererTempRoot(), which validates configured roots before creating a managed private temp directory.")
-    private static Path createSecureTempPath(Path tempRoot, boolean directory, String prefix, String suffix) throws IOException {
         Path managedRoot = Files.createDirectories(tempRoot);
         // Reject a pre-seeded symlink at the managed root: a local attacker who wins the race to
         // create the predictable renderer temp root as a symlink could otherwise redirect the
-        // per-render child (and its rendered PDF) outside the CARLOS-owned tree. The child itself is
-        // already created atomically with a random name and 0700 via createTempDirectory below.
+        // rendered PDF outside the CARLOS-owned tree. The file itself is created atomically with a
+        // random name and 0600 via createTempFile below.
         if (Files.isSymbolicLink(managedRoot)) {
             throw new IOException("Renderer temp root must be a real directory, not a symbolic link: " + managedRoot);
         }
-        FileAttribute<?>[] secureAttributes = securePosixAttributes(directory);
+        FileAttribute<?>[] secureAttributes = securePosixAttributes();
         try {
-            return directory
-                    ? Files.createTempDirectory(managedRoot, prefix, secureAttributes)
-                    : Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
+            return Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
         } catch (UnsupportedOperationException e) {
             throw new IOException("Renderer temp path requires POSIX filesystem permissions under " + managedRoot, e);
         }
     }
 
-    private static FileAttribute<?>[] securePosixAttributes(boolean directory) {
+    private static FileAttribute<?>[] securePosixAttributes() {
         try {
-            Set<PosixFilePermission> permissions = directory
-                    ? EnumSet.of(
-                            PosixFilePermission.OWNER_READ,
-                            PosixFilePermission.OWNER_WRITE,
-                            PosixFilePermission.OWNER_EXECUTE)
-                    : EnumSet.of(
-                            PosixFilePermission.OWNER_READ,
-                            PosixFilePermission.OWNER_WRITE);
+            Set<PosixFilePermission> permissions = EnumSet.of(
+                    PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE);
             return new FileAttribute<?>[] { PosixFilePermissions.asFileAttribute(permissions) };
         } catch (UnsupportedOperationException e) {
             return new FileAttribute<?>[0];
@@ -1852,9 +1797,10 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Age after which an orphaned renderer capture directory under the shared managed root is swept.
-     * Capture dirs are always detached from the caller (deleted in the per-render {@code finally}), so a
-     * short window safely reclaims ones left by a JVM/browser killed mid-render.
+     * Age after which an orphaned same-prefixed renderer <em>directory</em> under the shared managed
+     * root is swept. The native print path creates no per-render directory; this reclaims capture
+     * directories left by a prior (raster) build that was killed mid-render — an upgrade-time
+     * backstop. Such dirs are always caller-detached, so a short window reclaims them safely.
      */
     private static final Duration STALE_RENDERER_DIR_TTL = Duration.ofHours(1);
 
@@ -1869,13 +1815,14 @@ public class EFormBrowserPdfService {
     private static final Duration STALE_RENDERER_OUTPUT_TTL = Duration.ofHours(24);
 
     /**
-     * Best-effort sweep of renderer artifacts (both {@code eform-browser-render-*} capture dirs and
-     * their {@code .pdf} output files) left under the shared managed root by a JVM or browser that was
-     * killed before the per-render {@code finally} cleanup ran, or by a caller that failed before it
-     * consumed a returned output. Directories are reclaimed after {@link #STALE_RENDERER_DIR_TTL} and
-     * caller-owned output PDFs only after the much longer {@link #STALE_RENDERER_OUTPUT_TTL}, so an
-     * in-flight render — and a returned, not-yet-consumed output — is never touched. Never throws — a
-     * sweep failure must not fail the render.
+     * Best-effort sweep of renderer artifacts under the shared managed root: the {@code .pdf} output
+     * files this native print path creates (left behind by a caller that failed before consuming a
+     * returned output), plus any same-prefixed {@code eform-browser-render-*} <em>capture directory</em>
+     * left by a prior (raster) build that was killed mid-render (an upgrade-time backstop). Directories
+     * are reclaimed after {@link #STALE_RENDERER_DIR_TTL} and caller-owned output PDFs only after the
+     * much longer {@link #STALE_RENDERER_OUTPUT_TTL}, so an in-flight render — and a returned,
+     * not-yet-consumed output — is never touched. Never throws — a sweep failure must not fail the
+     * render.
      */
     static void sweepStaleRendererRoots(Path managedRoot) {
         if (managedRoot == null || !Files.isDirectory(managedRoot)) {
