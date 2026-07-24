@@ -95,6 +95,38 @@ class ProEditPhoneNum2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("should set phoneError and never persist when POST fax number contains control whitespace")
+    void shouldSetPhoneError_whenPostFaxNumberContainsControlWhitespace() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        UserPropertyDAO propertyDao = mock(UserPropertyDAO.class);
+
+        try (MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class);
+             MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
+             MockedStatic<LoggedInInfo> loggedInInfo = mockStatic(LoggedInInfo.class)) {
+
+            servletCtx.when(ServletActionContext::getRequest).thenReturn(request);
+            servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
+            wireBeans(springUtils, securityInfoManager, propertyDao);
+            grantSession(loggedInInfo, securityInfoManager);
+
+            ProEditPhoneNum2Action action = new ProEditPhoneNum2Action();
+            // CR/LF/tab are control characters (log/response-splitting fodder), never valid in a phone
+            // or fax number: the server-side constraint allows only a literal space, not all of \s.
+            action.setFaxNumber("416\r\n555\t0100");
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("phoneError")).isEqualTo(Boolean.TRUE);
+            verify(propertyDao, never()).saveProp(any(UserProperty.class));
+        }
+    }
+
+    @Test
     @DisplayName("should persist the property when POST fax number is a valid telephone value")
     void shouldPersistProperty_whenPostFaxNumberIsValid() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();

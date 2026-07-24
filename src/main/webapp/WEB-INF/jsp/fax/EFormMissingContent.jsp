@@ -40,7 +40,7 @@
       Reached only as an internal forward from Fax2Action.prepareFax, which enforces the _fax READ
       security object before returning this result.
 
-    @since 2026-07
+    @since 2026-07-23
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
