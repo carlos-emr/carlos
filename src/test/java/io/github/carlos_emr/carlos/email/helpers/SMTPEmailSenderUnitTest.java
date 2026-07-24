@@ -170,6 +170,61 @@ class SMTPEmailSenderUnitTest extends CarlosUnitTestBase {
         return null;
     }
 
+    @Test
+    @DisplayName("should fail with sending exception when required SMTP config field is absent")
+    void shouldFailWithSendingException_whenRequiredSmtpConfigFieldIsAbsent() {
+        // A durable archive artifact is written between preparation and transport, so a config that
+        // could never have sent must fail here rather than raise a raw NPE past the caller's
+        // EmailSendingException handling.
+        SMTPEmailSender sender = senderWithConfigJson("{\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
+
+        assertThatThrownBy(sender::prepareMessageBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("Invalid credentials configured for");
+    }
+
+    @Test
+    @DisplayName("should fail with sending exception when required SMTP config field is blank")
+    void shouldFailWithSendingException_whenRequiredSmtpConfigFieldIsBlank() {
+        SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"  \",\"port\":\"587\",\"username\":\"user\",\"password\":\"secret\"}");
+
+        assertThatThrownBy(sender::prepareMessageBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("Invalid credentials configured for");
+    }
+
+    @Test
+    @DisplayName("should fail with sending exception when SMTP port is not a valid port number")
+    void shouldFailWithSendingException_whenSmtpPortIsNotAValidPortNumber() {
+        SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"smtp.example.test\",\"port\":\"not-a-port\",\"username\":\"user\",\"password\":\"secret\"}");
+
+        assertThatThrownBy(sender::prepareMessageBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("Invalid credentials configured for");
+    }
+
+    @Test
+    @DisplayName("should fail with sending exception when SMTP port is out of range")
+    void shouldFailWithSendingException_whenSmtpPortIsOutOfRange() {
+        SMTPEmailSender sender = senderWithConfigJson("{\"host\":\"smtp.example.test\",\"port\":\"70000\",\"username\":\"user\",\"password\":\"secret\"}");
+
+        assertThatThrownBy(sender::prepareMessageBytes)
+                .isInstanceOf(EmailSendingException.class)
+                .hasMessageContaining("Invalid credentials configured for");
+    }
+
+    private SMTPEmailSender senderWithConfigJson(String configDetailsJson) {
+        EmailConfig emailConfig = smtpEmailConfig();
+        emailConfig.setConfigDetailsJson(configDetailsJson);
+        return new SMTPEmailSender(
+                loggedInInfo,
+                emailConfig,
+                new String[]{"patient@example.test"},
+                "Subject",
+                "Body text",
+                List.of());
+    }
+
     private EmailConfig smtpEmailConfig() {
         EmailConfig emailConfig = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, "provider@example.test");
         emailConfig.setSenderFirstName("Provider");

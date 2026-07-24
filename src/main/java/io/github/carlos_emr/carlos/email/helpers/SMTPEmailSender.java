@@ -257,6 +257,11 @@ public class SMTPEmailSender {
      *   <li>Debug mode: disabled</li>
      * </ul>
      *
+     * <p>All required fields are validated here, before any message bytes are built. An
+     * archive-first caller writes a durable eDoc artifact between preparation and transport, so a
+     * configuration that could never have sent must fail before that artifact exists rather than
+     * after.</p>
+     *
      * @param emailConfig EmailConfig the email configuration containing JSON-encoded SMTP settings
      * @return JavaMailSender configured mail sender instance ready for message transmission
      * @throws EmailSendingException if the configuration JSON is invalid or missing required fields
@@ -264,31 +269,80 @@ public class SMTPEmailSender {
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            String host = jsonNode.get("host").asText();
-            String port = jsonNode.get("port").asText();
-            String username = jsonNode.get("username").asText();
-            String password = jsonNode.get("password").asText();
-
-            mailSender.setHost(host);
-            mailSender.setPort(Integer.parseInt(port));
-            mailSender.setUsername(username);
-            mailSender.setPassword(password);
-
-            Properties properties = new Properties();
-            properties.put("mail.transport.protocol", "smtp");
-            properties.put("mail.smtp.auth", "true");
-            properties.put("mail.smtp.starttls.enable", "true");
-            properties.put("mail.smtp.starttls.required", "true");
-            properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
-            properties.put("mail.debug", "false");
-
-            mailSender.setJavaMailProperties(properties);
-        } catch (IOException e) {
-            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail(), e);
+        String invalidCredentialsMessage = "Invalid credentials configured for "
+                + (emailConfig != null ? emailConfig.getSenderEmail() : "");
+        if (emailConfig == null) {
+            throw new EmailSendingException(invalidCredentialsMessage);
         }
+        JsonNode jsonNode;
+        try {
+            jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
+        } catch (IOException | IllegalArgumentException e) {
+            throw new EmailSendingException(invalidCredentialsMessage, e);
+        }
+
+        String host = requiredConfigValue(jsonNode, "host", invalidCredentialsMessage);
+        String port = requiredConfigValue(jsonNode, "port", invalidCredentialsMessage);
+        String username = requiredConfigValue(jsonNode, "username", invalidCredentialsMessage);
+        String password = requiredConfigValue(jsonNode, "password", invalidCredentialsMessage);
+
+        mailSender.setHost(host);
+        mailSender.setPort(parsePort(port, invalidCredentialsMessage));
+        mailSender.setUsername(username);
+        mailSender.setPassword(password);
+
+        Properties properties = new Properties();
+        properties.put("mail.transport.protocol", "smtp");
+        properties.put("mail.smtp.auth", "true");
+        properties.put("mail.smtp.starttls.enable", "true");
+        properties.put("mail.smtp.starttls.required", "true");
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2");
+        properties.put("mail.debug", "false");
+
+        mailSender.setJavaMailProperties(properties);
         return mailSender;
+    }
+
+    /**
+     * Reads a required SMTP configuration value, failing closed when it is absent or blank.
+     *
+     * <p>{@link JsonNode#get(String)} returns {@code null} for an absent key, so calling
+     * {@code asText()} directly on the result raises a {@link NullPointerException} that escapes
+     * this class's declared {@link EmailSendingException} contract and bypasses the caller's
+     * failure handling.</p>
+     *
+     * @param configNode parsed SMTP configuration document
+     * @param fieldName required field to read
+     * @param invalidCredentialsMessage PHI-free failure message reused across all validation paths
+     * @return the trimmed, non-blank configured value
+     * @throws EmailSendingException if the field is absent, null, or blank
+     */
+    private String requiredConfigValue(JsonNode configNode, String fieldName, String invalidCredentialsMessage) throws EmailSendingException {
+        JsonNode fieldNode = configNode != null ? configNode.get(fieldName) : null;
+        if (fieldNode == null || fieldNode.isNull() || fieldNode.asText().isBlank()) {
+            throw new EmailSendingException(invalidCredentialsMessage);
+        }
+        return fieldNode.asText().trim();
+    }
+
+    /**
+     * Parses the configured SMTP port, failing closed on a non-numeric or out-of-range value.
+     *
+     * @param port configured port value
+     * @param invalidCredentialsMessage PHI-free failure message reused across all validation paths
+     * @return the parsed port
+     * @throws EmailSendingException if the port is not a valid TCP port number
+     */
+    private int parsePort(String port, String invalidCredentialsMessage) throws EmailSendingException {
+        try {
+            int parsedPort = Integer.parseInt(port);
+            if (parsedPort < 1 || parsedPort > 65535) {
+                throw new EmailSendingException(invalidCredentialsMessage);
+            }
+            return parsedPort;
+        } catch (NumberFormatException e) {
+            throw new EmailSendingException(invalidCredentialsMessage, e);
+        }
     }
 
     /**
