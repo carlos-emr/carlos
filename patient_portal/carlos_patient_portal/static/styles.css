@@ -542,11 +542,23 @@ h2 {
     padding: 0 10px;
   }
 
+  .language-switch {
+    width: 100%;
+  }
+
+  .language-switch .text-tab {
+    flex: 1 1 auto;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   .dashboard-layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .module-nav {
+    align-items: center;
     flex-direction: row;
     gap: 4px;
     overflow-x: auto;
@@ -567,11 +579,19 @@ h2 {
   }
 
   .module-toolbar {
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
   }
 
   .module-toolbar .secondary-action {
-    flex: 1 1 96px;
+    width: min(100%, 160px);
+    justify-self: center;
+  }
+
+  .module-toolbar .search-field {
+    width: 100%;
+    min-width: 0;
   }
 
   .detail-list div {

@@ -1259,7 +1259,13 @@ def test_dashboard_styles_include_desktop_and_mobile_navigation_rules() -> None:
     assert "@media (max-width: 640px)" in css
     assert ".portal-topbar" in css
     assert "flex-direction: row;" in css
+    assert ".language-switch .text-tab" in css
+    assert "min-height: 44px;" in css
     assert ".module-nav" in css
+    assert "align-items: center;" in css
+    assert "grid-template-rows: auto minmax(0, 1fr);" in css
+    assert ".module-toolbar .search-field" in css
+    assert "width: min(100%, 160px);" in css
     assert ".settings-section" in css
     assert ".password-copy-group" in css
     assert ".table-shell .email-password-table" in css
