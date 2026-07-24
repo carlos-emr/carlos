@@ -108,6 +108,19 @@ The development container's capture-only Postfix setup stores messages locally i
 them externally. Use `/scripts/mail list` and `/scripts/mail read latest` to inspect captured MFA
 messages during testing.
 
+Run the repeatable live browser smoke test from the repository root after seeding the development
+account and starting the portal:
+
+```bash
+npm run test:patient-portal-playwright
+```
+
+The test clears the local capture inbox, signs in as the configurable development patient, retrieves
+the MFA code through `/scripts/mail`, verifies the dashboard on desktop and mobile viewports, and
+logs out. Override `PORTAL_BASE_URL`, `PORTAL_TEST_USER`, `PORTAL_TEST_PASSWORD`,
+`PORTAL_MAIL_COMMAND`, or `PORTAL_SCREENSHOT_DIR` when the local setup differs from the defaults.
+The test refuses public hosts unless `ALLOW_NON_LOCAL_BASE_URL=true` is deliberately set.
+
 `PATIENT_PORTAL_CLINIC_ID` defaults to `default`; set a stable clinic identifier before using a
 shared or persistent database so CARLOS `demographic_no` values are scoped correctly.
 If the same value is used in HL7 v2 messages, keep it to letters, numbers, dots, underscores, or
