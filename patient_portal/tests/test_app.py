@@ -3294,6 +3294,15 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
 
+    def force_rollback_after_invite_insert() -> bool | None:
+        rollback_scope = session_scope(session_factory)
+        rollback_session = rollback_scope.__enter__()
+        create_service_invite(rollback_session, 5678, "Dr example")
+        rollback_error = RuntimeError("force session rollback")
+        return rollback_scope.__exit__(
+            type(rollback_error), rollback_error, rollback_error.__traceback__
+        )
+
     with session_scope(session_factory) as session:
         committed_invite, _ = create_service_invite(session, 1234, "Dr example")
         committed_invite_id = committed_invite.id
@@ -3301,13 +3310,7 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     with session_factory() as session:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
-    rollback_scope = session_scope(session_factory)
-    rollback_session = rollback_scope.__enter__()
-    create_service_invite(rollback_session, 5678, "Dr example")
-    rollback_error = RuntimeError("force session rollback")
-    assert rollback_scope.__exit__(
-        type(rollback_error), rollback_error, rollback_error.__traceback__
-    ) is False
+    assert force_rollback_after_invite_insert() is False
 
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
