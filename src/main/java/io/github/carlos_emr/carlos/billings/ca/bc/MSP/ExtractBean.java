@@ -321,13 +321,18 @@ public class ExtractBean extends Object implements Serializable {
     }
 
 
+    /**
+     * Generates or retrieves the next sequence ID.
+     *
+     * @return the sequence ID as a String
+     */
     public String getSequence() {
         String n = "1";
         if (eFlag.equals("1")) {
             LogTeleplanTx l = new LogTeleplanTx();
             l.setClaim("New Log".getBytes());
             logTeleplanTxDao.persist(l);
-            return l.getId().toString();
+            return String.valueOf(l.getId());
 
         }
         return n;

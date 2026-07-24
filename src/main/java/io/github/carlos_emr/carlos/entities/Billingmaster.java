@@ -51,7 +51,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * Encapsulates data from table billingmaster
+ * Core entity representing a comprehensive billing record.
+ * Aggregates all necessary information for submitting claims and tracking payments.
  */
 @Entity
 @Table(name = "billingmaster")
@@ -71,11 +72,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
-/**
- * Core entity representing a comprehensive billing record.
- * Aggregates all necessary information for submitting claims and tracking payments.
- */
 public class Billingmaster {
+
 
     /**
      * auto_increment
