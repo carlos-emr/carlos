@@ -71,6 +71,7 @@
             <div class="settings-sections">
               <section class="settings-section">
                 <h2>Change password</h2>
+                {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_password') }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
@@ -87,6 +88,7 @@
 
               <section class="settings-section">
                 <h2>Contact info</h2>
+                {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_contact') }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
@@ -113,6 +115,7 @@
 
               <section class="settings-section">
                 <h2>MFA settings</h2>
+                {# nosemgrep: python.django.security.django-no-csrf-token.django-no-csrf-token -- FastAPI validates the signed double-submit csrf_token field below. #}
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_mfa') }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>

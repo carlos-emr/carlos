@@ -21,8 +21,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError
+from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
@@ -252,6 +253,38 @@ class FhirApiError(Exception):
         self.status_code = status_code
         self.code = code
         self.diagnostics = diagnostics
+
+
+@dataclass(frozen=True)
+class PortalRuntime:
+    settings: Settings
+    database_engine: Engine
+    session_factory: sessionmaker[Session]
+    csrf_secret: str
+    identity_proof_secret: str
+    audit_hash_secret: str
+    unlock_secret_encryption_secret: str
+    activation_rate_limit: ActivationRateLimit
+    auth_policy: AuthPolicy
+    rate_limiter: InMemoryRateLimiter
+
+
+@dataclass(frozen=True)
+class RouteDependencies:
+    get_app_database_session: Callable[..., Generator[Session, None, None]]
+    require_internal_health_token: Callable[..., None]
+    get_dev_admin_actor: Callable[..., str]
+    get_authorization_bearer_token: Callable[..., str]
+    get_authenticated_portal_session: Callable[..., AuthenticatedPortalSession]
+    get_authenticated_fhir_session: Callable[..., AuthenticatedPortalSession]
+    render_index_response: Callable[..., Response]
+    render_portal_page: Callable[..., Response]
+    get_portal_account_form_values: Callable[..., Awaitable[dict[str, list[str]]]]
+    get_portal_cookie_session_or_redirect: Callable[
+        [Request, Session],
+        AuthenticatedPortalSession | RedirectResponse,
+    ]
+    render_account_change_error: Callable[..., Response]
 
 
 def create_csrf_token(secret: str) -> str:
@@ -593,6 +626,24 @@ def password_reset_request_response_payload(
     if settings.is_development and reset_token is not None:
         payload["development_reset_token"] = reset_token
     return payload
+
+
+def auth_error_response(
+    *,
+    is_browser_form: bool,
+    request: Request,
+    render_index_response: Callable[..., Response],
+    status_code: int,
+    browser_message: str,
+    json_content: dict[str, object],
+) -> Response:
+    if is_browser_form:
+        return render_index_response(
+            request,
+            status_code=status_code,
+            error_message=browser_message,
+        )
+    return JSONResponse(status_code=status_code, content=json_content)
 
 
 def index_template_context(
@@ -1009,8 +1060,7 @@ def get_request_client_reference(request: Request, settings: Settings) -> str:
     return request.client.host
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    settings = settings or get_settings()
+def build_portal_runtime(settings: Settings) -> PortalRuntime:
     csrf_secret = (
         settings.session_secret.get_secret_value()
         if settings.session_secret is not None
@@ -1043,7 +1093,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         window_seconds=settings.global_rate_limit_window_seconds,
         max_requests=settings.global_rate_limit_max_requests,
     )
+    return PortalRuntime(
+        settings=settings,
+        database_engine=database_engine,
+        session_factory=session_factory,
+        csrf_secret=csrf_secret,
+        identity_proof_secret=identity_proof_secret,
+        audit_hash_secret=audit_hash_secret,
+        unlock_secret_encryption_secret=unlock_secret_encryption_secret,
+        activation_rate_limit=activation_rate_limit,
+        auth_policy=auth_policy,
+        rate_limiter=rate_limiter,
+    )
 
+
+def build_lifespan(database_engine: Engine) -> Callable[[FastAPI], AsyncGenerator[None, None]]:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
         try:
@@ -1051,25 +1115,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             database_engine.dispose()
 
-    app = FastAPI(
-        title=settings.service_name,
-        version="0.1.0",
-        docs_url="/api/docs" if settings.is_development else None,
-        redoc_url="/api/redoc" if settings.is_development else None,
-        openapi_url="/api/openapi.json" if settings.is_development else None,
-        lifespan=lifespan,
-    )
-    app.state.settings = settings
-    app.state.database_engine = database_engine
-    app.state.session_factory = session_factory
-    app.state.rate_limiter = rate_limiter
-    app.state.unlock_secret_encryption_secret = unlock_secret_encryption_secret
-    app.mount(
-        "/static",
-        StaticFiles(directory=str(PACKAGE_DIR / "static")),
-        name="static",
-    )
+    return lifespan
 
+
+def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
         _: Request,
@@ -1091,6 +1140,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             diagnostics=exc.diagnostics,
         )
 
+
+def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
+    settings = runtime.settings
+
     @app.middleware("http")
     async def add_security_headers(
         request: Request,
@@ -1110,7 +1163,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
             response.headers["Retry-After"] = str(settings.maintenance_retry_after_seconds)
         elif is_rate_limited_path(request.url.path):
-            retry_after_seconds = rate_limiter.retry_after_seconds(
+            retry_after_seconds = runtime.rate_limiter.retry_after_seconds(
                 get_request_client_reference(request, settings)
             )
             if retry_after_seconds is None:
@@ -1154,8 +1207,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return response
 
+
+def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
+    settings = runtime.settings
+
     def get_app_database_session() -> Generator[Session, None, None]:
-        with session_scope(session_factory) as session:
+        with session_scope(runtime.session_factory) as session:
             yield session
 
     def require_internal_health_token(
@@ -1195,7 +1252,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         status_code: int = status.HTTP_200_OK,
         error_message: str | None = None,
     ) -> Response:
-        csrf_token = create_csrf_token(csrf_secret)
+        csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
             request=request,
             name="index.html",
@@ -1209,6 +1266,221 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         set_csrf_cookie(response, csrf_token, settings=settings, path=CSRF_COOKIE_PATH)
         return response
+
+    def get_authorization_bearer_token(
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> str:
+        scheme, _, supplied_token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not supplied_token.strip():
+            raise HTTPException(status_code=401, detail="authentication required")
+        return supplied_token.strip()
+
+    def get_authenticated_portal_session(
+        session_token: Annotated[str, Depends(get_authorization_bearer_token)],
+        session: Annotated[Session, Depends(get_app_database_session)],
+    ) -> AuthenticatedPortalSession:
+        try:
+            return authenticate_session_token(
+                session,
+                session_token=session_token,
+                token_secret=runtime.csrf_secret,
+            )
+        except (PortalSessionInvalidError, ValueError) as exc:
+            raise HTTPException(status_code=401, detail="authentication required") from exc
+
+    def get_authenticated_fhir_session(
+        session: Annotated[Session, Depends(get_app_database_session)],
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> AuthenticatedPortalSession:
+        scheme, _, supplied_token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not supplied_token.strip():
+            raise FhirApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="login",
+                diagnostics="authentication required",
+            )
+        try:
+            return authenticate_session_token(
+                session,
+                session_token=supplied_token.strip(),
+                token_secret=runtime.csrf_secret,
+            )
+        except (PortalSessionInvalidError, ValueError) as exc:
+            raise FhirApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="login",
+                diagnostics="authentication required",
+            ) from exc
+
+    def get_authenticated_portal_cookie_session(
+        request: Request,
+        session: Session,
+    ) -> AuthenticatedPortalSession:
+        session_token = request.cookies.get(PORTAL_SESSION_COOKIE_NAME)
+        if session_token is None:
+            raise PortalSessionInvalidError()
+        return authenticate_session_token(
+            session,
+            session_token=session_token,
+            token_secret=runtime.csrf_secret,
+        )
+
+    def render_portal_page(
+        request: Request,
+        session: Session,
+        *,
+        active_module: str,
+        status_code: int = status.HTTP_200_OK,
+        account_notice: str | None = None,
+        account_error: str | None = None,
+        email_password_search: str | None = None,
+        email_password_page: int = 1,
+    ) -> Response:
+        try:
+            authenticated_session = get_authenticated_portal_cookie_session(request, session)
+        except (PortalSessionInvalidError, ValueError):
+            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+            clear_portal_session_cookie(response, settings=settings)
+            return response
+
+        extra_context: dict[str, object] = {}
+        if active_module == "email-passwords":
+            extra_context["email_passwords"] = email_password_dashboard_context(
+                session,
+                authenticated_session.account,
+                search=email_password_search,
+                page=email_password_page,
+                encryption_secret=runtime.unlock_secret_encryption_secret,
+            )
+        csrf_token = create_csrf_token(runtime.csrf_secret)
+        response = templates.TemplateResponse(
+            request=request,
+            name="dashboard.html",
+            context=portal_template_context(
+                request,
+                authenticated_session=authenticated_session,
+                settings=settings,
+                active_module=active_module,
+                csrf_token=csrf_token,
+                account_notice=account_notice,
+                account_error=account_error,
+                extra_context=extra_context,
+            ),
+            status_code=status_code,
+        )
+        set_csrf_cookie(
+            response,
+            csrf_token,
+            settings=settings,
+            path=PORTAL_SESSION_COOKIE_PATH,
+        )
+        return response
+
+    async def get_portal_account_form_values(
+        request: Request,
+        *,
+        csrf_error_detail: str,
+    ) -> dict[str, list[str]]:
+        form_values = await get_urlencoded_form_values(
+            request,
+            MAX_FORM_BODY_BYTES,
+            MAX_FORM_FIELD_COUNT,
+        )
+        csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
+        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+        if not is_valid_csrf_submission(csrf_token, csrf_cookie, runtime.csrf_secret):
+            raise HTTPException(status_code=403, detail=csrf_error_detail)
+        return form_values
+
+    def get_portal_cookie_session_or_redirect(
+        request: Request,
+        session: Session,
+    ) -> AuthenticatedPortalSession | RedirectResponse:
+        try:
+            return get_authenticated_portal_cookie_session(request, session)
+        except (PortalSessionInvalidError, ValueError):
+            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+            clear_portal_session_cookie(response, settings=settings)
+            return response
+
+    def render_account_change_error(
+        request: Request,
+        session: Session,
+        *,
+        status_code: int,
+    ) -> Response:
+        return render_portal_page(
+            request,
+            session,
+            active_module="account",
+            status_code=status_code,
+            account_error=ACCOUNT_CHANGE_ERROR_MESSAGE,
+        )
+
+    return RouteDependencies(
+        get_app_database_session=get_app_database_session,
+        require_internal_health_token=require_internal_health_token,
+        get_dev_admin_actor=get_dev_admin_actor,
+        get_authorization_bearer_token=get_authorization_bearer_token,
+        get_authenticated_portal_session=get_authenticated_portal_session,
+        get_authenticated_fhir_session=get_authenticated_fhir_session,
+        render_index_response=render_index_response,
+        render_portal_page=render_portal_page,
+        get_portal_account_form_values=get_portal_account_form_values,
+        get_portal_cookie_session_or_redirect=get_portal_cookie_session_or_redirect,
+        render_account_change_error=render_account_change_error,
+    )
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    runtime = build_portal_runtime(settings)
+
+    app = FastAPI(
+        title=settings.service_name,
+        version="0.1.0",
+        docs_url="/api/docs" if settings.is_development else None,
+        redoc_url="/api/redoc" if settings.is_development else None,
+        openapi_url="/api/openapi.json" if settings.is_development else None,
+        lifespan=build_lifespan(runtime.database_engine),
+    )
+    app.state.settings = settings
+    app.state.database_engine = runtime.database_engine
+    app.state.session_factory = runtime.session_factory
+    app.state.rate_limiter = runtime.rate_limiter
+    app.state.unlock_secret_encryption_secret = runtime.unlock_secret_encryption_secret
+    app.mount(
+        "/static",
+        StaticFiles(directory=str(PACKAGE_DIR / "static")),
+        name="static",
+    )
+    register_exception_handlers(app)
+    register_security_middleware(app, runtime)
+    register_app_routes(app, runtime)
+    return app
+
+
+def register_app_routes(app: FastAPI, runtime: PortalRuntime) -> None:
+    route_dependencies = build_route_dependencies(runtime)
+    register_public_routes(app, runtime, route_dependencies)
+    register_auth_routes(app, runtime, route_dependencies)
+    register_fhir_routes(app, runtime, route_dependencies)
+    register_patient_email_password_routes(app, runtime, route_dependencies)
+    register_logout_route(app, runtime, route_dependencies)
+    register_portal_routes(app, runtime, route_dependencies)
+    register_activation_routes(app, runtime, route_dependencies)
+    register_dev_admin_routes(app, runtime, route_dependencies)
+
+
+def register_public_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    settings = runtime.settings
+    get_app_database_session = route_dependencies.get_app_database_session
+    require_internal_health_token = route_dependencies.require_internal_health_token
+    render_index_response = route_dependencies.render_index_response
 
     @app.get("/")
     def index(request: Request) -> Response:
@@ -1256,155 +1528,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             content={"status": "ok", "database": "ok", "maintenance": False}
         )
 
-    def get_authorization_bearer_token(
-        authorization: Annotated[str | None, Header()] = None,
-    ) -> str:
-        scheme, _, supplied_token = (authorization or "").partition(" ")
-        if scheme.lower() != "bearer" or not supplied_token.strip():
-            raise HTTPException(status_code=401, detail="authentication required")
-        return supplied_token.strip()
 
-    def get_authenticated_portal_session(
-        session_token: Annotated[str, Depends(get_authorization_bearer_token)],
-        session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> AuthenticatedPortalSession:
-        try:
-            return authenticate_session_token(
-                session,
-                session_token=session_token,
-                token_secret=csrf_secret,
-            )
-        except (PortalSessionInvalidError, ValueError) as exc:
-            raise HTTPException(status_code=401, detail="authentication required") from exc
-
-    def get_authenticated_fhir_session(
-        session: Annotated[Session, Depends(get_app_database_session)],
-        authorization: Annotated[str | None, Header()] = None,
-    ) -> AuthenticatedPortalSession:
-        scheme, _, supplied_token = (authorization or "").partition(" ")
-        if scheme.lower() != "bearer" or not supplied_token.strip():
-            raise FhirApiError(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                code="login",
-                diagnostics="authentication required",
-            )
-        try:
-            return authenticate_session_token(
-                session,
-                session_token=supplied_token.strip(),
-                token_secret=csrf_secret,
-            )
-        except (PortalSessionInvalidError, ValueError) as exc:
-            raise FhirApiError(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                code="login",
-                diagnostics="authentication required",
-            ) from exc
-
-    def get_authenticated_portal_cookie_session(
-        request: Request,
-        session: Session,
-    ) -> AuthenticatedPortalSession:
-        session_token = request.cookies.get(PORTAL_SESSION_COOKIE_NAME)
-        if session_token is None:
-            raise PortalSessionInvalidError()
-        return authenticate_session_token(
-            session,
-            session_token=session_token,
-            token_secret=csrf_secret,
-        )
-
-    def render_portal_page(
-        request: Request,
-        session: Session,
-        *,
-        active_module: str,
-        status_code: int = status.HTTP_200_OK,
-        account_notice: str | None = None,
-        account_error: str | None = None,
-        email_password_search: str | None = None,
-        email_password_page: int = 1,
-    ) -> Response:
-        try:
-            authenticated_session = get_authenticated_portal_cookie_session(request, session)
-        except (PortalSessionInvalidError, ValueError):
-            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
-            clear_portal_session_cookie(response, settings=settings)
-            return response
-
-        extra_context: dict[str, object] = {}
-        if active_module == "email-passwords":
-            extra_context["email_passwords"] = email_password_dashboard_context(
-                session,
-                authenticated_session.account,
-                search=email_password_search,
-                page=email_password_page,
-                encryption_secret=unlock_secret_encryption_secret,
-            )
-        csrf_token = create_csrf_token(csrf_secret)
-        response = templates.TemplateResponse(
-            request=request,
-            name="dashboard.html",
-            context=portal_template_context(
-                request,
-                authenticated_session=authenticated_session,
-                settings=settings,
-                active_module=active_module,
-                csrf_token=csrf_token,
-                account_notice=account_notice,
-                account_error=account_error,
-                extra_context=extra_context,
-            ),
-            status_code=status_code,
-        )
-        set_csrf_cookie(
-            response,
-            csrf_token,
-            settings=settings,
-            path=PORTAL_SESSION_COOKIE_PATH,
-        )
-        return response
-
-    async def get_portal_account_form_values(
-        request: Request,
-        *,
-        csrf_error_detail: str,
-    ) -> dict[str, list[str]]:
-        form_values = await get_urlencoded_form_values(
-            request,
-            MAX_FORM_BODY_BYTES,
-            MAX_FORM_FIELD_COUNT,
-        )
-        csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
-        csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
-        if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
-            raise HTTPException(status_code=403, detail=csrf_error_detail)
-        return form_values
-
-    def get_portal_cookie_session_or_redirect(
-        request: Request,
-        session: Session,
-    ) -> AuthenticatedPortalSession | RedirectResponse:
-        try:
-            return get_authenticated_portal_cookie_session(request, session)
-        except (PortalSessionInvalidError, ValueError):
-            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
-            clear_portal_session_cookie(response, settings=settings)
-            return response
-
-    def render_account_change_error(
-        request: Request,
-        session: Session,
-        *,
-        status_code: int,
-    ) -> Response:
-        return render_portal_page(
-            request,
-            session,
-            active_module="account",
-            status_code=status_code,
-            account_error=ACCOUNT_CHANGE_ERROR_MESSAGE,
-        )
+def register_auth_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    settings = runtime.settings
+    get_app_database_session = route_dependencies.get_app_database_session
+    get_authenticated_portal_session = (
+        route_dependencies.get_authenticated_portal_session
+    )
+    render_index_response = route_dependencies.render_index_response
+    csrf_secret = runtime.csrf_secret
+    audit_hash_secret = runtime.audit_hash_secret
+    auth_policy = runtime.auth_policy
 
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
@@ -1430,48 +1568,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 delivery_method=payload.mfa_delivery_method,
             )
         except InvalidCredentialsError:
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    error_message="Sign-in could not be completed.",
-                )
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "sign-in could not be completed"},
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                browser_message="Sign-in could not be completed.",
+                json_content={"detail": "sign-in could not be completed"},
             )
         except AccountLockedError:
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_423_LOCKED,
-                    error_message="Account access is locked; contact the clinic for help.",
-                )
-            return JSONResponse(
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                content={"detail": "account access is locked; contact the clinic for help"},
+                browser_message="Account access is locked; contact the clinic for help.",
+                json_content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    error_message="Password reset is required before sign-in.",
-                )
-            return JSONResponse(
-                status_code=403,
-                content={"status": "password_reset_required"},
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
+                status_code=status.HTTP_403_FORBIDDEN,
+                browser_message="Password reset is required before sign-in.",
+                json_content={"status": "password_reset_required"},
             )
         except MfaDeliveryUnavailableError:
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message="MFA delivery method is unavailable.",
-                )
-            return JSONResponse(
-                status_code=400,
-                content={"detail": "MFA delivery method is unavailable"},
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
+                status_code=status.HTTP_400_BAD_REQUEST,
+                browser_message="MFA delivery method is unavailable.",
+                json_content={"detail": "MFA delivery method is unavailable"},
             )
         if is_browser_form and result.mfa_challenge is not None:
             csrf_token = create_csrf_token(csrf_secret)
@@ -1556,42 +1686,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 code_secret=csrf_secret,
             )
         except InvalidMfaCodeError:
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    error_message="MFA could not be verified.",
-                )
-            return JSONResponse(status_code=401, content={"detail": "MFA could not be verified"})
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                browser_message="MFA could not be verified.",
+                json_content={"detail": "MFA could not be verified"},
+            )
         except (MfaChallengeNotFoundError, ValueError):
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message="MFA could not be verified.",
-                )
-            return JSONResponse(status_code=400, content={"detail": "MFA could not be verified"})
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
+                status_code=status.HTTP_400_BAD_REQUEST,
+                browser_message="MFA could not be verified.",
+                json_content={"detail": "MFA could not be verified"},
+            )
         except AccountLockedError:
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_423_LOCKED,
-                    error_message="Account access is locked; contact the clinic for help.",
-                )
-            return JSONResponse(
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                content={"detail": "account access is locked; contact the clinic for help"},
+                browser_message="Account access is locked; contact the clinic for help.",
+                json_content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
-            if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    error_message="Password reset is required before sign-in.",
-                )
-            return JSONResponse(
-                status_code=403,
-                content={"status": "password_reset_required"},
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
+                status_code=status.HTTP_403_FORBIDDEN,
+                browser_message="Password reset is required before sign-in.",
+                json_content={"status": "password_reset_required"},
             )
         if is_browser_form:
             redirect_response = RedirectResponse(
@@ -1663,6 +1791,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "clinic_id": account.clinic_id,
             "demographic_no": account.demographic_no,
         }
+
+
+def register_fhir_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    settings = runtime.settings
+    get_app_database_session = route_dependencies.get_app_database_session
+    get_authenticated_fhir_session = route_dependencies.get_authenticated_fhir_session
 
     @app.get("/fhir/metadata")
     def fhir_metadata(request: Request) -> JSONResponse:
@@ -1861,6 +1999,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
         raise fhir_not_found()
 
+
+def register_patient_email_password_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    get_app_database_session = route_dependencies.get_app_database_session
+    get_authenticated_portal_session = route_dependencies.get_authenticated_portal_session
+    unlock_secret_encryption_secret = runtime.unlock_secret_encryption_secret
+
     @app.get("/api/patient/email-passwords", response_model=EmailPasswordListResponse)
     def list_patient_email_passwords(
         authenticated_session: Annotated[
@@ -1947,7 +2095,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=status.HTTP_404_NOT_FOUND,
                 content={"detail": "email password not found"},
             )
+        except UnlockSecretDecryptionError:
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                actor=account.username,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                account_id=account.id,
+                reason="not_available",
+            )
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "email password unavailable"},
+            )
         return email_password_secret_response_payload(unlock_secret, passphrase=passphrase)
+
+
+def register_logout_route(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    settings = runtime.settings
+    get_app_database_session = route_dependencies.get_app_database_session
+    get_authorization_bearer_token = route_dependencies.get_authorization_bearer_token
+    csrf_secret = runtime.csrf_secret
 
     @app.post("/auth/logout", response_model=LogoutResponse)
     def logout(
@@ -1965,6 +2140,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=401, detail="authentication required") from exc
         clear_portal_session_cookie(response, settings=settings)
         return {"status": "logged_out"}
+
+
+def register_portal_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    settings = runtime.settings
+    get_app_database_session = route_dependencies.get_app_database_session
+    render_portal_page = route_dependencies.render_portal_page
+    get_portal_account_form_values = route_dependencies.get_portal_account_form_values
+    get_portal_cookie_session_or_redirect = (
+        route_dependencies.get_portal_cookie_session_or_redirect
+    )
+    render_account_change_error = route_dependencies.render_account_change_error
+    csrf_secret = runtime.csrf_secret
 
     @app.get("/portal")
     def portal_dashboard(
@@ -2152,6 +2343,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         clear_portal_session_cookie(response, settings=settings)
         return response
 
+
+def register_activation_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    settings = runtime.settings
+    get_app_database_session = route_dependencies.get_app_database_session
+    identity_proof_secret = runtime.identity_proof_secret
+    audit_hash_secret = runtime.audit_hash_secret
+    activation_rate_limit = runtime.activation_rate_limit
+
     @app.post(
         "/auth/activate",
         response_model=ActivationResponse,
@@ -2196,6 +2399,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 content={"detail": "activation details could not be verified"},
             )
         return {"status": "activated", "username": account.username}
+
+
+def register_dev_admin_routes(
+    app: FastAPI,
+    runtime: PortalRuntime,
+    route_dependencies: RouteDependencies,
+) -> None:
+    settings = runtime.settings
+    get_app_database_session = route_dependencies.get_app_database_session
+    get_dev_admin_actor = route_dependencies.get_dev_admin_actor
+    identity_proof_secret = runtime.identity_proof_secret
 
     if settings.is_dev_admin_enabled:
 
@@ -2332,5 +2546,3 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             except AccountNotFoundError as exc:
                 raise HTTPException(status_code=404, detail="account not found") from exc
             return account_admin_response_payload(account)
-
-    return app

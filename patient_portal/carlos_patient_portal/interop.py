@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
-from importlib import resources as importlib_resources
+from pathlib import Path
 
 from fhir.resources.bundle import Bundle
 from fhir.resources.capabilitystatement import CapabilityStatement
@@ -41,8 +41,8 @@ CARLOS_PORTAL_FHIR_BASE = "https://github.com/carlos-emr/carlos/patient-portal/f
 HL7_MESSAGE_STRUCTURE = "ADT_A01"
 HL7_TRIGGER_EVENT = "A04"
 HL7_PATIENT_REGISTRATION_PROFILE_ID = "carlos.portal.patient-registration.adt-a04.v251"
-HL7_PATIENT_REGISTRATION_PROFILE_PACKAGE = "carlos_patient_portal.interop_profiles"
 HL7_PATIENT_REGISTRATION_PROFILE_FILENAME = "carlos_patient_registration_adt_a04_v251.json"
+HL7_PATIENT_REGISTRATION_PROFILE_DIR = Path(__file__).resolve().parent / "interop_profiles"
 HL7_DEMOGRAPHIC_IDENTIFIER_TYPE = "MR"
 HL7_HEALTH_CARD_IDENTIFIER_TYPE = "JHN"
 HL7_HEALTH_CARD_ASSIGNING_AUTHORITY = "CARLOSHCN"
@@ -372,11 +372,8 @@ def build_fhir_r4_document_reference(
 
 
 def load_hl7_v251_patient_registration_profile() -> dict[str, object]:
-    profile_text = (
-        importlib_resources.files(HL7_PATIENT_REGISTRATION_PROFILE_PACKAGE)
-        .joinpath(HL7_PATIENT_REGISTRATION_PROFILE_FILENAME)
-        .read_text(encoding="utf-8")
-    )
+    profile_path = HL7_PATIENT_REGISTRATION_PROFILE_DIR / HL7_PATIENT_REGISTRATION_PROFILE_FILENAME
+    profile_text = profile_path.read_text(encoding="utf-8")
     profile = json.loads(profile_text)
     if not isinstance(profile, dict):
         raise Hl7ConformanceProfileError("HL7 conformance profile must be a JSON object")

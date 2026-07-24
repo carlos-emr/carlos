@@ -2696,6 +2696,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
     raw_secret_b = "BetaEmail9!"
     raw_secret_revoked = "RevokedEmail9!"
     raw_secret_pdf = "PdfEmail9!"
+    raw_secret_unavailable = "WrongKeyEmail9!"
 
     with app.state.session_factory() as session:
         with session.begin():
@@ -2747,6 +2748,18 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 label="PDF password",
                 source_reference="document-3138",
             )
+            created_unavailable = create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_a_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret=raw_secret_unavailable,
+                created_by="Dr example",
+                encryption_secret="v" * MIN_PRODUCTION_SECRET_LENGTH,
+                label="Temporarily unavailable reply",
+                source_reference="message-3139",
+            )
             revoke_unlock_secret(
                 session,
                 created_revoked.unlock_secret.id,
@@ -2759,6 +2772,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
             other_patient_id = created_b.unlock_secret.id
             revoked_id = created_revoked.unlock_secret.id
             pdf_id = created_pdf.unlock_secret.id
+            unavailable_id = created_unavailable.unlock_secret.id
 
     list_response = client.get(
         "/api/patient/email-passwords",
@@ -2780,18 +2794,30 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
         f"/api/patient/email-passwords/{pdf_id}",
         headers=bearer_headers(patient_a_token),
     )
+    unavailable_response = client.get(
+        f"/api/patient/email-passwords/{unavailable_id}",
+        headers=bearer_headers(patient_a_token),
+    )
 
     assert list_response.status_code == 200
     assert list_response.headers["cache-control"] == "no-store"
     list_payload = list_response.json()
     assert list_payload["limit"] == 10
     assert list_payload["offset"] == 0
-    assert [item["id"] for item in list_payload["items"]] == [active_a_id]
-    assert list_payload["items"][0]["label"] == "Specialist reply"
-    assert list_payload["items"][0]["source_reference"] == "message-3135"
+    assert [item["id"] for item in list_payload["items"]] == [unavailable_id, active_a_id]
+    assert list_payload["items"][0]["label"] == "Temporarily unavailable reply"
+    assert list_payload["items"][0]["source_reference"] == "message-3139"
+    assert list_payload["items"][1]["label"] == "Specialist reply"
+    assert list_payload["items"][1]["source_reference"] == "message-3135"
     assert all(
         raw_secret not in list_response.text
-        for raw_secret in [raw_secret_a, raw_secret_b, raw_secret_revoked, raw_secret_pdf]
+        for raw_secret in [
+            raw_secret_a,
+            raw_secret_b,
+            raw_secret_revoked,
+            raw_secret_pdf,
+            raw_secret_unavailable,
+        ]
     )
 
     assert retrieve_response.status_code == 200
@@ -2804,16 +2830,20 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
     assert raw_secret_revoked not in retrieve_response.text
     assert raw_secret_pdf not in retrieve_response.text
 
-    for unavailable_response in [cross_patient_response, revoked_response, pdf_response]:
-        assert unavailable_response.status_code == 404
-        assert unavailable_response.json()["detail"] == "email password not found"
-        assert raw_secret_b not in unavailable_response.text
-        assert raw_secret_revoked not in unavailable_response.text
-        assert raw_secret_pdf not in unavailable_response.text
+    for not_found_response in [cross_patient_response, revoked_response, pdf_response]:
+        assert not_found_response.status_code == 404
+        assert not_found_response.json()["detail"] == "email password not found"
+        assert raw_secret_b not in not_found_response.text
+        assert raw_secret_revoked not in not_found_response.text
+        assert raw_secret_pdf not in not_found_response.text
+    assert unavailable_response.status_code == 503
+    assert unavailable_response.json()["detail"] == "email password unavailable"
+    assert raw_secret_unavailable not in unavailable_response.text
 
     with app.state.session_factory() as session:
         active_secret = session.get(PatientPortalUnlockSecret, active_a_id)
         other_patient_secret = session.get(PatientPortalUnlockSecret, other_patient_id)
+        unavailable_secret = session.get(PatientPortalUnlockSecret, unavailable_id)
         audit_events = list(
             session.scalars(
                 select(PatientPortalAuditEvent)
@@ -2833,12 +2863,21 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
         assert active_secret.last_viewed_at is not None
         assert other_patient_secret is not None
         assert other_patient_secret.last_viewed_at is None
+        assert unavailable_secret is not None
+        assert unavailable_secret.last_viewed_at is None
         assert [
             (event.event_type, event.outcome, event.account_id, event.demographic_no, event.reason)
             for event in audit_events
         ] == [
             (AUDIT_EVENT_UNLOCK_SECRET_LIST, AUDIT_OUTCOME_SUCCESS, account_a_id, 1234, None),
             (AUDIT_EVENT_UNLOCK_SECRET_READ, AUDIT_OUTCOME_SUCCESS, account_a_id, 1234, None),
+            (
+                AUDIT_EVENT_UNLOCK_SECRET_READ,
+                AUDIT_OUTCOME_FAILURE,
+                account_a_id,
+                1234,
+                "not_available",
+            ),
             (
                 AUDIT_EVENT_UNLOCK_SECRET_READ,
                 AUDIT_OUTCOME_FAILURE,
@@ -3255,6 +3294,11 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
 
+    def create_invite_then_fail() -> None:
+        with session_scope(session_factory) as session:
+            create_service_invite(session, 5678, "Dr example")
+            raise RuntimeError("force rollback")
+
     with session_scope(session_factory) as session:
         committed_invite, _ = create_service_invite(session, 1234, "Dr example")
         committed_invite_id = committed_invite.id
@@ -3263,9 +3307,7 @@ def test_session_scope_commits_success_and_rolls_back_failure() -> None:
         assert session.get(PatientPortalInvite, committed_invite_id) is not None
 
     with pytest.raises(RuntimeError, match="force rollback"):
-        with session_scope(session_factory) as session:
-            create_service_invite(session, 5678, "Dr example")
-            raise RuntimeError("force rollback")
+        create_invite_then_fail()
 
     with session_factory() as session:
         assert list_invites(session, demographic_no=5678) == []
