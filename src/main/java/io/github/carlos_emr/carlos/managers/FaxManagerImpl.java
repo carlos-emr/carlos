@@ -300,8 +300,8 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         // Persist only sendable jobs; ERROR jobs (validation or cover-page failures) stay in the
-        // returned list un-persisted so the caller can render their per-job status instead of the
-        // pre-fix behavior of silently dropping them or throwing an unmapped RuntimeException.
+        // returned list un-persisted so the caller can render their per-job status rather than have
+        // them silently dropped or throw an unmapped RuntimeException.
         List<FaxJob> validJobs = faxJobList.stream()
                 .filter(job -> job.getStatus() != STATUS.ERROR)
                 .collect(Collectors.toList());
@@ -454,7 +454,7 @@ public class FaxManagerImpl implements FaxManager {
             try {
                 ObjectNode copytoRecipientJson = (ObjectNode) objectMapper.readTree(copytoRecipient);
                 FaxRecipient faxRecipient = new FaxRecipient(copytoRecipientJson);
-                if (faxRecipient.getFax() == null || faxRecipient.getFax().isEmpty()) {
+                if (!faxRecipient.hasUsableFax()) {
                     // A parseable entry without a usable fax number is a shape failure too:
                     // letting it through would build a WAITING job with a null destination (or
                     // fail at persist, after the destructive promotion) — the dropped-recipient
@@ -689,6 +689,23 @@ public class FaxManagerImpl implements FaxManager {
         faxClientLog.setTransactionType(transactionType.name());
 
         faxClientLogDao.persist(faxClientLog);
+    }
+
+    /**
+     * Persists a pre-built consultation fax batch and its audit logs atomically. {@code @Transactional}
+     * so the per-recipient {@code faxJobDao.persist} + {@code logFaxJob} calls commit together: if any
+     * recipient fails, the earlier recipients roll back rather than surviving as {@code WAITING} rows
+     * the {@code FaxSender} would transmit while the action shows the user an error page. Cover-page
+     * files created by the caller's build phase are filesystem side effects and are NOT rolled back
+     * (same documented limitation as {@link #createAndSaveFaxJob}).
+     */
+    @Transactional
+    @Override
+    public void persistAndLogConsultationFaxJobs(LoggedInInfo loggedInInfo, List<FaxJob> faxJobs, int requestId) {
+        for (FaxJob faxJob : faxJobs) {
+            faxJobDao.persist(faxJob);
+            logFaxJob(loggedInInfo, faxJob, TransactionType.CONSULTATION, requestId);
+        }
     }
 
     /**

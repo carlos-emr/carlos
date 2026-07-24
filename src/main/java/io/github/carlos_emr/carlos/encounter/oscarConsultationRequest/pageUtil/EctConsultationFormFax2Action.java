@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
-import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
@@ -30,7 +29,6 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.FaxManager;
-import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -85,7 +83,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
@@ -114,8 +111,9 @@ public class EctConsultationFormFax2Action extends ActionSupport {
      * @return String "success" on successful fax queuing, "cancel" if cancelled,
      *         "error" on failure, or null on unexpected error
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"}, justification = "path validated for directory containment via PathValidationUtils before use; method-name comparison is the HTTP verb gate, not an identity decision")
     @Override
     public String execute() {
 
@@ -129,6 +127,17 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         // PHI to an arbitrary fax number.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_fax)");
+        }
+        // Reject GET/HEAD before any side effect (render, cover-page write, FaxJob persist): this
+        // action queues a PHI fax to a request-supplied number, and CSRFGuard validates non-GET
+        // requests only — a bare <img src="...ConsultationFormFax?..."> in the clinician's browser
+        // could otherwise fire a fax with no CSRF token. CoverPage.jsp submits via <form method="post">
+        // (cancel is a `method=cancel` body param on the same POST), so no UI change is required.
+        // Mirrors the gate the same PR added to Fax2Action.
+        String httpMethod = request.getMethod();
+        if ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod)) {
+            sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            return NONE;
         }
 
         //EctConsultationFaxForm ectConsultationFaxForm = (EctConsultationFaxForm) form;
@@ -249,6 +258,15 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         sender.setFaxNumberOwner(matchedConfig.getAccountName());
 
+        // Build every FaxJob (including its cover page and page count) BEFORE persisting any, then
+        // hand the whole batch to a single @Transactional manager call. Cover-page creation is a
+        // filesystem side effect that a JPA rollback cannot undo, so it stays in this build phase;
+        // the DB persist+audit-log of all recipients then commits atomically. Previously each job was
+        // persisted inline in the loop with no surrounding transaction, so a failure on recipient N
+        // (a cover-page/page-count error, or a DB error) left recipients 1..N-1 as committed WAITING
+        // rows the FaxSender would transmit while the clinician only saw an error page — a partial
+        // fax the "all-or-nothing" comment above wrongly promised was impossible.
+        List<FaxJob> builtFaxJobs = new ArrayList<>();
         try {
             for (FaxRecipient faxRecipient : faxRecipients) {
 
@@ -286,23 +304,24 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                 faxJob.setFile_name(pdfToFax.getFileName().toString());
                 faxJob.setNumPages(numPages);
 
-                faxJobDao.persist(faxJob);
-
-                // start up a log track each time the CLIENT was run.
-                faxManager.logFaxJob(loggedInInfo, faxJob, TransactionType.CONSULTATION, Integer.parseInt(reqId));
+                builtFaxJobs.add(faxJob);
 
                 count++;
             }
-
-            LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
-            request.setAttribute("faxSuccessful", true);
-            return SUCCESS;
         } catch (DocumentException de) {
             error = "DocumentException";
             exception = de;
         } catch (IOException ioe) {
             error = "IOException";
             exception = ioe;
+        }
+        if (error.equals("")) {
+            // Atomic: persists all recipients and their audit logs in one transaction, so a failure
+            // persisting any recipient rolls the whole batch back rather than leaving sendable orphans.
+            faxManager.persistAndLogConsultationFaxJobs(loggedInInfo, builtFaxJobs, Integer.parseInt(reqId));
+            LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
+            request.setAttribute("faxSuccessful", true);
+            return SUCCESS;
         }
         if (!error.equals("")) {
             logger.error(error + " occured insided ConsultationPrintAction", exception);
@@ -507,6 +526,18 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         sender.setPhone(getSendersPhone());
 
         return sender;
+    }
+
+    /**
+     * Writes an HTTP error status without letting an {@link IOException} escape into the Struts
+     * result pipeline (mirrors {@code Fax2Action.sendErrorQuietly}). Used by the GET/HEAD method gate.
+     */
+    private void sendErrorQuietly(int statusCode, String message) {
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ex) {
+            logger.error("Failed to send HTTP error response for the consultation fax method gate", ex);
+        }
     }
 
 }

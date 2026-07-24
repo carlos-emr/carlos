@@ -245,9 +245,9 @@ public class Fax2Action extends ActionSupport {
             for (int i = 0; i < copyToRecipients.length; i++) {
                 String copyRecipient = copyToRecipients[i];
                 if (copyRecipient == null || copyRecipient.trim().isEmpty()) {
-                    // A blank entry used to skip validation entirely and then fail inside
-                    // createAndSaveFaxJob — after the preview had already been destructively
-                    // promoted out of temp storage, losing the user's only copy.
+                    // Reject a blank entry here, up front: otherwise it fails deep inside
+                    // createAndSaveFaxJob — after the preview has already been destructively promoted
+                    // out of temp storage, losing the user's only copy.
                     addActionError("Copy-to recipient entry " + (i + 1) + " is empty");
                     throw new SecurityException("Copy-to recipient entry is blank at index " + i);
                 }
@@ -266,10 +266,9 @@ public class Fax2Action extends ActionSupport {
                     throw new SecurityException("Invalid copy-to recipient format at index " + i);
                 }
                 if (copyToFaxNumber == null || copyToFaxNumber.trim().isEmpty()) {
-                    // An empty/absent fax number on a copy-to recipient used to slip past
-                    // validation entirely (only the format was checked when present),
-                    // silently dropping that recipient at send time. Reject it up front,
-                    // same as the primary recipient fax number requirement above.
+                    // Require a fax number on every copy-to recipient (the format check only fires
+                    // when one is present), so an empty/absent number is rejected up front rather than
+                    // silently dropping that recipient at send time — same rule as the primary recipient.
                     addActionError("Copy-to recipient fax number is required");
                     throw new SecurityException("Copy-to recipient fax number is required at index " + i);
                 }

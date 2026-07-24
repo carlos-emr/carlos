@@ -61,9 +61,9 @@ public interface FaxManager {
      *
      * @return Path to the rendered document, or {@code null} if rendering is not implemented for
      *         the transaction type
-     * @throws PDFGenerationException when an EFORM or FORM document cannot be rendered — the
-     *         message carries the render diagnosis instead of the pre-fix behavior of returning
-     *         null and detonating as a context-free NullPointerException in the caller
+     * @throws PDFGenerationException when an EFORM or FORM document cannot be rendered; the message
+     *         carries the render diagnosis so callers fail with a real cause rather than a
+     *         context-free NullPointerException on a null return
      */
     @Deprecated
     Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo, FormTransportContainer formTransportContainer) throws PDFGenerationException;
@@ -172,6 +172,15 @@ public interface FaxManager {
      * Sets both the global user log and the fax job log.
      */
     void logFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob, TransactionType transactionType, int transactionId);
+
+    /**
+     * Persists a pre-built batch of consultation {@link FaxJob}s and writes each one's audit log in a
+     * single transaction. If persisting or logging any recipient fails, the whole batch is rolled back
+     * so no recipient is left as a sendable {@code WAITING} row while the caller reports failure. The
+     * caller is responsible for building each job (including cover pages and page counts) beforehand;
+     * those filesystem side effects are not covered by this transaction.
+     */
+    void persistAndLogConsultationFaxJobs(LoggedInInfo loggedInInfo, List<FaxJob> faxJobs, int requestId);
 
     /**
      * Update the transaction logs with a new status.

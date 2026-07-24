@@ -176,6 +176,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- encounter / consultation ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
                     "_con", "w"),
+            // execute() renders the consultation PDF and queues per-recipient FaxJobs; it rejects
+            // GET/HEAD unconditionally after the _con/_fax auth checks (CoverPage.jsp POSTs, cancel is
+            // a method=cancel body param). Registered explicitly — the encounter package is not scanned.
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
+                    "_con", "r"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -266,7 +271,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
-        "io.github.carlos_emr.carlos.fax.action.Fax2Action"
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action",
+        // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
+        // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
+        "io.github.carlos_emr.carlos.security.MfaActions2Action"
     );
 
     /**
@@ -352,7 +360,13 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
-        "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action"
+        "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
+        // encounter slice: EctConsultationFormFax2Action queues PHI faxes; the encounter package is
+        // not in IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
+        "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
+        // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
+        // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
+        "io.github.carlos_emr.carlos.security.MfaActions2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
