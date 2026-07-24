@@ -78,17 +78,28 @@ public class ArchiveDeletedRecords {
         return xmlStr;
     }
 
+    /**
+     * Archives each record to the modified-records table ahead of deletion.
+     *
+     * @return the number of rows archived, or {@code -1} if archival failed. Previously this always
+     *         returned {@code 0} and swallowed the exception, so callers could not tell a successful
+     *         archive from a failed one and deleted records without a reliable audit archive. Callers
+     *         MUST check this result before proceeding to delete.
+     */
     public int recordRowsToBeDeleted(List<ProviderLabRoutingModel> records, String provNo, String table) {
+        int archived = 0;
         try {
             for (ProviderLabRoutingModel record : records) {
                 String xmlStr = getStringXmlFromResultSet(record);
                 addRowsToModifiedTable(null, provNo, ArchiveDeletedRecords.DELETE, table, null, xmlStr);
+                archived++;
             }
-
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to archive rows before deletion (archived {} of {})",
+                    archived, records.size(), e);
+            return -1;
         }
-        return 0;
+        return archived;
     }
 
     private void addRowsToModifiedTable(String demoNo, String provNo, String modType, String table, String rowId, String resultSet) {

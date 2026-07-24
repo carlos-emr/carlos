@@ -442,8 +442,18 @@ public class CommonLabResultData {
         if (!"0".equals(providerNo)) {
             List<ProviderLabRoutingModel> modelRecords = providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
             ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
-            adr.recordRowsToBeDeleted(modelRecords, "" + providerNo, "providerLabRouting");
+            int archived = adr.recordRowsToBeDeleted(modelRecords, "" + providerNo, "providerLabRouting");
+            if (archived < 0) {
+                // Archival failed. The result was previously ignored and deletion proceeded regardless,
+                // so rows could be deleted with no audit archive; at least surface the failure now.
+                logger.warn("Provider-lab routing archival failed before deletion; deletion of provider-0 rows still proceeded");
+            }
 
+            // NOTE (needs domain review): the rows archived above are the provider-specific rows
+            // (providerNo), but the rows deleted below are the provider-"0" (unassigned) rows — two
+            // different sets. If archival is meant to cover the deleted rows, the archive target is
+            // wrong. Behavior is left unchanged pending a domain decision; this change only makes the
+            // archive failure observable rather than silent.
             for (ProviderLabRoutingModel plr : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0")) {
                 providerLabRoutingDao.remove(plr.getId());
             }

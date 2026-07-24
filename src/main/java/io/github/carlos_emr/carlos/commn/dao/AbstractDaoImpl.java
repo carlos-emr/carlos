@@ -44,8 +44,11 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
@@ -69,6 +72,8 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
  */
 @Transactional
 public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements AbstractDao<T> {
+
+    private static final Logger BATCH_LOGGER = MiscUtils.getLogger();
 
     protected Class<T> modelClass;
 
@@ -122,6 +127,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      */
     @Override
     public void batchPersist(List<T> oList, int batchSize) {
+        warnIfInSpringManagedTransaction("batchPersist");
         EntityManager batchEntityManager = null;
         EntityTransaction transaction = null;
         try {
@@ -153,6 +159,26 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     /**
+     * Warns when a batch method runs inside an active Spring-managed transaction.
+     *
+     * <p>{@link #batchPersist} / {@link #batchRemove} open their OWN {@link EntityManager} and commit
+     * each chunk in its own resource-local transaction, so they do NOT participate in — and cannot be
+     * rolled back by — a surrounding {@code @Transactional} boundary: a committed chunk survives a
+     * caller-side rollback. That per-chunk-commit behaviour is deliberately relied on by large
+     * standalone imports (which run with no ambient transaction). Calling these methods from within a
+     * transactional service is almost always a mistake, so it is surfaced here rather than silently
+     * escaping the transaction. (Reworking the semantics to join the ambient transaction would collapse
+     * large imports into a single long transaction and is tracked as separate work.)</p>
+     */
+    private static void warnIfInSpringManagedTransaction(String method) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            BATCH_LOGGER.warn("{} was called inside an active Spring transaction, but it commits each "
+                    + "chunk in its own transaction and does not participate in the caller's rollback; "
+                    + "committed chunks will survive a surrounding rollback.", method);
+        }
+    }
+
+    /**
      * You can only remove attached instances.
      */
     @Override
@@ -177,6 +203,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      */
     @Override
     public void batchRemove(List<T> oList, int batchSize) {
+        warnIfInSpringManagedTransaction("batchRemove");
         EntityManager batchEntityManager = null;
         EntityTransaction transaction = null;
         try {
