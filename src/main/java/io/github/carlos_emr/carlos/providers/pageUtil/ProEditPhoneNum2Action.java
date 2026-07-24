@@ -63,11 +63,16 @@ public class ProEditPhoneNum2Action extends ActionSupport {
             return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            // No authenticated session — eject rather than NPE on the privilege/provider access below.
+            return "eject";
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
             throw new SecurityException("missing required sec object (_pref)");
         }
 
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        // Reuse the session lookup above (a second getLoggedInInfoFromSession call could NPE here).
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (providerNo == null)
             return "eject";
 

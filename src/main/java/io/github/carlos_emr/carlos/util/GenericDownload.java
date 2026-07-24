@@ -65,6 +65,11 @@ public class GenericDownload extends HttpServlet {
      * integration artifacts). No caller in the codebase uses this servlet, so the allowlist is
      * intentionally empty — add a property key here deliberately, with its use case and an
      * appropriate privilege, only when a real caller needs it.
+     *
+     * <p>While this set is empty the {@code /Download} mapping (web.xml) is effectively
+     * disabled-by-default and fail-closed: every {@code dir_property} request is rejected and no file
+     * is served, including for admins. This is intentional — the endpoint stays inert until a real
+     * caller and its property key are added here.</p>
      */
     private static final Set<String> ALLOWED_DIR_PROPERTIES = Set.of();
 

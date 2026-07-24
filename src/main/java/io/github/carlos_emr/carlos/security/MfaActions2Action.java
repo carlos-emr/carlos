@@ -85,13 +85,30 @@ public final class MfaActions2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+        if (loggedInInfo == null) {
+            // No authenticated session — return 403 rather than NPE in the privilege check below.
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
-        String securityId = request.getParameter("securityId");
-        Security security = this.securityManager.find(loggedInInfo, Integer.valueOf(securityId));
+        // A missing/non-numeric securityId is a bad request, not a 500 (Integer.parseInt(null) and a
+        // non-numeric value both throw NumberFormatException).
+        int securityIdValue;
+        try {
+            securityIdValue = Integer.parseInt(request.getParameter("securityId"));
+        } catch (NumberFormatException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        Security security = this.securityManager.find(loggedInInfo, securityIdValue);
+        if (security == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         this.mfaManager.resetMfaSecret(loggedInInfo, security);
         return NONE;
     }
