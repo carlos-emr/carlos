@@ -950,7 +950,7 @@ class EFormBrowserPdfServiceUnitTest {
         // renderWithSlot() itself cannot be driven end-to-end in a pure unit test past this point:
         // captureRegions() runs only after createDriver()/buildChromeOptions() launch a real
         // Chromium via chromedriver, which a unit test does not have available (see
-        // EFormBrowserPdfServiceSeleniumSmokeTest for the real-browser, full-pipeline coverage
+        // EFormBrowserPdfServiceSeleniumSmokeIntegrationTest for the real-browser, full-pipeline coverage
         // that assumeTrue()-skips when no Chromium/chromedriver is present). So this test pins the
         // downstream failure at its source instead: captureRegions() (invoked here directly via
         // reflection, since it is private) throws a raw IllegalArgumentException — never a

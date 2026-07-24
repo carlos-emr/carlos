@@ -71,7 +71,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("DisplayImage2Action Unit Tests")
 @Tag("unit")
 @Tag("eform")
-class DisplayImage2ActionTest extends CarlosUnitTestBase {
+class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
     private static final String VACCINE_BRANDS_JSON = "[{\"name\":\"Tdap\",\"value\":\"Adacel\"}]";
 
     @Mock

@@ -56,7 +56,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("eform")
-class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
+class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should stream a local eform background image when the current session has _eform read privilege")

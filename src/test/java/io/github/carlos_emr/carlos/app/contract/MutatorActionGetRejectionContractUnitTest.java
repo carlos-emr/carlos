@@ -125,7 +125,7 @@ import static org.mockito.Mockito.when;
 @Tag("security")
 @Tag("contract")
 @DisplayName("Mutator 2Action GET/HEAD rejection contract")
-class MutatorActionGetRejectionContractTest {
+class MutatorActionGetRejectionContractUnitTest {
 
     /**
      * Unconditional POST-only mutator 2Actions. Each entry is
@@ -576,7 +576,7 @@ class MutatorActionGetRejectionContractTest {
 
         assertThat(unregistered)
             .as("New *2Action classes in the in-scope slices (%s) contain SC_METHOD_NOT_ALLOWED + POST "
-              + "checks but are not registered in MutatorActionGetRejectionContractTest. "
+              + "checks but are not registered in MutatorActionGetRejectionContractUnitTest. "
               + "Register each class in ONE of:\n"
               + "  - unconditionalMutators() — always rejects GET regardless of params\n"
               + "  - CONDITIONAL_MUTATORS     — rejects GET only for specific mutation-intent params "

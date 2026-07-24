@@ -1664,9 +1664,6 @@
                         <include>**/*UnitTest.java</include>
                         <include>**/*RegressionTest.java</include>
                     </includes>
-                    <excludes>
-                        <exclude>**/archive/**/*Test.java</exclude>
-                    </excludes>
                     <argLine>
                        @{argLine}
                        -Xmx2048m

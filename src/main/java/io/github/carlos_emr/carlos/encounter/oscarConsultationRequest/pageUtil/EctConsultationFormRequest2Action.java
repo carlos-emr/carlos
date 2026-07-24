@@ -289,7 +289,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         response = ServletActionContext.getResponse();
 
         // Mutator: every legitimate entry (form submit and the AJAX print-preview fetch) is a POST.
-        // Reject GET/HEAD before any side effect fires. See MutatorActionGetRejectionContractTest.
+        // Reject GET/HEAD before any side effect fires. See MutatorActionGetRejectionContractUnitTest.
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

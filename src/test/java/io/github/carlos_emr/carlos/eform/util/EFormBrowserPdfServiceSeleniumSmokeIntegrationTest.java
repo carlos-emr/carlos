@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 @DisplayName("EFormBrowserPdfService Selenium smoke test")
 @Tag("integration")
 @Tag("eform")
-class EFormBrowserPdfServiceSeleniumSmokeTest {
+class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
 
     @Test
     @DisplayName("should render the eForm test-pattern fixture to a PDF with headless Chromium")

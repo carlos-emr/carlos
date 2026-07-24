@@ -338,6 +338,6 @@ subsequent cycles.
 
 - Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormBrowserRenderPageServletUnitTest,EformViewForPdfGenerationServletUnitTest` (the last is the legacy session-gate servlet, kept alongside the browser render servlet)
 - End-to-end smoke (skips cleanly without a browser):
-  `mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeTest` — serves
+  `mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest` — serves
   `scripts/fixtures/eform/test-pattern.html` over loopback and asserts real regions, captures,
   and a valid `%PDF` output.

@@ -59,7 +59,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("EFormAssetDeployer Unit Tests")
 @Tag("unit")
 @Tag("eform")
-class EFormAssetDeployerTest extends CarlosUnitTestBase {
+class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
 
     private static final String RESOURCE_EDITCONTROL = "/WEB-INF/eform-assets/editControl2.js";
     private static final String RESOURCE_BLANK = "/WEB-INF/eform-assets/blank.rtl";

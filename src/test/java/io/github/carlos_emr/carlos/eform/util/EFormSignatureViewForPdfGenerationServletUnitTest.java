@@ -48,7 +48,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("eform")
-class EFormSignatureViewForPdfGenerationServletTest extends CarlosUnitTestBase {
+class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should stream a signature image for a loopback render carrying a valid grant")
