@@ -6,6 +6,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -138,6 +139,28 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("should throw PDFGenerationException when conversion silently returns null")
+    void shouldThrowPdfGenerationException_whenConversionReturnsNull() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        LoggedInInfo.setLoggedInInfoIntoRequest(request, loggedInInfo);
+        EctFormData.PatientForm form = new EctFormData.PatientForm("formAnnual", "Annual", 45, 123);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123")).thenReturn(true);
+
+        try (MockedStatic<ConvertToEdoc> convertToEdocMock = mockStatic(ConvertToEdoc.class)) {
+            // ConvertToEdoc swallows an internal conversion failure and returns null (does not throw).
+            convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(FormTransportContainer.class)))
+                    .thenReturn(null);
+
+            // Must fail with a named exception, not return null (which callers NPE on via path.toString()).
+            assertThatThrownBy(() -> manager.renderForm(request, response, form))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessageContaining("could not be converted into a PDF");
+        }
     }
 
     @Test
