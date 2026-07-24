@@ -64,6 +64,7 @@ class EFormRuntimeNormalizationCacheUnitTest extends CarlosUnitTestBase {
         EForm eform = new EForm();
         eform.setFormHtml("<html><body><script src=\"jquery-1.12.0.min.js\"></script></body></html>");
         eform.setContextPath("/carlos");
+        eform.enableRenderNormalization(); // DOM pass is render-path opt-in; this test pins that pass
 
         // The DOM pass runs once per content generation and is cached; repeated reads must return
         // the identical normalized output.
@@ -86,6 +87,7 @@ class EFormRuntimeNormalizationCacheUnitTest extends CarlosUnitTestBase {
         EForm eform = new EForm();
         eform.setFormHtml("<html><body><script src=\"jquery-1.12.0.min.js\"></script></body></html>");
         eform.setContextPath("/carlos");
+        eform.enableRenderNormalization(); // DOM pass is render-path opt-in; this test pins that pass
 
         // ConvertToEdoc.parseDocument is the real forcing point for the RuntimeException/LinkageError
         // catch in getFormHtml(): getDocument() delegates to it directly, so a forced RuntimeException
@@ -134,6 +136,7 @@ class EFormRuntimeNormalizationCacheUnitTest extends CarlosUnitTestBase {
         EForm eform = new EForm();
         eform.setFormHtml("<html><body><script src=\"jquery-1.12.0.min.js\"></script></body></html>");
         eform.setContextPath("/carlos");
+        eform.enableRenderNormalization(); // DOM pass is render-path opt-in; this test pins that pass
 
         try (LogCapture logCapture = LogCapture.forLogger(EForm.class);
              MockedStatic<ConvertToEdoc> convertToEdoc = Mockito.mockStatic(ConvertToEdoc.class)) {

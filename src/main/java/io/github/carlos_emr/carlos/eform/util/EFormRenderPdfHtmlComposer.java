@@ -79,6 +79,10 @@ public final class EFormRenderPdfHtmlComposer {
         EForm eForm = new EForm(String.valueOf(formDataId));
         eForm.setSignatureCode(contextPath, userAgent, eForm.getDemographicNo(), providerId);
         eForm.setContextPath(contextPath);
+        // Render/compose path only: opt in to the jsoup DOM normalization pass in EForm.getFormHtml().
+        // Live display/export callers deliberately do not, so they keep the string-level rewrites
+        // without the jsoup round-trip (pre-renderer behavior).
+        eForm.enableRenderNormalization();
 
         EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
         List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);

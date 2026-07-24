@@ -104,6 +104,14 @@ public class EForm extends EFormBase {
     private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[ \\t\\n\\f\\r/>])");
 
     private String runtimeContextPath;
+    /**
+     * True only on the PDF render/compose path, which opts in via {@link #enableRenderNormalization()}.
+     * The jsoup DOM normalization pass in {@link #getFormHtml()} runs only when this is set, so live
+     * display / export / dedup callers get the string-level rewrites from {@link #setContextPath} but
+     * NOT the jsoup round-trip — matching behavior from before the browser renderer was introduced and
+     * confining jsoup's error-recovery restructuring to the render surface it was built for.
+     */
+    private boolean renderNormalizationEnabled;
     /** True once the DOM normalization pass has run for the current formHtml content. */
     private boolean runtimeAssetsNormalized;
     /**
@@ -530,13 +538,15 @@ public class EForm extends EFormBase {
      */
     @Override
     public String getFormHtml() {
-        // The DOM pass runs once per content generation: the composer calls this getter several
-        // times per render, and re-running the (idempotent) jsoup parse + serialize on unchanged
-        // content was pure waste. setFormHtml/setContextPath reset the flag so changed content is
-        // always re-normalized; a failed pass leaves it unset and retries on the next read.
-        // runtimeContextPath is null only when setContextPath() has never run (no servlet
-        // environment); "" is the valid root-context deployment value and must still be normalized.
-        if (runtimeContextPath != null && !runtimeAssetsNormalized) {
+        // The jsoup DOM pass runs ONLY on the render/compose path (renderNormalizationEnabled), which
+        // opts in via enableRenderNormalization(); live display/export/dedup callers get the
+        // string-level rewrites applied by setContextPath() and not the jsoup round-trip. It runs once
+        // per content generation (the composer calls this getter several times per render, and
+        // re-running the idempotent parse+serialize on unchanged content is waste); setFormHtml/
+        // setContextPath reset the flag so changed content is re-normalized, and a failed pass leaves
+        // it unset and retries on the next read. runtimeContextPath is null only when setContextPath()
+        // has never run (no servlet environment); "" is the valid root-context value.
+        if (renderNormalizationEnabled && runtimeContextPath != null && !runtimeAssetsNormalized) {
             try {
                 normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
                 runtimeAssetsNormalized = true;
@@ -559,6 +569,19 @@ public class EForm extends EFormBase {
         runtimeAssetsNormalized = false;
         normalizationFailureLogged = false;
         super.setFormHtml(formHtml);
+    }
+
+    /**
+     * Opts this EForm in to the lazy jsoup DOM normalization pass performed by {@link #getFormHtml()}.
+     *
+     * <p>Only the PDF render/compose path ({@code EFormRenderPdfHtmlComposer}) needs the DOM pass, so
+     * it calls this before reading the HTML. Every other caller (interactive display, ZIP export,
+     * save-time dedup) reads the string-level-normalized HTML from {@link #setContextPath} without the
+     * jsoup round-trip, which keeps jsoup's error-recovery restructuring off the live display paths.</p>
+     */
+    public void enableRenderNormalization() {
+        this.renderNormalizationEnabled = true;
+        this.runtimeAssetsNormalized = false; // force a fresh DOM pass on the next getFormHtml()
     }
 
     private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {
