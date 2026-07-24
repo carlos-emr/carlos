@@ -195,7 +195,8 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     @DisplayName("should accept queue when every copy-to recipient carries a fax number")
     void shouldAcceptQueue_whenCopyToRecipientFaxNumberPresent() {
         setUpCommonMocks();
-        when(faxManager.createAndSaveFaxJob(any(LoggedInInfo.class), anyMap()))
+        // queue() now delegates persist+audit-log to the single @Transactional persistAndLogFaxJobs.
+        when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()))
                 .thenReturn(java.util.List.of());
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
@@ -212,7 +213,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("preview");
             assertThat(action.getActionErrors()).isEmpty();
-            verify(faxManager).createAndSaveFaxJob(any(LoggedInInfo.class), anyMap());
+            verify(faxManager).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
         }
     }
 }

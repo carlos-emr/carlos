@@ -191,7 +191,7 @@ public interface FaxManager {
      * un-persisted ERROR jobs) for the caller to render per-job status.
      */
     List<FaxJob> persistAndLogFaxJobs(LoggedInInfo loggedInInfo, java.util.Map<String, Object> faxJobMap,
-            TransactionType transactionType, int transactionId);
+            TransactionType transactionType, Integer transactionId);
 
     /**
      * Update the transaction logs with a new status.

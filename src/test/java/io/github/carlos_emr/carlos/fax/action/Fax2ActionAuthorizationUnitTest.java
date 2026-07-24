@@ -668,12 +668,14 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull()))
                 .thenReturn(true);
 
-        // createAndSaveFaxJob returns validation-failure jobs un-persisted (no id); queue() must
-        // surface them on the preview but write no FaxClientLog row (there is no fax id to log).
+        // persistAndLogFaxJobs returns validation-failure jobs un-persisted (no id); queue() must
+        // surface them on the preview as a failed submission. The "write no FaxClientLog row for an
+        // un-persisted ERROR job" logic now lives inside persistAndLogFaxJobs (which the action
+        // delegates to in one transaction), so the action never calls logFaxJob directly.
         FaxJob errorJob = new FaxJob();
         errorJob.setStatus(FaxJob.STATUS.ERROR);
         errorJob.setStatusString("File missing on local storage or invalid file path.");
-        when(faxManager.createAndSaveFaxJob(any(LoggedInInfo.class), anyMap()))
+        when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()))
                 .thenReturn(List.of(errorJob));
 
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -697,7 +699,9 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("preview");
             assertThat(request.getAttribute("faxSuccessful")).isEqualTo(false);
+            // The action delegates to persistAndLogFaxJobs and never logs directly.
             verify(faxManager, never()).logFaxJob(any(), any(), any(), anyInt());
+            verify(faxManager).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
         }
     }
 }

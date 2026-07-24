@@ -727,7 +727,7 @@ public class FaxManagerImpl implements FaxManager {
     @Transactional
     @Override
     public List<FaxJob> persistAndLogFaxJobs(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap,
-            TransactionType transactionType, int transactionId) {
+            TransactionType transactionType, Integer transactionId) {
         // Self-invocation of createAndSaveFaxJob joins THIS transaction (its own @Transactional advice
         // is bypassed on the in-bean call), so the persist and the per-job audit log below commit
         // together — a log failure rolls the persisted WAITING jobs back rather than leaving a
