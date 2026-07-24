@@ -31,6 +31,7 @@ from carlos_patient_portal.database import (
     create_session_factory,
     session_scope,
 )
+from carlos_patient_portal.i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, portal_text
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.interop import (
     FHIR_RELEASE,
@@ -370,11 +371,22 @@ def test_health_endpoint_is_minimal() -> None:
 def test_index_renders_sign_in_shell() -> None:
     app = main.create_app(development_settings())
     response = TestClient(app).get("/")
+    text = portal_text(DEFAULT_LOCALE)
 
     assert response.status_code == 200
     assert "CARLOS Patient Portal" in response.text
-    assert 'placeholder="patient.username"' in response.text
-    assert 'value="patient.username"' not in response.text
+    assert 'src="http://testserver/static/carlos-logo.png"' in response.text
+    assert f'placeholder="{text["username_placeholder"]}"' in response.text
+    assert f'placeholder="{text["password_placeholder"]}"' in response.text
+    assert f'>{text["forgot_username_password"]}</button>' in response.text
+    assert text["account_recovery_unavailable_message"] in response.text
+    assert text["language_unavailable_message"] in response.text
+    assert 'data-modal-title="' in response.text
+    assert 'id="portal-message-modal"' in response.text
+    assert 'src="http://testserver/static/portal.js"' in response.text
+    for locale in SUPPORTED_LOCALES:
+        assert f'data-language-code="{locale.code}"' in response.text
+    assert f'value="{text["username_placeholder"]}"' not in response.text
     assert 'name="csrf_token"' in response.text
     assert "nosemgrep" not in response.text
     assert "Maple Creek Medical" in response.text
@@ -382,11 +394,11 @@ def test_index_renders_sign_in_shell() -> None:
 
 def test_static_logo_asset_is_served() -> None:
     app = main.create_app(development_settings())
-    response = TestClient(app).get("/static/carlos-placeholder.svg")
+    response = TestClient(app).get("/static/carlos-logo.png")
 
     assert response.status_code == 200
-    assert "image/svg+xml" in response.headers["content-type"]
-    assert "<svg" in response.text
+    assert "image/png" in response.headers["content-type"]
+    assert response.content.startswith(b"\x89PNG")
 
 
 def test_sign_in_shell_uses_security_headers() -> None:
@@ -441,6 +453,25 @@ def test_non_development_csrf_cookie_is_secure() -> None:
     assert "Path=/auth" in set_cookie
     assert "SameSite=strict" in set_cookie
     assert "Secure" in set_cookie
+
+
+def test_non_development_sign_in_does_not_show_example_credentials() -> None:
+    app = main.create_app(
+        Settings(
+            environment="staging",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+    )
+    response = TestClient(app).get("/")
+    text = portal_text(DEFAULT_LOCALE)
+
+    assert response.status_code == 200
+    assert text["username_placeholder"] not in response.text
+    assert text["password_placeholder"] not in response.text
 
 
 def test_internal_database_health_uses_app_database_settings() -> None:
@@ -647,7 +678,7 @@ def test_form_login_error_renders_sign_in_page() -> None:
 
     assert response.status_code == 401
     assert "Sign in" in response.text
-    assert "Sign-in could not be completed." in response.text
+    assert "Incorrect Username or Password" in response.text
     assert response.headers["content-type"].startswith("text/html")
 
 

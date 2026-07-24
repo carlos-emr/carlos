@@ -76,6 +76,7 @@ from carlos_patient_portal.database import (
     create_session_factory,
     session_scope,
 )
+from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text, supported_locale_options
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.interop import (
     build_fhir_organization_id,
@@ -659,6 +660,9 @@ def index_template_context(
         "csrf_token": csrf_token,
         "error_message": error_message,
         "service_name": settings.service_name,
+        "show_example_login": settings.is_development,
+        "supported_locales": supported_locale_options(DEFAULT_LOCALE),
+        "text": portal_text(DEFAULT_LOCALE),
     }
 
 
@@ -1573,7 +1577,7 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                browser_message="Sign-in could not be completed.",
+                browser_message=portal_text()["incorrect_username_or_password"],
                 json_content={"detail": "sign-in could not be completed"},
             )
         except AccountLockedError:

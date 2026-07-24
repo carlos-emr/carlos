@@ -171,11 +171,55 @@ h2 {
   font-weight: bold;
 }
 
+.link-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 4px 6px;
+  color: var(--carlos-blue-dark);
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: bold;
+  text-decoration: underline;
+}
+
 .clinic-help-line {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(17 24 39 / 42%);
+  z-index: 20;
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.portal-modal {
+  width: min(100%, 360px);
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #aeb7c8;
+  box-shadow: 0 12px 28px rgb(17 24 39 / 25%);
+}
+
+.portal-modal p {
+  margin: 8px 0 14px;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .form-error {

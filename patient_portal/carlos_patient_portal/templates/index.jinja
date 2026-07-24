@@ -5,51 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ service_name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  <script src="{{ url_for('static', path='/portal.js') }}" defer></script>
 </head>
 <body>
   <main class="app-shell">
-    <section class="portal-screen" aria-label="Sign in">
+    <section class="portal-screen" aria-label="{{ text.sign_in_aria_label }}">
       <header class="patient-topbar">
         <div class="brand-lockup">
-          <img src="{{ url_for('static', path='/carlos-placeholder.svg') }}" alt="" class="brand-logo">
+          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="{{ text.logo_alt }}" class="brand-logo">
           <div>
             <strong>{{ service_name }}</strong>
             <span>{{ clinic_name }}</span>
           </div>
         </div>
-        <div class="language-switch" aria-label="Language">
-          <button class="text-tab selected" type="button">EN</button>
-          <button class="text-tab" type="button">FR</button>
-          <button class="text-tab" type="button">ES</button>
-          <button class="text-tab" type="button">PL</button>
-          <button class="text-tab" type="button">PT-BR</button>
+        <div class="language-switch" aria-label="{{ text.language_aria_label }}">
+          {% for language in supported_locales %}
+            <button
+              class="text-tab modal-trigger{% if language.is_selected %} selected{% endif %}"
+              type="button"
+              aria-pressed="{{ 'true' if language.is_selected else 'false' }}"
+              data-modal-title="{{ text.language_unavailable_title }}"
+              data-modal-message="{{ text.language_unavailable_message }}"
+              data-language-code="{{ language.code }}"
+            >{{ language.short_label }}</button>
+          {% endfor %}
         </div>
       </header>
 
       <div class="auth-layout">
         <section class="auth-panel" aria-labelledby="signin-title">
-          <h1 id="signin-title">Sign in</h1>
+          <h1 id="signin-title">{{ text.sign_in_heading }}</h1>
           <form class="form-stack" method="post" action="{{ url_for('login') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             {% if error_message %}
               <p class="form-error" role="alert">{{ error_message }}</p>
             {% endif %}
             <label>
-              <span>Username</span>
+              <span>{{ text.username_label }}</span>
               <input
                 type="text"
                 name="username"
-                placeholder="patient.username"
+                {% if show_example_login %}
+                placeholder="{{ text.username_placeholder }}"
+                {% endif %}
                 autocomplete="username"
               >
             </label>
             <label>
-              <span>Password</span>
-              <input type="password" name="password" autocomplete="current-password">
+              <span>{{ text.password_label }}</span>
+              <input
+                type="password"
+                name="password"
+                {% if show_example_login %}
+                placeholder="{{ text.password_placeholder }}"
+                {% endif %}
+                autocomplete="current-password"
+              >
             </label>
-            <button class="primary-action" type="submit">Continue</button>
-            <p class="clinic-help-line">Need help? Contact {{ clinic_name }}</p>
+            <button class="primary-action" type="submit">{{ text.continue }}</button>
+            <button
+              class="link-action modal-trigger"
+              type="button"
+              data-modal-title="{{ text.account_recovery_unavailable_title }}"
+              data-modal-message="{{ text.account_recovery_unavailable_message }}"
+            >{{ text.forgot_username_password }}</button>
           </form>
+        </section>
+      </div>
+
+      <div class="modal-backdrop" id="portal-message-modal" hidden>
+        <section
+          class="portal-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="portal-message-title"
+          aria-describedby="portal-message-body"
+        >
+          <h2 id="portal-message-title"></h2>
+          <p id="portal-message-body"></p>
+          <button class="primary-action" type="button" data-modal-close>{{ text.modal_close }}</button>
         </section>
       </div>
     </section>

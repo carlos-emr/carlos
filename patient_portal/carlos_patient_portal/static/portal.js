@@ -28,3 +28,65 @@ document.addEventListener("click", (event) => {
     }, 1500);
   });
 });
+
+const portalMessageModal = document.getElementById("portal-message-modal");
+const portalMessageTitle = document.getElementById("portal-message-title");
+const portalMessageBody = document.getElementById("portal-message-body");
+
+function hidePortalMessageModal() {
+  if (!(portalMessageModal instanceof HTMLElement)) {
+    return;
+  }
+  portalMessageModal.hidden = true;
+}
+
+function showPortalMessageModal(title, message) {
+  if (
+    !(portalMessageModal instanceof HTMLElement)
+    || !(portalMessageTitle instanceof HTMLElement)
+    || !(portalMessageBody instanceof HTMLElement)
+  ) {
+    return;
+  }
+
+  portalMessageTitle.textContent = title;
+  portalMessageBody.textContent = message;
+  portalMessageModal.hidden = false;
+  const closeButton = portalMessageModal.querySelector("[data-modal-close]");
+  if (closeButton instanceof HTMLElement) {
+    closeButton.focus();
+  }
+}
+
+document.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const modalTrigger = event.target.closest("[data-modal-title][data-modal-message]");
+  if (modalTrigger instanceof HTMLElement) {
+    event.preventDefault();
+    showPortalMessageModal(
+      modalTrigger.dataset.modalTitle || "",
+      modalTrigger.dataset.modalMessage || "",
+    );
+    return;
+  }
+
+  const modalClose = event.target.closest("[data-modal-close]");
+  if (modalClose instanceof HTMLElement) {
+    event.preventDefault();
+    hidePortalMessageModal();
+    return;
+  }
+
+  if (event.target === portalMessageModal) {
+    hidePortalMessageModal();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    hidePortalMessageModal();
+  }
+});

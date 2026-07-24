@@ -43,6 +43,7 @@ include = ["carlos_patient_portal*"]
 carlos_patient_portal = [
   "static/*.css",
   "static/*.js",
+  "static/*.png",
   "static/*.svg",
   "templates/*.jinja",
   "interop_profiles/*.json",
