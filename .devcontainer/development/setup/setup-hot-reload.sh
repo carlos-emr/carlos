@@ -55,14 +55,33 @@ enable_devcontainer_javamelody_system_actions() {
   fi
 
   local tmp_file="${web_xml}.tmp"
-  awk '
-    /<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>/ { in_system_actions = 1 }
+  if awk '
+    /<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>/ {
+      system_actions_params++
+      in_system_actions = 1
+    }
     in_system_actions && /<param-value>/ {
-      sub(/<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
+      if (sub(/<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")) {
+        replacements++
+      }
+      in_system_actions = 0
+    }
+    in_system_actions && /<\/init-param>/ {
       in_system_actions = 0
     }
     { print }
-  ' "$web_xml" > "$tmp_file" && mv "$tmp_file" "$web_xml"
+    END {
+      if (system_actions_params != 1 || replacements != 1) {
+        exit 1
+      }
+    }
+  ' "$web_xml" > "$tmp_file" && mv "$tmp_file" "$web_xml"; then
+    return 0
+  fi
+
+  rm -f "$tmp_file" 2>/dev/null || true
+  echo "[$(date +'%H:%M:%S')] WARN: Could not enable JavaMelody system actions in $web_xml; leaving them disabled" >> "$LOG_FILE"
+  return 0
 }
 
 # Rotate log file if it exceeds MAX_LOG_LINES

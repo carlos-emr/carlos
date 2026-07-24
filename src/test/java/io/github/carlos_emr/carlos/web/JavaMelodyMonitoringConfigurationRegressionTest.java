@@ -46,6 +46,13 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
             "<param-name>\\s*system-actions-enabled\\s*</param-name>\\s*"
                     + "<param-value>\\s*([^<]+?)\\s*</param-value>",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern INITIAL_DEVCONTAINER_OVERRIDE = Pattern.compile(
+            "(?m)^\\s*enable_devcontainer_javamelody_system_actions\\s+"
+                    + "\"[^\"]*/WEB-INF/web\\.xml\"\\s*$");
+    private static final Pattern HOT_RELOAD_DEVCONTAINER_OVERRIDE = Pattern.compile(
+            "if\\s+\\[\\[\\s+\"\\$RELATIVE_PATH/\\$filename\"\\s+==\\s+\"WEB-INF/web\\.xml\"\\s+\\]\\];"
+                    + "\\s*then\\s*enable_devcontainer_javamelody_system_actions\\s+\"\\$DEST_FILE\"",
+            Pattern.DOTALL);
 
     @Test
     @DisplayName("production web.xml should disable JavaMelody system actions")
@@ -71,14 +78,10 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
         String hotReloadScript = Files.readString(DEVCONTAINER_HOT_RELOAD, StandardCharsets.UTF_8);
 
         assertThat(makeScript)
-                .contains("enable_devcontainer_javamelody_system_actions")
-                .contains("system-actions-enabled")
-                .contains("<param-value>true</param-value>")
-                .contains("/usr/local/tomcat/webapps/$snapshot_dest_dir/WEB-INF/web.xml");
+                .as("initial devcontainer deployment must enable system actions in its deployed web.xml")
+                .containsPattern(INITIAL_DEVCONTAINER_OVERRIDE);
         assertThat(hotReloadScript)
-                .contains("enable_devcontainer_javamelody_system_actions")
-                .contains("system-actions-enabled")
-                .contains("<param-value>true</param-value>")
-                .contains("WEB-INF/web.xml");
+                .as("hot reload must restore the devcontainer override after copying web.xml")
+                .containsPattern(HOT_RELOAD_DEVCONTAINER_OVERRIDE);
     }
 }
