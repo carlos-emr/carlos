@@ -82,8 +82,8 @@
                     List<HashMap<String, String>> listMedHistory = (List<HashMap<String, String>>) bean.getListMedHistory();
 %>
 
-<a onmouseover="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
-        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" TITLE="Close"
+<a onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
+        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>
 <table class="mhTable">
@@ -149,8 +149,8 @@
 
         if (!renderedHistory) {
     %>
-<a onmouseover="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
-        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" TITLE="Close"
+<a onmouseover="this.style.cursor='pointer';" onfocus="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
+        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" alt="Close" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>
 <div class="mhTable" style="font-style:normal;font-family:sans-serif;font-size:80%;padding:1em;">

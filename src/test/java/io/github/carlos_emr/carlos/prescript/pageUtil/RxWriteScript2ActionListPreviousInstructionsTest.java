@@ -39,6 +39,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -129,34 +131,11 @@ class RxWriteScript2ActionListPreviousInstructionsTest extends CarlosUnitTestBas
         }
     }
 
-    @Test
-    @DisplayName("should clear history without sending an error when randomId contains non-digits")
-    void shouldClearHistory_whenRandomIdContainsNonDigits() throws Exception {
-        when(mockRequest.getParameter("randomId")).thenReturn("12\r\ninvalid");
-
-        String result = action.listPreviousInstructions();
-
-        assertThat(result).isNull();
-        assertThat(bean.getListMedHistory()).isEmpty();
-        verify(mockResponse, never()).sendError(anyInt(), any(String.class));
-    }
-
-    @Test
-    @DisplayName("should clear history without sending an error when randomId is out of range")
-    void shouldClearHistory_whenRandomIdIsOutOfRange() throws Exception {
-        when(mockRequest.getParameter("randomId")).thenReturn("999999999999999999999");
-
-        String result = action.listPreviousInstructions();
-
-        assertThat(result).isNull();
-        assertThat(bean.getListMedHistory()).isEmpty();
-        verify(mockResponse, never()).sendError(anyInt(), any(String.class));
-    }
-
-    @Test
-    @DisplayName("should clear history without sending an error when stash item is missing")
-    void shouldClearHistory_whenStashItemIsMissing() throws Exception {
-        when(mockRequest.getParameter("randomId")).thenReturn("42");
+    @ParameterizedTest
+    @ValueSource(strings = {"12\r\ninvalid", "999999999999999999999", "42"})
+    @DisplayName("should clear history without sending an error for an invalid or missing randomId")
+    void shouldClearHistory_whenRandomIdIsInvalidOrMissing(String randomId) throws Exception {
+        when(mockRequest.getParameter("randomId")).thenReturn(randomId);
 
         String result = action.listPreviousInstructions();
 
