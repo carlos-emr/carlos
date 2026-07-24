@@ -285,6 +285,13 @@
                     if (data.base64Data) {
                         addPdfAttachment(attachmentName, attachmentId, data.base64Data);
                         showPDF(data.base64Data);
+                    } else if (data.missingContent) {
+                        // The eForm's own content (e.g. a signature/image) could not be loaded. Let the
+                        // clinician decide whether to render the incomplete document anyway.
+                        HideSpin();
+                        if (confirm(data.errorMessage + "\n\nRender it anyway?")) {
+                            getPdf(attachmentName, attachmentId, parameters + "&renderAnyway=true");
+                        }
                     } else {
                         showError(data.errorMessage);
                     }

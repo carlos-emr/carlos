@@ -43,8 +43,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 
 import javax.imageio.ImageIO;
@@ -79,6 +84,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 /**
@@ -128,6 +134,18 @@ public class EFormBrowserPdfService {
     static final Duration WEBDRIVER_COMMAND_READ_TIMEOUT = RENDER_TIMEOUT;
     static final Duration WEBDRIVER_CONNECTION_TIMEOUT = Duration.ofSeconds(10);
 
+    /**
+     * Dedicated fast bound on browser-session creation (the "new session" command that launches
+     * Chromium). A doomed launch — a missing/incompatible Chromium or chromedriver, or (when the OS
+     * sandbox is opted in) a sandbox that cannot start — otherwise blocks on chromedriver's internal
+     * browser-start timeout (~60s), and the fax-with-attachments flow renders serially, so each doomed
+     * render stacks that wait into the multi-minute "faxing page never loads" the tester reported. A
+     * real Chromium launch completes in a few seconds; this budget fails a doomed one fast and frees
+     * the render slot. Kept independent of {@link #WEBDRIVER_COMMAND_READ_TIMEOUT} because a legitimate
+     * render command (navigation up to {@link #PAGE_LOAD_TIMEOUT}) needs the longer per-command read.
+     */
+    static final Duration DRIVER_START_TIMEOUT = Duration.ofSeconds(30);
+
     /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
     private static final int MAX_CONCURRENT_RENDERS = 2;
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
@@ -145,7 +163,25 @@ public class EFormBrowserPdfService {
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
     private static final String CHROMEDRIVER_PATH_PROPERTY = "eform_pdf_browser_chromedriver_path";
     private static final String CATALINA_BASE_PROPERTY = "catalina.base";
-    private static final String ENV_ALLOW_UNSANDBOXED = "EFORM_RENDER_ALLOW_UNSANDBOXED";
+    /**
+     * When {@code true}, restores the original fail-closed posture in which any observed off-origin
+     * HTTP request, failed render-critical subresource, or severe page-script console error aborts
+     * the whole render. Default ({@code false}) treats those three as <em>advisory</em>: they are
+     * logged but the render still produces a PDF of what painted. The legacy eForm corpus routinely
+     * references off-origin assets (fonts/CDN libs/images), 404s optional helper scripts
+     * ({@code faxControl.js}, {@code onBodyLoad_*.js}, {@code jSignature.min.js}), and emits benign
+     * JavaScript errors — none of which blank the form, and all of which the in-app eForm viewer
+     * already tolerates while displaying the same stored content. Physical egress containment is
+     * unaffected by this switch: the dead proxy still blocks every off-origin HTTP request, the
+     * WebSocket/WebTransport gate and the same-origin main-document requirement stay hard-fail
+     * regardless, the filesystem stays locked, and the render token stays single-use and fdid-bound.
+     */
+    private static final String STRICT_NETWORK_GATE_PROPERTY = "eform_pdf_browser_strict_network_gate";
+    private static final String ENV_REQUIRE_SANDBOX = "EFORM_RENDER_SANDBOX";
+    // Log the "running unsandboxed" notice once per JVM rather than on every render, since unsandboxed
+    // is now the default and a per-render WARN would be noise.
+    private static final java.util.concurrent.atomic.AtomicBoolean UNSANDBOXED_NOTICE_LOGGED =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     /**
      * Dead proxy plus the exact-origin bypass built by {@link #proxyBypassListFor}: only the
@@ -389,6 +425,29 @@ public class EFormBrowserPdfService {
      *         times out, or no readable PDF is produced
      */
     public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
+        return renderSavedEformPdf(fdid, providerId, false);
+    }
+
+    /**
+     * Overload that optionally accepts a visually-incomplete render. When {@code allowMissingContent}
+     * is {@code true}, a failure of the eForm's own same-origin (CARLOS) visual assets — a signature
+     * block, form image, or stylesheet — no longer fails the render; instead it is logged and the
+     * captured (incomplete) PDF is produced. This backs the "render anyway" clinician choice after the
+     * default render has reported {@link EformContentUnavailableException}. It never relaxes the
+     * always-hard gates: a main document that never loaded and an attempted live egress channel still
+     * fail closed regardless of this flag.
+     *
+     * @param fdid saved eForm data identifier
+     * @param providerId provider number the render surface is scoped to
+     * @param allowMissingContent {@code true} to accept an incomplete render past missing same-origin
+     *        visual assets; {@code false} (default) to fail closed with
+     *        {@link EformContentUnavailableException}
+     * @return handle to a readable temporary PDF
+     * @throws EformContentUnavailableException when {@code allowMissingContent} is {@code false} and
+     *         the eForm's own visual content failed to load (user-recoverable)
+     * @throws PDFGenerationException for every other render failure
+     */
+    public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId, boolean allowMissingContent) throws PDFGenerationException {
         // Resolve the managed temp root and sweep stale renderer artifacts BEFORE competing for a
         // render slot. The sweep is best-effort housekeeping (a filesystem walk of the shared root);
         // running it while holding one of the scarce MAX_CONCURRENT_RENDERS slots would charge its
@@ -413,13 +472,13 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException("Browser rendering was aborted before it started.");
         }
         try {
-            return new RenderedEformPdf(renderWithSlot(fdid, providerId, tempRoot));
+            return new RenderedEformPdf(renderWithSlot(fdid, providerId, tempRoot, allowMissingContent));
         } finally {
             RENDER_SLOTS.release();
         }
     }
 
-    private Path renderWithSlot(int fdid, String providerId, Path tempRoot) throws PDFGenerationException {
+    private Path renderWithSlot(int fdid, String providerId, Path tempRoot, boolean allowMissingContent) throws PDFGenerationException {
         HttpServletRequest currentRequest = currentRequestOrNull();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
         // Declared before the try (validated to non-null inside it) so the catch-block diagnostics can
@@ -465,16 +524,17 @@ public class EFormBrowserPdfService {
             outputDirectory = createSecureTempDirectory(tempRoot, RENDER_ARTIFACT_PREFIX);
             outputPdfPath = createSecureTempFile(tempRoot, RENDER_ARTIFACT_PREFIX, ".pdf");
 
-            boolean allowUnsandboxed = allowUnsandboxed();
-            if (allowUnsandboxed) {
-                logger.warn("Browser eForm renderer running WITHOUT Chromium's OS-level sandbox "
-                        + "(EFORM_RENDER_ALLOW_UNSANDBOXED=true); OS-level containment is delegated to the container boundary.");
+            boolean unsandboxed = !sandboxEnabled();
+            if (unsandboxed && UNSANDBOXED_NOTICE_LOGGED.compareAndSet(false, true)) {
+                logger.warn("Browser eForm renderer running WITHOUT Chromium's OS-level sandbox (default; "
+                        + "set EFORM_RENDER_SANDBOX=true on a non-root deployment with unprivileged user "
+                        + "namespaces to enable it). OS-level containment is delegated to the container boundary.");
             }
-            RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), allowUnsandboxed, allowedOrigin));
+            RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), unsandboxed, allowedOrigin));
             driver = browser.driver();
             driverService = browser.service();
             logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
-                    fdid, allowUnsandboxed ? "disabled" : "enabled");
+                    fdid, unsandboxed ? "disabled" : "enabled");
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
             ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "screen"));
 
@@ -502,7 +562,7 @@ public class EFormBrowserPdfService {
 
             captureRegions(driver, regions, outputDirectory, deadlineNanos);
             drainPerformanceLog(driver, performanceEntries);
-            enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid);
+            enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid, allowMissingContent);
 
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
@@ -593,7 +653,7 @@ public class EFormBrowserPdfService {
      */
     public void verifyRendererReady() throws PDFGenerationException {
         RendererBrowser browser = createDriver(
-                buildChromeOptions(resolveChromiumPath(), allowUnsandboxed(), "http://127.0.0.1"));
+                buildChromeOptions(resolveChromiumPath(), !sandboxEnabled(), "http://127.0.0.1"));
         ChromeDriver driver = browser.driver();
         ChromeDriverService driverService = browser.service();
         try {
@@ -623,7 +683,7 @@ public class EFormBrowserPdfService {
      * {@code acceptInsecureCerts} form a paired invariant: insecure certs are acceptable only for
      * loopback rendering, which the proxy configuration guarantees is the only reachable network.
      */
-    static ChromeOptions buildChromeOptions(String chromiumBinary, boolean allowUnsandboxed, String allowedOrigin) {
+    static ChromeOptions buildChromeOptions(String chromiumBinary, boolean unsandboxed, String allowedOrigin) {
         ChromeOptions options = new ChromeOptions();
         options.addArguments(
                 "--headless=new",
@@ -653,9 +713,9 @@ public class EFormBrowserPdfService {
                 "--disable-extensions",
                 "--no-first-run",
                 "--no-default-browser-check");
-        if (allowUnsandboxed) {
-            // Explicit operator opt-out: only legitimate when the container itself is the
-            // isolation boundary. Never a silent fallback — see allowUnsandboxed()/createDriver().
+        if (unsandboxed) {
+            // Default posture: OS-level containment is delegated to the container boundary. The operator
+            // can restore Chromium's OS sandbox with EFORM_RENDER_SANDBOX=true — see sandboxEnabled().
             options.addArguments("--no-sandbox");
         }
         options.setAcceptInsecureCerts(true);
@@ -698,15 +758,24 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Secure by default: the render browser keeps Chromium's OS-level sandbox unless the operator
-     * explicitly opts out with {@code EFORM_RENDER_ALLOW_UNSANDBOXED=true}. The opt-out is only
-     * legitimate where the deployment provides isolation another way (the container is the
-     * boundary); it is never chosen automatically, and there is deliberately no fallback that
-     * drops the sandbox when a sandboxed launch fails — that would silently reinstate the insecure
-     * default.
+     * Whether the operator has opted into Chromium's OS-level sandbox with
+     * {@code EFORM_RENDER_SANDBOX=true}.
+     *
+     * <p>Default is <strong>unsandboxed</strong> ({@code --no-sandbox}) so the renderer starts out of
+     * the box on the common deployment shape (Tomcat as root / a container without unprivileged user
+     * namespaces), where Chromium's sandbox cannot initialize and a sandboxed launch would otherwise
+     * fail every render. In that default posture OS-level containment is delegated to the container
+     * boundary; all the <em>other</em> renderer controls (loopback-only egress via the dead proxy,
+     * {@code --disable-file-system}, WebRTC UDP lockdown, DevTools-over-pipe, and the sessionless
+     * render token) remain active regardless.</p>
+     *
+     * <p>Hardened deployments that run the renderer as a non-root user with unprivileged user
+     * namespaces enabled should set {@code EFORM_RENDER_SANDBOX=true} to keep the OS sandbox; when
+     * set, a sandboxed launch that cannot start fails closed (see {@link #createDriver}) rather than
+     * silently degrading to {@code --no-sandbox}.</p>
      */
-    static boolean allowUnsandboxed() {
-        return "true".equals(System.getenv(ENV_ALLOW_UNSANDBOXED));
+    static boolean sandboxEnabled() {
+        return "true".equals(System.getenv(ENV_REQUIRE_SANDBOX));
     }
 
     /**
@@ -766,16 +835,7 @@ public class EFormBrowserPdfService {
                 ChromeDriverService service = new ChromeDriverService.Builder()
                         .usingDriverExecutable(chromedriver)
                         .build();
-                try {
-                    return new RendererBrowser(new ChromeDriver(service, options, rendererClientConfig()), service);
-                } catch (RuntimeException e) {
-                    // Selenium starts the caller-owned service before session creation but does not
-                    // stop it if the ChromeDriver constructor throws (e.g. a sandboxed launch that
-                    // cannot start). Stop quietly so a teardown failure can never REPLACE the real
-                    // launch failure — the redacted detail log below is the diagnostic record.
-                    stopServiceQuietly(service);
-                    throw e;
-                }
+                return new RendererBrowser(startSessionWithinBudget(service, options), service);
             }
             // No pinned chromedriver: Selenium Manager resolves one when the driver starts (the
             // DriverFinder consults it for an executable-less service). Build a caller-owned
@@ -785,16 +845,7 @@ public class EFormBrowserPdfService {
             // Intended for dev/CI; production deployments should still pin
             // eform_pdf_browser_chromedriver_path.
             ChromeDriverService managerResolvedService = new ChromeDriverService.Builder().build();
-            try {
-                return new RendererBrowser(
-                        new ChromeDriver(managerResolvedService, options, rendererClientConfig()), managerResolvedService);
-            } catch (RuntimeException e) {
-                // Mirror the pinned path: Selenium starts the caller-owned service before session
-                // creation but does not stop it if the ChromeDriver constructor throws. Stop
-                // quietly so a teardown failure can never REPLACE the real launch failure.
-                stopServiceQuietly(managerResolvedService);
-                throw e;
-            }
+            return new RendererBrowser(startSessionWithinBudget(managerResolvedService, options), managerResolvedService);
         } catch (RuntimeException e) {
             // The redacted detail line below is the ONLY place the underlying startup failure (a
             // version mismatch, a missing shared library, a sandbox that cannot start) surfaces:
@@ -804,7 +855,51 @@ public class EFormBrowserPdfService {
             // frame-only stack summary here so an operator can actually diagnose the failure.
             logger.error("Chromium startup failure detail: type={} error={} at={}",
                     e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())), RenderLogRedaction.stackSummary(e));
-            throw chromiumStartupFailure(allowUnsandboxed());
+            throw chromiumStartupFailure(!sandboxEnabled());
+        }
+    }
+
+    /**
+     * Creates the Chromium session on a bounded background thread so a doomed launch fails within
+     * {@link #DRIVER_START_TIMEOUT} instead of blocking on chromedriver's internal ~60s browser-start
+     * timeout. On timeout the pending session is cancelled and the caller-owned {@code service} is
+     * stopped — killing chromedriver, which unblocks the doomed constructor so it cannot leak a
+     * browser process. The service is likewise stopped on a synchronous launch failure, so the caller
+     * never has to (mirrors the previous inline cleanup). The completed {@link ChromeDriver} is handed
+     * back to the render thread through {@link Future#get}, which establishes the needed happens-before.
+     */
+    private ChromeDriver startSessionWithinBudget(ChromeDriverService service, ChromeOptions options) {
+        ExecutorService starter = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "eform-render-driver-start");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            Future<ChromeDriver> pending = starter.submit(
+                    () -> new ChromeDriver(service, options, rendererClientConfig()));
+            try {
+                return pending.get(DRIVER_START_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException timeout) {
+                pending.cancel(true);
+                stopServiceQuietly(service);
+                throw new IllegalStateException(
+                        "Chromium session creation exceeded the " + DRIVER_START_TIMEOUT.toSeconds()
+                        + "s startup budget", timeout);
+            } catch (ExecutionException failure) {
+                stopServiceQuietly(service);
+                Throwable cause = failure.getCause();
+                if (cause instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new IllegalStateException("Chromium session creation failed", cause);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                pending.cancel(true);
+                stopServiceQuietly(service);
+                throw new IllegalStateException("Interrupted while starting the Chromium renderer", interrupted);
+            }
+        } finally {
+            starter.shutdownNow();
         }
     }
 
@@ -814,17 +909,18 @@ public class EFormBrowserPdfService {
      * handler that logs this exception's chain would re-emit them unredacted — the redacted
      * "Chromium startup failure detail" log line at the catch site is the diagnostic record.
      */
-    static PDFGenerationException chromiumStartupFailure(boolean allowUnsandboxed) {
-        if (!allowUnsandboxed) {
-            // Fail closed: a sandboxed launch that cannot start must not degrade to --no-sandbox
-            // on its own. The message admits the non-sandbox causes too (bad/missing browser or
-            // driver) so a misconfigured install is not misread as purely a namespace problem.
+    static PDFGenerationException chromiumStartupFailure(boolean unsandboxed) {
+        if (!unsandboxed) {
+            // The operator opted into Chromium's OS sandbox (EFORM_RENDER_SANDBOX=true) but it could not
+            // start; fail closed rather than silently degrading to --no-sandbox. The message admits the
+            // non-sandbox causes too (bad/missing browser or driver) so a misconfigured install is not
+            // misread as purely a namespace problem.
             return new PDFGenerationException(
                     "Unable to start the sandboxed headless Chromium renderer for eForms. "
                     + "Common causes: missing or incompatible Chromium/chromedriver, or a kernel "
                     + "without unprivileged user namespaces. If the browser installation is correct, "
-                    + "enable unprivileged user namespaces and run as a non-root user, or set "
-                    + "EFORM_RENDER_ALLOW_UNSANDBOXED=true only when the container itself provides isolation.");
+                    + "enable unprivileged user namespaces and run as a non-root user, or unset "
+                    + "EFORM_RENDER_SANDBOX to run with --no-sandbox where the container provides isolation.");
         }
         return new PDFGenerationException("Unable to start the headless Chromium renderer for eForms.");
     }
@@ -990,6 +1086,17 @@ public class EFormBrowserPdfService {
     // Package-private for the unit test that pins the console-log-unavailable fail-closed branch.
     void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
             Integer latchedMainStatus, String baseUrl, int fdid) throws PDFGenerationException {
+        enforceRenderGates(driver, performanceEntries, latchedMainStatus, baseUrl, fdid, false);
+    }
+
+    /**
+     * @param allowMissingContent when {@code true}, a failure of the eForm's own same-origin visual
+     *        assets is logged and tolerated instead of throwing {@link EformContentUnavailableException}
+     *        — the "render anyway" path. The always-hard gates (main document, live egress channels,
+     *        unparseable evidence) are unaffected.
+     */
+    void enforceRenderGates(ChromeDriver driver, List<LogEntry> performanceEntries,
+            Integer latchedMainStatus, String baseUrl, int fdid, boolean allowMissingContent) throws PDFGenerationException {
         NetworkGateScan scan = scanNetworkEvents(
                 performanceEntries.stream().map(LogEntry::getMessage).toList(),
                 originOf(baseUrl));
@@ -1033,14 +1140,62 @@ public class EFormBrowserPdfService {
             logger.error("Browser eForm renderer rejected main document: fdid={} status={}", fdid, mainDocumentStatus);
             throw new PDFGenerationException("Browser rendering did not receive a successful eForm page response. status=" + mainDocumentStatus);
         }
-        if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
-            // Counts only — never request URLs or console text, which can carry eForm content.
-            logger.error("Browser eForm renderer surfaced page errors: fdid={} disallowedRequests={} severeConsoleEntries={} failedSubresources={}",
-                    fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources());
-            throw new PDFGenerationException("Browser rendering surfaced page errors. disallowedRequests="
-                    + disallowedRequests + " consoleErrors=" + severeConsoleEntries
-                    + " failedSubresources=" + scan.failedSubresources());
+        // Hard fail-closed on live bidirectional channels regardless of the strict-gate switch: a
+        // render surface never legitimately opens a WebSocket or WebTransport, and these bypass the
+        // dead HTTP proxy, so any such attempt is treated as an egress channel and aborts the render.
+        if (scan.liveChannelAttempts() > 0) {
+            logger.error("Browser eForm renderer observed a live egress channel: fdid={} liveChannelAttempts={}",
+                    fdid, scan.liveChannelAttempts());
+            throw new PDFGenerationException(
+                    "Browser rendering attempted a live egress channel. liveChannelAttempts=" + scan.liveChannelAttempts());
         }
+        // The render's OWN same-origin (CARLOS) visual content failed to load — a missing signature
+        // block, form image, or stylesheet served by our EMR means the captured PDF is visually
+        // incomplete. By default this fails closed with a distinct, user-recoverable exception so the
+        // web layer can offer a "render anyway" choice; when the clinician has taken that choice
+        // (allowMissingContent), it is logged and tolerated. Counts only — never request URLs, which
+        // can carry eForm content.
+        if (scan.failedCriticalSubresources() > 0) {
+            if (allowMissingContent) {
+                logger.warn("Browser eForm renderer producing an INCOMPLETE eForm per render-anyway choice: fdid={} failedCriticalSubresources={}",
+                        fdid, scan.failedCriticalSubresources());
+            } else {
+                logger.error("Browser eForm renderer could not load its own eForm content: fdid={} failedCriticalSubresources={}",
+                        fdid, scan.failedCriticalSubresources());
+                throw new EformContentUnavailableException(
+                        "Browser rendering could not load the eForm's own content. failedCriticalSubresources="
+                                + scan.failedCriticalSubresources(), scan.failedCriticalSubresources());
+            }
+        }
+        if (disallowedRequests > 0 || severeConsoleEntries > 0 || scan.failedSubresources() > 0) {
+            // Off-origin HTTP requests, failed render-critical subresources, and severe page-script
+            // console errors are advisory by default (see STRICT_NETWORK_GATE_PROPERTY): the legacy
+            // eForm corpus references off-origin assets, 404s optional helper scripts/images, and
+            // emits benign JS errors — none of which blank the form, and off-origin HTTP is already
+            // physically blocked by the dead proxy. Failing the render on them denied the fax for
+            // every form that was not perfectly self-contained. Counts only — never request URLs or
+            // console text, which can carry eForm content.
+            if (strictNetworkGateEnabled()) {
+                logger.error("Browser eForm renderer surfaced page errors (strict gate): fdid={} disallowedRequests={} severeConsoleEntries={} failedSubresources={}",
+                        fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources());
+                throw new PDFGenerationException("Browser rendering surfaced page errors. disallowedRequests="
+                        + disallowedRequests + " consoleErrors=" + severeConsoleEntries
+                        + " failedSubresources=" + scan.failedSubresources());
+            }
+            logger.warn("Browser eForm renderer tolerated non-fatal page issues: fdid={} disallowedRequests={} severeConsoleEntries={} failedSubresources={}"
+                    + " (off-origin egress is contained by the dead proxy; set {}=true to fail closed instead)",
+                    fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources(), STRICT_NETWORK_GATE_PROPERTY);
+        }
+    }
+
+    /**
+     * Whether the strict fail-closed network gate is enabled. Defaults to {@code false} (advisory);
+     * see {@link #STRICT_NETWORK_GATE_PROPERTY}. Never affects the always-on hard gates
+     * (WebSocket/WebTransport, main-document status, unparseable network evidence).
+     */
+    private static boolean strictNetworkGateEnabled() {
+        return Boolean.parseBoolean(
+                CarlosProperties.getInstance().getProperty(STRICT_NETWORK_GATE_PROPERTY, "false").trim());
     }
 
     /**
@@ -1084,9 +1239,18 @@ public class EFormBrowserPdfService {
      * Outcome of replaying Chrome's network events against the allowed loopback origin.
      * {@code parseFailures} counts entries the replay could not parse — evidence the egress gate
      * could not account for, which {@link #enforceRenderGates} fails closed on.
+     * {@code liveChannelAttempts} counts WebSocket/WebTransport creations, which are an always-on
+     * hard fail-closed signal (they bypass the dead HTTP proxy).
+     * {@code failedCriticalSubresources} counts failures of the render's <em>own</em> same-origin
+     * visual/structural content (a signature block, a form image, a stylesheet served by CARLOS) —
+     * an always-on hard fail-closed signal, because the rendered PDF is then genuinely wrong.
+     * {@code disallowedRequests} (off-origin HTTP, already blocked by the dead proxy) and
+     * {@code failedSubresources} (off-origin or non-visual same-origin failures such as helper
+     * scripts that do not paint) are advisory by default and only fail the render under the strict
+     * network gate (see {@link #STRICT_NETWORK_GATE_PROPERTY}).
      */
     record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources,
-            int parseFailures) {
+            int parseFailures, int liveChannelAttempts, int failedCriticalSubresources) {
     }
 
     /**
@@ -1097,6 +1261,19 @@ public class EFormBrowserPdfService {
      */
     private static final Set<String> RENDER_CRITICAL_RESOURCE_TYPES =
             Set.of("Document", "Image", "Script", "Stylesheet", "Font", "Media", "XHR", "Fetch");
+
+    /**
+     * The subset of {@link #RENDER_CRITICAL_RESOURCE_TYPES} whose bytes are actually painted into
+     * the captured PDF — the form's own visual/structural content: images (including the signature
+     * block), secondary {@code Document} iframes (e.g. the signature frame), stylesheets, and fonts.
+     * A failure of one of these <em>from the render's own same-origin (CARLOS) endpoints</em> is our
+     * EMR failing to serve the form's declared content, so it hard-fails the render. Non-visual types
+     * ({@code Script}, {@code XHR}, {@code Fetch}, {@code Media}) do not paint — a legacy helper
+     * script that 404s (e.g. {@code faxControl.js}) leaves the already-painted form intact — and are
+     * treated as advisory, as are all off-origin failures.
+     */
+    private static final Set<String> RENDER_CRITICAL_VISUAL_TYPES =
+            Set.of("Document", "Image", "Stylesheet", "Font");
 
     /**
      * Replays raw CDP performance-log messages: counts egress attempts to any origin other than
@@ -1118,13 +1295,19 @@ public class EFormBrowserPdfService {
      * visible only as a SEVERE console entry), while connection-level failures arrive as
      * {@code Network.loadingFailed} ({@code canceled=true} events are benign navigation aborts).
      * Both are restricted to {@link #RENDER_CRITICAL_RESOURCE_TYPES} so Chrome's own speculative
-     * requests cannot fail a visually-intact render.</p>
+     * requests cannot fail a visually-intact render. Failures are further split by origin and type:
+     * a same-origin (CARLOS) failure of a painted {@link #RENDER_CRITICAL_VISUAL_TYPES visual type}
+     * is <em>critical</em> (our EMR failed to serve the form's own content — a hard fail), while
+     * off-origin failures and non-visual same-origin failures (helper scripts that never paint) are
+     * <em>advisory</em>. {@code loadingFailed} carries no URL, so it is treated as advisory.</p>
      */
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
         int disallowedRequests = 0;
         Integer mainDocumentStatus = null;
         int failedSubresources = 0;
         int parseFailures = 0;
+        int liveChannelAttempts = 0;
+        int failedCriticalSubresources = 0;
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -1141,29 +1324,43 @@ public class EFormBrowserPdfService {
                     disallowedRequests++;
                 }
             } else if ("Network.webSocketCreated".equals(method) || "Network.webTransportCreated".equals(method)) {
-                // A render surface never opens a WebSocket or WebTransport. Fail closed on any such
-                // channel regardless of URL/origin: a same-origin wss:/https: WebTransport would pass
+                // A render surface never opens a WebSocket or WebTransport. Counted separately from
+                // off-origin HTTP because this is an unconditional hard fail-closed signal regardless
+                // of URL/origin: a same-origin wss:/https: WebTransport would pass
                 // isDisallowedRendererRequestUrl (http(s) to the allowed origin) yet is still a live
-                // bidirectional egress channel the dead HTTP proxy does not cover.
-                disallowedRequests++;
+                // bidirectional egress channel the dead HTTP proxy does not cover. Off-origin HTTP,
+                // by contrast, is already blocked by the dead proxy and is only advisory.
+                liveChannelAttempts++;
             } else if ("Network.responseReceived".equals(method)) {
                 String resourceType = params.path("type").asText("");
-                if (mainDocumentStatus == null
-                        && "Document".equals(resourceType)
-                        && allowedOrigin != null
-                        && allowedOrigin.equals(originOf(params.path("response").path("url").asText("")))) {
+                String responseUrl = params.path("response").path("url").asText("");
+                boolean sameOrigin = allowedOrigin != null && allowedOrigin.equals(originOf(responseUrl));
+                if (mainDocumentStatus == null && "Document".equals(resourceType) && sameOrigin) {
                     mainDocumentStatus = params.path("response").path("status").asInt();
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
                         && params.path("response").path("status").asInt() >= 400) {
-                    failedSubresources++;
+                    // A same-origin failure of a painted type (signature/image/stylesheet/font served
+                    // by CARLOS) is our EMR failing to serve the form's own content → hard fail.
+                    // Off-origin failures and non-visual same-origin failures (helper scripts that do
+                    // not paint) are advisory: they do not blank the already-rendered form.
+                    if (sameOrigin && RENDER_CRITICAL_VISUAL_TYPES.contains(resourceType)) {
+                        failedCriticalSubresources++;
+                    } else {
+                        failedSubresources++;
+                    }
                 }
             } else if ("Network.loadingFailed".equals(method)
                     && RENDER_CRITICAL_RESOURCE_TYPES.contains(params.path("type").asText(""))
                     && !params.path("canceled").asBoolean(false)) {
+                // loadingFailed carries no URL, so origin cannot be attributed; a connection-level
+                // failure is almost always the dead proxy refusing an off-origin request, so it is
+                // advisory. A genuinely missing same-origin asset instead arrives as an HTTP 4xx/5xx
+                // responseReceived above, where it is correctly classified as critical.
                 failedSubresources++;
             }
         }
-        return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources, parseFailures);
+        return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
+                parseFailures, liveChannelAttempts, failedCriticalSubresources);
     }
 
     // Package-private for the unit test that pins the fail-closed behavior.
@@ -1408,6 +1605,8 @@ public class EFormBrowserPdfService {
      * equal). Without the downgrade the derived base is https://127.0.0.1:<httpPort>, which fails
      * every render. eform_pdf_browser_base_url overrides this derivation entirely.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal request scheme against https to detect a proxied-TLS loopback hop; not a security or authorization decision on user identity.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal request scheme against https to detect a proxied-TLS loopback hop; not a security or authorization decision on user identity")
     static String deriveLoopbackScheme(HttpServletRequest request) {
         String scheme = request.getScheme();
         if (SCHEME_HTTPS.equalsIgnoreCase(scheme) && request.getServerPort() != request.getLocalPort()) {
@@ -1597,9 +1796,10 @@ public class EFormBrowserPdfService {
                 || (SCHEME_HTTPS.equalsIgnoreCase(scheme) && port == 443);
     }
 
-    private static void deleteQuietly(Path outputPath) {
+    /** @return {@code true} when the path no longer exists after the attempt (deleted or already gone). */
+    private static boolean deleteQuietly(Path outputPath) {
         if (outputPath == null) {
-            return;
+            return false;
         }
         try {
             Files.deleteIfExists(outputPath);
@@ -1609,11 +1809,13 @@ public class EFormBrowserPdfService {
             // filesystem/permission problem. The path is a managed temp path, not PHI.
             logger.warn("Unable to delete temporary browser-rendered PDF {}", outputPath, e);
         }
+        return !Files.exists(outputPath);
     }
 
-    private static void deleteRecursivelyQuietly(Path directory) {
+    /** @return {@code true} only when every entry was removed and the directory itself no longer exists. */
+    private static boolean deleteRecursivelyQuietly(Path directory) {
         if (directory == null) {
-            return;
+            return false;
         }
         // Per-entry failures stay at DEBUG so one undeletable tree cannot spam WARN per file;
         // the aggregate below surfaces the problem once at WARN.
@@ -1629,11 +1831,14 @@ public class EFormBrowserPdfService {
             }
         } catch (IOException e) {
             logger.warn("Unable to delete temporary browser-rendered capture directory {}", directory, e);
+            return false;
         }
         if (failedEntries > 0) {
             logger.warn("Unable to delete {} entries under renderer capture directory {}; PHI capture images may be accumulating",
                     failedEntries, directory);
+            return false;
         }
+        return !Files.exists(directory);
     }
 
     /**
@@ -1687,12 +1892,13 @@ public class EFormBrowserPdfService {
                     continue; // can't stat it; leave it for a later sweep
                 }
                 if (isDirectory) {
-                    if (modifiedMillis < dirCutoffMillis) {
-                        deleteRecursivelyQuietly(entry);
+                    // Count only a confirmed reclamation: deleteRecursivelyQuietly returns false when
+                    // any entry survived, so the metric can't claim cleanup that didn't happen.
+                    if (modifiedMillis < dirCutoffMillis && deleteRecursivelyQuietly(entry)) {
                         reclaimed++;
                     }
-                } else if (entry.getFileName().toString().endsWith(".pdf") && modifiedMillis < outputCutoffMillis) {
-                    deleteQuietly(entry); // orphaned output reclaimed only long past any request lifetime
+                } else if (entry.getFileName().toString().endsWith(".pdf") && modifiedMillis < outputCutoffMillis
+                        && deleteQuietly(entry)) { // orphaned output reclaimed only long past any request lifetime
                     reclaimed++;
                 }
             }

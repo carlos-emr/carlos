@@ -54,6 +54,16 @@ class EFormAssetContentTypeUnitTest {
         assertThat(EFormAssetContentType.forFilename(fileName)).isEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {".png", ".PNG", ".js", ".jfif", "bg.png.", "widget.js.", "name."})
+    @DisplayName("should return empty for leading-dot dotfiles and trailing-dot names")
+    void shouldReturnEmpty_forLeadingOrTrailingDotFilenames(String fileName) {
+        // A leading-dot dotfile (".png") has no name part and must not be typed off its
+        // "extension"; a trailing dot ("name.", "bg.png.") yields an empty extension. Both are
+        // treated as "no extension" so a dotfile cannot be served with an inferred content type.
+        assertThat(EFormAssetContentType.forFilename(fileName)).isEmpty();
+    }
+
     @Test
     @DisplayName("should return empty for null filename")
     void shouldReturnEmpty_forNullFilename() {

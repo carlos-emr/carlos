@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
  *   <li>{@code warn} — probe; log an error and continue so the failure surfaces at first render.</li>
  *   <li>{@code off} — skip the probe entirely. Integration-test Spring contexts set this so the
  *       gate never launches Chromium in the test JVM (see
- *       {@code src/test/resources/over_ride_config.properties}).</li>
+ *       {@code src/test/resources/over_ride_config.properties.template}).</li>
  * </ul>
  *
  * <p>The real probe lives in {@link EFormBrowserPdfService#verifyRendererReady()}; a real browser

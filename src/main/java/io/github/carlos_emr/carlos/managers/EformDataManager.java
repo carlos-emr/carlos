@@ -65,6 +65,17 @@ public interface EformDataManager {
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException;
 
+    /**
+     * Saves an eForm as a temp PDF, optionally accepting a visually-incomplete render.
+     *
+     * @param allowMissingContent when {@code true}, a failure of the eForm's own same-origin (CARLOS)
+     *        visual assets (signature/image/stylesheet) is tolerated and the incomplete PDF is
+     *        produced — the "render anyway" clinician choice. When {@code false} (the default overload
+     *        above), such a failure throws {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}.
+     *        Always-hard gates (main document, live egress) are unaffected.
+     */
+    public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid, boolean allowMissingContent) throws PDFGenerationException;
+
 
     /**
      * Get all current eForms by demographic number but do not include the HTML data.

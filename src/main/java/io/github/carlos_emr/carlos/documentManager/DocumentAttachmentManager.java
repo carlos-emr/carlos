@@ -226,6 +226,18 @@ public interface DocumentAttachmentManager {
     public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId) throws PDFGenerationException;
 
     /**
+     * eForm-aware overload of {@link #renderDocument(LoggedInInfo, DocumentType, Integer)} that
+     * optionally accepts a visually-incomplete eForm render.
+     *
+     * @param allowMissingContent when {@code true} and {@code documentType} is {@code EFORM}, a
+     *        failure of the eForm's own same-origin visual assets (signature/image) is tolerated and
+     *        the incomplete PDF is produced — the "render anyway" choice. Ignored for other types.
+     *        When {@code false}, such a failure throws
+     *        {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}.
+     */
+    public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, boolean allowMissingContent) throws PDFGenerationException;
+
+    /**
      * Renders a consultation form along with all its associated attachments as a single PDF.
      *
      * <p>This method generates a comprehensive PDF document that includes the consultation request
@@ -254,6 +266,17 @@ public interface DocumentAttachmentManager {
      * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process
      */
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
+
+    /**
+     * Overload of {@link #renderEFormWithAttachments(HttpServletRequest, HttpServletResponse)} that
+     * optionally accepts a visually-incomplete render of the eForm (and attached eForms).
+     *
+     * @param allowMissingContent when {@code true}, a failure of an eForm's own same-origin visual
+     *        assets (signature/image) is tolerated and the incomplete packet is produced — the
+     *        "render anyway" choice on the fax cover page. When {@code false}, such a failure throws
+     *        {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}.
+     */
+    public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, boolean allowMissingContent) throws PDFGenerationException;
 
     /**
      * Converts an electronic form (eForm) to an electronic document (eDoc) for permanent archival.

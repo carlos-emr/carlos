@@ -24,6 +24,7 @@ import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -70,6 +71,10 @@ public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
     private static final String EDOC_PDF_RENDER_FAILURE_MESSAGE = "Failed to render document PDF.";
     private static final String EFORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render eForm PDF.";
+    private static final String EFORM_PDF_MISSING_CONTENT_MESSAGE =
+            "This eForm could not be fully rendered because some of its own content (for example a "
+            + "signature or an image) could not be loaded. You can render it anyway, but the document "
+            + "may be incomplete.";
     private static final String HRM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render HRM PDF.";
     private static final String LAB_PDF_RENDER_FAILURE_MESSAGE = "Failed to render lab PDF.";
     private static final String FORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render form PDF.";
@@ -216,9 +221,19 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo);
         resolveEFormDemographicNoOrDeny(eFormId, demographicNo);
+        // "renderAnyway" is the clinician's explicit choice to accept a visually-incomplete eForm
+        // after the default render reported missing same-origin content (signature/image). It only
+        // relaxes that one content gate; security/main-document gates stay hard.
+        boolean renderAnyway = Boolean.parseBoolean(request.getParameter("renderAnyway"));
         try {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
+            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId, renderAnyway);
             generateResponse(response, eFormPDFPath);
+        } catch (EformContentUnavailableException e) {
+            // The eForm's own content (e.g. a signature or image) could not be loaded. Rather than a
+            // dead-end error, tell the UI it may offer "render anyway". Count only — no PHI.
+            logger.warn("eForm preview incomplete: missing same-origin content, offering render-anyway (missingAssets={})",
+                    e.getMissingAssetCount());
+            generateMissingContentResponse(response, EFORM_PDF_MISSING_CONTENT_MESSAGE);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, EFORM_PDF_RENDER_FAILURE_MESSAGE);
@@ -391,25 +406,34 @@ public class DocumentPreview2Action extends ActionSupport {
                 return;
             }
             
-            // Define allowed directories based on OSCAR configuration
-            String[] allowedBasePaths = {
-                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
-                CarlosProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
-                CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
-                System.getProperty("java.io.tmpdir")
-            };
+            // Fast-path: accept CARLOS-owned temp artifacts (the eForm browser renderer writes its
+            // output under <catalina.base>/work/carlos/eform-browser-pdf-temp or
+            // <java.io.tmpdir>/carlos-eform-browser-pdf-temp), which are NOT among the document-store
+            // base paths below. Without this, a freshly-rendered eForm/attachment temp PDF previewed
+            // through this endpoint (e.g. the email-compose attachment <object>) was rejected against
+            // DOCUMENT_DIR and 403'd silently. Mirrors the fax preview path
+            // (FaxManagerImpl.resolveAndValidateFilePath / validateFilePath).
+            boolean isValidPath = PathValidationUtils.isInApplicationTempDirectory(canonicalPdfPath.toFile());
 
-            boolean isValidPath = false;
-            for (String basePath : allowedBasePaths) {
-                if (basePath != null && !basePath.isEmpty()) {
-                    java.io.File baseDir = new java.io.File(basePath);
-                    if (baseDir.exists()) {
-                        try {
-                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
-                            isValidPath = true;
-                            break;
-                        } catch (SecurityException e) {
-                            // File not in this directory, try next
+            if (!isValidPath) {
+                // Define allowed document-store directories based on OSCAR configuration
+                String[] allowedBasePaths = {
+                    CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
+                    CarlosProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
+                    CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
+                    System.getProperty("java.io.tmpdir")
+                };
+                for (String basePath : allowedBasePaths) {
+                    if (basePath != null && !basePath.isEmpty()) {
+                        java.io.File baseDir = new java.io.File(basePath);
+                        if (baseDir.exists()) {
+                            try {
+                                canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
+                                isValidPath = true;
+                                break;
+                            } catch (SecurityException e) {
+                                // File not in this directory, try next
+                            }
                         }
                     }
                 }
@@ -569,6 +593,29 @@ public class DocumentPreview2Action extends ActionSupport {
     private void generateResponse(HttpServletResponse response, String errorMessage) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        try {
+            response.getWriter().write(json.toString());
+        } catch (IOException e) {
+            logger.error("An error occurred while writing JSON response to the output stream", e);
+        }
+    }
+
+    /**
+     * Generates a JSON response for a user-recoverable "missing content" render outcome. Distinct
+     * from {@link #generateResponse(HttpServletResponse, String)} only by the {@code missingContent}
+     * flag, which lets the client offer a "render anyway" retry instead of a dead-end error.
+     *
+     * @param response HttpServletResponse the HTTP response object to write to
+     * @param message String the clinician-facing explanation (no PHI; no asset names)
+     */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    private void generateMissingContentResponse(HttpServletResponse response, String message) {
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("errorMessage", message);
+        json.put("missingContent", true);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {

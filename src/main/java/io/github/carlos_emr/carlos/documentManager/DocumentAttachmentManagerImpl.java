@@ -432,7 +432,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during document rendering
      */
     public Path renderDocument(HttpServletRequest request, HttpServletResponse response, DocumentType documentType) throws PDFGenerationException {
-        return renderDocument(null, request, response, documentType, 0);
+        return renderDocument(null, request, response, documentType, 0, false);
     }
 
     /**
@@ -450,7 +450,22 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during document rendering
      */
     public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId) throws PDFGenerationException {
-        return renderDocument(loggedInInfo, null, null, documentType, documentId);
+        return renderDocument(loggedInInfo, null, null, documentType, documentId, false);
+    }
+
+    /**
+     * eForm-aware overload that optionally accepts a visually-incomplete render. When
+     * {@code allowMissingContent} is {@code true} and {@code documentType} is {@code EFORM}, a failure
+     * of the eForm's own same-origin visual assets (signature/image) is tolerated and the incomplete
+     * PDF is produced — the "render anyway" choice. The flag is ignored for non-eForm document types.
+     *
+     * @param allowMissingContent {@code true} to accept an incomplete eForm render past missing
+     *        same-origin visual assets; {@code false} to fail closed with
+     *        {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}
+     */
+    @Override
+    public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, boolean allowMissingContent) throws PDFGenerationException {
+        return renderDocument(loggedInInfo, null, null, documentType, documentId, allowMissingContent);
     }
 
     /**
@@ -485,7 +500,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(consultationFormPDFPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
+        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, false);
         attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
         attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
@@ -512,10 +527,30 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during rendering or concatenation
      */
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
+        return renderEFormWithAttachments(request, response, false);
+    }
+
+    /**
+     * Overload that optionally accepts a visually-incomplete render of the eForm (and any attached
+     * eForms). When {@code allowMissingContent} is {@code true}, a failure of an eForm's own
+     * same-origin visual assets (signature/image) is tolerated and the incomplete packet is produced
+     * — the "render anyway" clinician choice on the fax cover page. Non-eForm attachments and the
+     * always-hard render gates are unaffected.
+     */
+    @Override
+    public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, boolean allowMissingContent) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
         String demographicId = (String) request.getAttribute("demographicId");
-        Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, Integer.parseInt(fdid));
+        // fdid is set upstream from a numeric transaction id, but guard the parse so a malformed
+        // value surfaces as a clean PDFGenerationException instead of an uncaught NumberFormatException.
+        int fdidValue;
+        try {
+            fdidValue = Integer.parseInt(fdid);
+        } catch (NumberFormatException e) {
+            throw new PDFGenerationException("eForm render request carried a non-numeric fdid.");
+        }
+        Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, fdidValue, allowMissingContent);
 
         List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
         List<EDoc> attachedEDocs = EDocUtil.listDocsAttachedToEForm(loggedInInfo, demographicId, fdid, EDocUtil.ATTACHED);
@@ -532,7 +567,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(eFormPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
+        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, allowMissingContent);
         attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
         attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
@@ -595,7 +630,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return base64 != null ? base64 : "";
     }
 
-    private Path renderDocument(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response, DocumentType documentType, Integer documentId) throws PDFGenerationException {
+    private Path renderDocument(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response, DocumentType documentType, Integer documentId, boolean allowMissingContent) throws PDFGenerationException {
         Path path = null;
         switch (documentType) {
             case DOC:
@@ -605,7 +640,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 path = labManager.renderLab(loggedInInfo, documentId);
                 break;
             case EFORM:
-                path = eformDataManager.createEformPDF(loggedInInfo, documentId);
+                path = eformDataManager.createEformPDF(loggedInInfo, documentId, allowMissingContent);
                 break;
             case HRM:
                 path = HRMUtil.renderHRM(loggedInInfo, documentId);
@@ -620,9 +655,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return path;
     }
 
-    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList, boolean allowMissingContent) throws PDFGenerationException {
         for (EFormData eForm : attachedEForms) {
-            Path path = renderDocument(loggedInInfo, DocumentType.EFORM, eForm.getId());
+            Path path = renderDocument(loggedInInfo, DocumentType.EFORM, eForm.getId(), allowMissingContent);
             pdfDocumentList.add(path.toString());
         }
     }

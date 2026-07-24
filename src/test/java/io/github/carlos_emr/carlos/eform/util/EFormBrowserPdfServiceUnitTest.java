@@ -299,18 +299,39 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should keep the Chromium sandbox enabled by default")
-    void shouldKeepSandboxEnabled_byDefault() {
+    @DisplayName("should omit --no-sandbox when the OS sandbox is enabled (opt-in)")
+    void shouldOmitNoSandbox_whenSandboxEnabled() {
+        // Opt-in hardened posture (EFORM_RENDER_SANDBOX=true -> unsandboxed=false): keep Chromium's OS
+        // sandbox, so --no-sandbox must be absent. Assert the args are actually populated first so
+        // doesNotContain cannot pass vacuously (SonarCloud S5841).
         ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(null, false, "http://127.0.0.1:8080");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> chromeOptions = (Map<String, Object>) options.asMap().get("goog:chromeOptions");
         @SuppressWarnings("unchecked")
         List<String> args = (List<String>) chromeOptions.get("args");
-        // Secure by default: no --no-sandbox unless the operator explicitly opts out. Assert the args
-        // are actually populated first so doesNotContain cannot pass vacuously (SonarCloud S5841).
         assertThat(args).isNotEmpty();
         assertThat(args).doesNotContain("--no-sandbox");
+    }
+
+    @Test
+    @DisplayName("should default to unsandboxed when EFORM_RENDER_SANDBOX is unset")
+    void shouldDefaultToUnsandboxed_whenSandboxEnvVarUnset() {
+        // The renderer is unsandboxed by default so it starts out of the box where Chromium's sandbox
+        // cannot initialize (root / no user namespaces). The OS sandbox is opt-in via EFORM_RENDER_SANDBOX.
+        // The test JVM has no such env var, so sandboxEnabled() must report false.
+        assertThat(EFormBrowserPdfService.sandboxEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should bound session creation well below the per-command render budget so a doomed launch fails fast")
+    void shouldBoundDriverStart_belowRenderBudget() {
+        // A doomed browser launch is bounded by DRIVER_START_TIMEOUT (a dedicated watchdog on session
+        // creation), which must be shorter than the per-command read budget so it fails fast instead of
+        // waiting chromedriver's internal ~60s browser-start timeout and stacking across the fax flow.
+        assertThat(EFormBrowserPdfService.DRIVER_START_TIMEOUT)
+                .isPositive()
+                .isLessThan(EFormBrowserPdfService.WEBDRIVER_COMMAND_READ_TIMEOUT);
     }
 
     @Test
@@ -546,9 +567,11 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.disallowedRequests()).isEqualTo(1);
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
-        // The later 404'd iframe Document is not the main document, so it counts as a failed
-        // render-critical subresource instead of overwriting the main status.
-        assertThat(scan.failedSubresources()).isEqualTo(1);
+        // The later 404'd iframe Document is not the main document; it is a same-origin (CARLOS)
+        // visual/structural asset — the signature frame — so it counts as a CRITICAL failure (our
+        // EMR failed to serve the form's own content), not an advisory one.
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
         // The "not-json" entry is evidence the replay could not account for; it must be counted,
         // not silently skipped, so the gate can fail closed on truncated evidence.
         assertThat(scan.parseFailures()).isEqualTo(1);
@@ -560,9 +583,11 @@ class EFormBrowserPdfServiceUnitTest {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
-                // A 404'd form background arrives as an HTTP error response, not loadingFailed.
+                // A 404'd same-origin form background arrives as an HTTP error response, not
+                // loadingFailed. It is a CARLOS-served Image → counts as a CRITICAL subresource.
                 cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":404}"),
-                // Connection-level failure of a render-critical resource.
+                // Connection-level failure of a render-critical resource: no URL to attribute origin,
+                // so it is advisory (almost always the dead proxy refusing an off-origin request).
                 cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_CONNECTION_REFUSED\",\"canceled\":false"),
                 // Benign: canceled loads are navigation aborts, not broken content.
                 cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_ABORTED\",\"canceled\":true"),
@@ -576,7 +601,10 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
         assertThat(scan.disallowedRequests()).isZero();
-        assertThat(scan.failedSubresources()).isEqualTo(2);
+        // The same-origin Image 404 is critical (our EMR content); the connection-level Image
+        // failure is advisory (unattributable origin).
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isEqualTo(1);
     }
 
     @Test
@@ -595,7 +623,10 @@ class EFormBrowserPdfServiceUnitTest {
 
         EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
-        assertThat(scan.disallowedRequests()).isEqualTo(4);
+        // WebSocket/WebTransport creations are tallied as live-channel attempts (an always-on hard
+        // fail-closed signal), separate from off-origin HTTP, which is only advisory.
+        assertThat(scan.liveChannelAttempts()).isEqualTo(4);
+        assertThat(scan.disallowedRequests()).isZero();
     }
 
     @Test
@@ -781,10 +812,11 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should fail the render when a render-critical subresource failed to load")
-    void shouldFailRender_whenRenderCriticalSubresourceFailed() {
-        // A 404'd form background arrives as an Image responseReceived with status >= 400, which the
-        // network scan counts as a failed render-critical subresource.
+    @DisplayName("should fail the render when the eForm's own same-origin visual content failed to load")
+    void shouldFailRender_whenSameOriginVisualSubresourceFailed() {
+        // A same-origin (CARLOS-served) Image 404 — e.g. a form background or signature image the EMR
+        // could not serve — is our own eForm content failing to render, so the captured PDF is wrong
+        // and it must hard-fail regardless of the lenient default.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
@@ -794,8 +826,61 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThatThrownBy(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.EformContentUnavailableException.class)
+                .hasMessageContaining("failedCriticalSubresources=1");
+    }
+
+    @Test
+    @DisplayName("should render past missing same-origin content when render-anyway is chosen")
+    void shouldRenderPastMissingContent_whenRenderAnywayChosen() {
+        // The clinician's "render anyway" choice (allowMissingContent=true) tolerates the missing
+        // same-origin visual asset and produces the incomplete PDF instead of failing.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Image",
+                        "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
+
+        assertThatCode(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42, true))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should still fail closed on live egress even when render-anyway is chosen")
+    void shouldStillFailOnLiveEgress_whenRenderAnywayChosen() {
+        // "Render anyway" relaxes only the missing-content gate; a live egress channel (security) is
+        // never overridable, so it must still hard-fail with allowMissingContent=true.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\"")));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42, true))
                 .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("failedSubresources=1");
+                .hasMessageContaining("liveChannelAttempts=1");
+    }
+
+    @Test
+    @DisplayName("should tolerate the render when an off-origin or non-visual subresource failed to load")
+    void shouldTolerateRender_whenOffOriginOrHelperSubresourceFailed() {
+        // An off-origin image (external logo/CDN, already blocked by the dead proxy) and a same-origin
+        // helper Script that 404s (e.g. faxControl.js) do not blank the already-painted form, so by
+        // default both are advisory (logged) and must NOT fail the render.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(responseReceivedJson("Image", "https://cdn.example.com/logo.png", 404)),
+                perfEntry(responseReceivedJson("Script",
+                        "http://127.0.0.1:8080/carlos/share/javascript/faxControl.js", 404)));
+
+        assertThatCode(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -817,34 +902,54 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should fail the render when a disallowed egress request was observed")
-    void shouldFailRender_whenDisallowedEgressObserved() {
+    @DisplayName("should tolerate the render when an off-origin HTTP egress request was observed")
+    void shouldTolerateRender_whenDisallowedHttpEgressObserved() {
+        // An off-origin HTTP request (e.g. a form referencing an external font/CDN/image) is already
+        // physically blocked by the dead proxy, so by default observing the attempt is advisory and
+        // must NOT deny the fax. It stays fail-closed only under the strict network gate.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
                 perfEntry(requestWillBeSentJson("https://evil.example/exfil")));
 
-        assertThatThrownBy(() -> service.enforceRenderGates(
+        assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
-                .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("disallowedRequests=1");
+                .doesNotThrowAnyException();
     }
 
     @Test
-    @DisplayName("should fail the render when a severe JavaScript console error is present")
-    void shouldFailRender_whenSevereConsoleErrorPresent() {
-        // A page-script failure the network events cannot see (a JS TypeError) is exactly what the
-        // console gate exists to catch; it is neither a resource-load nor a CSP-containment notice.
+    @DisplayName("should fail the render when a live WebSocket/WebTransport egress channel was observed")
+    void shouldFailRender_whenLiveChannelEgressObserved() {
+        // A live bidirectional channel bypasses the dead HTTP proxy and is never opened by a render
+        // surface, so it stays an always-on hard fail-closed signal even under the default lenient
+        // gate — unlike off-origin HTTP, which the proxy already blocks.
+        ChromeDriver driver = driverWithConsole(browserConsole());
+        EFormBrowserPdfService service = new EFormBrowserPdfService();
+        List<LogEntry> entries = List.of(
+                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
+                perfEntry(cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\"")));
+
+        assertThatThrownBy(() -> service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("liveChannelAttempts=1");
+    }
+
+    @Test
+    @DisplayName("should tolerate the render when a severe JavaScript console error is present")
+    void shouldTolerateRender_whenSevereConsoleErrorPresent() {
+        // A benign page-script error (a JS TypeError) is ubiquitous across the legacy eForm corpus
+        // and does not blank the form — the in-app viewer displays the same content. By default this
+        // is advisory (logged) and must NOT fail the render; it stays fail-closed under strict mode.
         ChromeDriver driver = driverWithConsole(browserConsole(
                 consoleEntry("http://127.0.0.1:8080/carlos/x 12:3 Uncaught TypeError: x is not a function")));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
 
-        assertThatThrownBy(() -> service.enforceRenderGates(
+        assertThatCode(() -> service.enforceRenderGates(
                 driver, entries, 200, GATE_BASE_URL, 42))
-                .isInstanceOf(PDFGenerationException.class)
-                .hasMessageContaining("consoleErrors=1");
+                .doesNotThrowAnyException();
     }
 
     @Test

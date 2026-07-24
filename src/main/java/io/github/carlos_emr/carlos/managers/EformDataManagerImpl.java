@@ -201,6 +201,11 @@ public class EformDataManagerImpl implements EformDataManager {
      *         renderer produces a null / unreadable output file
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
+        return createEformPDF(loggedInInfo, fdid, false);
+    }
+
+    @Override
+    public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid, boolean allowMissingContent) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
         if (eformData == null) {
             logger.warn("EForm PDF generation failed: no saved eForm found for fdid={}", fdid);
@@ -219,12 +224,13 @@ public class EformDataManagerImpl implements EformDataManager {
             // Path (and its cleanup responsibility) to OUR caller, so the handle is deliberately
             // unwrapped without close() — closing here would delete the file being returned.
             EFormBrowserPdfService.RenderedEformPdf rendered =
-                    eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
+                    eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo(), allowMissingContent);
             path = rendered == null ? null : rendered.path();
         } catch (PDFGenerationException e) {
-            // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
-            // The renderer already logged a redacted cause; record which fdid failed here for correlation.
-            logger.warn("EForm PDF generation failed during browser rendering: fdid={} reason={}", fdid, e.getMessage());
+            // The renderer already logged a redacted cause. Record which fdid failed and the exception
+            // TYPE only for correlation — not e.getMessage(), which can re-emit unredacted renderer
+            // text (a page-generated error, URL, or path). The message still propagates to callers/UI.
+            logger.warn("EForm PDF generation failed during browser rendering: fdid={} type={}", fdid, e.getClass().getName());
             throw e;
         } catch (RuntimeException e) {
             // Only genuinely-unexpected non-renderer errors (NPE/Spring/etc.) reach here — the renderer

@@ -585,7 +585,9 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", "123");
         when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
 
-        when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.EFORM, 42))
+        // renderEFormPDF routes through the render-anyway overload; with no renderAnyway param the
+        // clinician has not opted in, so allowMissingContent is false.
+        when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.EFORM, 42, false))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("render failed"));
 
         String result = action.execute();
@@ -784,6 +786,50 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getContentAsString()).contains("Invalid formName");
         verify(mockDocumentAttachmentManager, never()).renderDocument(request, response, DocumentType.FORM);
+    }
+
+    @Test
+    @DisplayName("should serve pdf bytes when render pdf path is in a CARLOS application temp directory")
+    void shouldServePdfBytes_whenRenderPdfPathIsInApplicationTempDirectory() throws Exception {
+        // The eForm browser renderer writes its output under a CARLOS-owned temp subtree
+        // (<java.io.tmpdir>/carlos-eform-browser-pdf-temp). renderPDF must accept that path via the
+        // application-temp fast-path; previously such a freshly-rendered temp PDF was rejected
+        // against DOCUMENT_DIR and 403'd with an empty body (the silent attachment-preview failure).
+        java.nio.file.Path tempRoot =
+                java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "carlos-eform-browser-pdf-temp");
+        java.nio.file.Files.createDirectories(tempRoot);
+        java.nio.file.Path pdf = java.nio.file.Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
+        try {
+            byte[] pdfBytes = "%PDF-1.4 unit-test".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+            java.nio.file.Files.write(pdf, pdfBytes);
+            request.setParameter("method", "renderPDF");
+            request.setParameter("pdfPath", pdf.toRealPath().toString());
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getContentAsByteArray())
+                    .startsWith("%PDF".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        } finally {
+            java.nio.file.Files.deleteIfExists(pdf);
+        }
+    }
+
+    @Test
+    @DisplayName("should return not found when render pdf path does not exist")
+    void shouldReturnNotFound_whenRenderPdfPathDoesNotExist() {
+        // No silent failure: a missing file surfaces a 404 status rather than an empty 200/soft error.
+        request.setParameter("method", "renderPDF");
+        request.setParameter("pdfPath",
+                java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
+                        "carlos-eform-browser-pdf-temp", "eform-browser-render-does-not-exist.pdf").toString());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(404);
     }
 
     private void stubEDocDemographic(Integer eDocId, String demographicNo) {
