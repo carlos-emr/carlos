@@ -203,7 +203,8 @@ public class APISendGridEmailSender {
         addBody(emailJson);
         addAttachments(emailJson);
         addAdditionalParams(emailJson);
-        addApiKey(emailJson);
+        // The API key is sent only via the Authorization: Bearer header (see the HTTP client setup).
+        // It is deliberately NOT duplicated into the JSON request body.
         return emailJson.toString();
     }
 
@@ -266,10 +267,6 @@ public class APISendGridEmailSender {
 
     private void addAdditionalParams(ObjectNode emailJson) throws EmailSendingException {
         emailJson.put("additionalParams", additionalParams);
-    }
-
-    private void addApiKey(ObjectNode emailJson) throws EmailSendingException {
-        emailJson.put("apiKey", getAPIKey());
     }
 
     private String getAPIKey() throws EmailSendingException {
