@@ -2,7 +2,7 @@
 
 This directory contains the Python/FastAPI foundation for the CARLOS patient credential portal.
 
-The first slice is intentionally small:
+The MVP foundation currently includes:
 
 - FastAPI application factory.
 - Pydantic settings with `PATIENT_PORTAL_` environment variables.
@@ -23,8 +23,9 @@ The first slice is intentionally small:
   retention pruning, and local SQLite backup/restore drills.
 - Minimal FHIR R4 Patient and HL7 v2.5.1 patient-registration validation helpers for the MVP
   CARLOS integration contract.
-- Basic tests for app wiring, template rendering, database readiness, invite lifecycle, and
-  activation/auth/unlock-secret behavior.
+- Tests for app wiring, template rendering, database readiness, invite lifecycle,
+  activation/auth/unlock-secret behavior, scoped patient APIs, FHIR/HL7 artifacts, and pilot
+  hardening hooks.
 
 ## Local Setup
 
@@ -351,8 +352,8 @@ curl -H "Cookie: carlos_portal_session=<session_token>" \
 Dashboard routes:
 
 - `/portal` and `/portal/account` show the Account module shell.
-- `/portal/email-passwords` shows the Email passwords module shell with an empty table until the
-  unlock-secret read route is wired into the dashboard.
+- `/portal/email-passwords` shows searchable, paginated generated email passphrases for the
+  authenticated patient, with unavailable rows hidden from raw passphrase display.
 - `/portal/help` shows clinic help details.
 - `POST /portal/logout` clears the portal session cookie and writes a logout audit event.
 

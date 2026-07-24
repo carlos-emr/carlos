@@ -1025,6 +1025,8 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     assert page_one_response.text.index("Message 11") < page_one_response.text.index("Message 02")
     assert 'value="PortalPwd11!A"' in page_one_response.text
     assert 'readonly' in page_one_response.text
+    assert 'autocomplete="off"' in page_one_response.text
+    assert 'spellcheck="false"' in page_one_response.text
     assert 'data-copy-target="email-password-' in page_one_response.text
     assert 'href="/portal/email-passwords?page=2"' in page_one_response.text
     assert '<span class="page-indicator">Page 1</span>' in page_one_response.text
