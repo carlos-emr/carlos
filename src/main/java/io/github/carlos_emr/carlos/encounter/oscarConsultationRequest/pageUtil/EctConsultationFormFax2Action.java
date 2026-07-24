@@ -318,20 +318,26 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             error = "IOException";
             exception = ioe;
         }
-        if (error.equals("")) {
+        if (error.isEmpty()) {
+            int reqIdValue;
+            try {
+                reqIdValue = Integer.parseInt(reqId);
+            } catch (NumberFormatException nfe) {
+                logger.error("Consultation fax aborted: non-numeric consultation request id");
+                request.setAttribute("errorMessage",
+                        "This fax could not be sent. \n\nThe consultation request id is invalid.");
+                return "error";
+            }
             // Atomic: persists all recipients and their audit logs in one transaction, so a failure
             // persisting any recipient rolls the whole batch back rather than leaving sendable orphans.
-            faxManager.persistAndLogConsultationFaxJobs(loggedInInfo, builtFaxJobs, Integer.parseInt(reqId));
+            faxManager.persistAndLogConsultationFaxJobs(loggedInInfo, builtFaxJobs, reqIdValue);
             LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
             request.setAttribute("faxSuccessful", true);
             return SUCCESS;
         }
-        if (!error.equals("")) {
-            logger.error(error + " occured insided ConsultationPrintAction", exception);
-            request.setAttribute("printError", Boolean.valueOf(true));
-            return "error";
-        }
-        return null;
+        logger.error(error + " occured insided ConsultationPrintAction", exception);
+        request.setAttribute("printError", Boolean.valueOf(true));
+        return "error";
     }
 
 
