@@ -214,7 +214,7 @@
 0207	banjo
 0208	bank
 0209	banner
-0210	bannister
+0210	banning
 0211	bannock
 0212	banquet
 0213	banter
@@ -1045,7 +1045,7 @@
 1038	dorm
 1039	dot
 1040	dough
-1041	doughnut
+1041	douse
 1042	dove
 1043	down
 1044	downhill
@@ -4084,7 +4084,7 @@
 4077	yen
 4078	yodel
 4079	yoga
-4080	yoghurt
+4080	yogi
 4081	yogurt
 4082	yoke
 4083	yolk

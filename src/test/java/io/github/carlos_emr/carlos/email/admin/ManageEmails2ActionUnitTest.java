@@ -75,7 +75,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/manage");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/manage");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.setParameter("logId", "42");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());

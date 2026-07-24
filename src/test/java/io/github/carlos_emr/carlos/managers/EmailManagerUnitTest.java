@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 @Tag("unit")
+@Tag("fast")
 @Tag("security")
 @DisplayName("EmailManager")
 class EmailManagerUnitTest extends CarlosUnitTestBase {
@@ -39,7 +40,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should not persist plaintext PDF password to email log")
-    void shouldNotPersistPlaintextPdfPasswordToEmailLog() {
+    void shouldNotPersistPassword_whenPreparingEmailForOutbox() {
         EmailConfigDaoImpl emailConfigDao = mock(EmailConfigDaoImpl.class);
         EmailLogDaoImpl emailLogDao = mock(EmailLogDaoImpl.class);
         DemographicManager demographicManager = mock(DemographicManager.class);
@@ -93,7 +94,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should report whether sender config is active")
-    void shouldReportWhetherSenderConfigIsActive() {
+    void shouldReportActiveStatus_whenSenderConfigIsChecked() {
         EmailConfigDaoImpl emailConfigDao = mock(EmailConfigDaoImpl.class);
         EmailManager emailManager = new EmailManager();
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);

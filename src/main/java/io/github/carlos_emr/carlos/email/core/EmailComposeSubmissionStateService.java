@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.email.core;
 
 import java.time.Clock;
@@ -84,6 +105,23 @@ public class EmailComposeSubmissionStateService {
                 EmailComposeSubmissionContext.direct(""));
     }
 
+    /**
+     * Stores generated compose state and server-owned routing context for one form submission.
+     *
+     * <p>The returned token is scoped to the supplied HTTP session. Stored attachments are copied
+     * before insertion, expired entries are pruned, and per-session/global cache capacity limits are
+     * enforced before the state is accepted. A {@code null} context is treated as a direct-email
+     * context with a blank demographic id.</p>
+     *
+     * @param session HTTP session that owns the compose token
+     * @param emailPDFPassword generated PDF passphrase to use if encryption is submitted
+     * @param emailPDFPasswordClue delivery instruction to show with the generated passphrase
+     * @param emailAttachmentList prepared attachment list to bind to the compose token
+     * @param context server-owned demographic, transaction, and eForm routing context
+     * @return opaque token that must be submitted back with the compose form
+     * @throws IllegalStateException if the cache is shut down or full
+     * @since 2026-07-23
+     */
     public String store(
             HttpSession session,
             String emailPDFPassword,
@@ -134,6 +172,21 @@ public class EmailComposeSubmissionStateService {
                 EmailComposeSubmissionContext.direct(""));
     }
 
+    /**
+     * Generates a fresh PDF passphrase and stores one-time compose token state with context.
+     *
+     * <p>The passphrase is generated once for the compose page, the delivery instruction is resolved
+     * from localized resources when available, and the attachments/context are stored server-side
+     * under an opaque token for later single-use submission.</p>
+     *
+     * @param request HttpServletRequest used to bind the token to the active session
+     * @param emailPdfPasswordService service used to generate the passphrase
+     * @param emailAttachmentList prepared attachment list to bind to the compose token
+     * @param context server-owned demographic, transaction, and eForm routing context
+     * @return generated passphrase display values and opaque submission token
+     * @throws IllegalStateException if the compose submission state cache cannot store a new token
+     * @since 2026-07-23
+     */
     public EmailPdfPasswordSubmissionState preparePdfPasswordSubmissionState(
             HttpServletRequest request,
             EmailPdfPasswordService emailPdfPasswordService,
@@ -203,6 +256,11 @@ public class EmailComposeSubmissionStateService {
         }
     }
 
+    /**
+     * Releases cached compose state during bean destruction.
+     *
+     * @since 2026-07-23
+     */
     @PreDestroy
     public void destroy() {
         shutdown();
@@ -394,10 +452,27 @@ public class EmailComposeSubmissionStateService {
             transactionType = transactionType == null ? TransactionType.DIRECT : transactionType;
         }
 
+        /**
+         * Creates direct-email context for a patient demographic.
+         *
+         * @param demographicId patient demographic id bound to the compose token
+         * @return direct-email compose submission context
+         * @since 2026-07-23
+         */
         public static EmailComposeSubmissionContext direct(String demographicId) {
             return new EmailComposeSubmissionContext(demographicId, "", TransactionType.DIRECT, false, false);
         }
 
+        /**
+         * Creates eForm-email context for a patient demographic and source eForm.
+         *
+         * @param demographicId patient demographic id bound to the compose token
+         * @param fdid eForm data id to reopen or delete after send
+         * @param openEFormAfterEmail whether the eForm should be reopened after send
+         * @param deleteEFormAfterEmail whether the eForm should be deleted after a successful send
+         * @return eForm compose submission context
+         * @since 2026-07-23
+         */
         public static EmailComposeSubmissionContext eform(
                 String demographicId,
                 String fdid,

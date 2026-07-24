@@ -200,12 +200,15 @@ public class EmailCompose2Action extends ActionSupport {
      * </ul>
      *
      * Error Handling:
-     * If PDF generation fails for any attachment (eForm, document, lab, form, HRM), the method
-     * returns the "eFormError" result with a generic, PHI-safe error message. This prevents
-     * incomplete emails from being composed when required attachments cannot be generated.
+     * If compose session state is missing or invalid, the method returns the "eFormError" result
+     * with a generic expired-state message. If PDF generation fails for any attachment (eForm,
+     * document, lab, form, HRM), it returns a generic, PHI-safe attachment message. If one-time
+     * compose token preparation fails because the cache is unavailable, it returns a generic
+     * unavailable-state message.
      *
      * @return String the Struts2 result name: "compose" for successful preparation,
-     *         "eFormError" if PDF generation fails for any attachment
+     *         "eFormError" if compose state is missing, attachment generation fails, or one-time
+     *         compose token preparation is unavailable
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService#generatePassphrase()

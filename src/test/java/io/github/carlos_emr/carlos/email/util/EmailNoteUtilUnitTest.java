@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 @Tag("unit")
+@Tag("fast")
 @Tag("security")
 @DisplayName("EmailNoteUtil")
 class EmailNoteUtilUnitTest extends CarlosUnitTestBase {
@@ -35,7 +36,7 @@ class EmailNoteUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should not include plaintext PDF password in chart note")
-    void shouldNotIncludePlaintextPdfPasswordInChartNote() {
+    void shouldNotIncludePassword_whenGeneratingChartNote() {
         registerMock(EformDataManager.class, mock(EformDataManager.class));
         registerMock(FormsManager.class, mock(FormsManager.class));
         registerMock(ProviderExtDao.class, mock(ProviderExtDao.class));
@@ -67,7 +68,7 @@ class EmailNoteUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should not claim attachments were encrypted for body-only encryption")
-    void shouldDescribeBodyOnlyEncryptionAccuratelyInChartNote() {
+    void shouldDescribeEncryption_whenOnlyBodyIsEncrypted() {
         registerMock(EformDataManager.class, mock(EformDataManager.class));
         registerMock(FormsManager.class, mock(FormsManager.class));
         registerMock(ProviderExtDao.class, mock(ProviderExtDao.class));
