@@ -92,7 +92,7 @@
 
                 %>
                 <% if (Boolean.TRUE.equals(request.getAttribute("phoneError"))) { %>
-                    <span style="color:red">Invalid phone/fax number. Use only digits and the characters + - ( ) . x (max 40).</span><br/>
+                    <span style="color:red">Invalid phone/fax number. Use only digits, spaces, and the characters + - ( ) . x (max 40).</span><br/>
                 <% } %>
                 <form action="${pageContext.request.contextPath}/EditPhoneNum" method="post">
 
