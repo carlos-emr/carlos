@@ -26,6 +26,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_MFA_RESEND,
     AUDIT_EVENT_MFA_VERIFY,
     AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
+    AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
     AUDIT_EVENT_PASSWORD_RESET_REQUEST,
     AUDIT_EVENT_SESSION_LOGOUT,
     AUDIT_OUTCOME_FAILURE,
@@ -148,6 +149,8 @@ class LoginResult:
 class PasswordResetRequestResult:
     reset_token: str | None
     recipient: str | None
+    reset_token_id: int | None = None
+    account_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -249,8 +252,6 @@ def ensure_mfa_delivery_available(
 ) -> None:
     if delivery_method == MFA_DELIVERY_METHOD_EMAIL and account.email:
         return
-    if delivery_method == MFA_DELIVERY_METHOD_SMS and normalize_phone_number(account.phone_number):
-        return
     raise MfaDeliveryUnavailableError()
 
 
@@ -297,6 +298,24 @@ def cancel_pending_mfa_challenges(
         challenge.updated_at = now
 
 
+def revoke_pending_password_reset_tokens(
+    session: Session,
+    account_id: int,
+) -> None:
+    pending_tokens = list(
+        session.scalars(
+            select(PatientPortalPasswordResetToken)
+            .where(
+                PatientPortalPasswordResetToken.account_id == account_id,
+                PatientPortalPasswordResetToken.status == PASSWORD_RESET_STATUS_PENDING,
+            )
+            .with_for_update()
+        )
+    )
+    for reset_token in pending_tokens:
+        reset_token.status = PASSWORD_RESET_STATUS_REVOKED
+
+
 def lock_account(
     session: Session,
     account: PatientPortalAccount,
@@ -316,6 +335,7 @@ def lock_account(
             now=now,
         )
         cancel_pending_mfa_challenges(session, account.id, now=now)
+        revoke_pending_password_reset_tokens(session, account.id)
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_ACCOUNT_LOCK,
@@ -452,7 +472,7 @@ def start_login(
         raise InvalidCredentialsError()
 
     if account.locked_at is not None:
-        verify_dummy_password(password)
+        password_is_valid = password_matches(account.password_hash, password)
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_LOGIN,
@@ -463,9 +483,15 @@ def start_login(
             demographic_no=account.demographic_no,
             account_id=account.id,
             client_reference_hash=client_reference_hash,
-            reason=AUTH_REASON_ACCOUNT_LOCKED,
+            reason=(
+                AUTH_REASON_ACCOUNT_LOCKED
+                if password_is_valid
+                else AUTH_REASON_INVALID_CREDENTIALS
+            ),
         )
-        raise AccountLockedError()
+        if password_is_valid:
+            raise AccountLockedError()
+        raise InvalidCredentialsError()
 
     if not password_matches(account.password_hash, password):
         account.failed_login_count += 1
@@ -487,8 +513,6 @@ def start_login(
             if lockout_reached
             else AUTH_REASON_INVALID_CREDENTIALS,
         )
-        if lockout_reached:
-            raise AccountLockedError()
         raise InvalidCredentialsError()
 
     if password_hasher.check_needs_rehash(account.password_hash):
@@ -512,8 +536,16 @@ def start_login(
         raise PasswordResetRequiredError()
 
     if policy.require_mfa:
+        preferred_delivery_method = normalize_mfa_delivery_method(
+            account.preferred_mfa_method
+        )
+        if (
+            delivery_method is None
+            and preferred_delivery_method not in available_mfa_delivery_methods(account)
+        ):
+            preferred_delivery_method = MFA_DELIVERY_METHOD_EMAIL
         requested_delivery_method = normalize_mfa_delivery_method(
-            delivery_method or account.preferred_mfa_method
+            delivery_method or preferred_delivery_method
         )
         try:
             mfa_challenge = create_mfa_challenge(
@@ -598,10 +630,7 @@ def get_mfa_challenge_for_token(
 def available_mfa_delivery_methods(
     account: PatientPortalAccount,
 ) -> tuple[str, ...]:
-    methods = [MFA_DELIVERY_METHOD_EMAIL]
-    if normalize_phone_number(account.phone_number) is not None:
-        methods.append(MFA_DELIVERY_METHOD_SMS)
-    return tuple(methods)
+    return (MFA_DELIVERY_METHOD_EMAIL,) if account.email else ()
 
 
 def get_mfa_challenge_delivery_state(
@@ -693,7 +722,21 @@ def resend_mfa_challenge(
         raise PasswordResetRequiredError()
 
     normalized_delivery_method = normalize_mfa_delivery_method(delivery_method)
-    ensure_mfa_delivery_available(account, normalized_delivery_method)
+    try:
+        ensure_mfa_delivery_available(account, normalized_delivery_method)
+    except MfaDeliveryUnavailableError:
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_MFA_RESEND,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            account_id=account.id,
+            reason=AUTH_REASON_DELIVERY_UNAVAILABLE,
+        )
+        raise
     if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL:
         cooldown = policy.mfa_email_resend_cooldown
         last_sent_at = challenge.last_email_sent_at
@@ -987,6 +1030,43 @@ def request_password_reset(
     return PasswordResetRequestResult(
         reset_token=reset_token_value,
         recipient=account.email,
+        reset_token_id=reset_token.id,
+        account_id=account.id,
+    )
+
+
+def record_password_reset_delivery_outcome(
+    session: Session,
+    *,
+    result: PasswordResetRequestResult,
+    outcome: str,
+) -> None:
+    if outcome not in {AUDIT_OUTCOME_SUCCESS, AUDIT_OUTCOME_FAILURE}:
+        raise ValueError("delivery outcome must be success or failure")
+    if result.reset_token_id is None or result.account_id is None:
+        raise PasswordResetTokenInvalidError()
+
+    reset_record = session.scalar(
+        select(PatientPortalPasswordResetToken)
+        .where(PatientPortalPasswordResetToken.id == result.reset_token_id)
+        .with_for_update()
+    )
+    account = session.get(PatientPortalAccount, result.account_id)
+    if reset_record is None or account is None or reset_record.account_id != account.id:
+        raise PasswordResetTokenInvalidError()
+    if outcome == AUDIT_OUTCOME_FAILURE:
+        reset_record.status = PASSWORD_RESET_STATUS_REVOKED
+
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
+        outcome=outcome,
+        actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+        actor=account.username,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        account_id=account.id,
+        reason=MFA_DELIVERY_METHOD_EMAIL,
     )
 
 
@@ -1022,7 +1102,12 @@ def complete_password_reset(
         raise PasswordResetTokenInvalidError()
 
     account = session.get(PatientPortalAccount, reset_record.account_id)
-    if account is None or account.status != ACCOUNT_STATUS_ACTIVE:
+    if (
+        account is None
+        or account.status != ACCOUNT_STATUS_ACTIVE
+        or account.locked_at is not None
+    ):
+        reset_record.status = PASSWORD_RESET_STATUS_REVOKED
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_PASSWORD_RESET_COMPLETE,

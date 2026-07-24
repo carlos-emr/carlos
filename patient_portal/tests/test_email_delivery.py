@@ -105,6 +105,8 @@ def test_smtp_sender_wraps_refused_recipient_without_exposing_code(
         )
 
     assert "654321" not in str(exc_info.value)
+    assert "patient@example.test" not in repr(exc_info.value)
+    assert exc_info.value.__cause__ is None
 
 
 def test_smtp_sender_delivers_password_reset_link(
@@ -172,6 +174,7 @@ def test_non_development_smtp_requires_https_public_base_url() -> None:
             environment="staging",
             smtp_host="mail.internal",
             smtp_from_address="portal@example.test",
+            smtp_starttls=True,
         )
     with pytest.raises(ValueError, match="must use HTTPS"):
         Settings(
@@ -179,6 +182,7 @@ def test_non_development_smtp_requires_https_public_base_url() -> None:
             public_base_url="http://portal.example.test",
             smtp_host="mail.internal",
             smtp_from_address="portal@example.test",
+            smtp_starttls=True,
         )
 
     settings = Settings(
@@ -186,6 +190,7 @@ def test_non_development_smtp_requires_https_public_base_url() -> None:
         public_base_url="https://portal.example.test/",
         smtp_host="mail.internal",
         smtp_from_address="portal@example.test",
+        smtp_starttls=True,
         session_secret="s" * 32,
         identity_proof_secret="i" * 32,
         audit_hash_secret="a" * 32,
@@ -194,3 +199,13 @@ def test_non_development_smtp_requires_https_public_base_url() -> None:
     )
 
     assert settings.public_base_url == "https://portal.example.test"
+
+
+def test_non_development_smtp_requires_transport_encryption() -> None:
+    with pytest.raises(ValueError, match="PATIENT_PORTAL_SMTP_STARTTLS"):
+        Settings(
+            environment="staging",
+            public_base_url="https://portal.example.test",
+            smtp_host="mail.internal",
+            smtp_from_address="portal@example.test",
+        )

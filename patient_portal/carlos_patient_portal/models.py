@@ -38,6 +38,7 @@ AUDIT_EVENT_MFA_DELIVERY = "mfa.delivery"
 AUDIT_EVENT_MFA_RESEND = "mfa.resend"
 AUDIT_EVENT_MFA_VERIFY = "mfa.verify"
 AUDIT_EVENT_PASSWORD_RESET_COMPLETE = "password_reset.complete"
+AUDIT_EVENT_PASSWORD_RESET_DELIVERY = "password_reset.delivery"
 AUDIT_EVENT_PASSWORD_RESET_REQUEST = "password_reset.request"
 AUDIT_EVENT_SESSION_LOGOUT = "session.logout"
 AUDIT_EVENT_UNLOCK_SECRET_CREATE = "unlock_secret.create"
@@ -235,6 +236,13 @@ class PatientPortalContactReviewRequest(Base):
             "status",
         ),
         Index(
+            "ux_portal_contact_review_pending_account",
+            "account_id",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending'"),
+        ),
+        Index(
             "ix_pp_contact_review_clinic_status_requested",
             "clinic_id",
             "status",
@@ -423,6 +431,13 @@ class PatientPortalPasswordResetToken(Base):
             "ix_patient_portal_password_reset_tokens_account_status",
             "account_id",
             "status",
+        ),
+        Index(
+            "ux_portal_reset_pending_account",
+            "account_id",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending'"),
         ),
     )
 
@@ -752,7 +767,8 @@ class PatientPortalAuditEvent(Base):
                 "'account.mfa_update', 'account.password_change', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.delivery', 'mfa.resend', 'mfa.verify', "
-                "'password_reset.complete', 'password_reset.request', 'session.logout', "
+                "'password_reset.complete', 'password_reset.delivery', "
+                "'password_reset.request', 'session.logout', "
                 "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
                 "'unlock_secret.revoke')"
             ),

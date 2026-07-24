@@ -156,7 +156,7 @@
                     {{ text.mfa_method }}
                     <select name="preferred_mfa_method">
                       <option value="email"{% if account.preferred_mfa_method == "email" %} selected{% endif %}>{{ text.mfa_email }}</option>
-                      <option value="sms"{% if account.preferred_mfa_method == "sms" %} selected{% endif %}>{{ text.mfa_sms }}</option>
+                      <option value="sms" disabled>{{ text.mfa_sms }}</option>
                     </select>
                   </label>
                   <label>
@@ -241,13 +241,24 @@
                                 class="copyable-password"
                                 tabindex="0"
                                 aria-label="{{ text.password_for.format(subject=row.subject) }}"
-                              >{{ row.passphrase }}</code>
+                              >{{ text.password_hidden }}</code>
+                              <button
+                                class="secondary-action reveal-action"
+                                type="button"
+                                data-reveal-url="/portal/email-passwords/{{ row.id }}/reveal"
+                                data-reveal-target="email-password-{{ row.id }}"
+                                data-csrf-token="{{ csrf_token }}"
+                                data-reveal-label="{{ text.reveal }}"
+                                data-revealing-label="{{ text.revealing }}"
+                                data-reveal-failed-label="{{ text.reveal_failed }}"
+                              >{{ text.reveal }}</button>
                               <button
                                 class="secondary-action copy-action"
                                 type="button"
                                 data-copy-target="email-password-{{ row.id }}"
                                 data-copy-label="{{ text['copy'] }}"
                                 data-copied-label="{{ text.copied }}"
+                                hidden
                               >{{ text['copy'] }}</button>
                             </div>
                           {% else %}

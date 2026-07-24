@@ -5,9 +5,11 @@ from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.auth import (
+    AUTH_REASON_PASSWORD_FAILURES,
     MfaDeliveryUnavailableError,
     cancel_pending_mfa_challenges,
     ensure_mfa_delivery_available,
+    lock_account,
     normalize_mfa_delivery_method,
     normalize_phone_number,
     password_matches,
@@ -51,6 +53,7 @@ def change_account_password(
     *,
     current_password: str,
     new_password: str,
+    max_failed_password_attempts: int,
 ) -> None:
     validate_password(new_password)
     verify_current_password(
@@ -58,6 +61,7 @@ def change_account_password(
         account,
         current_password=current_password,
         event_type=AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
+        max_failed_password_attempts=max_failed_password_attempts,
     )
     now = utc_now()
     account.password_hash = password_hasher.hash(new_password)
@@ -87,6 +91,7 @@ def update_account_contact(
     current_password: str,
     email: str,
     phone_number: str | None,
+    max_failed_password_attempts: int,
 ) -> PatientPortalContactReviewRequest | None:
     normalized_email = normalize_email(email)
     normalized_phone_number = normalize_phone_number(phone_number)
@@ -95,6 +100,7 @@ def update_account_contact(
         account,
         current_password=current_password,
         event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+        max_failed_password_attempts=max_failed_password_attempts,
     )
     if account.preferred_mfa_method == MFA_DELIVERY_METHOD_SMS and normalized_phone_number is None:
         record_account_settings_audit_event(
@@ -117,21 +123,38 @@ def update_account_contact(
         return None
 
     now = utc_now()
-    review_request = PatientPortalContactReviewRequest(
-        account_id=account.id,
-        clinic_id=account.clinic_id,
-        demographic_no=account.demographic_no,
-        status=CONTACT_REVIEW_STATUS_PENDING,
-        email_before=account.email,
-        email_after=normalized_email,
-        phone_number_before=account.phone_number,
-        phone_number_after=normalized_phone_number,
-        requested_at=now,
+    locked_account_id = session.scalar(
+        select(PatientPortalAccount.id)
+        .where(PatientPortalAccount.id == account.id)
+        .with_for_update()
     )
-    session.add(review_request)
-    account.email = normalized_email
-    account.phone_number = normalized_phone_number
-    account.updated_at = now
+    if locked_account_id is None:
+        raise AccountSettingsValidationError()
+    review_request = session.scalar(
+        select(PatientPortalContactReviewRequest)
+        .where(
+            PatientPortalContactReviewRequest.account_id == account.id,
+            PatientPortalContactReviewRequest.status == CONTACT_REVIEW_STATUS_PENDING,
+        )
+        .with_for_update()
+    )
+    if review_request is None:
+        review_request = PatientPortalContactReviewRequest(
+            account_id=account.id,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            status=CONTACT_REVIEW_STATUS_PENDING,
+            email_before=account.email,
+            email_after=normalized_email,
+            phone_number_before=account.phone_number,
+            phone_number_after=normalized_phone_number,
+            requested_at=now,
+        )
+        session.add(review_request)
+    else:
+        review_request.email_after = normalized_email
+        review_request.phone_number_after = normalized_phone_number
+        review_request.requested_at = now
     session.flush()
     record_account_settings_audit_event(
         session,
@@ -149,6 +172,7 @@ def update_account_mfa_method(
     *,
     current_password: str,
     preferred_mfa_method: str,
+    max_failed_password_attempts: int,
 ) -> None:
     normalized_method = normalize_mfa_delivery_method(preferred_mfa_method)
     verify_current_password(
@@ -156,6 +180,7 @@ def update_account_mfa_method(
         account,
         current_password=current_password,
         event_type=AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
+        max_failed_password_attempts=max_failed_password_attempts,
     )
     try:
         ensure_mfa_delivery_available(account, normalized_method)
@@ -187,9 +212,23 @@ def verify_current_password(
     *,
     current_password: str,
     event_type: str,
+    max_failed_password_attempts: int,
 ) -> None:
+    if max_failed_password_attempts <= 0:
+        raise ValueError("max_failed_password_attempts must be positive")
     if password_matches(account.password_hash, current_password):
+        account.failed_login_count = 0
         return
+    now = utc_now()
+    account.failed_login_count += 1
+    account.updated_at = now
+    if account.failed_login_count >= max_failed_password_attempts:
+        lock_account(
+            session,
+            account,
+            reason=AUTH_REASON_PASSWORD_FAILURES,
+            now=now,
+        )
     record_account_settings_audit_event(
         session,
         account,

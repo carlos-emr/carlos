@@ -1,4 +1,5 @@
 from functools import lru_cache
+from ipaddress import ip_network
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
@@ -42,6 +43,7 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_timeout_seconds: int = Field(default=10, ge=1, le=60)
     trusted_client_ip_header: TrustedClientIpHeader | None = None
+    trusted_proxy_cidrs: str | None = Field(default=None, max_length=2048)
     activation_failure_window_seconds: int = Field(default=3600, ge=60, le=86400)
     activation_max_failures_per_invite: int = Field(default=10, ge=1, le=100)
     activation_max_failures_per_client: int = Field(default=50, ge=1, le=1000)
@@ -110,6 +112,7 @@ class Settings(BaseSettings):
         "smtp_host",
         "smtp_from_address",
         "smtp_username",
+        "trusted_proxy_cidrs",
         mode="before",
     )
     @classmethod
@@ -229,6 +232,10 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_SMTP_HOST is set"
             )
         if not self.is_development and self.smtp_host is not None:
+            if not self.smtp_starttls:
+                raise ValueError(
+                    "PATIENT_PORTAL_SMTP_STARTTLS must be enabled outside development"
+                )
             if self.public_base_url is None:
                 raise ValueError(
                     "PATIENT_PORTAL_PUBLIC_BASE_URL is required when SMTP is configured "
@@ -237,6 +244,27 @@ class Settings(BaseSettings):
             if not self.public_base_url.startswith("https://"):
                 raise ValueError(
                     "PATIENT_PORTAL_PUBLIC_BASE_URL must use HTTPS outside development"
+                )
+
+        if (self.trusted_client_ip_header is None) != (self.trusted_proxy_cidrs is None):
+            raise ValueError(
+                "PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER and "
+                "PATIENT_PORTAL_TRUSTED_PROXY_CIDRS must be configured together"
+            )
+        if self.trusted_proxy_cidrs is not None:
+            try:
+                parsed_networks = tuple(
+                    ip_network(value.strip(), strict=False)
+                    for value in self.trusted_proxy_cidrs.split(",")
+                    if value.strip()
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "PATIENT_PORTAL_TRUSTED_PROXY_CIDRS must contain valid comma-separated CIDRs"
+                ) from exc
+            if not parsed_networks:
+                raise ValueError(
+                    "PATIENT_PORTAL_TRUSTED_PROXY_CIDRS must contain at least one CIDR"
                 )
 
         identity_proof_secret_value: str | None = None
@@ -294,6 +322,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET must be set outside development"
             )
+        if self.is_production and self.smtp_host is None:
+            raise ValueError("PATIENT_PORTAL_SMTP_HOST must be set in production")
         return self
 
 

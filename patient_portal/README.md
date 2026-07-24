@@ -100,7 +100,8 @@ Local development should explicitly set `PATIENT_PORTAL_ENVIRONMENT=development`
 
 Development SMTP defaults to `carlos-test@openo-dev.local`; override it with
 `PATIENT_PORTAL_SMTP_FROM_ADDRESS` when needed. A sender address is always required outside
-development. Production SMTP relays can enable `PATIENT_PORTAL_SMTP_STARTTLS` and set
+development. SMTP is required in production, and every non-development SMTP connection must enable
+`PATIENT_PORTAL_SMTP_STARTTLS`. Relays can set
 `PATIENT_PORTAL_SMTP_USERNAME` and `PATIENT_PORTAL_SMTP_PASSWORD`; the username and password must be
 configured together. `PATIENT_PORTAL_SMTP_TIMEOUT_SECONDS` defaults to 10 seconds. MFA email bodies
 contain only the verification code, expiry, service name, and clinic contact direction. They do not
@@ -171,7 +172,8 @@ Authentication defaults:
 - MFA verification locks the account after 10 failed code attempts.
 - MFA codes expire after 10 minutes.
 - Email MFA resend is limited to once per minute.
-- SMS MFA resend is limited to once per five minutes.
+- SMS is represented in the data model and UI structure but remains disabled until a real sender is
+  configured.
 - Patient sessions expire after 12 hours.
 - Password reset tokens expire after one hour and are one-time use.
 
@@ -183,10 +185,10 @@ The deployment can tune these with `PATIENT_PORTAL_REQUIRE_MFA`,
 `PATIENT_PORTAL_PASSWORD_RESET_TOKEN_TTL_SECONDS`.
 
 By default, client throttling uses the direct peer address reported by the ASGI server. If the portal
-runs behind a trusted proxy that strips and sets forwarding headers, set
-`PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER` to `x-forwarded-for` or `x-real-ip`. Do not enable this for
-untrusted direct internet traffic, because clients can spoof those headers unless a trusted upstream
-controls them.
+runs behind a trusted proxy, set `PATIENT_PORTAL_TRUSTED_CLIENT_IP_HEADER` to `x-forwarded-for` or
+`x-real-ip` and set `PATIENT_PORTAL_TRUSTED_PROXY_CIDRS` to the comma-separated CIDRs of proxies that
+may supply that header. Forwarded values are ignored unless the direct peer is in that allowlist.
+For `X-Forwarded-For`, the portal walks the chain from the right and uses the first untrusted hop.
 
 Pilot hardening defaults:
 
@@ -333,7 +335,7 @@ curl -X POST http://127.0.0.1:8090/auth/login \
   -d '{"username": "patient.username", "password": "Stronger1!word"}'
 ```
 
-When MFA is required, login returns an opaque `mfa_challenge_token`. Verify the emailed or texted code
+When MFA is required, login returns an opaque `mfa_challenge_token`. Verify the emailed code
 to create a session:
 
 ```bash
@@ -348,12 +350,13 @@ curl -X POST -H "Authorization: Bearer <session_token>" \
   http://127.0.0.1:8090/auth/logout
 ```
 
-MFA resend supports switching between `email` and `sms` when the account has the selected channel:
+MFA resend currently supports email. SMS requests fail closed until an SMS delivery provider is
+implemented:
 
 ```bash
 curl -X POST http://127.0.0.1:8090/auth/mfa/resend \
   -H "Content-Type: application/json" \
-  -d '{"mfa_challenge_token": "<challenge>", "mfa_delivery_method": "sms"}'
+  -d '{"mfa_challenge_token": "<challenge>", "mfa_delivery_method": "email"}'
 ```
 
 Password reset uses a generic request response and a one-time token:
@@ -391,13 +394,15 @@ Dashboard routes:
 - `/portal` shows the module dashboard.
 - `/portal/account` shows account, contact, password, and MFA settings.
 - `/portal/email-passwords` shows searchable, provider/date-filtered, paginated generated email
-  passphrases for the authenticated patient, with unavailable rows hidden from raw passphrase
-  display.
+  password records for the authenticated patient. Passphrases are decrypted, audited, and returned
+  one at a time only after the patient selects Reveal.
 - `/portal/help` shows clinic help details.
 - `POST /portal/logout` clears the portal session cookie and writes a logout audit event.
 
 The dashboard is server-rendered and responsive. Desktop uses a left module rail; mobile uses a
 horizontal module bar with logout kept in the top-right header area.
+Contact edits create or update a staff-review request; they do not immediately replace the email
+address used for MFA and password reset.
 
 ## Unlock Secret Storage
 

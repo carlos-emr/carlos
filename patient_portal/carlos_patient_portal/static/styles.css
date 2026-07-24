@@ -7,6 +7,10 @@
   --page: #dfe7f7;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 * {
   box-sizing: border-box;
 }

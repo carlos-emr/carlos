@@ -17,7 +17,8 @@ class PortalEmailSender(Protocol):
         recipient: str,
         code: str,
         expires_in_seconds: int,
-    ) -> None: ...
+    ) -> None:
+        raise NotImplementedError
 
     def send_password_reset(
         self,
@@ -25,7 +26,8 @@ class PortalEmailSender(Protocol):
         recipient: str,
         reset_url: str,
         expires_in_seconds: int,
-    ) -> None: ...
+    ) -> None:
+        raise NotImplementedError
 
 
 class SmtpPortalEmailSender:
@@ -106,8 +108,8 @@ class SmtpPortalEmailSender:
                     raise PortalEmailDeliveryError("portal email delivery failed")
         except PortalEmailDeliveryError:
             raise
-        except (OSError, smtplib.SMTPException, ValueError) as exc:
-            raise PortalEmailDeliveryError("portal email delivery failed") from exc
+        except (OSError, smtplib.SMTPException, ValueError):
+            raise PortalEmailDeliveryError("portal email delivery failed") from None
 
 
 def build_portal_email_sender(settings: Settings) -> PortalEmailSender | None:

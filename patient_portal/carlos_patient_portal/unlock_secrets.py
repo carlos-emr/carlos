@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from importlib import resources
+from pathlib import Path
 from secrets import choice, randbelow, token_bytes
 
 from cryptography.exceptions import InvalidTag
@@ -78,9 +78,7 @@ class EncryptedUnlockSecretPayload:
 
 @lru_cache(maxsize=1)
 def load_unlock_secret_words() -> tuple[str, ...]:
-    wordlist_path = resources.files("carlos_patient_portal").joinpath(
-        UNLOCK_SECRET_WORDLIST_RESOURCE
-    )
+    wordlist_path = Path(__file__).resolve().parent / UNLOCK_SECRET_WORDLIST_RESOURCE
     words: list[str] = []
     with wordlist_path.open("r", encoding="utf-8") as wordlist:
         for line in wordlist:

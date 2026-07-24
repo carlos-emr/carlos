@@ -215,6 +215,10 @@ function screenshotPath(name) {
       await page.locator('.mfa-method-switch input[type="radio"]').count() === 2,
       'expected email and SMS MFA delivery options'
     );
+    assert(
+      await page.locator('.mfa-method-switch input[value="sms"]:disabled').count() === 1,
+      'SMS MFA must stay disabled until a sender is configured'
+    );
     await page.getByRole('button', { name: 'Help' }).click();
     await modal.waitFor({ state: 'visible' });
     await modal.getByRole('heading', { name: 'Clinic help' }).waitFor();
@@ -277,9 +281,15 @@ function screenshotPath(name) {
       'expected seeded email-password records'
     );
     assert(
-      await page.getByRole('button', { name: 'Copy' }).count() >= 3,
-      'expected visible Copy controls for seeded email-password records'
+      await page.getByRole('button', { name: 'Reveal' }).count() >= 3,
+      'expected Reveal controls for seeded email-password records'
     );
+    assert(
+      await page.locator('.copy-action:visible').count() === 0,
+      'Copy controls must stay hidden before an explicit reveal'
+    );
+    await page.getByRole('button', { name: 'Reveal' }).first().click();
+    await page.getByRole('button', { name: 'Copy' }).first().waitFor();
     const firstPassphrase = (await page.locator('.copyable-password').first().textContent() || '').trim();
     await page.getByRole('button', { name: 'Copy' }).first().click();
     await page.getByRole('button', { name: 'Copied' }).waitFor();

@@ -14,7 +14,7 @@ from fhir.resources.practitioner import Practitioner
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal import cli, main
@@ -84,6 +84,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_MFA_RESEND,
     AUDIT_EVENT_MFA_VERIFY,
     AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
+    AUDIT_EVENT_PASSWORD_RESET_DELIVERY,
     AUDIT_EVENT_PASSWORD_RESET_REQUEST,
     AUDIT_EVENT_SESSION_LOGOUT,
     AUDIT_EVENT_UNLOCK_SECRET_CREATE,
@@ -97,7 +98,6 @@ from carlos_patient_portal.models import (
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
-    MFA_DELIVERY_METHOD_SMS,
     SESSION_REVOKED_REASON_PASSWORD_CHANGE,
     UNLOCK_SECRET_NONCE_LENGTH,
     UNLOCK_SECRET_STATUS_REVOKED,
@@ -147,6 +147,23 @@ STRONG_RESET_PASSWORD = "Changed1!word"
 
 def development_settings(**overrides: object) -> Settings:
     values = {"environment": "development", **overrides}
+    return Settings(**values)
+
+
+def production_settings(**overrides: object) -> Settings:
+    values = {
+        "environment": "production",
+        "session_secret": NON_DEVELOPMENT_SESSION_SECRET,
+        "identity_proof_secret": IDENTITY_PROOF_SECRET,
+        "audit_hash_secret": AUDIT_HASH_SECRET,
+        "unlock_secret_encryption_secret": UNLOCK_SECRET_ENCRYPTION_SECRET,
+        "internal_health_token": INTERNAL_HEALTH_TOKEN,
+        "smtp_host": "mail.internal",
+        "smtp_from_address": "portal@example.test",
+        "smtp_starttls": True,
+        "public_base_url": "https://portal.example.test",
+        **overrides,
+    }
     return Settings(**values)
 
 
@@ -550,17 +567,12 @@ def test_sign_in_shell_uses_security_headers() -> None:
     assert response.headers["pragma"] == "no-cache"
 
 
+def test_jinja_templates_always_autoescape_jinja_files() -> None:
+    assert main.templates.env.autoescape is True
+
+
 def test_production_responses_include_hsts() -> None:
-    app = main.create_app(
-        Settings(
-            environment="production",
-            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-            identity_proof_secret=IDENTITY_PROOF_SECRET,
-            audit_hash_secret=AUDIT_HASH_SECRET,
-            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-            internal_health_token=INTERNAL_HEALTH_TOKEN,
-        )
-    )
+    app = main.create_app(production_settings())
     response = TestClient(app).get("/")
 
     assert response.headers["strict-transport-security"] == (
@@ -1032,7 +1044,7 @@ def test_form_mfa_resend_shows_cooldown_without_leaving_screen() -> None:
     assert "Resend code" in response.text
 
 
-def test_form_mfa_resend_can_switch_to_available_sms() -> None:
+def test_form_mfa_resend_rejects_sms_until_delivery_is_implemented() -> None:
     app = migrated_development_app()
     client = TestClient(app)
     account_id = activate_seeded_patient_account(app, client)
@@ -1064,11 +1076,10 @@ def test_form_mfa_resend_can_switch_to_available_sms() -> None:
         },
     )
 
-    assert response.status_code == 200
-    assert "A new code was sent by SMS." in response.text
-    assert "Code sent to ***-***-4567 by SMS." in response.text
-    assert 'value="sms"\n                    checked' in response.text
-    assert "SMS codes can be resent once every five minutes." in response.text
+    assert response.status_code == 400
+    assert "That delivery method is unavailable." in response.text
+    assert 'value="sms"' in response.text
+    assert "disabled" in response.text
 
 
 def test_form_mfa_resend_rejects_tampered_csrf_token() -> None:
@@ -1327,8 +1338,8 @@ def test_account_contact_update_creates_staff_review_request() -> None:
         )
 
         assert account is not None
-        assert account.email == "new.patient@example.com"
-        assert account.phone_number == "+1 555 010 5555"
+        assert account.email == SEEDED_INVITE_EMAIL
+        assert account.phone_number is None
         assert review_request is not None
         assert review_request.account_id == account_id
         assert review_request.status == CONTACT_REVIEW_STATUS_PENDING
@@ -1342,7 +1353,49 @@ def test_account_contact_update_creates_staff_review_request() -> None:
         ]
 
 
-def test_account_mfa_settings_require_available_delivery_method() -> None:
+def test_account_settings_step_up_failures_lock_and_revoke_session() -> None:
+    app = migrated_development_app(auth_max_failed_password_attempts=2)
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    account_response = client.get("/portal/account")
+
+    first_failure = client.post(
+        "/portal/account/contact",
+        data={
+            "csrf_token": csrf_token_from_response(account_response),
+            "email": "attacker@example.test",
+            "phone_number": "",
+            "current_password": "Wrong1!password",
+        },
+    )
+    second_failure = client.post(
+        "/portal/account/contact",
+        data={
+            "csrf_token": csrf_token_from_response(first_failure),
+            "email": "attacker@example.test",
+            "phone_number": "",
+            "current_password": "Wrong1!password",
+        },
+        follow_redirects=False,
+    )
+    portal_response = client.get("/portal", follow_redirects=False)
+
+    assert first_failure.status_code == 403
+    assert second_failure.status_code == 303
+    assert portal_response.status_code == 303
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        portal_session = session.scalar(
+            select(PatientPortalSession).where(PatientPortalSession.account_id == account_id)
+        )
+        assert account is not None
+        assert account.locked_at is not None
+        assert account.email == SEEDED_INVITE_EMAIL
+        assert portal_session is not None
+        assert portal_session.revoked_at is not None
+
+
+def test_account_mfa_settings_reject_sms_until_delivery_is_implemented() -> None:
     app = migrated_development_app()
     client = TestClient(app)
     account_id = browser_sign_in_seeded_patient(app, client)
@@ -1382,10 +1435,9 @@ def test_account_mfa_settings_require_available_delivery_method() -> None:
 
     assert unavailable_response.status_code == 400
     assert "Account change could not be completed." in unavailable_response.text
-    assert updated_response.status_code == 303
-    assert updated_response.headers["location"] == "/portal/account?status=mfa-updated"
+    assert updated_response.status_code == 400
     assert login_response.status_code == 200
-    assert login_response.json()["mfa_delivery_method"] == MFA_DELIVERY_METHOD_SMS
+    assert login_response.json()["mfa_delivery_method"] == "email"
     with app.state.session_factory() as session:
         account = session.get(PatientPortalAccount, account_id)
         audit_events = list(
@@ -1397,11 +1449,34 @@ def test_account_mfa_settings_require_available_delivery_method() -> None:
         )
 
         assert account is not None
-        assert account.preferred_mfa_method == MFA_DELIVERY_METHOD_SMS
+        assert account.preferred_mfa_method == "email"
         assert [(event.outcome, event.reason) for event in audit_events] == [
             (AUDIT_OUTCOME_FAILURE, "delivery_unavailable"),
-            (AUDIT_OUTCOME_SUCCESS, MFA_DELIVERY_METHOD_SMS),
+            (AUDIT_OUTCOME_FAILURE, "delivery_unavailable"),
         ]
+
+
+def test_login_falls_back_to_email_for_legacy_sms_preference() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        account.preferred_mfa_method = "sms"
+        account.phone_number = "+1 555 010 5555"
+        session.commit()
+
+    login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+
+    assert login_response.status_code == 200
+    assert login_response.json()["status"] == "mfa_required"
+    assert login_response.json()["mfa_delivery_method"] == "email"
+    assert sender.messages[-1]["recipient"] == SEEDED_INVITE_EMAIL
 
 
 def test_email_password_dashboard_populated_search_pagination_and_copy_controls() -> None:
@@ -1409,17 +1484,20 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     client = TestClient(app)
     account_id = browser_sign_in_seeded_patient(app, client)
     base_time = datetime(2026, 7, 23, 12, 0, tzinfo=UTC)
+    secret_ids: dict[int, int] = {}
+    secret_values: dict[int, str] = {}
 
     with app.state.session_factory() as session:
         with session.begin():
             for index in range(12):
+                secret_value = f"PortalPwd{index:02d}!A"
                 created = create_unlock_secret(
                     session,
                     clinic_id="default",
                     demographic_no=1234,
                     account_id=account_id,
                     secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-                    secret=f"PortalPwd{index:02d}!A",
+                    secret=secret_value,
                     created_by="Clinic Nurse" if index == 5 else "CarlosDoc",
                     encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                     label="Lab report" if index == 5 else f"Message {index:02d}",
@@ -1428,8 +1506,16 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
                 created_at = base_time + timedelta(days=index)
                 created.unlock_secret.created_at = created_at
                 created.unlock_secret.updated_at = created_at
+                secret_ids[index] = created.unlock_secret.id
+                secret_values[index] = secret_value
 
     page_one_response = client.get("/portal/email-passwords")
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(page_one_response.text)
+    assert csrf_token_match is not None
+    reveal_response = client.post(
+        f"/portal/email-passwords/{secret_ids[11]}/reveal",
+        data={"csrf_token": csrf_token_match.group(1)},
+    )
     page_two_response = client.get("/portal/email-passwords?page=2")
     search_response = client.get("/portal/email-passwords?q=lab")
     provider_response = client.get(
@@ -1451,30 +1537,29 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
 
     assert page_one_response.status_code == 200
     assert "Message 11" in page_one_response.text
-    assert "PortalPwd11!A" in page_one_response.text
     assert "Message 02" in page_one_response.text
-    assert "PortalPwd02!A" in page_one_response.text
     assert "Message 01" not in page_one_response.text
     assert "PortalPwd01!A" not in page_one_response.text
+    assert all(f"PortalPwd{index:02d}!A" not in page_one_response.text for index in range(12))
     assert page_one_response.text.index("Message 11") < page_one_response.text.index("Message 02")
-    assert ">PortalPwd11!A</code>" in page_one_response.text
+    assert ">Hidden</code>" in page_one_response.text
     assert 'class="copyable-password"' in page_one_response.text
     assert 'data-copy-target="email-password-' in page_one_response.text
+    assert 'data-reveal-url="/portal/email-passwords/' in page_one_response.text
     assert 'href="/portal/email-passwords?page=2"' in page_one_response.text
     assert '<span class="page-indicator">Page 1</span>' in page_one_response.text
+    assert reveal_response.status_code == 200
+    assert reveal_response.json()["passphrase"] == secret_values[11]
 
     assert page_two_response.status_code == 200
     assert "Message 01" in page_two_response.text
-    assert "PortalPwd01!A" in page_two_response.text
     assert "Message 00" in page_two_response.text
-    assert "PortalPwd00!A" in page_two_response.text
     assert "Message 02" not in page_two_response.text
     assert 'href="/portal/email-passwords"' in page_two_response.text
     assert '<span class="page-indicator">Page 2</span>' in page_two_response.text
 
     assert search_response.status_code == 200
     assert "Lab report" in search_response.text
-    assert "PortalPwd05!A" in search_response.text
     assert "Message 06" not in search_response.text
     assert "PortalPwd06!A" not in search_response.text
     assert 'value="lab"' in search_response.text
@@ -1506,7 +1591,7 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
             )
         )
 
-        assert len(read_events) == 25
+        assert len(read_events) == 1
         assert all(event.actor_type == "patient" for event in read_events)
 
 
@@ -1526,7 +1611,7 @@ def test_email_password_dashboard_empty_search_and_unavailable_password_states()
 
     with app.state.session_factory() as session:
         with session.begin():
-            create_unlock_secret(
+            created = create_unlock_secret(
                 session,
                 clinic_id="default",
                 demographic_no=1234,
@@ -1538,14 +1623,22 @@ def test_email_password_dashboard_empty_search_and_unavailable_password_states()
                 label="Broken message",
                 source_reference="message-4000",
             )
+            unavailable_id = created.unlock_secret.id
 
     unavailable_response = client.get("/portal/email-passwords")
+    csrf_token_match = CSRF_TOKEN_PATTERN.search(unavailable_response.text)
+    assert csrf_token_match is not None
+    reveal_response = client.post(
+        f"/portal/email-passwords/{unavailable_id}/reveal",
+        data={"csrf_token": csrf_token_match.group(1)},
+    )
 
     assert unavailable_response.status_code == 200
     assert "Broken message" in unavailable_response.text
-    assert "Unavailable" in unavailable_response.text
+    assert "Hidden" in unavailable_response.text
     assert raw_secret not in unavailable_response.text
-    assert "copyable-password" not in unavailable_response.text
+    assert reveal_response.status_code == 503
+    assert reveal_response.json()["detail"] == "email password unavailable"
     with app.state.session_factory() as session:
         read_event = session.scalar(
             select(PatientPortalAuditEvent).where(
@@ -1556,7 +1649,42 @@ def test_email_password_dashboard_empty_search_and_unavailable_password_states()
         )
 
         assert read_event is not None
-        assert read_event.reason == "not_available"
+        assert read_event.reason == "decryption_failed"
+
+
+def test_email_password_dashboard_escapes_stored_and_reflected_values() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = browser_sign_in_seeded_patient(app, client)
+    with app.state.session_factory() as session:
+        with session.begin():
+            create_unlock_secret(
+                session,
+                clinic_id="default",
+                demographic_no=1234,
+                account_id=account_id,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                secret="Escaped1!word",
+                created_by="<strong>Provider</strong>",
+                encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
+                label="<meta http-equiv=refresh content=0>",
+                source_reference="<img src=x>",
+            )
+
+    stored_response = client.get("/portal/email-passwords")
+    reflected_response = client.get(
+        "/portal/email-passwords",
+        params={"q": '<script nonce="x">alert(1)</script>'},
+    )
+
+    assert stored_response.status_code == 200
+    assert "<strong>Provider</strong>" not in stored_response.text
+    assert "<meta http-equiv" not in stored_response.text
+    assert "<img src=x>" not in stored_response.text
+    assert "&lt;strong&gt;Provider&lt;/strong&gt;" in stored_response.text
+    assert reflected_response.status_code == 200
+    assert '<script nonce="x">alert(1)</script>' not in reflected_response.text
+    assert "&lt;script" in reflected_response.text
 
 
 def test_portal_logout_rejects_invalid_csrf_without_revoking_session() -> None:
@@ -1822,7 +1950,7 @@ def test_login_rejects_bad_password_with_generic_error_and_audit() -> None:
         assert audit_event.reason == "invalid_credentials"
 
 
-def test_mfa_resend_limits_email_and_allows_switch_to_sms() -> None:
+def test_mfa_resend_limits_email_and_rejects_unimplemented_sms() -> None:
     app = migrated_development_app()
     client = TestClient(app)
     account_id = activate_seeded_patient_account(app, client)
@@ -1830,7 +1958,6 @@ def test_mfa_resend_limits_email_and_allows_switch_to_sms() -> None:
         account = session.get(PatientPortalAccount, account_id)
         assert account is not None
         account.phone_number = "+1 555 123 4567"
-        account.preferred_mfa_method = MFA_DELIVERY_METHOD_SMS
         session.commit()
 
     login_response = client.post(
@@ -1859,17 +1986,14 @@ def test_mfa_resend_limits_email_and_allows_switch_to_sms() -> None:
     assert login_response.status_code == 200
     assert throttled_email_response.status_code == 429
     assert throttled_email_response.headers["retry-after"] == "60"
-    assert sms_response.status_code == 200
-    assert sms_response.json()["mfa_delivery_method"] == "sms"
-    assert re.fullmatch(r"\d{6}", sms_response.json()["development_mfa_code"])
-    assert throttled_sms_response.status_code == 429
-    assert throttled_sms_response.headers["retry-after"] == "300"
+    assert sms_response.status_code == 400
+    assert throttled_sms_response.status_code == 400
 
     verify_response = client.post(
         "/auth/mfa/verify",
         json={
             "mfa_challenge_token": challenge_token,
-            "code": sms_response.json()["development_mfa_code"],
+            "code": login_response.json()["development_mfa_code"],
         },
     )
 
@@ -1886,12 +2010,12 @@ def test_mfa_resend_limits_email_and_allows_switch_to_sms() -> None:
         )
 
         assert challenge is not None
-        assert challenge.delivery_method == "sms"
+        assert challenge.delivery_method == "email"
         assert challenge.status == "verified"
         assert [event.outcome for event in audit_events] == [
             AUDIT_OUTCOME_THROTTLED,
-            AUDIT_OUTCOME_SUCCESS,
-            AUDIT_OUTCOME_THROTTLED,
+            AUDIT_OUTCOME_FAILURE,
+            AUDIT_OUTCOME_FAILURE,
         ]
 
 
@@ -1956,7 +2080,7 @@ def test_password_lockout_staff_unlock_and_forced_reset() -> None:
     )
 
     assert first_bad_response.status_code == 401
-    assert lock_response.status_code == 423
+    assert lock_response.status_code == 401
     assert locked_login_response.status_code == 423
 
     unlock_response = client.post(
@@ -2054,6 +2178,15 @@ def test_browser_password_reset_sends_fragment_link_and_completes_reset() -> Non
     assert parsed_reset_url.path == "/auth/password-reset/complete"
     reset_token = parse_qs(parsed_reset_url.fragment)["token"][0]
     assert reset_token not in parsed_reset_url.path
+    with app.state.session_factory() as session:
+        delivery_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_PASSWORD_RESET_DELIVERY
+            )
+        )
+        assert delivery_event is not None
+        assert delivery_event.outcome == AUDIT_OUTCOME_SUCCESS
+        assert delivery_event.reason == "email"
     cooldown_response = client.post(
         "/auth/password-reset/request",
         json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
@@ -2094,6 +2227,36 @@ def test_browser_password_reset_sends_fragment_link_and_completes_reset() -> Non
     assert reset_token not in complete_response.text
     assert login_response.status_code == 200
     assert login_response.json()["status"] == "mfa_required"
+
+
+def test_password_reset_delivery_failure_revokes_token_and_is_audited(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sender = RecordingPortalEmailSender(fail=True)
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+
+    response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["development_reset_token"] is None
+    assert SEEDED_INVITE_EMAIL not in caplog.text
+    with app.state.session_factory() as session:
+        reset_record = session.scalar(select(PatientPortalPasswordResetToken))
+        delivery_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_PASSWORD_RESET_DELIVERY
+            )
+        )
+        assert reset_record is not None
+        assert reset_record.status == "revoked"
+        assert delivery_event is not None
+        assert delivery_event.outcome == AUDIT_OUTCOME_FAILURE
+        assert delivery_event.reason == "email"
 
 
 def test_locked_account_browser_page_and_reset_require_staff_unlock() -> None:
@@ -2144,6 +2307,62 @@ def test_locked_account_browser_page_and_reset_require_staff_unlock() -> None:
     assert len(sender.messages) == 1
 
 
+def test_account_lock_revokes_preexisting_password_reset_token() -> None:
+    app = migrated_development_app(auth_max_failed_password_attempts=1)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    reset_response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    reset_token = reset_response.json()["development_reset_token"]
+
+    lock_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": "Wrong1!password"},
+    )
+    complete_response = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": reset_token, "new_password": STRONG_RESET_PASSWORD},
+    )
+
+    assert lock_response.status_code == 401
+    assert complete_response.status_code == 400
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        reset_record = session.scalar(select(PatientPortalPasswordResetToken))
+        assert account is not None
+        assert account.locked_at is not None
+        assert reset_record is not None
+        assert reset_record.status == "revoked"
+
+
+def test_database_allows_only_one_pending_password_reset_per_account() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    assert response.status_code == 202
+
+    now = utc_now()
+    with app.state.session_factory() as session:
+        session.add(
+            PatientPortalPasswordResetToken(
+                account_id=account_id,
+                token_hash="z" * 64,
+                status="pending",
+                created_at=now,
+                expires_at=now + timedelta(hours=1),
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.commit()
+        session.rollback()
+
+
 def test_api_docs_are_available_in_development() -> None:
     app = main.create_app(development_settings())
 
@@ -2168,16 +2387,7 @@ def test_api_docs_are_disabled_outside_development() -> None:
 
 
 def test_api_docs_are_disabled_in_production() -> None:
-    app = main.create_app(
-        Settings(
-            environment="production",
-            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-            identity_proof_secret=IDENTITY_PROOF_SECRET,
-            audit_hash_secret=AUDIT_HASH_SECRET,
-            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-            internal_health_token=INTERNAL_HEALTH_TOKEN,
-        )
-    )
+    app = main.create_app(production_settings())
 
     assert TestClient(app).get("/api/openapi.json").status_code == 404
     assert TestClient(app).get("/api/docs").status_code == 404
@@ -2652,10 +2862,11 @@ def test_patient_activation_rate_limits_failed_attempts() -> None:
         assert all(event.client_reference_hash == expected_client_hash for event in audit_events)
 
 
-def test_patient_activation_rate_limit_can_use_trusted_proxy_header() -> None:
+def test_patient_activation_rate_limit_ignores_header_from_untrusted_peer() -> None:
     app = migrated_development_app(
         session_secret=NON_DEVELOPMENT_SESSION_SECRET,
         trusted_client_ip_header="x-forwarded-for",
+        trusted_proxy_cidrs="10.0.0.0/8",
     )
     client = TestClient(app)
     create_response = client.post(
@@ -2674,7 +2885,7 @@ def test_patient_activation_rate_limit_can_use_trusted_proxy_header() -> None:
     expected_client_hash = hash_sensitive_reference(
         AUDIT_HASH_SECRET,
         "activation_client",
-        "203.0.113.7",
+        "testclient",
     )
     with app.state.session_factory() as session:
         audit_event = session.scalar(
@@ -3462,7 +3673,7 @@ def test_patient_email_password_api_lists_retrieves_scoped_records_and_audits() 
                 AUDIT_OUTCOME_FAILURE,
                 account_a_id,
                 1234,
-                "not_available",
+                "decryption_failed",
             ),
         ]
 
@@ -3869,6 +4080,20 @@ def test_session_scope_commits_success() -> None:
     engine.dispose()
 
 
+def test_route_transaction_commit_failure_prevents_success_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = main.create_app(development_settings(database_url="sqlite+pysqlite:///:memory:"))
+
+    def fail_commit(_: Session) -> None:
+        raise SQLAlchemyError("simulated commit failure")
+
+    monkeypatch.setattr(Session, "commit", fail_commit)
+    response = TestClient(app, raise_server_exceptions=False).get("/internal/health/db")
+
+    assert response.status_code == 500
+
+
 def test_audit_retention_prunes_only_events_older_than_cutoff() -> None:
     app = migrated_development_app()
     now = datetime(2026, 7, 23, 12, 0, tzinfo=UTC)
@@ -3967,13 +4192,8 @@ def test_database_identifiers_fit_postgresql_limit() -> None:
 
 
 def test_environment_aliases_are_normalized() -> None:
-    settings = Settings(
+    settings = production_settings(
         environment=" prod ",
-        session_secret=NON_DEVELOPMENT_SESSION_SECRET,
-        identity_proof_secret=IDENTITY_PROOF_SECRET,
-        audit_hash_secret=AUDIT_HASH_SECRET,
-        unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
-        internal_health_token=INTERNAL_HEALTH_TOKEN,
     )
 
     assert settings.environment == "production"
@@ -4013,9 +4233,37 @@ def test_clinic_id_must_not_be_blank() -> None:
 
 
 def test_trusted_client_ip_header_is_normalized() -> None:
-    settings = development_settings(trusted_client_ip_header=" X-Forwarded-For ")
+    settings = development_settings(
+        trusted_client_ip_header=" X-Forwarded-For ",
+        trusted_proxy_cidrs="10.0.0.0/8",
+    )
 
     assert settings.trusted_client_ip_header == "x-forwarded-for"
+
+
+def test_trusted_proxy_chain_uses_rightmost_untrusted_client() -> None:
+    client_address = main.parse_trusted_client_ip_header(
+        "x-forwarded-for",
+        "198.51.100.200, 203.0.113.7, 10.0.0.10",
+        peer_address="10.0.0.20",
+        trusted_proxy_cidrs="10.0.0.0/8",
+    )
+    spoofed_header = main.parse_trusted_client_ip_header(
+        "x-forwarded-for",
+        "203.0.113.99",
+        peer_address="192.0.2.10",
+        trusted_proxy_cidrs="10.0.0.0/8",
+    )
+
+    assert client_address == "203.0.113.7"
+    assert spoofed_header is None
+
+
+def test_trusted_proxy_header_and_cidrs_must_be_configured_together() -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_PROXY_CIDRS"):
+        development_settings(trusted_client_ip_header="x-forwarded-for")
+    with pytest.raises(ValidationError, match="TRUSTED_CLIENT_IP_HEADER"):
+        development_settings(trusted_proxy_cidrs="10.0.0.0/8")
 
 
 def test_default_settings_reject_missing_production_secrets() -> None:
@@ -4088,6 +4336,18 @@ def test_non_development_rejects_missing_unlock_secret_encryption_secret() -> No
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
+            internal_health_token=INTERNAL_HEALTH_TOKEN,
+        )
+
+
+def test_production_requires_configured_mfa_email_delivery() -> None:
+    with pytest.raises(ValidationError, match="PATIENT_PORTAL_SMTP_HOST"):
+        Settings(
+            environment="production",
+            session_secret=NON_DEVELOPMENT_SESSION_SECRET,
+            identity_proof_secret=IDENTITY_PROOF_SECRET,
+            audit_hash_secret=AUDIT_HASH_SECRET,
+            unlock_secret_encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
             internal_health_token=INTERNAL_HEALTH_TOKEN,
         )
 

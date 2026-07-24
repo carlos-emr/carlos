@@ -154,6 +154,14 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_index(
+        "ux_portal_contact_review_pending_account",
+        "patient_portal_contact_review_requests",
+        ["account_id"],
+        unique=True,
+        sqlite_where=sa.text("status = 'pending'"),
+        postgresql_where=sa.text("status = 'pending'"),
+    )
+    op.create_index(
         "ix_pp_contact_review_clinic_status_requested",
         "patient_portal_contact_review_requests",
         ["clinic_id", "status", "requested_at"],
@@ -306,6 +314,14 @@ def upgrade() -> None:
         "patient_portal_password_reset_tokens",
         ["token_hash"],
         unique=True,
+    )
+    op.create_index(
+        "ux_portal_reset_pending_account",
+        "patient_portal_password_reset_tokens",
+        ["account_id"],
+        unique=True,
+        sqlite_where=sa.text("status = 'pending'"),
+        postgresql_where=sa.text("status = 'pending'"),
     )
     op.create_table(
         "patient_portal_invites",
@@ -575,7 +591,8 @@ def upgrade() -> None:
                 "'account.mfa_update', 'account.password_change', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.delivery', 'mfa.resend', 'mfa.verify', "
-                "'password_reset.complete', 'password_reset.request', 'session.logout', "
+                "'password_reset.complete', 'password_reset.delivery', "
+                "'password_reset.request', 'session.logout', "
                 "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
                 "'unlock_secret.revoke')"
             ),
@@ -678,6 +695,10 @@ def downgrade() -> None:
     )
     op.drop_table("patient_portal_invites")
     op.drop_index(
+        "ux_portal_reset_pending_account",
+        table_name="patient_portal_password_reset_tokens",
+    )
+    op.drop_index(
         "ux_patient_portal_password_reset_tokens_token_hash",
         table_name="patient_portal_password_reset_tokens",
     )
@@ -706,6 +727,10 @@ def downgrade() -> None:
     op.drop_table("patient_portal_sessions")
     op.drop_index(
         "ix_pp_contact_review_clinic_status_requested",
+        table_name="patient_portal_contact_review_requests",
+    )
+    op.drop_index(
+        "ux_portal_contact_review_pending_account",
         table_name="patient_portal_contact_review_requests",
     )
     op.drop_index(

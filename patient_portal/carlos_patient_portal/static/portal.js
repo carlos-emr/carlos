@@ -3,6 +3,67 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const revealButton = event.target.closest("[data-reveal-url][data-reveal-target]");
+  if (!(revealButton instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const revealUrl = revealButton.dataset.revealUrl;
+  const targetId = revealButton.dataset.revealTarget;
+  const csrfToken = revealButton.dataset.csrfToken;
+  const target = targetId ? document.getElementById(targetId) : null;
+  if (!revealUrl || !csrfToken || !(target instanceof HTMLElement)) {
+    return;
+  }
+
+  revealButton.disabled = true;
+  revealButton.textContent = revealButton.dataset.revealingLabel || "Revealing...";
+  void fetch(revealUrl, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: `csrf_token=${encodeURIComponent(csrfToken)}`,
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("reveal failed");
+      }
+      return response.json();
+    })
+    .then((payload) => {
+      if (
+        typeof payload !== "object"
+        || payload === null
+        || typeof payload.passphrase !== "string"
+      ) {
+        throw new Error("invalid reveal response");
+      }
+      target.textContent = payload.passphrase;
+      const copyButton = target.parentElement?.querySelector("[data-copy-target]");
+      if (copyButton instanceof HTMLButtonElement) {
+        copyButton.hidden = false;
+      }
+      revealButton.hidden = true;
+      target.focus();
+    })
+    .catch(() => {
+      revealButton.textContent = (
+        revealButton.dataset.revealFailedLabel || "Password could not be revealed."
+      );
+      window.setTimeout(() => {
+        revealButton.textContent = revealButton.dataset.revealLabel || "Reveal";
+        revealButton.disabled = false;
+      }, 2500);
+    });
+});
+
+document.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
   const copyButton = event.target.closest("[data-copy-target]");
   if (!(copyButton instanceof HTMLButtonElement)) {
     return;

@@ -7,7 +7,7 @@ from datetime import time as datetime_time
 from hashlib import sha256
 from hmac import new as new_hmac
 from http.cookies import SimpleCookie
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 from math import ceil
 from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
@@ -22,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -68,6 +69,7 @@ from carlos_patient_portal.auth import (
     get_mfa_challenge_delivery_state,
     logout_patient_session,
     record_mfa_delivery_outcome,
+    record_password_reset_delivery_outcome,
     request_password_reset,
     resend_mfa_challenge,
     start_login,
@@ -167,7 +169,12 @@ from carlos_patient_portal.unlock_secrets import (
 
 PACKAGE_DIR = FilePath(__file__).resolve().parent
 RequestModel = TypeVar("RequestModel", bound=BaseModel)
-templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
+templates = Jinja2Templates(
+    env=Environment(
+        loader=FileSystemLoader(str(PACKAGE_DIR / "templates")),
+        autoescape=True,
+    )
+)
 logger = logging.getLogger(__name__)
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
@@ -651,7 +658,7 @@ def build_password_reset_url(
     else:
         raise PortalEmailDeliveryError("password reset email delivery is not configured")
     encoded_token = quote(reset_token, safe="")
-    return f"{base_url}/auth/password-reset/complete#token={encoded_token}"
+    return base_url + "/auth/password-reset/complete#token=" + encoded_token
 
 
 def send_password_reset_email(
@@ -856,7 +863,7 @@ def mask_mfa_destination(delivery: MfaChallengeDelivery) -> str:
         if not separator:
             return "your email address"
         visible_prefix = local_part[:2] if len(local_part) > 1 else local_part[:1]
-        return f"{visible_prefix}***@{domain}"
+        return visible_prefix + "***@" + domain
 
     digits = "".join(character for character in delivery.destination if character.isdigit())
     if len(digits) < 4:
@@ -918,7 +925,6 @@ def email_password_dashboard_context(
     date_from: date | None,
     date_to: date | None,
     page: int,
-    encryption_secret: str,
 ) -> dict[str, object]:
     text = portal_text(DEFAULT_LOCALE)
     normalized_search = normalize_email_password_dashboard_search(search)
@@ -968,12 +974,7 @@ def email_password_dashboard_context(
     has_next = len(records) > EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
     return {
         "rows": [
-            email_password_dashboard_row(
-                session,
-                account,
-                record,
-                encryption_secret=encryption_secret,
-            )
+            email_password_dashboard_row(record)
             for record in visible_records
         ],
         "search": normalized_search or "",
@@ -1027,46 +1028,15 @@ def email_password_dashboard_context(
 
 
 def email_password_dashboard_row(
-    session: Session,
-    account: PatientPortalAccount,
     unlock_secret: PatientPortalUnlockSecret,
-    *,
-    encryption_secret: str,
 ) -> dict[str, object]:
-    try:
-        passphrase = read_unlock_secret(
-            session,
-            unlock_secret.id,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            audit_account_id=account.id,
-            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
-            actor=account.username,
-            encryption_secret=encryption_secret,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-        )
-    except (UnlockSecretDecryptionError, UnlockSecretNotFoundError, UnlockSecretRevokedError):
-        record_audit_event(
-            session,
-            event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
-            outcome=AUDIT_OUTCOME_FAILURE,
-            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
-            actor=account.username,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            account_id=account.id,
-            reason="not_available",
-        )
-        passphrase = None
-
     return {
         "id": unlock_secret.id,
         "subject": unlock_secret.label or "Email password",
         "provider": unlock_secret.created_by,
         "sent_at": unlock_secret.created_at.strftime("%Y-%m-%d %H:%M"),
         "source_reference": unlock_secret.source_reference,
-        "passphrase": passphrase,
-        "is_available": passphrase is not None,
+        "is_available": unlock_secret.status == UNLOCK_SECRET_STATUS_ACTIVE,
     }
 
 
@@ -1466,22 +1436,43 @@ async def get_login_request_from_request(request: Request, csrf_secret: str) -> 
         raise RequestValidationError(exc.errors()) from exc
 
 
-def parse_trusted_client_ip_header(header_name: str, header_value: str | None) -> str | None:
-    if not header_value:
-        return None
-
-    candidate = (
-        header_value.split(",", 1)[0].strip()
-        if header_name == "x-forwarded-for"
-        else header_value.strip()
-    )
-    if not candidate:
+def parse_trusted_client_ip_header(
+    header_name: str,
+    header_value: str | None,
+    *,
+    peer_address: str | None,
+    trusted_proxy_cidrs: str | None,
+) -> str | None:
+    if not header_value or not peer_address or not trusted_proxy_cidrs:
         return None
 
     try:
-        return str(ip_address(candidate))
+        peer_ip = ip_address(peer_address)
+        trusted_networks = tuple(
+            ip_network(value.strip(), strict=False)
+            for value in trusted_proxy_cidrs.split(",")
+            if value.strip()
+        )
     except ValueError:
         return None
+    if not any(peer_ip in network for network in trusted_networks):
+        return None
+
+    try:
+        if header_name != "x-forwarded-for":
+            return str(ip_address(header_value.strip()))
+        forwarded_ips = tuple(
+            ip_address(value.strip()) for value in header_value.split(",") if value.strip()
+        )
+    except ValueError:
+        return None
+    if not forwarded_ips:
+        return None
+
+    for candidate in reversed(forwarded_ips):
+        if not any(candidate in network for network in trusted_networks):
+            return str(candidate)
+    return str(forwarded_ips[0])
 
 
 def get_request_client_reference(request: Request, settings: Settings) -> str:
@@ -1489,6 +1480,8 @@ def get_request_client_reference(request: Request, settings: Settings) -> str:
         trusted_client_reference = parse_trusted_client_ip_header(
             settings.trusted_client_ip_header,
             request.headers.get(settings.trusted_client_ip_header),
+            peer_address=request.client.host if request.client is not None else None,
+            trusted_proxy_cidrs=settings.trusted_proxy_cidrs,
         )
         if trusted_client_reference is not None:
             return trusted_client_reference
@@ -1662,11 +1655,10 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         with runtime.session_factory() as session:
             try:
                 yield session
+                session.commit()
             except BaseException:
                 session.rollback()
                 raise
-            else:
-                session.commit()
 
     def require_internal_health_token(
         authorization: Annotated[str | None, Header()] = None,
@@ -1730,7 +1722,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
 
     def get_authenticated_portal_session(
         session_token: Annotated[str, Depends(get_authorization_bearer_token)],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> AuthenticatedPortalSession:
         try:
             return authenticate_session_token(
@@ -1742,7 +1734,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             raise HTTPException(status_code=401, detail="authentication required") from exc
 
     def get_authenticated_fhir_session(
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         authorization: Annotated[str | None, Header()] = None,
     ) -> AuthenticatedPortalSession:
         scheme, _, supplied_token = (authorization or "").partition(" ")
@@ -1809,7 +1801,6 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 date_from=email_password_date_from,
                 date_to=email_password_date_to,
                 page=email_password_page,
-                encryption_secret=runtime.unlock_secret_encryption_secret,
             )
         csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
@@ -1956,7 +1947,7 @@ def register_public_routes(
     @app.get("/internal/health/db", include_in_schema=False)
     def database_health(
         _: Annotated[None, Depends(require_internal_health_token)],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, str]:
         try:
             check_database(session)
@@ -1967,7 +1958,7 @@ def register_public_routes(
     @app.get("/internal/readiness", include_in_schema=False)
     def readiness(
         _: Annotated[None, Depends(require_internal_health_token)],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> JSONResponse:
         try:
             check_database(session)
@@ -2082,7 +2073,7 @@ def register_auth_routes(
     @app.post("/auth/login", response_model=LoginResponse)
     async def login(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_login_request_from_request(request, csrf_secret)
@@ -2188,7 +2179,7 @@ def register_auth_routes(
     @app.post("/auth/mfa/resend", response_model=MfaChallengeResponse)
     async def resend_mfa(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_mfa_resend_request_from_request(request, csrf_secret)
@@ -2305,7 +2296,7 @@ def register_auth_routes(
     @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)
     async def verify_mfa(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_mfa_verify_request_from_request(request, csrf_secret)
@@ -2403,7 +2394,7 @@ def register_auth_routes(
     )
     async def request_reset(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
@@ -2429,29 +2420,55 @@ def register_auth_routes(
             policy=auth_policy,
             token_secret=csrf_secret,
         )
+        response_reset_token = result.reset_token
         development_reset_url = None
-        if (
-            result.reset_token is not None
-            and result.recipient is not None
-            and (runtime.email_sender is not None or settings.is_development)
-        ):
-            reset_url = build_password_reset_url(
-                request,
-                settings=settings,
-                reset_token=result.reset_token,
-            )
+        if result.reset_token is not None and result.recipient is not None:
             session.commit()
-            try:
-                await run_in_threadpool(
-                    send_password_reset_email,
-                    runtime,
-                    recipient=result.recipient,
-                    reset_url=reset_url,
+            if runtime.email_sender is None and not settings.is_development:
+                record_password_reset_delivery_outcome(
+                    session,
+                    result=result,
+                    outcome=AUDIT_OUTCOME_FAILURE,
                 )
-            except PortalEmailDeliveryError:
-                logger.exception("Password reset email delivery failed")
-            if settings.is_development:
-                development_reset_url = reset_url
+                session.commit()
+                logger.error("Password reset email delivery is not configured")
+                response_reset_token = None
+            else:
+                reset_url = build_password_reset_url(
+                    request,
+                    settings=settings,
+                    reset_token=result.reset_token,
+                )
+                delivery_succeeded = False
+                try:
+                    await run_in_threadpool(
+                        send_password_reset_email,
+                        runtime,
+                        recipient=result.recipient,
+                        reset_url=reset_url,
+                    )
+                except PortalEmailDeliveryError as exc:
+                    record_password_reset_delivery_outcome(
+                        session,
+                        result=result,
+                        outcome=AUDIT_OUTCOME_FAILURE,
+                    )
+                    session.commit()
+                    logger.error(
+                        "Password reset email delivery failed: %s",
+                        type(exc).__name__,
+                    )
+                    response_reset_token = None
+                else:
+                    record_password_reset_delivery_outcome(
+                        session,
+                        result=result,
+                        outcome=AUDIT_OUTCOME_SUCCESS,
+                    )
+                    session.commit()
+                    delivery_succeeded = True
+                if settings.is_development and delivery_succeeded:
+                    development_reset_url = reset_url
         if is_browser_form:
             return render_password_reset_request(
                 request,
@@ -2463,12 +2480,12 @@ def register_auth_routes(
                 },
                 development_reset_url=development_reset_url,
             )
-        return password_reset_request_response_payload(result.reset_token, settings=settings)
+        return password_reset_request_response_payload(response_reset_token, settings=settings)
 
     @app.post("/auth/password-reset/complete", response_model=PasswordResetCompleteResponse)
     async def complete_reset(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
@@ -2600,7 +2617,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> JSONResponse:
         account = authenticated_session.account
         records = list_unlock_secrets(
@@ -2632,7 +2649,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> JSONResponse:
         account = authenticated_session.account
         record_id = parse_fhir_numeric_id(document_reference_id)
@@ -2701,7 +2718,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> JSONResponse:
         account = authenticated_session.account
         records = list_unlock_secrets(
@@ -2730,7 +2747,7 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> JSONResponse:
         account = authenticated_session.account
         records = list_unlock_secrets(
@@ -2766,7 +2783,7 @@ def register_patient_email_password_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_portal_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         limit: Annotated[
             int,
             Query(ge=1, le=MAX_UNLOCK_SECRET_LIST_LIMIT),
@@ -2808,7 +2825,7 @@ def register_patient_email_password_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_portal_session),
         ],
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> Response | dict[str, object]:
         account = authenticated_session.account
         try:
@@ -2856,7 +2873,11 @@ def register_patient_email_password_routes(
                 clinic_id=account.clinic_id,
                 demographic_no=account.demographic_no,
                 account_id=account.id,
-                reason="not_available",
+                reason="decryption_failed",
+            )
+            logger.error(
+                "Unlock-secret decryption failed for record %d",
+                email_password_id,
             )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -2879,7 +2900,7 @@ def register_logout_route(
     def logout(
         session_token: Annotated[str, Depends(get_authorization_bearer_token)],
         response: Response,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, str]:
         try:
             logout_patient_session(
@@ -2911,14 +2932,14 @@ def register_portal_routes(
     @app.get("/portal")
     def portal_dashboard(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> Response:
         return render_portal_page(request, session, active_module="dashboard")
 
     @app.get("/portal/account")
     def portal_account(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         account_status: Annotated[
             str | None,
             Query(alias="status", max_length=32),
@@ -2936,7 +2957,7 @@ def register_portal_routes(
     @app.post("/portal/account/password")
     async def portal_account_password(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> Response:
         form_values = await get_portal_account_form_values(
             request,
@@ -2953,6 +2974,7 @@ def register_portal_routes(
                 authenticated_session.portal_session,
                 current_password=first_form_value_or_empty(form_values, "current_password"),
                 new_password=first_form_value_or_empty(form_values, "new_password"),
+                max_failed_password_attempts=settings.auth_max_failed_password_attempts,
             )
         except AccountSettingsStepUpError:
             return render_account_change_error(
@@ -2974,7 +2996,7 @@ def register_portal_routes(
     @app.post("/portal/account/contact")
     async def portal_account_contact(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> Response:
         form_values = await get_portal_account_form_values(
             request,
@@ -2991,6 +3013,7 @@ def register_portal_routes(
                 current_password=first_form_value_or_empty(form_values, "current_password"),
                 email=first_form_value_or_empty(form_values, "email"),
                 phone_number=first_form_value(form_values, "phone_number"),
+                max_failed_password_attempts=settings.auth_max_failed_password_attempts,
             )
         except AccountSettingsStepUpError:
             return render_account_change_error(
@@ -3013,7 +3036,7 @@ def register_portal_routes(
     @app.post("/portal/account/mfa")
     async def portal_account_mfa(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> Response:
         form_values = await get_portal_account_form_values(
             request,
@@ -3032,6 +3055,7 @@ def register_portal_routes(
                     form_values,
                     "preferred_mfa_method",
                 ),
+                max_failed_password_attempts=settings.auth_max_failed_password_attempts,
             )
         except AccountSettingsStepUpError:
             return render_account_change_error(
@@ -3053,7 +3077,7 @@ def register_portal_routes(
     @app.get("/portal/email-passwords")
     def portal_email_passwords(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         q: Annotated[str | None, Query(max_length=MAX_UNLOCK_SECRET_SEARCH_LENGTH)] = None,
         provider: Annotated[
             str | None,
@@ -3081,17 +3105,84 @@ def register_portal_routes(
             email_password_page=page,
         )
 
+    @app.post("/portal/email-passwords/{email_password_id}/reveal")
+    async def reveal_portal_email_password(
+        email_password_id: Annotated[int, PathParam(gt=0)],
+        request: Request,
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
+    ) -> Response:
+        await get_portal_account_form_values(
+            request,
+            csrf_error_detail="email password could not be revealed",
+        )
+        authenticated_session = get_portal_cookie_session_or_redirect(request, session)
+        if isinstance(authenticated_session, RedirectResponse):
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "authentication required"},
+            )
+        account = authenticated_session.account
+        try:
+            passphrase = read_unlock_secret(
+                session,
+                email_password_id,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                audit_account_id=account.id,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                actor=account.username,
+                encryption_secret=runtime.unlock_secret_encryption_secret,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            )
+        except (UnlockSecretNotFoundError, UnlockSecretRevokedError):
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                actor=account.username,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                account_id=account.id,
+                reason="not_available",
+            )
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"detail": "email password not found"},
+            )
+        except UnlockSecretDecryptionError:
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                actor=account.username,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                account_id=account.id,
+                reason="decryption_failed",
+            )
+            logger.error(
+                "Unlock-secret decryption failed for record %d",
+                email_password_id,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "email password unavailable"},
+            )
+        return JSONResponse(content={"passphrase": passphrase})
+
     @app.get("/portal/help")
     def portal_help(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> Response:
         return render_portal_page(request, session, active_module="help")
 
     @app.post("/portal/logout")
     async def portal_logout(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> Response:
         form_values = await get_urlencoded_form_values(
             request,
@@ -3142,7 +3233,7 @@ def register_activation_routes(
     )
     async def activate_invite(
         request: Request,
-        session: Annotated[Session, Depends(get_app_database_session)],
+        session: Annotated[Session, Depends(get_app_database_session, scope="function")],
     ) -> dict[str, str] | Response:
         is_browser_form = is_urlencoded_form_request(request)
         try:
@@ -3268,7 +3359,7 @@ def register_dev_admin_routes(
         def dev_create_invite(
             actor: Annotated[str, Depends(get_dev_admin_actor)],
             payload: Annotated[InviteCreateRequest, Depends(get_invite_create_request)],
-            session: Annotated[Session, Depends(get_app_database_session)],
+            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         ) -> dict[str, object]:
             identity_proof = IdentityProof(
                 email=payload.email,
@@ -3299,7 +3390,7 @@ def register_dev_admin_routes(
         @app.get("/dev/admin/invites", response_model=list[InviteResponse])
         def dev_list_invites(
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session)],
+            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
             demographic_no: Annotated[int | None, Query(gt=0)] = None,
             limit: Annotated[
                 int,
@@ -3332,7 +3423,7 @@ def register_dev_admin_routes(
         def dev_resend_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session)],
+            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         ) -> dict[str, object]:
             try:
                 invite, invite_token = resend_invite(
@@ -3356,7 +3447,7 @@ def register_dev_admin_routes(
         def dev_revoke_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session)],
+            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         ) -> dict[str, object]:
             try:
                 invite = revoke_invite(
@@ -3381,7 +3472,7 @@ def register_dev_admin_routes(
         def dev_unlock_account(
             account_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
-            session: Annotated[Session, Depends(get_app_database_session)],
+            session: Annotated[Session, Depends(get_app_database_session, scope="function")],
         ) -> dict[str, object]:
             try:
                 account = unlock_patient_account(
