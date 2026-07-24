@@ -22,6 +22,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_ACCOUNT_UNLOCK,
     AUDIT_EVENT_LOGIN,
     AUDIT_EVENT_MFA_CHALLENGE,
+    AUDIT_EVENT_MFA_DELIVERY,
     AUDIT_EVENT_MFA_RESEND,
     AUDIT_EVENT_MFA_VERIFY,
     AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
@@ -125,9 +126,11 @@ class AuthPolicy:
 
 @dataclass(frozen=True)
 class MfaChallengeDelivery:
+    challenge_id: int
     challenge_token: str
     code: str
     delivery_method: str
+    destination: str
     expires_at: datetime
 
 
@@ -368,10 +371,8 @@ def create_mfa_challenge(
         created_at=now,
         updated_at=now,
         expires_at=now + policy.mfa_code_ttl,
-        last_email_sent_at=now
-        if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL
-        else None,
-        last_sms_sent_at=now if normalized_delivery_method == MFA_DELIVERY_METHOD_SMS else None,
+        last_email_sent_at=None,
+        last_sms_sent_at=None,
     )
     session.add(challenge)
     session.flush()
@@ -386,10 +387,19 @@ def create_mfa_challenge(
         account_id=account.id,
         reason=normalized_delivery_method,
     )
+    destination = (
+        account.email
+        if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL
+        else normalize_phone_number(account.phone_number)
+    )
+    if destination is None:
+        raise MfaDeliveryUnavailableError()
     return MfaChallengeDelivery(
+        challenge_id=challenge.id,
         challenge_token=challenge_token,
         code=code,
         delivery_method=normalized_delivery_method,
+        destination=destination,
         expires_at=challenge.expires_at,
     )
 
@@ -650,10 +660,6 @@ def resend_mfa_challenge(
     challenge.delivery_method = normalized_delivery_method
     challenge.expires_at = now + policy.mfa_code_ttl
     challenge.updated_at = now
-    if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL:
-        challenge.last_email_sent_at = now
-    else:
-        challenge.last_sms_sent_at = now
     session.flush()
     record_audit_event(
         session,
@@ -666,11 +672,61 @@ def resend_mfa_challenge(
         account_id=account.id,
         reason=normalized_delivery_method,
     )
+    destination = (
+        account.email
+        if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL
+        else normalize_phone_number(account.phone_number)
+    )
+    if destination is None:
+        raise MfaDeliveryUnavailableError()
     return MfaChallengeDelivery(
+        challenge_id=challenge.id,
         challenge_token=challenge_token,
         code=code,
         delivery_method=normalized_delivery_method,
+        destination=destination,
         expires_at=challenge.expires_at,
+    )
+
+
+def record_mfa_delivery_outcome(
+    session: Session,
+    *,
+    delivery: MfaChallengeDelivery,
+    outcome: str,
+) -> None:
+    if outcome not in {AUDIT_OUTCOME_SUCCESS, AUDIT_OUTCOME_FAILURE}:
+        raise ValueError("delivery outcome must be success or failure")
+
+    challenge = session.scalar(
+        select(PatientPortalMfaChallenge)
+        .where(PatientPortalMfaChallenge.id == delivery.challenge_id)
+        .with_for_update()
+    )
+    if challenge is None:
+        raise MfaChallengeNotFoundError()
+    account = session.get(PatientPortalAccount, challenge.account_id)
+    if account is None:
+        raise MfaChallengeNotFoundError()
+
+    if outcome == AUDIT_OUTCOME_SUCCESS:
+        delivered_at = utc_now()
+        challenge.updated_at = delivered_at
+        if delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL:
+            challenge.last_email_sent_at = delivered_at
+        else:
+            challenge.last_sms_sent_at = delivered_at
+
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_MFA_DELIVERY,
+        outcome=outcome,
+        actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+        actor=account.username,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        account_id=account.id,
+        reason=delivery.delivery_method,
     )
 
 

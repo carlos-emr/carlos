@@ -31,6 +31,7 @@ from carlos_patient_portal.database import (
     create_session_factory,
     session_scope,
 )
+from carlos_patient_portal.email_delivery import MfaEmailDeliveryError, MfaEmailSender
 from carlos_patient_portal.i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, portal_text
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.interop import (
@@ -79,6 +80,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_INVITE_REVOKE,
     AUDIT_EVENT_LOGIN,
     AUDIT_EVENT_MFA_CHALLENGE,
+    AUDIT_EVENT_MFA_DELIVERY,
     AUDIT_EVENT_MFA_RESEND,
     AUDIT_EVENT_MFA_VERIFY,
     AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
@@ -145,7 +147,11 @@ def development_settings(**overrides: object) -> Settings:
     return Settings(**values)
 
 
-def migrated_development_app(**overrides: object) -> main.FastAPI:
+def migrated_development_app(
+    *,
+    mfa_email_sender: MfaEmailSender | None = None,
+    **overrides: object,
+) -> main.FastAPI:
     settings_values = {
         "database_url": "sqlite+pysqlite:///:memory:",
         "enable_dev_admin": True,
@@ -155,9 +161,42 @@ def migrated_development_app(**overrides: object) -> main.FastAPI:
         "unlock_secret_encryption_secret": UNLOCK_SECRET_ENCRYPTION_SECRET,
         **overrides,
     }
-    app = main.create_app(development_settings(**settings_values))
+    app = main.create_app(
+        development_settings(**settings_values),
+        mfa_email_sender=mfa_email_sender,
+    )
     Base.metadata.create_all(app.state.database_engine)
     return app
+
+
+class RecordingMfaEmailSender:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.app: main.FastAPI | None = None
+        self.challenge_was_committed = False
+        self.messages: list[dict[str, object]] = []
+
+    def send_code(
+        self,
+        *,
+        recipient: str,
+        code: str,
+        expires_in_seconds: int,
+    ) -> None:
+        if self.app is not None:
+            with self.app.state.session_factory() as session:
+                self.challenge_was_committed = (
+                    session.scalar(select(PatientPortalMfaChallenge.id)) is not None
+                )
+        self.messages.append(
+            {
+                "recipient": recipient,
+                "code": code,
+                "expires_in_seconds": expires_in_seconds,
+            }
+        )
+        if self.fail:
+            raise MfaEmailDeliveryError("simulated delivery failure")
 
 
 def dev_admin_headers(
@@ -643,6 +682,7 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
                         [
                             AUDIT_EVENT_LOGIN,
                             AUDIT_EVENT_MFA_CHALLENGE,
+                            AUDIT_EVENT_MFA_DELIVERY,
                             AUDIT_EVENT_MFA_VERIFY,
                             AUDIT_EVENT_SESSION_LOGOUT,
                         ]
@@ -658,9 +698,103 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
         assert [(event.event_type, event.outcome) for event in audit_events] == [
             (AUDIT_EVENT_MFA_CHALLENGE, AUDIT_OUTCOME_SUCCESS),
             (AUDIT_EVENT_LOGIN, AUDIT_OUTCOME_SUCCESS),
+            (AUDIT_EVENT_MFA_DELIVERY, AUDIT_OUTCOME_SUCCESS),
             (AUDIT_EVENT_MFA_VERIFY, AUDIT_OUTCOME_SUCCESS),
             (AUDIT_EVENT_SESSION_LOGOUT, AUDIT_OUTCOME_SUCCESS),
         ]
+
+
+def test_login_sends_mfa_email_after_committing_challenge() -> None:
+    sender = RecordingMfaEmailSender()
+    app = migrated_development_app(mfa_email_sender=sender)
+    sender.app = app
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+
+    response = client.post(
+        "/auth/login",
+        json={"username": "Patient.User", "password": STRONG_PASSWORD},
+    )
+
+    assert response.status_code == 200
+    assert sender.challenge_was_committed is True
+    assert sender.messages == [
+        {
+            "recipient": SEEDED_INVITE_EMAIL,
+            "code": response.json()["development_mfa_code"],
+            "expires_in_seconds": 600,
+        }
+    ]
+    with app.state.session_factory() as session:
+        challenge = session.scalar(select(PatientPortalMfaChallenge))
+        assert challenge is not None
+        assert challenge.last_email_sent_at is not None
+
+
+def test_login_mfa_delivery_failure_is_generic_and_audited() -> None:
+    sender = RecordingMfaEmailSender(fail=True)
+    app = migrated_development_app(mfa_email_sender=sender)
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+
+    response = client.post(
+        "/auth/login",
+        json={"username": "Patient.User", "password": STRONG_PASSWORD},
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "verification code could not be sent"}
+    assert len(sender.messages) == 1
+    sent_code = sender.messages[0]["code"]
+    assert isinstance(sent_code, str)
+    assert sent_code not in response.text
+    with app.state.session_factory() as session:
+        challenge = session.scalar(select(PatientPortalMfaChallenge))
+        delivery_event = session.scalar(
+            select(PatientPortalAuditEvent).where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_MFA_DELIVERY
+            )
+        )
+
+        assert challenge is not None
+        assert challenge.last_email_sent_at is None
+        assert delivery_event is not None
+        assert delivery_event.outcome == AUDIT_OUTCOME_FAILURE
+        assert sent_code not in (delivery_event.reason or "")
+
+
+def test_mfa_email_resend_delivers_new_code_after_cooldown() -> None:
+    sender = RecordingMfaEmailSender()
+    app = migrated_development_app(mfa_email_sender=sender)
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    login_response = client.post(
+        "/auth/login",
+        json={"username": "Patient.User", "password": STRONG_PASSWORD},
+    )
+    with app.state.session_factory() as session:
+        challenge = session.scalar(select(PatientPortalMfaChallenge))
+        assert challenge is not None
+        assert challenge.last_email_sent_at is not None
+        challenge.last_email_sent_at -= timedelta(seconds=61)
+        session.commit()
+
+    resend_response = client.post(
+        "/auth/mfa/resend",
+        json={
+            "mfa_challenge_token": login_response.json()["mfa_challenge_token"],
+            "mfa_delivery_method": "email",
+        },
+    )
+
+    assert resend_response.status_code == 200
+    assert len(sender.messages) == 2
+    assert sender.messages[0]["code"] != sender.messages[1]["code"]
+    assert sender.messages[1] == {
+        "recipient": SEEDED_INVITE_EMAIL,
+        "code": resend_response.json()["development_mfa_code"],
+        "expires_in_seconds": 600,
+    }
 
 
 def test_form_login_error_renders_sign_in_page() -> None:

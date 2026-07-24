@@ -76,6 +76,10 @@ export PATIENT_PORTAL_ENVIRONMENT=development
 export PATIENT_PORTAL_ENABLE_DEV_ADMIN=true
 export PATIENT_PORTAL_CLINIC_NAME="Maple Creek Medical"
 export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_portal"
+# The development Postfix capture service listens locally without TLS or authentication.
+export PATIENT_PORTAL_SMTP_HOST=127.0.0.1
+export PATIENT_PORTAL_SMTP_PORT=25
+export PATIENT_PORTAL_SMTP_FROM_ADDRESS=noreply@openo-dev.local
 # Set PATIENT_PORTAL_DEV_ADMIN_TOKEN to a 32+ character random value before using
 # the development invite API.
 # Set PATIENT_PORTAL_IDENTITY_PROOF_SECRET to a 32+ character random value when
@@ -92,6 +96,17 @@ running PostgreSQL instance.
 
 The portal defaults to `production`, so deployments fail closed unless required secrets are set.
 Local development should explicitly set `PATIENT_PORTAL_ENVIRONMENT=development`.
+
+When `PATIENT_PORTAL_SMTP_HOST` is configured, `PATIENT_PORTAL_SMTP_FROM_ADDRESS` is also required.
+Production SMTP relays can enable `PATIENT_PORTAL_SMTP_STARTTLS` and set
+`PATIENT_PORTAL_SMTP_USERNAME` and `PATIENT_PORTAL_SMTP_PASSWORD`; the username and password must be
+configured together. `PATIENT_PORTAL_SMTP_TIMEOUT_SECONDS` defaults to 10 seconds. MFA email bodies
+contain only the verification code, expiry, service name, and clinic contact direction. They do not
+include patient names or clinical information.
+
+The development container's capture-only Postfix setup stores messages locally instead of relaying
+them externally. Use `/scripts/mail list` and `/scripts/mail read latest` to inspect captured MFA
+messages during testing.
 
 `PATIENT_PORTAL_CLINIC_ID` defaults to `default`; set a stable clinic identifier before using a
 shared or persistent database so CARLOS `demographic_no` values are scoped correctly.

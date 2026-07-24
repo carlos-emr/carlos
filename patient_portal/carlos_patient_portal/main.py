@@ -24,6 +24,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
@@ -63,6 +64,7 @@ from carlos_patient_portal.auth import (
     authenticate_session_token,
     complete_password_reset,
     logout_patient_session,
+    record_mfa_delivery_outcome,
     request_password_reset,
     resend_mfa_challenge,
     start_login,
@@ -74,7 +76,11 @@ from carlos_patient_portal.database import (
     check_database,
     create_portal_engine,
     create_session_factory,
-    session_scope,
+)
+from carlos_patient_portal.email_delivery import (
+    MfaEmailDeliveryError,
+    MfaEmailSender,
+    build_mfa_email_sender,
 )
 from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text, supported_locale_options
 from carlos_patient_portal.identity import IdentityProof
@@ -112,6 +118,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
+    MFA_DELIVERY_METHOD_EMAIL,
     UNLOCK_SECRET_STATUS_ACTIVE,
     UNLOCK_SECRET_TYPE_EMAIL,
     PatientPortalAccount,
@@ -268,6 +275,7 @@ class PortalRuntime:
     activation_rate_limit: ActivationRateLimit
     auth_policy: AuthPolicy
     rate_limiter: InMemoryRateLimiter
+    mfa_email_sender: MfaEmailSender | None
 
 
 @dataclass(frozen=True)
@@ -588,6 +596,33 @@ def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
         password_reset_token_ttl=timedelta(seconds=settings.password_reset_token_ttl_seconds),
         require_mfa=settings.require_mfa,
     )
+
+
+def send_mfa_challenge(runtime: PortalRuntime, delivery: MfaChallengeDelivery) -> None:
+    if delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL:
+        if runtime.mfa_email_sender is None:
+            if runtime.settings.is_development:
+                return
+            raise MfaEmailDeliveryError("MFA email delivery is not configured")
+        runtime.mfa_email_sender.send_code(
+            recipient=delivery.destination,
+            code=delivery.code,
+            expires_in_seconds=runtime.settings.mfa_code_ttl_seconds,
+        )
+        return
+
+    if not runtime.settings.is_development:
+        raise MfaEmailDeliveryError("MFA delivery is not configured")
+
+
+def record_mfa_delivery_and_commit(
+    session: Session,
+    *,
+    delivery: MfaChallengeDelivery,
+    outcome: str,
+) -> None:
+    record_mfa_delivery_outcome(session, delivery=delivery, outcome=outcome)
+    session.commit()
 
 
 def mfa_challenge_response_payload(
@@ -1063,7 +1098,11 @@ def get_request_client_reference(request: Request, settings: Settings) -> str:
     return request.client.host
 
 
-def build_portal_runtime(settings: Settings) -> PortalRuntime:
+def build_portal_runtime(
+    settings: Settings,
+    *,
+    mfa_email_sender: MfaEmailSender | None = None,
+) -> PortalRuntime:
     csrf_secret = (
         settings.session_secret.get_secret_value()
         if settings.session_secret is not None
@@ -1107,6 +1146,11 @@ def build_portal_runtime(settings: Settings) -> PortalRuntime:
         activation_rate_limit=activation_rate_limit,
         auth_policy=auth_policy,
         rate_limiter=rate_limiter,
+        mfa_email_sender=(
+            mfa_email_sender
+            if mfa_email_sender is not None
+            else build_mfa_email_sender(settings)
+        ),
     )
 
 
@@ -1215,8 +1259,14 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
     settings = runtime.settings
 
     def get_app_database_session() -> Generator[Session, None, None]:
-        with session_scope(runtime.session_factory) as session:
-            yield session
+        with runtime.session_factory() as session:
+            try:
+                yield session
+            except BaseException:
+                session.rollback()
+                raise
+            else:
+                session.commit()
 
     def require_internal_health_token(
         authorization: Annotated[str | None, Header()] = None,
@@ -1435,9 +1485,13 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
     )
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    mfa_email_sender: MfaEmailSender | None = None,
+) -> FastAPI:
     settings = settings or get_settings()
-    runtime = build_portal_runtime(settings)
+    runtime = build_portal_runtime(settings, mfa_email_sender=mfa_email_sender)
 
     app = FastAPI(
         title=settings.service_name,
@@ -1606,6 +1660,29 @@ def register_auth_routes(
                 browser_message="MFA delivery method is unavailable.",
                 json_content={"detail": "MFA delivery method is unavailable"},
             )
+        if result.mfa_challenge is not None:
+            session.commit()
+            try:
+                await run_in_threadpool(send_mfa_challenge, runtime, result.mfa_challenge)
+            except MfaEmailDeliveryError:
+                record_mfa_delivery_and_commit(
+                    session,
+                    delivery=result.mfa_challenge,
+                    outcome=AUDIT_OUTCOME_FAILURE,
+                )
+                return auth_error_response(
+                    is_browser_form=is_browser_form,
+                    request=request,
+                    render_index_response=render_index_response,
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    browser_message="Verification code could not be sent. Please try again.",
+                    json_content={"detail": "verification code could not be sent"},
+                )
+            record_mfa_delivery_and_commit(
+                session,
+                delivery=result.mfa_challenge,
+                outcome=AUDIT_OUTCOME_SUCCESS,
+            )
         if is_browser_form and result.mfa_challenge is not None:
             csrf_token = create_csrf_token(csrf_secret)
             response = templates.TemplateResponse(
@@ -1670,6 +1747,24 @@ def register_auth_routes(
                 status_code=400,
                 content={"detail": "MFA delivery method is unavailable"},
             )
+        session.commit()
+        try:
+            send_mfa_challenge(runtime, delivery)
+        except MfaEmailDeliveryError:
+            record_mfa_delivery_and_commit(
+                session,
+                delivery=delivery,
+                outcome=AUDIT_OUTCOME_FAILURE,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "verification code could not be sent"},
+            )
+        record_mfa_delivery_and_commit(
+            session,
+            delivery=delivery,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+        )
         return mfa_challenge_response_payload(delivery, settings=settings)
 
     @app.post("/auth/mfa/verify", response_model=MfaVerifyResponse)

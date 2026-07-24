@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     audit_hash_secret: SecretStr | None = None
     unlock_secret_encryption_secret: SecretStr | None = None
     internal_health_token: SecretStr | None = None
+    smtp_host: str | None = Field(default=None, max_length=253)
+    smtp_port: int = Field(default=25, ge=1, le=65535)
+    smtp_from_address: str | None = Field(default=None, max_length=254)
+    smtp_starttls: bool = False
+    smtp_username: str | None = Field(default=None, max_length=254)
+    smtp_password: SecretStr | None = None
+    smtp_timeout_seconds: int = Field(default=10, ge=1, le=60)
     trusted_client_ip_header: TrustedClientIpHeader | None = None
     activation_failure_window_seconds: int = Field(default=3600, ge=60, le=86400)
     activation_max_failures_per_invite: int = Field(default=10, ge=1, le=100)
@@ -82,6 +89,18 @@ class Settings(BaseSettings):
             return value.strip().lower()
         return value
 
+    @field_validator(
+        "smtp_host",
+        "smtp_from_address",
+        "smtp_username",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_smtp_value(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
+
     @field_validator("clinic_id")
     @classmethod
     def normalize_clinic_id(cls, value: str) -> str:
@@ -97,6 +116,7 @@ class Settings(BaseSettings):
         "unlock_secret_encryption_secret",
         "internal_health_token",
         "dev_admin_token",
+        "smtp_password",
         mode="before",
     )
     @classmethod
@@ -136,6 +156,32 @@ class Settings(BaseSettings):
 
         if self.is_production and not self.require_mfa:
             raise ValueError("PATIENT_PORTAL_REQUIRE_MFA must stay enabled in production")
+
+        smtp_password_value = (
+            self.smtp_password.get_secret_value().strip()
+            if self.smtp_password is not None
+            else None
+        )
+        if (self.smtp_username is None) != (smtp_password_value is None):
+            raise ValueError(
+                "PATIENT_PORTAL_SMTP_USERNAME and PATIENT_PORTAL_SMTP_PASSWORD "
+                "must be configured together"
+            )
+        if self.smtp_host is None:
+            if self.smtp_from_address is not None:
+                raise ValueError(
+                    "PATIENT_PORTAL_SMTP_HOST is required when "
+                    "PATIENT_PORTAL_SMTP_FROM_ADDRESS is set"
+                )
+            if self.smtp_username is not None:
+                raise ValueError(
+                    "PATIENT_PORTAL_SMTP_HOST is required when SMTP credentials are set"
+                )
+        elif self.smtp_from_address is None:
+            raise ValueError(
+                "PATIENT_PORTAL_SMTP_FROM_ADDRESS is required when "
+                "PATIENT_PORTAL_SMTP_HOST is set"
+            )
 
         identity_proof_secret_value: str | None = None
         if self.identity_proof_secret is not None:

@@ -574,7 +574,7 @@ def upgrade() -> None:
                 "event_type in ('activation', 'account.contact_update', 'account.lock', "
                 "'account.mfa_update', 'account.password_change', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
-                "'login', 'mfa.challenge', 'mfa.resend', 'mfa.verify', "
+                "'login', 'mfa.challenge', 'mfa.delivery', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.request', 'session.logout', "
                 "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
                 "'unlock_secret.revoke')"
