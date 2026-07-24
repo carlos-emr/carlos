@@ -22,7 +22,20 @@ Start Postfix:
 mail start
 ```
 
-Watch captured emails as they arrive:
+List captured emails:
+
+```bash
+mail list
+```
+
+Read the latest message or a specific numbered message:
+
+```bash
+mail read
+mail read 2
+```
+
+Watch raw captured emails as they arrive:
 
 ```bash
 mail capture
@@ -105,6 +118,8 @@ To go back to capture-only, restart without the flag (`mail restart`).
 | `mail status` | Show Postfix status, capture file, and delivery mode |
 | `mail log` | Tail `/var/log/mail.log` |
 | `mail capture` | Tail `/var/log/carlos-mail-capture.eml` |
+| `mail list` | List messages with number, time, recipient, and subject |
+| `mail read [number\|latest]` | Print one message; defaults to the latest |
 | `mail show` | Print captured emails |
 | `mail clear` | Clear captured emails |
 | `mail test` | Send a sample message through local Postfix |
@@ -112,9 +127,9 @@ To go back to capture-only, restart without the flag (`mail restart`).
 ## Testing CARLOS Email
 
 1. Start Postfix: `mail start`
-2. Open a second terminal and tail the capture file: `mail capture`
-3. In CARLOS, trigger an email action (provider-to-patient email, eform, etc.).
-4. Confirm the message appears in `/var/log/carlos-mail-capture.eml`.
+2. In CARLOS, trigger an email action (provider-to-patient email, eform, etc.).
+3. Run `mail list` to find the captured message.
+4. Run `mail read` or `mail read <number>` to inspect its complete raw MIME content.
 5. Check CARLOS email logs / admin status if needed.
 
 ## Privacy Warning
@@ -151,7 +166,8 @@ Send a test message and watch the capture file:
 
 ```bash
 mail test
-mail capture
+mail list
+mail read
 ```
 
 ### Verify Routing Is Safe

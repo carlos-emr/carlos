@@ -19,6 +19,113 @@ ensure_capture_file() {
   chmod 0660 "$CAPTURE_FILE" 2>/dev/null || true
 }
 
+capture_message_count() {
+  grep -c '^===== CARLOS DEV EMAIL CAPTURE =====$' "$CAPTURE_FILE" 2>/dev/null || true
+}
+
+list_captured_messages() {
+  ensure_capture_file
+  if [ "$(capture_message_count)" -eq 0 ]; then
+    echo "No captured messages."
+    return
+  fi
+
+  printf "%-4s  %-25s  %-30s  %s\n" "ID" "CAPTURED AT" "RECIPIENT" "SUBJECT"
+  awk '
+    function print_message() {
+      if (message_number > 0) {
+        printf "%-4d  %-25s  %-30s  %s\n",
+          message_number,
+          captured_at,
+          envelope_to,
+          subject
+      }
+    }
+
+    $0 == "===== CARLOS DEV EMAIL CAPTURE =====" {
+      print_message()
+      message_number++
+      captured_at = "-"
+      envelope_to = "-"
+      subject = "(no subject)"
+      in_headers = 0
+      next
+    }
+
+    /^Captured-At: / {
+      captured_at = substr($0, 14)
+      next
+    }
+
+    /^Envelope-To: / {
+      envelope_to = substr($0, 14)
+      next
+    }
+
+    $0 == "----- BEGIN RAW MESSAGE -----" {
+      in_headers = 1
+      next
+    }
+
+    in_headers && ($0 == "" || $0 == "\r") {
+      in_headers = 0
+      next
+    }
+
+    in_headers && tolower(substr($0, 1, 8)) == "subject:" {
+      subject = substr($0, 9)
+      sub(/^[[:space:]]+/, "", subject)
+      sub(/\r$/, "", subject)
+      next
+    }
+
+    END {
+      print_message()
+    }
+  ' "$CAPTURE_FILE"
+}
+
+read_captured_message() {
+  local message_count
+  local message_number
+  local requested_message
+
+  ensure_capture_file
+  message_count="$(capture_message_count)"
+  if [ "$message_count" -eq 0 ]; then
+    echo "No captured messages." >&2
+    return 1
+  fi
+
+  requested_message="${1:-latest}"
+  if [ "$requested_message" = "latest" ]; then
+    message_number="$message_count"
+  elif [[ "$requested_message" =~ ^[1-9][0-9]*$ ]]; then
+    message_number="$requested_message"
+  else
+    echo "Message must be a positive number or 'latest'." >&2
+    return 1
+  fi
+
+  if [ "$message_number" -gt "$message_count" ]; then
+    echo "Message $message_number does not exist; captured messages: $message_count." >&2
+    return 1
+  fi
+
+  awk -v requested="$message_number" '
+    $0 == "===== CARLOS DEV EMAIL CAPTURE =====" {
+      current++
+      if (current > requested) {
+        exit
+      }
+    }
+
+    current == requested {
+      print
+    }
+  ' "$CAPTURE_FILE"
+}
+
 # Non-comment, non-blank entries in the send allowlist.
 allowlist_entries() {
   grep -vE '^[[:space:]]*(#|$)' "$SEND_ALLOWLIST" 2>/dev/null || true
@@ -100,6 +207,12 @@ case "$command" in
       ensure_capture_file
       tail -f "$CAPTURE_FILE"
     ;;
+    list)
+      list_captured_messages
+    ;;
+    read)
+      read_captured_message "${2:-latest}"
+    ;;
     show)
       ensure_capture_file
       cat "$CAPTURE_FILE"
@@ -118,10 +231,10 @@ case "$command" in
         echo
         echo "This is a test message captured by the devcontainer Postfix setup."
       } | /usr/sbin/sendmail -f noreply@openo-dev.local patient@example.test
-      echo "Sent test message to Postfix. Run: mail capture"
+      echo "Sent test message to Postfix. Run: mail list"
     ;;
     *)
-      echo "Usage: mail {start|stop|restart|status|log|capture|show|clear|test}"
+      echo "Usage: mail {start|stop|restart|status|log|capture|list|read [number|latest]|show|clear|test}"
       exit 1
     ;;
 esac
