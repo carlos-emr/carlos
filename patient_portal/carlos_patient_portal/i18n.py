@@ -54,14 +54,15 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "current_password": "Current password",
         "dashboard": "Dashboard",
         "dashboard_account_description": "Manage your password and contact information.",
-        "dashboard_documents_description": "Documents will be available in a future release.",
+        "dashboard_documents_description": "Documents may be available in a future release.",
         "dashboard_email_passwords_description": (
             "Retrieve passwords for encrypted messages from your clinic."
         ),
         "dashboard_greeting": "Patient portal",
         "dashboard_help_description": "Find clinic and account support information.",
-        "dashboard_messages_description": "Secure messaging will be available in a future release.",
+        "dashboard_messages_description": "Secure messaging may be available in a future release.",
         "date_from": "From date",
+        "date_format_error": "Enter valid from and to dates.",
         "date_range_error": "The from date must not be later than the to date.",
         "date_of_birth": "Date of birth",
         "date_to": "To date",

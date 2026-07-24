@@ -925,6 +925,7 @@ def email_password_dashboard_context(
     date_from: date | None,
     date_to: date | None,
     page: int,
+    filter_error: str | None = None,
 ) -> dict[str, object]:
     text = portal_text(DEFAULT_LOCALE)
     normalized_search = normalize_email_password_dashboard_search(search)
@@ -934,6 +935,7 @@ def email_password_dashboard_context(
         and date_to is not None
         and date_from > date_to
     )
+    has_filter_error = filter_error is not None or invalid_date_range
     created_from = (
         datetime.combine(date_from, datetime_time.min, tzinfo=UTC)
         if date_from is not None
@@ -956,7 +958,7 @@ def email_password_dashboard_context(
     offset = (normalized_page - 1) * EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
     records = (
         []
-        if invalid_date_range
+        if has_filter_error
         else list_unlock_secrets(
             session,
             clinic_id=account.clinic_id,
@@ -995,7 +997,10 @@ def email_password_dashboard_context(
                 date_to,
             )
         ),
-        "filter_error": text["date_range_error"] if invalid_date_range else None,
+        "filter_error": (
+            filter_error
+            or (text["date_range_error"] if invalid_date_range else None)
+        ),
         "page": normalized_page,
         "empty_message": (
             text["no_matching_email_passwords"]
@@ -1054,6 +1059,20 @@ def normalize_email_password_dashboard_provider(provider: str | None) -> str | N
         return None
     normalized_provider = provider.strip()
     return normalized_provider or None
+
+
+def parse_optional_email_password_date(value: str | None) -> date | None:
+    if value is None:
+        return None
+    normalized_value = value.strip()
+    if not normalized_value:
+        return None
+    if len(normalized_value) != 10:
+        raise ValueError("date must use YYYY-MM-DD format")
+    parsed_date = date.fromisoformat(normalized_value)
+    if parsed_date.isoformat() != normalized_value:
+        raise ValueError("date must use YYYY-MM-DD format")
+    return parsed_date
 
 
 def portal_email_password_page_href(
@@ -1783,6 +1802,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         email_password_date_from: date | None = None,
         email_password_date_to: date | None = None,
         email_password_page: int = 1,
+        email_password_filter_error: str | None = None,
     ) -> Response:
         try:
             authenticated_session = get_authenticated_portal_cookie_session(request, session)
@@ -1801,6 +1821,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 date_from=email_password_date_from,
                 date_to=email_password_date_to,
                 page=email_password_page,
+                filter_error=email_password_filter_error,
             )
         csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
@@ -3080,26 +3101,38 @@ def register_portal_routes(
             str | None,
             Query(max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH),
         ] = None,
-        date_from: Annotated[date | None, Query()] = None,
-        date_to: Annotated[date | None, Query()] = None,
+        date_from: Annotated[str | None, Query()] = None,
+        date_to: Annotated[str | None, Query()] = None,
         page: Annotated[int, Query(ge=1)] = 1,
     ) -> Response:
+        filter_error: str | None = None
+        try:
+            parsed_date_from = parse_optional_email_password_date(date_from)
+            parsed_date_to = parse_optional_email_password_date(date_to)
+        except ValueError:
+            parsed_date_from = None
+            parsed_date_to = None
+            filter_error = portal_text(DEFAULT_LOCALE)["date_format_error"]
+        invalid_date_range = (
+            parsed_date_from is not None
+            and parsed_date_to is not None
+            and parsed_date_from > parsed_date_to
+        )
         return render_portal_page(
             request,
             session,
             active_module="email-passwords",
             status_code=(
                 status.HTTP_400_BAD_REQUEST
-                if date_from is not None
-                and date_to is not None
-                and date_from > date_to
+                if filter_error is not None or invalid_date_range
                 else status.HTTP_200_OK
             ),
             email_password_search=q,
             email_password_provider=provider,
-            email_password_date_from=date_from,
-            email_password_date_to=date_to,  # ggignore
+            email_password_date_from=parsed_date_from,
+            email_password_date_to=parsed_date_to,  # ggignore
             email_password_page=page,
+            email_password_filter_error=filter_error,
         )
 
     @app.post("/portal/email-passwords/{email_password_id}/reveal")

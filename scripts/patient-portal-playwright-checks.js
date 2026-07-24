@@ -299,6 +299,28 @@ function screenshotPath(name) {
       'Copy control did not write the displayed passphrase'
     );
 
+    await page.locator('input[name="q"]').fill('Care');
+    await Promise.all([
+      page.waitForURL((url) => (
+        url.pathname === '/portal/email-passwords'
+        && url.searchParams.get('q') === 'Care'
+      )),
+      page.getByRole('button', { name: 'Search' }).click(),
+    ]);
+    assert(
+      await page.locator('.email-password-table tbody tr').count() === 1,
+      'Care search should return exactly one seeded email-password record'
+    );
+    await page.getByText('Care plan password', { exact: true }).waitFor();
+    assert(
+      await page.getByText('Referral package password', { exact: true }).count() === 0,
+      'Care search returned a non-matching email-password record'
+    );
+    await Promise.all([
+      page.waitForURL(/\/portal\/email-passwords$/),
+      page.getByRole('link', { name: 'Clear filters' }).click(),
+    ]);
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload({ waitUntil: 'networkidle' });
     const layout = await page.evaluate(() => ({

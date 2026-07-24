@@ -1135,8 +1135,8 @@ def test_dashboard_shell_navigation_and_cookie_logout() -> None:
     assert "Path=/portal" in dashboard_response.headers["set-cookie"]
     assert "SameSite=strict" in dashboard_response.headers["set-cookie"]
     assert 'data-active-module="dashboard"' in dashboard_response.text
-    assert "Documents will be available in a future release." in dashboard_response.text
-    assert "Secure messaging will be available in a future release." in dashboard_response.text
+    assert "Documents may be available in a future release." in dashboard_response.text
+    assert "Secure messaging may be available in a future release." in dashboard_response.text
     assert 'href="/portal/account"' in dashboard_response.text
     assert 'href="/portal/email-passwords"' in dashboard_response.text
     assert 'href="/portal/help"' in dashboard_response.text
@@ -1517,7 +1517,10 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
         data={"csrf_token": csrf_token_match.group(1)},
     )
     page_two_response = client.get("/portal/email-passwords?page=2")
-    search_response = client.get("/portal/email-passwords?q=lab")
+    search_response = client.get(
+        "/portal/email-passwords",
+        params={"q": "lab", "provider": "", "date_from": "", "date_to": ""},
+    )
     provider_response = client.get(
         "/portal/email-passwords",
         params={"provider": "Clinic Nurse"},
@@ -1529,6 +1532,10 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     invalid_date_response = client.get(
         "/portal/email-passwords",
         params={"date_from": "2026-07-29", "date_to": "2026-07-28"},
+    )
+    malformed_date_response = client.get(
+        "/portal/email-passwords",
+        params={"q": "lab", "date_from": "not-a-date", "date_to": ""},
     )
     maximum_date_response = client.get(
         "/portal/email-passwords",
@@ -1576,6 +1583,10 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     assert 'value="2026-07-28"' in date_response.text
     assert invalid_date_response.status_code == 400
     assert "from date must not be later" in invalid_date_response.text
+    assert malformed_date_response.status_code == 400
+    assert "text/html" in malformed_date_response.headers["content-type"]
+    assert "Enter valid from and to dates." in malformed_date_response.text
+    assert "Lab report" not in malformed_date_response.text
     assert maximum_date_response.status_code == 200
 
     with app.state.session_factory() as session:
