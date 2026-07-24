@@ -443,6 +443,9 @@ before exposing additional clinical exchange endpoints.
 
 ```bash
 cd patient_portal
-pytest
+pytest --cov=carlos_patient_portal --cov-report=term-missing --cov-report=xml:coverage.xml
 ruff check .
 ```
+
+The test command enforces the configured 85% minimum Python coverage and writes the report consumed
+by SonarCloud.

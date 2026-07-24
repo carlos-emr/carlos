@@ -74,6 +74,27 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: patient_portal/requirements.lock
+
+      - name: Install patient portal test dependencies
+        working-directory: patient_portal
+        run: python -m pip install --require-hashes -r requirements.lock
+
+      - name: Generate patient portal coverage
+        run: >-
+          python -m pytest
+          -c patient_portal/pyproject.toml
+          patient_portal/tests
+          --cov=patient_portal/carlos_patient_portal
+          --cov-config=patient_portal/pyproject.toml
+          --cov-report=term-missing
+          --cov-report=xml:patient_portal/coverage.xml
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 

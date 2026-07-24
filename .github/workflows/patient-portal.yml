@@ -70,7 +70,11 @@ jobs:
         run: python -m ruff check .
 
       - name: Run tests
-        run: python -m pytest
+        run: >-
+          python -m pytest
+          --cov=carlos_patient_portal
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
 
       - name: Compile Python files
         run: python -m compileall carlos_patient_portal tests

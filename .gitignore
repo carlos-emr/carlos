@@ -1,6 +1,7 @@
 /old
 /target
 /eclipse-target
+/.coverage
 /ui-test-runs
 /test-output
 /.playwright-mcp

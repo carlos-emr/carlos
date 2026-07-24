@@ -1,5 +1,8 @@
 *.egg-info/
+.coverage
 build/
+coverage.xml
+htmlcov/
 .pytest_cache/
 .ruff_cache/
 __pycache__/

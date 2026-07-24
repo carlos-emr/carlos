@@ -26,8 +26,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
-        <!-- Include webapp (JSP/JS/HTML) and resources in SonarCloud analysis alongside Java sources -->
-        <sonar.sources>src/main/java,src/main/resources,src/main/webapp</sonar.sources>
+        <!-- Include webapp, resources, and the Python patient portal alongside Java sources -->
+        <sonar.sources>src/main/java,src/main/resources,src/main/webapp,patient_portal/carlos_patient_portal</sonar.sources>
         <!-- Exclude vendored/minified third-party assets to avoid inflating LOC count and generating noise -->
         <sonar.exclusions>
             src/main/webapp/library/**,
@@ -36,6 +36,8 @@
             src/main/webapp/**/*.min.css
         </sonar.exclusions>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.python.version>3.12</sonar.python.version>
+        <sonar.python.coverage.reportPaths>patient_portal/coverage.xml</sonar.python.coverage.reportPaths>
         <!--
             Suppress SonarCloud S2083 (path traversal) false positives in files that use
             PathValidationUtils for sanitization. SonarCloud's taint engine cannot trace
