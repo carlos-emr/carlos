@@ -79,6 +79,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DisplayImage2Action extends ActionSupport {
     private static final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
+    /** Immutable WAR path holding the bundled Rich Text Letter editor assets (mirrors EFormAssetDeployer). */
+    private static final String BUNDLED_EDITOR_ASSETS_PATH = "/WEB-INF/eform-assets/";
+    /**
+     * Trusted, WAR-shipped RTL editor assets. The editor loads {@code blank.rtl}/{@code editor_help.html} into
+     * a frame and runs scripts in it, so they cannot carry the stored-asset {@code sandbox} CSP or the editor
+     * breaks (no fdid after save). Rather than exempt these by basename off the user-writable image directory
+     * — which a user could bypass by uploading a same-named file — they are served directly from the immutable
+     * WAR path ({@link #serveBundledEditorAsset}). Membership is an exact-string match, so no path traversal is
+     * possible. Every other text/html file (anything a user can store) keeps the unconditional sandbox in
+     * {@link #process}.
+     */
+    static final java.util.Set<String> BUNDLED_EDITOR_ASSETS = java.util.Set.of(
+            "editControl2.js", "blank.rtl", "editor_help.html");
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -104,6 +117,14 @@ public class DisplayImage2Action extends ActionSupport {
             }
         } else if (!hasEformRead) {
             throw new SecurityException("missing required sec object (_eform)");
+        }
+
+        // Trusted RTL editor assets are served from the immutable WAR path, not the user-writable image
+        // directory, and are exempt from the sandbox CSP so the editor's own scripts can run. Because the
+        // bytes come from the WAR (never a user upload) a same-named uploaded file cannot bypass the
+        // sandbox that every image-directory file below still receives unconditionally.
+        if (BUNDLED_EDITOR_ASSETS.contains(fileName)) {
+            return serveBundledEditorAsset(fileName);
         }
 
         File validatedFile = getValidatedImageFile(fileName);
@@ -146,6 +167,34 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Streams a bundled RTL editor asset ({@link #BUNDLED_EDITOR_ASSETS}) from the immutable WAR path.
+     * {@code fileName} is already an exact match against the fixed set, so the resource path cannot be
+     * traversed. These trusted assets are served with {@code nosniff} but WITHOUT the sandbox CSP — they
+     * are the editor's own code/templates and must execute — and because the bytes come from the WAR
+     * (not the user-writable image directory) a user cannot override them to escape the sandbox that the
+     * image-directory route applies unconditionally.
+     */
+    private String serveBundledEditorAsset(String fileName) throws IOException {
+        String contentType = EFormAssetContentType.forFilename(fileName)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        try (InputStream stream = request.getServletContext().getResourceAsStream(BUNDLED_EDITOR_ASSETS_PATH + fileName)) {
+            if (stream == null) {
+                logger.debug("Bundled eForm editor asset missing from WAR: {}", LogSafe.sanitize(fileName));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            if (RequestNegotiation.isHtmlContentType(contentType)) {
+                HtmlResponse.writeStoredHtml(response, contentType, stream);
+            } else {
+                response.setContentType(contentType);
+                IOUtils.copy(stream, response.getOutputStream());
+            }
+        }
+        return NONE;
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getValidatedImageFile(String fileName) throws Exception {
@@ -183,7 +232,10 @@ public class DisplayImage2Action extends ActionSupport {
             // a stored-XSS channel if asset-upload rights are ever broader than admin. The
             // sandbox directive (no allow-* tokens) strips scripts/forms/origin from the served
             // document while keeping passive embedding working, so legacy html/rtl assets stay
-            // servable without staying scriptable.
+            // servable without staying scriptable. This is UNCONDITIONAL for every file served from
+            // the (user-writable) image directory; trusted editor assets are served separately from
+            // the immutable WAR path (see serveBundledEditorAsset) so a user-uploaded same-named file
+            // can never reach this route unsandboxed.
             response.setHeader("Content-Security-Policy", "sandbox");
         }
         response.setContentType(contentType);
