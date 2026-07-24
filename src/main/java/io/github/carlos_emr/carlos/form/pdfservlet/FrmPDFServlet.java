@@ -141,8 +141,13 @@ public class FrmPDFServlet extends HttpServlet {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         if (loggedInInfo == null) {
             // This servlet renders form templates overlaid with patient data; require an authenticated
-            // session rather than serving anonymous requests.
-            res.sendError(HttpServletResponse.SC_FORBIDDEN);
+            // session rather than serving anonymous requests. Handle the sendError IOException locally so
+            // it never escapes doPost() (Sonar S1989).
+            try {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN);
+            } catch (java.io.IOException ioe) {
+                log.warn("Unable to send 403 for unauthenticated form PDF request", ioe);
+            }
             return;
         }
         List<File> tempFiles = new ArrayList<>();

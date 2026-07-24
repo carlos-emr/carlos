@@ -16,6 +16,7 @@ import io.github.carlos_emr.carlos.utility.DateUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -597,6 +598,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * so a stored patient document can never be removed by this cleanup. Best-effort only: the
      * scheduled ApplicationTempPurgeJob remains the backstop, so a failed delete never fails the render.
      */
+    // PATH_TRAVERSAL_IN: deletion is gated by isInApplicationTempDirectory; only CARLOS-owned temp files are ever removed.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "deletion is gated by isInApplicationTempDirectory; only CARLOS-owned temp files are ever removed")
     private void cleanupRenderedTempInputs(List<Object> pdfDocumentList, Path result) {
         String resultPath = (result == null) ? null : result.toString();
         for (Object entry : pdfDocumentList) {

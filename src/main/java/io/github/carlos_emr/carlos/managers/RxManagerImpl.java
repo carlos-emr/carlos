@@ -268,8 +268,9 @@ public class RxManagerImpl implements RxManager {
         // nullable Integer and != would compare references. Done before addDrug() so a rejected request
         // never creates a replacement drug.
         if (!java.util.Objects.equals(old.getDemographicId(), d.getDemographicId())) {
-            logger.info("Drug demographic (" + old.getDemographicId() + ") does not match input "
-                    + "demographic (" + d.getDemographicId() + "), failed to update.");
+            logger.info("Drug demographic ({}) does not match input demographic ({}), failed to update.",
+                    LogSafe.sanitize(String.valueOf(old.getDemographicId())),
+                    LogSafe.sanitize(String.valueOf(d.getDemographicId()))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
 

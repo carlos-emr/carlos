@@ -142,9 +142,17 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 		String demoNo = this.getDemographicNo();
 		// Patient-record access check (same as Fax2Action): a fax carries this demographic's PHI, so
 		// the user must be allowed to access this patient's record, not merely hold _con/_fax.
-		if (demoNo != null && !demoNo.trim().isEmpty()
-				&& !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo.trim()))) {
-			throw new SecurityException("missing required patient access");
+		if (demoNo != null && !demoNo.trim().isEmpty()) {
+			int demographicNo;
+			try {
+				demographicNo = Integer.parseInt(demoNo.trim());
+			} catch (NumberFormatException e) {
+				// A non-numeric demographic cannot be authorized against any patient record; fail closed.
+				throw new SecurityException("missing required patient access");
+			}
+			if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+				throw new SecurityException("missing required patient access");
+			}
 		}
 		String faxNumber = this.getSenderFaxNumber();
 		String consultResponsePage = request.getParameter("consultResponsePage");

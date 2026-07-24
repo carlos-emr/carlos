@@ -292,7 +292,7 @@ public final class ConvertToEdoc {
             // No source HTML to render. Return null per this method's documented failure contract
             // instead of NPE-ing deep in the Jsoup/Flying Saucer pipeline; callers treat null as a
             // conversion failure and surface it.
-            logger.error("Cannot render PDF: source HTML was null for {}", LogSafe.sanitize(filename));
+            logger.error("Cannot render PDF: source HTML was null for {}", LogSafe.sanitize(filename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
         Path path = null;

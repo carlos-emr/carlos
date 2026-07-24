@@ -417,7 +417,8 @@ public class ProviderService extends AbstractServiceImpl {
         // endpoint. The full settings payload is no longer logged.
         String sessionProviderNo = getLoggedInInfo().getLoggedInProviderNo();
         if (providerNo == null || !providerNo.equals(sessionProviderNo)) {
-            throw new SecurityException("provider settings may only be saved for the authenticated provider");
+            throw new WebApplicationException("provider settings may only be saved for the authenticated provider",
+                    Response.Status.FORBIDDEN);
         }
         providerManager.updateProviderSettings(getLoggedInInfo(), providerNo, json);
         return RestResponse.successResponse(null);

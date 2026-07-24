@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -74,6 +75,9 @@ public final class MfaActions2Action extends ActionSupport {
      *
      * @return {@link #NONE}; a 405 status is set instead when the request is not a POST.
      */
+    // IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name, not user-identity folding.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison of the literal HTTP method name, not user-identity folding")
     public String resetMfa() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

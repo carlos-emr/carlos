@@ -43,6 +43,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProEditPhoneNum2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -50,6 +51,9 @@ public class ProEditPhoneNum2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    // IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name, not user-identity folding.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison of the literal HTTP method name, not user-identity folding")
     public String execute() throws Exception {
         // Mutator: this action persists the provider's rxPhone (propertyDao.saveProp below), so it
         // MUST reject GET/HEAD before any side-effect fires (GET/HEAD Rejection Contract). CSRFGuard

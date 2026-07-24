@@ -390,6 +390,9 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
         }
     }
 
+    // IMPROPER_UNICODE: case-insensitive comparison of the literal allowlisted host token, not user-identity folding.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison of the literal allowlisted host token, not user-identity folding")
     private boolean isHostAllowlisted(String host) {
         String allow = System.getProperty("carlos.fax.middleware.allowedHosts", "");
         if (allow == null || allow.isBlank()) {

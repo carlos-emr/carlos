@@ -297,6 +297,9 @@ public class APISendGridEmailSender {
      * endpoint is trusted operator config, but this bounds the blast radius if it is misconfigured or
      * tampered with. TLS is enforced at deployment, not here.
      */
+    // IMPROPER_UNICODE: case-insensitive comparison of the literal URL scheme token, not user-identity folding.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison of the literal URL scheme token, not user-identity folding")
     private void validateEndpoint(String endpoint) throws EmailSendingException {
         URI uri;
         try {
@@ -330,6 +333,9 @@ public class APISendGridEmailSender {
         }
     }
 
+    // IMPROPER_UNICODE: case-insensitive comparison of the literal allowlisted host token, not user-identity folding.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "case-insensitive comparison of the literal allowlisted host token, not user-identity folding")
     private boolean isEndpointHostAllowlisted(String host) {
         String allow = System.getProperty("carlos.email.sendgrid.allowedHosts", "");
         if (allow == null || allow.isBlank()) {
