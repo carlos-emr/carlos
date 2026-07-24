@@ -10,14 +10,15 @@ The MVP foundation currently includes:
 - Alembic migration scaffold with the initial invite and account tables.
 - Minimal public `/health` liveness endpoint.
 - Internal `/internal/health/db` database readiness endpoint.
-- Server-rendered responsive sign-in shell.
+- Server-rendered responsive sign-in, activation, password-reset, lockout, and MFA screens.
 - Development-only staff invite API for creating, listing, resending, and revoking invites.
 - Seven-day invite expiry metadata, refreshed on resend.
 - Patient invite activation using invite code, email, date of birth, and HCN/HIN proof.
 - Activation attempt throttling backed by portal audit events.
 - Patient login with Argon2id password verification, MFA challenge/verify, opaque bearer sessions,
   logout, password reset, lockout, staff unlock, and forced reset after unlock.
-- Authenticated dashboard shell with Account, Email passwords, and Help modules.
+- Authenticated dashboard landing page with Account, Email passwords, and Help modules plus disabled
+  placeholders for future Documents and Messages modules.
 - Encrypted unlock-secret storage service for generated email/PDF passphrases.
 - Pilot hardening hooks for readiness checks, maintenance mode, coarse request throttling, audit
   retention pruning, and local SQLite backup/restore drills.
@@ -75,6 +76,7 @@ Common development variables:
 export PATIENT_PORTAL_ENVIRONMENT=development
 export PATIENT_PORTAL_ENABLE_DEV_ADMIN=true
 export PATIENT_PORTAL_CLINIC_NAME="Maple Creek Medical"
+export PATIENT_PORTAL_PUBLIC_BASE_URL="http://127.0.0.1:8090"
 export PATIENT_PORTAL_DATABASE_URL="postgresql+psycopg://localhost:5432/carlos_portal"
 # The development Postfix capture service listens locally without TLS or authentication.
 export PATIENT_PORTAL_SMTP_HOST=127.0.0.1
@@ -104,9 +106,15 @@ configured together. `PATIENT_PORTAL_SMTP_TIMEOUT_SECONDS` defaults to 10 second
 contain only the verification code, expiry, service name, and clinic contact direction. They do not
 include patient names or clinical information.
 
+`PATIENT_PORTAL_PUBLIC_BASE_URL` is used to build password-reset email links and is required when
+SMTP is configured outside development. It must use HTTPS outside development. Reset tokens are put
+in the link fragment so they are not sent in the initial HTTP request or written to access logs.
+Matched password-reset requests are limited to one email per account per minute by default; tune
+this with `PATIENT_PORTAL_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS`.
+
 The development container's capture-only Postfix setup stores messages locally instead of relaying
 them externally. Use `/scripts/mail list` and `/scripts/mail read latest` to inspect captured MFA
-messages during testing.
+and password-reset messages during testing.
 
 Run the repeatable live browser smoke test from the repository root after seeding the development
 account and starting the portal:
@@ -308,9 +316,10 @@ Activation checks the invite code, email, date of birth, and HCN/HIN together an
 failure when they do not match. Usernames are normalized to lowercase and must be unique. Passwords
 are hashed with Argon2id before storage.
 
-Activation requests must use `application/json` and are capped at 16 KiB before validation. Failed
-activation attempts are audited and rate-limited without storing raw HCN/HIN, date-of-birth, or raw
-client address values. Client address hashes use `PATIENT_PORTAL_AUDIT_HASH_SECRET`.
+Activation accepts the CSRF-protected browser form or `application/json`; request bodies are capped
+at 16 KiB before validation. Failed activation attempts are audited and rate-limited without storing
+raw HCN/HIN, date-of-birth, invite-code, or raw client address values. Client address hashes use
+`PATIENT_PORTAL_AUDIT_HASH_SECRET`.
 
 ## Patient Auth API
 
@@ -360,10 +369,10 @@ curl -X POST http://127.0.0.1:8090/auth/password-reset/complete \
 ```
 
 Development responses include `development_mfa_code` and `development_reset_token` only when needed
-for local testing. Production responses do not expose raw MFA codes or reset tokens; real delivery
-integration should send those values through the configured email/SMS provider without storing them.
-The database stores keyed hashes of MFA codes, reset tokens, and session tokens. Sign-in, MFA,
-reset, lockout, unlock, and logout write audit events.
+for local testing. Production responses do not expose raw MFA codes or reset tokens. Configured SMTP
+delivers MFA codes and one-time password-reset links without storing their raw values. The database
+stores keyed hashes of MFA codes, reset tokens, and session tokens. Sign-in, MFA, reset, lockout,
+unlock, and logout write audit events.
 
 Successful browser login/MFA form submissions set an HttpOnly portal session cookie scoped to
 `/portal` so the server-rendered dashboard can be used without putting bearer tokens in page scripts.
@@ -379,9 +388,11 @@ curl -H "Cookie: carlos_portal_session=<session_token>" \
 
 Dashboard routes:
 
-- `/portal` and `/portal/account` show the Account module shell.
-- `/portal/email-passwords` shows searchable, paginated generated email passphrases for the
-  authenticated patient, with unavailable rows hidden from raw passphrase display.
+- `/portal` shows the module dashboard.
+- `/portal/account` shows account, contact, password, and MFA settings.
+- `/portal/email-passwords` shows searchable, provider/date-filtered, paginated generated email
+  passphrases for the authenticated patient, with unavailable rows hidden from raw passphrase
+  display.
 - `/portal/help` shows clinic help details.
 - `POST /portal/logout` clears the portal session cookie and writes a logout audit event.
 
@@ -395,6 +406,10 @@ It provides service functions to generate, create, list, read/decrypt, and revok
 passphrases use AES-256-GCM with a key derived from
 `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET`; audit events record create/read/revoke without
 storing the raw passphrase.
+
+Generated values use the PR #3135 format `word-word-###-word-word-###`, selecting four words
+uniformly from the reviewed 4096-word list and six independent decimal digits. This provides about
+68 bits of entropy while remaining copyable and readable to patients.
 
 The service functions require clinic scope and either account or demographic scope for reads and
 revokes. Patient-facing routes should pass the authenticated account id; staff/CARLOS-side routes

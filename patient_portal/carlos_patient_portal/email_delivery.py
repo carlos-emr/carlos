@@ -6,11 +6,11 @@ from typing import Protocol
 from carlos_patient_portal.config import Settings
 
 
-class MfaEmailDeliveryError(Exception):
-    """Raised when an MFA email cannot be delivered."""
+class PortalEmailDeliveryError(Exception):
+    """Raised when a portal authentication email cannot be delivered."""
 
 
-class MfaEmailSender(Protocol):
+class PortalEmailSender(Protocol):
     def send_code(
         self,
         *,
@@ -19,8 +19,16 @@ class MfaEmailSender(Protocol):
         expires_in_seconds: int,
     ) -> None: ...
 
+    def send_password_reset(
+        self,
+        *,
+        recipient: str,
+        reset_url: str,
+        expires_in_seconds: int,
+    ) -> None: ...
 
-class SmtpMfaEmailSender:
+
+class SmtpPortalEmailSender:
     def __init__(self, settings: Settings) -> None:
         if settings.smtp_host is None or settings.resolved_smtp_from_address is None:
             raise ValueError("SMTP host and from address are required")
@@ -59,6 +67,30 @@ class SmtpMfaEmailSender:
             f"If you did not try to sign in, contact {self.clinic_name}."
         )
 
+        self._send_message(message)
+
+    def send_password_reset(
+        self,
+        *,
+        recipient: str,
+        reset_url: str,
+        expires_in_seconds: int,
+    ) -> None:
+        message = EmailMessage()
+        message["From"] = self.from_address
+        message["To"] = recipient
+        message["Subject"] = f"Reset your {self.service_name} password"
+        message["Auto-Submitted"] = "auto-generated"
+        expires_in_minutes = max(1, expires_in_seconds // 60)
+        message.set_content(
+            f"A password reset was requested for your {self.service_name} account.\n\n"
+            f"Open this link to choose a new password:\n{reset_url}\n\n"
+            f"This link expires in {expires_in_minutes} minutes and can only be used once.\n\n"
+            f"If you did not request this reset, contact {self.clinic_name}."
+        )
+        self._send_message(message)
+
+    def _send_message(self, message: EmailMessage) -> None:
         try:
             with smtplib.SMTP(
                 host=self.host,
@@ -71,14 +103,14 @@ class SmtpMfaEmailSender:
                     smtp.login(self.username, self.password)
                 refused_recipients = smtp.send_message(message)
                 if refused_recipients:
-                    raise MfaEmailDeliveryError("MFA email delivery failed")
-        except MfaEmailDeliveryError:
+                    raise PortalEmailDeliveryError("portal email delivery failed")
+        except PortalEmailDeliveryError:
             raise
         except (OSError, smtplib.SMTPException, ValueError) as exc:
-            raise MfaEmailDeliveryError("MFA email delivery failed") from exc
+            raise PortalEmailDeliveryError("portal email delivery failed") from exc
 
 
-def build_mfa_email_sender(settings: Settings) -> MfaEmailSender | None:
+def build_portal_email_sender(settings: Settings) -> PortalEmailSender | None:
     if settings.smtp_host is None:
         return None
-    return SmtpMfaEmailSender(settings)
+    return SmtpPortalEmailSender(settings)

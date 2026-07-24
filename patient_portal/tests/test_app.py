@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime, timedelta
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,14 +25,13 @@ from carlos_patient_portal.config import (
     MIN_PRODUCTION_SECRET_LENGTH,
     Settings,
 )
-from carlos_patient_portal.credentials import validate_password
 from carlos_patient_portal.database import (
     Base,
     create_portal_engine,
     create_session_factory,
     session_scope,
 )
-from carlos_patient_portal.email_delivery import MfaEmailDeliveryError, MfaEmailSender
+from carlos_patient_portal.email_delivery import PortalEmailDeliveryError, PortalEmailSender
 from carlos_patient_portal.i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, portal_text
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.interop import (
@@ -152,7 +152,7 @@ def development_settings(**overrides: object) -> Settings:
 
 def migrated_development_app(
     *,
-    mfa_email_sender: MfaEmailSender | None = None,
+    email_sender: PortalEmailSender | None = None,
     **overrides: object,
 ) -> main.FastAPI:
     settings_values = {
@@ -166,13 +166,13 @@ def migrated_development_app(
     }
     app = main.create_app(
         development_settings(**settings_values),
-        mfa_email_sender=mfa_email_sender,
+        email_sender=email_sender,
     )
     Base.metadata.create_all(app.state.database_engine)
     return app
 
 
-class RecordingMfaEmailSender:
+class RecordingPortalEmailSender:
     def __init__(self, *, fail: bool = False) -> None:
         self.fail = fail
         self.app: main.FastAPI | None = None
@@ -199,7 +199,24 @@ class RecordingMfaEmailSender:
             }
         )
         if self.fail:
-            raise MfaEmailDeliveryError("simulated delivery failure")
+            raise PortalEmailDeliveryError("simulated delivery failure")
+
+    def send_password_reset(
+        self,
+        *,
+        recipient: str,
+        reset_url: str,
+        expires_in_seconds: int,
+    ) -> None:
+        self.messages.append(
+            {
+                "recipient": recipient,
+                "reset_url": reset_url,
+                "expires_in_seconds": expires_in_seconds,
+            }
+        )
+        if self.fail:
+            raise PortalEmailDeliveryError("simulated delivery failure")
 
 
 def dev_admin_headers(
@@ -222,6 +239,12 @@ def get_csrf_token(client: TestClient) -> str:
     csrf_token = match.group(1)
     assert response.cookies.get(main.CSRF_COOKIE_NAME) == csrf_token
     return csrf_token
+
+
+def csrf_token_from_response(response: object) -> str:
+    match = CSRF_TOKEN_PATTERN.search(str(getattr(response, "text", "")))
+    assert match is not None
+    return match.group(1)
 
 
 def parse_response_datetime(value: str) -> datetime:
@@ -422,8 +445,8 @@ def test_index_renders_sign_in_shell() -> None:
     assert 'src="http://testserver/static/carlos-logo.png"' in response.text
     assert f'placeholder="{text["username_placeholder"]}"' in response.text
     assert f'placeholder="{text["password_placeholder"]}"' in response.text
-    assert f'>{text["forgot_username_password"]}</button>' in response.text
-    assert text["account_recovery_unavailable_message"] in response.text
+    assert f'>{text["forgot_username_password"]}</a>' in response.text
+    assert f'>{text["activate_account"]}</a>' in response.text
     assert text["language_unavailable_message"] in response.text
     assert 'data-modal-title="' in response.text
     assert 'id="portal-message-modal"' in response.text
@@ -434,6 +457,73 @@ def test_index_renders_sign_in_shell() -> None:
     assert 'name="csrf_token"' in response.text
     assert "nosemgrep" not in response.text
     assert "Maple Creek Medical" in response.text
+
+
+def test_browser_activation_form_creates_account_without_repopulating_proof_values() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    invite_response = client.post(
+        "/dev/admin/invites",
+        headers=dev_admin_headers(),
+        json=seeded_invite_request(),
+    )
+    activation_page = client.get("/auth/activate")
+
+    assert activation_page.status_code == 200
+    assert 'type="date"' in activation_page.text
+    assert "Activate your account" in activation_page.text
+
+    activation_response = client.post(
+        "/auth/activate",
+        data={
+            "csrf_token": csrf_token_from_response(activation_page),
+            "invite_code": invite_response.json()["invite_token"],
+            "email": SEEDED_INVITE_EMAIL,
+            "date_of_birth": SEEDED_INVITE_DOB,
+            "health_card_number": SEEDED_INVITE_HCN,
+            "username": "browser.patient",
+            "password": STRONG_PASSWORD,
+            "password_confirmation": STRONG_PASSWORD,
+        },
+    )
+
+    assert activation_response.status_code == 201
+    assert "Account activated" in activation_response.text
+    assert SEEDED_INVITE_HCN not in activation_response.text
+    assert invite_response.json()["invite_token"] not in activation_response.text
+    with app.state.session_factory() as session:
+        account = session.scalar(
+            select(PatientPortalAccount).where(
+                PatientPortalAccount.username == "browser.patient"
+            )
+        )
+        assert account is not None
+
+
+def test_browser_activation_rejects_password_mismatch_without_echoing_secrets() -> None:
+    app = migrated_development_app()
+    client = TestClient(app)
+    activation_page = client.get("/auth/activate")
+
+    response = client.post(
+        "/auth/activate",
+        data={
+            "csrf_token": csrf_token_from_response(activation_page),
+            "invite_code": "sensitive-invite-code",
+            "email": SEEDED_INVITE_EMAIL,
+            "date_of_birth": SEEDED_INVITE_DOB,
+            "health_card_number": SEEDED_INVITE_HCN,
+            "username": "browser.patient",
+            "password": STRONG_PASSWORD,
+            "password_confirmation": "Different1!word",  # ggignore
+        },
+    )
+
+    assert response.status_code == 400
+    assert "password confirmation does not match" in response.text.lower()
+    assert "sensitive-invite-code" not in response.text
+    assert SEEDED_INVITE_HCN not in response.text
+    assert STRONG_PASSWORD not in response.text
 
 
 def test_static_logo_asset_is_served() -> None:
@@ -708,8 +798,8 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
 
 
 def test_login_sends_mfa_email_after_committing_challenge() -> None:
-    sender = RecordingMfaEmailSender()
-    app = migrated_development_app(mfa_email_sender=sender)
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
     sender.app = app
     client = TestClient(app)
     activate_seeded_patient_account(app, client)
@@ -735,8 +825,8 @@ def test_login_sends_mfa_email_after_committing_challenge() -> None:
 
 
 def test_login_mfa_delivery_failure_is_generic_and_audited() -> None:
-    sender = RecordingMfaEmailSender(fail=True)
-    app = migrated_development_app(mfa_email_sender=sender)
+    sender = RecordingPortalEmailSender(fail=True)
+    app = migrated_development_app(email_sender=sender)
     client = TestClient(app)
     activate_seeded_patient_account(app, client)
 
@@ -767,8 +857,8 @@ def test_login_mfa_delivery_failure_is_generic_and_audited() -> None:
 
 
 def test_mfa_email_resend_delivers_new_code_after_cooldown() -> None:
-    sender = RecordingMfaEmailSender()
-    app = migrated_development_app(mfa_email_sender=sender)
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
     client = TestClient(app)
     activate_seeded_patient_account(app, client)
     login_response = client.post(
@@ -862,8 +952,8 @@ def test_form_mfa_error_keeps_retry_and_resend_screen() -> None:
 
 
 def test_form_mfa_resend_sends_new_email_after_cooldown() -> None:
-    sender = RecordingMfaEmailSender()
-    app = migrated_development_app(mfa_email_sender=sender)
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
     client = TestClient(app)
     activate_seeded_patient_account(app, client)
     csrf_token = get_csrf_token(client)
@@ -1033,20 +1123,24 @@ def test_dashboard_shell_navigation_and_cookie_logout() -> None:
     assert "HttpOnly" in dashboard_response.headers["set-cookie"]
     assert "Path=/portal" in dashboard_response.headers["set-cookie"]
     assert "SameSite=strict" in dashboard_response.headers["set-cookie"]
-    assert 'data-active-module="account"' in dashboard_response.text
+    assert 'data-active-module="dashboard"' in dashboard_response.text
+    assert "Documents will be available in a future release." in dashboard_response.text
+    assert "Secure messaging will be available in a future release." in dashboard_response.text
     assert 'href="/portal/account"' in dashboard_response.text
     assert 'href="/portal/email-passwords"' in dashboard_response.text
     assert 'href="/portal/help"' in dashboard_response.text
     assert 'class="logout-form"' in dashboard_response.text
     assert ">Logout</button>" in dashboard_response.text
-    assert 'action="http://testserver/portal/account/password"' in dashboard_response.text
-    assert 'action="http://testserver/portal/account/contact"' in dashboard_response.text
-    assert 'action="http://testserver/portal/account/mfa"' in dashboard_response.text
     assert "patient.user" in dashboard_response.text
 
+    account_response = client.get("/portal/account")
     email_passwords_response = client.get("/portal/email-passwords")
     help_response = client.get("/portal/help")
 
+    assert account_response.status_code == 200
+    assert 'action="http://testserver/portal/account/password"' in account_response.text
+    assert 'action="http://testserver/portal/account/contact"' in account_response.text
+    assert 'action="http://testserver/portal/account/mfa"' in account_response.text
     assert email_passwords_response.status_code == 200
     assert 'data-active-module="email-passwords"' in email_passwords_response.text
     email_passwords_link_start = email_passwords_response.text.index(
@@ -1326,18 +1420,34 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
                     account_id=account_id,
                     secret_type=UNLOCK_SECRET_TYPE_EMAIL,
                     secret=f"PortalPwd{index:02d}!A",
-                    created_by="CarlosDoc",
+                    created_by="Clinic Nurse" if index == 5 else "CarlosDoc",
                     encryption_secret=UNLOCK_SECRET_ENCRYPTION_SECRET,
                     label="Lab report" if index == 5 else f"Message {index:02d}",
                     source_reference=f"message-{3135 + index}",
                 )
-                created_at = base_time + timedelta(minutes=index)
+                created_at = base_time + timedelta(days=index)
                 created.unlock_secret.created_at = created_at
                 created.unlock_secret.updated_at = created_at
 
     page_one_response = client.get("/portal/email-passwords")
     page_two_response = client.get("/portal/email-passwords?page=2")
     search_response = client.get("/portal/email-passwords?q=lab")
+    provider_response = client.get(
+        "/portal/email-passwords",
+        params={"provider": "Clinic Nurse"},
+    )
+    date_response = client.get(
+        "/portal/email-passwords",
+        params={"date_from": "2026-07-28", "date_to": "2026-07-28"},
+    )
+    invalid_date_response = client.get(
+        "/portal/email-passwords",
+        params={"date_from": "2026-07-29", "date_to": "2026-07-28"},
+    )
+    maximum_date_response = client.get(
+        "/portal/email-passwords",
+        params={"date_to": "9999-12-31"},
+    )
 
     assert page_one_response.status_code == 200
     assert "Message 11" in page_one_response.text
@@ -1347,10 +1457,8 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     assert "Message 01" not in page_one_response.text
     assert "PortalPwd01!A" not in page_one_response.text
     assert page_one_response.text.index("Message 11") < page_one_response.text.index("Message 02")
-    assert 'value="PortalPwd11!A"' in page_one_response.text
-    assert 'readonly' in page_one_response.text
-    assert 'autocomplete="off"' in page_one_response.text
-    assert 'spellcheck="false"' in page_one_response.text
+    assert ">PortalPwd11!A</code>" in page_one_response.text
+    assert 'class="copyable-password"' in page_one_response.text
     assert 'data-copy-target="email-password-' in page_one_response.text
     assert 'href="/portal/email-passwords?page=2"' in page_one_response.text
     assert '<span class="page-indicator">Page 1</span>' in page_one_response.text
@@ -1371,6 +1479,20 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
     assert "PortalPwd06!A" not in search_response.text
     assert 'value="lab"' in search_response.text
 
+    assert provider_response.status_code == 200
+    assert "Lab report" in provider_response.text
+    assert "Message 06" not in provider_response.text
+    assert '<option value="Clinic Nurse" selected>' in provider_response.text
+
+    assert date_response.status_code == 200
+    assert "Lab report" in date_response.text
+    assert "Message 04" not in date_response.text
+    assert "Message 06" not in date_response.text
+    assert 'value="2026-07-28"' in date_response.text
+    assert invalid_date_response.status_code == 400
+    assert "from date must not be later" in invalid_date_response.text
+    assert maximum_date_response.status_code == 200
+
     with app.state.session_factory() as session:
         read_events = list(
             session.scalars(
@@ -1384,7 +1506,7 @@ def test_email_password_dashboard_populated_search_pagination_and_copy_controls(
             )
         )
 
-        assert len(read_events) == 13
+        assert len(read_events) == 25
         assert all(event.actor_type == "patient" for event in read_events)
 
 
@@ -1907,6 +2029,121 @@ def test_password_lockout_staff_unlock_and_forced_reset() -> None:
         ]
 
 
+def test_browser_password_reset_sends_fragment_link_and_completes_reset() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    reset_page = client.get("/auth/password-reset")
+
+    request_response = client.post(
+        "/auth/password-reset/request",
+        data={
+            "csrf_token": csrf_token_from_response(reset_page),
+            "username": "patient.user",
+            "email": SEEDED_INVITE_EMAIL,
+        },
+    )
+
+    assert request_response.status_code == 202
+    assert "If the account details match" in request_response.text
+    assert len(sender.messages) == 1
+    reset_url = str(sender.messages[0]["reset_url"])
+    parsed_reset_url = urlsplit(reset_url)
+    assert parsed_reset_url.query == ""
+    assert parsed_reset_url.path == "/auth/password-reset/complete"
+    reset_token = parse_qs(parsed_reset_url.fragment)["token"][0]
+    assert reset_token not in parsed_reset_url.path
+    cooldown_response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    assert cooldown_response.status_code == 202
+    assert cooldown_response.json()["development_reset_token"] is None
+    assert len(sender.messages) == 1
+
+    complete_page = client.get(parsed_reset_url.path)
+    mismatch_response = client.post(
+        "/auth/password-reset/complete",
+        data={
+            "csrf_token": csrf_token_from_response(complete_page),
+            "reset_token": reset_token,
+            "new_password": STRONG_RESET_PASSWORD,
+            "new_password_confirmation": "Different1!word",
+        },
+    )
+    complete_response = client.post(
+        "/auth/password-reset/complete",
+        data={
+            "csrf_token": csrf_token_from_response(mismatch_response),
+            "reset_token": reset_token,
+            "new_password": STRONG_RESET_PASSWORD,
+            "new_password_confirmation": STRONG_RESET_PASSWORD,
+        },
+    )
+    login_response = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_RESET_PASSWORD},
+    )
+
+    assert mismatch_response.status_code == 400
+    assert "password confirmation does not match" in mismatch_response.text.lower()
+    assert f'value="{reset_token}" data-reset-token' in mismatch_response.text
+    assert complete_response.status_code == 200
+    assert "Password reset" in complete_response.text
+    assert reset_token not in complete_response.text
+    assert login_response.status_code == 200
+    assert login_response.json()["status"] == "mfa_required"
+
+
+def test_locked_account_browser_page_and_reset_require_staff_unlock() -> None:
+    sender = RecordingPortalEmailSender()
+    app = migrated_development_app(email_sender=sender)
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    with app.state.session_factory() as session:
+        with session.begin():
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            account.locked_at = utc_now()
+            account.locked_by = "security-policy"
+            account.force_password_reset = True
+
+    csrf_token = get_csrf_token(client)
+    locked_response = client.post(
+        "/auth/login",
+        data={
+            "csrf_token": csrf_token,
+            "username": "patient.user",
+            "password": STRONG_PASSWORD,
+        },
+    )
+    reset_response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+
+    assert locked_response.status_code == 423
+    assert "Account locked" in locked_response.text
+    assert "Clinic staff must unlock this account" in locked_response.text
+    assert reset_response.status_code == 202
+    assert reset_response.json()["development_reset_token"] is None
+    assert sender.messages == []
+
+    unlock_response = client.post(
+        f"/dev/admin/accounts/{account_id}/unlock",
+        headers=dev_admin_headers(),
+    )
+    unlocked_reset_response = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+
+    assert unlock_response.status_code == 200
+    assert unlocked_reset_response.json()["development_reset_token"]
+    assert len(sender.messages) == 1
+
+
 def test_api_docs_are_available_in_development() -> None:
     app = main.create_app(development_settings())
 
@@ -2338,8 +2575,8 @@ def test_patient_activation_requires_json_body() -> None:
         data={"invite_code": "unused"},
     )
 
-    assert response.status_code == 415
-    assert response.json()["detail"] == "activation requires an application/json request body"
+    assert response.status_code == 403
+    assert response.json()["detail"] == "invalid CSRF token"
 
 
 def test_patient_activation_validation_does_not_echo_health_card_number() -> None:
@@ -2850,15 +3087,11 @@ def test_invite_identity_proof_hashes_are_salted_per_invite() -> None:
         assert first_invite.proof_health_card_hash != second_invite.proof_health_card_hash
 
 
-def test_generated_unlock_secret_value_meets_password_policy() -> None:
-    ambiguous_characters = set("0O1Il")
-
+def test_generated_unlock_secret_value_uses_reviewed_email_pdf_format() -> None:
     for _ in range(25):
         generated_secret = generate_unlock_secret_value()
 
-        assert len(generated_secret) == 12
-        assert not ambiguous_characters.intersection(generated_secret)
-        assert validate_password(generated_secret) == generated_secret
+        assert re.fullmatch(r"[a-z]+-[a-z]+-\d{3}-[a-z]+-[a-z]+-\d{3}", generated_secret)
 
 
 def test_unlock_secret_lifecycle_encrypts_decrypts_revokes_and_audits() -> None:
@@ -3908,6 +4141,8 @@ def test_auth_policy_settings_are_bounded() -> None:
         development_settings(mfa_sms_resend_cooldown_seconds=59)
     with pytest.raises(ValidationError, match="password_reset_token_ttl_seconds"):
         development_settings(password_reset_token_ttl_seconds=299)
+    with pytest.raises(ValidationError, match="password_reset_request_cooldown_seconds"):
+        development_settings(password_reset_request_cooldown_seconds=29)
     with pytest.raises(ValidationError, match="PATIENT_PORTAL_REQUIRE_MFA"):
         Settings(
             environment="production",

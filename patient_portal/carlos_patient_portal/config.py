@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     environment: Environment = "production"
     clinic_id: str = Field(default="default", max_length=MAX_CLINIC_ID_LENGTH)
     clinic_name: str = "Maple Creek Medical"
+    public_base_url: str | None = Field(default=None, max_length=2048)
     database_url: str = DEFAULT_DATABASE_URL
     enable_dev_admin: bool = False
     dev_admin_token: SecretStr | None = None
@@ -51,6 +53,11 @@ class Settings(BaseSettings):
     mfa_email_resend_cooldown_seconds: int = Field(default=60, ge=30, le=60 * 60)
     mfa_sms_resend_cooldown_seconds: int = Field(default=5 * 60, ge=60, le=60 * 60)
     password_reset_token_ttl_seconds: int = Field(default=60 * 60, ge=300, le=24 * 60 * 60)
+    password_reset_request_cooldown_seconds: int = Field(
+        default=60,
+        ge=30,
+        le=60 * 60,
+    )
     global_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
     global_rate_limit_max_requests: int = Field(default=300, ge=1, le=10000)
     audit_retention_days: int = Field(default=DEFAULT_AUDIT_RETENTION_DAYS, ge=365, le=100 * 365)
@@ -99,6 +106,7 @@ class Settings(BaseSettings):
         return value
 
     @field_validator(
+        "public_base_url",
         "smtp_host",
         "smtp_from_address",
         "smtp_username",
@@ -109,6 +117,35 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return value.strip() or None
         return value
+
+    @field_validator("public_base_url")
+    @classmethod
+    def validate_public_base_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed_url = urlsplit(value)
+        if (
+            parsed_url.scheme not in {"http", "https"}
+            or not parsed_url.netloc
+            or parsed_url.username is not None
+            or parsed_url.password is not None
+            or parsed_url.query
+            or parsed_url.fragment
+        ):
+            raise ValueError(
+                "PATIENT_PORTAL_PUBLIC_BASE_URL must be an HTTP(S) origin without "
+                "credentials, query, or fragment"
+            )
+        normalized_path = parsed_url.path.rstrip("/")
+        return urlunsplit(
+            (
+                parsed_url.scheme,
+                parsed_url.netloc,
+                normalized_path,
+                "",
+                "",
+            )
+        )
 
     @field_validator("clinic_id")
     @classmethod
@@ -191,6 +228,16 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_SMTP_FROM_ADDRESS is required when "
                 "PATIENT_PORTAL_SMTP_HOST is set"
             )
+        if not self.is_development and self.smtp_host is not None:
+            if self.public_base_url is None:
+                raise ValueError(
+                    "PATIENT_PORTAL_PUBLIC_BASE_URL is required when SMTP is configured "
+                    "outside development"
+                )
+            if not self.public_base_url.startswith("https://"):
+                raise ValueError(
+                    "PATIENT_PORTAL_PUBLIC_BASE_URL must use HTTPS outside development"
+                )
 
         identity_proof_secret_value: str | None = None
         if self.identity_proof_secret is not None:

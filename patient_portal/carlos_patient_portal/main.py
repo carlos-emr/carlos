@@ -1,7 +1,9 @@
+import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as datetime_time
 from hashlib import sha256
 from hmac import new as new_hmac
 from http.cookies import SimpleCookie
@@ -12,7 +14,7 @@ from secrets import compare_digest, token_urlsafe
 from threading import Lock
 from time import monotonic, time
 from typing import Annotated, TypeVar
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import parse_qs, quote, urlencode
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
@@ -79,9 +81,9 @@ from carlos_patient_portal.database import (
     create_session_factory,
 )
 from carlos_patient_portal.email_delivery import (
-    MfaEmailDeliveryError,
-    MfaEmailSender,
-    build_mfa_email_sender,
+    PortalEmailDeliveryError,
+    PortalEmailSender,
+    build_portal_email_sender,
 )
 from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text, supported_locale_options
 from carlos_patient_portal.identity import IdentityProof
@@ -119,6 +121,7 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
+    MAX_UNLOCK_SECRET_ACTOR_LENGTH,
     MFA_DELIVERY_METHOD_EMAIL,
     MFA_DELIVERY_METHOD_SMS,
     UNLOCK_SECRET_STATUS_ACTIVE,
@@ -157,6 +160,7 @@ from carlos_patient_portal.unlock_secrets import (
     UnlockSecretNotFoundError,
     UnlockSecretRevokedError,
     get_scoped_unlock_secret,
+    list_unlock_secret_providers,
     list_unlock_secrets,
     read_unlock_secret,
 )
@@ -164,6 +168,7 @@ from carlos_patient_portal.unlock_secrets import (
 PACKAGE_DIR = FilePath(__file__).resolve().parent
 RequestModel = TypeVar("RequestModel", bound=BaseModel)
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
+logger = logging.getLogger(__name__)
 CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
     "object-src 'none'"
@@ -187,21 +192,21 @@ CSRF_FUTURE_SKEW_SECONDS = 60
 PORTAL_SESSION_COOKIE_NAME = "carlos_portal_session"
 PORTAL_SESSION_COOKIE_PATH = "/portal"
 PORTAL_MODULES = (
-    {"slug": "account", "label": "Account", "href": "/portal/account"},
+    {"slug": "dashboard", "label_key": "dashboard", "href": "/portal"},
+    {"slug": "account", "label_key": "account", "href": "/portal/account"},
     {
         "slug": "email-passwords",
-        "label": "Email passwords",
+        "label_key": "email_passwords",
         "href": "/portal/email-passwords",
     },
-    {"slug": "help", "label": "Help", "href": "/portal/help"},
+    {"slug": "help", "label_key": "help", "href": "/portal/help"},
 )
 EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE = DEFAULT_UNLOCK_SECRET_LIST_LIMIT
-ACCOUNT_CHANGE_ERROR_MESSAGE = "Account change could not be completed."
-ACCOUNT_NOTICE_MESSAGES = {
-    "contact-updated": "Contact update sent for staff review.",
-    "mfa-updated": "MFA settings updated.",
-    "no-change": "No account changes.",
-    "password-updated": "Password updated.",
+ACCOUNT_NOTICE_MESSAGE_KEYS = {
+    "contact-updated": "account_status_contact_updated",
+    "mfa-updated": "account_status_mfa_updated",
+    "no-change": "account_status_no_change",
+    "password-updated": "account_status_password_updated",
 }
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
@@ -265,6 +270,19 @@ class FhirApiError(Exception):
         self.diagnostics = diagnostics
 
 
+class BrowserFormValidationError(Exception):
+    """Raised when a browser form cannot be validated without exposing field details."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        safe_form_values: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.safe_form_values = safe_form_values or {}
+
+
 @dataclass(frozen=True)
 class PortalRuntime:
     settings: Settings
@@ -277,7 +295,7 @@ class PortalRuntime:
     activation_rate_limit: ActivationRateLimit
     auth_policy: AuthPolicy
     rate_limiter: InMemoryRateLimiter
-    mfa_email_sender: MfaEmailSender | None
+    email_sender: PortalEmailSender | None
 
 
 @dataclass(frozen=True)
@@ -596,17 +614,20 @@ def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
         ),
         mfa_sms_resend_cooldown=timedelta(seconds=settings.mfa_sms_resend_cooldown_seconds),
         password_reset_token_ttl=timedelta(seconds=settings.password_reset_token_ttl_seconds),
+        password_reset_request_cooldown=timedelta(
+            seconds=settings.password_reset_request_cooldown_seconds
+        ),
         require_mfa=settings.require_mfa,
     )
 
 
 def send_mfa_challenge(runtime: PortalRuntime, delivery: MfaChallengeDelivery) -> None:
     if delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL:
-        if runtime.mfa_email_sender is None:
+        if runtime.email_sender is None:
             if runtime.settings.is_development:
                 return
-            raise MfaEmailDeliveryError("MFA email delivery is not configured")
-        runtime.mfa_email_sender.send_code(
+            raise PortalEmailDeliveryError("MFA email delivery is not configured")
+        runtime.email_sender.send_code(
             recipient=delivery.destination,
             code=delivery.code,
             expires_in_seconds=runtime.settings.mfa_code_ttl_seconds,
@@ -614,7 +635,40 @@ def send_mfa_challenge(runtime: PortalRuntime, delivery: MfaChallengeDelivery) -
         return
 
     if not runtime.settings.is_development:
-        raise MfaEmailDeliveryError("MFA delivery is not configured")
+        raise PortalEmailDeliveryError("MFA delivery is not configured")
+
+
+def build_password_reset_url(
+    request: Request,
+    *,
+    settings: Settings,
+    reset_token: str,
+) -> str:
+    if settings.public_base_url is not None:
+        base_url = settings.public_base_url.rstrip("/")
+    elif settings.is_development:
+        base_url = str(request.base_url).rstrip("/")
+    else:
+        raise PortalEmailDeliveryError("password reset email delivery is not configured")
+    encoded_token = quote(reset_token, safe="")
+    return f"{base_url}/auth/password-reset/complete#token={encoded_token}"
+
+
+def send_password_reset_email(
+    runtime: PortalRuntime,
+    *,
+    recipient: str,
+    reset_url: str,
+) -> None:
+    if runtime.email_sender is None:
+        if runtime.settings.is_development:
+            return
+        raise PortalEmailDeliveryError("password reset email delivery is not configured")
+    runtime.email_sender.send_password_reset(
+        recipient=recipient,
+        reset_url=reset_url,
+        expires_in_seconds=runtime.settings.password_reset_token_ttl_seconds,
+    )
 
 
 def record_mfa_delivery_and_commit(
@@ -702,6 +756,61 @@ def index_template_context(
     }
 
 
+def public_auth_template_context(
+    request: Request,
+    *,
+    settings: Settings,
+    csrf_token: str,
+    error_message: str | None = None,
+    notice_message: str | None = None,
+    form_values: dict[str, str] | None = None,
+    **extra_context: object,
+) -> dict[str, object]:
+    return {
+        "request": request,
+        "clinic_name": settings.clinic_name,
+        "csrf_token": csrf_token,
+        "error_message": error_message,
+        "form_values": form_values or {},
+        "notice_message": notice_message,
+        "service_name": settings.service_name,
+        "supported_locales": supported_locale_options(DEFAULT_LOCALE),
+        "text": portal_text(DEFAULT_LOCALE),
+        **extra_context,
+    }
+
+
+def render_public_auth_template(
+    request: Request,
+    *,
+    settings: Settings,
+    csrf_secret: str,
+    template_name: str,
+    status_code: int = status.HTTP_200_OK,
+    error_message: str | None = None,
+    notice_message: str | None = None,
+    form_values: dict[str, str] | None = None,
+    **extra_context: object,
+) -> Response:
+    csrf_token = create_csrf_token(csrf_secret)
+    response = templates.TemplateResponse(
+        request=request,
+        name=template_name,
+        context=public_auth_template_context(
+            request,
+            settings=settings,
+            csrf_token=csrf_token,
+            error_message=error_message,
+            notice_message=notice_message,
+            form_values=form_values,
+            **extra_context,
+        ),
+        status_code=status_code,
+    )
+    set_csrf_cookie(response, csrf_token, settings=settings, path=CSRF_COOKIE_PATH)
+    return response
+
+
 def mfa_template_context(
     request: Request,
     *,
@@ -712,6 +821,7 @@ def mfa_template_context(
     notice_message: str | None = None,
 ) -> dict[str, object]:
     is_email = delivery.delivery_method == MFA_DELIVERY_METHOD_EMAIL
+    text = portal_text(DEFAULT_LOCALE)
     return {
         "request": request,
         "clinic_name": settings.clinic_name,
@@ -729,15 +839,14 @@ def mfa_template_context(
         ),
         "mfa_email_selected": is_email,
         "mfa_rate_limit_message": (
-            "Email codes can be resent once per minute."
-            if is_email
-            else "SMS codes can be resent once every five minutes."
+            text["email_codes_rate"] if is_email else text["mfa_sms_rate"]
         ),
         "mfa_sms_available": (
             MFA_DELIVERY_METHOD_SMS in delivery.available_delivery_methods
         ),
         "mfa_sms_selected": not is_email,
         "service_name": settings.service_name,
+        "text": text,
     }
 
 
@@ -755,10 +864,14 @@ def mask_mfa_destination(delivery: MfaChallengeDelivery) -> str:
     return f"***-***-{digits[-4:]}"
 
 
-def portal_modules(active_module: str) -> tuple[dict[str, object], ...]:
+def portal_modules(
+    active_module: str,
+    text: dict[str, str],
+) -> tuple[dict[str, object], ...]:
     return tuple(
         {
             **module,
+            "label": text[module["label_key"]],
             "is_active": module["slug"] == active_module,
         }
         for module in PORTAL_MODULES
@@ -777,6 +890,7 @@ def portal_template_context(
     extra_context: dict[str, object] | None = None,
 ) -> dict[str, object]:
     account = authenticated_session.account
+    text = portal_text(DEFAULT_LOCALE)
     context: dict[str, object] = {
         "request": request,
         "service_name": settings.service_name,
@@ -784,10 +898,11 @@ def portal_template_context(
         "account": account,
         "password_updated_date": account.password_updated_at.date().isoformat(),
         "active_module": active_module,
-        "modules": portal_modules(active_module),
+        "modules": portal_modules(active_module, text),
         "csrf_token": csrf_token,
         "account_notice": account_notice,
         "account_error": account_error,
+        "text": text,
     }
     if extra_context is not None:
         context.update(extra_context)
@@ -799,20 +914,55 @@ def email_password_dashboard_context(
     account: PatientPortalAccount,
     *,
     search: str | None,
+    provider: str | None,
+    date_from: date | None,
+    date_to: date | None,
     page: int,
     encryption_secret: str,
 ) -> dict[str, object]:
+    text = portal_text(DEFAULT_LOCALE)
     normalized_search = normalize_email_password_dashboard_search(search)
+    normalized_provider = normalize_email_password_dashboard_provider(provider)
+    invalid_date_range = (
+        date_from is not None
+        and date_to is not None
+        and date_from > date_to
+    )
+    created_from = (
+        datetime.combine(date_from, datetime_time.min, tzinfo=UTC)
+        if date_from is not None
+        else None
+    )
+    created_before = (
+        (
+            datetime.max.replace(tzinfo=UTC)
+            if date_to == date.max
+            else datetime.combine(
+                date_to + timedelta(days=1),
+                datetime_time.min,
+                tzinfo=UTC,
+            )
+        )
+        if date_to is not None
+        else None
+    )
     normalized_page = max(page, 1)
     offset = (normalized_page - 1) * EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
-    records = list_unlock_secrets(
-        session,
-        clinic_id=account.clinic_id,
-        demographic_no=account.demographic_no,
-        secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-        search=normalized_search,
-        limit=EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE + 1,
-        offset=offset,
+    records = (
+        []
+        if invalid_date_range
+        else list_unlock_secrets(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            search=normalized_search,
+            provider=normalized_provider,
+            created_from=created_from,
+            created_before=created_before,
+            limit=EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE + 1,
+            offset=offset,
+        )
     )
     visible_records = records[:EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE]
     has_next = len(records) > EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
@@ -827,17 +977,49 @@ def email_password_dashboard_context(
             for record in visible_records
         ],
         "search": normalized_search or "",
+        "provider": normalized_provider or "",
+        "provider_options": list_unlock_secret_providers(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+        ),
+        "date_from": date_from.isoformat() if date_from is not None else "",
+        "date_to": date_to.isoformat() if date_to is not None else "",
+        "has_filters": any(
+            (
+                normalized_search,
+                normalized_provider,
+                date_from,
+                date_to,
+            )
+        ),
+        "filter_error": text["date_range_error"] if invalid_date_range else None,
         "page": normalized_page,
         "empty_message": (
-            "No matching email passwords" if normalized_search else "No email passwords"
+            text["no_matching_email_passwords"]
+            if any((normalized_search, normalized_provider, date_from, date_to))
+            else text["no_email_passwords"]
         ),
         "previous_href": (
-            portal_email_password_page_href(search=normalized_search, page=normalized_page - 1)
+            portal_email_password_page_href(
+                search=normalized_search,
+                provider=normalized_provider,
+                date_from=date_from,
+                date_to=date_to,
+                page=normalized_page - 1,
+            )
             if normalized_page > 1
             else None
         ),
         "next_href": (
-            portal_email_password_page_href(search=normalized_search, page=normalized_page + 1)
+            portal_email_password_page_href(
+                search=normalized_search,
+                provider=normalized_provider,
+                date_from=date_from,
+                date_to=date_to,
+                page=normalized_page + 1,
+            )
             if has_next
             else None
         ),
@@ -897,11 +1079,32 @@ def normalize_email_password_dashboard_search(search: str | None) -> str | None:
     return normalized_search[:MAX_UNLOCK_SECRET_SEARCH_LENGTH]
 
 
-def portal_email_password_page_href(*, search: str | None, page: int) -> str:
+def normalize_email_password_dashboard_provider(provider: str | None) -> str | None:
+    if provider is None:
+        return None
+    normalized_provider = provider.strip()
+    return normalized_provider or None
+
+
+def portal_email_password_page_href(
+    *,
+    search: str | None,
+    provider: str | None,
+    date_from: date | None,
+    date_to: date | None,
+    page: int,
+) -> str:
     query_params: dict[str, str] = {}
     normalized_search = normalize_email_password_dashboard_search(search)
     if normalized_search is not None:
         query_params["q"] = normalized_search
+    normalized_provider = normalize_email_password_dashboard_provider(provider)
+    if normalized_provider is not None:
+        query_params["provider"] = normalized_provider
+    if date_from is not None:
+        query_params["date_from"] = date_from.isoformat()
+    if date_to is not None:
+        query_params["date_to"] = date_to.isoformat()
     if page > 1:
         query_params["page"] = str(page)
     query_string = urlencode(query_params)
@@ -952,12 +1155,69 @@ async def get_urlencoded_form_values(
         ) from exc
 
 
+async def get_csrf_urlencoded_form_values(
+    request: Request,
+    csrf_secret: str,
+    *,
+    unsupported_media_type_detail: str,
+) -> dict[str, list[str]]:
+    if not is_urlencoded_form_request(request):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=unsupported_media_type_detail,
+        )
+    form_values = await get_urlencoded_form_values(
+        request,
+        MAX_FORM_BODY_BYTES,
+        MAX_FORM_FIELD_COUNT,
+    )
+    if not is_valid_csrf_submission(
+        first_form_value(form_values, CSRF_FORM_FIELD),
+        request.cookies.get(CSRF_COOKIE_NAME),
+        csrf_secret,
+    ):
+        raise HTTPException(status_code=403, detail="invalid CSRF token")
+    return form_values
+
+
 async def get_activation_request(request: Request) -> ActivationRequest:
     return await get_json_request_model(
         request,
         ActivationRequest,
         "activation requires an application/json request body",
     )
+
+
+async def get_activation_request_from_request(
+    request: Request,
+    csrf_secret: str,
+) -> ActivationRequest:
+    if is_json_request(request):
+        return await get_activation_request(request)
+
+    form_values = await get_csrf_urlencoded_form_values(
+        request,
+        csrf_secret,
+        unsupported_media_type_detail=(
+            "activation requires an application/json or form request body"
+        ),
+    )
+    password = first_form_value_or_empty(form_values, "password")
+    if password != first_form_value_or_empty(form_values, "password_confirmation"):
+        raise BrowserFormValidationError("password confirmation does not match")
+    try:
+        return ActivationRequest.model_validate(
+            {
+                "invite_code": first_form_value(form_values, "invite_code"),
+                "email": first_form_value(form_values, "email"),
+                "date_of_birth": first_form_value(form_values, "date_of_birth"),
+                "health_card_number": first_form_value(form_values, "health_card_number"),
+                "username": first_form_value(form_values, "username"),
+                "password": password,
+            }
+        )
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
 
 
 async def get_mfa_verify_request(request: Request) -> MfaVerifyRequest:
@@ -1061,12 +1321,75 @@ async def get_password_reset_request(request: Request) -> PasswordResetRequest:
     )
 
 
+async def get_password_reset_request_from_request(
+    request: Request,
+    csrf_secret: str,
+) -> PasswordResetRequest:
+    if is_json_request(request):
+        return await get_password_reset_request(request)
+
+    form_values = await get_csrf_urlencoded_form_values(
+        request,
+        csrf_secret,
+        unsupported_media_type_detail=(
+            "password reset request requires an application/json or form request body"
+        ),
+    )
+    try:
+        return PasswordResetRequest.model_validate(
+            {
+                "username": first_form_value(form_values, "username"),
+                "email": first_form_value(form_values, "email"),
+            }
+        )
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
+
 async def get_password_reset_complete_request(request: Request) -> PasswordResetCompleteRequest:
     return await get_json_request_model(
         request,
         PasswordResetCompleteRequest,
         "password reset completion requires an application/json request body",
     )
+
+
+async def get_password_reset_complete_request_from_request(
+    request: Request,
+    csrf_secret: str,
+) -> PasswordResetCompleteRequest:
+    if is_json_request(request):
+        return await get_password_reset_complete_request(request)
+
+    form_values = await get_csrf_urlencoded_form_values(
+        request,
+        csrf_secret,
+        unsupported_media_type_detail=(
+            "password reset completion requires an application/json or form request body"
+        ),
+    )
+    new_password = first_form_value_or_empty(form_values, "new_password")
+    reset_token = first_form_value_or_empty(form_values, "reset_token")
+    if new_password != first_form_value_or_empty(
+        form_values,
+        "new_password_confirmation",
+    ):
+        raise BrowserFormValidationError(
+            "password_mismatch",
+            safe_form_values={"reset_token": reset_token},
+        )
+    try:
+        return PasswordResetCompleteRequest.model_validate(
+            {
+                "reset_token": reset_token,
+                "new_password": new_password,
+            }
+        )
+    except ValidationError as exc:
+        raise BrowserFormValidationError(
+            "invalid_password" if reset_token else "invalid_reset_form",
+            safe_form_values={"reset_token": reset_token},
+        ) from exc
 
 
 async def get_invite_create_request(request: Request) -> InviteCreateRequest:
@@ -1178,7 +1501,7 @@ def get_request_client_reference(request: Request, settings: Settings) -> str:
 def build_portal_runtime(
     settings: Settings,
     *,
-    mfa_email_sender: MfaEmailSender | None = None,
+    email_sender: PortalEmailSender | None = None,
 ) -> PortalRuntime:
     csrf_secret = (
         settings.session_secret.get_secret_value()
@@ -1223,10 +1546,10 @@ def build_portal_runtime(
         activation_rate_limit=activation_rate_limit,
         auth_policy=auth_policy,
         rate_limiter=rate_limiter,
-        mfa_email_sender=(
-            mfa_email_sender
-            if mfa_email_sender is not None
-            else build_mfa_email_sender(settings)
+        email_sender=(
+            email_sender
+            if email_sender is not None
+            else build_portal_email_sender(settings)
         ),
     )
 
@@ -1464,6 +1787,9 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         account_notice: str | None = None,
         account_error: str | None = None,
         email_password_search: str | None = None,
+        email_password_provider: str | None = None,
+        email_password_date_from: date | None = None,
+        email_password_date_to: date | None = None,
         email_password_page: int = 1,
     ) -> Response:
         try:
@@ -1479,6 +1805,9 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 session,
                 authenticated_session.account,
                 search=email_password_search,
+                provider=email_password_provider,
+                date_from=email_password_date_from,
+                date_to=email_password_date_to,
                 page=email_password_page,
                 encryption_secret=runtime.unlock_secret_encryption_secret,
             )
@@ -1544,7 +1873,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             session,
             active_module="account",
             status_code=status_code,
-            account_error=ACCOUNT_CHANGE_ERROR_MESSAGE,
+            account_error=portal_text(DEFAULT_LOCALE)["account_change_error"],
         )
 
     return RouteDependencies(
@@ -1565,10 +1894,10 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
 def create_app(
     settings: Settings | None = None,
     *,
-    mfa_email_sender: MfaEmailSender | None = None,
+    email_sender: PortalEmailSender | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
-    runtime = build_portal_runtime(settings, mfa_email_sender=mfa_email_sender)
+    runtime = build_portal_runtime(settings, email_sender=email_sender)
 
     app = FastAPI(
         title=settings.service_name,
@@ -1677,6 +2006,37 @@ def register_auth_routes(
     csrf_secret = runtime.csrf_secret
     audit_hash_secret = runtime.audit_hash_secret
     auth_policy = runtime.auth_policy
+    text = portal_text(DEFAULT_LOCALE)
+
+    def render_locked_page(request: Request) -> Response:
+        return render_public_auth_template(
+            request,
+            settings=settings,
+            csrf_secret=csrf_secret,
+            template_name="locked.jinja",
+            status_code=status.HTTP_423_LOCKED,
+        )
+
+    def render_password_reset_request(
+        request: Request,
+        *,
+        status_code: int = status.HTTP_200_OK,
+        error_message: str | None = None,
+        notice_message: str | None = None,
+        form_values: dict[str, str] | None = None,
+        development_reset_url: str | None = None,
+    ) -> Response:
+        return render_public_auth_template(
+            request,
+            settings=settings,
+            csrf_secret=csrf_secret,
+            template_name="password_reset_request.jinja",
+            status_code=status_code,
+            error_message=error_message,
+            notice_message=notice_message,
+            form_values=form_values,
+            development_reset_url=development_reset_url,
+        )
 
     def render_mfa_page(
         request: Request,
@@ -1752,6 +2112,8 @@ def register_auth_routes(
                 json_content={"detail": "sign-in could not be completed"},
             )
         except AccountLockedError:
+            if is_browser_form:
+                return render_locked_page(request)
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
@@ -1761,6 +2123,13 @@ def register_auth_routes(
                 json_content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
+            if is_browser_form:
+                return render_password_reset_request(
+                    request,
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    notice_message=text["password_reset_forced"],
+                    form_values={"username": payload.username},
+                )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
@@ -1782,7 +2151,7 @@ def register_auth_routes(
             session.commit()
             try:
                 await run_in_threadpool(send_mfa_challenge, runtime, result.mfa_challenge)
-            except MfaEmailDeliveryError:
+            except PortalEmailDeliveryError:
                 record_mfa_delivery_and_commit(
                     session,
                     delivery=result.mfa_challenge,
@@ -1793,7 +2162,7 @@ def register_auth_routes(
                     request=request,
                     render_index_response=render_index_response,
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    browser_message="Verification code could not be sent. Please try again.",
+                    browser_message=text["verification_delivery_failed"],
                     json_content={"detail": "verification code could not be sent"},
                 )
             record_mfa_delivery_and_commit(
@@ -1845,8 +2214,9 @@ def register_auth_routes(
                         delivery_state,
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         error_message=(
-                            "A code was sent recently. "
-                            f"Try again in {exc.retry_after_seconds} seconds."
+                            text["mfa_rate_limited"].format(
+                                seconds=exc.retry_after_seconds,
+                            )
                         ),
                         retry_after_seconds=exc.retry_after_seconds,
                     )
@@ -1860,26 +2230,22 @@ def register_auth_routes(
                 return render_index_response(
                     request,
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    error_message="Sign in again to request a new verification code.",
+                    error_message=text["mfa_sign_in_again"],
                 )
             return JSONResponse(status_code=400, content={"detail": "MFA could not be verified"})
         except AccountLockedError:
             if is_browser_form:
-                return render_index_response(
-                    request,
-                    status_code=status.HTTP_423_LOCKED,
-                    error_message="Account access is locked; contact the clinic for help.",
-                )
+                return render_locked_page(request)
             return JSONResponse(
                 status_code=status.HTTP_423_LOCKED,
                 content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
             if is_browser_form:
-                return render_index_response(
+                return render_password_reset_request(
                     request,
                     status_code=status.HTTP_403_FORBIDDEN,
-                    error_message="Password reset is required before sign-in.",
+                    notice_message=text["password_reset_forced"],
                 )
             return JSONResponse(
                 status_code=403,
@@ -1893,7 +2259,7 @@ def register_auth_routes(
                         request,
                         delivery_state,
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        error_message="That delivery method is unavailable.",
+                        error_message=text["mfa_delivery_unavailable"],
                     )
             return JSONResponse(
                 status_code=400,
@@ -1902,7 +2268,7 @@ def register_auth_routes(
         session.commit()
         try:
             await run_in_threadpool(send_mfa_challenge, runtime, delivery)
-        except MfaEmailDeliveryError:
+        except PortalEmailDeliveryError:
             record_mfa_delivery_and_commit(
                 session,
                 delivery=delivery,
@@ -1915,7 +2281,7 @@ def register_auth_routes(
                         request,
                         delivery_state,
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        error_message="Verification code could not be sent. Please try again.",
+                        error_message=text["verification_delivery_failed"],
                     )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1930,8 +2296,8 @@ def register_auth_routes(
             return render_mfa_page(
                 request,
                 delivery,
-                notice_message=(
-                    f"A new code was sent by {delivery.delivery_method.upper()}."
+                notice_message=text["mfa_new_code_sent"].format(
+                    method=delivery.delivery_method.upper(),
                 ),
             )
         return mfa_challenge_response_payload(delivery, settings=settings)
@@ -1960,7 +2326,7 @@ def register_auth_routes(
                         request,
                         delivery_state,
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        error_message="The code was not accepted. Try again or request a new code.",
+                        error_message=text["incorrect_mfa_code"],
                     )
             return auth_error_response(
                 is_browser_form=is_browser_form,
@@ -1980,6 +2346,8 @@ def register_auth_routes(
                 json_content={"detail": "MFA could not be verified"},
             )
         except AccountLockedError:
+            if is_browser_form:
+                return render_locked_page(request)
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
@@ -1989,6 +2357,12 @@ def register_auth_routes(
                 json_content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
+            if is_browser_form:
+                return render_password_reset_request(
+                    request,
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    notice_message=text["password_reset_forced"],
+                )
             return auth_error_response(
                 is_browser_form=is_browser_form,
                 request=request,
@@ -2006,16 +2380,42 @@ def register_auth_routes(
             return redirect_response
         return {"status": "signed_in", "session_token": session_token}
 
+    @app.get("/auth/password-reset", name="password_reset_request_page")
+    def password_reset_request_page(request: Request) -> Response:
+        return render_password_reset_request(request)
+
+    @app.get(
+        "/auth/password-reset/complete",
+        name="password_reset_complete_page",
+    )
+    def password_reset_complete_page(request: Request) -> Response:
+        return render_public_auth_template(
+            request,
+            settings=settings,
+            csrf_secret=csrf_secret,
+            template_name="password_reset_complete.jinja",
+        )
+
     @app.post(
         "/auth/password-reset/request",
         response_model=PasswordResetRequestResponse,
         status_code=status.HTTP_202_ACCEPTED,
     )
-    def request_reset(
+    async def request_reset(
         request: Request,
-        payload: Annotated[PasswordResetRequest, Depends(get_password_reset_request)],
         session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> dict[str, object]:
+    ) -> dict[str, object] | Response:
+        is_browser_form = is_urlencoded_form_request(request)
+        try:
+            payload = await get_password_reset_request_from_request(request, csrf_secret)
+        except (BrowserFormValidationError, RequestValidationError):
+            if not is_browser_form:
+                raise
+            return render_password_reset_request(
+                request,
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_message=text["password_reset_request_details"],
+            )
         client_reference_hash = hash_sensitive_reference(
             audit_hash_secret,
             "password_reset_client",
@@ -2029,16 +2429,73 @@ def register_auth_routes(
             policy=auth_policy,
             token_secret=csrf_secret,
         )
+        development_reset_url = None
+        if (
+            result.reset_token is not None
+            and result.recipient is not None
+            and (runtime.email_sender is not None or settings.is_development)
+        ):
+            reset_url = build_password_reset_url(
+                request,
+                settings=settings,
+                reset_token=result.reset_token,
+            )
+            session.commit()
+            try:
+                await run_in_threadpool(
+                    send_password_reset_email,
+                    runtime,
+                    recipient=result.recipient,
+                    reset_url=reset_url,
+                )
+            except PortalEmailDeliveryError:
+                logger.exception("Password reset email delivery failed")
+            if settings.is_development:
+                development_reset_url = reset_url
+        if is_browser_form:
+            return render_password_reset_request(
+                request,
+                status_code=status.HTTP_202_ACCEPTED,
+                notice_message=text["password_reset_link_sent"],
+                form_values={
+                    "username": payload.username,
+                    "email": payload.email,
+                },
+                development_reset_url=development_reset_url,
+            )
         return password_reset_request_response_payload(result.reset_token, settings=settings)
 
     @app.post("/auth/password-reset/complete", response_model=PasswordResetCompleteResponse)
-    def complete_reset(
-        payload: Annotated[
-            PasswordResetCompleteRequest,
-            Depends(get_password_reset_complete_request),
-        ],
+    async def complete_reset(
+        request: Request,
         session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> dict[str, str] | JSONResponse:
+    ) -> dict[str, str] | Response:
+        is_browser_form = is_urlencoded_form_request(request)
+        try:
+            payload = await get_password_reset_complete_request_from_request(
+                request,
+                csrf_secret,
+            )
+        except BrowserFormValidationError as exc:
+            if not is_browser_form:
+                raise
+            return render_public_auth_template(
+                request,
+                settings=settings,
+                csrf_secret=csrf_secret,
+                template_name="password_reset_complete.jinja",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_message=(
+                    text["password_mismatch"]
+                    if str(exc) == "password_mismatch"
+                    else (
+                        text["password_invalid"]
+                        if str(exc) == "invalid_password"
+                        else text["password_reset_complete_error"]
+                    )
+                ),
+                reset_token=exc.safe_form_values.get("reset_token"),
+            )
         try:
             account = complete_password_reset(
                 session,
@@ -2047,9 +2504,27 @@ def register_auth_routes(
                 token_secret=csrf_secret,
             )
         except PasswordResetTokenInvalidError:
+            if is_browser_form:
+                return render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name="password_reset_complete.jinja",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message=text["password_reset_complete_error"],
+                )
             return JSONResponse(
                 status_code=400,
                 content={"detail": "password reset could not be completed"},
+            )
+        if is_browser_form:
+            return render_public_auth_template(
+                request,
+                settings=settings,
+                csrf_secret=csrf_secret,
+                template_name="auth_result.jinja",
+                result_heading=text["password_reset_success_heading"],
+                result_message=text["password_reset_success"],
             )
         return {"status": "password_reset", "username": account.username}
 
@@ -2438,7 +2913,7 @@ def register_portal_routes(
         request: Request,
         session: Annotated[Session, Depends(get_app_database_session)],
     ) -> Response:
-        return render_portal_page(request, session, active_module="account")
+        return render_portal_page(request, session, active_module="dashboard")
 
     @app.get("/portal/account")
     def portal_account(
@@ -2453,7 +2928,9 @@ def register_portal_routes(
             request,
             session,
             active_module="account",
-            account_notice=ACCOUNT_NOTICE_MESSAGES.get(account_status or ""),
+            account_notice=portal_text(DEFAULT_LOCALE).get(
+                ACCOUNT_NOTICE_MESSAGE_KEYS.get(account_status or "", ""),
+            ),
         )
 
     @app.post("/portal/account/password")
@@ -2578,13 +3055,29 @@ def register_portal_routes(
         request: Request,
         session: Annotated[Session, Depends(get_app_database_session)],
         q: Annotated[str | None, Query(max_length=MAX_UNLOCK_SECRET_SEARCH_LENGTH)] = None,
+        provider: Annotated[
+            str | None,
+            Query(max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH),
+        ] = None,
+        date_from: Annotated[date | None, Query()] = None,
+        date_to: Annotated[date | None, Query()] = None,
         page: Annotated[int, Query(ge=1)] = 1,
     ) -> Response:
         return render_portal_page(
             request,
             session,
             active_module="email-passwords",
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+                if date_from is not None
+                and date_to is not None
+                and date_from > date_to
+                else status.HTTP_200_OK
+            ),
             email_password_search=q,
+            email_password_provider=provider,
+            email_password_date_from=date_from,
+            email_password_date_to=date_to,  # ggignore
             email_password_page=page,
         )
 
@@ -2630,17 +3123,52 @@ def register_activation_routes(
     identity_proof_secret = runtime.identity_proof_secret
     audit_hash_secret = runtime.audit_hash_secret
     activation_rate_limit = runtime.activation_rate_limit
+    csrf_secret = runtime.csrf_secret
+    text = portal_text(DEFAULT_LOCALE)
+
+    @app.get("/auth/activate", name="activation_page")
+    def activation_page(request: Request) -> Response:
+        return render_public_auth_template(
+            request,
+            settings=settings,
+            csrf_secret=csrf_secret,
+            template_name="activate.jinja",
+        )
 
     @app.post(
         "/auth/activate",
         response_model=ActivationResponse,
         status_code=status.HTTP_201_CREATED,
     )
-    def activate_invite(
+    async def activate_invite(
         request: Request,
-        payload: Annotated[ActivationRequest, Depends(get_activation_request)],
         session: Annotated[Session, Depends(get_app_database_session)],
-    ) -> dict[str, str] | JSONResponse:
+    ) -> dict[str, str] | Response:
+        is_browser_form = is_urlencoded_form_request(request)
+        try:
+            payload = await get_activation_request_from_request(request, csrf_secret)
+        except BrowserFormValidationError:
+            if not is_browser_form:
+                raise
+            return render_public_auth_template(
+                request,
+                settings=settings,
+                csrf_secret=csrf_secret,
+                template_name="activate.jinja",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_message=text["password_mismatch"],
+            )
+        except RequestValidationError:
+            if not is_browser_form:
+                raise
+            return render_public_auth_template(
+                request,
+                settings=settings,
+                csrf_secret=csrf_secret,
+                template_name="activate.jinja",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_message=text["activation_error"],
+            )
         client_reference_hash = hash_sensitive_reference(
             audit_hash_secret,
             "activation_client",
@@ -2662,17 +3190,60 @@ def register_activation_routes(
                 rate_limit=activation_rate_limit,
             )
         except UsernameUnavailableError:
+            if is_browser_form:
+                return render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name="activate.jinja",
+                    status_code=status.HTTP_409_CONFLICT,
+                    error_message=text["username_unavailable"],
+                    form_values={
+                        "email": payload.email,
+                        "date_of_birth": payload.date_of_birth.isoformat(),
+                    },
+                )
             return JSONResponse(status_code=409, content={"detail": "username unavailable"})
         except ActivationThrottledError as exc:
+            if is_browser_form:
+                response = render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name="activate.jinja",
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    error_message=text["activation_rate_limited"],
+                )
+                response.headers["Retry-After"] = str(exc.retry_after_seconds)
+                return response
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={"detail": "too many activation attempts; try again later"},
                 headers={"Retry-After": str(exc.retry_after_seconds)},
             )
         except ActivationError:
+            if is_browser_form:
+                return render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name="activate.jinja",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message=text["activation_error"],
+                )
             return JSONResponse(
                 status_code=400,
                 content={"detail": "activation details could not be verified"},
+            )
+        if is_browser_form:
+            return render_public_auth_template(
+                request,
+                settings=settings,
+                csrf_secret=csrf_secret,
+                template_name="auth_result.jinja",
+                status_code=status.HTTP_201_CREATED,
+                result_heading=text["activation_success_heading"],
+                result_message=text["activation_success"],
             )
         return {"status": "activated", "username": account.username}
 

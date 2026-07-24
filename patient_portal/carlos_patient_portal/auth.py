@@ -121,6 +121,7 @@ class AuthPolicy:
     mfa_email_resend_cooldown: timedelta
     mfa_sms_resend_cooldown: timedelta
     password_reset_token_ttl: timedelta
+    password_reset_request_cooldown: timedelta
     require_mfa: bool
 
 
@@ -146,6 +147,7 @@ class LoginResult:
 @dataclass(frozen=True)
 class PasswordResetRequestResult:
     reset_token: str | None
+    recipient: str | None
 
 
 @dataclass(frozen=True)
@@ -905,14 +907,19 @@ def request_password_reset(
             client_reference_hash=client_reference_hash,
             reason=AUTH_REASON_INVALID_CREDENTIALS,
         )
-        return PasswordResetRequestResult(reset_token=None)
+        return PasswordResetRequestResult(reset_token=None, recipient=None)
 
     account = session.scalar(
         select(PatientPortalAccount)
         .where(PatientPortalAccount.username == normalized_username)
         .with_for_update()
     )
-    if account is None or account.email != normalized_email:
+    if (
+        account is None
+        or account.email != normalized_email
+        or account.status != ACCOUNT_STATUS_ACTIVE
+        or account.locked_at is not None
+    ):
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_PASSWORD_RESET_REQUEST,
@@ -921,7 +928,7 @@ def request_password_reset(
             client_reference_hash=client_reference_hash,
             reason=AUTH_REASON_INVALID_CREDENTIALS,
         )
-        return PasswordResetRequestResult(reset_token=None)
+        return PasswordResetRequestResult(reset_token=None, recipient=None)
 
     existing_reset_tokens = list(
         session.scalars(
@@ -933,6 +940,25 @@ def request_password_reset(
             .with_for_update()
         )
     )
+    if any(
+        not is_past(
+            reset_token.created_at + policy.password_reset_request_cooldown,
+            now,
+        )
+        for reset_token in existing_reset_tokens
+    ):
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_PASSWORD_RESET_REQUEST,
+            outcome=AUDIT_OUTCOME_THROTTLED,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            account_id=account.id,
+            client_reference_hash=client_reference_hash,
+        )
+        return PasswordResetRequestResult(reset_token=None, recipient=None)
     for reset_token in existing_reset_tokens:
         reset_token.status = PASSWORD_RESET_STATUS_REVOKED
 
@@ -958,7 +984,10 @@ def request_password_reset(
         account_id=account.id,
         client_reference_hash=client_reference_hash,
     )
-    return PasswordResetRequestResult(reset_token=reset_token_value)
+    return PasswordResetRequestResult(
+        reset_token=reset_token_value,
+        recipient=account.email,
+    )
 
 
 def complete_password_reset(

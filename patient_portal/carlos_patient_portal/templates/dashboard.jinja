@@ -9,10 +9,10 @@
 </head>
 <body>
   <main class="app-shell">
-    <section class="portal-screen dashboard-screen" aria-label="Patient dashboard">
+    <section class="portal-screen dashboard-screen" aria-label="{{ text.patient_dashboard }}">
       <header class="patient-topbar portal-topbar">
         <div class="brand-lockup">
-          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="CARLOS" class="brand-logo">
+          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="{{ text.logo_alt }}" class="brand-logo">
           <div>
             <strong>{{ service_name }}</strong>
             <span>{{ clinic_name }}</span>
@@ -22,13 +22,13 @@
           <span class="signed-in-user">{{ account.username }}</span>
           <form class="logout-form" method="post" action="{{ url_for('portal_logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="secondary-action" type="submit">Logout</button>
+            <button class="secondary-action" type="submit">{{ text.logout }}</button>
           </form>
         </div>
       </header>
 
       <div class="dashboard-layout" data-active-module="{{ active_module }}">
-        <nav class="module-nav" aria-label="Portal modules">
+        <nav class="module-nav" aria-label="{{ text.module_navigation }}">
           {% for module in modules %}
             <a
               class="module-link{% if module.is_active %} selected{% endif %}"
@@ -39,9 +39,47 @@
         </nav>
 
         <section class="module-workspace" aria-live="polite">
-          {% if active_module == "account" %}
+          {% if active_module == "dashboard" %}
+            <header class="module-header dashboard-heading">
+              <div>
+                <h1>{{ text.dashboard_greeting }}</h1>
+                <p>{{ clinic_name }}</p>
+              </div>
+            </header>
+            <div class="module-grid">
+              <a class="module-tile" href="{{ url_for('portal_account') }}">
+                <h2>{{ text.account }}</h2>
+                <p>{{ text.dashboard_account_description }}</p>
+                <span>{{ text.view_module }}</span>
+              </a>
+              <a class="module-tile" href="{{ url_for('portal_email_passwords') }}">
+                <h2>{{ text.email_passwords }}</h2>
+                <p>{{ text.dashboard_email_passwords_description }}</p>
+                <span>{{ text.view_module }}</span>
+              </a>
+              <a class="module-tile" href="{{ url_for('portal_help') }}">
+                <h2>{{ text.help }}</h2>
+                <p>{{ text.dashboard_help_description }}</p>
+                <span>{{ text.view_module }}</span>
+              </a>
+              <section class="module-tile disabled" aria-disabled="true">
+                <div class="module-tile-heading">
+                  <h2>{{ text.documents }}</h2>
+                  <span>{{ text.future }}</span>
+                </div>
+                <p>{{ text.dashboard_documents_description }}</p>
+              </section>
+              <section class="module-tile disabled" aria-disabled="true">
+                <div class="module-tile-heading">
+                  <h2>{{ text.messages }}</h2>
+                  <span>{{ text.future }}</span>
+                </div>
+                <p>{{ text.dashboard_messages_description }}</p>
+              </section>
+            </div>
+          {% elif active_module == "account" %}
             <header class="module-header">
-              <h1>Account</h1>
+              <h1>{{ text.account }}</h1>
             </header>
             {% if account_notice %}
               <p class="form-notice">{{ account_notice }}</p>
@@ -51,49 +89,49 @@
             {% endif %}
             <dl class="detail-list">
               <div>
-                <dt>Username</dt>
+                <dt>{{ text.username }}</dt>
                 <dd>{{ account.username }}</dd>
               </div>
               <div>
-                <dt>Email</dt>
+                <dt>{{ text.email }}</dt>
                 <dd>{{ account.email }}</dd>
               </div>
               <div>
-                <dt>MFA</dt>
+                <dt>{{ text.mfa }}</dt>
                 <dd>{{ account.preferred_mfa_method|upper }}</dd>
               </div>
               <div>
-                <dt>Password updated</dt>
+                <dt>{{ text.password_updated }}</dt>
                 <dd>{{ password_updated_date }}</dd>
               </div>
             </dl>
             <div class="settings-sections">
               <section class="settings-section">
-                <h2>Change password</h2>
+                <h2>{{ text.change_password }}</h2>
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_password') }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
-                    Current password
+                    {{ text.current_password }}
                     <input type="password" name="current_password" autocomplete="current-password">
                   </label>
                   <label>
-                    New password
+                    {{ text.new_password }}
                     <input type="password" name="new_password" autocomplete="new-password">
                   </label>
-                  <button class="primary-action" type="submit">Update password</button>
+                  <button class="primary-action" type="submit">{{ text.update_password }}</button>
                 </form>
               </section>
 
               <section class="settings-section">
-                <h2>Contact info</h2>
+                <h2>{{ text.contact_info }}</h2>
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_contact') }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
-                    Email
+                    {{ text.email }}
                     <input type="email" name="email" value="{{ account.email }}" maxlength="254" autocomplete="email">
                   </label>
                   <label>
-                    Phone
+                    {{ text.phone }}
                     <input
                       type="tel"
                       name="phone_number"
@@ -103,39 +141,39 @@
                     >
                   </label>
                   <label>
-                    Current password
+                    {{ text.current_password }}
                     <input type="password" name="current_password" autocomplete="current-password">
                   </label>
-                  <button class="primary-action" type="submit">Update contact</button>
+                  <button class="primary-action" type="submit">{{ text.update_contact }}</button>
                 </form>
               </section>
 
               <section class="settings-section">
-                <h2>MFA settings</h2>
+                <h2>{{ text.mfa_settings }}</h2>
                 <form class="form-stack settings-form" method="post" action="{{ url_for('portal_account_mfa') }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
-                    Method
+                    {{ text.mfa_method }}
                     <select name="preferred_mfa_method">
-                      <option value="email"{% if account.preferred_mfa_method == "email" %} selected{% endif %}>Email</option>
-                      <option value="sms"{% if account.preferred_mfa_method == "sms" %} selected{% endif %}>SMS</option>
+                      <option value="email"{% if account.preferred_mfa_method == "email" %} selected{% endif %}>{{ text.mfa_email }}</option>
+                      <option value="sms"{% if account.preferred_mfa_method == "sms" %} selected{% endif %}>{{ text.mfa_sms }}</option>
                     </select>
                   </label>
                   <label>
-                    Current password
+                    {{ text.current_password }}
                     <input type="password" name="current_password" autocomplete="current-password">
                   </label>
-                  <button class="primary-action" type="submit">Update MFA</button>
+                  <button class="primary-action" type="submit">{{ text.update_mfa }}</button>
                 </form>
               </section>
             </div>
           {% elif active_module == "email-passwords" %}
             <header class="module-header">
-              <h1>Email passwords</h1>
+              <h1>{{ text.email_passwords }}</h1>
             </header>
             <form class="module-toolbar" method="get" action="{{ url_for('portal_email_passwords') }}" role="search">
               <label class="search-field" for="email-password-search">
-                <span>Search</span>
+                <span>{{ text.search }}</span>
                 <input
                   id="email-password-search"
                   name="q"
@@ -145,54 +183,75 @@
                   autocomplete="off"
                 >
               </label>
-              <button class="secondary-action" type="submit">Search</button>
-              {% if email_passwords.search %}
-                <a class="secondary-action" href="{{ url_for('portal_email_passwords') }}">Clear</a>
+              <label class="filter-field" for="email-password-provider">
+                <span>{{ text.provider }}</span>
+                <select id="email-password-provider" name="provider">
+                  <option value="">{{ text.all_providers }}</option>
+                  {% if email_passwords.provider and email_passwords.provider not in email_passwords.provider_options %}
+                    <option value="{{ email_passwords.provider }}" selected>{{ email_passwords.provider }}</option>
+                  {% endif %}
+                  {% for provider in email_passwords.provider_options %}
+                    <option value="{{ provider }}"{% if provider == email_passwords.provider %} selected{% endif %}>{{ provider }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label class="filter-field" for="email-password-date-from">
+                <span>{{ text.date_from }}</span>
+                <input id="email-password-date-from" name="date_from" type="date" value="{{ email_passwords.date_from }}">
+              </label>
+              <label class="filter-field" for="email-password-date-to">
+                <span>{{ text.date_to }}</span>
+                <input id="email-password-date-to" name="date_to" type="date" value="{{ email_passwords.date_to }}">
+              </label>
+              <button class="secondary-action" type="submit">{{ text.search }}</button>
+              {% if email_passwords.has_filters %}
+                <a class="secondary-action" href="{{ url_for('portal_email_passwords') }}">{{ text.reset_filters }}</a>
               {% endif %}
             </form>
-            <div class="table-shell" role="region" aria-label="Email passwords">
+            {% if email_passwords.filter_error %}
+              <p class="form-error filter-error" role="alert">{{ email_passwords.filter_error }}</p>
+            {% endif %}
+            <div class="table-shell" role="region" aria-label="{{ text.email_passwords_region }}">
               <table class="email-password-table">
                 <thead>
                   <tr>
-                    <th scope="col">Subject</th>
-                    <th scope="col">Provider</th>
-                    <th scope="col">Sent</th>
-                    <th scope="col">Password</th>
+                    <th scope="col">{{ text.subject }}</th>
+                    <th scope="col">{{ text.provider }}</th>
+                    <th scope="col">{{ text.sent }}</th>
+                    <th scope="col">{{ text.password_label }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% if email_passwords.rows %}
                     {% for row in email_passwords.rows %}
                       <tr{% if not row.is_available %} class="unavailable-row"{% endif %}>
-                        <td data-label="Subject">
+                        <td data-label="{{ text.subject }}">
                           <span class="cell-primary">{{ row.subject }}</span>
                           {% if row.source_reference %}
                             <span class="cell-secondary">{{ row.source_reference }}</span>
                           {% endif %}
                         </td>
-                        <td data-label="Provider">{{ row.provider }}</td>
-                        <td data-label="Sent">{{ row.sent_at }}</td>
-                        <td data-label="Password">
+                        <td data-label="{{ text.provider }}">{{ row.provider }}</td>
+                        <td data-label="{{ text.sent }}">{{ row.sent_at }}</td>
+                        <td data-label="{{ text.password_label }}">
                           {% if row.is_available %}
                             <div class="password-copy-group">
-                              <input
+                              <code
                                 id="email-password-{{ row.id }}"
                                 class="copyable-password"
-                                type="text"
-                                value="{{ row.passphrase }}"
-                                readonly
-                                autocomplete="off"
-                                spellcheck="false"
-                                aria-label="Password for {{ row.subject }}"
-                              >
+                                tabindex="0"
+                                aria-label="{{ text.password_for.format(subject=row.subject) }}"
+                              >{{ row.passphrase }}</code>
                               <button
                                 class="secondary-action copy-action"
                                 type="button"
                                 data-copy-target="email-password-{{ row.id }}"
-                              >Copy</button>
+                                data-copy-label="{{ text['copy'] }}"
+                                data-copied-label="{{ text.copied }}"
+                              >{{ text['copy'] }}</button>
                             </div>
                           {% else %}
-                            <span class="unavailable-state">Unavailable</span>
+                            <span class="unavailable-state">{{ text.unavailable }}</span>
                           {% endif %}
                         </td>
                       </tr>
@@ -205,31 +264,31 @@
                 </tbody>
               </table>
             </div>
-            <nav class="pagination-bar" aria-label="Email password pages">
+            <nav class="pagination-bar" aria-label="{{ text.email_password_pages }}">
               {% if email_passwords.previous_href %}
-                <a class="secondary-action" href="{{ email_passwords.previous_href }}">Previous</a>
+                <a class="secondary-action" href="{{ email_passwords.previous_href }}">{{ text.previous }}</a>
               {% else %}
-                <span class="pagination-disabled">Previous</span>
+                <span class="pagination-disabled">{{ text.previous }}</span>
               {% endif %}
-              <span class="page-indicator">Page {{ email_passwords.page }}</span>
+              <span class="page-indicator">{{ text.page }} {{ email_passwords.page }}</span>
               {% if email_passwords.next_href %}
-                <a class="secondary-action" href="{{ email_passwords.next_href }}">Next</a>
+                <a class="secondary-action" href="{{ email_passwords.next_href }}">{{ text.next }}</a>
               {% else %}
-                <span class="pagination-disabled">Next</span>
+                <span class="pagination-disabled">{{ text.next }}</span>
               {% endif %}
             </nav>
           {% else %}
             <header class="module-header">
-              <h1>Help</h1>
+              <h1>{{ text.help }}</h1>
             </header>
             <dl class="detail-list">
               <div>
-                <dt>Clinic</dt>
+                <dt>{{ text.clinic }}</dt>
                 <dd>{{ clinic_name }}</dd>
               </div>
               <div>
-                <dt>Account help</dt>
-                <dd>Contact the clinic</dd>
+                <dt>{{ text.account_help }}</dt>
+                <dd>{{ text.contact_the_clinic }}</dd>
               </div>
             </dl>
           {% endif %}

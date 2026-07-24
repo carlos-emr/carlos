@@ -8,9 +8,9 @@ from carlos_patient_portal.config import (
     Settings,
 )
 from carlos_patient_portal.email_delivery import (
-    MfaEmailDeliveryError,
-    SmtpMfaEmailSender,
-    build_mfa_email_sender,
+    PortalEmailDeliveryError,
+    SmtpPortalEmailSender,
+    build_portal_email_sender,
 )
 
 
@@ -60,7 +60,7 @@ def test_smtp_sender_delivers_plain_text_code_with_tls_and_auth(
 ) -> None:
     RecordingSmtp.refused_recipients = {}
     monkeypatch.setattr(smtplib, "SMTP", RecordingSmtp)
-    sender = SmtpMfaEmailSender(
+    sender = SmtpPortalEmailSender(
         smtp_settings(
             smtp_starttls=True,
             smtp_username="portal-user",
@@ -95,9 +95,9 @@ def test_smtp_sender_wraps_refused_recipient_without_exposing_code(
         "patient@example.test": (550, b"recipient rejected")
     }
     monkeypatch.setattr(smtplib, "SMTP", RecordingSmtp)
-    sender = SmtpMfaEmailSender(smtp_settings())
+    sender = SmtpPortalEmailSender(smtp_settings())
 
-    with pytest.raises(MfaEmailDeliveryError) as exc_info:
+    with pytest.raises(PortalEmailDeliveryError) as exc_info:
         sender.send_code(
             recipient="patient@example.test",
             code="654321",
@@ -107,17 +107,40 @@ def test_smtp_sender_wraps_refused_recipient_without_exposing_code(
     assert "654321" not in str(exc_info.value)
 
 
+def test_smtp_sender_delivers_password_reset_link(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    RecordingSmtp.refused_recipients = {}
+    monkeypatch.setattr(smtplib, "SMTP", RecordingSmtp)
+    sender = SmtpPortalEmailSender(smtp_settings())
+    reset_url = "https://portal.example.test/auth/password-reset/complete#token=reset-token"
+
+    sender.send_password_reset(
+        recipient="patient@example.test",
+        reset_url=reset_url,
+        expires_in_seconds=3600,
+    )
+
+    smtp = RecordingSmtp.instance
+    assert smtp is not None
+    assert smtp.message is not None
+    assert smtp.message["Subject"] == "Reset your CARLOS Patient Portal password"
+    assert reset_url in smtp.message.get_content()
+    assert "60 minutes" in smtp.message.get_content()
+    assert smtp.message["Auto-Submitted"] == "auto-generated"
+
+
 def test_smtp_sender_is_only_built_for_complete_configuration() -> None:
-    assert build_mfa_email_sender(Settings(environment="development")) is None
-    assert isinstance(build_mfa_email_sender(smtp_settings()), SmtpMfaEmailSender)
+    assert build_portal_email_sender(Settings(environment="development")) is None
+    assert isinstance(build_portal_email_sender(smtp_settings()), SmtpPortalEmailSender)
 
 
 def test_development_smtp_sender_uses_safe_default_from_address() -> None:
-    sender = build_mfa_email_sender(
+    sender = build_portal_email_sender(
         Settings(environment="development", smtp_host="mail.internal")
     )
 
-    assert isinstance(sender, SmtpMfaEmailSender)
+    assert isinstance(sender, SmtpPortalEmailSender)
     assert sender.from_address == DEFAULT_DEVELOPMENT_SMTP_FROM_ADDRESS
 
 
@@ -141,3 +164,33 @@ def test_smtp_configuration_rejects_incomplete_settings(
 def test_non_development_smtp_configuration_requires_from_address() -> None:
     with pytest.raises(ValueError, match="PATIENT_PORTAL_SMTP_FROM_ADDRESS"):
         Settings(environment="staging", smtp_host="mail.internal")
+
+
+def test_non_development_smtp_requires_https_public_base_url() -> None:
+    with pytest.raises(ValueError, match="PATIENT_PORTAL_PUBLIC_BASE_URL"):
+        Settings(
+            environment="staging",
+            smtp_host="mail.internal",
+            smtp_from_address="portal@example.test",
+        )
+    with pytest.raises(ValueError, match="must use HTTPS"):
+        Settings(
+            environment="staging",
+            public_base_url="http://portal.example.test",
+            smtp_host="mail.internal",
+            smtp_from_address="portal@example.test",
+        )
+
+    settings = Settings(
+        environment="staging",
+        public_base_url="https://portal.example.test/",
+        smtp_host="mail.internal",
+        smtp_from_address="portal@example.test",
+        session_secret="s" * 32,
+        identity_proof_secret="i" * 32,
+        audit_hash_secret="a" * 32,
+        unlock_secret_encryption_secret="u" * 32,
+        internal_health_token="h" * 32,
+    )
+
+    assert settings.public_base_url == "https://portal.example.test"

@@ -46,6 +46,7 @@ carlos_patient_portal = [
   "static/*.png",
   "static/*.svg",
   "templates/*.jinja",
+  "wordlists/*.txt",
   "interop_profiles/*.json",
   "migrations/README",
   "migrations/script.py.mako",

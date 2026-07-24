@@ -1,4 +1,8 @@
+import re
 from dataclasses import dataclass
+from datetime import datetime
+from functools import lru_cache
+from importlib import resources
 from secrets import choice, randbelow, token_bytes
 
 from cryptography.exceptions import InvalidTag
@@ -37,22 +41,15 @@ ENCRYPTION_ALGORITHM = "AES-256-GCM-HKDF-SHA256"
 ENCRYPTION_KEY_ID_DEFAULT = "primary"
 KEY_DERIVATION_INFO = b"carlos-patient-portal:unlock-secret:v1"
 ASSOCIATED_DATA_PREFIX = "carlos-patient-portal.unlock-secret.v1"
-GENERATED_UNLOCK_SECRET_LENGTH = 12
 DEFAULT_UNLOCK_SECRET_LIST_LIMIT = 10
 MAX_UNLOCK_SECRET_LIST_LIMIT = 100
 MAX_UNLOCK_SECRET_SEARCH_LENGTH = 128
+MAX_UNLOCK_SECRET_PROVIDER_OPTIONS = 100
 MAX_UNLOCK_SECRET_PLAINTEXT_BYTES = 1024
-AMBIGUOUS_SECRET_CHARACTERS = frozenset("0O1Il")
-UNLOCK_SECRET_LOWERCASE = "abcdefghjkmnpqrstuvwxyz"
-UNLOCK_SECRET_UPPERCASE = "ABCDEFGHJKLMNPQRSTUVWXYZ"
-UNLOCK_SECRET_DIGITS = "23456789"
-UNLOCK_SECRET_SYMBOLS = "!#$%&*+-=?@^_"
-UNLOCK_SECRET_CHARACTER_POOL = (
-    UNLOCK_SECRET_LOWERCASE
-    + UNLOCK_SECRET_UPPERCASE
-    + UNLOCK_SECRET_DIGITS
-    + UNLOCK_SECRET_SYMBOLS
-)
+UNLOCK_SECRET_WORDLIST_RESOURCE = "wordlists/patient_pdf_passphrase_english.txt"
+UNLOCK_SECRET_WORDLIST_SIZE = 4096
+UNLOCK_SECRET_WORD_PATTERN = re.compile(r"^[a-z]+$")
+UNLOCK_SECRET_WORDLIST_ROW_PATTERN = re.compile(r"^(\d{4})\t([a-z]+)$")
 
 
 class UnlockSecretNotFoundError(Exception):
@@ -79,21 +76,38 @@ class EncryptedUnlockSecretPayload:
     encryption_nonce: bytes
 
 
-def generate_unlock_secret_value(length: int = GENERATED_UNLOCK_SECRET_LENGTH) -> str:
-    if length < GENERATED_UNLOCK_SECRET_LENGTH:
-        raise ValueError(f"length must be at least {GENERATED_UNLOCK_SECRET_LENGTH}")
+@lru_cache(maxsize=1)
+def load_unlock_secret_words() -> tuple[str, ...]:
+    wordlist_path = resources.files("carlos_patient_portal").joinpath(
+        UNLOCK_SECRET_WORDLIST_RESOURCE
+    )
+    words: list[str] = []
+    with wordlist_path.open("r", encoding="utf-8") as wordlist:
+        for line in wordlist:
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+            row_match = UNLOCK_SECRET_WORDLIST_ROW_PATTERN.fullmatch(stripped_line)
+            if row_match is None or row_match.group(1) != f"{len(words):04d}":
+                raise RuntimeError("unlock-secret wordlist contains an invalid row")
+            word = row_match.group(2)
+            if UNLOCK_SECRET_WORD_PATTERN.fullmatch(word) is None:
+                raise RuntimeError("unlock-secret wordlist contains an invalid word")
+            words.append(word)
+    if len(words) != UNLOCK_SECRET_WORDLIST_SIZE or len(set(words)) != len(words):
+        raise RuntimeError(
+            f"unlock-secret wordlist must contain {UNLOCK_SECRET_WORDLIST_SIZE} unique words"
+        )
+    return tuple(words)
 
-    characters = [
-        choice(UNLOCK_SECRET_LOWERCASE),
-        choice(UNLOCK_SECRET_UPPERCASE),
-        choice(UNLOCK_SECRET_DIGITS),
-        choice(UNLOCK_SECRET_SYMBOLS),
-    ]
-    characters.extend(choice(UNLOCK_SECRET_CHARACTER_POOL) for _ in range(length - len(characters)))
-    for index in range(len(characters) - 1, 0, -1):
-        swap_index = randbelow(index + 1)
-        characters[index], characters[swap_index] = characters[swap_index], characters[index]
-    return "".join(characters)
+
+def generate_unlock_secret_value() -> str:
+    words = load_unlock_secret_words()
+    parts: list[str] = []
+    for _ in range(2):
+        parts.extend((choice(words), choice(words)))
+        parts.append(f"{randbelow(1000):03d}")
+    return "-".join(parts)
 
 
 def encrypt_unlock_secret_payload(
@@ -350,6 +364,9 @@ def list_unlock_secrets(
     include_revoked: bool = False,
     secret_type: str | None = None,
     search: str | None = None,
+    provider: str | None = None,
+    created_from: datetime | None = None,
+    created_before: datetime | None = None,
     limit: int = DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     offset: int = 0,
 ) -> list[PatientPortalUnlockSecret]:
@@ -377,10 +394,53 @@ def list_unlock_secrets(
                 PatientPortalUnlockSecret.created_by.ilike(like_pattern, escape="\\"),
             )
         )
+    normalized_provider = normalize_optional_text(
+        provider,
+        field_name="provider",
+        max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH,
+    )
+    if normalized_provider is not None:
+        statement = statement.where(
+            PatientPortalUnlockSecret.created_by == normalized_provider
+        )
+    if created_from is not None:
+        statement = statement.where(PatientPortalUnlockSecret.created_at >= created_from)
+    if created_before is not None:
+        statement = statement.where(PatientPortalUnlockSecret.created_at < created_before)
+    if (
+        created_from is not None
+        and created_before is not None
+        and created_from >= created_before
+    ):
+        raise ValueError("created_from must be earlier than created_before")
     statement = (
         statement.order_by(PatientPortalUnlockSecret.created_at.desc())
         .limit(normalized_limit)
         .offset(normalized_offset)
+    )
+    return list(session.scalars(statement))
+
+
+def list_unlock_secret_providers(
+    session: Session,
+    *,
+    clinic_id: str,
+    account_id: int | None = None,
+    demographic_no: int | None = None,
+    secret_type: str | None = None,
+) -> list[str]:
+    scoped_statement = scoped_unlock_secret_statement(
+        clinic_id=clinic_id,
+        account_id=account_id,
+        demographic_no=demographic_no,
+        secret_type=secret_type,
+    )
+    statement = (
+        scoped_statement.with_only_columns(PatientPortalUnlockSecret.created_by)
+        .where(PatientPortalUnlockSecret.status == UNLOCK_SECRET_STATUS_ACTIVE)
+        .distinct()
+        .order_by(PatientPortalUnlockSecret.created_by)
+        .limit(MAX_UNLOCK_SECRET_PROVIDER_OPTIONS)
     )
     return list(session.scalars(statement))
 

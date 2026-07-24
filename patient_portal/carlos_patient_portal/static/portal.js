@@ -10,24 +10,58 @@ document.addEventListener("click", (event) => {
 
   const targetId = copyButton.dataset.copyTarget;
   const target = targetId ? document.getElementById(targetId) : null;
-  if (!(target instanceof HTMLInputElement)) {
+  if (!(target instanceof HTMLElement)) {
     return;
   }
 
-  target.select();
-  target.setSelectionRange(0, target.value.length);
+  const copyValue = (
+    target instanceof HTMLInputElement ? target.value : target.textContent || ""
+  ).trim();
+  if (target instanceof HTMLInputElement) {
+    target.select();
+    target.setSelectionRange(0, target.value.length);
+  }
   if (!navigator.clipboard) {
     return;
   }
 
-  void navigator.clipboard.writeText(target.value).then(() => {
-    const originalText = copyButton.textContent || "Copy";
-    copyButton.textContent = "Copied";
+  void navigator.clipboard.writeText(copyValue).then(() => {
+    const originalText = copyButton.textContent || copyButton.dataset.copyLabel || "Copy";
+    copyButton.textContent = copyButton.dataset.copiedLabel || "Copied";
     window.setTimeout(() => {
       copyButton.textContent = originalText;
     }, 1500);
   });
 });
+
+const resetTokenForm = document.querySelector("[data-reset-token-form]");
+const resetTokenInput = document.querySelector("[data-reset-token]");
+const resetTokenError = document.querySelector("[data-reset-token-error]");
+
+if (
+  resetTokenForm instanceof HTMLFormElement
+  && resetTokenInput instanceof HTMLInputElement
+) {
+  const fragmentValues = new URLSearchParams(window.location.hash.slice(1));
+  const fragmentResetToken = fragmentValues.get("token") || "";
+  const resetToken = fragmentResetToken || resetTokenInput.value;
+  resetTokenInput.value = resetToken;
+  if (fragmentResetToken) {
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  }
+  if (!resetToken && resetTokenError instanceof HTMLElement) {
+    resetTokenError.hidden = false;
+  }
+  resetTokenForm.addEventListener("submit", (event) => {
+    if (!resetTokenInput.value) {
+      event.preventDefault();
+      if (resetTokenError instanceof HTMLElement) {
+        resetTokenError.hidden = false;
+        resetTokenError.focus();
+      }
+    }
+  });
+}
 
 const portalMessageModal = document.getElementById("portal-message-modal");
 const portalMessageTitle = document.getElementById("portal-message-title");

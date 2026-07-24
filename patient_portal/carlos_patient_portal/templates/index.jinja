@@ -58,13 +58,11 @@
                 autocomplete="current-password"
               >
             </label>
-            <button class="primary-action" type="submit">{{ text.continue }}</button>
-            <button
-              class="link-action modal-trigger"
-              type="button"
-              data-modal-title="{{ text.account_recovery_unavailable_title }}"
-              data-modal-message="{{ text.account_recovery_unavailable_message }}"
-            >{{ text.forgot_username_password }}</button>
+            <button class="primary-action" type="submit">{{ text.sign_in_button }}</button>
+            <div class="auth-link-group">
+              <a class="link-action" href="{{ url_for('password_reset_request_page') }}">{{ text.forgot_username_password }}</a>
+              <a class="link-action" href="{{ url_for('activation_page') }}">{{ text.activate_account }}</a>
+            </div>
           </form>
         </section>
       </div>

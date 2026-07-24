@@ -110,6 +110,7 @@ function screenshotPath(name) {
   });
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
+    permissions: ['clipboard-read', 'clipboard-write'],
   });
   const page = await context.newPage();
 
@@ -149,6 +150,49 @@ function screenshotPath(name) {
     await modal.getByRole('heading', { name: 'Language not implemented' }).waitFor();
     await modal.locator('[data-modal-close]').click();
     await modal.waitFor({ state: 'hidden' });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: screenshotPath('patient-portal-sign-in-mobile'),
+      fullPage: true,
+    });
+    await page.getByRole('link', { name: 'Activate account' }).click();
+    await page.getByRole('heading', { name: 'Activate your account' }).waitFor();
+    assert(
+      await page.locator('input[name="date_of_birth"][type="date"]').count() === 1,
+      'activation date-of-birth control is missing'
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    const activationMobileLayout = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    assert(
+      activationMobileLayout.documentWidth <= activationMobileLayout.viewportWidth + 1,
+      `mobile activation page overflows horizontally: ${activationMobileLayout.documentWidth}px > ${activationMobileLayout.viewportWidth}px`
+    );
+    await page.screenshot({
+      path: screenshotPath('patient-portal-activation-mobile'),
+      fullPage: true,
+    });
+    await page.getByRole('link', { name: 'Back to sign in' }).click();
+
+    await page.getByRole('link', { name: 'Forgot username or password?' }).click();
+    await page.getByRole('heading', { name: 'Reset your password' }).waitFor();
+    const resetMobileLayout = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    assert(
+      resetMobileLayout.documentWidth <= resetMobileLayout.viewportWidth + 1,
+      `mobile password-reset page overflows horizontally: ${resetMobileLayout.documentWidth}px > ${resetMobileLayout.viewportWidth}px`
+    );
+    await page.screenshot({
+      path: screenshotPath('patient-portal-password-reset-mobile'),
+      fullPage: true,
+    });
+    await page.getByRole('link', { name: 'Back to sign in' }).click();
+    await page.setViewportSize({ width: 1440, height: 1000 });
 
     await page.locator('input[name="username"]').fill(testUser);
     await page.locator('input[name="password"]').fill(testPassword);
@@ -206,19 +250,43 @@ function screenshotPath(name) {
       page.getByRole('button', { name: 'Verify' }).click(),
     ]);
 
-    await page.getByRole('heading', { name: 'Account' }).waitFor();
+    await page.getByRole('heading', { name: 'Patient portal' }).waitFor();
     await page.locator('.signed-in-user').filter({ hasText: 'carlospatient' }).waitFor();
     await page.screenshot({
       path: screenshotPath('patient-portal-live-desktop'),
       fullPage: true,
     });
 
-    await page.getByRole('link', { name: 'Email passwords' }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: screenshotPath('patient-portal-dashboard-mobile'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('link', { name: 'Email passwords', exact: true }).click();
     await page.waitForURL(/\/portal\/email-passwords$/);
     await page.getByRole('heading', { name: 'Email passwords' }).waitFor();
     assert(
+      await page.locator('select[name="provider"]').count() === 1
+        && await page.locator('input[name="date_from"][type="date"]').count() === 1
+        && await page.locator('input[name="date_to"][type="date"]').count() === 1,
+      'email-password filters are incomplete'
+    );
+    assert(
       await page.locator('.email-password-table tbody tr').count() >= 3,
       'expected seeded email-password records'
+    );
+    assert(
+      await page.getByRole('button', { name: 'Copy' }).count() >= 3,
+      'expected visible Copy controls for seeded email-password records'
+    );
+    const firstPassphrase = (await page.locator('.copyable-password').first().textContent() || '').trim();
+    await page.getByRole('button', { name: 'Copy' }).first().click();
+    await page.getByRole('button', { name: 'Copied' }).waitFor();
+    const clipboardPassphrase = await page.evaluate(() => navigator.clipboard.readText());
+    assert(
+      clipboardPassphrase === firstPassphrase,
+      'Copy control did not write the displayed passphrase'
     );
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -251,8 +319,12 @@ function screenshotPath(name) {
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses)}`);
     assert(browserIssues.length === 0, `browser errors: ${JSON.stringify(browserIssues)}`);
     console.log('Patient portal Playwright smoke test passed');
+    console.log(`Sign-in mobile screenshot: ${screenshotPath('patient-portal-sign-in-mobile')}`);
+    console.log(`Activation mobile screenshot: ${screenshotPath('patient-portal-activation-mobile')}`);
+    console.log(`Password-reset mobile screenshot: ${screenshotPath('patient-portal-password-reset-mobile')}`);
     console.log(`MFA mobile screenshot: ${screenshotPath('patient-portal-mfa-mobile')}`);
     console.log(`Desktop screenshot: ${screenshotPath('patient-portal-live-desktop')}`);
+    console.log(`Dashboard mobile screenshot: ${screenshotPath('patient-portal-dashboard-mobile')}`);
     console.log(`Mobile screenshot: ${screenshotPath('patient-portal-live-mobile')}`);
   } finally {
     await context.close().catch(() => {});

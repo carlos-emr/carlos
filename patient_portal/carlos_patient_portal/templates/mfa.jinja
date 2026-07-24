@@ -9,10 +9,10 @@
 </head>
 <body>
   <main class="app-shell">
-    <section class="portal-screen" aria-label="MFA verification">
+    <section class="portal-screen" aria-label="{{ text.mfa_heading }}">
       <header class="patient-topbar mfa-topbar">
         <div class="brand-lockup">
-          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="CARLOS" class="brand-logo">
+          <img src="{{ url_for('static', path='/carlos-logo.png') }}" alt="{{ text.logo_alt }}" class="brand-logo">
           <div>
             <strong>{{ service_name }}</strong>
             <span>{{ clinic_name }}</span>
@@ -21,14 +21,14 @@
         <button
           class="link-action modal-trigger topbar-help"
           type="button"
-          data-modal-title="Clinic help"
-          data-modal-message="Contact {{ clinic_name }} if you cannot receive or use your verification code."
-        >Help</button>
+          data-modal-title="{{ text.clinic_help }}"
+          data-modal-message="{{ text.mfa_help_message.format(clinic_name=clinic_name) }}"
+        >{{ text.help }}</button>
       </header>
 
       <div class="auth-layout">
         <section class="auth-panel" aria-labelledby="mfa-title">
-          <h1 id="mfa-title">Verification code</h1>
+          <h1 id="mfa-title">{{ text.mfa_heading }}</h1>
           {% if error_message %}
             <p class="form-error" role="alert">{{ error_message }}</p>
           {% endif %}
@@ -36,13 +36,13 @@
             <p class="form-notice" role="status">{{ notice_message }}</p>
           {% endif %}
           <p class="mfa-destination" aria-live="polite">
-            Code sent to {{ masked_mfa_destination }} by {{ mfa_delivery_method|upper }}.
+            {{ text.mfa_code_sent.format(destination=masked_mfa_destination, method=mfa_delivery_method|upper) }}
           </p>
           <form class="form-stack" method="post" action="{{ url_for('verify_mfa') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">
             <label>
-              <span>Code</span>
+              <span>{{ text.mfa_code }}</span>
               <input
                 type="text"
                 name="code"
@@ -51,14 +51,14 @@
                 maxlength="16"
               >
             </label>
-            <button class="primary-action" type="submit">Verify</button>
+            <button class="primary-action" type="submit">{{ text.mfa_verify }}</button>
           </form>
 
           <form class="mfa-resend-form" method="post" action="{{ url_for('resend_mfa') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="mfa_challenge_token" value="{{ mfa_challenge_token }}">
             <fieldset class="mfa-method-switch">
-              <legend>Send code by</legend>
+              <legend>{{ text.mfa_send_by }}</legend>
               <div class="segmented-control">
                 <label class="segmented-option">
                   <input
@@ -68,7 +68,7 @@
                     {% if mfa_email_selected %}checked{% endif %}
                     {% if not mfa_email_available %}disabled{% endif %}
                   >
-                  <span>Email</span>
+                  <span>{{ text.mfa_email }}</span>
                 </label>
                 <label class="segmented-option{% if not mfa_sms_available %} disabled{% endif %}">
                   <input
@@ -78,17 +78,17 @@
                     {% if mfa_sms_selected %}checked{% endif %}
                     {% if not mfa_sms_available %}disabled{% endif %}
                   >
-                  <span>SMS</span>
+                  <span>{{ text.mfa_sms }}</span>
                 </label>
               </div>
             </fieldset>
-            <button class="secondary-action" type="submit">Resend code</button>
+            <button class="secondary-action" type="submit">{{ text.mfa_resend }}</button>
             <p class="clinic-help-line">{{ mfa_rate_limit_message }}</p>
             {% if development_mfa_code %}
-              <p class="clinic-help-line">Development MFA code (same code as sent by email, to make testing quicker, will be removed later): {{ development_mfa_code }}</p>
+              <p class="clinic-help-line">{{ text.development_mfa_code }} {{ development_mfa_code }}</p>
             {% endif %}
           </form>
-          <a class="auth-back-link" href="/">Back to sign in</a>
+          <a class="auth-back-link" href="/">{{ text.back_to_sign_in }}</a>
         </section>
       </div>
 
@@ -102,7 +102,7 @@
         >
           <h2 id="portal-message-title"></h2>
           <p id="portal-message-body"></p>
-          <button class="primary-action" type="button" data-modal-close>OK</button>
+          <button class="primary-action" type="button" data-modal-close>{{ text.modal_close }}</button>
         </section>
       </div>
     </section>
