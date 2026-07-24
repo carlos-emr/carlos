@@ -31,6 +31,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MfaManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -51,6 +52,7 @@ public final class MfaActions2Action extends ActionSupport {
 
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
     private final MfaManager mfaManager = SpringUtils.getBean(MfaManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
         String method = request.getParameter("method");
@@ -61,15 +63,32 @@ public final class MfaActions2Action extends ActionSupport {
     }
 
     /**
-     * Resets the MFA secret for a specified user.
+     * Resets the MFA secret for the security record identified by the {@code securityId} request
+     * parameter.
      *
-     * @return null, as this action does not forward to another page.
+     * <p>This is a privileged mutation of another account's authentication state. It must be reached
+     * by POST only — a GET would let the operation be triggered without a CSRF token (CSRFGuard
+     * validates non-GET requests) — and requires security-administration write privilege. Without
+     * these checks any authenticated user could reset an arbitrary account's MFA by supplying its
+     * {@code securityId}.
+     *
+     * @return {@link #NONE}; a 405 status is set instead when the request is not a POST.
      */
     public String resetMfa() {
-        String securityId = request.getParameter("securityId");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+        }
+
+        String securityId = request.getParameter("securityId");
         Security security = this.securityManager.find(loggedInInfo, Integer.valueOf(securityId));
         this.mfaManager.resetMfaSecret(loggedInInfo, security);
-        return null;
+        return NONE;
     }
 }

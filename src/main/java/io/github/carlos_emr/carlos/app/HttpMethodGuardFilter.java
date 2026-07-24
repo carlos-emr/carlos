@@ -130,7 +130,10 @@ public class HttpMethodGuardFilter implements Filter {
             "save", "delete", "update", "create", "remove",
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
-            "cancel", "close"
+            "cancel", "close",
+            // MfaActions2Action dispatches its privileged MFA-secret reset via ?method=resetMfa;
+            // classify it as a mutation so GET/HEAD are rejected before the action runs.
+            "resetmfa"
     );
 
     /**
