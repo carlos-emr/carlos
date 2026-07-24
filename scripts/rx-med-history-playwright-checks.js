@@ -64,7 +64,7 @@ function appUrl(path) {
 }
 
 async function login(page) {
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl permits only a local base URL and root-relative application paths.
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   if (await page.locator('#pin').count()) await page.locator('#pin').fill(testPin);
@@ -75,7 +75,7 @@ async function login(page) {
 }
 
 async function initializePrescriptionSession(page) {
-  await page.goto(appUrl(`/rx/choosePatient?demographicNo=${encodeURIComponent(demographicNo)}`), { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.goto(appUrl(`/rx/choosePatient?demographicNo=${encodeURIComponent(demographicNo)}`), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- demographicNo is numeric-validated and appUrl permits only local root-relative routes.
   const result = await page.evaluate(async (currentScriptId) => {
     const csrf = (document.querySelector('input[name="CSRF-TOKEN"]') || {}).value || '';
     const body = new URLSearchParams({ scriptNo: currentScriptId, rand: String(Date.now()) });
@@ -97,7 +97,7 @@ async function initializePrescriptionSession(page) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await login(page);
     await initializePrescriptionSession(page);
-    await page.goto(appUrl('/rx/searchDrug'), { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(appUrl('/rx/searchDrug'), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl permits only a local base URL and root-relative application paths.
 
     const randomId = await page.evaluate(() => {
       const match = document.documentElement.innerHTML.match(/displayMedHistory\((\d+)\)/);

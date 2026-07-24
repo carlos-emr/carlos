@@ -412,8 +412,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
         randomId = randomId != null ? randomId.trim() : null;
         if (randomId == null || !randomId.matches("\\d+")) {
-            logger.warn("listPreviousInstructions: invalid randomId={}",
-                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
+            logger.warn("listPreviousInstructions: invalid randomId");
             bean.setListMedHistory(new ArrayList<>());
             return null;
         }
@@ -422,8 +421,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         try {
             randomIdInt = Integer.parseInt(randomId);
         } catch (NumberFormatException e) {
-            logger.warn("listPreviousInstructions: invalid randomId (out of range)={}",
-                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
+            logger.warn("listPreviousInstructions: randomId is out of range");
             bean.setListMedHistory(new ArrayList<>());
             return null;
         }
@@ -431,8 +429,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // create Prescription
         RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
         if (rx == null) {
-            logger.warn("listPreviousInstructions: no stash item found for randomId={}",
-                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
+            logger.warn("listPreviousInstructions: no stash item found");
             bean.setListMedHistory(new ArrayList<>());
             return null;
         }
