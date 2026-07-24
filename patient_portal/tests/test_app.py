@@ -133,7 +133,10 @@ WRONG_INTERNAL_HEALTH_TOKEN = "w" * MIN_PRODUCTION_SECRET_LENGTH
 DEV_ADMIN_TOKEN = "d" * MIN_PRODUCTION_SECRET_LENGTH
 WRONG_DEV_ADMIN_TOKEN = "x" * MIN_PRODUCTION_SECRET_LENGTH
 CSRF_TOKEN_PATTERN = re.compile(r'name="csrf_token" value="([^"]+)"')
-DEVELOPMENT_MFA_CODE_PATTERN = re.compile(r"Development MFA code: (\d{6})")
+DEVELOPMENT_MFA_CODE_PATTERN = re.compile(
+    r"Development MFA code \(same code as sent by email, to make testing quicker, "
+    r"will be removed later\): (\d{6})"
+)
 MFA_CHALLENGE_TOKEN_PATTERN = re.compile(r'name="mfa_challenge_token" value="([^"]+)"')
 SEEDED_INVITE_EMAIL = "example.patient@example.com"
 SEEDED_INVITE_DOB = "1980-05-20"

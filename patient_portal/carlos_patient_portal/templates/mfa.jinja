@@ -38,7 +38,7 @@
             <button class="primary-action" type="submit">Continue</button>
             <p class="clinic-help-line">Sent by {{ mfa_delivery_method|upper }}</p>
             {% if development_mfa_code %}
-              <p class="clinic-help-line">Development MFA code: {{ development_mfa_code }}</p>
+              <p class="clinic-help-line">Development MFA code (same code as sent by email, to make testing quicker, will be removed later): {{ development_mfa_code }}</p>
             {% endif %}
           </form>
         </section>
