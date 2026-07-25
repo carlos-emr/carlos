@@ -44,6 +44,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data transfer object representing the state of a billing form during data entry and validation.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -139,6 +142,7 @@ public class BillingFormData {
      * @return boolean value whether this type exists or not
      */
     public boolean serviceExists(String serviceType) {
+        /* Query the service code dictionary to verify the existence of the provided code. */
         List<BillingService> result = new ArrayList<BillingService>();
         BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
         List<Object[]> services = dao.findBillingServicesByType(serviceType);

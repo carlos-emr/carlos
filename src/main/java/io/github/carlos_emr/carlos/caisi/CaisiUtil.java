@@ -27,8 +27,12 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Provides helper functions for manipulating query strings and URLs within the CAISI module.
+ */
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {
+        /* Return null immediately if the input query string is null. */
         if (str == null) return (null);
 
         /*delete a parameter from query string*/

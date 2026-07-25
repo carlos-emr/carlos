@@ -37,11 +37,18 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action for removing an association between a service code and a diagnostic code in user preferences.
+ */
 public class DeleteServiceCodeAssoc2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
+    /**
+         * Deletes the specified service-to-diagnostic code linkage from the user's preference profile.
+         */
     public String execute() {
+        /* Remove the specified code association record from the database for the current provider. */
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

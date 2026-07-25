@@ -39,6 +39,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action handling the modification of an existing service-to-diagnostic code association.
+ */
 public class EditServiceCodeAssoc2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -70,8 +73,12 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
         return serviceCodeAssociation;
     }
 
+    /**
+         * Updates an existing code association with new values provided by the user.
+         */
     @Override
     public String execute() {
+        /* Retrieve the existing association, apply the user's edits, and save the changes. */
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

@@ -44,6 +44,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action handling the user interface for manually receiving and recording payments against private bills.
+ */
 public class ViewReceivePayment2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -51,7 +54,11 @@ public class ViewReceivePayment2Action
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+         * Prepares the payment receipt form with the outstanding balance and details of the selected bill.
+         */
     public String execute() {
+        /* Load the private bill details and calculate the remaining balance to be paid. */
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

@@ -69,6 +69,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts action that handles the workflow for duplicating and modifying an existing, previously submitted bill.
+ */
 public class BillingReProcessBill2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -83,7 +86,11 @@ public class BillingReProcessBill2Action extends ActionSupport {
     //Misc misc = new Misc();
     MSPReconcile msp = new MSPReconcile();
 
+    /**
+         * Creates a new draft billing claim based on the data of a previously submitted and selected bill.
+         */
     public String execute() throws IOException, ServletException {        if (request.getSession().getAttribute("user") == null) {
+        /* Clone the selected billing record's data into a new, unsubmitted billing session. */
             return "Logout";
         }
 

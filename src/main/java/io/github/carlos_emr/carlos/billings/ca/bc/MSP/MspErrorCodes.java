@@ -46,6 +46,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Manages the dictionary of MSP error codes and their corresponding descriptions for display to users.
+ */
 public class MspErrorCodes extends Properties {
 
     /**
@@ -63,7 +66,11 @@ public class MspErrorCodes extends Properties {
         }
     }
 
+    /**
+         * Loads the MSP error code definitions from the database or configuration files into memory.
+         */
     private InputStream openErrorCodesStream() throws Exception {
+        /* Initialize the error code map and populate it from the configured data source. */
         String configuredPath = CarlosProperties.getInstance().getProperty("msp_error_codes");
         if (configuredPath != null) {
             try {

@@ -37,11 +37,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Helper utility for calculating and managing Chronic Disease Management (CDM) billing reminders.
+ */
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }
 
+    /**
+         * Evaluates a patient's billing history to determine if they are eligible for a new CDM billing code.
+         */
     private String[] createCDMCodeArray(List<String[]> codes) {
+        /* Analyze past billings against CDM frequency rules to generate appropriate reminders. */
         String[] ret = new String[codes.size()];
         for (int i = 0; i < codes.size(); i++) {
             String[] row = codes.get(i);

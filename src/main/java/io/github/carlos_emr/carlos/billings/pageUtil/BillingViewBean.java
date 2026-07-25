@@ -39,6 +39,9 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Presentation bean that prepares and formats billing data for display on the billing view JSP.
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;
@@ -83,7 +86,11 @@ public class BillingViewBean {
     private String billingPracNo = null;
     private String billingGroupNo = null;
 
+    /**
+         * Loads the billing details for a specific claim ID and formats them for the user interface.
+         */
     public void loadBilling(String billing_no) {
+        /* Fetch the billing record and populate the bean's properties for display. */
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         for (Object[] i : dao.findBillings(ConversionUtils.fromIntString(billing_no))) {
             Billingmaster bm = (Billingmaster) i[0];

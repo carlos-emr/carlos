@@ -41,6 +41,9 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Business logic manager that handles complex operations for billing claims, such as fee calculations and status transitions.
+ */
 public class BillingBillingManager {
 
     public BillingItem[] getBillingItem(String[] service, String service1, String service2, String service3, String service1unit, String service2unit, String service3unit) {
@@ -173,7 +176,11 @@ public class BillingBillingManager {
 
     }
 
+    /**
+         * Adds a new line item to a billing claim, applying appropriate fee rules and updating the claim totals.
+         */
     private BillingItem addBillItem(ArrayList<BillingItem> ar, String code, String serviceUnits) {
+        /* Apply fee rules for the new item and update the running total for the billing claim. */
         boolean newCode = true;
         BillingItem bi = null;
         for (int i = 0; i < ar.size(); i++) {

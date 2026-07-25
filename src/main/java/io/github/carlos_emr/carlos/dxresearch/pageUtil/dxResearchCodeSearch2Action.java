@@ -47,6 +47,9 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action handling the search interface for finding specific diagnostic codes to include in research queries.
+ */
 public final class dxResearchCodeSearch2Action extends ActionSupport {
 
     /**
@@ -72,6 +75,9 @@ public final class dxResearchCodeSearch2Action extends ActionSupport {
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+         * Executes a search against the diagnostic code dictionary based on the user's criteria.
+         */
     public String execute()
             throws Exception {
 

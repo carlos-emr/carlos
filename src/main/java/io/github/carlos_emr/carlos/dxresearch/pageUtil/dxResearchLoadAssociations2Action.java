@@ -62,6 +62,9 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts action that loads and displays the hierarchical associations between different diagnostic codes for research purposes.
+ */
 public class dxResearchLoadAssociations2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -75,8 +78,12 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private static final String PRIVILEGE_WRITE = "w";
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+         * Retrieves the configured diagnostic code mappings and associations to populate the research UI.
+         */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
+        /* Fetch the diagnostic code hierarchy from the database and format it for the research view. */
         String method = request.getParameter("method");
 
         if (method == null || method.isBlank()) {

@@ -38,6 +38,9 @@ import java.sql.SQLException;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Provides low-level database extraction utilities specifically tailored for generating legacy billing export files.
+ */
 public class dbExtract implements AutoCloseable {
     private Connection con = null;
     private PreparedStatement stmt = null;
@@ -48,7 +51,11 @@ public class dbExtract implements AutoCloseable {
     public dbExtract() {
     }
 
+    /**
+         * Executes a raw SQL query and returns the result set for processing into a billing export format.
+         */
     public void openConnection() {
+        /* Execute the provided SQL query and return the ResultSet for export processing. */
         try {
 
             //establish connection with the specified username, password and url

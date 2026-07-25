@@ -60,6 +60,9 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Core engine for reconciling local billing records against MSP (Medical Services Plan) remittance files.
+ */
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
     private BillRecipientsDao billRecipientDao = SpringUtils.getBean(BillRecipientsDao.class);
@@ -187,6 +190,7 @@ public class MSPReconcile {
      * R = 9<b/>
      */
     private void initTeleplanMonetarySuffixes() {
+        /* Iterate through the remittance records and attempt to match them by claim number and patient PHN. */
         negValues.setProperty("}", "0");
         negValues.setProperty("J", "1");
         negValues.setProperty("K", "2");

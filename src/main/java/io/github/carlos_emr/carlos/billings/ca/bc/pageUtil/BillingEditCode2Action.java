@@ -56,6 +56,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts action for editing the details of a specific service code line item within an active billing claim.
+ */
 public final class BillingEditCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -65,7 +68,11 @@ public final class BillingEditCode2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
 
+    /**
+         * Processes modifications to a billing line item, such as updating the fee, quantity, or diagnostic code.
+         */
     public String ajaxCodeUpdate() throws IOException {
+        /* Update the specific billing item's properties and recalculate the claim totals. */
         String id = request.getParameter("id");
         String val = request.getParameter("val");
         String billingServiceDate = request.getParameter("billService");

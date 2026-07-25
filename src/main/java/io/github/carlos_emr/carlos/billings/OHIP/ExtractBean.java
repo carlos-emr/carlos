@@ -54,6 +54,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Handles data extraction, formatting, and file generation for OHIP and MSP billing claim submissions.
+ */
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -144,7 +147,11 @@ public class ExtractBean extends Object implements Serializable {
         output = formatter.format(today);
     }
 
+    /**
+         * Executes the primary billing data extraction and formats the batch header records.
+         */
     private String buildBatchHeader() {
+        /* Initialize the extraction context and validate the data center sequence number. */
         return (HE + "B" + ohipVer + ohipCenter + output + zero(batchOrder)
                 + batchCount + space(6) + groupNo + providerNo + specialty
                 + space(42) + "\r");

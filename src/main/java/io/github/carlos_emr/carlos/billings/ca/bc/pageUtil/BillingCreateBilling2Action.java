@@ -65,6 +65,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts action that initializes a new billing session and prepares the initial form data based on the patient context.
+ */
 public class BillingCreateBilling2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -81,8 +84,12 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private ArrayList<String> patientDX = new ArrayList<String>(); //List of disease codes for current patient
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    /**
+         * Initializes the billing screen for a patient, pre-populating defaults based on their demographics and appointment.
+         */
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ServletException {
+        /* Load patient demographics and default provider settings to initialize the billing form. */
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

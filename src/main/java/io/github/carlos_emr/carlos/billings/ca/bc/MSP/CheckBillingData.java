@@ -41,9 +41,15 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Validation engine that enforces MSP and OHIP data integrity rules before billing claims are extracted.
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1
+    /**
+         * Validates the structure and content of a billing claim against regional submission requirements.
+         */
     public String checkVS1(String recordCode, String dataCentreNum,
                            String dataCentreSeq, String vendorMSPDCNum, String softName,
                            String softVer, String softInsDate, String vendorName,
@@ -54,6 +60,7 @@ public class CheckBillingData {
     }
 
     public String checkVS1DataCenterNum(String dataCenterNum) {
+        /* Perform structural validation on the claim data, checking for required fields and valid formats. */
         String ret = checkLength(dataCenterNum, 5,
                 "VS1:P02 Data Centre Number Wrong! ");
         return ret;

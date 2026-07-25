@@ -52,12 +52,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.DocumentBean;
 
+/**
+ * Servlet responsible for handling file uploads of Teleplan remittance and error reports.
+ */
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
     final static int BUFFER = 2048;
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    /**
+         * Processes the incoming multipart request, extracts the uploaded Teleplan report file, and triggers parsing.
+         */
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        /* Extract the uploaded file stream and route it to the Teleplan report parser. */
         int c;
         int count;
         byte data[] = new byte[BUFFER];

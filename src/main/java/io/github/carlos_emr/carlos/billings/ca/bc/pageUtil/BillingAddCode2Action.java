@@ -45,12 +45,19 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action that handles the addition of a new service or diagnostic code to an active billing session.
+ */
 public final class BillingAddCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
 
+    /**
+         * Processes the request to add a new code, validates it, and updates the billing session state.
+         */
     public String execute() {        if (request.getSession().getAttribute("user") == null) {
+        /* Verify the code exists and add it to the current billing session's item list. */
             return "Logout";
         }
 

@@ -41,6 +41,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action for creating or updating associations between service codes and diagnostic codes.
+ */
 public class SaveAssoc2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -48,7 +51,11 @@ public class SaveAssoc2Action
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+         * Persists a new linkage between a service code and a diagnostic code to streamline future billing.
+         */
     public String execute() {
+        /* Validate the provided codes and save the association to the provider's preferences. */
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

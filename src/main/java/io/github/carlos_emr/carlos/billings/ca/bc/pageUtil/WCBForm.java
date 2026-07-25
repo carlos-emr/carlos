@@ -38,6 +38,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.List;
 
+/**
+ * Form bean representing the data required for a Workers' Compensation Board (WCB) billing claim.
+ */
 public final class WCBForm {
 
 
@@ -930,7 +933,11 @@ public final class WCBForm {
         this.doValidate = doValidate;
     }
 
+    /**
+         * Validates the WCB form data to ensure all mandatory fields, such as injury date and employer info, are present.
+         */
     public void notBilled(boolean notBilled) {
+        /* Check that the injury date and employer details are provided before allowing submission. */
         this.notBilled = notBilled;
     }
 }

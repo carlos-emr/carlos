@@ -47,12 +47,18 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action that retrieves a provider's saved quick list of commonly used diagnostic codes for research.
+ */
 public class dxResearchLoadQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+         * Fetches the quick list metadata and its associated diagnostic items for the current provider.
+         */
     public String execute()
             throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {

@@ -51,11 +51,18 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Servlet responsible for handling file uploads of Teleplan remittance and error reports.
+ */
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    /**
+         * Processes the incoming multipart request, extracts the uploaded Teleplan report file, and triggers parsing.
+         */
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        /* Extract the uploaded file stream and route it to the Teleplan report parser. */
 
         String foldername = "", fileheader = "", forwardTo = "";
 

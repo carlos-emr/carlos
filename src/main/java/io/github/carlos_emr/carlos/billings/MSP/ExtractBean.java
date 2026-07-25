@@ -55,6 +55,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
+/**
+ * Handles data extraction, formatting, and file generation for OHIP and MSP billing claim submissions.
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private static final Pattern DATE_RANGE_CONDITION = Pattern.compile(
@@ -117,7 +120,11 @@ public class ExtractBean extends Object implements Serializable {
         output = formatter.format(today);
     }
 
+    /**
+         * Executes the primary billing data extraction and formats the batch header records.
+         */
     public void dbQuery() {
+        /* Initialize the extraction context and validate the data center sequence number. */
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         try {
 

@@ -54,6 +54,9 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
+/**
+ * Struts action that coordinates the retrieval and display of an existing billing claim in a read-only or edit view.
+ */
 public final class BillingView2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -63,6 +66,9 @@ public final class BillingView2Action
 
     private static Logger log = MiscUtils.getLogger();
 
+    /**
+         * Loads the requested billing claim and prepares the necessary data structures for the view layer.
+         */
     public String execute() throws IOException,
             ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

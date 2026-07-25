@@ -46,12 +46,18 @@ import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts action that handles the configuration and setup of diagnostic research parameters and saved queries.
+ */
 public final class dxSetupResearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+         * Loads the initial configuration view for setting up a new diagnostic research query.
+         */
     public String execute()
             throws Exception {
 

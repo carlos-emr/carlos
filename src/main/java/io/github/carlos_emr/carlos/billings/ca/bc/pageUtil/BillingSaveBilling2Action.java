@@ -73,6 +73,9 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts action responsible for the final validation and persistence of a completed billing claim.
+ */
 public class BillingSaveBilling2Action extends ActionSupport {
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
     private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
@@ -95,9 +98,13 @@ public class BillingSaveBilling2Action extends ActionSupport {
     private BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    /**
+         * Validates the complete billing form data and saves the new claim to the database.
+         */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws IOException, ServletException {
+        /* Perform final validation on all billing items and persist the claim transaction. */
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 

@@ -74,6 +74,9 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts action managing the correction and resubmission of WCB claims rejected by Teleplan.
+ */
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -87,6 +90,9 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    /**
+         * Processes the user's corrections to a rejected WCB claim and stages it for resubmission.
+         */
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws IOException, ServletException {

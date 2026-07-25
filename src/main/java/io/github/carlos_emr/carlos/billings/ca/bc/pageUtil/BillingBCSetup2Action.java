@@ -65,8 +65,12 @@ public final class BillingBCSetup2Action extends ActionSupport {
 
     private BillingCreateBilling2Form form;
 
+    /**
+         * Loads the BC billing setup form with current configuration values from the database.
+         */
     @Override
     public String execute() throws IOException, ServletException {
+        /* Retrieve the existing BC billing settings and populate the action form for the view. */
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 

@@ -51,6 +51,9 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Core engine for reconciling local billing records against MSP (Medical Services Plan) remittance files.
+ */
 public class MSPReconcile {
 
     public static String REJECTED = "R";
@@ -70,7 +73,11 @@ public class MSPReconcile {
 
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
 
+    /**
+         * Processes a batch of MSP remittance records, matching them to local bills and updating payment statuses.
+         */
     public Properties currentC12Records() {
+        /* Iterate through the remittance records and attempt to match them by claim number and patient PHN. */
         Properties p = new Properties();
         TeleplanC12Dao dao = SpringUtils.getBean(TeleplanC12Dao.class);
 

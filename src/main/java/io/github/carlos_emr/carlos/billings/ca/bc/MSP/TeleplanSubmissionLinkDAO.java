@@ -36,6 +36,9 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data access object for managing the persistence of links between local bills and Teleplan submission batches.
+ */
 public class TeleplanSubmissionLinkDAO {
 
     private TeleplanSubmissionLinkDao dao = SpringUtils.getBean(TeleplanSubmissionLinkDao.class);
@@ -44,7 +47,11 @@ public class TeleplanSubmissionLinkDAO {
     public TeleplanSubmissionLinkDAO() {
     }
 
+    /**
+         * Saves a new linkage record associating a local billing item with a specific Teleplan submission file.
+         */
     public void save(int billActId, List billingMasterList) {
+        /* Insert the linkage record into the database to track the submission state of the bill. */
         for (int i = 0; i < billingMasterList.size(); i++) {
             String bi = (String) billingMasterList.get(i);
             int b = Integer.parseInt(bi);

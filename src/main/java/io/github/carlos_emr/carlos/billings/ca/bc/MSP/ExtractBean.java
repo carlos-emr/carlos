@@ -59,6 +59,9 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 
+/**
+ * Handles data extraction, formatting, and file generation for OHIP and MSP billing claim submissions.
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
@@ -330,8 +333,12 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    /**
+         * Executes the primary billing data extraction and formats the batch header records.
+         */
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
+        /* Initialize the extraction context and validate the data center sequence number. */
         try {
             String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             File homeDir = new File(home_dir);
