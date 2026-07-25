@@ -2165,43 +2165,43 @@
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-coyote",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:VXkvKGqXdH2q3uAtqiWVjylPrbKBD9PxrdGGB0h1Yg4Z+hjzhqfMOLn+6BnilqChWEQrF1k3YZ6OprrP5TdUXg=="
+    "integrity" : "sha512:WDxXeJM9ivbw5RKIpmc5LrYfDJWHsMo9Vk7Oa6tqTHq+UXfG0RPjz8NxahkA9Nx3ixF4lxKVk1mU4sy9THHsHg=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-jni",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:f+ATVZB9At0D2E6ZWEp0cVf6RoUVrXad6kO6SwwNLRU7eUvrCt4VSVuu4x5CvHdnu753OtO0nMz8i9+x44KZ5A=="
+    "integrity" : "sha512:iiHESlZXs1khIQ2191/hyDqvhCij9D+o6Ff9Gs1oB0Ao6b/TSGrqY+fDGq8QZsmHhxgjJZrBw3QLnMLTvp3mPg=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-juli",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:1gBk/la6rtHDNr1kYMKonitui/BKgH9NRp1r/mPT70lPLc4IvScjhACPxTdHVMitg6xVgRipk1LLPB61pXXLNg=="
+    "integrity" : "sha512:cI/DCV5JvTpys2c3AiasUDtoXIrTZUyBScYI+UIfVKOI0f3XyCFSOoM9hEHc4sc7Bf8awsfn3eISS3W/c/Hd0g=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-servlet-api",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:YqvxXeGeAnYYucWgLvoodo5lix8EL7jC1cPWqsEw2KfADyRNxlqFQlXpb0YB4V/OcF1a6nD+Vc7I7eTkVaGhVQ=="
+    "integrity" : "sha512:aBTWrPRqgm+5oDMB1h+BwoV8OIn0IsyaoWCGK1Mx9fE4hf2TxygBMsUAaUIePTyedEjBvWknReKkKJh+vjZ/ug=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-util",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:pOq2xKd31Is1omfJ1ESPTdyCUk9EmSgn06gUgwCwG/rGE/CZj3yuSpuQSWpczqPqeLcw5shZUm7ukd/y4hknmA=="
+    "integrity" : "sha512:QUEHB6hQowI0p22lAoXzAEVk291u0zrSQqiOPYjJWbyS3tHjHv4NMuuLUuUqcAsjwNvnGYfVGkp51vKhJNOvGw=="
   }, {
     "groupId" : "org.apache.velocity.tools",
     "artifactId" : "velocity-tools-generic",

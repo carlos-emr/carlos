@@ -38,7 +38,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import org.jsoup.nodes.DataNode;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
@@ -66,8 +65,7 @@ import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EForm extends EFormBase {
-    // Resolve the DAO lazily (per call) rather than in a static-final initializer, so merely
-    // loading EForm (e.g. Mockito.mockStatic in a unit test) no longer fetches a Spring bean.
+    // Lazy lookup keeps class loading independent of Spring bean initialization.
     private static EFormDataDao eFormDataDao() { return SpringUtils.getBean(EFormDataDao.class); }
     private static Logger log = MiscUtils.getLogger();
 
@@ -82,48 +80,17 @@ public class EForm extends EFormBase {
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
     private static final String LOAD_SIG_CALL = "loadSig()";
-    // Idempotent: a real loadSig defined earlier in the body wins via the "||", a missing one gets the
-    // no-op. Injected unconditionally whenever the page calls loadSig(), so no definition-detection is
-    // needed (a heuristic that scanned for a definition false-matched loadSig text in comments/strings).
+    // The guard preserves an existing loadSig implementation and supplies a no-op when absent.
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
-    // Matches legacy string-argument timer calls with either quote style. The backreference \1 pins
-    // the closing quote to the opening one, while the body consumes either escaped characters or
-    // any non-delimiter, non-line-break content so escaped quotes do not terminate the match early.
-    // The leading (?<![\w$.]) identifier-boundary lookbehind stops the bare literal from matching
-    // INSIDE a longer identifier (e.g. rewriting the string arg of a custom mysetTimeout('x', 10)
-    // into a function). It does not fix a match inside a string/comment (a lexer/runtime shim would);
-    // that residual is tracked separately.
-    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("(?<![\\w$.])setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
-    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("(?<![\\w$.])setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
-    private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
-    // The "</" that begins a closing </script> tag, re-escaped after timer decoding so a decoded
-    // script-close cannot truncate the surrounding inline script. Scoped to the exact sequences the
-    // HTML tokenizer treats as a script end tag — "</script" followed by an ASCII whitespace the
-    // HTML spec recognizes (space, tab, LF, FF, CR), "/", or ">" — so ordinary identifiers like
-    // "</scriptable" are left untouched. Java's "\s" is deliberately NOT used: it also matches the
-    // vertical tab (U+000B), which HTML does not treat as a tag delimiter, so "</script..." must
-    // stay untouched. (Case-insensitive.)
-    private static final Pattern SCRIPT_CLOSE_TOKEN = Pattern.compile("(?i)</(?=script[ \\t\\n\\f\\r/>])");
 
     private String runtimeContextPath;
     /**
-     * True only on the PDF render/compose path, which opts in via {@link #enableRenderNormalization()}.
-     * The jsoup DOM normalization pass in {@link #getFormHtml()} runs only when this is set, so live
-     * display / export / dedup callers get the string-level rewrites from {@link #setContextPath} but
-     * NOT the jsoup round-trip — matching behavior from before the browser renderer was introduced and
-     * confining jsoup's error-recovery restructuring to the render surface it was built for.
+     * Limits jsoup DOM normalization to callers that explicitly prepare browser-render HTML.
      */
     private boolean renderNormalizationEnabled;
     /** True once the DOM normalization pass has run for the current formHtml content. */
     private boolean runtimeAssetsNormalized;
-    /**
-     * True once a WARN has been emitted for a normalization failure on the current formHtml
-     * content. Normalization is retried on every {@link #getFormHtml()} call while it keeps
-     * failing (see {@link #runtimeAssetsNormalized}), which previously meant an operator had no
-     * way to learn that a class of forms persistently fails DOM normalization: the exception was
-     * only ever logged at DEBUG. This flag caps the operator-visible WARN to once per content
-     * generation while the full stack trace still logs at DEBUG on every retry.
-     */
+    /** Caps normalization failure warnings to one per form HTML generation. */
     private boolean normalizationFailureLogged;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
@@ -145,7 +112,7 @@ public class EForm extends EFormBase {
     }
 
     public EForm(String fid, String demographicNo, String providerNo) {
-        // used to load an uploaded eform
+        // Loads an uploaded eForm for the selected provider.
         loadEForm(fid, demographicNo);
         this.providerNo = providerNo;
     }
@@ -226,7 +193,7 @@ public class EForm extends EFormBase {
         StringBuilder html = new StringBuilder(this.formHtml);
         int index = StringBuilderUtils.indexOfIgnoreCase(html, "<form", 0);
         int endtag = html.indexOf(">", index + 1);
-        // --remove all previous actions, methods and names from the form tag
+        // Remove existing action, method, and name attributes from the form tag.
         if (index < 0) return;
 
         int pointer, pointer2;
@@ -429,8 +396,8 @@ public class EForm extends EFormBase {
      *
      * <p>The supplied context path is a browser-facing servlet URL prefix (for example {@code /carlos}),
      * not a filesystem path. This method rewrites the library marker, normalizes legacy relative jQuery
-     * asset references, injects a {@code loadSig} fallback when needed, and converts legacy string-based
-     * timer calls inside inline scripts into function callbacks.</p>
+     * asset references, and injects an idempotent {@code loadSig} fallback when needed. Stored
+     * JavaScript source is preserved.</p>
      *
      * <p>A {@code null} context path (no servlet environment) is a no-op. An empty string ({@code ""})
      * is a valid root-context (ROOT.war) deployment and is normalized like any other context path.
@@ -444,31 +411,16 @@ public class EForm extends EFormBase {
      *                     {@code null} to skip normalization
      */
     public void setContextPath(String contextPath) {
-        // Only a null context (no servlet environment) skips normalization. An empty string ("")
-        // is a valid root-context (ROOT.war) deployment - request.getContextPath() returns "" there,
-        // not null - and must still get the marker rewrite and legacy-asset normalization below; the
-        // trailing-slash check just below already handles "" correctly ("".endsWith("/") is false, so
-        // it passes through unchanged, while "/" normalizes to "").
         if (contextPath == null) return;
-        // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
-        // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
-        // path validation on it (which would inject OS separators and reject some valid context paths).
-        // Defensively strip whitespace before the trailing-slash normalization below: a whitespace-only
-        // context path (not producible by HttpServletRequest.getContextPath(), which only ever returns
-        // "" or "/path", but reachable via any other caller) must collapse to "" (treated as root
-        // context) rather than being spliced raw into a browser-facing asset URL like " /eform/...".
         String strippedContextPath = contextPath.strip();
         String normalizedContextPath = strippedContextPath.endsWith("/")
                 ? strippedContextPath.substring(0, strippedContextPath.length() - 1)
                 : strippedContextPath;
         this.runtimeContextPath = normalizedContextPath;
-        // This method writes formHtml directly (not via setFormHtml), so it must reset the
-        // normalization flag itself: the rewritten content needs a fresh DOM pass on next read.
         this.runtimeAssetsNormalized = false;
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
         this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
         this.formHtml = injectLoadSigFallback(this.formHtml);
-        this.formHtml = rewriteLegacyStringTimersInInlineScripts(this.formHtml);
     }
 
     private String rewriteLegacyRelativeJqueryReferences(String html, String contextPath) {
@@ -483,12 +435,6 @@ public class EForm extends EFormBase {
     private String injectLoadSigFallback(String html) {
         if (StringUtils.isBlank(html)) return html;
         if (!html.contains(LOAD_SIG_CALL)) return html;
-        // Always inject when the page calls loadSig(): LOAD_SIG_FALLBACK is idempotent
-        // ("window.loadSig = window.loadSig || function loadSig(){}"), so a real definition — which is
-        // injected earlier in the body and runs first — is preserved via the ||, and a missing one gets
-        // the no-op. The previous definition-detection heuristic false-matched loadSig text inside
-        // comments/strings/nested functions and then suppressed the fallback, breaking the form's onload.
-
         String fallback = "<" + SCRIPT_TAG + ">" + LOAD_SIG_FALLBACK + "</" + SCRIPT_TAG + ">";
         int bodyClose = StringUtils.lastIndexOfIgnoreCase(html, "</body>");
         if (bodyClose >= 0) {
@@ -498,58 +444,17 @@ public class EForm extends EFormBase {
     }
 
 
-    private String rewriteLegacyStringTimersInInlineScripts(String html) {
-        if (StringUtils.isBlank(html)) return html;
-
-        Matcher matcher = INLINE_SCRIPT_PATTERN.matcher(html);
-        StringBuffer rewritten = new StringBuffer();
-        while (matcher.find()) {
-            String scriptBody = rewriteLegacyStringTimers(matcher.group(2));
-            String replacement = "<script" + matcher.group(1) + ">" + scriptBody + "</script>";
-            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(rewritten);
-        return rewritten.toString();
-    }
-
-    private String rewriteLegacyStringTimers(String scriptBody) {
-        if (StringUtils.isBlank(scriptBody)) return scriptBody;
-
-        return rewriteLegacyTimerCalls(rewriteLegacyTimerCalls(scriptBody, LEGACY_SET_TIMEOUT_PATTERN, "setTimeout"), LEGACY_SET_INTERVAL_PATTERN, "setInterval");
-    }
 
     /**
-     * Returns the stored eForm HTML, running a guarded runtime-asset normalization pass first.
-     *
-     * <p><strong>Not a trivial getter.</strong> When a runtime context path has been supplied (i.e.
-     * {@link #setContextPath(String)} has run), this override mutates the lazily-parsed DOM in place
-     * before serializing: it rewrites legacy jQuery {@code <script src>} references to the
-     * {@code /eform/displayImage} asset URL, rewrites legacy string-argument
-     * {@code setTimeout}/{@code setInterval} timer calls into callback form, and appends a
-     * {@code loadSig} fallback script when {@code <body onload>} calls it but no script defines it.
-     * Because it forces a {@code getDocument()} parse, delegating to the superclass then flushes the
-     * mutated DOM back into the cached {@code formHtml} string.</p>
-     *
-     * <p>Normalization is best-effort: any {@link RuntimeException} or {@link LinkageError} is caught
-     * and logged at debug, and the method falls back to the string-level HTML already produced by
-     * {@link #setContextPath(String)}. When no context path is set the DOM pass is skipped entirely.
-     * The first failure for the current content also logs a WARN (with the exception type, not the
-     * full stack) so an operator can discover a persistently-failing class of forms instead of the
-     * failure being silently re-swallowed at DEBUG on every read.</p>
+     * Returns eForm HTML after optional render-only DOM normalization of legacy jQuery references
+     * and the {@code loadSig} fallback. Normalization failures retain the string-normalized HTML and
+     * emit one operator warning per content generation.
      *
      * @return the normalized eForm HTML; never {@code null} (an unknown form yields the literal
      *         {@code "No Such Form in Database"} placeholder)
      */
     @Override
     public String getFormHtml() {
-        // The jsoup DOM pass runs ONLY on the render/compose path (renderNormalizationEnabled), which
-        // opts in via enableRenderNormalization(); live display/export/dedup callers get the
-        // string-level rewrites applied by setContextPath() and not the jsoup round-trip. It runs once
-        // per content generation (the composer calls this getter several times per render, and
-        // re-running the idempotent parse+serialize on unchanged content is waste); setFormHtml/
-        // setContextPath reset the flag so changed content is re-normalized, and a failed pass leaves
-        // it unset and retries on the next read. runtimeContextPath is null only when setContextPath()
-        // has never run (no servlet environment); "" is the valid root-context value.
         if (renderNormalizationEnabled && runtimeContextPath != null && !runtimeAssetsNormalized) {
             try {
                 normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
@@ -568,8 +473,6 @@ public class EForm extends EFormBase {
 
     @Override
     public void setFormHtml(String formHtml) {
-        // New content may (re)introduce legacy constructs; it must be re-normalized on next read,
-        // and a fresh WARN is warranted if normalization fails again for this new content.
         runtimeAssetsNormalized = false;
         normalizationFailureLogged = false;
         super.setFormHtml(formHtml);
@@ -596,139 +499,13 @@ public class EForm extends EFormBase {
                 script.attr("src", assetUrl);
             }
         }
-        for (Element script : getDocument().select(SCRIPT_TAG + ":not([src])")) {
-            String rewritten = rewriteLegacyStringTimers(script.data());
-            if (!rewritten.equals(script.data())) {
-                // Replace the script body via a DataNode, not text(): script content is raw JavaScript
-                // and must be emitted verbatim. Element.text() would HTML-escape operators like '<'
-                // (e.g. `for (i=0; i<n; ...)` -> `i&lt;n`), corrupting the script during rendering.
-                script.empty();
-                script.appendChild(new DataNode(rewritten));
-            }
-        }
 
         Element body = getDocument().body();
         if (!body.attr("onload").contains(LOAD_SIG_CALL)) return;
 
-        // Always append the idempotent fallback (see injectLoadSigFallback): a real definition earlier
-        // in the body wins via the "|| function" guard, so no definition-detection heuristic is needed
-        // — and the previous one false-matched loadSig text in comments/strings and broke onload.
         body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
     }
 
-    private static String rewriteLegacyTimerCalls(String html, Pattern pattern, String timerFunction) {
-        Matcher matcher = pattern.matcher(html);
-        StringBuffer rewritten = new StringBuffer();
-        while (matcher.find()) {
-            String replacement = timerFunction + "(function(){ "
-                    + neutralizeScriptClose(decodeJsStringLiteralBody(matcher.group(2)))
-                    + " }, " + matcher.group(3) + ")";
-            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(rewritten);
-        return rewritten.toString();
-    }
-
-    /**
-     * Decodes a JavaScript string-literal body once, turning it into the equivalent raw source for a
-     * function body. A legacy timer written as {@code setTimeout('code', ms)} passed a STRING to the
-     * engine; hoisting that body into {@code setTimeout(function(){ code }, ms)} must resolve the
-     * string's escapes (newline, tab, hex, unicode, escaped quotes, escaped backslash, …) exactly
-     * as the engine would when evaluating the string, or the callback's semantics change. Unknown
-     * escapes collapse to the escaped character, matching non-strict JavaScript. Works for both
-     * {@code '...'} and {@code "..."} bodies because the delimiter escape is just another
-     * {@code \<char>} handled by the default branch.
-     *
-     * <p>Legacy octal escapes ({@code \1}-{@code \7}) are intentionally left as identity escapes:
-     * they are deprecated, never appear in the clinic-authored timer strings this handles, and
-     * decoding them would add complexity for no real form. The caller re-escapes any resulting
-     * script-closing token via {@link #neutralizeScriptClose(String)} so a decoded {@code </script}
-     * cannot truncate the surrounding inline script.</p>
-     */
-    private static String decodeJsStringLiteralBody(String body) {
-        StringBuilder out = new StringBuilder(body.length());
-        int i = 0;
-        int n = body.length();
-        while (i < n) {
-            char c = body.charAt(i++);
-            if (c != '\\' || i >= n) {
-                out.append(c);
-                continue;
-            }
-            char e = body.charAt(i++);
-            switch (e) {
-                case 'n': out.append('\n'); break;
-                case 't': out.append('\t'); break;
-                case 'r': out.append('\r'); break;
-                case 'b': out.append('\b'); break;
-                case 'f': out.append('\f'); break;
-                case 'v': out.append((char) 0x0B); break;
-                case '0':
-                    if (i >= n || !Character.isDigit(body.charAt(i))) {
-                        out.append('\0');
-                    } else {
-                        out.append('0');
-                    }
-                    break;
-                case 'x':
-                    if (i + 1 < n && isHexDigit(body.charAt(i)) && isHexDigit(body.charAt(i + 1))) {
-                        out.append((char) Integer.parseInt(body.substring(i, i + 2), 16));
-                        i += 2;
-                    } else {
-                        out.append('x');
-                    }
-                    break;
-                case 'u':
-                    i = appendUnicodeEscape(out, body, i);
-                    break;
-                default:
-                    out.append(e); // \' \" \\ \/ \` and any other escape -> the literal character
-            }
-        }
-        return out.toString();
-    }
-
-    /**
-     * Re-escapes a script-closing token inside decoded timer source so hoisting the body into the
-     * inline {@code <script>} cannot truncate it. Decoding a legacy string body resolves escapes
-     * such as {@code \/}, {@code \x3C}, and {@code <}; if the original string embedded
-     * {@code </script>} (only ever legal inside an inner string or regex literal), the decoded
-     * {@code </script} would otherwise close the surrounding {@code <script>} mid-parse and drop
-     * the rest of the form's JavaScript. {@code <\/script} is HTML-parser-safe and, sitting inside
-     * that inner string/regex, is runtime-identical.
-     */
-    private static String neutralizeScriptClose(String source) {
-        return SCRIPT_CLOSE_TOKEN.matcher(source).replaceAll(Matcher.quoteReplacement("<\\/"));
-    }
-
-    /** Handles fixed-length and brace unicode escapes starting at {@code i} (just past the 'u'). */
-    private static int appendUnicodeEscape(StringBuilder out, String body, int i) {
-        int n = body.length();
-        if (i < n && body.charAt(i) == '{') {
-            int close = body.indexOf('}', i + 1);
-            if (close > i + 1) {
-                try {
-                    out.appendCodePoint(Integer.parseInt(body.substring(i + 1, close), 16));
-                    return close + 1;
-                } catch (RuntimeException ignored) {
-                    // malformed brace unicode escape: fall through to a literal 'u'
-                }
-            }
-            out.append('u');
-            return i;
-        }
-        if (i + 3 < n && isHexDigit(body.charAt(i)) && isHexDigit(body.charAt(i + 1))
-                && isHexDigit(body.charAt(i + 2)) && isHexDigit(body.charAt(i + 3))) {
-            out.append((char) Integer.parseInt(body.substring(i, i + 4), 16));
-            return i + 4;
-        }
-        out.append('u');
-        return i;
-    }
-
-    private static boolean isHexDigit(char c) {
-        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-    }
 
     public void setFdid(String fdid) {
         if (this.formHtml != null && this.fdidMarker != null && fdid != null) {

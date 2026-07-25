@@ -145,40 +145,35 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should read pages and clamp advisory exclusion counters from the geometry result")
-    void shouldReadPagesAndClampExclusionCounters_fromGeometryResult() throws PDFGenerationException {
+    @DisplayName("should read complete geometry diagnostics and reject malformed omission fields")
+    void shouldReadCompleteGeometryDiagnostics_fromGeometryResult() throws PDFGenerationException {
         EFormBrowserPdfService.PageGeometry geometry = EFormBrowserPdfService.readPageGeometry(Map.of(
                 "pages", List.of(Map.of("id", "page1", "width", 750L, "height", 971L)),
                 "excludedCount", 2L,
-                "excludedHeight", 210.5d));
+                "excludedHeight", 210.5d,
+                "signatureBroken", false,
+                "timerCompatibilityFailure", true));
 
         assertThat(geometry.pages()).hasSize(1);
         assertThat(geometry.excludedCount()).isEqualTo(2);
         assertThat(geometry.excludedHeight()).isEqualTo(210.5d);
+        assertThat(geometry.signatureBroken()).isFalse();
+        assertThat(geometry.timerCompatibilityFailure()).isTrue();
 
-        // The exclusion counters are advisory telemetry: malformed values degrade to zero (no WARN)
-        // instead of failing a render whose page geometry is perfectly valid.
-        EFormBrowserPdfService.PageGeometry clamped = EFormBrowserPdfService.readPageGeometry(Map.of(
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageGeometry(Map.of(
                 "pages", List.of(),
                 "excludedCount", -3L,
-                "excludedHeight", Double.NaN));
-        assertThat(clamped.excludedCount()).isZero();
-        assertThat(clamped.excludedHeight()).isZero();
-
-        // Each counter is clamped INDEPENDENTLY: a valid count with a missing/non-numeric height must
-        // still WARN (count kept, extent reported as zero) rather than discarding the valid count.
-        EFormBrowserPdfService.PageGeometry countOnly = EFormBrowserPdfService.readPageGeometry(Map.of(
+                "excludedHeight", Double.NaN,
+                "signatureBroken", false,
+                "timerCompatibilityFailure", false)))
+                .isInstanceOf(PDFGenerationException.class);
+        assertThatThrownBy(() -> EFormBrowserPdfService.readPageGeometry(Map.of(
                 "pages", List.of(),
-                "excludedCount", 4L));
-        assertThat(countOnly.excludedCount()).isEqualTo(4);
-        assertThat(countOnly.excludedHeight()).isZero();
+                "excludedCount", 4L,
+                "excludedHeight", 0L,
+                "signatureBroken", false)))
+                .isInstanceOf(PDFGenerationException.class);
 
-        // signatureBroken defaults to false when absent/non-boolean, and is read when present.
-        assertThat(EFormBrowserPdfService.readPageGeometry(Map.of("pages", List.of())).signatureBroken()).isFalse();
-        assertThat(EFormBrowserPdfService.readPageGeometry(Map.of(
-                "pages", List.of(), "signatureBroken", Boolean.TRUE)).signatureBroken()).isTrue();
-
-        // A non-map geometry result is still rejected fail-closed (the pages payload is load-bearing).
         assertThatThrownBy(() -> EFormBrowserPdfService.readPageGeometry("not-a-map"))
                 .isInstanceOf(PDFGenerationException.class);
     }
@@ -710,8 +705,8 @@ class EFormBrowserPdfServiceUnitTest {
                 // A 404'd same-origin form background arrives as an HTTP error response, not
                 // loadingFailed. It is a CARLOS-served Image → counts as a CRITICAL subresource.
                 cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":404}"),
-                // Connection-level failure of a render-critical resource: no URL to attribute origin,
-                // so it is advisory (almost always the dead proxy refusing an off-origin request).
+                // Connection-level failures carry no URL, so a render-critical failure must be
+                // reported as potentially incomplete.
                 cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_CONNECTION_REFUSED\",\"canceled\":false"),
                 // Benign: canceled loads are navigation aborts, not broken content.
                 cdpMessage("Network.loadingFailed", "\"type\":\"Image\",\"errorText\":\"net::ERR_ABORTED\",\"canceled\":true"),
@@ -725,10 +720,10 @@ class EFormBrowserPdfServiceUnitTest {
 
         assertThat(scan.mainDocumentStatus()).isEqualTo(200);
         assertThat(scan.disallowedRequests()).isZero();
-        // The same-origin Image 404 is critical (our EMR content); the connection-level Image
-        // failure is advisory (unattributable origin).
-        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
-        assertThat(scan.failedSubresources()).isEqualTo(1);
+        // Both failures can remove visible clinical content, even when a connection-level event
+        // does not carry a URL that can be attributed to an origin.
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(2);
+        assertThat(scan.failedSubresources()).isZero();
     }
 
     @Test
@@ -936,12 +931,8 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should render past missing same-origin visual content as advisory by policy")
-    void shouldRenderPastMissingContent_asAdvisoryByPolicy() {
-        // POLICY: only security gates hard-fail. A same-origin (CARLOS-served) Image 404 — e.g. an
-        // optional per-provider signature stamp or letterhead the EMR has no file for — is a
-        // missing-content ADVISORY (logged WARN), never a render failure: the corpus routinely
-        // references such optional assets, and hard-failing dead-ended routine downloads.
+    @DisplayName("should report a failed same-origin image as incomplete content")
+    void shouldReportMissingContent_whenSameOriginImageFails() throws PDFGenerationException {
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
@@ -949,32 +940,17 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(responseReceivedJson("Image",
                         "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
 
-        assertThatCode(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
-                .doesNotThrowAnyException();
+        EFormRenderCompletenessReport report = service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42);
+
+        assertThat(report.failedContentResources()).isEqualTo(1);
+        assertThat(report.isComplete()).isFalse();
     }
 
     @Test
-    @DisplayName("should render past missing same-origin content when render-anyway is chosen")
-    void shouldRenderPastMissingContent_whenRenderAnywayChosen() {
-        // The allowMissingContent flag is retained for API compatibility; both paths are advisory now.
-        ChromeDriver driver = driverWithConsole(browserConsole());
-        EFormBrowserPdfService service = new EFormBrowserPdfService();
-        List<LogEntry> entries = List.of(
-                perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
-                perfEntry(responseReceivedJson("Image",
-                        "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png", 404)));
-
-        assertThatCode(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42, true))
-                .doesNotThrowAnyException();
-    }
-
-    @Test
-    @DisplayName("should still fail closed on live egress even when render-anyway is chosen")
-    void shouldStillFailOnLiveEgress_whenRenderAnywayChosen() {
-        // "Render anyway" relaxes only the missing-content gate; a live egress channel (security) is
-        // never overridable, so it must still hard-fail with allowMissingContent=true.
+    @DisplayName("should fail closed on live egress independently of content approval")
+    void shouldFailOnLiveEgress_independentlyOfContentApproval() {
+        // Exact incomplete-content approval never overrides a live egress security failure.
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
@@ -982,17 +958,14 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(cdpMessage("Network.webSocketCreated", "\"url\":\"wss://evil.example/exfil\"")));
 
         assertThatThrownBy(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42, true))
+                driver, entries, 200, GATE_BASE_URL, 42))
                 .isInstanceOf(PDFGenerationException.class)
                 .hasMessageContaining("liveChannelAttempts=1");
     }
 
     @Test
-    @DisplayName("should tolerate the render when an off-origin or non-visual subresource failed to load")
-    void shouldTolerateRender_whenOffOriginOrHelperSubresourceFailed() {
-        // An off-origin image (external logo/CDN, already blocked by the dead proxy) and a same-origin
-        // helper Script that 404s (e.g. faxControl.js) do not blank the already-painted form, so by
-        // default both are advisory (logged) and must NOT fail the render.
+    @DisplayName("should report failed images and scripts as potentially incomplete")
+    void shouldReportIncompleteRender_whenImageOrScriptFailed() throws PDFGenerationException {
         ChromeDriver driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
@@ -1001,9 +974,11 @@ class EFormBrowserPdfServiceUnitTest {
                 perfEntry(responseReceivedJson("Script",
                         "http://127.0.0.1:8080/carlos/share/javascript/faxControl.js", 404)));
 
-        assertThatCode(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
-                .doesNotThrowAnyException();
+        EFormRenderCompletenessReport report = service.enforceRenderGates(
+                driver, entries, 200, GATE_BASE_URL, 42);
+
+        assertThat(report.failedContentResources()).isEqualTo(2);
+        assertThat(report.isComplete()).isFalse();
     }
 
     @Test

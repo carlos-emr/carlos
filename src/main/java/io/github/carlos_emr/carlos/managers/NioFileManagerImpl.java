@@ -50,7 +50,6 @@ import java.security.NoSuchAlgorithmException;
 import jakarta.servlet.ServletContext;
 
 import io.github.carlos_emr.CarlosProperties;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -880,70 +879,77 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     /**
-     * Copy file from given file path into the default OscarDocuments directory.
-     * This method deletes the temporary file after successful copy.
-     * Uses Apache Commons FilenameUtils for robust path security.
+     * Copies an application-owned temporary file through a same-directory staging file and promotes
+     * it atomically when supported. The source is retained.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public String copyFileToOscarDocuments(String tempFilePath) {
+    @Override
+    public Path promoteApplicationTempFile(Path source) throws FilePromotionException {
+        if (source == null) {
+            throw new FilePromotionException("The promotion source is required.");
+        }
+        Path normalizedSource = source.toAbsolutePath().normalize();
+        if (!PathValidationUtils.isInApplicationTempDirectory(normalizedSource.toFile())) {
+            throw new FilePromotionException("The promotion source is outside the application temp directory.");
+        }
+        if (Files.isSymbolicLink(normalizedSource)
+                || !Files.isRegularFile(normalizedSource, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            throw new FilePromotionException("The promotion source is not a regular application temp file.");
+        }
+
+        Path realSource;
         try {
-            // Use FilenameUtils.getName() to extract just the filename, removing any path components
-            // This is more reliable than manual path manipulation as it handles edge cases
-            String sanitizedFileName = FilenameUtils.getName(tempFilePath);
-            if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
-                log.error("Invalid file path provided: {}", LogSafe.sanitize(tempFilePath));
-                return null;
-            }
+            realSource = normalizedSource.toRealPath(java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        } catch (IOException e) {
+            throw new FilePromotionException("The promotion source is unavailable.", e);
+        }
+        if (!PathValidationUtils.isInApplicationTempDirectory(realSource.toFile())) {
+            throw new FilePromotionException("The resolved promotion source is outside the application temp directory.");
+        }
 
-            // Get source and destination directories
-            File documentDir = new File(getDocumentDirectory());
-            File sourceFile = new File(tempFilePath);
-            File destinationFile = new File(documentDir, sanitizedFileName);
+        Path documentDirectory = Paths.get(getDocumentDirectory()).toAbsolutePath().normalize();
+        if (!Files.isDirectory(documentDirectory)) {
+            throw new FilePromotionException("The document directory is unavailable.");
+        }
 
-            // Validate that source file exists and is a regular file
-            if (!sourceFile.exists() || !sourceFile.isFile()) {
-                log.error("Source file does not exist or is not a regular file: {}", LogSafe.sanitize(tempFilePath));
-                return null;
-            }
+        Path sourceFileName = realSource.getFileName();
+        if (sourceFileName == null) {
+            throw new FilePromotionException("The promotion source has no filename.");
+        }
+        String fileName = sourceFileName.toString();
+        Path destination = documentDirectory.resolve(fileName).normalize();
+        if (!documentDirectory.equals(destination.getParent())) {
+            throw new FilePromotionException("The promoted filename is invalid.");
+        }
+        if (Files.exists(destination)) {
+            int extensionSeparator = fileName.lastIndexOf('.');
+            boolean hasExtension = extensionSeparator > 0 && extensionSeparator < fileName.length() - 1;
+            String stem = hasExtension ? fileName.substring(0, extensionSeparator) : fileName;
+            String extension = hasExtension ? fileName.substring(extensionSeparator) : "";
+            String uniqueName = stem + "-" + java.util.UUID.randomUUID() + extension;
+            destination = documentDirectory.resolve(uniqueName);
+        }
 
-            // Validate destination path using PathValidationUtils
-            destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
-
-            // Never overwrite an existing document: DOCUMENT_DIR filenames are referenced by
-            // persisted records, so a basename collision (two promotions reusing one name) must
-            // yield a fresh unique name rather than silently replacing another document's content
-            // — and the copy below deliberately omits REPLACE_EXISTING so a race still fails
-            // closed instead of clobbering.
-            if (destinationFile.exists()) {
-                String uniquifiedName = FilenameUtils.getBaseName(sanitizedFileName)
-                        + "-" + System.currentTimeMillis()
-                        + (FilenameUtils.getExtension(sanitizedFileName).isEmpty()
-                                ? "" : "." + FilenameUtils.getExtension(sanitizedFileName));
-                destinationFile = PathValidationUtils.validatePath(uniquifiedName, documentDir);
-            }
-
+        Path staged = null;
+        try {
+            staged = Files.createTempFile(documentDirectory, ".promotion-", ".tmp");
+            Files.copy(realSource, staged, StandardCopyOption.REPLACE_EXISTING);
             try {
-                Files.copy(sourceFile.toPath(), destinationFile.toPath());
-            } catch (FileAlreadyExistsException e) {
-                log.error("Refusing to overwrite existing document {}", LogSafe.sanitize(destinationFile.getName()), e);
-                return null;
+                Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(staged, destination);
             }
-
-            if (destinationFile.exists()) {
+            return destination;
+        } catch (IOException e) {
+            if (staged != null) {
                 try {
-                    if (!deleteTempFile(sourceFile.getPath()) && log.isWarnEnabled()) {
-                        log.warn("Copied document but failed to delete temporary source file {}", LogSafe.sanitize(sourceFile.getPath(), 1024));
-                    }
-                } catch (SecurityException e) {
-                    log.warn("Copied document but rejected temporary source cleanup for {}", LogSafe.sanitize(sourceFile.getPath(), 1024), e);
+                    Files.deleteIfExists(staged);
+                } catch (IOException cleanupFailure) {
+                    e.addSuppressed(cleanupFailure);
                 }
             }
-
-            return destinationFile.getPath();
-        } catch (IOException e) {
-            log.error("An error occurred while moving the PDF file", e);
-            return null;
+            throw new FilePromotionException("The temporary file could not be promoted.", e);
         }
     }
 

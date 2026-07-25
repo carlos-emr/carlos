@@ -100,6 +100,7 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
     void shouldStreamLocalEformImage_withValidRenderGrantAndNoSession() throws Exception {
         Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
         EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.getInstance().authorizeAssets(token, java.util.Set.of("bg.png"));
         try {
             Path image = tempDir.resolve("bg.png");
             byte[] imageBytes = new byte[] {9, 8, 7, 6};
@@ -132,6 +133,30 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
             deleteTree(tempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject an asset that is not referenced by the render grant")
+    void shouldRejectUnreferencedAsset_withValidRenderGrant() throws Exception {
+        EFormRenderTokenService.RenderToken token =
+                EFormRenderTokenService.getInstance().issue(4321, "999998");
+        EFormRenderTokenService.getInstance().authorizeAssets(token, java.util.Set.of("bg.png"));
+        try {
+            registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+            MockHttpServletRequest request =
+                    new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("imagefile", "other.png");
+            request.setParameter(
+                    EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
         }
     }
 

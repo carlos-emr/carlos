@@ -320,6 +320,10 @@
     <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
 
+    <listener>
+        <listener-class>io.github.carlos_emr.carlos.utility.TomcatRuntimeVersionListener</listener-class>
+    </listener>
+
 	<listener>
        	<listener-class>net.bull.javamelody.SessionListener</listener-class>
     </listener>

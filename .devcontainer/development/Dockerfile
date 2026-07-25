@@ -1,4 +1,4 @@
-FROM tomcat:11.0-jdk21-temurin
+FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
 
 # Set environment variables for Tomcat
 ENV CATALINA_HOME /usr/local/tomcat
@@ -15,7 +15,7 @@ ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0-jdk21-temurin /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \

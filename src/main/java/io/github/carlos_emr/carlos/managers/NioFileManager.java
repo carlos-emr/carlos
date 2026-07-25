@@ -125,10 +125,10 @@ public interface NioFileManager {
     public Path getOscarDocument(Path fileNamePath);
 
     /**
-     * Copy file from given file path into the default OscarDocuments directory.
-     * This method deletes the temporary file after successful copy
+     * Atomically promotes a regular application-owned temporary file into document storage.
+     * The source remains intact so callers can retry safely.
      */
-    public String copyFileToOscarDocuments(String tempFilePath);
+    Path promoteApplicationTempFile(Path source) throws FilePromotionException;
 
     /**
      * True if given filename exists in OscarDocument directory.

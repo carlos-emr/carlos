@@ -40,6 +40,8 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.fax.dto.FaxJobParams;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
@@ -75,9 +77,8 @@ public class Fax2Action extends ActionSupport {
 
     private static final String ACCESS_DENIED = "Access denied";
     private static final String EFORM_FAX_MISSING_CONTENT_MESSAGE =
-            "This eForm could not be fully rendered because some of its own content (for example a "
-            + "signature or an image) could not be loaded. You can fax it anyway, but the document "
-            + "may be incomplete.";
+            "This eForm could not be fully rendered because required content or behavior is missing. "
+            + "You can fax it only after approving the listed issues, but the document may be incomplete.";
     private static final String FAX_FILE_PATH_PARAM = "faxFilePath";
     private static final String ERROR_SENDING_ERROR_RESPONSE = "Error sending error response";
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -115,8 +116,10 @@ public class Fax2Action extends ActionSupport {
     public String execute() {
         String method = request.getParameter("method");
         boolean readOnly = "getPreview".equals(method) || "getPageCount".equals(method) || "prepareFax".equals(method);
+        boolean approvalSubmission = "prepareFax".equals(method)
+                && request.getParameter("renderApproval") != null;
         String httpMethod = request.getMethod();
-        if (!readOnly && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
+        if ((!readOnly || approvalSubmission) && ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod))) {
             // queue() persists fax jobs and promotes files; cancel() (also the no-method
             // fall-through below) deletes temp files and PHI preview caches -- mutations must
             // not ride a GET/HEAD. CoverPage.jsp submits both via <form method="post">, so no UI
@@ -245,9 +248,7 @@ public class Fax2Action extends ActionSupport {
             for (int i = 0; i < copyToRecipients.length; i++) {
                 String copyRecipient = copyToRecipients[i];
                 if (copyRecipient == null || copyRecipient.trim().isEmpty()) {
-                    // Reject a blank entry here, up front: otherwise it fails deep inside
-                    // createAndSaveFaxJob — after the preview has already been destructively promoted
-                    // out of temp storage, losing the user's only copy.
+                    // Reject a blank entry before any file promotion or persistence begins.
                     addActionError("Copy-to recipient entry " + (i + 1) + " is empty");
                     throw new SecurityException("Copy-to recipient entry is blank at index " + i);
                 }
@@ -530,22 +531,34 @@ public class Fax2Action extends ActionSupport {
                 request.setAttribute("fdid", String.valueOf(transactionId));
                 request.setAttribute("demographicId", String.valueOf(demographicNo));
 
-                // "renderAnyway" is the clinician's explicit choice to fax a visually-incomplete eForm
-                // after the default render reported missing same-origin content. It relaxes only that
-                // one content gate; security/main-document gates stay hard.
-                boolean renderAnyway = Boolean.parseBoolean(request.getParameter("renderAnyway"));
+                EFormRenderApprovalService renderApprovalService =
+                        SpringUtils.getBean(EFormRenderApprovalService.class);
+                String approvalToken = request.getParameter("renderApproval");
+                EFormRenderApproval approval = renderApprovalService.consume(
+                        request, loggedInInfo, transactionId, String.valueOf(demographicNo),
+                        EFormRenderApprovalService.Operation.FAX, approvalToken);
+                if (approvalToken != null && approval == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
+                            "The incomplete-render approval is invalid or expired. Prepare the fax again.");
+                    return NONE;
+                }
                 try {
-                    pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response, renderAnyway);
+                    pdfPath = documentAttachmentManager.renderEFormWithAttachments(
+                            request, response, approval);
                     if (logger.isDebugEnabled()) {
                         logger.debug("prepareFax renderEFormWithAttachments returned readable={} exists={}",
                                 pdfPath != null && Files.isReadable(pdfPath),
                                 pdfPath != null && Files.exists(pdfPath));
                     }
                 } catch (EformContentUnavailableException e) {
-                    // The eForm's own content (e.g. a signature/image) could not be loaded. Offer the
-                    // clinician a "fax anyway" confirmation instead of dead-ending. Count only — no PHI.
-                    logger.warn("prepareFax eForm incomplete: missing same-origin content, offering fax-anyway (missingAssets={})",
-                            e.getMissingAssetCount());
+                    // Show sanitized issue categories before issuing an exact, one-time approval.
+                    logger.warn("prepareFax eForm incomplete: offering exact-issue approval (issues={})",
+                            e.getIssueCount());
+                    String token = renderApprovalService.issue(
+                            request, loggedInInfo, transactionId, String.valueOf(demographicNo),
+                            EFormRenderApprovalService.Operation.FAX, e.getReport(),
+                            approval, e.getFdid());
+                    request.setAttribute("renderApproval", token);
                     request.setAttribute("missingContentMessage", EFORM_FAX_MISSING_CONTENT_MESSAGE);
                     request.setAttribute("transactionType", transactionType.name());
                     request.setAttribute("transactionId", transactionId);
@@ -553,6 +566,10 @@ public class Fax2Action extends ActionSupport {
                     request.setAttribute("recipient", recipient);
                     request.setAttribute("recipientFaxNumber", recipientFaxNumber);
                     request.setAttribute("letterheadFax", letterheadFax);
+                    request.setAttribute("failedContentResources", e.getReport().failedContentResources());
+                    request.setAttribute("excludedContentElements", e.getReport().excludedContentElements());
+                    request.setAttribute("signatureMissing", e.getReport().signatureMissing());
+                    request.setAttribute("timerCompatibilityFailure", e.getReport().timerCompatibilityFailure());
                     return "eFormMissingContent";
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);

@@ -54,6 +54,7 @@ import org.springframework.context.annotation.Lazy;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -201,11 +202,12 @@ public class EformDataManagerImpl implements EformDataManager {
      *         renderer produces a null / unreadable output file
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
-        return createEformPDF(loggedInInfo, fdid, false);
+        return createEformPDF(loggedInInfo, fdid, null);
     }
 
     @Override
-    public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid, boolean allowMissingContent) throws PDFGenerationException {
+    public Path createEformPDF(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
         if (eformData == null) {
             logger.warn("EForm PDF generation failed: no saved eForm found for fdid={}", fdid);
@@ -220,12 +222,10 @@ public class EformDataManagerImpl implements EformDataManager {
         logger.debug("Generating eForm PDF via browser renderer: fdid={}", fdid);
         Path path;
         try {
-            // Ownership transfer, not try-with-resources: this method's contract hands the raw
-            // Path (and its cleanup responsibility) to OUR caller, so the handle is deliberately
-            // unwrapped without close() — closing here would delete the file being returned.
+            // The caller owns cleanup of the returned renderer output.
             EFormBrowserPdfService.RenderedEformPdf rendered =
-                    eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo(), allowMissingContent);
-            path = rendered == null ? null : rendered.path();
+                    eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo(), approval);
+            path = rendered.path();
         } catch (PDFGenerationException e) {
             // The renderer already logged a redacted cause. Record which fdid failed and the exception
             // TYPE only for correlation — not e.getMessage(), which can re-emit unredacted renderer
@@ -237,11 +237,6 @@ public class EformDataManagerImpl implements EformDataManager {
             // de-chains WebDriver exceptions internally, so this carries no PHI; keep the stack for triage.
             logger.error("EForm PDF generation errored during browser rendering: fdid={} type={}", fdid, e.getClass().getName(), e);
             throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
-        }
-
-        if (path == null) {
-            logger.warn("EForm PDF generation returned no output path: fdid={}", fdid);
-            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.");
         }
 
         if (Files.isReadable(path)) {

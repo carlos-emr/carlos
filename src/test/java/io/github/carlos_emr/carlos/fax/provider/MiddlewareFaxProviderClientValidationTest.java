@@ -225,7 +225,7 @@ class MiddlewareFaxProviderClientValidationTest extends CarlosUnitTestBase {
             FaxConfig config = createConfig("file:///etc/passwd", "siteUser", "faxUser");
             assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
                     .isInstanceOf(FaxProviderException.class)
-                    .hasMessageContaining("http or https");
+                    .hasMessageContaining("HTTP or HTTPS");
         }
 
         @Test
@@ -243,7 +243,7 @@ class MiddlewareFaxProviderClientValidationTest extends CarlosUnitTestBase {
             FaxConfig config = createConfig("http://127.0.0.1/fax", "siteUser", "faxUser");
             assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
                     .isInstanceOf(FaxProviderException.class)
-                    .hasMessageContaining("disallowed address");
+                    .hasMessageContaining("disallowed local or private address");
         }
 
         @Test
@@ -252,15 +252,35 @@ class MiddlewareFaxProviderClientValidationTest extends CarlosUnitTestBase {
             FaxConfig config = createConfig("http://169.254.169.254/latest/meta-data", "siteUser", "faxUser");
             assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
                     .isInstanceOf(FaxProviderException.class)
-                    .hasMessageContaining("disallowed address");
+                    .hasMessageContaining("disallowed local or private address");
         }
 
         @Test
-        @DisplayName("should allow a private-LAN clinic relay")
-        void shouldAllow_privateLanRelay() throws Throwable {
-            // Site-local (RFC 1918) is a legitimate clinic-relay location and must remain permitted.
+        @DisplayName("should reject a private-LAN clinic relay unless explicitly allowlisted")
+        void shouldReject_privateLanRelayByDefault() {
             FaxConfig config = createConfig("http://192.168.1.50/fax", "siteUser", "faxUser");
-            invokeValidateMiddlewareConfig(config);
+            assertThatThrownBy(() -> invokeValidateMiddlewareConfig(config))
+                    .isInstanceOf(FaxProviderException.class)
+                    .hasMessageContaining("disallowed local or private address");
+        }
+
+        @Test
+        @DisplayName("should allow an explicitly configured private-LAN clinic relay")
+        void shouldAllow_explicitlyAllowlistedPrivateLanRelay() throws Throwable {
+            String property = "carlos.fax.middleware.allowedHosts";
+            String original = System.getProperty(property);
+            try {
+                System.setProperty(property, "192.168.1.50");
+                FaxConfig config = createConfig("http://192.168.1.50/fax", "siteUser", "faxUser");
+
+                invokeValidateMiddlewareConfig(config);
+            } finally {
+                if (original == null) {
+                    System.clearProperty(property);
+                } else {
+                    System.setProperty(property, original);
+                }
+            }
         }
     }
 

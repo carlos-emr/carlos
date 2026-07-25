@@ -15,7 +15,11 @@ package io.github.carlos_emr.carlos.eform.util;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,6 +64,8 @@ public final class EFormRenderPdfHtmlComposer {
     private static final String PDF_SIGNATURE_SERVLET_PATH = "/" + SIGNATURE_VIEW_SERVLET_NAME;
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
     private static final String IMAGE_VIEW_SERVLET_NAME = "EFormImageViewForPdfGenerationServlet";
+    private static final Pattern IMAGE_ASSET_URL_PATTERN = Pattern.compile(
+            Pattern.quote(IMAGE_VIEW_SERVLET_NAME) + "\\?([^\\s\\\"'<>)]*)");
 
     private EFormRenderPdfHtmlComposer() {
     }
@@ -82,19 +88,19 @@ public final class EFormRenderPdfHtmlComposer {
         EForm eForm = new EForm(String.valueOf(formDataId));
         eForm.setSignatureCode(contextPath, userAgent, eForm.getDemographicNo(), providerId);
         eForm.setContextPath(contextPath);
-        // Render/compose path only: opt in to the jsoup DOM normalization pass in EForm.getFormHtml().
-        // Live display/export callers deliberately do not, so they keep the string-level rewrites
-        // without the jsoup round-trip (pre-renderer behavior).
+        // DOM normalization is scoped to the browser-render surface.
         eForm.enableRenderNormalization();
+        eForm.addHeadJavascript(contextPath + "/eform/eform-runtime-compat.js");
 
         EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
-        List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
+        List<EFormValue> eFormValues = java.util.Objects.requireNonNullElse(
+                efvDao.findByFormDataId(formDataId), List.of());
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
 
         if (logger.isDebugEnabled()) {
             // fdid + value count only; never the render token or any stored eForm field value.
             logger.debug("Composing eForm PDF render HTML: fdid={} storedValues={}",
-                    formDataId, eFormValues == null ? 0 : eFormValues.size());
+                    formDataId, eFormValues.size());
         }
 
         try {
@@ -120,18 +126,12 @@ public final class EFormRenderPdfHtmlComposer {
      * @param renderToken render-scoped grant spliced onto asset URLs, or null for the
      *        session-authenticated (non-browser) path
      * @return the normalized HTML ready for capture
-     * @throws IllegalStateException if the fdid has no stored form HTML (defined contract in place
-     *         of the NPE the legacy code would otherwise throw on the first rewrite below), or a
-     *         stored, non-blank signature cannot be spliced into it
+     * @throws IllegalStateException if the fdid has no stored form HTML or a stored, non-blank
+     *         signature cannot be spliced into it
      */
-    // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.
-    @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
     static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, EFormRenderTokenService.RenderToken renderToken) {
         applyLetterHtml(eForm, eFormValues);
         if (eForm.getFormHtml() == null) {
-            // No stored Letter value ever reached applyLetterHtml, or the loaded eForm otherwise
-            // carries no form HTML for this fdid — the legacy code NPE'd on the first html.replace
-            // below instead of failing with a caller-diagnosable reason.
             throw new IllegalStateException("eForm render failed: no stored form HTML for the requested fdid");
         }
         applySignatureHtml(eForm, eFormValues, contextPath);
@@ -161,6 +161,8 @@ public final class EFormRenderPdfHtmlComposer {
         html = html.replace(contextPath + "/eform/displayImage", imageViewServletPath);
         html = html.replace("/eform/displayImage.do", imageViewServletPath);
         html = html.replace("/eform/displayImage", imageViewServletPath);
+        EFormRenderTokenService.getInstance().authorizeAssets(
+                renderToken, referencedImageFiles(html));
         html = appendRenderTokenToAssetUrls(html, renderToken);
         eForm.setFormHtml(html);
         eForm.setNowDateTime();
@@ -197,17 +199,23 @@ public final class EFormRenderPdfHtmlComposer {
                 .replace(SIGNATURE_VIEW_SERVLET_NAME + "?", SIGNATURE_VIEW_SERVLET_NAME + tokenPrefix);
     }
 
-    /**
-     * Replaces the form body with the stored {@code Letter} content, remapping its legacy
-     * signature-render path. No-op when the form has no {@code Letter} value.
-     *
-     * <p>No longer wraps the content in a fax-preview absolute-position offset:
-     * {@code buildAppPath} (the only production URL builder for the headless render browser) never
-     * appended a {@code prepareForFax} flag, so that wrapper was unreachable on every real render.
-     * It was also obsolete by design — the fax cover page is prepended as its own PDF page by
-     * {@code ConcatPDF} ({@code FaxManagerImpl.addCoverPage}), so no in-page offset is needed to
-     * make room for it.</p>
-     */
+    static Set<String> referencedImageFiles(String html) {
+        Set<String> files = new HashSet<>();
+        Matcher matcher = IMAGE_ASSET_URL_PATTERN.matcher(html);
+        while (matcher.find()) {
+            String query = matcher.group(1).replace("&amp;", "&");
+            for (String parameter : query.split("&")) {
+                int separator = parameter.indexOf('=');
+                if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
+                    files.add(URLDecoder.decode(
+                            parameter.substring(separator + 1), StandardCharsets.UTF_8));
+                }
+            }
+        }
+        return Set.copyOf(files);
+    }
+
+    /** Replaces the form body with stored {@code Letter} content and remaps its signature path. */
     private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues) {
         for (EFormValue value : eFormValues) {
             if (!"Letter".equals(value.getVarName())) {
@@ -266,13 +274,8 @@ public final class EFormRenderPdfHtmlComposer {
             String spliced = html.replace("<div id=\"signatureDisplay\"></div>",
                     buildSignatureImageMarkup(sign, left, top, width, height));
             if (spliced.equals(html)) {
-                // The exact placeholder <div id="signatureDisplay"></div> was altered or removed
-                // (e.g. the visual editor runs $("#signatureDisplay").remove()), so String.replace was
-                // a SILENT no-op and the stored signature was NOT placed — a signed document would fax
-                // and archive unsigned. No <img> remains, so the renderer's naturalWidth==0 backstop
-                // cannot see it; inject a hidden marker the render geometry scan detects
-                // (COMPUTE_PAGE_GEOMETRY_JS -> signatureBroken) so the clinician is prompted to confirm
-                // rendering without the signature instead of the failure being silent.
+                // Mark a signed form whose signature placeholder is unavailable so post-layout
+                // completeness reporting requires exact clinician approval.
                 logger.error("eForm PDF: signed form's signature placeholder was altered/removed; "
                         + "signature not rendered, prompting the clinician (fdid logged by caller)");
                 eForm.setFormHtml(html + SIGNATURE_UNRENDERED_MARKER);
@@ -285,7 +288,7 @@ public final class EFormRenderPdfHtmlComposer {
     /**
      * Hidden marker injected when a non-blank stored signature could not be spliced because the
      * placeholder was altered/removed. {@code COMPUTE_PAGE_GEOMETRY_JS} treats its presence as a
-     * broken signature so the clinician-confirm ("render anyway") prompt fires.
+     * broken signature that requires exact informed approval.
      */
     static final String SIGNATURE_UNRENDERED_MARKER =
             "<div id=\"carlos-signature-unrendered\" style=\"display:none\"></div>";

@@ -176,6 +176,21 @@ class EFormRenderTokenServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should authorize only exact assets referenced by the rendered eForm")
+    void shouldAuthorizeOnlyExactReferencedAssets() {
+        EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
+
+        service.authorizeAssets(token, java.util.Set.of("bg.png", "form.css"));
+
+        EFormRenderTokenService.RenderGrant grant = service.peek(token);
+        assertThat(grant.allowsAsset("bg.png")).isTrue();
+        assertThat(grant.allowsAsset("form.css")).isTrue();
+        assertThat(grant.allowsAsset("logo.png")).isFalse();
+        assertThat(grant.allowsAsset("BG.PNG")).isFalse();
+    }
+
+    @Test
     @DisplayName("should issue unique tokens for repeated grants")
     void shouldIssueUniqueTokens_forRepeatedGrants() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());

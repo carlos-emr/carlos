@@ -168,8 +168,8 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
-    @DisplayName("should rewrite legacy string timers only inside inline script content")
-    void shouldRewriteLegacyStringTimers_onlyInsideInlineScripts() {
+    @DisplayName("should preserve timer-like source in HTML attributes and inline scripts")
+    void shouldPreserveTimerSource_inAttributesAndInlineScripts() {
         EForm eform = new EForm();
         eform.setFormHtml("<html><body>"
                 + "<textarea>setTimeout('literal textarea', 100)</textarea>"
@@ -182,13 +182,12 @@ class EFormSetContextPathUnitTest {
         assertThat(eform.getFormHtml())
                 .contains("<textarea>setTimeout('literal textarea', 100)</textarea>")
                 .contains("data-timer=\"setInterval('literal attribute', 200)\"")
-                .contains("setTimeout(function(){ loadSig() }, 300)")
-                .contains("setInterval(function(){ tick() }, 400)");
+                .contains("<script>setTimeout('loadSig()', 300); setInterval('tick()', 400);</script>");
     }
 
     @Test
-    @DisplayName("should rewrite legacy string timers with double-quoted code bodies")
-    void shouldRewriteLegacyStringTimers_withDoubleQuotedCodeBodies() {
+    @DisplayName("should preserve double-quoted string timer bodies")
+    void shouldPreserveLegacyStringTimers_withDoubleQuotedCodeBodies() {
         EForm eform = new EForm();
         eform.setFormHtml("<html><body>"
                 + "<script>setTimeout(\"loadSig()\", 300); setInterval(\"say('hi')\", 400);</script>"
@@ -197,50 +196,41 @@ class EFormSetContextPathUnitTest {
         eform.setContextPath("/carlos");
 
         assertThat(eform.getFormHtml())
-                .contains("setTimeout(function(){ loadSig() }, 300)")
-                .contains("setInterval(function(){ say('hi') }, 400)");
+                .contains("<script>setTimeout(\"loadSig()\", 300); setInterval(\"say('hi')\", 400);</script>");
     }
 
     @Test
-    @DisplayName("should neutralize a real </script> but leave </script followed by a vertical tab intact")
-    void shouldNeutralizeScriptClose_onlyForHtmlDelimiters() {
+    @DisplayName("should preserve escaped script-close text in timer strings")
+    void shouldPreserveEscapedScriptCloseText_inTimerStrings() {
         EForm eform = new EForm();
-        // Decoded timer body: var a='</script>'  (real close — must be neutralized to <\/script>)
-        //                     var b='</scriptx'  (vertical tab after 'script' — NOT an HTML tag
-        //                     delimiter, so it must be left intact; Java \s wrongly matched it).
-        eform.setFormHtml("<html><body>"
+        String original = "<html><body>"
                 + "<script>setTimeout(\"var a='<\\/script>'; var b='<\\/script\\vx'\", 100);</script>"
-                + "</body></html>");
+                + "</body></html>";
+        eform.setFormHtml(original);
 
         eform.setContextPath("/carlos");
 
-        String html = eform.getFormHtml();
-        assertThat(html).contains("<\\/script>");            // real close-tag neutralized
-        assertThat(html).contains("</scriptx");        // vertical-tab sequence preserved
-        assertThat(html).doesNotContain("<\\/scriptx"); // and NOT neutralized
+        assertThat(eform.getFormHtml()).isEqualTo(original);
     }
 
     @Test
-    @DisplayName("should rewrite legacy string timers when the code body contains escaped matching quotes")
-    void shouldRewriteLegacyStringTimers_withEscapedMatchingQuotesInCodeBody() {
+    @DisplayName("should preserve matching quote escapes in string timer bodies")
+    void shouldPreserveStringTimers_withEscapedMatchingQuotesInCodeBody() {
         EForm eform = new EForm();
-        eform.setFormHtml("<html><body>"
+        String original = "<html><body>"
                 + "<script>setTimeout(\"$('#field').val(\\\"done\\\")\", 100); setInterval('say(\\'hi\\')', 200);</script>"
-                + "</body></html>");
+                + "</body></html>";
+        eform.setFormHtml(original);
 
         eform.setContextPath("/carlos");
 
-        assertThat(eform.getFormHtml())
-                .contains("setTimeout(function(){ $('#field').val(\"done\") }, 100)")
-                .contains("setInterval(function(){ say('hi') }, 200)");
+        assertThat(eform.getFormHtml()).isEqualTo(original);
     }
 
     @Test
-    @DisplayName("should not entity-escape script operators when normalizing a rewritten inline script")
-    void shouldNotEntityEscapeScriptOperators_whenNormalizingRewrittenScript() {
+    @DisplayName("should preserve script operators during context-path normalization")
+    void shouldPreserveScriptOperators_duringContextPathNormalization() {
         EForm eform = new EForm();
-        // A single inline script that both triggers the legacy-timer rewrite AND uses a '<' operator.
-        // The DOM normalization must emit the body verbatim; escaping '<' to '&lt;' would break the JS.
         eform.setFormHtml("<html><body>"
                 + "<script>setTimeout('poll()', 100); for (var i=0; i<n; i++) { total += i; }</script>"
                 + "</body></html>");
@@ -253,48 +243,37 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
-    @DisplayName("should decode string-literal escapes when rewriting legacy string timers")
-    void shouldDecodeStringLiteralEscapes_whenRewritingLegacyStringTimers() {
+    @DisplayName("should preserve string-literal escapes in legacy timers")
+    void shouldPreserveStringLiteralEscapes_inLegacyStringTimers() {
         EForm eform = new EForm();
-        // The body is a JS string literal; hoisting it into a function body must decode its escapes
-        // once (\n -> newline, \x41 -> 'A') the way the engine would when evaluating the string —
-        // NOT leave a literal backslash-n, which is invalid function source.
-        eform.setFormHtml("<html><body>"
+        String original = "<html><body>"
                 + "<script>setTimeout('a\\nb; c=\\x41', 100)</script>"
-                + "</body></html>");
+                + "</body></html>";
+        eform.setFormHtml(original);
 
         eform.setContextPath("/carlos");
 
-        assertThat(eform.getFormHtml())
-                .contains("setTimeout(function(){ a\nb; c=A }, 100)")
-                .doesNotContain("a\\nb")
-                .doesNotContain("\\x41");
+        assertThat(eform.getFormHtml()).isEqualTo(original);
     }
 
     @Test
-    @DisplayName("should not expose a raw script-closing tag when decoding a legacy string timer")
-    void shouldNeutralizeScriptClose_whenDecodedTimerBodyClosesTheScript() {
+    @DisplayName("should preserve an escaped script-closing tag in a legacy string timer")
+    void shouldPreserveScriptClose_whenTimerBodyContainsOne() {
         EForm eform = new EForm();
-        // The legacy string body writes a </script> escaped as <\/script> — decoding resolves the
-        // \/ to /, so without re-escaping the hoisted body would contain a raw </script> that
-        // truncates the inline script mid-parse. The rewrite must keep it as <\/script>.
-        eform.setFormHtml("<html><body>"
+        String original = "<html><body>"
                 + "<script>setTimeout('document.write(\"a<\\/script>b\")', 100)</script>"
-                + "</body></html>");
+                + "</body></html>";
+        eform.setFormHtml(original);
 
         eform.setContextPath("/carlos");
 
-        assertThat(eform.getFormHtml())
-                .contains("setTimeout(function(){ document.write(\"a<\\/script>b\") }, 100)")
-                .doesNotContain("a</script>b");
+        assertThat(eform.getFormHtml()).isEqualTo(original);
     }
 
     @Test
-    @DisplayName("should not escape a non-closing script identifier when rewriting legacy string timers")
-    void shouldNotEscapeNonClosingScriptToken_whenRewritingLegacyStringTimers() {
+    @DisplayName("should preserve a non-closing script identifier in timer source")
+    void shouldPreserveNonClosingScriptToken_inTimerSource() {
         EForm eform = new EForm();
-        // "</scripting" is not a script end tag (no whitespace / "/" / ">" after "script"), so the
-        // script-close neutralization must leave it verbatim rather than emitting an invalid "<\/".
         eform.setFormHtml("<html><body>"
                 + "<script>setTimeout('doc.querySelector(\"a[href=</scripting]\")', 100)</script>"
                 + "</body></html>");

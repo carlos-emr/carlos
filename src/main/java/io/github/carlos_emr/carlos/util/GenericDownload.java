@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -56,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 public class GenericDownload extends HttpServlet {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = MiscUtils.getLogger();
 
     /**
@@ -78,7 +80,11 @@ public class GenericDownload extends HttpServlet {
 
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            HttpSession session = req.getSession(true);
+            HttpSession session = req.getSession(false);
+            if (session == null) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+                return;
+            }
 
             CarlosProperties oscarProps = CarlosProperties.getInstance();
 
@@ -86,10 +92,7 @@ public class GenericDownload extends HttpServlet {
             String dir_property = req.getParameter("dir_property");
             String user = (String) session.getAttribute("user");
 
-            // Authorization: a non-null session user is NOT sufficient to read arbitrary configured
-            // directories. Require an administrator, and restrict dir_property to the server-side
-            // allowlist. The caller-supplied contentType is ignored — content type is forced to
-            // application/octet-stream (in transferFile) to avoid MIME-sniffing / type confusion.
+            // Generic downloads require an administrator and a server-approved directory property.
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
             SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
             boolean authorized = user != null
@@ -101,7 +104,7 @@ public class GenericDownload extends HttpServlet {
             String dir = authorized ? oscarProps.getProperty(dir_property) : null;
 
             boolean bDo = authorized && filename != null && dir != null;
-            download(bDo, res, dir, filename, null);
+            download(bDo, res, dir, filename);
         } catch (IOException e) {
             throw e;
         } catch (SecurityException e) {
@@ -119,29 +122,20 @@ public class GenericDownload extends HttpServlet {
 
     }
 
-    public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
+    public void download(boolean bDownload, HttpServletResponse res, String dir, String filename)
             throws IOException {
         if (bDownload) {
             ServletOutputStream stream = res.getOutputStream();
-            transferFile(res, stream, dir, filename, contentType);
-            stream.close();
+            transferFile(res, stream, dir, filename);
         } else {
             res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
         }
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "PathValidationUtils validates filename containment under the canonical configured directory before opening the file")
     protected void transferFile(HttpServletResponse res, ServletOutputStream stream, String dir, String filename) throws IOException {
-        transferFile(res, stream, dir, filename, null);
-    }
-
-    protected void transferFile(HttpServletResponse res, ServletOutputStream stream, String dir, String filename,
-                                String contentType) throws IOException {
-        //faster than "transferFile" method - clocked at 1.1MB/s on a 10Mbps switch
-        int BUFFER_SIZE = 2048;
-        String setContentType = "application/octet-stream";
-        if (contentType != null) {
-            setContentType = contentType;
-        }
+        int bufferSizeBytes = 8192;
 
         // Use PathValidationUtils for security validation
         // This sanitizes the filename and validates directory containment
@@ -151,19 +145,17 @@ public class GenericDownload extends HttpServlet {
         // Sanitize filename for HTTP header (prevent response splitting)
         String sanitizedFilename = curfile.getName().replaceAll("[\r\n]", "").replaceAll("[\\p{Cntrl}]", "");
 
-        res.setContentType(setContentType);
+        res.setContentType("application/octet-stream");
+        res.setHeader("X-Content-Type-Options", "nosniff");
         res.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizedFilename + "\"");
-        
-        FileInputStream fis = new FileInputStream(curfile);
-        int bufferSize;
-        byte[] buffer = new byte[BUFFER_SIZE];
+        res.setContentLengthLong(curfile.length());
 
-        while ((bufferSize = fis.read(buffer)) != -1) {
-            stream.write(buffer, 0, bufferSize); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary file download buffer copy
-
+        byte[] buffer = new byte[bufferSizeBytes];
+        try (FileInputStream input = new FileInputStream(curfile)) {
+            int bytesRead;
+            while ((bytesRead = input.read(buffer)) != -1) {
+                stream.write(buffer, 0, bytesRead); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary response
+            }
         }
-        fis.close();
-        stream.flush();
-        stream.close();
     }
 }

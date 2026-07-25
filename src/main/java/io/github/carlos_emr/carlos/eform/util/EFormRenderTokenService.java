@@ -28,34 +28,18 @@ import com.github.benmanes.caffeine.cache.Ticker;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Short-lived, render-scoped grants that authorize the server-side browser renderer to fetch one
- * saved eForm surface.
- *
- * <p>The renderer's headless browser is a separate process with no HTTP session. Instead of
- * forwarding the requesting user's session cookie into that browser (which would let any script
- * on the rendered page act as the user), the caller mints an opaque token here <em>after</em> its
- * own {@code _eform} privilege check, and the PDF-render servlets redeem it for the bound
- * {@code fdid}. This mirrors the pending-MFA cache-token pattern: the token is a random capability
- * reference, never a credential.</p>
- *
- * <p><strong>Render-scoped, not single-use.</strong> A single render fetches several loopback
- * subresources under the same token — the main eForm document plus its {@code ${oscar_image_path}}
- * background/asset images (rendered via {@link EFormImageViewForPdfGenerationServlet}). Those
- * subresource fetches carry no HTTP session, so they authorize themselves by
- * {@link #peek(RenderToken)}ing the same grant. Redemption therefore does <em>not</em> remove the
- * token; instead the renderer holds a {@link RenderLease} whose {@link RenderLease#close()}
- * {@link #invalidate(RenderToken)}s the grant at end of render — try-with-resources guarantees this
- * even when the render body throws — and the two-minute TTL bounds any leak.</p>
- *
- * <p>Entries expire two minutes after issue — comfortably above the renderer's page budget and
- * far below any session lifetime.</p>
+ * Two-minute capabilities for a sessionless browser render. Each grant is bound to one saved eForm,
+ * provider, and exact referenced asset set; the render lease invalidates it on completion.
  */
 final class EFormRenderTokenService {
 
@@ -167,6 +151,16 @@ final class EFormRenderTokenService {
     }
 
     /**
+     * Limits a render grant to template assets referenced by the bound eForm HTML.
+     */
+    void authorizeAssets(RenderToken token, Collection<String> fileNames) {
+        RenderGrant grant = peek(token);
+        if (grant != null) {
+            grant.authorizeAssets(fileNames);
+        }
+    }
+
+    /**
      * Discards a token at end of render — success, failure, or never-redeemed. Under the
      * render-scoped peek model this is the normal teardown for redeemed tokens too, not just
      * cleanup of unredeemed ones; the TTL is only the backstop. Safe for null/unknown/
@@ -191,8 +185,34 @@ final class EFormRenderTokenService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    /** Immutable render authorization bound to one saved eForm and optional provider scope. */
-    record RenderGrant(int fdid, String providerNo) {
+    /** Render authorization bound to one saved eForm, provider, and its referenced template assets. */
+    static final class RenderGrant {
+        private final int fdid;
+        private final String providerNo;
+        private final Set<String> allowedAssets = ConcurrentHashMap.newKeySet();
+
+        private RenderGrant(int fdid, String providerNo) {
+            this.fdid = fdid;
+            this.providerNo = providerNo;
+        }
+
+        int fdid() {
+            return fdid;
+        }
+
+        String providerNo() {
+            return providerNo;
+        }
+
+        boolean allowsAsset(String fileName) {
+            return allowedAssets.contains(fileName);
+        }
+
+        private void authorizeAssets(Collection<String> fileNames) {
+            if (fileNames != null) {
+                allowedAssets.addAll(fileNames);
+            }
+        }
     }
 
     /**

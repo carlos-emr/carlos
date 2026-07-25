@@ -48,13 +48,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * of two authorization regimes — an authenticated session holding {@code _eform} READ
  * ({@code _prevention} READ is an accepted alternative for {@code vaccine-brands.json} only), or a
  * live render-scoped grant minted by {@link EFormRenderTokenService} after the caller's
- * {@code _eform} check (the sessionless render browser's path; the grant is deliberately not
- * bound to the requested asset because these are shared templates, and grant-authorized fetches
- * are logged with the grant's fdid at DEBUG for troubleshooting). Filenames are validated as single path
- * components against the eForm image directory, and content types come from the shared
+ * {@code _eform} check. Render grants authorize only assets referenced by the bound eForm HTML.
+ * Filenames are validated as single path components against the eForm image directory, and content
+ * types come from the shared
  * {@link EFormAssetContentType} allowlist. No PHI is served by this servlet.</p>
  */
 public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
@@ -96,9 +97,11 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
                     return;
                 }
-                // Log the accepted grant's fdid: assets are shared templates, so the grant is
-                // deliberately not asset-bound — the fdid trail is logged at DEBUG for troubleshooting
-                // a cross-render asset fetch (any live grant reading the shared image directory).
+                if (!grant.allowsAsset(fileName)) {
+                    logger.warn("eForm asset request rejected: asset is not authorized by render grant");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
                 logger.debug("eForm asset request authorized via render grant (sessionless render browser): fdid={}",
                         grant.fdid());
             }
@@ -154,14 +157,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         }
     }
 
-    /**
-     * Returns the live render-scoped grant carried by the request, or null. The grant authorizes
-     * the sessionless render browser to read shared eForm template assets (backgrounds, JS, CSS)
-     * over loopback for the duration of one render; it was issued only after an {@code _eform}
-     * privilege check. Deliberately not bound to the requested asset — assets are shared
-     * templates, unlike the fdid-bound page and signature surfaces — so the grant's fdid is
-     * logged at DEBUG for troubleshooting.
-     */
+    /** Returns the live render-scoped grant carried by the request, or {@code null}. */
     private static EFormRenderTokenService.RenderGrant liveRenderGrant(HttpServletRequest request) {
         return EFormRenderTokenService.getInstance().peek(EFormRenderTokenService.RenderToken
                 .fromRequestValue(request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM)));

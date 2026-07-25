@@ -235,6 +235,19 @@ class EFormRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should extract the exact image files referenced by normalized asset URLs")
+    void shouldExtractExactReferencedImageFiles() {
+        String html = "<img src=\"/carlos/EFormImageViewForPdfGenerationServlet?"
+                + "imagefile=background%20one.png&amp;v=1\">"
+                + "<link href=\"/carlos/EFormImageViewForPdfGenerationServlet?"
+                + "v=1&imagefile=form.css\">"
+                + "<img src=\"/other?imagefile=not-authorized.png\">";
+
+        assertThat(EFormRenderPdfHtmlComposer.referencedImageFiles(html))
+                .containsExactlyInAnyOrder("background one.png", "form.css");
+    }
+
+    @Test
     @DisplayName("should append the render grant to image asset URLs when rendering")
     void shouldAppendRenderToken_whenBrowserRenderingImageBearingForm() {
         EForm eForm = mock(EForm.class);

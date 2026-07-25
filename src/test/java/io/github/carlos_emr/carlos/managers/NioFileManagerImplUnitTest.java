@@ -541,7 +541,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("Uniquifies the promoted document name instead of overwriting an existing document")
-    void shouldUniquifyPromotedDocument_whenBasenameCollides() throws IOException {
+    void shouldUniquifyPromotedDocument_whenBasenameCollides() throws Exception {
         Path firstSource = createApplicationTempDirectory("nio-promote-collide-a-");
         Path secondSource = createApplicationTempDirectory("nio-promote-collide-b-");
         assumeTrue(PathValidationUtils.isInApplicationTempDirectory(firstSource.toFile())
@@ -559,16 +559,16 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             Files.writeString(firstSource.resolve(sharedFilename), "first document body");
             Files.writeString(secondSource.resolve(sharedFilename), "second document body");
 
-            String firstPromoted = nioFileManager.copyFileToOscarDocuments(firstSource.resolve(sharedFilename).toString());
-            String secondPromoted = nioFileManager.copyFileToOscarDocuments(secondSource.resolve(sharedFilename).toString());
+            Path firstPromoted = nioFileManager.promoteApplicationTempFile(firstSource.resolve(sharedFilename));
+            Path secondPromoted = nioFileManager.promoteApplicationTempFile(secondSource.resolve(sharedFilename));
 
             assertThat(firstPromoted).isNotNull();
             assertThat(secondPromoted).isNotNull();
             // DOCUMENT_DIR filenames are referenced by persisted records: the second promotion must
             // land under a fresh name, leaving the first document's content untouched.
             assertThat(secondPromoted).isNotEqualTo(firstPromoted);
-            assertThat(Files.readString(Path.of(firstPromoted))).isEqualTo("first document body");
-            assertThat(Files.readString(Path.of(secondPromoted))).isEqualTo("second document body");
+            assertThat(Files.readString(firstPromoted)).isEqualTo("first document body");
+            assertThat(Files.readString(secondPromoted)).isEqualTo("second document body");
         } finally {
             deleteQuietly(firstSource.resolve(sharedFilename));
             deleteQuietly(secondSource.resolve(sharedFilename));

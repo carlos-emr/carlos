@@ -210,10 +210,10 @@ heuristic.
   loopback asset-image subresources — the render browser holds no session, so those sessionless
   fetches authorize themselves with the same grant. The renderer invalidates the token when the
   render finishes; the TTL is the backstop. `EFormImageViewForPdfGenerationServlet` accepts a live
-  grant as an alternative to a session **only** on the loopback path, and only for reads of shared
-  eForm template assets (backgrounds/JS/CSS) — never patient records.
-  `EFormSignatureViewForPdfGenerationServlet` (digital signatures — PHI) now **requires** a live
-  grant on the loopback path, closing the previous always-open by-id enumeration surface. In-render
+  grant as an alternative to a session **only** on the loopback path and only for the exact shared
+  eForm template assets referenced by the rendered form — never patient records.
+  `EFormSignatureViewForPdfGenerationServlet` (digital signatures — PHI) **requires** a live
+  grant on the loopback path. In-render
   script is contained by the egress lockdown, not the grant: a malicious form can read what its own
   render sees but cannot send it anywhere.
 - **Fresh browser per render.** No cookies, storage, or cache can bleed between renders or
@@ -225,25 +225,23 @@ heuristic.
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.
-- **Page gates.** The render gates split into two tiers. **Always hard fail-closed:** a `null` or
-  non-200 same-origin main document; a WebSocket/WebTransport creation (a live bidirectional channel
-  that bypasses the dead HTTP proxy and is never opened by a real render); unparseable network
-  evidence; an unreadable browser console log (explicitly enabled via `goog:loggingPrefs`, so failing
-  to read it is a WebDriver fault, not a capability gap); and **a failed *same-origin* (CARLOS)
-  render-critical *visual* subresource** — an `Image`, secondary `Document` iframe (the signature
-  block), `Stylesheet`, or `Font` served by the EMR that returns an HTTP 4xx/5xx. That last one is the
-  "our own eForm content failed to render" case (a missing signature or form image): the printed PDF
-  is genuinely wrong, so it must not be faxed. **Advisory by default** (logged at WARN, render proceeds
-  — set `eform_pdf_browser_strict_network_gate=true` to make them hard again): an off-origin HTTP
-  request (already physically blocked by the dead proxy); a failed *off-origin* subresource or a
-  failed *non-visual* same-origin subresource (a helper `Script`/`XHR`/`Fetch`/`Media`, or a
-  connection-level `loadingFailed` whose origin can't be attributed); and a severe page-script console
-  error (a JavaScript error, as opposed to a resource-load report or a CSP containment notice — both
-  excluded from the count anyway). These were demoted because the legacy eForm corpus routinely
-  references off-origin assets, 404s optional helper scripts (`faxControl.js`, `onBodyLoad_*.js`,
-  `jSignature.min.js`), and emits benign JS errors — none of which blank the form, and all of which the
-  in-app eForm viewer already tolerates; failing the render on them denied the fax for every form that
-  was not perfectly self-contained. Failures report counts, never page content.
+- **Page gates and informed approval.** The render gates have three outcomes:
+  - **Always hard fail-closed:** a `null` or non-200 same-origin main document; a
+    WebSocket/WebTransport creation; unparseable network evidence; or an unreadable browser console
+    log. These security and renderer-integrity failures cannot be approved or overridden.
+  - **Incomplete document — explicit approval required:** any failed resource type that can affect
+    clinical content (`Document`, `Image`, `Script`, `Stylesheet`, `Font`, `Media`, `XHR`, or
+    `Fetch`), visible elements excluded from print layout, a stored signature that cannot be
+    represented, or an unavailable/failed timer compatibility shim. Rendering stops before returning
+    a PDF and raises a typed incompleteness report containing PHI-free categories and counts. The web
+    layer informs the clinician, then issues a one-time, 2-minute approval capability bound to the
+    session, provider, patient, requested form, operation, and exact issue digest. A retry proceeds
+    only when that exact capability is consumed; changed or additional issues require a new approval.
+  - **Advisory unless strict mode is enabled:** contained off-origin request attempts, severe
+    page-script console errors, and known non-content resource failures. Set
+    `eform_pdf_browser_strict_network_gate=true` to turn these signals into hard failures.
+  Logs and approval reports contain counts only; resource URLs and page content never cross the
+  PHI-safe reporting boundary.
 - **PHI-safe diagnostics.** Log lines carry fdid (a separate structured field), the loopback base
   URL (host + context path only — no PHI, and the fdid/token live in a separate path value not
   embedded in it), and counters. URLs inside WebDriver error messages are redacted before logging,

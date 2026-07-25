@@ -22,19 +22,16 @@
 
 --%>
 <%--
-    EFormMissingContent.jsp — "fax anyway?" confirmation for an incomplete eForm render.
+    EFormMissingContent.jsp — informed approval for an incomplete eForm render.
 
     Purpose:
-      Shown by Fax2Action.prepareFax when the eForm browser render reported that the form's own
-      same-origin content (e.g. a signature or an image served by CARLOS) could not be loaded, so the
-      generated PDF would be visually incomplete. Rather than dead-ending, this page informs the
-      clinician and lets them choose to fax the incomplete document anyway.
+      Shown by Fax2Action.prepareFax when required resources, layout, signature content, or timer
+      behavior could not be represented. The page shows sanitized issue categories before the
+      clinician may approve the exact incomplete render.
 
     Behaviour:
-      "Fax anyway" re-invokes prepareFax with renderAnyway=true, which tolerates the missing content
-      and proceeds to the cover-page preview. "Cancel" returns to the eForm. This override relaxes
-      ONLY the missing-content gate; security gates (blocked egress) and a main document that never
-      loaded still fail regardless.
+      The approval action submits a one-time exact-issue capability and re-runs prepareFax. "Cancel"
+      returns to the prior page. Security and renderer-integrity failures remain non-overridable.
 
     Access control:
       Reached only as an internal forward from Fax2Action.prepareFax, which enforces the _fax READ
@@ -64,12 +61,27 @@
     <div class="card-body">
         <p><carlos:encode value="${missingContentMessage}"/></p>
         <p class="text-muted small">
-            Faxing an incomplete clinical document is your decision. If a signature or required image
-            is missing, consider cancelling and correcting the eForm first.
+            Faxing an incomplete clinical document is your decision. Consider cancelling and correcting
+            the eForm when any required content or behavior is missing.
         </p>
-        <c:set var="faxAnywayUrl">${pageContext.request.contextPath}/fax/faxAction?method=prepareFax&amp;transactionType=${carlos:forUriComponent(transactionType)}&amp;transactionId=${carlos:forUriComponent(transactionId)}&amp;demographicNo=${carlos:forUriComponent(demographicNo)}&amp;recipient=${carlos:forUriComponent(recipient)}&amp;recipientFaxNumber=${carlos:forUriComponent(recipientFaxNumber)}&amp;letterheadFax=${carlos:forUriComponent(letterheadFax)}&amp;renderAnyway=true</c:set>
+        <ul class="small">
+            <li>Failed content resources: <carlos:encode value="${failedContentResources}"/></li>
+            <li>Excluded visible elements: <carlos:encode value="${excludedContentElements}"/></li>
+            <li>Signature missing: <carlos:encode value="${signatureMissing}"/></li>
+            <li>Timer compatibility failed: <carlos:encode value="${timerCompatibilityFailure}"/></li>
+        </ul>
         <div class="d-flex gap-2 mt-3">
-            <a class="btn btn-warning" href="${faxAnywayUrl}">Fax anyway (incomplete)</a>
+            <form method="post" action="${pageContext.request.contextPath}/fax/faxAction">
+                <input type="hidden" name="method" value="prepareFax">
+                <input type="hidden" name="transactionType" value="<carlos:encode value="${transactionType}" context="htmlAttribute"/>">
+                <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
+                <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
+                <input type="hidden" name="recipient" value="<carlos:encode value="${recipient}" context="htmlAttribute"/>">
+                <input type="hidden" name="recipientFaxNumber" value="<carlos:encode value="${recipientFaxNumber}" context="htmlAttribute"/>">
+                <input type="hidden" name="letterheadFax" value="<carlos:encode value="${letterheadFax}" context="htmlAttribute"/>">
+                <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <button type="submit" class="btn btn-warning">Approve listed issues and fax</button>
+            </form>
             <button type="button" class="btn btn-secondary" onclick="history.back();">Cancel</button>
         </div>
     </div>

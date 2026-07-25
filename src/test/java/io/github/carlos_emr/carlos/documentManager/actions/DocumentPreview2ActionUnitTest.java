@@ -30,6 +30,9 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -38,6 +41,7 @@ import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -100,6 +104,9 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
     private DocumentAttachmentManager mockDocumentAttachmentManager;
 
     @Mock
+    private EFormRenderApprovalService mockEFormRenderApprovalService;
+
+    @Mock
     private FormsManager mockFormsManager;
 
     @Mock
@@ -136,6 +143,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
+        registerMock(EFormRenderApprovalService.class, mockEFormRenderApprovalService);
         registerMock(FormsManager.class, mockFormsManager);
         registerMock(EFormDataDao.class, mockEFormDataDao);
         registerMock(PatientLabRoutingDao.class, mockPatientLabRoutingDao);
@@ -585,9 +593,9 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", "123");
         when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
 
-        // renderEFormPDF routes through the render-anyway overload; with no renderAnyway param the
-        // clinician has not opted in, so allowMissingContent is false.
-        when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.EFORM, 42, false))
+        // No approval token is present, so the manager receives no incomplete-render capability.
+        when(mockDocumentAttachmentManager.renderDocument(
+                mockLoggedInInfo, DocumentType.EFORM, 42, (EFormRenderApproval) null))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("render failed"));
 
         String result = action.execute();
@@ -599,6 +607,36 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("render failed");
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123");
         verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("should disclose every incomplete eForm issue before issuing approval")
+    void shouldDiscloseEveryIncompleteEformIssue_beforeIssuingApproval() throws Exception {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(2, 3, true, true);
+        when(mockDocumentAttachmentManager.renderDocument(
+                mockLoggedInInfo, DocumentType.EFORM, 42, (EFormRenderApproval) null))
+                .thenThrow(new EformContentUnavailableException("incomplete", 42, report));
+        when(mockEFormRenderApprovalService.issue(
+                request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, report, null, 42))
+                .thenReturn("approval-token");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"missingContent\":true")
+                .contains("\"renderApproval\":\"approval-token\"")
+                .contains("\"failedContentResources\":2")
+                .contains("\"excludedContentElements\":3")
+                .contains("\"signatureMissing\":true")
+                .contains("\"timerCompatibilityFailure\":true")
+                .doesNotContain("\"errorMessage\":\"incomplete\"");
     }
 
     @Test

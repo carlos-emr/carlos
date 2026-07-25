@@ -50,6 +50,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -210,35 +212,9 @@ public class FaxManagerImpl implements FaxManager {
     }
 
     /**
-     * 1.) Creates the faxJob
-     * 2.) duplicates the faxJob for each recipient
-     * 3.) saves all the faxJobs to be sent.
-     * Map should contain values for:
-     * faxFilePath
-     * recipient
-     * recipientFaxNumber
-     * comments (for cover page)
-     * coverpage
-     * senderFaxNumber
-     * demographicNo
-     * copyToRecipients (as String[])
-     * <p>
-     * The FaxJob list that is returned contains persisted FaxJob Objects
-     * <p>
-     * This method is {@code @Transactional} so that the per-recipient {@code faxJobDao.persist}
-     * calls in the loop below commit atomically: if persisting recipient N throws, recipients
-     * 1..N-1 are rolled back rather than left as orphaned WAITING rows that {@code FaxSender}
-     * could pick up and transmit while the caller only sees an error page for the batch.
-     * <p>
-     * <b>Filesystem side effects are NOT covered by this transaction.</b> Temp-file promotion
-     * (see {@link #createFaxJob}) and cover-page file creation (see {@link #addCoverPage(byte[],
-     * Path)}) write directly to disk and are not undone by a JPA rollback. An aborted queue can
-     * therefore leave orphaned files on disk with no corresponding transmittable row. Temp-side
-     * orphans are swept by {@code ApplicationTempPurgeJob} (carlos-temp sources) or the eForm
-     * renderer's own stale-output sweep (renderer temp roots); a promoted document, and a
-     * {@code Cover_*} file whose concat succeeded before the rollback, land in DOCUMENT_DIR —
-     * which no automated sweep covers — so those are bounded only by {@code addCoverPage}'s
-     * failed-concat cleanup and manual housekeeping, not by any backstop.
+     * Builds and persists an all-or-none recipient batch. Recipient parsing and file preparation
+     * complete before persistence; any failed job rejects the batch. Database rollback and
+     * commit-time failure callbacks remove files created for the attempt.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
@@ -246,13 +222,16 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public List<FaxJob> createAndSaveFaxJob(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap) {
 
-        // Parse and fail fast BEFORE createFaxJob: the promotion inside createFaxJob deletes
-        // the temp preview source, so a recipient-shape failure after it destroys the user's
-        // only copy and strands an orphan PDF in the document store.
+        // Recipient parsing is side-effect free and applies to the complete batch.
         String[] copytoRecipients = (String[]) faxJobMap.get("copyToRecipients");
         List<FaxRecipient> parsedRecipients = (copytoRecipients != null && copytoRecipients.length > 0)
                 ? parseFaxRecipients(copytoRecipients)
                 : List.of();
+
+        String sourcePath = (String) faxJobMap.get("faxFilePath");
+        boolean promotedForAttempt = sourcePath != null
+                && PathValidationUtils.isInApplicationTempDirectory(new File(sourcePath));
+        Set<Path> attemptFiles = new LinkedHashSet<>();
 
         FaxJob faxJob = createFaxJob(loggedInInfo, faxJobMap);
         List<FaxJob> faxJobList = new ArrayList<FaxJob>();
@@ -266,6 +245,9 @@ public class FaxManagerImpl implements FaxManager {
         // picks up WAITING jobs, so an ERROR job can never be transmitted.
         if (STATUS.ERROR.equals(faxJob.getStatus())) {
             return faxJobList;
+        }
+        if (promotedForAttempt) {
+            attemptFiles.add(nioFileManager.getOscarDocument(Path.of(faxJob.getFile_name())));
         }
 
         // Duplicate the fax job for each copy-to recipient; the original receiver is already in the list.
@@ -286,33 +268,87 @@ public class FaxManagerImpl implements FaxManager {
                 }
                 Path faxDocument = Paths.get(faxJobObject.getFile_name());
                 try {
-                    faxDocument = addCoverPage(loggedInInfo, comments, faxJobObject.getFaxRecipient(), faxJobObject.getFaxAccount(), faxDocument);
+                    Path coveredDocument = addCoverPage(
+                            loggedInInfo, comments, faxJobObject.getFaxRecipient(),
+                            faxJobObject.getFaxAccount(), faxDocument);
+                    Path coveredFileName = coveredDocument.getFileName();
+                    if (coveredFileName == null) {
+                        throw new IOException("The fax cover page was not created.");
+                    }
+                    faxDocument = coveredDocument;
                     faxJobObject.setNumPages(faxJobObject.getNumPages() + 1);
-                    faxJobObject.setFile_name(faxDocument.getFileName().toString());
+                    faxJobObject.setFile_name(coveredFileName.toString());
+                    attemptFiles.add(faxDocument);
                 } catch (IOException e) {
                     logger.error("CRITICAL: Failed to add cover page for fax job to {} - Fax will NOT be sent without cover page",
                             faxJobObject.getRecipient(), e);
                     faxJobObject.setStatus(STATUS.ERROR);
                     faxJobObject.setStatusString("Cover page creation failed. Fax not sent. Check disk space and logs.");
                     // Do NOT set file_name - leave job in ERROR state and do not transmit
+                    break;
                 }
             }
         }
 
-        // Persist only sendable jobs; ERROR jobs (validation or cover-page failures) stay in the
-        // returned list un-persisted so the caller can render their per-job status rather than have
-        // them silently dropped or throw an unmapped RuntimeException.
-        List<FaxJob> validJobs = faxJobList.stream()
-                .filter(job -> job.getStatus() != STATUS.ERROR)
-                .collect(Collectors.toList());
-
-        if (!validJobs.isEmpty()) {
-            // saveFaxJob persists in place (assigns ids on the same instances), so faxJobList
-            // already reflects the saved state and keeps the original recipient ordering.
-            saveFaxJob(loggedInInfo, validJobs);
+        // ERROR jobs remain unpersisted and make every otherwise-sendable job non-sendable.
+        boolean batchFailed = faxJobList.stream().anyMatch(job -> STATUS.ERROR.equals(job.getStatus()));
+        if (batchFailed) {
+            for (FaxJob job : faxJobList) {
+                if (!STATUS.ERROR.equals(job.getStatus())) {
+                    job.setStatus(STATUS.ERROR);
+                    job.setStatusString("The fax batch was not queued because another recipient could not be prepared.");
+                }
+            }
+            cleanupFaxAttemptFiles(attemptFiles, List.of());
+            return faxJobList;
         }
 
+        registerFaxAttemptRollbackCleanup(attemptFiles);
+        try {
+            saveFaxJob(loggedInInfo, faxJobList);
+        } catch (RuntimeException e) {
+            cleanupFaxAttemptFiles(attemptFiles, List.of());
+            throw e;
+        }
+        cleanupFaxAttemptFiles(attemptFiles, faxJobList);
         return faxJobList;
+    }
+
+    private void registerFaxAttemptRollbackCleanup(Set<Path> attemptFiles) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        Set<Path> files = Set.copyOf(attemptFiles);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    cleanupFaxAttemptFiles(files, List.of());
+                }
+            }
+        });
+    }
+
+    private void cleanupFaxAttemptFiles(Set<Path> attemptFiles, List<FaxJob> retainedJobs) {
+        Set<String> retainedNames = retainedJobs.stream()
+                .map(FaxJob::getFile_name)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        for (Path attemptFile : attemptFiles) {
+            if (attemptFile == null) {
+                continue;
+            }
+            Path attemptFileName = attemptFile.getFileName();
+            if (attemptFileName == null || retainedNames.contains(attemptFileName.toString())) {
+                continue;
+            }
+            try {
+                Files.deleteIfExists(attemptFile);
+            } catch (IOException e) {
+                logger.warn("Unable to clean an unqueued fax attempt file: {}",
+                        LogSafe.sanitize(attemptFileName.toString()), e);
+            }
+        }
     }
 
     /**
@@ -387,9 +423,7 @@ public class FaxManagerImpl implements FaxManager {
         faxAccount.setFacilityName(clinic.getClinicName());
         faxJob.setFaxAccount(faxAccount);
 
-        // Validate and resolve the file path (traversal + existence) BEFORE the destructive
-        // promotion below, so an invalid account or bad path can never strand an orphan copy in
-        // the document store after the preview temp source has been deleted.
+        // Validate the complete path before creating a document-store copy.
         Path faxDocument;
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
@@ -400,28 +434,27 @@ public class FaxManagerImpl implements FaxManager {
             return faxJob;
         }
 
-        // Promote CARLOS-owned renderer/preview temp files into the permanent document store as the
-        // last step before queueing: copyFileToOscarDocuments deletes the temp source on success, so
-        // it must only run once every validation above has passed. Scoped to application-owned temp
-        // subtrees (not the whole shared temp root) so a caller-supplied faxFilePath cannot promote
-        // and fax out an unrelated file another process left in java.io.tmpdir or Tomcat work.
+        // Only application-owned temporary files may be promoted; the source remains available for
+        // retry until the normal preview cleanup path removes it.
         if (PathValidationUtils.isInApplicationTempDirectory(faxDocument.toFile())) {
-            String promoted = nioFileManager.copyFileToOscarDocuments(faxDocument.toString());
-            // copyFileToOscarDocuments returns null when promotion fails. Follow the same controlled
-            // error path as resolveAndValidateFilePath above — return an ERROR-status FaxJob rather
-            // than passing null downstream (uncaught IllegalArgumentException → 500) or throwing.
-            // The source file provably existed (validated above), so this is a storage-side
-            // failure, not a missing file — say so, or the user checks the wrong thing.
-            if (promoted == null || promoted.isBlank()) {
+            try {
+                faxDocument = nioFileManager.promoteApplicationTempFile(faxDocument);
+            } catch (FilePromotionException e) {
+                logger.error("Fax document promotion failed", e);
                 faxJob.setStatus(STATUS.ERROR);
                 faxJob.setStatusString("The fax document could not be stored for sending. Please retry or contact your administrator.");
                 return faxJob;
             }
-            faxDocument = Paths.get(promoted);
         }
 
+        Path faxFileName = faxDocument.getFileName();
+        if (faxFileName == null) {
+            faxJob.setStatus(STATUS.ERROR);
+            faxJob.setStatusString("The fax document has no usable file name.");
+            return faxJob;
+        }
         faxJob.setStatus(FaxJob.STATUS.WAITING);
-        faxJob.setFile_name(faxDocument.getFileName().toString());
+        faxJob.setFile_name(faxFileName.toString());
         faxJob.setNumPages(EDocUtil.getPDFPageCount(faxDocument.toString()));
 
         return faxJob;
@@ -440,9 +473,7 @@ public class FaxManagerImpl implements FaxManager {
 
     /**
      * Parses the indexed JSON recipient entries, failing fast when any entry is null, blank, or
-     * unparseable — a partial recipient list must never be silently sent. Deliberately free of
-     * side effects so {@link #createAndSaveFaxJob} can run it BEFORE the destructive temp-file
-     * promotion in {@link #createFaxJob}.
+     * unparseable. This method has no filesystem or persistence side effects.
      *
      * @throws IllegalArgumentException naming the failed entry count when any entry cannot be
      *         parsed into a {@link FaxRecipient}
@@ -466,10 +497,7 @@ public class FaxManagerImpl implements FaxManager {
                 ObjectNode copytoRecipientJson = (ObjectNode) objectMapper.readTree(copytoRecipient);
                 FaxRecipient faxRecipient = new FaxRecipient(copytoRecipientJson);
                 if (!faxRecipient.hasUsableFax()) {
-                    // A parseable entry without a usable fax number is a shape failure too:
-                    // letting it through would build a WAITING job with a null destination (or
-                    // fail at persist, after the destructive promotion) — the dropped-recipient
-                    // bug this fail-fast exists to prevent.
+                    // A parseable entry without a usable fax number invalidates the whole batch.
                     logger.error("Fax recipient entry has no usable fax number - Recipient will be SKIPPED");
                     failedRecipients.add(copytoRecipient);
                     continue;
@@ -585,7 +613,11 @@ public class FaxManagerImpl implements FaxManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required sec object (_fax)");
         }
-        int numberpages = EDocUtil.getPDFPageCount(currentDocument.getFileName().toString());
+        Path currentFileName = currentDocument == null ? null : currentDocument.getFileName();
+        if (currentFileName == null) {
+            throw new IOException("The fax document has no usable file name.");
+        }
+        int numberpages = EDocUtil.getPDFPageCount(currentFileName.toString());
         byte[] coverPage = faxDocumentManager.createCoverPage(loggedInInfo, note, numberpages);
         return addCoverPage(coverPage, currentDocument);
     }
@@ -597,16 +629,26 @@ public class FaxManagerImpl implements FaxManager {
         }
         // Resolve to full path before getting page count to avoid security validation errors
         currentDocument = nioFileManager.getOscarDocument(currentDocument);
+        if (currentDocument == null) {
+            throw new IOException("The fax document could not be resolved.");
+        }
         int numberpages = EDocUtil.getPDFPageCount(currentDocument.toString());
         byte[] coverPage = faxDocumentManager.createCoverPage(loggedInInfo, note, recipient, sender, numberpages);
         return addCoverPage(coverPage, currentDocument);
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path addCoverPage(byte[] coverPage, Path currentDocument) throws IOException {
+        if (coverPage == null) {
+            throw new IOException("The fax cover page could not be generated.");
+        }
         currentDocument = nioFileManager.getOscarDocument(currentDocument);
-        Path newCurrentDocument = Paths.get(currentDocument.getParent().toString(), "Cover_" + UUID.randomUUID() + "_" + currentDocument.getFileName());
+        Path parent = currentDocument == null ? null : currentDocument.getParent();
+        Path currentFileName = currentDocument == null ? null : currentDocument.getFileName();
+        if (parent == null || currentFileName == null) {
+            throw new IOException("The fax document path is incomplete.");
+        }
+        String coverFileName = "Cover_" + UUID.randomUUID() + "_" + currentFileName;
+        Path newCurrentDocument = parent.resolve(coverFileName);
         Files.createFile(newCurrentDocument);
         try (ByteArrayInputStream currentDocumentStream = new ByteArrayInputStream(Files.readAllBytes(currentDocument));
              OutputStream newDocumentStream = Files.newOutputStream(newCurrentDocument);
@@ -627,7 +669,7 @@ public class FaxManagerImpl implements FaxManager {
                 Files.deleteIfExists(newCurrentDocument);
             } catch (IOException cleanupFailure) {
                 logger.warn("Unable to remove partial cover page after failed concat: {}",
-                        LogSafe.sanitize(newCurrentDocument.getFileName().toString()), cleanupFailure);
+                        LogSafe.sanitize(coverFileName), cleanupFailure);
             }
             throw e;
         }

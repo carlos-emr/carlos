@@ -40,8 +40,10 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
+import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.managers.FilePromotionException;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -78,6 +80,7 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     private DocumentAttachmentManager documentAttachmentManager;
     private NioFileManager nioFileManager;
     private FaxJobDao faxJobDao;
+    private FaxConfigDao faxConfigDao;
 
     private EctConsultationFormFax2Action action;
 
@@ -91,13 +94,14 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         nioFileManager = mock(NioFileManager.class);
         faxJobDao = mock(FaxJobDao.class);
+        faxConfigDao = mock(FaxConfigDao.class);
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ClinicDAO.class, clinicDAO);
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(NioFileManager.class, nioFileManager);
         registerMock(FaxJobDao.class, faxJobDao);
-        registerMock(FaxConfigDao.class, mock(FaxConfigDao.class));
+        registerMock(FaxConfigDao.class, faxConfigDao);
         registerMock(FaxManager.class, mock(FaxManager.class));
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -113,6 +117,17 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         // Construct AFTER the static + Spring mocks are live: the action resolves its request,
         // response, and SpringUtils beans in field initializers.
         action = new EctConsultationFormFax2Action();
+        action.setDemographicNo("123");
+        action.setRequestId("456");
+        action.setSenderFaxNumber("1234567890");
+        action.setRecipient("Test Recipient");
+        action.setRecipientFaxNumber("9876543210");
+
+        FaxConfig config = mock(FaxConfig.class);
+        when(config.getFaxNumber()).thenReturn("1234567890");
+        when(config.getAccountName()).thenReturn("Test Account");
+        when(faxConfigDao.findAll(null, null)).thenReturn(java.util.List.of(config));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(true);
     }
 
     @AfterEach
@@ -134,16 +149,15 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("w"), isNull())).thenReturn(true);
         Path rendered = Paths.get("/tmp/consult-fax-source.pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(rendered);
-        // copyFileToOscarDocuments returning null used to NPE the next line's Paths.get(null); the
-        // guard must instead surface a caller-diagnosable "error" result.
-        when(nioFileManager.copyFileToOscarDocuments(rendered.toString())).thenReturn(null);
+        when(nioFileManager.promoteApplicationTempFile(rendered))
+                .thenThrow(new FilePromotionException("test failure"));
 
         String result = action.execute();
 
         assertThat(result).isEqualTo("error");
         assertThat(request.getAttribute("errorMessage")).asString()
                 .contains("could not be stored");
-        verify(nioFileManager).copyFileToOscarDocuments(rendered.toString());
+        verify(nioFileManager).promoteApplicationTempFile(rendered);
         verify(faxJobDao, never()).persist(any());
     }
 }

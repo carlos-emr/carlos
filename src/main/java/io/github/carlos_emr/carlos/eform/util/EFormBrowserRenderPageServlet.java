@@ -40,14 +40,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * per-render Content-Security-Policy, and writing the response. The stored-form HTML assembly is
  * delegated to {@link EFormRenderPdfHtmlComposer}.</p>
  *
- * <p>The class was renamed from {@code EFormViewForPdfGenerationServlet} to disambiguate it from the
- * legacy session gate {@code web.eform.EformViewForPdfGenerationServlet} (which differed only by
- * case). Its registered {@code /EFormViewForPdfGenerationServlet} URL is deliberately retained — the
- * loopback render navigation, the {@code LoginFilter}/{@code HttpMethodGuardFilter}/CSRF exclusions,
- * and the Struts exclude pattern all key on that path.</p>
+ * <p>The registered {@code /EFormViewForPdfGenerationServlet} route is consumed by the renderer and
+ * by its security filters, so it is part of the internal render contract.</p>
  */
 public final class EFormBrowserRenderPageServlet extends HttpServlet {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger logger = MiscUtils.getLogger();
     private static final String PROVIDER_ID_PARAM = "providerId";
     /** Render-scoped grant parameter redeemed against {@link EFormRenderTokenService}. */
@@ -55,8 +53,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
 
     // SERVLET_HEADER_USER_AGENT: the User-Agent read here is passed to the HTML composer for
     // browser-quirk selection only — it is never trusted as an authority or emitted raw — so a
-    // spoofed value cannot cross a trust boundary. (Replaces the class-keyed exclude that the rename
-    // orphaned; a per-site suppression is rename-proof.)
+    // spoofed value cannot cross a trust boundary.
     @SuppressFBWarnings(value = "SERVLET_HEADER_USER_AGENT", justification = "User-Agent is used only for browser-quirk selection in the render HTML composer, never trusted as authority or emitted raw")
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

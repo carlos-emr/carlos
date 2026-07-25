@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 
 public interface EformDataManager {
@@ -66,15 +67,11 @@ public interface EformDataManager {
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException;
 
     /**
-     * Saves an eForm as a temp PDF, optionally accepting a visually-incomplete render.
+     * Renders an eForm to a temporary PDF using an optional exact incomplete-render approval.
      *
-     * @param allowMissingContent when {@code true}, a failure of the eForm's own same-origin (CARLOS)
-     *        visual assets (signature/image/stylesheet) is tolerated and the incomplete PDF is
-     *        produced — the "render anyway" clinician choice. When {@code false} (the default overload
-     *        above), such a failure throws {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}.
-     *        Always-hard gates (main document, live egress) are unaffected.
+     * @param approval short-lived capability bound to the provider, eForm, and observed issue digest
      */
-    public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid, boolean allowMissingContent) throws PDFGenerationException;
+    public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException;
 
 
     /**

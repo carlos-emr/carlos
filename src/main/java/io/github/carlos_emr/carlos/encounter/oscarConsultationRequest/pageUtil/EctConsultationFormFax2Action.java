@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.FilePromotionException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -45,7 +46,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.ArrayList;
@@ -111,9 +111,9 @@ public class EctConsultationFormFax2Action extends ActionSupport {
      * @return String "success" on successful fax queuing, "cancel" if cancelled,
      *         "error" on failure, or null on unexpected error
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
-    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "IMPROPER_UNICODE"}, justification = "path validated for directory containment via PathValidationUtils before use; method-name comparison is the HTTP verb gate, not an identity decision")
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "method-name comparison is the HTTP verb gate, not an identity decision")
     @Override
     public String execute() {
 
@@ -154,17 +154,14 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 		String demoNo = this.getDemographicNo();
 		// Patient-record access check (same as Fax2Action): a fax carries this demographic's PHI, so
 		// the user must be allowed to access this patient's record, not merely hold _con/_fax.
-		if (demoNo != null && !demoNo.trim().isEmpty()) {
-			int demographicNo;
-			try {
-				demographicNo = Integer.parseInt(demoNo.trim());
-			} catch (NumberFormatException e) {
-				// A non-numeric demographic cannot be authorized against any patient record; fail closed.
-				throw new SecurityException("missing required patient access");
-			}
-			if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
-				throw new SecurityException("missing required patient access");
-			}
+		int demographicNoValue;
+		try {
+			demographicNoValue = Integer.parseInt(demoNo == null ? "" : demoNo.trim());
+		} catch (NumberFormatException e) {
+			throw new SecurityException("missing required patient access");
+		}
+		if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoValue)) {
+			throw new SecurityException("missing required patient access");
 		}
 		String faxNumber = this.getSenderFaxNumber();
 		String consultResponsePage = request.getParameter("consultResponsePage");
@@ -201,19 +198,8 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             request.setAttribute("errorMessage", errorMessage);
             return "error";
         }
-        String faxPdfPath = nioFileManager.copyFileToOscarDocuments(faxPdf.toString());
-        if (faxPdfPath == null) {
-            // Promotion into the document store failed (copy error or destination conflict) —
-            // details are in the server log. Surface it instead of NPE-ing on Paths.get(null).
-            logger.error("Consultation fax PDF could not be stored in the document directory; aborting fax");
-            request.setAttribute("errorMessage",
-                    "This fax could not be sent. \n\nThe fax document could not be stored for sending; please retry or contact your administrator.");
-            return "error";
-        }
-        faxPdf = Paths.get(faxPdfPath);
         Path pdfToFax;
         List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
-        int count = 0;
         Set<FaxRecipient> faxRecipients;
         try {
             faxRecipients = this.getAllFaxRecipients();
@@ -224,13 +210,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             return "error";
         }
 
-        // Pre-validate the whole batch BEFORE persisting any job, so the consultation fax is
-        // all-or-nothing. Previously both failure modes were only discovered mid-loop: a
-        // misconfigured sender account silently persisted ERROR jobs (never sent) yet still returned
-        // SUCCESS — a referral the clinician believed went out — and a too-short recipient number
-        // threw a DocumentException after earlier recipients were already committed and sendable
-        // (partial transmission). The sender-account match is the same for every recipient (it keys
-        // on the sender's own fax number), so it is resolved once here.
+        // Resolve the sender and validate every recipient before promoting files or persisting jobs.
         FaxConfig matchedConfig = null;
         for (FaxConfig faxConfig : faxConfigs) {
             if (faxConfig.getFaxNumber().equals(faxNumber)) {
@@ -261,14 +241,28 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         sender.setFaxNumberOwner(matchedConfig.getAccountName());
 
-        // Build every FaxJob (including its cover page and page count) BEFORE persisting any, then
-        // hand the whole batch to a single @Transactional manager call. Cover-page creation is a
-        // filesystem side effect that a JPA rollback cannot undo, so it stays in this build phase;
-        // the DB persist+audit-log of all recipients then commits atomically. Previously each job was
-        // persisted inline in the loop with no surrounding transaction, so a failure on recipient N
-        // (a cover-page/page-count error, or a DB error) left recipients 1..N-1 as committed WAITING
-        // rows the FaxSender would transmit while the clinician only saw an error page — a partial
-        // fax the "all-or-nothing" comment above wrongly promised was impossible.
+        int reqIdValue;
+        try {
+            reqIdValue = Integer.parseInt(reqId);
+        } catch (NumberFormatException nfe) {
+            logger.error("Consultation fax aborted: non-numeric consultation request id");
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe consultation request id is invalid.");
+            return "error";
+        }
+
+        Set<Path> attemptFiles = new HashSet<>();
+        try {
+            faxPdf = nioFileManager.promoteApplicationTempFile(faxPdf);
+            attemptFiles.add(faxPdf);
+        } catch (FilePromotionException e) {
+            logger.error("Consultation fax PDF could not be stored in the document directory; aborting fax", e);
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe fax document could not be stored for sending; please retry or contact your administrator.");
+            return "error";
+        }
+
+        // Build the complete filesystem-backed batch before the transactional database write.
         List<FaxJob> builtFaxJobs = new ArrayList<>();
         try {
             for (FaxRecipient faxRecipient : faxRecipients) {
@@ -286,30 +280,30 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                 faxJob.setFax_line(faxNumber);
                 faxJob.setStamp(new Date());
                 faxJob.setOscarUser(provider_no);
-                faxJob.setDemographicNo(Integer.parseInt(demoNo));
+                faxJob.setDemographicNo(demographicNoValue);
                 // Sender account was validated above, so every recipient is a real WAITING job.
                 faxJob.setStatus(FaxJob.STATUS.WAITING);
                 faxJob.setUser(matchedConfig.getFaxUser());
 
-                //todo rethink this process.  It takes up too much disc space.
                 if (doCoverPage) {
                     pdfToFax = faxManager.addCoverPage(loggedInInfo, note, faxRecipient, sender, faxPdf);
-
-                    // delete the source file to save some disc space
-                    if (count == (faxRecipients.size() - 1)) {
-                        faxPdf = PathValidationUtils.validateExistingPath(faxPdf.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY)).toPath();
-                        Files.deleteIfExists(faxPdf);
+                    if (pdfToFax == null || pdfToFax.getFileName() == null) {
+                        throw new IOException("The consultation fax cover page was not created.");
                     }
+                    attemptFiles.add(pdfToFax);
                 }
 
+                Path faxFileName = pdfToFax == null ? null : pdfToFax.getFileName();
+                if (faxFileName == null) {
+                    throw new IOException("The consultation fax document has no usable file name.");
+                }
                 int numPages = EDocUtil.getPDFPageCount(pdfToFax.toString());
 
-                faxJob.setFile_name(pdfToFax.getFileName().toString());
+                faxJob.setFile_name(faxFileName.toString());
                 faxJob.setNumPages(numPages);
 
                 builtFaxJobs.add(faxJob);
 
-                count++;
             }
         } catch (DocumentException de) {
             error = "DocumentException";
@@ -318,26 +312,53 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             error = "IOException";
             exception = ioe;
         }
-        if (error.isEmpty()) {
-            int reqIdValue;
-            try {
-                reqIdValue = Integer.parseInt(reqId);
-            } catch (NumberFormatException nfe) {
-                logger.error("Consultation fax aborted: non-numeric consultation request id");
-                request.setAttribute("errorMessage",
-                        "This fax could not be sent. \n\nThe consultation request id is invalid.");
-                return "error";
-            }
-            // Atomic: persists all recipients and their audit logs in one transaction, so a failure
-            // persisting any recipient rolls the whole batch back rather than leaving sendable orphans.
-            faxManager.persistAndLogConsultationFaxJobs(loggedInInfo, builtFaxJobs, reqIdValue);
-            LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
-            request.setAttribute("faxSuccessful", true);
-            return SUCCESS;
+        if (!error.isEmpty()) {
+            cleanupAttemptFiles(attemptFiles, List.of());
+            logger.error(error + " occurred inside ConsultationPrintAction", exception);
+            request.setAttribute("printError", Boolean.TRUE);
+            return "error";
         }
-        logger.error(error + " occured insided ConsultationPrintAction", exception);
-        request.setAttribute("printError", Boolean.valueOf(true));
-        return "error";
+        try {
+            faxManager.persistAndLogConsultationFaxJobs(loggedInInfo, builtFaxJobs, reqIdValue);
+        } catch (RuntimeException e) {
+            cleanupAttemptFiles(attemptFiles, List.of());
+            logger.error("Consultation fax batch could not be persisted; no jobs were queued", e);
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe fax queue could not be updated; no faxes were queued.");
+            return "error";
+        }
+        cleanupAttemptFiles(attemptFiles, builtFaxJobs);
+        LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
+        request.setAttribute("faxSuccessful", true);
+        return SUCCESS;
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "each deletion target is validated inside the CARLOS document directory before use")
+    private void cleanupAttemptFiles(Set<Path> attemptFiles, List<FaxJob> retainedJobs) {
+        Set<String> retainedNames = new HashSet<>();
+        for (FaxJob retainedJob : retainedJobs) {
+            if (retainedJob.getFile_name() != null) {
+                retainedNames.add(retainedJob.getFile_name());
+            }
+        }
+        for (Path attemptFile : attemptFiles) {
+            if (attemptFile == null) {
+                continue;
+            }
+            Path attemptFileName = attemptFile.getFileName();
+            if (attemptFileName == null || retainedNames.contains(attemptFileName.toString())) {
+                continue;
+            }
+            try {
+                Path validated = PathValidationUtils.validateExistingPath(
+                        attemptFile.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY)).toPath();
+                Files.deleteIfExists(validated);
+            } catch (IOException | SecurityException e) {
+                logger.warn("Unable to remove an unqueued consultation fax file: {}",
+                        LogSafe.sanitize(attemptFileName.toString()), e);
+            }
+        }
     }
 
 
@@ -487,11 +508,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
      */
     public Set<FaxRecipient> getCopiedTo() {
         if (copiedTo == null) {
-            // Parse into a local set and only publish it if every entry parsed: a silently dropped
-            // copy-to recipient means the clinician believes a copy went out that never will, so a
-            // parse failure fails the whole fax fast (execute() turns it into an error result) rather
-            // than sending a partial batch. The raw recipient payload (name + fax contact data) is
-            // never logged.
+            // Publish the parsed set only when every copy-to entry is valid.
             Set<FaxRecipient> parsed = new HashSet<FaxRecipient>();
             int failures = 0;
             for (String faxRecipient : getFaxRecipients()) {

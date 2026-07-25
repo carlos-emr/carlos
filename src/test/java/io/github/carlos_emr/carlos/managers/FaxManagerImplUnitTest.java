@@ -137,7 +137,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
             Path canonicalTempPdf = tempPdf.toRealPath();
             Path copiedPdf = Path.of("/var/lib/OscarDocument/oscar/document", tempPdf.getFileName().toString());
-            when(nioFileManager.copyFileToOscarDocuments(canonicalTempPdf.toString())).thenReturn(copiedPdf.toString());
+            when(nioFileManager.promoteApplicationTempFile(canonicalTempPdf)).thenReturn(copiedPdf);
 
             FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
                     "faxFilePath", tempPdf.toString(),
@@ -146,10 +146,9 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                     "senderFaxNumber", "1234567890",
                     "demographicNo", 17));
 
-            // Validation runs on the ORIGINAL temp path first; only the validated canonical path is
-            // promoted, and only after every validation has passed (destructive step last).
+            // Validation runs on the original temp path before the canonical source is promoted.
             verify(manager).resolveAndValidateFilePath(tempPdf.toString());
-            verify(nioFileManager).copyFileToOscarDocuments(canonicalTempPdf.toString());
+            verify(nioFileManager).promoteApplicationTempFile(canonicalTempPdf);
             assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.WAITING);
             assertThat(faxJob.getFile_name()).isEqualTo(tempPdf.getFileName().toString());
         } finally {
@@ -242,7 +241,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             resetAllowedTempDirectoriesCache();
             Path rendererDir = Files.createDirectories(tempRoot.resolve("carlos-eform-browser-pdf-temp"));
             Path tempPdf = Files.createTempFile(rendererDir, "eform-browser-render-", ".pdf");
-            when(nioFileManager.copyFileToOscarDocuments(any(String.class))).thenReturn(null);
+            when(nioFileManager.promoteApplicationTempFile(any(Path.class)))
+                    .thenThrow(new FilePromotionException("test failure"));
 
             FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
                     "faxFilePath", tempPdf.toString(),
@@ -271,7 +271,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fail before the destructive promotion when the fax account is missing")
+    @DisplayName("should fail before file promotion when the fax account is missing")
     void shouldLeaveTempSourceIntact_whenFaxAccountMissing() throws Exception {
         Path tempRoot = Files.createTempDirectory("fax-renderer-temp-root-");
         String originalTmpDir = System.getProperty("java.io.tmpdir");
@@ -289,11 +289,10 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                     "senderFaxNumber", "0000000000",
                     "demographicNo", 17));
 
-            // Promotion deletes the temp source on success, so it must never have run: a retry
-            // after the operator fixes the fax account still has its preview document.
+            // Promotion must not run when the account is invalid.
             assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
             assertThat(faxJob.getRecipient()).isEqualTo("Test Recipient");
-            verify(nioFileManager, never()).copyFileToOscarDocuments(any(String.class));
+            verify(nioFileManager, never()).promoteApplicationTempFile(any(Path.class));
             assertThat(Files.exists(tempPdf)).isTrue();
         } finally {
             System.setProperty("java.io.tmpdir", originalTmpDir);
@@ -307,8 +306,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fail before the destructive promotion when the file path is invalid")
-    void shouldLeaveTempSourceIntact_whenFilePathInvalid() {
+    @DisplayName("should fail before file promotion when the file path is invalid")
+    void shouldLeaveTempSourceIntact_whenFilePathInvalid() throws Exception {
         FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
                 "faxFilePath", "/nonexistent/nowhere/missing.pdf",
                 "recipient", "Test Recipient",
@@ -319,7 +318,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
         assertThat(faxJob.getStatusString()).contains("File missing");
         assertThat(faxJob.getRecipient()).isEqualTo("Test Recipient");
-        verify(nioFileManager, never()).copyFileToOscarDocuments(any(String.class));
+        verify(nioFileManager, never()).promoteApplicationTempFile(any(Path.class));
     }
 
     @Test
@@ -403,8 +402,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should persist only the WAITING job and skip the null-file-name ERROR job in a mixed recipient batch")
-    void shouldPersistWaitingJobOnly_whenBatchHasMixedWaitingAndErrorJobs() throws Exception {
+    @DisplayName("should reject the whole batch when any recipient job is invalid")
+    void shouldRejectWholeBatch_whenBatchHasMixedWaitingAndErrorJobs() throws Exception {
         // The primary job is a normal WAITING job with a real file to cover.
         FaxJob waitingJob = new FaxJob();
         waitingJob.setStatus(FaxJob.STATUS.WAITING);
@@ -429,24 +428,20 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         Path coveredDocument = Paths.get("Cover_test-uuid_queued-fax.pdf");
         doReturn(coveredDocument).when(manager)
                 .addCoverPage(eq(loggedInInfo), any(), any(), any(), eq(Paths.get("queued-fax.pdf")));
-        doReturn(List.of(waitingJob)).when(manager).saveFaxJob(eq(loggedInInfo), anyList());
-
         List<FaxJob> result = manager.createAndSaveFaxJob(loggedInInfo, Map.of(
                 "coverpage", "true",
                 "comments", "See attached",
                 "copyToRecipients", copyToRecipients));
 
         assertThat(result).hasSize(2);
-        // The WAITING job got its cover page prepended...
+        assertThat(waitingJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+        assertThat(waitingJob.getStatusString()).contains("batch");
         assertThat(waitingJob.getFile_name()).isEqualTo(coveredDocument.getFileName().toString());
         assertThat(waitingJob.getNumPages()).isEqualTo(2);
-        // ...while the ERROR job was skipped entirely and stayed un-persisted.
         assertThat(copyErrorJob.getFile_name()).isNull();
         assertThat(copyErrorJob.getId()).isNull();
-        // The ERROR job's null file_name means Paths.get(...) is never reached for it, so
-        // addCoverPage is invoked exactly once - for the WAITING job.
         verify(manager).addCoverPage(eq(loggedInInfo), any(), any(), any(), any(Path.class));
-        verify(manager).saveFaxJob(eq(loggedInInfo), eq(List.of(waitingJob)));
+        verify(manager, never()).saveFaxJob(eq(loggedInInfo), anyList());
     }
 
     @Test

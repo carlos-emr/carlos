@@ -6,31 +6,32 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.util.List;
-import java.util.Locale;
-import java.net.InetAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.UnknownHostException;
+import java.util.Objects;
 
 import javax.net.ssl.SSLContext;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.ValidatedHttpEndpoint;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,49 +40,24 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
- * SendGrid API-based email sender for OpenO EMR healthcare system.
+ * Sends privilege-gated email through a validated SendGrid HTTPS endpoint.
  *
- * This class provides functionality to send emails through the SendGrid Web API v3,
- * supporting healthcare-specific requirements including security privilege checks,
- * SSL/TLS encryption, and file attachments. All email operations are subject to
- * HIPAA/PIPEDA compliance requirements and require appropriate security permissions.
- *
- * The implementation uses Apache HttpClient with SSL context for secure communication
- * with SendGrid's API endpoint. Email content is serialized to JSON format according
- * to SendGrid's API specification, supporting multiple recipients, HTML/plain text
- * content, and Base64-encoded file attachments.
- *
- * Security considerations:
- * - Requires _email WRITE privilege for all send operations
- * - API keys are stored in EmailConfig and must be protected
- * - SSL client authentication is enabled for enhanced security
- * - PHI data in email content must be appropriately secured
- *
- * @see EmailConfig
- * @see EmailAttachment
- * @see SecurityInfoManager
- * @see io.github.carlos_emr.carlos.utility.EmailSendingException
- * @since 2026-01-24
+ * <p>The HTTP client pins the validated DNS result, rejects redirects, and applies bounded
+ * connection and response timeouts. Attachments are encoded into the SendGrid JSON request.</p>
  */
 public class APISendGridEmailSender {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    private LoggedInInfo loggedInInfo;
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final LoggedInInfo loggedInInfo;
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private EmailConfig emailConfig;
-    private String[] recipients = new String[0];
-    private String subject;
-    private String body;
-    private String additionalParams;
-    private String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
-    private List<EmailAttachment> attachments;
-
-    /**
-     * Private no-argument constructor to prevent instantiation without required parameters.
-     */
-    private APISendGridEmailSender() {
-    }
+    private final EmailConfig emailConfig;
+    private final String[] recipients;
+    private final String subject;
+    private final String body;
+    private final String additionalParams;
+    private static final String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
+    private final List<EmailAttachment> attachments;
 
     /**
      * Constructs an APISendGridEmailSender with email parameters and attachments.
@@ -101,12 +77,7 @@ public class APISendGridEmailSender {
      *                    in the email, may be empty but not null
      */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, List<EmailAttachment> attachments) {
-        this.loggedInInfo = loggedInInfo;
-        this.emailConfig = emailConfig;
-        this.recipients = recipients;
-        this.subject = subject;
-        this.body = body;
-        this.attachments = attachments;
+        this(loggedInInfo, emailConfig, recipients, subject, body, null, attachments);
     }
 
     /**
@@ -129,32 +100,21 @@ public class APISendGridEmailSender {
      *                    in the email, may be empty but not null
      */
     public APISendGridEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, String[] recipients, String subject, String body, String additionalParams, List<EmailAttachment> attachments) {
-        this.loggedInInfo = loggedInInfo;
-        this.emailConfig = emailConfig;
-        this.recipients = recipients;
-        this.subject = subject;
-        this.body = body;
+        this.loggedInInfo = Objects.requireNonNull(loggedInInfo, "loggedInInfo must not be null");
+        this.emailConfig = Objects.requireNonNull(emailConfig, "emailConfig must not be null");
+        this.recipients = Objects.requireNonNull(recipients, "recipients must not be null").clone();
+        this.subject = Objects.requireNonNull(subject, "subject must not be null");
+        this.body = Objects.requireNonNull(body, "body must not be null");
         this.additionalParams = additionalParams;
-        this.attachments = attachments;
+        this.attachments = List.copyOf(
+                Objects.requireNonNull(attachments, "attachments must not be null"));
     }
 
     /**
      * Sends the email through SendGrid's Web API v3 with security validation.
      *
-     * This method performs the following operations:
-     * 1. Validates that the logged-in user has _email WRITE privilege
-     * 2. Establishes an SSL/TLS connection to SendGrid's API endpoint
-     * 3. Constructs the email JSON payload according to SendGrid API specification
-     * 4. Transmits the email via HTTP POST request with Bearer token authentication
-     * 5. Validates the HTTP response status code
-     *
-     * The method uses Apache HttpClient with custom SSL context configuration that
-     * enables client authentication for enhanced security. All attachments are
-     * Base64-encoded before transmission.
-     *
-     * HIPAA/PIPEDA Compliance Note: Ensure that any Protected Health Information (PHI)
-     * included in email content is appropriately secured and that transmission is
-     * authorized under applicable privacy regulations.
+     * The request uses the validated, DNS-pinned HTTPS endpoint with redirects disabled and bounded
+     * timeouts. Attachments are Base64-encoded into the JSON payload.
      *
      * @throws EmailSendingException if the user lacks required security privileges,
      *                               if SSL context initialization fails, if the HTTP
@@ -168,38 +128,62 @@ public class APISendGridEmailSender {
         }
 
         try {
+            String endPoint = getEndPoint();
+            ValidatedHttpEndpoint validatedEndpoint = validateEndpoint(endPoint);
             SSLContext sslContext = SSLContexts.custom().build();
-            sslContext.getDefaultSSLParameters().setNeedClientAuth(true);
-            sslContext.getDefaultSSLParameters().setWantClientAuth(true);
 
             HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
                     .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
                             .setSslContext(sslContext)
                             .build())
+                    .setDnsResolver(validatedEndpoint.pinnedDnsResolver())
+                    .setDefaultConnectionConfig(ConnectionConfig.custom()
+                            .setConnectTimeout(Timeout.ofSeconds(30))
+                            .setSocketTimeout(Timeout.ofSeconds(60))
+                            .build())
+                    .build();
+            RequestConfig requestConfig = RequestConfig.custom()
+                    .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                    .setResponseTimeout(Timeout.ofSeconds(60))
                     .build();
 
             try (CloseableHttpClient httpClient = HttpClients.custom()
-                    .setConnectionManager(connectionManager).build()) {
-
-                String endPoint = getEndPoint();
-                validateEndpoint(endPoint);
-                HttpPost httpPost = new HttpPost(endPoint);
+                    .setConnectionManager(connectionManager)
+                    .setDefaultRequestConfig(requestConfig)
+                    .disableRedirectHandling()
+                    .build()) {
+                HttpPost httpPost = new HttpPost(validatedEndpoint.uri());
                 httpPost.setHeader("Content-Type", "application/json");
                 httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
 
-                StringEntity entity = new StringEntity(createEmailJSON());
+                StringEntity entity = new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON);
                 httpPost.setEntity(entity);
-                var response = httpClient.execute(httpPost);
-                if (response.getCode() >= 400) {
-                    throw new EmailSendingException(response.getCode() + " " + response.getReasonPhrase()
-                            + "\n" + EntityUtils.toString(response.getEntity()));
+                try (var response = httpClient.execute(httpPost)) {
+                    if (response.getCode() >= 400) {
+                        throw new EmailSendingException(
+                                "SendGrid rejected the request with HTTP " + response.getCode() + ".");
+                    }
                 }
             }
         } catch (EmailSendingException e) {
             throw e;
-        } catch (Exception e) {
+        } catch (IOException | GeneralSecurityException e) {
             throw new EmailSendingException(e.getMessage(), e);
         }
+    }
+
+    static ValidatedHttpEndpoint validateEndpoint(String endpoint) throws EmailSendingException {
+        ValidatedHttpEndpoint validatedEndpoint;
+        try {
+            validatedEndpoint = ValidatedHttpEndpoint.resolve(
+                    endpoint, "carlos.email.sendgrid.allowedHosts");
+        } catch (ValidatedHttpEndpoint.ValidationException e) {
+            throw new EmailSendingException("Configured email endpoint was rejected: " + e.getMessage());
+        }
+        if (!validatedEndpoint.isHttps()) {
+            throw new EmailSendingException("Configured email endpoint must use HTTPS.");
+        }
+        return validatedEndpoint;
     }
 
     private String createEmailJSON() throws EmailSendingException {
@@ -257,6 +241,11 @@ public class APISendGridEmailSender {
     private void addAttachments(ObjectNode emailJson) throws EmailSendingException {
         ArrayNode jsonAttachments = objectMapper.createArrayNode();
         for (EmailAttachment emailAttachment : attachments) {
+            if (emailAttachment == null
+                    || emailAttachment.getFilePath() == null
+                    || emailAttachment.getFilePath().isBlank()) {
+                throw new EmailSendingException("An email attachment has no readable file path.");
+            }
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
                 Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
@@ -265,8 +254,8 @@ public class APISendGridEmailSender {
                 jsonAttachment.put("type", "application/pdf");
                 jsonAttachment.put("disposition", "attachment");
                 jsonAttachments.add(jsonAttachment);
-            } catch (Exception e) {
-                throw new EmailSendingException("Failed to attach " + emailAttachment.getFileName() + " while sending email using SendGrid.");
+            } catch (IOException | SecurityException e) {
+                throw new EmailSendingException("An email attachment could not be read.", e);
             }
         }
         emailJson.put("attachments", jsonAttachments);
@@ -288,66 +277,6 @@ public class APISendGridEmailSender {
         return apiKey;
     }
 
-    /**
-     * Defense-in-depth on the admin-configured SendGrid endpoint before the bearer key + email payload
-     * are POSTed to it. Mirrors the fax middleware SSRF guard: require an http(s) scheme with no
-     * embedded user-info and a host that does not resolve to a loopback / link-local / any-local /
-     * multicast address (private LAN is allowed for legitimate internal relays). An operator can
-     * allowlist specific hosts via {@code carlos.email.sendgrid.allowedHosts} (comma-separated). The
-     * endpoint is trusted operator config, but this bounds the blast radius if it is misconfigured or
-     * tampered with. TLS is enforced at deployment, not here.
-     */
-    // IMPROPER_UNICODE: case-insensitive comparison of the literal URL scheme token, not user-identity folding.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-insensitive comparison of the literal URL scheme token, not user-identity folding")
-    private void validateEndpoint(String endpoint) throws EmailSendingException {
-        URI uri;
-        try {
-            uri = new URI(endpoint == null ? "" : endpoint.trim());
-        } catch (URISyntaxException e) {
-            throw new EmailSendingException("Configured email endpoint is not a valid URI");
-        }
-        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!"http".equals(scheme) && !"https".equals(scheme)) {
-            throw new EmailSendingException("Configured email endpoint must use http or https");
-        }
-        if (uri.getUserInfo() != null) {
-            throw new EmailSendingException("Configured email endpoint must not embed user-info credentials");
-        }
-        String host = uri.getHost();
-        if (host == null || host.isEmpty()) {
-            throw new EmailSendingException("Configured email endpoint must include a host");
-        }
-        if (isEndpointHostAllowlisted(host)) {
-            return;
-        }
-        try {
-            for (InetAddress addr : InetAddress.getAllByName(host)) {
-                if (addr.isLoopbackAddress() || addr.isLinkLocalAddress()
-                        || addr.isAnyLocalAddress() || addr.isMulticastAddress()) {
-                    throw new EmailSendingException("Configured email endpoint host resolves to a disallowed address");
-                }
-            }
-        } catch (UnknownHostException e) {
-            throw new EmailSendingException("Configured email endpoint host could not be resolved");
-        }
-    }
-
-    // IMPROPER_UNICODE: case-insensitive comparison of the literal allowlisted host token, not user-identity folding.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-insensitive comparison of the literal allowlisted host token, not user-identity folding")
-    private boolean isEndpointHostAllowlisted(String host) {
-        String allow = System.getProperty("carlos.email.sendgrid.allowedHosts", "");
-        if (allow == null || allow.isBlank()) {
-            return false;
-        }
-        for (String allowed : allow.split(",")) {
-            if (allowed.trim().equalsIgnoreCase(host)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     private String getEndPoint() throws EmailSendingException {
         StringBuilder endPointBuilder = new StringBuilder();

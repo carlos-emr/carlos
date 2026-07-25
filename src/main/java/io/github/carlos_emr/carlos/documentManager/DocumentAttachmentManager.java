@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.documentManager;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -227,15 +228,11 @@ public interface DocumentAttachmentManager {
 
     /**
      * eForm-aware overload of {@link #renderDocument(LoggedInInfo, DocumentType, Integer)} that
-     * optionally accepts a visually-incomplete eForm render.
+     * accepts a server-issued approval for an exact incomplete eForm render.
      *
-     * @param allowMissingContent when {@code true} and {@code documentType} is {@code EFORM}, a
-     *        failure of the eForm's own same-origin visual assets (signature/image) is tolerated and
-     *        the incomplete PDF is produced — the "render anyway" choice. Ignored for other types.
-     *        When {@code false}, such a failure throws
-     *        {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}.
+     * @param approval exact, short-lived approval capability; ignored for non-eForm documents
      */
-    public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, boolean allowMissingContent) throws PDFGenerationException;
+    public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, EFormRenderApproval approval) throws PDFGenerationException;
 
     /**
      * Renders a consultation form along with all its associated attachments as a single PDF.
@@ -269,14 +266,11 @@ public interface DocumentAttachmentManager {
 
     /**
      * Overload of {@link #renderEFormWithAttachments(HttpServletRequest, HttpServletResponse)} that
-     * optionally accepts a visually-incomplete render of the eForm (and attached eForms).
+     * accepts exact approvals collected for incomplete eForms in the composite document.
      *
-     * @param allowMissingContent when {@code true}, a failure of an eForm's own same-origin visual
-     *        assets (signature/image) is tolerated and the incomplete packet is produced — the
-     *        "render anyway" choice on the fax cover page. When {@code false}, such a failure throws
-     *        {@link io.github.carlos_emr.carlos.utility.EformContentUnavailableException}.
+     * @param approval short-lived capability bound to the approved eForm issue digests
      */
-    public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, boolean allowMissingContent) throws PDFGenerationException;
+    public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException;
 
     /**
      * Converts an electronic form (eForm) to an electronic document (eDoc) for permanent archival.

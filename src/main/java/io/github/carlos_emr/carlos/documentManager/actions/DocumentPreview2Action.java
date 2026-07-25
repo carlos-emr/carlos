@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -72,9 +75,8 @@ public class DocumentPreview2Action extends ActionSupport {
     private static final String EDOC_PDF_RENDER_FAILURE_MESSAGE = "Failed to render document PDF.";
     private static final String EFORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render eForm PDF.";
     private static final String EFORM_PDF_MISSING_CONTENT_MESSAGE =
-            "This eForm could not be fully rendered because some of its own content (for example a "
-            + "signature or an image) could not be loaded. You can render it anyway, but the document "
-            + "may be incomplete.";
+            "This eForm could not be fully rendered because required content or behavior is missing. "
+            + "You can render it only after approving the listed issues, but the document may be incomplete.";
     private static final String HRM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render HRM PDF.";
     private static final String LAB_PDF_RENDER_FAILURE_MESSAGE = "Failed to render lab PDF.";
     private static final String FORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render form PDF.";
@@ -88,6 +90,7 @@ public class DocumentPreview2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
+    private final EFormRenderApprovalService renderApprovalService = SpringUtils.getBean(EFormRenderApprovalService.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final transient EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
     private final transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
@@ -221,19 +224,29 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         requirePrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, demographicNo);
         resolveEFormDemographicNoOrDeny(eFormId, demographicNo);
-        // "renderAnyway" is the clinician's explicit choice to accept a visually-incomplete eForm
-        // after the default render reported missing same-origin content (signature/image). It only
-        // relaxes that one content gate; security/main-document gates stay hard.
-        boolean renderAnyway = Boolean.parseBoolean(request.getParameter("renderAnyway"));
+        String approvalToken = request.getParameter("renderApproval");
+        EFormRenderApproval approval = renderApprovalService.consume(
+                request, loggedInInfo, eFormId, demographicNo,
+                EFormRenderApprovalService.Operation.PREVIEW, approvalToken);
+        if (approvalToken != null && approval == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            generateResponse(response, "The incomplete-render approval is invalid or expired. Render the preview again.");
+            return;
+        }
         try {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId, renderAnyway);
+            Path eFormPDFPath = documentAttachmentManager.renderDocument(
+                    loggedInInfo, DocumentType.EFORM, eFormId, approval);
             generateResponse(response, eFormPDFPath);
         } catch (EformContentUnavailableException e) {
-            // The eForm's own content (e.g. a signature or image) could not be loaded. Rather than a
-            // dead-end error, tell the UI it may offer "render anyway". Count only — no PHI.
-            logger.warn("eForm preview incomplete: missing same-origin content, offering render-anyway (missingAssets={})",
-                    e.getMissingAssetCount());
-            generateMissingContentResponse(response, EFORM_PDF_MISSING_CONTENT_MESSAGE);
+            // Return sanitized issue categories so the clinician can make an informed decision.
+            logger.warn("eForm preview incomplete: offering exact-issue approval (issues={})",
+                    e.getIssueCount());
+            String token = renderApprovalService.issue(
+                    request, loggedInInfo, eFormId, demographicNo,
+                    EFormRenderApprovalService.Operation.PREVIEW, e.getReport(),
+                    approval, e.getFdid());
+            generateMissingContentResponse(
+                    response, EFORM_PDF_MISSING_CONTENT_MESSAGE, token, e.getReport());
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, EFORM_PDF_RENDER_FAILURE_MESSAGE);
@@ -606,19 +619,23 @@ public class DocumentPreview2Action extends ActionSupport {
     }
 
     /**
-     * Generates a JSON response for a user-recoverable "missing content" render outcome. Distinct
-     * from {@link #generateResponse(HttpServletResponse, String)} only by the {@code missingContent}
-     * flag, which lets the client offer a "render anyway" retry instead of a dead-end error.
+     * Generates the sanitized issue report and exact approval token for an incomplete render.
      *
      * @param response HttpServletResponse the HTTP response object to write to
      * @param message String the clinician-facing explanation (no PHI; no asset names)
      */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    private void generateMissingContentResponse(HttpServletResponse response, String message) {
+    private void generateMissingContentResponse(HttpServletResponse response, String message,
+            String approvalToken, EFormRenderCompletenessReport report) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", message);
         json.put("missingContent", true);
+        json.put("renderApproval", approvalToken);
+        json.put("failedContentResources", report.failedContentResources());
+        json.put("excludedContentElements", report.excludedContentElements());
+        json.put("signatureMissing", report.signatureMissing());
+        json.put("timerCompatibilityFailure", report.timerCompatibilityFailure());
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {

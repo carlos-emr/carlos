@@ -306,24 +306,24 @@
             }
 
             jQuery.ajax({
-                type: 'GET',
-                url: "${ pageContext.request.contextPath }/previewDocs?" + parameters,
+                type: 'POST',
+                url: "${ pageContext.request.contextPath }/previewDocs",
+                data: parameters,
                 dataType: "json",
                 success: function (data) {
                     if (data.base64Data) {
                         addPdfAttachment(attachmentName, attachmentId, data.base64Data);
                         showPDF(data.base64Data);
                     } else if (data.missingContent) {
-                        // A signed eForm whose signature image could not be loaded. Let the clinician
-                        // decide whether to render the incomplete document anyway. Guard against an
-                        // unbounded confirm/retry loop: if we already asked the server to render anyway
-                        // and it STILL reports missingContent, treat it as a hard error rather than
-                        // re-prompting forever (one param-name regression away).
                         HideSpin();
-                        if (parameters.indexOf("renderAnyway=true") !== -1) {
-                            showError(data.errorMessage);
-                        } else if (confirm(data.errorMessage + "\n\nRender it anyway?")) {
-                            getPdf(attachmentName, attachmentId, parameters + "&renderAnyway=true");
+                        const details = "\n\nFailed content resources: " + data.failedContentResources
+                            + "\nExcluded visible elements: " + data.excludedContentElements
+                            + "\nSignature missing: " + data.signatureMissing
+                            + "\nTimer compatibility failed: " + data.timerCompatibilityFailure;
+                        if (data.renderApproval
+                                && confirm(data.errorMessage + details + "\n\nApprove these issues and render?")) {
+                            getPdf(attachmentName, attachmentId, parameters
+                                + "&renderApproval=" + encodeURIComponent(data.renderApproval));
                         }
                     } else {
                         showError(data.errorMessage);
@@ -332,7 +332,9 @@
                 error: function (xhr, status, error) {
                     // A non-JSON response (typically a login redirect after session expiry) lands here.
                     // Give the actionable hint instead of the context-free generic message.
-                    if (xhr.status === 0 || xhr.status === 401 || xhr.status === 403 || status === "parsererror") {
+                    if (xhr.responseJSON && xhr.responseJSON.errorMessage) {
+                        showError(xhr.responseJSON.errorMessage);
+                    } else if (xhr.status === 0 || xhr.status === 401 || xhr.status === 403 || status === "parsererror") {
                         showError("Your session may have expired. Reload the page and sign in again.");
                     } else {
                         showError("");

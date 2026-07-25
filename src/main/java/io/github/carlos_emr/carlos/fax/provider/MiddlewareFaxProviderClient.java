@@ -22,45 +22,44 @@
 package io.github.carlos_emr.carlos.fax.provider;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URLEncoder;
-import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
+import java.util.Base64;
+import java.io.StringWriter;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import jakarta.ws.rs.ProcessingException;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Marshaller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.cxf.common.util.Base64Utility;
-import org.apache.cxf.jaxrs.client.WebClient;
-import org.apache.cxf.transport.http.HTTPConduit;
-import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ValidatedHttpEndpoint;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 
@@ -93,39 +92,13 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Sends outbound fax through existing middleware /fax/send endpoint.
-     *
-     * <p>The configured {@code faxConfig.getUrl()} is validated by {@link #validateMiddlewareUrl}
-     * before use: only http/https, no embedded user-info, and the host must not resolve to a
-     * loopback / link-local (incl. cloud metadata) / any-local / multicast address unless the operator
-     * has explicitly allowlisted it. Private-LAN clinic relays remain permitted. Credentials (Basic
-     * Auth + custom headers) and the encoded document are only sent to a destination that passes this
-     * gate, limiting SSRF and credential/PHI exfiltration to a misconfigured or malicious fax admin.</p>
+     * Sends a fax through the configured middleware endpoint.
      */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
-        validateMiddlewareConfig(faxConfig);
-
-        WebClient client = null;
-        try {
-            client = WebClient.create(faxConfig.getUrl());
-            client.path(PATH + "/send/" + faxConfig.getFaxUser());
-            client.type(MediaType.APPLICATION_XML);
-            client.accept(MediaType.APPLICATION_XML);
-
-            String login = faxConfig.getSiteUser() + ":" + faxConfig.getPasswd();
-            String authorizationHeader = "Basic " + Base64Utility.encode(login.getBytes());
-            client.header("Authorization", authorizationHeader);
-            client.header("user", faxJob.getUser());
-            client.header("passwd", faxConfig.getFaxPasswd());
-
-            HTTPConduit conduit = WebClient.getConfig(client).getHttpConduit();
-            HTTPClientPolicy policy = new HTTPClientPolicy();
-            policy.setConnectionTimeout(30000);
-            policy.setReceiveTimeout(60000);
-            conduit.setClient(policy);
-
+        ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
+        try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
             if (filePath != null) {
                 if (!Files.exists(filePath)) {
                     throw new FaxProviderException("Fax document file not found");
@@ -133,40 +106,50 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 if (!Files.isReadable(filePath)) {
                     throw new FaxProviderException("Fax document file is not readable (check permissions)");
                 }
-                faxJob.setDocument(Base64Utility.encode(Files.readAllBytes(filePath)));
+                faxJob.setDocument(Base64.getEncoder().encodeToString(Files.readAllBytes(filePath)));
             }
 
             if (StringUtils.isBlank(faxJob.getDocument())) {
                 throw new FaxProviderException("Fatal error locating document. Not found in filesystem or database backup");
             }
 
-            Response httpResponse = client.post(faxJob);
-            // Free memory after POST serialization
-            faxJob.setDocument(null);
-            if (httpResponse.getStatus() != HttpStatus.SC_OK) {
-                throw new FaxProviderException("WEB SERVICE RESPONDED WITH " + httpResponse.getStatus());
-            }
+            HttpPost post = new HttpPost(endpointUri(endpoint,
+                    PATH + "/send/" + encodePathSegment(faxConfig.getFaxUser())));
+            post.setHeader("Accept", ContentType.APPLICATION_XML.getMimeType());
+            post.setHeader("Authorization", basicAuthorization(faxConfig));
+            post.setHeader("user", faxJob.getUser());
+            post.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            FaxJob result = httpResponse.readEntity(FaxJob.class);
-            return result;
+            StringWriter body = new StringWriter();
+            Marshaller marshaller = JAXBContext.newInstance(FaxJob.class).createMarshaller();
+            marshaller.marshal(faxJob, body);
+            post.setEntity(new StringEntity(body.toString(), ContentType.APPLICATION_XML));
+
+            try (var response = client.execute(post)) {
+                if (response.getCode() != HttpStatus.SC_OK) {
+                    throw new FaxProviderException("WEB SERVICE RESPONDED WITH " + response.getCode());
+                }
+                HttpEntity entity = response.getEntity();
+                if (entity == null) {
+                    throw new FaxProviderException("Middleware returned an empty fax response");
+                }
+                Object result = JAXBContext.newInstance(FaxJob.class)
+                        .createUnmarshaller()
+                        .unmarshal(entity.getContent());
+                if (!(result instanceof FaxJob returnedJob)) {
+                    throw new FaxProviderException("Middleware returned an invalid fax response");
+                }
+                return returnedJob;
+            }
         } catch (FaxProviderException e) {
-            // Re-throw FaxProviderException as-is to preserve specific error messages
             throw e;
         } catch (IOException e) {
-            throw new FaxProviderException("Failed to read fax document file: " + e.getMessage(), e);
-        } catch (ProcessingException e) {
             throw new FaxProviderException("PROBLEM COMMUNICATING WITH WEB SERVICE", e,
                     FaxProviderException.isTransientNetworkCause(e));
-        } catch (WebApplicationException e) {
-            throw new FaxProviderException("WEB SERVICE RESPONDED WITH ERROR: " + e.getMessage(), e);
+        } catch (JAXBException e) {
+            throw new FaxProviderException("Middleware fax XML could not be processed", e);
         } finally {
-            if (client != null) {
-                try {
-                    client.close();
-                } catch (Exception e) {
-                    logger.debug("WebClient close failed during fax send cleanup: {}", e.getMessage());
-                }
-            }
+            faxJob.setDocument(null);
         }
     }
 
@@ -176,38 +159,39 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
-        validateMiddlewareConfig(faxConfig);
-
-        try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
-            HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/" + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8"));
+        ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
+        try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
+            HttpGet get = new HttpGet(endpointUri(endpoint,
+                    PATH + "/" + encodePathSegment(faxConfig.getFaxUser())));
             get.setHeader("accept", "application/json");
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            var response = client.execute(get);
-            int statusCode = response.getCode();
+            try (var response = client.execute(get)) {
+                int statusCode = response.getCode();
 
-            if (statusCode != HttpStatus.SC_OK) {
-                throw new FaxProviderException(
-                        "Middleware list faxes failed with HTTP " + statusCode +
-                        ": " + response.getReasonPhrase() +
-                        ". Check middleware server logs and fax account configuration.");
+                if (statusCode != HttpStatus.SC_OK) {
+                    throw new FaxProviderException(
+                            "Middleware list faxes failed with HTTP " + statusCode +
+                            ": " + response.getReasonPhrase() +
+                            ". Check middleware server logs and fax account configuration.");
+                }
+
+                HttpEntity httpEntity = response.getEntity();
+                if (httpEntity == null) {
+                    throw new FaxProviderException(
+                            "Middleware returned HTTP 200 but response body is empty. " +
+                            "This may indicate a middleware server error.");
+                }
+
+                String content = EntityUtils.toString(httpEntity);
+                if (content == null || content.trim().isEmpty()) {
+                    logger.warn("Middleware returned empty content for fax list - treating as no faxes available");
+                    return new java.util.ArrayList<>();
+                }
+
+                return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
             }
-
-            HttpEntity httpEntity = response.getEntity();
-            if (httpEntity == null) {
-                throw new FaxProviderException(
-                        "Middleware returned HTTP 200 but response body is empty. " +
-                        "This may indicate a middleware server error.");
-            }
-
-            String content = EntityUtils.toString(httpEntity);
-            if (content == null || content.trim().isEmpty()) {
-                logger.warn("Middleware returned empty content for fax list - treating as no faxes available");
-                return new java.util.ArrayList<>();
-            }
-
-            return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
         } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
@@ -220,37 +204,37 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     @Override
     public FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
-        validateMiddlewareConfig(faxConfig);
-
-        try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
-            HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/"
-                    + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8") + "/"
-                    + URLEncoder.encode(fax.getFile_name(), "UTF-8"));
+        ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
+        try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
+            HttpGet get = new HttpGet(endpointUri(endpoint, PATH + "/"
+                    + encodePathSegment(faxConfig.getFaxUser()) + "/"
+                    + encodePathSegment(fax.getFile_name())));
             get.setHeader("accept", "application/json");
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            var response = client.execute(get);
-            int statusCode = response.getCode();
+            try (var response = client.execute(get)) {
+                int statusCode = response.getCode();
 
-            if (statusCode != HttpStatus.SC_OK) {
-                throw new FaxProviderException(
-                        "Middleware download failed for fax " + fax.getFile_name() +
-                        " with HTTP " + statusCode + ": " + response.getReasonPhrase());
-            }
+                if (statusCode != HttpStatus.SC_OK) {
+                    throw new FaxProviderException(
+                            "Middleware download failed for fax " + fax.getFile_name() +
+                            " with HTTP " + statusCode + ": " + response.getReasonPhrase());
+                }
 
-            HttpEntity httpEntity = response.getEntity();
-            if (httpEntity == null) {
-                throw new FaxProviderException(
-                        "Middleware returned HTTP 200 but response body is empty for fax " + fax.getFile_name());
-            }
+                HttpEntity httpEntity = response.getEntity();
+                if (httpEntity == null) {
+                    throw new FaxProviderException(
+                            "Middleware returned HTTP 200 but response body is empty for fax " + fax.getFile_name());
+                }
 
-            String content = EntityUtils.toString(httpEntity);
-            FaxJob downloaded = mapper.readValue(content, FaxJob.class);
-            if (FaxJob.STATUS.ERROR.equals(downloaded.getStatus())) {
-                throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
+                String content = EntityUtils.toString(httpEntity);
+                FaxJob downloaded = mapper.readValue(content, FaxJob.class);
+                if (FaxJob.STATUS.ERROR.equals(downloaded.getStatus())) {
+                    throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
+                }
+                return downloaded;
             }
-            return downloaded;
         } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
@@ -263,19 +247,19 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     @Override
     public void deleteFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
-        validateMiddlewareConfig(faxConfig);
-
-        try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
-            HttpDelete delete = new HttpDelete(faxConfig.getUrl() + PATH + "/"
-                    + URLEncoder.encode(faxConfig.getFaxUser(), "UTF-8") + "/"
-                    + URLEncoder.encode(fax.getFile_name(), "UTF-8"));
+        ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
+        try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
+            HttpDelete delete = new HttpDelete(endpointUri(endpoint, PATH + "/"
+                    + encodePathSegment(faxConfig.getFaxUser()) + "/"
+                    + encodePathSegment(fax.getFile_name())));
             delete.setHeader("accept", "application/json");
             delete.setHeader("user", faxConfig.getFaxUser());
             delete.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            var response = client.execute(delete);
-            if (response.getCode() != HttpStatus.SC_NO_CONTENT) {
-                throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name());
+            try (var response = client.execute(delete)) {
+                if (response.getCode() != HttpStatus.SC_NO_CONTENT) {
+                    throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name());
+                }
             }
         } catch (IOException e) {
             throw new FaxProviderException("Middleware fax delete communication failure", e,
@@ -289,31 +273,31 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     @Override
     public FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {
         requireMatchingProviderType(faxConfig);
-        validateMiddlewareConfig(faxConfig);
-
-        try (CloseableHttpClient client = createDownloadClient(faxConfig)) {
-            HttpGet get = new HttpGet(faxConfig.getUrl() + PATH + "/" + faxJob.getJobId());
+        ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
+        try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
+            HttpGet get = new HttpGet(endpointUri(endpoint, PATH + "/" + faxJob.getJobId()));
             get.setHeader("accept", "application/json");
             get.setHeader("user", faxConfig.getFaxUser());
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
-            var response = client.execute(get);
-            int statusCode = response.getCode();
+            try (var response = client.execute(get)) {
+                int statusCode = response.getCode();
 
-            if (statusCode != HttpStatus.SC_OK) {
-                throw new FaxProviderException(
-                        "Middleware status check failed for job " + faxJob.getJobId() +
-                        " with HTTP " + statusCode + ": " + response.getReasonPhrase());
+                if (statusCode != HttpStatus.SC_OK) {
+                    throw new FaxProviderException(
+                            "Middleware status check failed for job " + faxJob.getJobId() +
+                            " with HTTP " + statusCode + ": " + response.getReasonPhrase());
+                }
+
+                HttpEntity httpEntity = response.getEntity();
+                if (httpEntity == null) {
+                    throw new FaxProviderException(
+                            "Middleware returned HTTP 200 but response body is empty for job " + faxJob.getJobId());
+                }
+
+                String content = EntityUtils.toString(httpEntity);
+                return mapper.readValue(content, FaxJob.class);
             }
-
-            HttpEntity httpEntity = response.getEntity();
-            if (httpEntity == null) {
-                throw new FaxProviderException(
-                        "Middleware returned HTTP 200 but response body is empty for job " + faxJob.getJobId());
-            }
-
-            String content = EntityUtils.toString(httpEntity);
-            return mapper.readValue(content, FaxJob.class);
         } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware status check communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
@@ -324,7 +308,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      * Validates that middleware connection parameters are configured.
      * Called before any API operation to fail fast with a clear message.
      */
-    private void validateMiddlewareConfig(FaxConfig faxConfig) throws FaxProviderException {
+    private ValidatedHttpEndpoint validateMiddlewareConfig(FaxConfig faxConfig) throws FaxProviderException {
         if (faxConfig.getUrl() == null || faxConfig.getUrl().trim().isEmpty()) {
             throw new FaxProviderException("Middleware URL is not configured for this fax account");
         }
@@ -340,70 +324,16 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
         if (faxConfig.getFaxPasswd() == null || faxConfig.getFaxPasswd().trim().isEmpty()) {
             throw new FaxProviderException("Middleware fax password is not configured for this fax account");
         }
-        // URL/SSRF validation runs last: the field-presence checks above give more specific errors,
-        // and this is still before any WebClient is created or credentials/document are sent.
-        validateMiddlewareUrl(faxConfig.getUrl());
+        return resolveEndpoint(faxConfig);
     }
 
-    /**
-     * SSRF guard for the configured middleware URL. Rejects non-http(s) schemes, embedded user-info,
-     * and hosts that resolve to loopback / link-local (incl. the 169.254.169.254 cloud-metadata
-     * endpoint) / any-local / multicast addresses — the classic pivot targets. Private-LAN / site-local
-     * addresses are permitted because clinics legitimately run their own relay on the LAN. An operator
-     * can further approve a specific host (e.g. a loopback relay) via the comma-separated
-     * {@code carlos.fax.middleware.allowedHosts} system property.
-     */
-    // IMPROPER_UNICODE: URL scheme/host comparisons here are intentionally case-insensitive per the
-    // URI spec (schemes and hostnames are case-insensitive); locale does not affect ASCII scheme/host.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-insensitive URL scheme/host comparison for SSRF validation; ASCII only")
-    private void validateMiddlewareUrl(String url) throws FaxProviderException {
-        URI uri;
+    private ValidatedHttpEndpoint resolveEndpoint(FaxConfig faxConfig) throws FaxProviderException {
         try {
-            uri = new URI(url.trim());
-        } catch (URISyntaxException e) {
-            throw new FaxProviderException("Middleware URL is not a valid URI");
+            return ValidatedHttpEndpoint.resolve(
+                    faxConfig.getUrl(), "carlos.fax.middleware.allowedHosts");
+        } catch (ValidatedHttpEndpoint.ValidationException e) {
+            throw new FaxProviderException("Middleware URL was rejected: " + e.getMessage(), e);
         }
-        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!"http".equals(scheme) && !"https".equals(scheme)) {
-            throw new FaxProviderException("Middleware URL must use http or https");
-        }
-        if (uri.getUserInfo() != null) {
-            throw new FaxProviderException("Middleware URL must not embed user-info credentials");
-        }
-        String host = uri.getHost();
-        if (host == null || host.isEmpty()) {
-            throw new FaxProviderException("Middleware URL must include a host");
-        }
-        if (isHostAllowlisted(host)) {
-            return; // operator has explicitly approved this destination
-        }
-        try {
-            for (InetAddress addr : InetAddress.getAllByName(host)) {
-                if (addr.isLoopbackAddress() || addr.isLinkLocalAddress()
-                        || addr.isAnyLocalAddress() || addr.isMulticastAddress()) {
-                    throw new FaxProviderException("Middleware URL host resolves to a disallowed address");
-                }
-            }
-        } catch (UnknownHostException e) {
-            throw new FaxProviderException("Middleware URL host could not be resolved");
-        }
-    }
-
-    // IMPROPER_UNICODE: case-insensitive comparison of the literal allowlisted host token, not user-identity folding.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-insensitive comparison of the literal allowlisted host token, not user-identity folding")
-    private boolean isHostAllowlisted(String host) {
-        String allow = System.getProperty("carlos.fax.middleware.allowedHosts", "");
-        if (allow == null || allow.isBlank()) {
-            return false;
-        }
-        for (String allowed : allow.split(",")) {
-            if (allowed.trim().equalsIgnoreCase(host)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -412,18 +342,14 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
      * <p>Configures 30-second connection timeout and 60-second socket timeout to prevent
      * hung connections from stalling fax processing.</p>
      */
-    private CloseableHttpClient createDownloadClient(FaxConfig faxConfig) {
+    private CloseableHttpClient createHttpClient(
+            FaxConfig faxConfig, ValidatedHttpEndpoint endpoint) {
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        // Scope credentials to the configured middleware host/port so they can never be offered to an
-        // unexpected host (defense-in-depth behind the disabled redirects below); fall back to any-scope
-        // only if the (already validateMiddlewareUrl-checked) URL cannot be parsed.
-        AuthScope authScope;
-        try {
-            URI base = new URI(faxConfig.getUrl());
-            authScope = new AuthScope(base.getHost(), base.getPort());
-        } catch (URISyntaxException | RuntimeException e) {
-            authScope = new AuthScope(null, -1);
-        }
+        URI base = endpoint.uri();
+        int port = base.getPort() >= 0
+                ? base.getPort()
+                : (endpoint.isHttps() ? 443 : 80);
+        AuthScope authScope = new AuthScope(base.getHost(), port);
         credentialsProvider.setCredentials(authScope,
                 new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd().toCharArray()));
 
@@ -433,13 +359,34 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 .build();
 
         return HttpClientBuilder.create()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDnsResolver(endpoint.pinnedDnsResolver())
+                        .setDefaultConnectionConfig(ConnectionConfig.custom()
+                                .setConnectTimeout(Timeout.ofSeconds(30))
+                                .setSocketTimeout(Timeout.ofSeconds(60))
+                                .build())
+                        .build())
                 .setDefaultCredentialsProvider(credentialsProvider)
                 .setDefaultRequestConfig(requestConfig)
-                // Pull endpoints are single-shot API calls that must never redirect: following a 3xx
-                // would let a validated (or compromised) middleware host 302 the credentialed request
-                // to loopback/link-local (cloud metadata, internal admin) — the exact targets
-                // validateMiddlewareUrl blocks on the first hop but cannot re-check on a redirect.
                 .disableRedirectHandling()
                 .build();
+    }
+
+    private URI endpointUri(ValidatedHttpEndpoint endpoint, String path) {
+        String base = endpoint.uri().toString();
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return URI.create(base + path);
+    }
+
+    private String encodePathSegment(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private String basicAuthorization(FaxConfig faxConfig) {
+        String login = faxConfig.getSiteUser() + ":" + faxConfig.getPasswd();
+        return "Basic " + Base64.getEncoder()
+                .encodeToString(login.getBytes(StandardCharsets.UTF_8));
     }
 }
