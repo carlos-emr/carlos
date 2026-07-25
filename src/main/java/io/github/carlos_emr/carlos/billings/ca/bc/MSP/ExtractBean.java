@@ -326,7 +326,7 @@ public class ExtractBean extends Object implements Serializable {
             LogTeleplanTx l = new LogTeleplanTx();
             l.setClaim("New Log".getBytes());
             logTeleplanTxDao.persist(l);
-            return l.getId().toString();
+            return String.valueOf(l.getId());
 
         }
         return n;

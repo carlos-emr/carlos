@@ -358,7 +358,7 @@ public class MSPReconcile {
     }
 
     public Properties getBillingMasterRecord(String billingNo) {
-        Properties p = null;
+        Properties p = new java.util.Properties();
         String name = null;
         String value = null;
 
