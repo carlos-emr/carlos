@@ -195,6 +195,12 @@ public class LoginFilter implements Filter {
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
+            // Static timer-compatibility shim (no PHI) injected into the render surface by
+            // EFormRenderPdfHtmlComposer. The render browser holds no session, so without this
+            // exemption the script is redirected to the login page, window.__carlosEformTimerCompat
+            // never gets defined, and readPageGeometry reports timerCompatibilityFailure -- which
+            // fails the completeness gate on EVERY render until a clinician approves it.
+            "/eform/eform-runtime-compat.js",
             "/js/global.js",
             "/css/fontawesome-all.min.css",
             "/css/Roboto.css",
@@ -273,6 +279,9 @@ public class LoginFilter implements Filter {
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
+            // Static render-surface shim: fetched by the sessionless render browser, so it must not
+            // refresh a clinician's inactivity timer (mirrors /js/global.js below).
+            "/eform/eform-runtime-compat.js",
             "/provider/providercontrol",
             "/provider/ViewTabAlertsRefresh",
             "/SystemMessage",

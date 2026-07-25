@@ -636,6 +636,11 @@ public class DocumentPreview2Action extends ActionSupport {
         json.put("excludedContentElements", report.excludedContentElements());
         json.put("signatureMissing", report.signatureMissing());
         json.put("timerCompatibilityFailure", report.timerCompatibilityFailure());
+        // Keep in step with EFormRenderCompletenessReport: an omitted category would let the caller
+        // present an incomplete issue set for an approval whose digest covers all of them.
+        json.put("severeConsoleErrors", report.severeConsoleErrors());
+        json.put("stabilizationCapped", report.stabilizationCapped());
+        json.put("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {

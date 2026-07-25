@@ -325,6 +325,25 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should pass the eForm runtime compatibility shim when unauthenticated")
+        void shouldPassEformRuntimeCompatShim_whenUnauthenticated()
+                throws ServletException, IOException {
+            // EFormRenderPdfHtmlComposer injects this script into the render surface. The render
+            // browser is sessionless, so without the exemption it is redirected to the login page,
+            // window.__carlosEformTimerCompat is never defined, and the geometry pass reports
+            // timerCompatibilityFailure -- failing the completeness gate on EVERY eForm render.
+            MockHttpServletRequest request =
+                    request("GET", CONTEXT_PATH + "/eform/eform-runtime-compat.js");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
         @DisplayName("should audit rejected token authentication")
         void shouldAuditRejectedTokenAuthentication_whenTokenManagerRejects()
                 throws ServletException, IOException {

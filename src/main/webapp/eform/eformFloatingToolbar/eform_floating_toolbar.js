@@ -145,6 +145,16 @@ function remoteSave() {
 			return false;
 		}
 
+		// A legacy string timer that never ran can leave fields unpopulated. The compat shim's own
+		// capture-phase submit listener cannot help here: every save path below reaches the server
+		// through HTMLFormElement.submit(), which fires no submit event by design.
+		const timerCompat = window.__carlosEformTimerCompat;
+		if (timerCompat && typeof timerCompat.shouldBlockSubmission === "function"
+				&& timerCompat.shouldBlockSubmission()) {
+			HideSpin();
+			return false;
+		}
+
 		// bind the spinner to the form submit event.
 		jQuery('form').on('submit', function(e) {
 			ShowSpin(true);
@@ -352,16 +362,7 @@ function remoteDownload() {
     }
     clearWorkflowFlags();
     ShowSpin(true);
-    // Reuse-by-id so repeated attempts do not accumulate duplicate hidden inputs.
-    let saveAndDownload = document.getElementById("saveAndDownloadEForm");
-    if (!saveAndDownload) {
-        saveAndDownload = document.createElement("input");
-        saveAndDownload.setAttribute("id", "saveAndDownloadEForm");
-        saveAndDownload.setAttribute("name", "saveAndDownloadEForm");
-        saveAndDownload.setAttribute("type", "hidden");
-        document.forms[0].appendChild(saveAndDownload);
-    }
-    saveAndDownload.value = "true";
+    setHiddenFormInput("saveAndDownloadEForm", "saveAndDownloadEForm", "true");
 
     remoteSave();
 }
@@ -429,6 +430,11 @@ function setHiddenFormInput(id, name, value) {
         input.setAttribute("id", id);
         input.setAttribute("name", name);
         input.setAttribute("type", "hidden");
+        // Ownership marker. eForms are third-party HTML and may legitimately carry their own
+        // visible inputs with these ids (a referral form with its own "recipient" field is entirely
+        // plausible), so clearWorkflowFlags() must remove only the nodes the toolbar itself created.
+        // Removing by bare id deleted the clinician's field and silently dropped its value.
+        input.dataset.carlosWorkflowFlag = "true";
         document.forms[0].appendChild(input);
     }
     input.setAttribute("value", value);
@@ -442,9 +448,10 @@ function setHiddenFormInput(id, name, value) {
  * workflow (e.g. a stale faxEForm=true making a later Save enter the fax path).
  */
 function clearWorkflowFlags() {
-    ['saveAndDownloadEForm', 'faxAction', 'emailAction', 'saveAsEdoc', 'recipient', 'recipientFaxNumber'].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el && el.parentNode) {
+    // Scoped to toolbar-created nodes only (see setHiddenFormInput). Never select by bare id: the
+    // surrounding eForm is author-supplied HTML and may own an element of the same name.
+    document.querySelectorAll('[data-carlos-workflow-flag]').forEach(function (el) {
+        if (el.parentNode) {
             el.parentNode.removeChild(el);
         }
     });
@@ -562,19 +569,14 @@ function hailMary() {
  * save it into the eChart Documents directory.
  */
 function remoteEdocument() {
-
-    clearWorkflowFlags();
-    const edocElement = document.getElementById("saveAsEdoc");
-    if (edocElement) {
-        edocElement.value = 'true';
-    } else {
-        const newElement = document.createElement("input");
-        newElement.setAttribute("id", "saveAsEdoc");
-        newElement.setAttribute("name", "saveAsEdoc");
-        newElement.setAttribute("value", "true");
-        newElement.setAttribute("type", "hidden");
-        document.forms[0].appendChild(newElement);
+    // Check BEFORE clearing/appending the action input, matching remoteDownload/remoteFax/remoteEmail:
+    // aborting after setting saveAsEdoc=true would strand that flag on the form, and a later plain
+    // Save would silently ride it into the save-as-eDoc workflow.
+    if (editorStillLoading()) {
+        return;
     }
+    clearWorkflowFlags();
+    setHiddenFormInput("saveAsEdoc", "saveAsEdoc", "true");
 
     remoteSave();
 

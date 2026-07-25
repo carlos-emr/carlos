@@ -82,6 +82,40 @@ class EFormRuntimeNormalizationCacheUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return content set after a DOM-caching call rather than the stale cached document")
+    void shouldReturnReplacedContent_whenSetAfterDocumentWasCached() {
+        // Reproduces the composer's ordering against a real EForm: EFormRenderPdfHtmlComposer caches a
+        // jsoup Document via addHeadJavascript() BEFORE applyLetterHtml() injects the stored Rich Text
+        // Letter body with setFormHtml(). If setFormHtml does not invalidate that cache, getFormHtml()
+        // re-serializes the pre-letter template and the clinician's letter is silently dropped from the
+        // rendered/faxed/archived PDF while every render gate still passes.
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><head></head><body>BLANK_EDITOR_TEMPLATE</body></html>");
+
+        eform.addHeadJavascript("/carlos/eform/eform-runtime-compat.js"); // caches the Document
+
+        eform.setFormHtml("<html><body style='width:640px;'>CLINICIAN_LETTER_BODY</body></html>");
+
+        assertThat(eform.getFormHtml())
+                .contains("CLINICIAN_LETTER_BODY")
+                .doesNotContain("BLANK_EDITOR_TEMPLATE");
+    }
+
+    @Test
+    @DisplayName("should not throw when applying a context path to an fdid that has no stored HTML")
+    void shouldNotThrow_whenContextPathAppliedWithNullFormHtml() {
+        // A numeric-but-unknown fdid leaves formHtml null; setContextPath must not NPE ahead of the
+        // composer's descriptive IllegalStateException. Empty context path is the root-context case
+        // that no longer short-circuits on the blank check.
+        EForm eform = new EForm();
+
+        eform.setContextPath("");
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml()).isNull();
+    }
+
+    @Test
     @DisplayName("should log exactly one WARN across repeated getFormHtml() calls while DOM normalization keeps failing")
     void shouldLogWarnOnce_acrossRepeatedReadsWhenNormalizationKeepsFailing() {
         EForm eform = new EForm();

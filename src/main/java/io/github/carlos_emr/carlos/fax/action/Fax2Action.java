@@ -570,6 +570,12 @@ public class Fax2Action extends ActionSupport {
                     request.setAttribute("excludedContentElements", e.getReport().excludedContentElements());
                     request.setAttribute("signatureMissing", e.getReport().signatureMissing());
                     request.setAttribute("timerCompatibilityFailure", e.getReport().timerCompatibilityFailure());
+                    // Every category the report carries must reach the approval page: the approval is
+                    // only informed consent if the clinician sees the complete issue set they are
+                    // signing off on, and the approval digest binds to exactly that set.
+                    request.setAttribute("severeConsoleErrors", e.getReport().severeConsoleErrors());
+                    request.setAttribute("stabilizationCapped", e.getReport().stabilizationCapped());
+                    request.setAttribute("labDecisionSupportStubbed", e.getReport().labDecisionSupportStubbed());
                     return "eFormMissingContent";
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);

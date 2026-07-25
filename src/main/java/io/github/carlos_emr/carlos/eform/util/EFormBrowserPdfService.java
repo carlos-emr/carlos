@@ -433,8 +433,18 @@ public class EFormBrowserPdfService {
             + "if (document.querySelector('#carlos-signature-unrendered')) {\n"
             + "  signatureBroken = true;\n"
             + "}\n"
+            // A shim object can be published (status is assigned to window before the handlers are
+            // wired) without installation completing, so an absent object, a half-installed one, and
+            // an explicit failure must all count as a compatibility failure. Checking only `failed`
+            // would read a half-installed shim as healthy.
             + "const timerCompat = window.__carlosEformTimerCompat;\n"
-            + "const timerCompatibilityFailure = !timerCompat || timerCompat.failed === true;\n"
+            + "const timerCompatibilityFailure = !timerCompat || timerCompat.installed !== true"
+            + " || timerCompat.failed === true;\n"
+            // Deployer marker: a lab decision-support script is missing and a stub was published under
+            // its real filename, so the request returned 200 and the network scan saw nothing wrong.
+            // Without this the requisition renders "complete" with unpopulated fields and no tickler.
+            + "const labDecisionSupportStubbed = "
+            + "!!document.querySelector('#carlos-lab-ds-stubbed');\n"
             + "return {\n"
             + "  pages: pageNodes.map((pageNode) => {\n"
             + "    const own = rectOf(pageNode);\n"
@@ -456,6 +466,7 @@ public class EFormBrowserPdfService {
             + "  excludedHeight: excludedHeight,\n"
             + "  signatureBroken: signatureBroken,\n"
             + "  timerCompatibilityFailure: timerCompatibilityFailure,\n"
+            + "  labDecisionSupportStubbed: labDecisionSupportStubbed,\n"
             + "};";
 
     /**
@@ -659,7 +670,7 @@ public class EFormBrowserPdfService {
             Integer latchedMainStatus = scanNetworkEvents(
                     performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
             awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
-            settle(driver, deadlineNanos, fdid);
+            boolean stabilizationCapped = settle(driver, deadlineNanos, fdid);
 
             JavascriptExecutor js = driver;
             js.executeScript(PREPARE_PRINT_JS);
@@ -672,7 +683,13 @@ public class EFormBrowserPdfService {
             EFormRenderCompletenessReport completeness = enforceRenderGates(
                     driver, performanceEntries, latchedMainStatus, baseUrl, fdid)
                     .merge(new EFormRenderCompletenessReport(
-                            0, geometry.excludedCount(), geometry.signatureBroken(), geometry.timerCompatibilityFailure()));
+                            0,
+                            geometry.excludedCount(),
+                            0,
+                            geometry.signatureBroken(),
+                            geometry.timerCompatibilityFailure(),
+                            stabilizationCapped,
+                            geometry.labDecisionSupportStubbed()));
             if (!completeness.isComplete()
                     && (approval == null || !approval.permits(fdid, providerId, completeness))) {
                 logger.warn("Browser eForm renderer blocked incomplete output: fdid={} issues={}",
@@ -1121,18 +1138,28 @@ public class EFormBrowserPdfService {
         }
     }
 
-    private void settle(ChromeDriver driver, long deadlineNanos, int fdid) throws InterruptedException, PDFGenerationException {
+    /**
+     * Waits for the page to stop mutating, then reports whether it actually reached a quiet window.
+     *
+     * @return {@code true} when the stabilization cap expired with the DOM still changing, meaning the
+     *         page was captured mid-assembly. The caller MUST fold this into
+     *         {@link EFormRenderCompletenessReport}: a WARN alone is invisible to the gate, and the
+     *         forms this cap exists for (editor-driven letters that build their body after onload) are
+     *         exactly the ones that print half-assembled.
+     * @throws PDFGenerationException if the page reported a stabilization error
+     */
+    boolean settle(ChromeDriver driver, long deadlineNanos, int fdid) throws InterruptedException, PDFGenerationException {
         Thread.sleep(SETTLE_DELAY_MILLIS);
         checkDeadline(deadlineNanos);
         Object settleResult = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
+        boolean capped = false;
         if (settleResult != null) {
             if ("CAPPED".equals(settleResult)) {
                 // The DOM never reached a quiet window before the 5s cap — a form with a perpetual
-                // timer/animation, or a broken editor that keeps mutating. The render deliberately
-                // proceeds with the captured-as-is page (the gates still apply), but this is NOT an
-                // ordinary settle: surface it so an operator investigating a half-built captured
-                // letter has the correlating breadcrumb instead of a render that logged as clean.
-                // Fixed string + fdid only — no page content.
+                // timer/animation, or a broken editor that keeps mutating. The render proceeds with the
+                // captured-as-is page, but the clinician must be told: the captured document may be
+                // missing content that was still being written. Fixed string + fdid only — no page content.
+                capped = true;
                 logger.warn("eForm page DOM never quiesced within the stabilization cap; capturing as-is: fdid={}", fdid);
             } else {
                 // A non-null, non-CAPPED result is a page-controlled error string: a hostile eForm can
@@ -1145,6 +1172,7 @@ public class EFormBrowserPdfService {
             }
         }
         checkDeadline(deadlineNanos);
+        return capped;
     }
 
     /**
@@ -1203,7 +1231,10 @@ public class EFormBrowserPdfService {
         boolean signatureBroken = requiredBoolean(rawMap, "signatureBroken");
         boolean timerCompatibilityFailure = requiredBoolean(
                 rawMap, "timerCompatibilityFailure");
-        return new PageGeometry(pages, excludedCount, excludedHeight, signatureBroken, timerCompatibilityFailure);
+        boolean labDecisionSupportStubbed = requiredBoolean(
+                rawMap, "labDecisionSupportStubbed");
+        return new PageGeometry(pages, excludedCount, excludedHeight, signatureBroken,
+                timerCompatibilityFailure, labDecisionSupportStubbed);
     }
 
     private static double requiredNonNegativeNumber(Map<?, ?> rawMap, String key)
@@ -1345,13 +1376,34 @@ public class EFormBrowserPdfService {
 
     /** Immutable authored page size in CSS px, tagged with the source {@code pageN} div id. */
     record PageSize(String id, double width, double height) {
+        /**
+         * Enforces the dimension invariants structurally rather than leaving them to the reader.
+         * {@code buildPageSizeCss} applies {@code (long) Math.ceil(...)} to whatever it is handed, so a
+         * NaN or negative that slipped past {@code readPageSizes} would be emitted as a nonsense CSS
+         * length instead of failing the render.
+         */
+        PageSize {
+            Objects.requireNonNull(id, "page id must not be null");
+            if (!Double.isFinite(width) || !Double.isFinite(height) || width <= 0 || height <= 0) {
+                throw new IllegalArgumentException("Page dimensions must be finite and positive");
+            }
+        }
     }
 
     /**
      * Authored page sizes and sanitized omission signals used by the completeness report.
      */
     record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight,
-            boolean signatureBroken, boolean timerCompatibilityFailure) {
+            boolean signatureBroken, boolean timerCompatibilityFailure,
+            boolean labDecisionSupportStubbed) {
+        PageGeometry {
+            // Defensive copy: readPageSizes hands back a mutable ArrayList.
+            pages = List.copyOf(Objects.requireNonNull(pages, "pages must not be null"));
+            if (excludedCount < 0 || !Double.isFinite(excludedHeight) || excludedHeight < 0) {
+                throw new IllegalArgumentException(
+                        "Excluded-content counters must be non-negative and finite");
+            }
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -1434,8 +1486,15 @@ public class EFormBrowserPdfService {
                     + " (off-origin egress is contained by the dead proxy; set {}=true to fail closed instead)",
                     fdid, disallowedRequests, severeConsoleEntries, scan.failedSubresources(), STRICT_NETWORK_GATE_PROPERTY);
         }
+        // severeConsoleEntries enters the completeness report rather than living only in the strict
+        // gate. Resource-load and CSP entries are already excluded upstream, so what remains is an
+        // uncaught page-script exception -- the only observable for a form whose script aborted midway
+        // through injecting clinical content (a score, a dose, a stamp, a letter body). Neither the
+        // network scan nor the geometry pass can see that: every subresource returned 200 and the page
+        // divs still measure. Strict mode is off by default and cannot realistically be enabled on the
+        // legacy corpus, so leaving this advisory meant shipping a silently truncated document.
         return new EFormRenderCompletenessReport(
-                scan.failedCriticalSubresources(), 0, false, false);
+                scan.failedCriticalSubresources(), 0, severeConsoleEntries, false, false, false, false);
     }
 
     /**

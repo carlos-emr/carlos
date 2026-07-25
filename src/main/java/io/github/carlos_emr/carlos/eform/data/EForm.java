@@ -399,6 +399,11 @@ public class EForm extends EFormBase {
      * asset references, and injects an idempotent {@code loadSig} fallback when needed. Stored
      * JavaScript source is preserved.</p>
      *
+     * <p><strong>Do not route this value through {@code PathValidationUtils}.</strong> Despite the
+     * project-wide rule that request-derived values feeding file operations must be path-validated,
+     * this one never reaches the filesystem: it is spliced into browser-facing asset URLs. Filesystem
+     * validation would inject OS separators into the URL and reject some valid context paths.</p>
+     *
      * <p>A {@code null} context path (no servlet environment) is a no-op. An empty string ({@code ""})
      * is a valid root-context (ROOT.war) deployment and is normalized like any other context path.
      * Leading/trailing whitespace is stripped before use, so a whitespace-only value (never produced
@@ -418,6 +423,15 @@ public class EForm extends EFormBase {
                 : strippedContextPath;
         this.runtimeContextPath = normalizedContextPath;
         this.runtimeAssetsNormalized = false;
+        if (this.formHtml == null) {
+            // A numeric fdid with no saved row leaves formHtml null (see the EForm(String) constructor,
+            // which only substitutes the "No Such Form in Database" placeholder for a blank/"null" id).
+            // Callers detect that case deliberately -- EFormRenderPdfHtmlComposer.buildPdfHtml raises a
+            // descriptive IllegalStateException -- so return quietly instead of NPEing here first and
+            // burying the real cause. Reachable for a root-context ("") deployment in particular, which
+            // no longer short-circuits on the blank-contextPath check above.
+            return;
+        }
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
         this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
         this.formHtml = injectLoadSigFallback(this.formHtml);
@@ -450,8 +464,10 @@ public class EForm extends EFormBase {
      * and the {@code loadSig} fallback. Normalization failures retain the string-normalized HTML and
      * emit one operator warning per content generation.
      *
-     * @return the normalized eForm HTML; never {@code null} (an unknown form yields the literal
-     *         {@code "No Such Form in Database"} placeholder)
+     * @return the normalized eForm HTML, or {@code null} when the fdid is numeric but has no saved
+     *         row. The {@code "No Such Form in Database"} placeholder covers only a blank or literal
+     *         {@code "null"} fdid, so callers must still null-check -- {@code
+     *         EFormRenderPdfHtmlComposer.buildPdfHtml} depends on exactly that.
      */
     @Override
     public String getFormHtml() {

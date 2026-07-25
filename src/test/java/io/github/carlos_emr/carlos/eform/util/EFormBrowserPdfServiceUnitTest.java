@@ -152,20 +152,23 @@ class EFormBrowserPdfServiceUnitTest {
                 "excludedCount", 2L,
                 "excludedHeight", 210.5d,
                 "signatureBroken", false,
-                "timerCompatibilityFailure", true));
+                "timerCompatibilityFailure", true,
+                "labDecisionSupportStubbed", true));
 
         assertThat(geometry.pages()).hasSize(1);
         assertThat(geometry.excludedCount()).isEqualTo(2);
         assertThat(geometry.excludedHeight()).isEqualTo(210.5d);
         assertThat(geometry.signatureBroken()).isFalse();
         assertThat(geometry.timerCompatibilityFailure()).isTrue();
+        assertThat(geometry.labDecisionSupportStubbed()).isTrue();
 
         assertThatThrownBy(() -> EFormBrowserPdfService.readPageGeometry(Map.of(
                 "pages", List.of(),
                 "excludedCount", -3L,
                 "excludedHeight", Double.NaN,
                 "signatureBroken", false,
-                "timerCompatibilityFailure", false)))
+                "timerCompatibilityFailure", false,
+                "labDecisionSupportStubbed", false)))
                 .isInstanceOf(PDFGenerationException.class);
         assertThatThrownBy(() -> EFormBrowserPdfService.readPageGeometry(Map.of(
                 "pages", List.of(),

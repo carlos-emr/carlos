@@ -43,7 +43,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
     <title>Incomplete eForm — Fax anyway?</title>
@@ -69,6 +69,9 @@
             <li>Excluded visible elements: <carlos:encode value="${excludedContentElements}"/></li>
             <li>Signature missing: <carlos:encode value="${signatureMissing}"/></li>
             <li>Timer compatibility failed: <carlos:encode value="${timerCompatibilityFailure}"/></li>
+            <li>Page script errors: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <li>Page captured before it finished building: <carlos:encode value="${stabilizationCapped}"/></li>
+            <li>Lab decision support unavailable: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
             <form method="post" action="${pageContext.request.contextPath}/fax/faxAction">

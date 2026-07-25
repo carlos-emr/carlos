@@ -20,6 +20,22 @@
     };
     window.__carlosEformTimerCompat = status;
 
+    /**
+     * Programmatic equivalent of the capture-phase submit guard below, for callers that submit via
+     * HTMLFormElement.submit(). That API deliberately fires no submit event, so the listener never
+     * runs for the floating toolbar's save paths (remoteSave -> RichTextLetter.submit()) -- only the
+     * legacy SubmitButton.click() path is covered by the listener alone.
+     *
+     * @return {boolean} true when the caller must abort (a legacy timer failed); the banner is shown.
+     */
+    status.shouldBlockSubmission = function shouldBlockSubmission() {
+        if (!status.failed) {
+            return false;
+        }
+        showFailureNotice();
+        return true;
+    };
+
     function showFailureNotice() {
         if (!document.body || document.getElementById("carlos-eform-timer-compat-error")) {
             return;
@@ -96,7 +112,10 @@
         }
     }, true);
     document.addEventListener("securitypolicyviolation", function detectBlockedTimerScript(event) {
-        if (event.blockedURI === "inline"
+        // The shim routes string handlers through an injected <script>, so violations normally arrive
+        // as "inline". A native setTimeout("code", n) running before the shim installs is reported as
+        // "eval" instead, and would otherwise leave status.failed false while the timer never ran.
+        if ((event.blockedURI === "inline" || event.blockedURI === "eval")
                 && String(event.violatedDirective).indexOf("script-src") === 0) {
             markFailure(new Error("Content Security Policy blocked timer compatibility"));
         }

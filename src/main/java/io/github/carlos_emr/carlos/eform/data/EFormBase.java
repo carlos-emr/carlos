@@ -160,6 +160,15 @@ public class EFormBase {
 
     public void setFormHtml(String formHtml) {
         this.formHtml = formHtml;
+        /*
+         * Invalidate any cached DOM. getFormHtml() re-serializes `document` whenever it is non-null,
+         * so leaving a stale parse here silently discards the string just assigned. That is precisely
+         * how the browser-render path lost Rich Text Letter bodies: the composer caches a Document via
+         * addHeadJavascript(), then injects the stored letter with setFormHtml(), and getFormHtml()
+         * handed back the pre-letter template. The render gates cannot see this -- every subresource
+         * loads and the page divs still measure -- so the blank form faxes and archives as if correct.
+         */
+        this.document = null;
     }
 
     public String getDemographicNo() {

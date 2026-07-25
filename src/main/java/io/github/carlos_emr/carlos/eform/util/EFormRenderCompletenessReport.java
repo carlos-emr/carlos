@@ -21,32 +21,46 @@ import java.util.HexFormat;
 public record EFormRenderCompletenessReport(
         int failedContentResources,
         int excludedContentElements,
+        int severeConsoleErrors,
         boolean signatureMissing,
-        boolean timerCompatibilityFailure) implements Serializable {
+        boolean timerCompatibilityFailure,
+        boolean stabilizationCapped,
+        boolean labDecisionSupportStubbed) implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
+    /**
+     * Counters are grouped ahead of the flags deliberately. All three counts and all four flags are
+     * same-typed and carry different clinical meanings, so an interleaved layout would let a
+     * transposed argument compile cleanly and silently reclassify one omission as another.
+     */
     public EFormRenderCompletenessReport {
-        if (failedContentResources < 0 || excludedContentElements < 0) {
+        if (failedContentResources < 0 || excludedContentElements < 0 || severeConsoleErrors < 0) {
             throw new IllegalArgumentException("Incomplete-render counters must not be negative");
         }
     }
 
     public static EFormRenderCompletenessReport complete() {
-        return new EFormRenderCompletenessReport(0, 0, false, false);
+        return new EFormRenderCompletenessReport(0, 0, 0, false, false, false, false);
     }
 
     public boolean isComplete() {
         return failedContentResources == 0
                 && excludedContentElements == 0
+                && severeConsoleErrors == 0
                 && !signatureMissing
-                && !timerCompatibilityFailure;
+                && !timerCompatibilityFailure
+                && !stabilizationCapped
+                && !labDecisionSupportStubbed;
     }
 
     public int issueCount() {
         int count = Math.addExact(failedContentResources, excludedContentElements);
+        count = Math.addExact(count, severeConsoleErrors);
         count = Math.addExact(count, signatureMissing ? 1 : 0);
-        return Math.addExact(count, timerCompatibilityFailure ? 1 : 0);
+        count = Math.addExact(count, timerCompatibilityFailure ? 1 : 0);
+        count = Math.addExact(count, stabilizationCapped ? 1 : 0);
+        return Math.addExact(count, labDecisionSupportStubbed ? 1 : 0);
     }
 
     public EFormRenderCompletenessReport merge(EFormRenderCompletenessReport other) {
@@ -56,8 +70,11 @@ public record EFormRenderCompletenessReport(
         return new EFormRenderCompletenessReport(
                 Math.addExact(failedContentResources, other.failedContentResources),
                 Math.addExact(excludedContentElements, other.excludedContentElements),
+                Math.addExact(severeConsoleErrors, other.severeConsoleErrors),
                 signatureMissing || other.signatureMissing,
-                timerCompatibilityFailure || other.timerCompatibilityFailure);
+                timerCompatibilityFailure || other.timerCompatibilityFailure,
+                stabilizationCapped || other.stabilizationCapped,
+                labDecisionSupportStubbed || other.labDecisionSupportStubbed);
     }
 
     /**
@@ -66,8 +83,11 @@ public record EFormRenderCompletenessReport(
     public String digest() {
         String canonical = failedContentResources + ":"
                 + excludedContentElements + ":"
+                + severeConsoleErrors + ":"
                 + signatureMissing + ":"
-                + timerCompatibilityFailure;
+                + timerCompatibilityFailure + ":"
+                + stabilizationCapped + ":"
+                + labDecisionSupportStubbed;
         try {
             return HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256")

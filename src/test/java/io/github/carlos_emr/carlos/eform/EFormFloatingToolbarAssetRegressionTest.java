@@ -1,0 +1,96 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ */
+package io.github.carlos_emr.carlos.eform;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Source-level pins for the eForm floating toolbar and the runtime compatibility shim.
+ *
+ * <p>The repository has no JavaScript unit-test harness, so browser behaviour is pinned two ways:
+ * Playwright end-to-end checks, and source assertions like these that fail fast when a specific
+ * defect is reintroduced. Each assertion below corresponds to a defect that shipped and was fixed;
+ * the value here is regression detection, not coverage.</p>
+ *
+ * @since 2026-07-25
+ */
+@DisplayName("eForm floating toolbar asset")
+@Tag("unit")
+@Tag("eform")
+class EFormFloatingToolbarAssetRegressionTest {
+
+    private static final Path TOOLBAR_JS =
+            Path.of("src", "main", "webapp", "eform", "eformFloatingToolbar", "eform_floating_toolbar.js");
+    private static final Path RUNTIME_COMPAT_JS =
+            Path.of("src", "main", "webapp", "eform", "eform-runtime-compat.js");
+
+    private static String read(Path path) throws IOException {
+        return Files.readString(path, StandardCharsets.UTF_8);
+    }
+
+    @Test
+    @DisplayName("should clear only toolbar-created hidden inputs rather than selecting by bare id")
+    void shouldClearOnlyToolbarCreatedInputs_whenClearingWorkflowFlags() throws IOException {
+        String source = read(TOOLBAR_JS);
+
+        // eForms are third-party HTML: a referral form may own a visible input with id "recipient".
+        // Selecting by bare id deleted the clinician's field and silently dropped its submitted value.
+        assertThat(source).contains("data-carlos-workflow-flag");
+        assertThat(source).contains("input.dataset.carlosWorkflowFlag");
+        assertThat(source)
+                .as("clearWorkflowFlags must not enumerate bare element ids")
+                .doesNotContain("['saveAndDownloadEForm', 'faxAction', 'emailAction', 'saveAsEdoc', "
+                        + "'recipient', 'recipientFaxNumber']");
+    }
+
+    @Test
+    @DisplayName("should guard remoteEdocument against a still-loading editor before setting its flag")
+    void shouldGuardAgainstLoadingEditor_beforeSettingEdocFlag() throws IOException {
+        String source = read(TOOLBAR_JS);
+        int start = source.indexOf("function remoteEdocument()");
+        assertThat(start).isNotNegative();
+        String body = source.substring(start, source.indexOf("\n}", start));
+
+        // Aborting after the flag is set strands saveAsEdoc=true, and a later plain Save rides it
+        // into the save-as-eDoc workflow. The guard must precede clearWorkflowFlags/setHiddenFormInput.
+        assertThat(body).contains("editorStillLoading()");
+        assertThat(body.indexOf("editorStillLoading()"))
+                .as("the loading guard must run before the action flag is set")
+                .isLessThan(body.indexOf("setHiddenFormInput"));
+    }
+
+    @Test
+    @DisplayName("should block save on timer-compat failure without relying on the submit event")
+    void shouldBlockSave_whenTimerCompatibilityFailed() throws IOException {
+        String toolbar = read(TOOLBAR_JS);
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        // HTMLFormElement.submit() fires no submit event, so the shim's capture-phase listener never
+        // sees the toolbar's save paths. remoteSave must consult the shim directly.
+        assertThat(compat).contains("status.shouldBlockSubmission");
+        assertThat(toolbar).contains("shouldBlockSubmission");
+    }
+
+    @Test
+    @DisplayName("should treat an eval-blocked timer script as a compatibility failure")
+    void shouldDetectBlockedTimer_forEvalBlockedUri() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        // A native setTimeout("code", n) running before the shim installs is reported with
+        // blockedURI "eval", not "inline"; matching only "inline" left status.failed false.
+        assertThat(compat).contains("event.blockedURI === \"eval\"");
+        assertThat(compat).contains("event.blockedURI === \"inline\"");
+    }
+}

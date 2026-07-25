@@ -66,6 +66,7 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
     private static final String RESOURCE_HELP = "/WEB-INF/eform-assets/editor_help.html";
     private static final String RESOURCE_SIGNATURE_PAD = "/share/javascript/signature_pad.min.js";
     private static final String RESOURCE_JQUERY = "/library/jquery/jquery-3.7.1.min.js";
+    private static final String RESOURCE_JQUERY_COMPAT = "/library/jquery/jquery-compat.js";
 
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
 
@@ -115,6 +116,11 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
         // stream per call; thenReturn would instead replay the same already-drained InputStream
         // instance on the second call, silently deploying an empty second alias file.
         when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY)).thenAnswer(invocation -> toStream("jquery compat"));
+        // The shim genuinely ships in the WAR (src/main/webapp/library/jquery/jquery-compat.js), and
+        // the deployer now refuses to publish a legacy jQuery alias without it. Same thenAnswer
+        // reasoning as above: read once per alias.
+        when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY_COMPAT))
+                .thenAnswer(invocation -> toStream(";window.__jqueryCompatShim=true;"));
     }
 
     @Nested
@@ -178,7 +184,9 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
             File deployedIcon = new File(tempDir.toFile(), "CreativeCommonsIcon.png");
 
             assertThat(deployedJquery).exists();
-            assertThat(Files.readString(deployedJquery.toPath())).isEqualTo("jquery compat");
+            assertThat(Files.readString(deployedJquery.toPath()))
+                    .startsWith("jquery compat")
+                    .endsWith(";window.__jqueryCompatShim=true;");
             assertThat(deployedHelperScript).exists();
             assertThat(Files.readString(deployedHelperScript.toPath())).contains("autoLabReqPop");
             assertThat(deployedBackground).doesNotExist();
@@ -195,7 +203,11 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
 
             File deployedLegacyJquery = new File(tempDir.toFile(), "jquery-1.12.0.min.js");
             assertThat(deployedLegacyJquery).exists();
-            assertThat(Files.readString(deployedLegacyJquery.toPath())).isEqualTo("jquery compat");
+            // The alias is the bundle PLUS the compat shim -- that concatenation is the whole point of
+            // the legacy filename, and the shim must come last because its IIFE extends window.jQuery.
+            String legacyContent = Files.readString(deployedLegacyJquery.toPath());
+            assertThat(legacyContent).startsWith("jquery compat");
+            assertThat(legacyContent).endsWith(";window.__jqueryCompatShim=true;");
         }
 
         @Test
@@ -267,6 +279,23 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
 
             // Verify getResourceAsStream was NOT called for the existing file
             verify(mockServletContext, never()).getResourceAsStream(RESOURCE_EDITCONTROL);
+        }
+
+        @Test
+        @DisplayName("Should not publish a legacy jQuery alias when the compat shim is missing from the WAR")
+        void shouldNotPublishLegacyJqueryAlias_whenCompatShimMissing() {
+            // Publishing bare jQuery 3.7.1 under a 1.x filename costs a pre-3.x form $.browser,
+            // .size(), .live() and .bind(): its build script throws mid-execution, yet the file still
+            // serves 200 so the renderer's network scan sees a healthy page and captures it half-built.
+            // The skip-if-exists check would then make that degraded asset permanent across redeploys.
+            // A 404 is the honest outcome -- the render gate can actually see it.
+            stubAllAssets();
+            when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY_COMPAT)).thenReturn(null);
+
+            deployer.afterPropertiesSet();
+
+            assertThat(tempDir.resolve("jquery-3.1.0.min.js")).doesNotExist();
+            assertThat(tempDir.resolve("jquery-1.12.0.min.js")).doesNotExist();
         }
     }
 
