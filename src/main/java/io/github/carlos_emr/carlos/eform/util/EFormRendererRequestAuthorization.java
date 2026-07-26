@@ -29,6 +29,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Shared HTTP boundary for the renderer-only capability cookie.
  *
@@ -56,6 +58,9 @@ public final class EFormRendererRequestAuthorization {
         return EFormRenderTokenService.getInstance().peekSession(readCookie(request));
     }
 
+    // FindSecBugs COOKIE_USAGE: the renderer cookie carries only an opaque 32-byte capability handle with a 2-minute TTL — no PHI, no user identity, no session authority. See docs/static-analysis-workflows.md
+    // Do not widen this suppression to cookie reads or writes that carry user or clinical data.
+    @SuppressFBWarnings(value = "COOKIE_USAGE", justification = "the renderer cookie carries only an opaque 32-byte capability handle with a 2-minute TTL; no PHI, no user identity, no session authority")
     static String readCookie(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {

@@ -23,6 +23,8 @@ import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -85,7 +87,6 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 return;
             }
 
-            String providerId;
             EFormRenderTokenService.RenderToken renderToken = null;
             EFormRenderTokenService.RenderGrant browserGrant = null;
             if (browserRender) {
@@ -100,7 +101,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     return;
                 }
                 EFormRendererRequestAuthorization.setRendererCookie(request, response, renderSession);
-                providerId = browserGrant.providerNo();
+                // The grant's provider is NOT read here: the composer needs no provider (it splices
+                // the stored signature), and provider-scoped resolution happens downstream from
+                // grant.providerNo() in EFormApCacheForPdfGenerationServlet.
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request, formDataId);
@@ -112,7 +115,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 // the render surface is scoped to the authenticated provider. The session's
                 // provider number is authoritative; a present-but-different request-supplied
                 // providerId is rejected, never trusted.
-                providerId = loggedInInfo.getLoggedInProviderNo();
+                String providerId = loggedInInfo.getLoggedInProviderNo();
                 String requestedProviderId = request.getParameter(PROVIDER_ID_PARAM);
                 if (requestedProviderId != null && !requestedProviderId.trim().isEmpty()
                         && !requestedProviderId.trim().equals(providerId)) {
@@ -132,7 +135,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     buildContentSecurityPolicy(browserRender, request));
 
             String html = EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(
-                    formDataId, request.getContextPath(), providerId, renderToken);
+                    formDataId, request.getContextPath(), renderToken);
             if (browserGrant != null) {
                 EFormRendererRequestAuthorization.authorizeReferencedStaticResources(
                         browserGrant,
@@ -226,6 +229,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
      * APCache endpoint — and to {@code 'none'} when that endpoint cannot be safely formed, so an
      * unparseable origin disables the bridge rather than widening it.</p>
      */
+    // FindSecBugs SERVLET_SERVER_NAME: the request host is read only after isLoopback() accepts it, and only to NARROW connect-src (the alternative branch is 'none'); a spoofed Host that is not a loopback literal never reaches the URI construction. See docs/static-analysis-workflows.md
+    // FindSecBugs IMPROPER_UNICODE: URI.toASCIIString() on a host already proven to be a loopback literal, where the IDN transformation is a no-op; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = {"SERVLET_SERVER_NAME", "IMPROPER_UNICODE"}, justification = "the request host is read only after isLoopback() accepts it and only narrows connect-src (otherwise 'none'); URI.toASCIIString() then runs on a proven loopback literal where the IDN transformation is a no-op")
     static String buildContentSecurityPolicy(
             boolean browserRender, HttpServletRequest request) {
         if (!browserRender) {

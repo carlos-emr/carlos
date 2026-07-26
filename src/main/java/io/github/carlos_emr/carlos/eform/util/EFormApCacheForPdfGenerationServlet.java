@@ -157,11 +157,15 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         return output;
     }
 
+    /**
+     * Emits one hidden input. Both the name and the value are HTML-attribute encoded on the way
+     * out; the surrounding markup is a fixed literal, so nothing unencoded reaches the writer.
+     */
     private static void hidden(PrintWriter writer, String name, String value) {
         writer.print("<input type=\"hidden\" name=\"");
-        writer.print(SafeEncode.forHtmlAttribute(name));
+        writer.print(SafeEncode.forHtmlAttribute(name)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- HTML-attribute encoded with SafeEncode on this line
         writer.print("\" value=\"");
-        writer.print(SafeEncode.forHtmlAttribute(value));
+        writer.print(SafeEncode.forHtmlAttribute(value)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- HTML-attribute encoded with SafeEncode on this line
         writer.print("\"/>");
     }
 

@@ -206,6 +206,28 @@ class EFormRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should strip interaction hooks using ASCII-only case folding")
+    void shouldStripInteractionHooks_usingAsciiOnlyCaseFolding() {
+        // The filter decides on attacker-influenced markup, so it must fold exactly the way an HTML
+        // parser does — over ASCII only. Full Unicode lowering can map non-ASCII code points onto
+        // ASCII letters, which would make the filter and the browser disagree about the same input.
+        String hardened = EFormRenderPdfHtmlComposer.hardenLetterHtml(
+                "<a href=\"JAVASCRIPT:steal()\">upper</a>"
+                + "<a href=\"jAvAsCrIpT:steal()\">mixed</a>"
+                + "<a href=\"  java\tscript:steal()\">whitespace split</a>"
+                + "<img src=\"bg.png\" ONERROR=\"steal()\" OnLoad=\"steal()\">");
+
+        assertThat(hardened)
+                .doesNotContainIgnoringCase("javascript:")
+                .doesNotContainIgnoringCase("onerror")
+                .doesNotContainIgnoringCase("onload");
+        // The Kelvin sign lowercases to ASCII "k" under full Unicode folding but is NOT an ASCII
+        // "k" to a browser, so this href is inert and must survive as authored content.
+        assertThat(EFormRenderPdfHtmlComposer.hardenLetterHtml("<a href=\"Keep.html\">keep</a>"))
+                .contains("Keep.html");
+    }
+
+    @Test
     @DisplayName("should keep letter structure and inline scripts when hardening a stored letter")
     void shouldKeepStructureAndScripts_whenHardeningStoredLetter() {
         // Scripts stay: applySignatureHtml reads the signature geometry out of the letter's own

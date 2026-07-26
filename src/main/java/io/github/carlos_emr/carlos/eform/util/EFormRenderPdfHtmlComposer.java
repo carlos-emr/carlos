@@ -92,6 +92,22 @@ public final class EFormRenderPdfHtmlComposer {
             "imagecontrol.js", "signaturecontrol.js", "signaturecontrol.jsp", "signaturecontrol",
             "eform_floating_toolbar.js", "eform_floating_toolbar");
     private static final String EDITOR_BOOTSTRAP_CALL = "insertEditControl()";
+    /**
+     * Case-insensitive matchers for {@link #hardenLetterHtml}, deliberately ASCII-only.
+     *
+     * <p>These decide whether attacker-influenced markup is stripped, so they must fold exactly the
+     * way an HTML parser does — over ASCII and nothing else. {@code CASE_INSENSITIVE} without
+     * {@code UNICODE_CASE} gives precisely that. The earlier {@code toLowerCase(Locale.ROOT)}
+     * version was a case-fold in a trust path (the class CLAUDE.md tracks under issue #2496): full
+     * Unicode lowering can map non-ASCII code points onto ASCII letters and can change string
+     * length, so a filter built on it decides on a string the browser never sees.</p>
+     */
+    private static final Pattern EVENT_HANDLER_ATTRIBUTE =
+            Pattern.compile("on.*", Pattern.CASE_INSENSITIVE);
+    private static final Pattern URL_BEARING_ATTRIBUTE =
+            Pattern.compile("href|src|action", Pattern.CASE_INSENSITIVE);
+    private static final Pattern JAVASCRIPT_SCHEME =
+            Pattern.compile("\\Ajavascript:", Pattern.CASE_INSENSITIVE);
 
     private EFormRenderPdfHtmlComposer() {
     }
@@ -101,7 +117,6 @@ public final class EFormRenderPdfHtmlComposer {
      *
      * @param formDataId saved eForm data identifier
      * @param contextPath current servlet context path used for local asset URLs
-     * @param providerId provider number used for provider-scoped signature rendering
      * @param renderToken render-scoped bootstrap capability used server-side to authorize the
      *        exact referenced image/APCache set; never appended to subresource URLs
      * @return normalized HTML ready for the browser renderer
@@ -109,7 +124,7 @@ public final class EFormRenderPdfHtmlComposer {
      *         signature cannot be spliced into the form HTML; a signed document must never render
      *         (and so fax/archive) unsigned
      */
-    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String providerId, EFormRenderTokenService.RenderToken renderToken) {
+    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, EFormRenderTokenService.RenderToken renderToken) {
         EForm eForm = new EForm(String.valueOf(formDataId));
 
         EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
@@ -254,6 +269,8 @@ public final class EFormRenderPdfHtmlComposer {
         return Set.copyOf(keys);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String removeAbsentOptionalStamps(String html) {
         if (html == null || !html.toLowerCase(java.util.Locale.ROOT).contains("stamps.js")) {
             return html;
@@ -385,15 +402,15 @@ public final class EFormRenderPdfHtmlComposer {
                 .prettyPrint(false);
         for (Element element : document.body().select("*")) {
             for (Attribute attribute : element.attributes().asList()) {
-                String name = attribute.getKey().toLowerCase(java.util.Locale.ROOT);
-                if (name.startsWith("on")) {
-                    element.removeAttr(attribute.getKey());
+                String name = attribute.getKey();
+                if (EVENT_HANDLER_ATTRIBUTE.matcher(name).matches()) {
+                    element.removeAttr(name);
                     continue;
                 }
-                if (("href".equals(name) || "src".equals(name) || "action".equals(name))
-                        && attribute.getValue().replaceAll("[\\s\\u0000]", "")
-                                .toLowerCase(java.util.Locale.ROOT).startsWith("javascript:")) {
-                    element.removeAttr(attribute.getKey());
+                if (URL_BEARING_ATTRIBUTE.matcher(name).matches()
+                        && JAVASCRIPT_SCHEME.matcher(
+                                attribute.getValue().replaceAll("[\\s\\u0000]", "")).find()) {
+                    element.removeAttr(name);
                 }
             }
         }
@@ -470,6 +487,8 @@ public final class EFormRenderPdfHtmlComposer {
      * <p>{@code APCache.js} is deliberately NOT removed: it populates clinical field content and is
      * the reason the capability-scoped APCache endpoint exists. Only editor/dialog chrome goes.</p>
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void removeInteractiveEditorContent(Document document) {
         for (Element script : document.select("script[src]")) {
             // Match the FILENAME, not a substring of the whole URL. `source.contains("signaturecontrol")`
@@ -754,6 +773,8 @@ public final class EFormRenderPdfHtmlComposer {
      * rather than called so this pure string helper never triggers ConvertToEdoc's app-context
      * static initialization).</p>
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static String replaceImagePathMarkerInAttributes(String html, String assetPrefix) {
         if (!html.contains(IMAGE_PATH_MARKER) && !html.contains(IMAGE_PATH_MARKER_URLENCODED)) {
             return html;

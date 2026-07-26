@@ -165,7 +165,7 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
         // Drive the full doGet instead of reflecting into the private auth helper: the DB-backed HTML
         // assembly is stubbed so the test exercises the servlet's own auth + header contract.
         try (MockedStatic<EFormRenderPdfHtmlComposer> composer = mockStatic(EFormRenderPdfHtmlComposer.class)) {
-            composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any()))
+            composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any()))
                     .thenReturn("<html><body>session-ok</body></html>");
             new EFormBrowserRenderPageServlet().doGet(request, response);
         }
@@ -193,7 +193,7 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
                  LogCapture logs = LogCapture.forLogger(EFormBrowserRenderPageServlet.class)) {
                 // The failure message embeds the tokenized request URL, as container/machinery
                 // exceptions can; the catch-all must log type + redacted message + frames only.
-                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any()))
+                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any()))
                         .thenThrow(new IllegalStateException(
                                 "boom at http://127.0.0.1/x?renderToken=" + token.queryValue()));
 
@@ -266,7 +266,7 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             try (MockedStatic<EFormRenderPdfHtmlComposer> composer = mockStatic(EFormRenderPdfHtmlComposer.class)) {
-                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any()))
+                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any()))
                         .thenReturn("<html><body>rendered</body></html>");
                 new EFormBrowserRenderPageServlet().doGet(request, response);
             }
