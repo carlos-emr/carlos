@@ -5,11 +5,16 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * Jackson serializer for converting Java Date objects into JavaScript-friendly date strings.
+ */
+
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
+        // Serializes the Date object into a formatted string expected by the frontend JavaScript.
         if (value == null) {
             gen.writeNull();
             return;

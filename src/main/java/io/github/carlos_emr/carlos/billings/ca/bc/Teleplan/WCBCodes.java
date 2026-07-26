@@ -69,6 +69,7 @@ public class WCBCodes {
     }
 
     public boolean isFormNeeded(String wcbCode) {
+        // Determines if the provided WCB code mandates a supplementary form submission.
         String[] codes = getFormCodes();
         log.debug("codes " + codes + "  == " + wcbCode + "  - " + Arrays.binarySearch(codes, wcbCode));
         if (Arrays.binarySearch(codes, wcbCode) < 0) {

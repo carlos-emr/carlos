@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Struts form bean capturing user input from the Quick Billing UI for batch processing.
+ */
+
 
 
 public class QuickBillingBCFormBean {
@@ -168,6 +172,7 @@ public class QuickBillingBCFormBean {
 
     @Override
     public String toString() {
+        // Constructs a string dump of the submitted form properties for logging user input.
         return (
                 " PROVIDER=" + billingProvider +
                         " PROVIDER NUMBER=" + billingProviderNo +

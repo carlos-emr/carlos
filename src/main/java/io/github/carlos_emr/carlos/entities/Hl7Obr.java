@@ -221,6 +221,7 @@ public class Hl7Obr {
      * @return int obrId
      */
     public int getObrId() {
+        // Retrieves the internal primary key assigned to this parsed OBR segment.
         return obrId;
     }
 

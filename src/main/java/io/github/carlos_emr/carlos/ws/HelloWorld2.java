@@ -4,9 +4,13 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Secondary web service test endpoint providing extended basic operations for integration verification.
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2", propOrder = { "arg0" })
+
 public class HelloWorld2 implements Serializable
 {
     private static final long serialVersionUID = 1L;

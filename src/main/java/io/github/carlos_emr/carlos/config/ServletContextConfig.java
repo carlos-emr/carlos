@@ -6,8 +6,12 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
+/**
+ * Configuration bean that holds context-wide properties initialized at web application startup.
+ */
 
 @Configuration
+
 public class ServletContextConfig implements ServletContextAware {
 
     private ServletContext servletContext;

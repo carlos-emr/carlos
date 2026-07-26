@@ -5,9 +5,13 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Response wrapper for the HelloWorld web service endpoint.
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
+
 public class HelloWorldResponse implements Serializable
 {
     private static final long serialVersionUID = 1L;
@@ -15,6 +19,7 @@ public class HelloWorldResponse implements Serializable
     protected String _return;
     
     public String getReturn() {
+        // Retrieves the generated greeting message payload returned by the service.
         return this._return;
     }
     

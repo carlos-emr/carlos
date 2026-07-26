@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Domain entity representing clinical laboratory test result data points for a patient.
+ */
+
 
 public class LabData {
     private String a1c;

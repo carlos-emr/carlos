@@ -13,6 +13,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Base interface or abstract model representing a JSON-based Struts action response payload.
+ */
+
 
 public class JSONAction extends ActionSupport {
 

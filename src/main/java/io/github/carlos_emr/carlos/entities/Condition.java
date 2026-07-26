@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+/**
+ * Entity representing a tracked medical condition or chronic disease state for a patient.
+ */
+
 public class Condition
         extends ClinicalFactor {
     // Fields

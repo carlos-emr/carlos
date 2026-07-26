@@ -127,6 +127,7 @@ public class Hl7Obx {
      * @return int obxId
      */
     public int getObxId() {
+        // Retrieves the internal primary key for this stored OBX segment.
         return obxId;
     }
 

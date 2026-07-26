@@ -65,6 +65,7 @@ public class Hl7Message {
      * @return int messageId
      */
     public int getMessageId() {
+        // Retrieves the core identifier for the overall parsed HL7 message.
         return messageId;
     }
 

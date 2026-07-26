@@ -113,6 +113,7 @@ public class MSPBill {
     }
 
     public boolean isWCB() {
+        // Checks if the current bill is associated with a WCB claim, determining the appropriate billing submission rules and workflows.
         return billingtype.equals("WCB");
     }
 

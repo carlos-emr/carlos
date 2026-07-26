@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Entity detailing risk factors and clinical observations associated with patient conditions.
+ */
+
 
 public class ClinicalFactor {
     // Fields

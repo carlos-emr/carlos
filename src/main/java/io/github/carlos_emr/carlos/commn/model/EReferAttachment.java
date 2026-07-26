@@ -11,9 +11,13 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Represents an electronic referral attachment mapping file data to a specific referral request.
+ */
 
 @Entity
 @Table(name = "erefer_attachment")
+
 public class EReferAttachment extends AbstractModel<Integer> {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

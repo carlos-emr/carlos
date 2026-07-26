@@ -76,6 +76,7 @@ public class BillingNote {
     }
 
     public void addNote(String billingmaster_no, String provider_no, String note) {
+        // Appends a new note entry, preserving historical comments associated with the bill.
         note = Misc.removeNewLine(note);
 
         BillingNotes n = new BillingNotes();

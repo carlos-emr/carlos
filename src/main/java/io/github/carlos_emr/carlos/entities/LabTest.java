@@ -30,6 +30,10 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Domain entity for a grouped laboratory test containing multiple individual data observations.
+ */
+
 public class LabTest
         extends Test {
     private String observationDateTime = "";

@@ -1,4 +1,8 @@
 package io.github.carlos_emr.carlos.utility;
+/**
+ * Custom exception thrown when SMTP or other email transmission failures occur.
+ */
+
 
 public class EmailSendingException extends Exception {
     public EmailSendingException() {

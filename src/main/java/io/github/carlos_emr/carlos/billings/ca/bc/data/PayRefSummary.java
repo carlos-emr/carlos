@@ -146,6 +146,7 @@ public class PayRefSummary {
      * @param adjAmt String
      */
     public void addAdjustmentAmount(String adjAmt) {
+        // Updates the total adjustment amount applied to this payment reference.
 
         try {
             if (adjAmt != null && !"".equals(adjAmt)) {

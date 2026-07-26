@@ -9,9 +9,13 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Encapsulates search parameters used when querying for potential patient matches in the system.
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })
+
 public class MatchingClientParameters implements Serializable
 {
     private static final long serialVersionUID = 1L;

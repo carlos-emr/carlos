@@ -4,9 +4,13 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * Configuration entity defining SMTP and provider settings for sending outbound emails.
+ */
 
 @Entity
 @Table(name = "emailConfig")
+
 public class EmailConfig extends AbstractModel<Integer> {
 
     public enum EmailType {

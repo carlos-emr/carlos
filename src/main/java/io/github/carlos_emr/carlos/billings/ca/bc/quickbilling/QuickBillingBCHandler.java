@@ -413,6 +413,7 @@ public class QuickBillingBCHandler {
      * @return true if bills were saved successfully
      */
     public boolean saveBills() {
+        // Persists the quick billing batch to the database, ensuring that transaction integrity and auditing histories are maintained.
 
         String dataCenterId = oscarProperties.getProperty("dataCenterId");
         ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();

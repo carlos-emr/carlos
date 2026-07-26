@@ -606,6 +606,7 @@ public class WCB {
     }
 
     public List verify() {
+        // Verifies the consistency and validity of WCB (WorkSafeBC) billing data to ensure compliance with provincial standards prior to submission.
         List errors = new ArrayList();
 
         if (w_lname == null || "".equals(w_lname)) {

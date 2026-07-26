@@ -158,6 +158,7 @@ public class TeleplanResponse {
     }
 
     public boolean isFailure() {
+        // Evaluates the response status code to determine if the teleplan submission was rejected.
         return result.equals("FAILURE");
     }
 

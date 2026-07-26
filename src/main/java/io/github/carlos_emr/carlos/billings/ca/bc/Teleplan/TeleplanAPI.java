@@ -219,6 +219,7 @@ public class TeleplanAPI {
      * before the application will return a SUCCESS
      */
     public TeleplanResponse login(String username, String password) {
+        // Authenticates the provider connection to the Teleplan API using secure credentials and manages session state.
         List<NameValuePair> data = new ArrayList<>();
         data.add(new BasicNameValuePair("username", username));
         data.add(new BasicNameValuePair("password", password));
