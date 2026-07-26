@@ -87,7 +87,8 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                 // vaccine-brands.json, _prevention READ — so do not claim it was specifically _eform.
                 logger.debug("eForm asset request authorized via authenticated session");
             } else {
-                EFormRenderTokenService.RenderGrant grant = liveRenderGrant(request);
+                EFormRenderTokenService.RenderGrant grant =
+                        EFormRendererRequestAuthorization.grantFromCookie(request);
                 if (grant == null) {
                     // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
                     // by design (no session cookie ever enters the render browser). Such requests are
@@ -155,12 +156,6 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                     "An internal error occurred. Please try again or contact your system administrator.",
                     "Unable to send internal-error response for EFormImageViewForPdfGenerationServlet");
         }
-    }
-
-    /** Returns the live render-scoped grant carried by the request, or {@code null}. */
-    private static EFormRenderTokenService.RenderGrant liveRenderGrant(HttpServletRequest request) {
-        return EFormRenderTokenService.getInstance().peek(EFormRenderTokenService.RenderToken
-                .fromRequestValue(request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM)));
     }
 
     private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {

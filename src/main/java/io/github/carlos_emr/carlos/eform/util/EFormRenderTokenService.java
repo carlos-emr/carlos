@@ -51,10 +51,12 @@ final class EFormRenderTokenService {
     private static final long MAX_SIZE = 1_000L;
     private static final Duration TTL = Duration.ofMinutes(2);
     private static final int TOKEN_BYTES = 32;
+    private static final int SESSION_BYTES = 32;
 
     private static final EFormRenderTokenService INSTANCE = new EFormRenderTokenService();
 
     private final Cache<String, RenderGrant> cache;
+    private final Cache<String, RenderGrant> sessionCache;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
@@ -94,6 +96,11 @@ final class EFormRenderTokenService {
                 .expireAfterWrite(TTL)
                 .maximumSize(MAX_SIZE)
                 .ticker(Objects.requireNonNull(ticker, "ticker must not be null"))
+                .build();
+        this.sessionCache = Caffeine.newBuilder()
+                .expireAfterWrite(TTL)
+                .maximumSize(MAX_SIZE)
+                .ticker(ticker)
                 .build();
     }
 
@@ -161,6 +168,57 @@ final class EFormRenderTokenService {
     }
 
     /**
+     * Exchanges a bootstrap token for a renderer-only session handle. A retry is idempotent only
+     * when it presents the handle already bound to the token; another browser cannot replay it.
+     */
+    RenderSession exchange(RenderToken token, String presentedSessionValue) {
+        RenderGrant grant = peek(token);
+        if (grant == null) {
+            return null;
+        }
+        synchronized (grant) {
+            if (grant.sessionValue == null) {
+                if (presentedSessionValue != null && !presentedSessionValue.isEmpty()) {
+                    return null;
+                }
+                grant.sessionValue = generateSessionValue();
+                sessionCache.put(grant.sessionValue, grant);
+                return new RenderSession(grant.sessionValue);
+            }
+            if (!grant.sessionValue.equals(presentedSessionValue)) {
+                return null;
+            }
+            return new RenderSession(grant.sessionValue);
+        }
+    }
+
+    RenderGrant peekSession(String sessionValue) {
+        if (sessionValue == null || sessionValue.isEmpty()) {
+            return null;
+        }
+        return sessionCache.getIfPresent(sessionValue);
+    }
+
+    void authorizeStaticPaths(RenderGrant grant, Collection<String> paths) {
+        if (grant != null) {
+            grant.authorizeStaticPaths(paths);
+        }
+    }
+
+    void authorizeApKeys(RenderToken token, Collection<String> keys) {
+        RenderGrant grant = peek(token);
+        if (grant != null) {
+            grant.authorizeApKeys(keys);
+        }
+    }
+
+    void authorizeApKeys(RenderGrant grant, Collection<String> keys) {
+        if (grant != null) {
+            grant.authorizeApKeys(keys);
+        }
+    }
+
+    /**
      * Discards a token at end of render — success, failure, or never-redeemed. Under the
      * render-scoped peek model this is the normal teardown for redeemed tokens too, not just
      * cleanup of unredeemed ones; the TTL is only the backstop. Safe for null/unknown/
@@ -170,7 +228,16 @@ final class EFormRenderTokenService {
         if (token == null) {
             return;
         }
+        RenderGrant grant = cache.getIfPresent(token.queryValue());
         cache.invalidate(token.queryValue());
+        if (grant != null) {
+            synchronized (grant) {
+                if (grant.sessionValue != null) {
+                    sessionCache.invalidate(grant.sessionValue);
+                    grant.sessionValue = null;
+                }
+            }
+        }
         logger.debug("Render grant invalidated (render finished or aborted)");
     }
 
@@ -185,11 +252,34 @@ final class EFormRenderTokenService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    private String generateSessionValue() {
+        byte[] bytes = new byte[SESSION_BYTES];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /** Opaque renderer-only cookie value with a redacted string representation. */
+    record RenderSession(String cookieValue) {
+        RenderSession {
+            if (cookieValue == null || cookieValue.isEmpty()) {
+                throw new IllegalArgumentException("Render session value must be non-empty");
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "[render-session]";
+        }
+    }
+
     /** Render authorization bound to one saved eForm, provider, and its referenced template assets. */
     static final class RenderGrant {
         private final int fdid;
         private final String providerNo;
         private final Set<String> allowedAssets = ConcurrentHashMap.newKeySet();
+        private final Set<String> allowedStaticPaths = ConcurrentHashMap.newKeySet();
+        private final Set<String> allowedApKeys = ConcurrentHashMap.newKeySet();
+        private volatile String sessionValue;
 
         private RenderGrant(int fdid, String providerNo) {
             this.fdid = fdid;
@@ -208,9 +298,29 @@ final class EFormRenderTokenService {
             return allowedAssets.contains(fileName);
         }
 
+        boolean allowsStaticPath(String path) {
+            return allowedStaticPaths.contains(path);
+        }
+
+        boolean allowsApKey(String key) {
+            return allowedApKeys.contains(key);
+        }
+
         private void authorizeAssets(Collection<String> fileNames) {
             if (fileNames != null) {
                 allowedAssets.addAll(fileNames);
+            }
+        }
+
+        private void authorizeStaticPaths(Collection<String> paths) {
+            if (paths != null) {
+                allowedStaticPaths.addAll(paths);
+            }
+        }
+
+        private void authorizeApKeys(Collection<String> keys) {
+            if (keys != null) {
+                allowedApKeys.addAll(keys);
             }
         }
     }

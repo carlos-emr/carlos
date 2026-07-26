@@ -82,6 +82,25 @@ public class EForm extends EFormBase {
     private static final String LOAD_SIG_CALL = "loadSig()";
     // The guard preserves an existing loadSig implementation and supplies a no-op when absent.
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
+    /**
+     * Element/attribute pairs that load a subresource during a render, paired for the viewer-relative
+     * re-anchoring in {@link #rewriteViewerRelativeAssetReferences(String)}. Navigation targets
+     * ({@code a[href]}, {@code form[action]}) are deliberately absent: they fetch nothing during a
+     * render, so rewriting them would mutate clinic-authored links for no rendering benefit.
+     */
+    private static final String[][] VIEWER_RELATIVE_ASSET_ATTRIBUTES = {
+            {"script[src]", "src"},
+            {"link[href]", "href"},
+            {"img[src]", "src"},
+            {"iframe[src]", "src"},
+            {"embed[src]", "src"},
+            {"source[src]", "src"},
+            {"track[src]", "src"},
+            {"video[src]", "src"},
+            {"audio[src]", "src"},
+            {"input[src]", "src"},
+            {"object[data]", "data"},
+    };
 
     private String runtimeContextPath;
     /**
@@ -508,6 +527,8 @@ public class EForm extends EFormBase {
     }
 
     private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {
+        rewriteViewerRelativeAssetReferences(contextPath);
+
         String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
         for (Element script : getDocument().select("script[src]")) {
             String src = script.attr("src").trim();
@@ -520,6 +541,61 @@ public class EForm extends EFormBase {
         if (!body.attr("onload").contains(LOAD_SIG_CALL)) return;
 
         body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
+    }
+
+    /**
+     * Re-anchors viewer-relative ({@code ../}) asset references to the webapp context.
+     *
+     * <p>Stored eForm HTML is authored against the interactive viewer URL
+     * ({@code /<context>/eform/efmshowform_data}), which sits two segments below the origin, so a
+     * clinic-authored {@code ../css/x.css} resolves to {@code /<context>/css/x.css}. The PDF render
+     * page is served one segment below the origin ({@code /<context>/EFormViewForPdfGenerationServlet}),
+     * where that same reference resolves to the origin ROOT ({@code /css/x.css}) and 404s. The render
+     * then reports missing content for an asset that is present and correctly referenced.</p>
+     *
+     * <p>This generalizes the per-asset {@code ../share/} and {@code ../eform/displayImage} rewrites the
+     * render composer already performs: any leading {@code ../} chain is stripped and the remainder is
+     * anchored to the context path. It runs only on the render/compose path (see
+     * {@link #enableRenderNormalization()}), so clinic-authored HTML is never rewritten in the
+     * database — the interactive viewer keeps resolving the original relative reference itself.</p>
+     */
+    private void rewriteViewerRelativeAssetReferences(String contextPath) {
+        String base = contextPath == null ? "" : contextPath.trim();
+        for (String[] selectorAndAttribute : VIEWER_RELATIVE_ASSET_ATTRIBUTES) {
+            for (Element element : getDocument().select(selectorAndAttribute[0])) {
+                String attribute = selectorAndAttribute[1];
+                String rewritten = anchorViewerRelativePath(element.attr(attribute), base);
+                if (rewritten != null) {
+                    element.attr(attribute, rewritten);
+                }
+            }
+        }
+    }
+
+    /**
+     * Anchors one viewer-relative reference to {@code contextPath}, or returns {@code null} when the
+     * value is not a {@code ../} reference and must be left untouched (absolute URLs, context-rooted
+     * paths, {@code data:}/{@code javascript:} values, and same-directory references).
+     *
+     * @return the rewritten path, or {@code null} to leave the attribute as authored
+     */
+    static String anchorViewerRelativePath(String value, String contextPath) {
+        if (value == null) {
+            return null;
+        }
+        String remainder = value.trim();
+        if (!remainder.startsWith("../")) {
+            return null;
+        }
+        // A form authored with more ../ segments than the viewer has depth is already malformed; the
+        // clinic's intent is still "the webapp root", so every leading hop collapses to the context.
+        while (remainder.startsWith("../")) {
+            remainder = remainder.substring(3);
+        }
+        if (remainder.isEmpty()) {
+            return null;
+        }
+        return contextPath + "/" + remainder;
     }
 
 

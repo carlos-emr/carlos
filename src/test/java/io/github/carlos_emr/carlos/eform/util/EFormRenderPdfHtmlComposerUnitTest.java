@@ -160,7 +160,127 @@ class EFormRenderPdfHtmlComposerUnitTest {
         assertThat(html)
                 .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
                 .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
-                .contains("<body style='width:640px;'>");
+                .contains("<body style=\"width:640px;\">");
+    }
+
+    @Test
+    @DisplayName("should render a stored letter as markup rather than printing its escaped tags")
+    void shouldRenderStoredLetterAsMarkup_whenSaveRtlEscapedIt() {
+        EForm eForm = mockEformWithHtml("<div id=\"signatureDisplay\"></div>");
+
+        // Exactly what saveRTL() writes into the Letter textarea before submit.
+        EFormValue letter = eformValue("Letter",
+                "&lt;h3&gt;Consultation Letter&lt;/h3&gt;&lt;p&gt;Dear Dr. Smith,&lt;/p&gt;"
+                + "&lt;ul&gt;&lt;li&gt;Metformin 500 mg BID&lt;/li&gt;&lt;/ul&gt;");
+
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
+                eForm, List.of(letter), "/carlos", "carlos", null);
+
+        assertThat(html)
+                .contains("<h3>Consultation Letter</h3>")
+                .contains("<li>Metformin 500 mg BID</li>")
+                .doesNotContain("&lt;h3&gt;");
+    }
+
+    @Test
+    @DisplayName("should keep a literal angle bracket literal when the letter double-escaped it")
+    void shouldKeepDoubleEscapedTextLiteral_whenDecodingStoredLetter() {
+        // "&amp;lt;" is a clinician who typed the characters "&lt;" — it must stay text, not become
+        // a tag. This is what the reverse decode order protects.
+        assertThat(EFormRenderPdfHtmlComposer.decodeStoredLetter("&amp;lt;p&amp;gt; stays text"))
+                .isEqualTo("&lt;p&gt; stays text");
+    }
+
+    @Test
+    @DisplayName("should strip interaction hooks from a decoded letter")
+    void shouldStripInteractionHooks_whenHardeningStoredLetter() {
+        String hardened = EFormRenderPdfHtmlComposer.hardenLetterHtml(
+                "<p>Keep this</p><img src=\"bg.png\" onerror=\"steal()\">"
+                + "<a href=\"javascript:steal()\">link</a>"
+                + "<a href=\"JaVaScript:&#09;steal()\">obfuscated</a>");
+
+        assertThat(hardened)
+                .contains("<p>Keep this</p>")
+                .doesNotContain("onerror")
+                .doesNotContainIgnoringCase("javascript:");
+    }
+
+    @Test
+    @DisplayName("should keep letter structure and inline scripts when hardening a stored letter")
+    void shouldKeepStructureAndScripts_whenHardeningStoredLetter() {
+        // Scripts stay: applySignatureHtml reads the signature geometry out of the letter's own
+        // signatureControl.initialize(...) call, and clinic letters carry image-path fixups inline.
+        String hardened = EFormRenderPdfHtmlComposer.hardenLetterHtml(
+                "<div style=\"text-align:center\"><font color=\"#ff0000\" size=\"3\">Red</font></div>"
+                + "<table border=\"1\"><tr><td colspan=\"2\">cell</td></tr></table>"
+                + "<img src=\"../eform/displayImage?imagefile=sig.png\">"
+                + "<script>signatureControl.initialize({height:40})</script>");
+
+        assertThat(hardened)
+                .contains("style=\"text-align:center\"")
+                .contains("<font color=\"#ff0000\" size=\"3\">")
+                .contains("colspan=\"2\"")
+                .contains("../eform/displayImage?imagefile=sig.png")
+                .contains("signatureControl.initialize({height:40})");
+    }
+
+    @Test
+    @DisplayName("should remove the WYSIWYG editor and interactive controls from the render surface")
+    void shouldRemoveEditorAndInteractiveControls_whenComposingRenderSurface() {
+        EForm eForm = mockEformWithHtml(
+                "<html><head>"
+                + "<script src=\"/carlos/library/eforms/printControl.js\"></script>"
+                + "<script src=\"/carlos/library/eforms/faxControl.js\"></script>"
+                + "<script src=\"/carlos/library/eforms/imageControl.js\"></script>"
+                + "<script src=\"/carlos/library/eforms/APCache.js\"></script>"
+                + "</head><body>"
+                + "<script src=\"/carlos/eform/displayImage?imagefile=editControl2.js\"></script>"
+                + "<script>cfg_width = 720; insertEditControl();</script>"
+                + "<div class=\"edit-controllers\" id=\"edit-controllers\"></div>"
+                + "<div id=\"keepThis\">saved clinical content</div>"
+                + "</body></html>");
+
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
+                eForm, List.of(), "/carlos", "carlos", null);
+
+        assertThat(html)
+                .doesNotContain("printControl.js")
+                .doesNotContain("faxControl.js")
+                .doesNotContain("imageControl.js")
+                .doesNotContain("editControl2.js")
+                // The bootstrap CALL is gone; the shim below still defines a no-op of the same name
+                // so a form that invokes it later cannot throw.
+                .doesNotContain("insertEditControl();")
+                .doesNotContain("edit-controllers");
+        // APCache populates clinical field content, so it must survive the strip.
+        assertThat(html)
+                .contains("APCache.js")
+                .contains("saved clinical content")
+                .contains("cfg_width = 720;");
+    }
+
+    @Test
+    @DisplayName("should shim the load-time globals the stripped editor used to define")
+    void shouldShimLoadTimeGlobals_whenEditorIsStripped() {
+        // The Rich Text Letter calls Start() from body onload and cache.addMapping({...}) inline,
+        // both defined inside editControl2.js. Removing the editor without these turned every such
+        // render into two severe console errors, which the completeness gate refuses to print.
+        EForm eForm = mockEformWithHtml(
+                "<html><head><script src=\"/carlos/library/eforms/APCache.js\"></script></head>"
+                + "<body onload=\"Start();\"><script>cache.addMapping({name:'ageGender'});</script>"
+                + "</body></html>");
+
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
+                eForm, List.of(), "/carlos", "carlos", null);
+
+        assertThat(html)
+                .contains("w.Start = w.Start || function Start(){}")
+                .contains("typeof createCache === 'function'")
+                .contains("w.doHtml = w.doHtml || function doHtml(){}");
+        // Ordering is load-bearing: the shim must follow APCache.js (so createCache exists) and
+        // precede the form's own inline script (so `cache` is defined before addMapping runs).
+        assertThat(html.indexOf("APCache.js")).isLessThan(html.indexOf("w.Start = w.Start"));
+        assertThat(html.indexOf("w.Start = w.Start")).isLessThan(html.indexOf("cache.addMapping"));
     }
 
     @Test
@@ -248,8 +368,53 @@ class EFormRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
-    @DisplayName("should append the render grant to image asset URLs when rendering")
-    void shouldAppendRenderToken_whenBrowserRenderingImageBearingForm() {
+    @DisplayName("should grant only literal APCache lookup and mapping keys")
+    void shouldExtractLiteralApCacheKeys() {
+        String html = "<script>"
+                + "cache.lookup('patient_name');"
+                + "cache.lookup(dynamicKey);"
+                + "cache.addMapping({name:'patient',values:[\"age\", 'hin']});"
+                + "</script>";
+
+        assertThat(EFormRenderPdfHtmlComposer.referencedApCacheKeys(html))
+                .containsExactlyInAnyOrder("patient_name", "age", "hin")
+                .doesNotContain("dynamicKey", "patient");
+    }
+
+    @Test
+    @DisplayName("should neutralize interactive signature markers and preserve dependency order")
+    void shouldApplyPassiveSavedViewerProfile() {
+        EForm eForm = mockEformWithHtml(
+                "<html><head><script src=\"/clinic.js\"></script></head><body>"
+                + "${oscar_signature_code}"
+                + "<script src=\"/library/eforms/signatureControl.jsp\"></script>"
+                + "</body></html>");
+        when(eForm.getFdid()).thenReturn("77");
+        when(eForm.getFid()).thenReturn("8");
+        when(eForm.getDemographicNo()).thenReturn("123");
+
+        EFormRenderPdfHtmlComposer.applyRendererViewProfile(
+                eForm, "/carlos", eForm.getFdid());
+        String html = eForm.getFormHtml();
+
+        assertThat(html)
+                .doesNotContain("${oscar_signature_code}")
+                .doesNotContain("signatureControl.jsp")
+                .doesNotContain("signature.js")
+                .contains("signatureControl.initialize=function initialize(){}")
+                .contains("name=\"fdid\" id=\"fdid\" value=\"77\"")
+                .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"");
+        assertThat(html.indexOf("/library/jquery/jquery-3.7.1.min.js"))
+                .isLessThan(html.indexOf("/library/jquery/jquery-ui-1.14.2.min.js"));
+        assertThat(html.indexOf("/library/jquery/jquery-ui-1.14.2.min.js"))
+                .isLessThan(html.indexOf("/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
+        assertThat(html.indexOf("/eform/eform-runtime-compat.js"))
+                .isLessThan(html.indexOf("/clinic.js"));
+    }
+
+    @Test
+    @DisplayName("should keep the bootstrap grant out of image asset URLs")
+    void shouldKeepRenderTokenOutOfAssetUrls_whenBrowserRenderingImageBearingForm() {
         EForm eForm = mock(EForm.class);
         AtomicReference<String> htmlRef = new AtomicReference<>("");
         when(eForm.getDemographicNo()).thenReturn("1");
@@ -271,16 +436,18 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 "carlos",
                 EFormRenderTokenService.RenderToken.fromRequestValue("grant-abc123"));
 
-        // Both the /eform/displayImage form and the ${oscar_image_path} form carry the grant so the
-        // sessionless render browser can fetch each asset image.
+        // Subresources use the renderer-only HttpOnly cookie. The bootstrap token must never enter
+        // authored HTML, referrers, browser diagnostics, or asset URLs.
         assertThat(html)
-                .contains("/carlos/EFormImageViewForPdfGenerationServlet?renderToken=grant-abc123&imagefile=bg.png")
-                .contains("/EFormImageViewForPdfGenerationServlet?renderToken=grant-abc123&imagefile=logo.png");
+                .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
+                .contains("/EFormImageViewForPdfGenerationServlet?imagefile=logo.png")
+                .doesNotContain("renderToken")
+                .doesNotContain("grant-abc123");
     }
 
     @Test
-    @DisplayName("should URI-encode the render grant before splicing it into asset URLs")
-    void shouldEncodeRenderToken_whenTokenCarriesMetacharacters() {
+    @DisplayName("should never reflect a request token into composed HTML")
+    void shouldNeverReflectRenderToken_whenTokenCarriesMetacharacters() {
         EForm eForm = mock(EForm.class);
         AtomicReference<String> htmlRef = new AtomicReference<>("");
         when(eForm.getDemographicNo()).thenReturn("1");
@@ -305,7 +472,9 @@ class EFormRenderPdfHtmlComposerUnitTest {
 
         assertThat(html)
                 .doesNotContain("<script>alert(1)</script>")
-                .contains("renderToken=%22%3E%3Cscript%3Ealert%281%29%3C%2Fscript%3E&imagefile=logo.png");
+                .doesNotContain("renderToken")
+                .doesNotContain("%22%3E")
+                .contains("EFormImageViewForPdfGenerationServlet?imagefile=logo.png");
     }
 
     @Test

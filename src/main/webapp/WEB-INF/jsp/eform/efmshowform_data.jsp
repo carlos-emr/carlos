@@ -126,6 +126,11 @@
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
+    // DOMPurify is editControl2.js's sanitize gate for loading a saved letter back into the editor.
+    // Without it sanitizeHtml() returns null and the editor falls back to textContent, so the
+    // clinician sees their letter as escaped markup and the next save stores it double-escaped.
+    // "First is last": this must be added AFTER jQuery so it lands BEFORE it in the document.
+    eForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
     eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");

@@ -239,9 +239,13 @@ function createCache(options) {
                 query += "&demographic_no=" + demographicNo;
             }
 
+            var rendererEndpointElement = document.getElementById("carlosEformRendererApCacheUrl");
+            var rendererEndpoint = rendererEndpointElement == null ? "" : rendererEndpointElement.value;
             jQuery.ajax({
-                url: "efmformapconfig_lookup",
-                data: query + "&" + window.location.search.substr(1),
+                url: rendererEndpoint || "efmformapconfig_lookup",
+                // Renderer identity is capability-bound on the server. Never forward fdid,
+                // demographic, provider, or appointment values from the browser query string.
+                data: rendererEndpoint ? query : query + "&" + window.location.search.substr(1),
                 success: function (response) {
                     response = jQuery(response);
                     var y;

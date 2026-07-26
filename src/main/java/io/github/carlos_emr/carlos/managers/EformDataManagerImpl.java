@@ -224,7 +224,7 @@ public class EformDataManagerImpl implements EformDataManager {
         try {
             // The caller owns cleanup of the returned renderer output.
             EFormBrowserPdfService.RenderedEformPdf rendered =
-                    eFormBrowserPdfService.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo(), approval);
+                    eFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid, approval);
             path = rendered.path();
         } catch (PDFGenerationException e) {
             // The renderer already logged a redacted cause. Record which fdid failed and the exception

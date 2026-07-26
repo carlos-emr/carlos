@@ -24,6 +24,8 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -90,21 +92,23 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
 
             String providerId;
             EFormRenderTokenService.RenderToken renderToken = null;
+            EFormRenderTokenService.RenderGrant browserGrant = null;
             if (browserRender) {
-                EFormRenderTokenService.RenderGrant grant = liveRenderGrant(request, formDataId);
-                if (grant == null) {
+                renderToken = EFormRenderTokenService.RenderToken.fromRequestValue(
+                        request.getParameter(RENDER_TOKEN_PARAM));
+                EFormRenderTokenService.RenderSession renderSession =
+                        EFormRendererRequestAuthorization.exchangeBootstrap(request, renderToken);
+                browserGrant = EFormRenderTokenService.getInstance().peek(renderToken);
+                if (renderSession == null || browserGrant == null || browserGrant.fdid() != formDataId) {
+                    logger.warn("Renderer request rejected: missing, expired, replayed, or mismatched render token");
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires a valid render token");
                     return;
                 }
-                providerId = grant.providerNo();
-                // Carry the grant forward onto the eForm's own asset URLs so the sessionless render
-                // browser can fetch its background/asset images under the same render-scoped token.
-                // Kept as the redacting RenderToken wrapper all the way into the composer — only
-                // appendRenderTokenToAssetUrls unwraps it via queryValue().
-                renderToken = EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM));
+                EFormRendererRequestAuthorization.setRendererCookie(request, response, renderSession);
+                providerId = browserGrant.providerNo();
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
-                LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
+                LoggedInInfo loggedInInfo = authorizedEformReadRequest(request, formDataId);
                 if (loggedInInfo == null) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires an authenticated _eform session");
                     return;
@@ -125,10 +129,22 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
             }
 
             response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("Content-Security-Policy", buildContentSecurityPolicy(browserRender));
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("Pragma", "no-cache");
+            response.setHeader("Referrer-Policy", "no-referrer");
+            response.setHeader(
+                    "Content-Security-Policy",
+                    buildContentSecurityPolicy(browserRender, request));
 
             String html = EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(
                     formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, renderToken);
+            if (browserGrant != null) {
+                EFormRendererRequestAuthorization.authorizeReferencedStaticResources(
+                        browserGrant,
+                        html,
+                        request.getContextPath(),
+                        getServletConfig() == null ? null : getServletContext());
+            }
 
             HtmlResponse.of(HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET, html).writeTo(response);
         } catch (IOException e) {
@@ -189,7 +205,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
      * carries an authenticated session with provider + security context and {@code _eform} read
      * privilege; returns null (logging the reason) on any denial.
      */
-    private static LoggedInInfo authorizedEformReadRequest(HttpServletRequest request) {
+    private static LoggedInInfo authorizedEformReadRequest(
+            HttpServletRequest request, int formDataId) {
         HttpSession session = request.getSession(false);
         LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProvider() == null || loggedInInfo.getLoggedInSecurity() == null) {
@@ -198,7 +215,15 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
         }
 
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
+        EFormData eFormData = SpringUtils.getBean(EFormDataDao.class).find(formDataId);
+        if (eFormData == null) {
+            logger.warn("Saved eForm PDF request rejected: requested eForm was not found");
+            return null;
+        }
+        String demographicId = eFormData.getDemographicId() == null
+                ? null : String.valueOf(eFormData.getDemographicId());
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)) {
             logger.warn("Saved eForm PDF request rejected: authenticated session lacks _eform read privilege");
             return null;
         }
@@ -214,10 +239,37 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
      * {@code 'self'}.
      */
     static String buildContentSecurityPolicy(boolean browserRender) {
+        return buildContentSecurityPolicy(browserRender, null);
+    }
+
+    static String buildContentSecurityPolicy(
+            boolean browserRender, HttpServletRequest request) {
         if (!browserRender) {
-            return "default-src 'self'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
+            return "default-src 'self'; script-src 'none'; object-src 'none'; base-uri 'none'; "
+                    + "form-action 'none'; frame-ancestors 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
         }
-        return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'";
+        String connectSource = "'none'";
+        if (request != null
+                && EFormRendererRequestAuthorization.isLoopback(request.getServerName())) {
+            try {
+                int port = request.getServerPort();
+                java.net.URI endpoint = new java.net.URI(
+                        request.getScheme(),
+                        null,
+                        request.getServerName(),
+                        port,
+                        request.getContextPath() + "/EFormApCacheForPdfGenerationServlet",
+                        null,
+                        null);
+                connectSource = endpoint.toASCIIString();
+            } catch (java.net.URISyntaxException ignored) {
+                // Fail closed: APCache is disabled when a safe exact endpoint cannot be formed.
+            }
+        }
+        return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                + "object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; "
+                + "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+                + "font-src 'self' data:; connect-src " + connectSource;
     }
 
     /**

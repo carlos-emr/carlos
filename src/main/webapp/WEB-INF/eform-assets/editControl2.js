@@ -338,8 +338,18 @@ function seteditControlContents(editorname, value){
 		}
 		return
 	} else {
-		// play nice and at least set the value to the <textarea> if document.designMode does not exist
-		document.getElementById(cfg_editorname).value = value;
+		// Fallback for a browser without designMode, where createEditControl() built a plain
+		// <textarea> instead of an editable iframe. Guard on the element actually being a form
+		// control: assigning .value to an iframe silently discards the letter, which is exactly
+		// how saved letters used to vanish on reopen. Fail loudly instead of losing content.
+		var fallbackTarget = document.getElementById(cfg_editorname);
+		if (fallbackTarget && typeof fallbackTarget.value === 'string'
+				&& fallbackTarget.tagName && fallbackTarget.tagName.toLowerCase() !== 'iframe') {
+			fallbackTarget.value = value;
+		} else if (typeof console !== 'undefined' && console.error) {
+			console.error('editControl: cannot set editor contents — the editor document is not in '
+				+ 'designMode and the target is not a text control. Saved content was NOT loaded.');
+		}
 		return
 	}
 }
@@ -1062,8 +1072,14 @@ function submitFaxButton() {
 				contents = contents.replace(/&lt;/g, "<");
 				contents = contents.replace(/&quot;/g, '"');
 				contents = contents.replace(/&amp;/g, "&");
-				seteditControlContents(cfg_editorname, contents);
+				// designMode MUST be enabled BEFORE the contents are written.
+				// seteditControlContents() only writes into the iframe when its document is
+				// already in designMode, and otherwise falls through to a branch that assigns
+				// .value to the iframe element — a no-op. With the two statements in the other
+				// order, reopening a saved letter showed an empty editor, and the toolbar's
+				// save-and-download then persisted that empty editor over the stored letter.
 				document.getElementById(cfg_editorname).contentWindow.document.designMode = 'on';
+				seteditControlContents(cfg_editorname, contents);
 			}
 			maximize();
 			

@@ -527,6 +527,16 @@
 		<url-pattern>/EFormImageViewForPdfGenerationServlet</url-pattern>
 	</servlet-mapping>
 
+	<servlet>
+		<servlet-name>EFormApCacheForPdfGenerationServlet</servlet-name>
+		<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormApCacheForPdfGenerationServlet</servlet-class>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>EFormApCacheForPdfGenerationServlet</servlet-name>
+		<url-pattern>/EFormApCacheForPdfGenerationServlet</url-pattern>
+	</servlet-mapping>
+
 
 	<servlet-mapping>
 		<servlet-name>UploadDocument</servlet-name>

@@ -75,10 +75,9 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         // sessionless browser fetches signature images over loopback under a render-scoped grant
         // (minted only after an _eform privilege check, invalidated when the render finishes). Require
         // that grant so this loopback endpoint is no longer a bare, always-open enumeration surface
-        // for any local process. The grant rides the signature URL the render servlet emits.
-        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.RenderToken
-                .fromRequestValue(request.getParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM));
-        EFormRenderTokenService.RenderGrant grant = EFormRenderTokenService.getInstance().peek(token);
+        // for any local process. The grant is carried only by the renderer capability cookie.
+        EFormRenderTokenService.RenderGrant grant =
+                EFormRendererRequestAuthorization.grantFromCookie(request);
         if (grant == null) {
             logger.warn("Rejected EFormSignatureViewForPdfGenerationServlet request lacking a valid render grant");
             // Handle the sendError IOException locally so it never escapes the servlet method.

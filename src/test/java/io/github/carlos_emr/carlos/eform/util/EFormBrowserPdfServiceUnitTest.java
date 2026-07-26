@@ -104,6 +104,20 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should never paint a root background over the negative z-index layer when preparing print")
+    void shouldNotPaintRootBackground_whenPreparingPrint() {
+        // `position:absolute; z-index:-1` is the standard eForm idiom for a scanned form
+        // background. The root element's background is propagated to the page canvas, which paints
+        // BENEATH that layer, so declaring one covered the background image of every form authored
+        // that way — silently, because the image still loaded with HTTP 200 and no render gate
+        // could see the loss. Chromium already prints white paper.
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
+                .doesNotContain("html.style.background")
+                .doesNotContain("background = 'white'")
+                .doesNotContain("background: white");
+    }
+
+    @Test
     @DisplayName("should measure the larger of div box and content box in the page geometry script")
     void shouldMeasureMaxOfDivAndContentBox_inPageGeometryScript() {
         assertThat(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS)
@@ -680,6 +694,44 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should count renderer write attempts while allowing only GET and HEAD")
+    void shouldCountNonReadRendererRequests() {
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.requestWillBeSent",
+                        "\"request\":{\"url\":\"http://127.0.0.1:8080/carlos/render\",\"method\":\"GET\"}"),
+                cdpMessage("Network.requestWillBeSent",
+                        "\"request\":{\"url\":\"http://127.0.0.1:8080/carlos/form.css\",\"method\":\"HEAD\"}"),
+                cdpMessage("Network.requestWillBeSent",
+                        "\"request\":{\"url\":\"http://127.0.0.1:8080/carlos/eform/save\",\"method\":\"POST\"}"),
+                cdpMessage("Network.requestWillBeSent",
+                        "\"request\":{\"url\":\"https://evil.example/exfil\",\"method\":\"PUT\"}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan =
+                EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.nonReadRequests()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should require the exact renderer URL and validate interaction evidence")
+    void shouldRequireExactRendererUrl_andValidInteractionCount() throws Exception {
+        String expected = "http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet"
+                + "?fdid=1&browserRender=true&renderToken=secret";
+
+        assertThat(EFormBrowserPdfService.isExpectedRendererUrl(expected, expected)).isTrue();
+        assertThat(EFormBrowserPdfService.isExpectedRendererUrl(
+                "http://127.0.0.1:8080/carlos/other?fdid=1", expected)).isFalse();
+        assertThat(EFormBrowserPdfService.isExpectedRendererUrl(
+                expected + "&unexpected=true", expected)).isFalse();
+        assertThat(EFormBrowserPdfService.readContainedInteractionCount(4L)).isEqualTo(4);
+        assertThatThrownBy(() -> EFormBrowserPdfService.readContainedInteractionCount(-1L))
+                .isInstanceOf(PDFGenerationException.class);
+        assertThatThrownBy(() -> EFormBrowserPdfService.readContainedInteractionCount("4"))
+                .isInstanceOf(PDFGenerationException.class);
+    }
+
+    @Test
     @DisplayName("should classify a failed self-URL image fetch as advisory for the empty-src idiom")
     void shouldClassifySelfUrlImageFailure_asAdvisory() {
         // Legacy corpus forms carry <img src=""> placeholders (JS-populated signature stamps); an
@@ -727,6 +779,27 @@ class EFormBrowserPdfServiceUnitTest {
         // does not carry a URL that can be attributed to an origin.
         assertThat(scan.failedCriticalSubresources()).isEqualTo(2);
         assertThat(scan.failedSubresources()).isZero();
+    }
+
+    @Test
+    @DisplayName("should treat failed stylesheets and fonts as advisory rather than missing content")
+    void shouldTreatPresentationResources_asAdvisoryFailures() {
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                // An icon-font stylesheet the corpus references relative to the viewer base. Losing it
+                // restyles the letter; it does not remove any clinical statement from it, so it must
+                // NOT withhold the document from the clinician.
+                cdpMessage("Network.responseReceived", "\"type\":\"Stylesheet\",\"response\":{\"url\":\"http://127.0.0.1:8080/css/fontawesome-all.min.css\",\"status\":404}"),
+                cdpMessage("Network.loadingFailed", "\"type\":\"Font\",\"errorText\":\"net::ERR_CONNECTION_REFUSED\",\"canceled\":false"),
+                // Content-bearing failures in the same scan must still block.
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":404}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        // Only the missing background image is content; the stylesheet and font are advisory.
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedSubresources()).isEqualTo(2);
     }
 
     @Test
@@ -1129,7 +1202,7 @@ class EFormBrowserPdfServiceUnitTest {
             // A non-loopback base URL makes validateRendererBaseUrl throw IllegalArgumentException;
             // the render path must surface that as a checked PDFGenerationException naming the
             // configuration problem, not let the unchecked IAE escape the throws contract.
-            assertThatThrownBy(() -> service.renderSavedEformPdf(4242, "999998"))
+            assertThatThrownBy(() -> service.renderSavedEformPdfAuthorized(4242, "999998", null))
                     .isInstanceOf(PDFGenerationException.class)
                     .hasMessageContaining("configuration");
         } finally {
@@ -1207,7 +1280,7 @@ class EFormBrowserPdfServiceUnitTest {
         try {
             EFormBrowserPdfService service = new EFormBrowserPdfService();
 
-            assertThatThrownBy(() -> service.renderSavedEformPdf(424242, "999998"))
+            assertThatThrownBy(() -> service.renderSavedEformPdfAuthorized(424242, "999998", null))
                     .isInstanceOf(PDFGenerationException.class);
 
             // The grant issued for this render must not linger for its TTL after the failure —

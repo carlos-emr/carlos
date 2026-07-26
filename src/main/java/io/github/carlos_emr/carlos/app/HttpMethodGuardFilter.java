@@ -301,7 +301,8 @@ public class HttpMethodGuardFilter implements Filter {
             "/eformViewForPdfGenerationServlet",
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
-            "/EFormImageViewForPdfGenerationServlet"
+            "/EFormImageViewForPdfGenerationServlet",
+            "/EFormApCacheForPdfGenerationServlet"
     );
 
     /**

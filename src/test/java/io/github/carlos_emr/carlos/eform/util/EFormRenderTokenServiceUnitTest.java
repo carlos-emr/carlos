@@ -40,6 +40,25 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class EFormRenderTokenServiceUnitTest {
 
     @Test
+    @DisplayName("should bind bootstrap exchange to one renderer session and reject replay")
+    void shouldBindExchangeToOneSession_andRejectReplay() {
+        EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
+        EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
+
+        EFormRenderTokenService.RenderSession session = service.exchange(token, null);
+
+        assertThat(session).isNotNull().hasToString("[render-session]");
+        assertThat(session.cookieValue()).matches("[A-Za-z0-9_-]{40,}");
+        assertThat(service.exchange(token, session.cookieValue())).isEqualTo(session);
+        assertThat(service.exchange(token, null)).isNull();
+        assertThat(service.exchange(token, "another-browser")).isNull();
+        assertThat(service.peekSession(session.cookieValue())).isNotNull();
+
+        service.invalidate(token);
+        assertThat(service.peekSession(session.cookieValue())).isNull();
+    }
+
+    @Test
     @DisplayName("should bind a lease to the eForm and discard the grant on close")
     void shouldBindLeaseToEform_andDiscardOnClose() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());

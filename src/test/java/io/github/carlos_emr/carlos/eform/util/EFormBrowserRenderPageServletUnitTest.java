@@ -31,6 +31,8 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -183,7 +185,9 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
         request.setParameter("fdid", "123");
         installLoggedInInfo(request, "999998");
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(
+                any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), eq("123")))
+                .thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -243,7 +247,9 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
         request.setParameter("providerId", "111111");
         installLoggedInInfo(request, "999998");
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(
+                any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), eq("123")))
+                .thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -263,7 +269,9 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
         request.setParameter("fdid", "123");
         installLoggedInInfo(request, "999998");
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(
+                any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), eq("123")))
+                .thenReturn(false);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -294,9 +302,19 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+            assertThat(response.getHeader("Set-Cookie"))
+                    .contains(EFormRendererRequestAuthorization.COOKIE_NAME + "=")
+                    .contains("HttpOnly")
+                    .contains("SameSite=Strict")
+                    .doesNotContain("JSESSIONID");
             assertThat(response.getHeader("Content-Security-Policy"))
                     .contains("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
-                    .contains("img-src 'self' data: blob:");
+                    .contains("img-src 'self' data: blob:")
+                    .contains("form-action 'none'")
+                    .contains("base-uri 'none'")
+                    .contains("frame-ancestors 'none'");
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+            assertThat(response.getHeader("Referrer-Policy")).isEqualTo("no-referrer");
             assertThat(response.getContentAsString()).contains("rendered");
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
@@ -318,10 +336,11 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
                 .contains("default-src 'self' data:")
                 .contains("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
                 .contains("object-src 'none'")
+                .contains("form-action 'none'")
                 .contains("img-src 'self' data: blob:");
     }
 
-    private static void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {
+    private void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);
         Security security = new Security();
@@ -331,5 +350,12 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
         loggedInInfo.setLoggedInProvider(provider);
         loggedInInfo.setLoggedInSecurity(security);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+
+        EFormData eFormData = new EFormData();
+        eFormData.setId(123);
+        eFormData.setDemographicId(123);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        when(eFormDataDao.find(123)).thenReturn(eFormData);
+        registerMock(EFormDataDao.class, eFormDataDao);
     }
 }

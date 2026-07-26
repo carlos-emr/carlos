@@ -77,7 +77,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     @DisplayName("should throw PDFGenerationException when browser renderer returns null path")
     void shouldThrowPdfGenerationException_whenBrowserRendererReturnsNullPath() throws Exception {
         when(eFormBrowserPdfService.renderSavedEformPdf(
-                77, "999998", (EFormRenderApproval) null)).thenReturn(null);
+                loggedInInfo, 77, (EFormRenderApproval) null)).thenReturn(null);
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
                 .isInstanceOf(PDFGenerationException.class)
@@ -92,14 +92,14 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         try {
             Files.write(pdfPath, new byte[] {1, 2, 3, 4});
             when(eFormBrowserPdfService.renderSavedEformPdf(
-                    77, "999998", (EFormRenderApproval) null))
+                    loggedInInfo, 77, (EFormRenderApproval) null))
                 .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
 
             Path actualPath = manager.createEformPDF(loggedInInfo, 77);
 
             assertThat(actualPath).isEqualTo(pdfPath);
             verify(eFormBrowserPdfService).renderSavedEformPdf(
-                    77, "999998", (EFormRenderApproval) null);
+                    loggedInInfo, 77, (EFormRenderApproval) null);
         } finally {
             Files.deleteIfExists(pdfPath);
         }
@@ -114,7 +114,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         Path pdfPath = Files.createTempFile("eform-browser-render-missing-", ".pdf");
         Files.deleteIfExists(pdfPath);
         when(eFormBrowserPdfService.renderSavedEformPdf(
-                77, "999998", (EFormRenderApproval) null))
+                loggedInInfo, 77, (EFormRenderApproval) null))
                 .thenReturn(new EFormBrowserPdfService.RenderedEformPdf(pdfPath));
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
@@ -122,14 +122,14 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("unreadable temporary file");
 
         verify(eFormBrowserPdfService).renderSavedEformPdf(
-                77, "999998", (EFormRenderApproval) null);
+                loggedInInfo, 77, (EFormRenderApproval) null);
     }
 
     @Test
     @DisplayName("should require demographic-scoped eForm read privilege before browser rendering")
     void shouldRequireDemographicScopedEformReadPrivilege_beforeBrowserRendering() throws Exception {
         when(eFormBrowserPdfService.renderSavedEformPdf(
-                77, "999998", (EFormRenderApproval) null)).thenReturn(null);
+                loggedInInfo, 77, (EFormRenderApproval) null)).thenReturn(null);
 
         // This test's contract is the demographic-scoped privilege check below; the null-path →
         // exception-message contract is owned by shouldThrowPdfGenerationException_whenBrowserRendererReturnsNullPath,
@@ -141,7 +141,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, "123");
         verify(eFormBrowserPdfService).renderSavedEformPdf(
-                77, "999998", (EFormRenderApproval) null);
+                loggedInInfo, 77, (EFormRenderApproval) null);
     }
 
     @Test

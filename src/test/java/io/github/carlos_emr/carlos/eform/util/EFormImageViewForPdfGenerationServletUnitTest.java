@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -119,7 +120,7 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
                 MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
                 request.setRemoteAddr("127.0.0.1");
                 request.setParameter("imagefile", "bg.png");
-                request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+                installRendererCookie(request, token);
                 MockHttpServletResponse response = new MockHttpServletResponse();
 
                 new EFormImageViewForPdfGenerationServlet().doGet(request, response);
@@ -148,8 +149,7 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
                     new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("imagefile", "other.png");
-            request.setParameter(
-                    EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormImageViewForPdfGenerationServlet().doGet(request, response);
@@ -167,7 +167,8 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("127.0.0.1");
         request.setParameter("imagefile", "bg.png");
-        request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, "never-issued-token");
+        request.setCookies(new Cookie(
+                EFormRendererRequestAuthorization.COOKIE_NAME, "never-issued-session"));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         new EFormImageViewForPdfGenerationServlet().doGet(request, response);
@@ -494,6 +495,14 @@ class EFormImageViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
             assertThat(logs.events()).noneMatch(event -> event.getThrown() != null);
         }
+    }
+
+    private static void installRendererCookie(
+            MockHttpServletRequest request, EFormRenderTokenService.RenderToken token) {
+        EFormRenderTokenService.RenderSession session =
+                EFormRenderTokenService.getInstance().exchange(token, null);
+        request.setCookies(new Cookie(
+                EFormRendererRequestAuthorization.COOKIE_NAME, session.cookieValue()));
     }
 
     private static void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {

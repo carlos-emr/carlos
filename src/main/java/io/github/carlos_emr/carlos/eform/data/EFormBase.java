@@ -126,6 +126,10 @@ public class EFormBase {
         return fid;
     }
 
+    public String getFdid() {
+        return fdid;
+    }
+
     public void setFid(String fid) {
         this.fid = fid;
     }

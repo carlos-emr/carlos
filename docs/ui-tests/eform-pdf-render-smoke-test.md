@@ -46,6 +46,26 @@ user-facing error handling?
 
 6. Set `CHROME_PATH` only if Playwright cannot find Chromium automatically.
 
+7. Confirm the database has the Rich Text Letter attachment-route migration applied:
+
+   ```bash
+   mysql -h db -u root -p"$MYSQL_ROOT_PASSWORD" oscar \
+     < database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql
+   ```
+
+   Without it the stored RTL template still opens `../eform/attachEform.jsp`, which 404s, and all
+   three RTL attachment checks fail on an error-page assertion that looks like a routing regression.
+
+8. Confirm the deployed `editControl2.js` is current. `EFormAssetDeployer` deliberately skips any
+   asset that already exists on disk (so clinic-customized copies are never clobbered), which also
+   means a *fixed* editor never reaches an existing install. After changing
+   `src/main/webapp/WEB-INF/eform-assets/editControl2.js`, delete the deployed copy so the next
+   startup redeploys it:
+
+   ```bash
+   rm /var/lib/OscarDocument/oscar/eform/images/editControl2.js   # dev only
+   ```
+
 ## Scripted Smoke Pass
 
 Run these in order.
@@ -107,9 +127,28 @@ Expected result:
 - saved-form identity stays stable through the consultation path
 - no unexpected severe console or network failures
 
+### 5. Extended eForm Contract Checks
+
+Run the remaining eForm-adjacent browser contracts before release:
+
+```bash
+npm run test:eform-test-pattern-playwright
+npm run test:eform-rtl-attachment-routes-playwright
+npm run test:eform-rtl-attachment-behavior-playwright
+npm run test:eform-rtl-attachment-types-playwright
+npm run test:consultation-signature-playwright
+npm run test:consultation-signature-submit-playwright
+```
+
+These pin test-pattern rendering, Rich Text Letter attachment routes/data families, and both
+consultation signature display and submit behavior. Do not add a new missing-resource exception to
+any recorder without clinician/developer approval; `stamps.js`, legacy `signature.js`
+compatibility, and genuinely optional font/style failures are the only pre-approved categories.
+
 ## Manual Smoke Pass
 
-Perform this after the 4 scripted checks pass.
+Perform this after the 4 scripted checks pass. Use a fresh browser session for the renderer
+observation so an existing CARLOS login cannot mask a session-scoping defect.
 
 ### 1. Preview-on-Save
 
@@ -148,6 +187,63 @@ Pass criteria:
 - success path stores the document
 - failure path, if exercised, shows only user-safe messaging
 
+### 4. Renderer isolation and passive saved-view profile
+
+1. Generate a PDF from a saved eForm that uses a background image, local CSS/JS, a stored
+   signature, and an APCache-populated field when those fixtures are available.
+2. In the server-side Chromium network observation, confirm the initial renderer document is the
+   only URL containing `renderToken`.
+3. Confirm subsequent renderer requests use only GET/HEAD and remain on the exact loopback origin.
+4. Confirm no `JSESSIONID`, CARLOS login cookie, provider identity, demographic identity, or CSRF
+   token is present in the renderer browser.
+5. Confirm the renderer cookie is `CARLOS_EFORM_RENDER`, host-only, HttpOnly, SameSite=Strict,
+   application-path scoped, and Secure when the target is HTTPS.
+6. Confirm the renderer document has `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, and
+   CSP containing `form-action 'none'`.
+7. Confirm saved values, Letter content, background assets, and stored signature geometry are
+   visible in the PDF. Confirm editor/toolbar/signature-capture controls are absent.
+8. Attempt a form submit, popup, and navigation from a renderer-specific test fixture. Confirm no
+   write request or popup succeeds and the render either completes with a contained-interaction
+   report or fails safely.
+
+Pass criteria:
+- the browser has only the renderer capability, never a clinician session
+- every resource is an exact granted read and the bootstrap token does not propagate
+- security containment does not remove saved clinical content
+- any newly missing clinic resource is recorded and approved before an exception is added
+
+### 5. Open the produced PDF and look at it
+
+The render gates cannot see everything. Two defects shipped past a completely clean gate because
+the failure was in *paint order and encoding*, not in resource loading: a background image that
+returned HTTP 200 but was covered by the page canvas, and a letter that was spliced in as escaped
+text so the PDF printed `<h3>` instead of a heading. `%PDF-` plus a byte count proves neither.
+
+For at least one form with a background image and one Rich Text Letter, open the PDF and confirm:
+
+1. The background image is visible, correctly placed and scaled. Test a form whose background uses
+   `position:absolute; z-index:-1` — that is the idiom the canvas used to cover.
+2. Letter content is formatted — headings, paragraphs, lists — with no literal `<p>` / `&lt;` in the
+   page.
+3. No editor chrome: no toolbar, no template/font selectors, no Submit/Print/Reset buttons, no
+   signature-capture pad. A printed eForm is a passive snapshot.
+4. Anything marked `.DoNotPrint` is absent.
+5. Text is selectable, not a raster image.
+
+If a rasterizer is needed, PDFBox is already on the classpath and `PDFTextStripper` plus
+`PDFRenderer` will both extract the text layer and produce a PNG to eyeball.
+
+### 6. Saved-letter round trip
+
+1. Type a formatted letter into a Rich Text Letter, save, then reopen the saved `fdid`.
+2. Confirm the editor shows the letter **formatted** — not escaped markup, not blank.
+3. Save again, then confirm the stored value has not gained another layer of entity encoding.
+
+This path silently lost content twice: once because the editor wrote contents before enabling
+`designMode` (a no-op), and once because DOMPurify was not loaded on the host page, so the editor's
+sanitize gate failed closed to `textContent`. Both look identical to the clinician — an empty or
+escaped editor — and both cause the *next* save to overwrite the stored letter.
+
 ## Failure Capture
 
 If any step fails, capture all of the following before retrying:
@@ -166,6 +262,7 @@ Treat the branch as smoke-tested only if all of the following are true:
 - the manual preview-on-save pass works
 - the manual reopen-saved-form pass works
 - the `saveAsEdoc` success path works
+- the renderer isolation/passive-profile pass works
 - no unexpected console errors or 4xx/5xx responses appear during the pass
 
 ## Optional Local RTL Regression Checks

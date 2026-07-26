@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.jupiter.api.DisplayName;
@@ -71,7 +72,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -104,7 +105,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -132,7 +133,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -157,7 +158,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "99");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -177,7 +178,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42-or-1=1");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -199,7 +200,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "99999999999999999999");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -229,7 +230,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -261,7 +262,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -292,7 +293,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
@@ -321,7 +322,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
             request.setRemoteAddr("127.0.0.1");
             request.setParameter("digitalSignatureId", "42");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            installRendererCookie(request, token);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             try (LogCapture logs = LogCapture.forLogger(EFormSignatureViewForPdfGenerationServlet.class)) {
@@ -343,6 +344,14 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
         EFormDataDao dao = mock(EFormDataDao.class);
         when(dao.findByFormDataId(fdid)).thenReturn(eFormData);
         return dao;
+    }
+
+    private static void installRendererCookie(
+            MockHttpServletRequest request, EFormRenderTokenService.RenderToken token) {
+        EFormRenderTokenService.RenderSession session =
+                EFormRenderTokenService.getInstance().exchange(token, null);
+        request.setCookies(new Cookie(
+                EFormRendererRequestAuthorization.COOKIE_NAME, session.cookieValue()));
     }
 
     private static EFormValueDao eFormValueDaoReferencing(int fdid, String signatureId) {

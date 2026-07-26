@@ -9,23 +9,26 @@ anywhere on the server**.
 ## Architecture
 
 ```text
-EformDataManagerImpl.createEformPDF (checks _eform read privilege)
-  └─ EFormBrowserPdfService.renderSavedEformPdf(fdid, providerNo)
+EformDataManagerImpl.createEformPDF
+  └─ EFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid)
+       ├─ loads the saved eForm and checks _eform READ for its demographic
        ├─ mints a render-scoped render token (EFormRenderTokenService, 2-min TTL)
        ├─ launches headless Chromium via Selenium ChromeDriver (fresh browser per render)
        ├─ navigates over loopback to /EFormViewForPdfGenerationServlet?fdid=…&browserRender=true&renderToken=…
-       │    ├─ servlet enforces: loopback remote address + token grant bound to the fdid
-       │    └─ rewrites the eForm's ${oscar_image_path}/displayImage asset URLs to
-       │         /EFormImageViewForPdfGenerationServlet?renderToken=…&imagefile=…, so the sessionless
-       │         browser fetches each background/asset image under the same grant (loopback + token)
+       │    ├─ servlet exchanges the one-time bootstrap token for a host-only,
+       │    │    HttpOnly, SameSite=Strict CARLOS_EFORM_RENDER cookie
+       │    ├─ composes a passive saved-view profile after Letter replacement
+       │    └─ grants only exact referenced static/image/signature/APCache resources
        ├─ emulates print media, stabilizes the page (fonts, images, animation frames),
        │    measures each authored page div's content box, and sizes the CSS @page boxes to match
        └─ prints the page to a native, text-layer eform-browser-render-*.pdf via CDP Page.printToPDF
 ```
 
-The token replaces any session forwarding: the browser never holds a user's session cookie, so
-script on a rendered eForm can act as no one. Authorization is anchored at the manager's
-`SecurityInfoManager.hasPrivilege(_eform)` check, which is the only place tokens are minted.
+The renderer capability replaces session forwarding: Chromium never receives `JSESSIONID`, the
+CARLOS session, or a CSRF token. The public service entry point loads the saved record and performs
+patient-scoped `_eform` READ authorization before minting the bootstrap capability. The bootstrap
+token appears only on the initial loopback navigation; subresources use the short-lived renderer
+cookie and do not receive it in their URLs.
 
 ### Native print-to-PDF with authored @page sizing
 
@@ -137,6 +140,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 | `eform_pdf_browser_chromedriver_path` | unset | Absolute path to a pinned chromedriver. Set this in production. |
 | `eform_pdf_browser_startup_check` | `required` | Startup readiness gate mode: `required` aborts webapp startup on a failed renderer probe, `warn` logs and defers the failure to first render, `off` skips the probe (test contexts). See the upgrade notice above. |
 | `eform_pdf_browser_strict_network_gate` | `false` | When `true`, restores the original fail-closed posture where any observed off-origin HTTP request, failed render-critical subresource, or severe page-script console error aborts the whole render. The default (`false`) treats those three as advisory (logged, render proceeds) so the legacy eForm corpus — which routinely references off-origin assets, 404s optional helper scripts/images, and emits benign JS errors — still produces a PDF of what painted. Physical egress containment is unaffected: the dead proxy still blocks off-origin HTTP, and the WebSocket/WebTransport gate, the same-origin main-document requirement, and the unparseable-network-evidence gate stay hard fail-closed regardless of this switch. |
+| `eform_pdf_browser_saved_view_profile_enabled` | `true` | Enables the saved-view dependency profile and renderer-only APCache bridge. Set `false` only as a temporary compatibility rollback while investigating a clinic form; capability/session isolation and all browser containment remain enabled. |
 
 Environment: the renderer is **unsandboxed by default** so it starts out of the box on the common
 deployment shape (Tomcat as root / a container without unprivileged user namespaces, where
@@ -205,17 +209,19 @@ heuristic.
   for the clinic's hostname, not `127.0.0.1`; the renderer accepts that mismatch so rendering
   works on TLS deployments. This is safe *only because* egress is loopback-locked — do not
   change either setting without the other.
-- **Render-scoped render tokens.** 32 random bytes, 2-minute TTL, bound to one fdid. The grant is
-  *peeked* (not consumed) on each redemption so one render can authorize the eForm document plus its
-  loopback asset-image subresources — the render browser holds no session, so those sessionless
-  fetches authorize themselves with the same grant. The renderer invalidates the token when the
-  render finishes; the TTL is the backstop. `EFormImageViewForPdfGenerationServlet` accepts a live
-  grant as an alternative to a session **only** on the loopback path and only for the exact shared
-  eForm template assets referenced by the rendered form — never patient records.
-  `EFormSignatureViewForPdfGenerationServlet` (digital signatures — PHI) **requires** a live
-  grant on the loopback path. In-render
-  script is contained by the egress lockdown, not the grant: a malicious form can read what its own
-  render sees but cannot send it anywhere.
+- **Render-scoped capability session.** A 32-byte bootstrap token and independent 32-byte cookie
+  handle have a 2-minute TTL and are bound to one fdid/provider. The initial loopback document
+  exchanges the token for `CARLOS_EFORM_RENDER`; token replay without the already-bound cookie is
+  rejected. The cookie is host-only, HttpOnly, SameSite=Strict, scoped to the application path, and
+  Secure on HTTPS. It is not a CARLOS `HttpSession` and carries no user identity or CSRF authority.
+  The render lease invalidates both handles on every completion path; TTL is only the backstop.
+- **Exact resource grants.** Before serving the composed document, the renderer records exact local
+  script, stylesheet, font, image, signature, and literal APCache references. LoginFilter permits
+  only loopback GET/HEAD requests for those exact passive static paths. Dedicated image/signature
+  servlets and the read-only APCache bridge independently require the live cookie and their exact
+  asset/id/key grant. APCache derives patient/provider identity from the saved fdid, rejects
+  appointment-dependent APs when no appointment context exists, and never accepts browser-supplied
+  patient/provider identities.
 - **Fresh browser per render.** No cookies, storage, or cache can bleed between renders or
   users. `driver.quit()` in a `finally` block tears down chromedriver and Chromium, and the
   caller-owned chromedriver service is stopped afterwards as a backstop
@@ -226,9 +232,11 @@ heuristic.
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.
 - **Page gates and informed approval.** The render gates have three outcomes:
-  - **Always hard fail-closed:** a `null` or non-200 same-origin main document; a
+  - **Always hard fail-closed:** a `null` or non-200 same-origin main document; navigation away from
+    the exact authorized renderer URL; any observed non-GET/HEAD request; a
     WebSocket/WebTransport creation; unparseable network evidence; or an unreadable browser console
-    log. These security and renderer-integrity failures cannot be approved or overridden.
+    log. These security and renderer-integrity failures cannot be approved or overridden. CSP also
+    sets `form-action 'none'`, and pre-navigation shims contain alert/confirm/prompt/window.open.
   - **Incomplete document — explicit approval required:** any failed resource type that can affect
     clinical content (`Document`, `Image`, `Script`, `Stylesheet`, `Font`, `Media`, `XHR`, or
     `Fetch`), visible elements excluded from print layout, a stored signature that cannot be
@@ -296,6 +304,35 @@ eForms **without** a real container boundary leaves the browser without OS-level
 
 (The dev/CI Playwright check scripts under `scripts/` are separate test tooling; they run as root
 in CI and use their own `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX` opt-in — not this production knob.)
+
+## The render surface is passive
+
+The composed render document is a snapshot of saved clinical content, never a working copy of the
+editor. `EFormRenderPdfHtmlComposer` strips the WYSIWYG editor (`editControl2.js` and its
+`insertEditControl()` bootstrap), the print/fax/image control libraries, the signature-capture
+control, and the floating toolbar. `APCache.js` is deliberately kept — it populates clinical field
+content, which is why the capability-scoped APCache endpoint exists.
+
+This is a correctness requirement, not tidiness. The render surface's `connect-src` admits only the
+APCache endpoint, so any other XHR the editor makes — the letter-template list, the attachment
+sidebar poll — is refused, counts as a failed content resource, and the completeness gate then
+blocks the entire PDF. Leaving editor chrome on the surface meant a clinician could be denied their
+letter because a toolbar dropdown could not populate.
+
+### Stored letters are decoded before they are spliced
+
+`saveRTL()` entity-encodes the letter (`&`, `"`, `<`, `>`, `'`) so it survives inside a textarea
+value. `decodeStoredLetter` reverses that in the same order `editControl2.js` uses — `&amp;` LAST,
+so text a clinician actually typed as `&lt;` stays text. Diverging from that order makes the PDF and
+the on-screen editor disagree about the same stored letter; change both together or neither.
+
+Decoding turns previously-inert markup into live markup on a surface that permits
+`'unsafe-inline'`, so `hardenLetterHtml` strips event-handler attributes and `javascript:` URLs.
+Script *elements* are kept on purpose: the stored signature's geometry is read out of the letter's
+own `signatureControl.initialize({...})` call, and clinic letters carry image-path fixups inline. A
+full allow-list sanitizer removes both and silently costs the clinician a signature. Execution is
+contained rather than forbidden — no session or cookie in the render browser, egress blocked at the
+network layer, and any non-GET request fails the render gate.
 
 ## Known limitations and tracked follow-ups
 

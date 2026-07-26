@@ -72,10 +72,15 @@ import org.springframework.stereotype.Service;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Browser-backed eForm PDF renderer driven entirely from the JVM.
@@ -207,6 +212,22 @@ public class EFormBrowserPdfService {
     // ---------------------------------------------------------------------------------------------
 
     /**
+     * Installed before any stored form code. Legacy modal APIs cannot block WebDriver, create a
+     * popup, or disclose their argument text to logs; only a bounded count enters completeness.
+     */
+    static final String INSTALL_INTERACTION_CONTAINMENT_JS =
+            "(() => {\n"
+            + "  let count = 0;\n"
+            + "  Object.defineProperty(window, '__carlosRendererInteractionCount', {\n"
+            + "    configurable: false, get: () => count\n"
+            + "  });\n"
+            + "  window.alert = () => { count += 1; };\n"
+            + "  window.confirm = () => { count += 1; return false; };\n"
+            + "  window.prompt = () => { count += 1; return null; };\n"
+            + "  window.open = () => { count += 1; return null; };\n"
+            + "})();";
+
+    /**
      * Async settle: fonts ready, pending images resolved, DOM mutations quiet, two animation frames.
      *
      * <p>The DOM-quiescence wait is load-bearing for script-built forms. The Rich Text Letter (and
@@ -266,6 +287,14 @@ public class EFormBrowserPdfService {
      * decorations), and that the non-print viewer chrome is hidden for forms that lack their own
      * print CSS. It deliberately does NOT set {@code width: max-content} or {@code overflow: visible}
      * (those were raster screenshot hacks); native print lays the form out at its natural width.
+     *
+     * <p>It also deliberately does NOT paint a background colour onto {@code <html>}. The root
+     * element's background is propagated to the page canvas, which is painted beneath the negative
+     * z-index layer — and {@code position:absolute; z-index:-1} is the standard eForm idiom for a
+     * scanned form background. Forcing {@code html { background: white }} therefore covered the
+     * background image of every form authored that way, producing a blank-backgrounded PDF while
+     * the image itself loaded with HTTP 200, so no render gate could detect the loss. Chromium
+     * already prints white paper; nothing needs to declare it.</p>
      */
     static final String PREPARE_PRINT_JS =
             "const existingCleanupStyle = document.getElementById('eform-browser-pdf-render-cleanup');\n"
@@ -306,7 +335,6 @@ public class EFormBrowserPdfService {
             + "if (html) {\n"
             + "  html.style.margin = '0';\n"
             + "  html.style.padding = '0';\n"
-            + "  html.style.background = 'white';\n"
             + "}";
 
     /**
@@ -533,21 +561,21 @@ public class EFormBrowserPdfService {
      * Chromium and printing the stabilized page to a native, text-layer PDF via CDP
      * {@code Page.printToPDF} (with each {@code @page} sized to the authored page geometry).
      *
-     * <p>Callers MUST have passed an {@code _eform} privilege check (today:
-     * {@code EformDataManagerImpl.createEformPDF}) before calling; this service mints the render
-     * grant without a privilege check of its own.
+     * <p>The public service boundary loads the saved record and enforces demographic-scoped
+     * {@code _eform} READ access before minting any renderer capability.
      *
+     * @param loggedInInfo authenticated caller used for patient-scoped authorization and provider
+     *        binding
      * @param fdid saved eForm data identifier
-     * @param providerId provider number the render surface is scoped to; carried inside the
-     *        render grant, never on the URL
      * @return handle to a readable temporary PDF; the holder owns cleanup via
      *         {@link RenderedEformPdf#close()}
      * @throws PDFGenerationException when no render slot is available, the browser cannot start,
      *         the page fails its gates (bad status, blocked egress, console errors), the render
      *         times out, or no readable PDF is produced
      */
-    public RenderedEformPdf renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
-        return renderSavedEformPdf(fdid, providerId, null);
+    public RenderedEformPdf renderSavedEformPdf(
+            LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
+        return renderSavedEformPdf(loggedInInfo, fdid, null);
     }
 
     /**
@@ -556,14 +584,38 @@ public class EFormBrowserPdfService {
      * {@link EformContentUnavailableException}; main-document, network-evidence, and live-channel
      * failures are never overridable.
      *
+     * @param loggedInInfo authenticated caller used for patient-scoped authorization and provider
+     *        binding
      * @param fdid saved eForm data identifier
-     * @param providerId provider number the render surface is scoped to
      * @param approval exact, short-lived approval capability, or {@code null}
      * @return handle to a readable temporary PDF
      * @throws EformContentUnavailableException when the render has unapproved omissions
      * @throws PDFGenerationException for every other render failure
      */
     public RenderedEformPdf renderSavedEformPdf(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
+        EFormData eFormData = SpringUtils.getBean(EFormDataDao.class).find(fdid);
+        if (eFormData == null) {
+            throw new PDFGenerationException(
+                    "EForm PDF generation failed because the eForm was not found.");
+        }
+        String demographicId = eFormData.getDemographicId() == null
+                ? null : String.valueOf(eFormData.getDemographicId());
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (loggedInInfo == null
+                || !securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+        String providerId = loggedInInfo.getLoggedInProviderNo();
+        return renderSavedEformPdfAuthorized(fdid, providerId, approval);
+    }
+
+    /**
+     * Test seam below the public authorization boundary. Production callers must use the
+     * LoggedInInfo-bearing API above.
+     */
+    RenderedEformPdf renderSavedEformPdfAuthorized(
             int fdid, String providerId, EFormRenderApproval approval) throws PDFGenerationException {
         // Resolve the managed temp root and sweep stale renderer artifacts BEFORE competing for a
         // render slot. The sweep is best-effort housekeeping (a filesystem walk of the shared root);
@@ -657,6 +709,9 @@ public class EFormBrowserPdfService {
             // layout Page.printToPDF will emit, and each form's own {@code @media print} rules (e.g.
             // the corpus fixture's PrintOnly/DoNotPrint toggles) take effect for the captured PDF.
             ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
+            ((HasCdp) driver).executeCdpCommand(
+                    "Page.addScriptToEvaluateOnNewDocument",
+                    Map.of("source", INSTALL_INTERACTION_CONTAINMENT_JS));
 
             List<LogEntry> performanceEntries = new ArrayList<>();
             // Navigate the sessionless render browser to the loopback render page. Do NOT log the full
@@ -671,6 +726,10 @@ public class EFormBrowserPdfService {
                     performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
             awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
             boolean stabilizationCapped = settle(driver, deadlineNanos, fdid);
+            if (!isExpectedRendererUrl(driver.getCurrentUrl(), baseUrl + appPath)) {
+                throw new PDFGenerationException(
+                        "Browser rendering navigated away from the authorized eForm page.");
+            }
 
             JavascriptExecutor js = driver;
             js.executeScript(PREPARE_PRINT_JS);
@@ -679,13 +738,15 @@ public class EFormBrowserPdfService {
             // form (the Rich Text Letter) authored no pageN divs, so we inject no @page size and let the
             // form's own @page rules or Chromium's default paper drive natural pagination.
             PageGeometry geometry = readPageGeometry(js.executeScript(COMPUTE_PAGE_GEOMETRY_JS));
+            int containedInteractions = readContainedInteractionCount(
+                    js.executeScript("return window.__carlosRendererInteractionCount || 0;"));
             drainPerformanceLog(driver, performanceEntries);
             EFormRenderCompletenessReport completeness = enforceRenderGates(
                     driver, performanceEntries, latchedMainStatus, baseUrl, fdid)
                     .merge(new EFormRenderCompletenessReport(
                             0,
                             geometry.excludedCount(),
-                            0,
+                            containedInteractions,
                             geometry.signatureBroken(),
                             geometry.timerCompatibilityFailure(),
                             stabilizationCapped,
@@ -1465,6 +1526,12 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException(
                     "Browser rendering attempted a live egress channel. liveChannelAttempts=" + scan.liveChannelAttempts());
         }
+        if (scan.nonReadRequests() > 0) {
+            logger.error("Browser eForm renderer attempted a non-read request: fdid={} count={}",
+                    fdid, scan.nonReadRequests());
+            throw new PDFGenerationException(
+                    "Browser rendering attempted a prohibited write request.");
+        }
         // Content-affecting failures enter the completeness report below. Only sanitized counts
         // cross this boundary; request URLs may contain clinical data.
         if (scan.failedCriticalSubresources() > 0) {
@@ -1558,7 +1625,8 @@ public class EFormBrowserPdfService {
      * default; strict mode also rejects it.
      */
     record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources,
-            int parseFailures, int liveChannelAttempts, int failedCriticalSubresources) {
+            int parseFailures, int liveChannelAttempts, int failedCriticalSubresources,
+            int nonReadRequests) {
     }
 
     /**
@@ -1569,6 +1637,16 @@ public class EFormBrowserPdfService {
      */
     private static final Set<String> RENDER_CRITICAL_RESOURCE_TYPES =
             Set.of("Document", "Image", "Script", "Stylesheet", "Font", "Media", "XHR", "Fetch");
+
+    /**
+     * Render-critical types whose failure degrades presentation only — an unstyled heading, a glyph
+     * that falls back to a system font. These are reported (and rejected under the strict gate) but
+     * never block the document on their own: refusing to hand a clinician their letter because an
+     * icon-font stylesheet 404'd withholds a complete clinical record over cosmetics. Types that can
+     * omit clinical content — {@code Image}, {@code Script}, {@code XHR}/{@code Fetch}, {@code Media},
+     * {@code Document} — stay in the blocking set below.
+     */
+    private static final Set<String> PRESENTATION_RESOURCE_TYPES = Set.of("Stylesheet", "Font");
 
     /**
      * Replays raw CDP performance-log messages: counts egress attempts to any origin other than
@@ -1601,6 +1679,7 @@ public class EFormBrowserPdfService {
         int parseFailures = 0;
         int liveChannelAttempts = 0;
         int failedCriticalSubresources = 0;
+        int nonReadRequests = 0;
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -1613,6 +1692,12 @@ public class EFormBrowserPdfService {
             JsonNode params = message.path("params");
             if ("Network.requestWillBeSent".equals(method)) {
                 String url = params.path("request").path("url").asText("");
+                String requestMethod = params.path("request").path("method").asText("");
+                if (originOf(url) != null
+                        && !requestMethod.isEmpty()
+                        && !"GET".equals(requestMethod) && !"HEAD".equals(requestMethod)) {
+                    nonReadRequests++;
+                }
                 if (isDisallowedRendererRequestUrl(url, allowedOrigin)) {
                     disallowedRequests++;
                 }
@@ -1633,23 +1718,30 @@ public class EFormBrowserPdfService {
                     mainDocumentUrl = responseUrl;
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
                         && params.path("response").path("status").asInt() >= 400) {
-                    // Every failed render-critical resource can omit clinical content. The sole
-                    // advisory exception is an empty-src placeholder resolving back to the main
-                    // document URL; it is not a distinct form resource.
-                    if (!responseUrl.equals(mainDocumentUrl)) {
-                        failedCriticalSubresources++;
-                    } else {
+                    // Every failed content-bearing resource can omit clinical content. Two advisory
+                    // exceptions: an empty-src placeholder resolving back to the main document URL
+                    // (not a distinct form resource), and a presentation-only asset, whose loss
+                    // changes how the record looks but not what it says.
+                    if (responseUrl.equals(mainDocumentUrl)
+                            || PRESENTATION_RESOURCE_TYPES.contains(resourceType)) {
                         failedSubresources++;
+                    } else {
+                        failedCriticalSubresources++;
                     }
                 }
             } else if ("Network.loadingFailed".equals(method)
                     && RENDER_CRITICAL_RESOURCE_TYPES.contains(params.path("type").asText(""))
                     && !params.path("canceled").asBoolean(false)) {
-                failedCriticalSubresources++;
+                // Same content-vs-presentation split as the HTTP-error leg above.
+                if (PRESENTATION_RESOURCE_TYPES.contains(params.path("type").asText(""))) {
+                    failedSubresources++;
+                } else {
+                    failedCriticalSubresources++;
+                }
             }
         }
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
-                parseFailures, liveChannelAttempts, failedCriticalSubresources);
+                parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests);
     }
 
     // Package-private for the unit test that pins the fail-closed behavior.
@@ -1730,6 +1822,31 @@ public class EFormBrowserPdfService {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    static boolean isExpectedRendererUrl(String actualUrl, String expectedUrl) {
+        try {
+            URI actual = URI.create(actualUrl);
+            URI expected = URI.create(expectedUrl);
+            return Objects.equals(originOf(actualUrl), originOf(expectedUrl))
+                    && Objects.equals(actual.getPath(), expected.getPath())
+                    && Objects.equals(actual.getRawQuery(), expected.getRawQuery());
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    static int readContainedInteractionCount(Object value) throws PDFGenerationException {
+        if (!(value instanceof Number number)) {
+            throw new PDFGenerationException(
+                    "Browser rendering could not verify contained page interactions.");
+        }
+        long count = number.longValue();
+        if (count < 0 || count > Integer.MAX_VALUE) {
+            throw new PDFGenerationException(
+                    "Browser rendering reported an invalid contained-interaction count.");
+        }
+        return (int) count;
     }
 
     private static void checkDeadline(long deadlineNanos) throws PDFGenerationException {

@@ -150,6 +150,9 @@
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-compat.js");
+    // editControl2.js's sanitize gate; see the matching note in efmshowform_data.jsp. Required on
+    // the add page too, because a template-seeded letter takes the same load path.
+    thisEForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
     thisEForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");

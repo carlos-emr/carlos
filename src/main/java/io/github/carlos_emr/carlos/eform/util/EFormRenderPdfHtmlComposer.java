@@ -17,6 +17,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,6 +28,7 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.nodes.Attribute;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.parser.Tag;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -34,6 +36,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -66,6 +69,27 @@ public final class EFormRenderPdfHtmlComposer {
     private static final String IMAGE_VIEW_SERVLET_NAME = "EFormImageViewForPdfGenerationServlet";
     private static final Pattern IMAGE_ASSET_URL_PATTERN = Pattern.compile(
             Pattern.quote(IMAGE_VIEW_SERVLET_NAME) + "\\?([^\\s\\\"'<>)]*)");
+    private static final String SIGNATURE_MARKER = "${oscar_signature_code}";
+    private static final String RENDER_PROFILE_PROPERTY =
+            "eform_pdf_browser_saved_view_profile_enabled";
+    private static final Pattern APCACHE_LOOKUP_PATTERN = Pattern.compile(
+            "\\.lookup\\s*\\(\\s*(['\"])([A-Za-z0-9_$.-]{1,128})\\1\\s*\\)");
+    private static final Pattern APCACHE_VALUES_PATTERN = Pattern.compile(
+            "values\\s*:\\s*\\[([^]]{0,4096})]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern QUOTED_AP_KEY_PATTERN = Pattern.compile(
+            "(['\"])([A-Za-z0-9_$.-]{1,128})\\1");
+    private static final int MAX_CLINIC_SCRIPT_BYTES = 1_048_576;
+    /**
+     * Editor/dialog libraries stripped from the render surface. Matched against both the script URL
+     * and the {@code imagefile=} asset name, because clinic forms reference these either as webapp
+     * paths ({@code /library/eforms/printControl.js}) or through the image servlet
+     * ({@code ...?imagefile=editControl2.js}). {@code APCache.js} is intentionally absent — it
+     * populates clinical content.
+     */
+    private static final Set<String> INTERACTIVE_ONLY_SCRIPTS = Set.of(
+            "editcontrol2.js", "editcontrol.js", "printcontrol.js", "faxcontrol.js",
+            "imagecontrol.js", "signaturecontrol", "eform_floating_toolbar");
+    private static final String EDITOR_BOOTSTRAP_CALL = "insertEditControl()";
 
     private EFormRenderPdfHtmlComposer() {
     }
@@ -77,8 +101,8 @@ public final class EFormRenderPdfHtmlComposer {
      * @param contextPath current servlet context path used for local asset URLs
      * @param userAgent renderer user agent used by existing signature setup logic
      * @param providerId provider number used for provider-scoped signature rendering
-     * @param renderToken render-scoped grant appended to local asset URLs so the sessionless
-     *        render browser can fetch its images; null for the session-authenticated path
+     * @param renderToken render-scoped bootstrap capability used server-side to authorize the
+     *        exact referenced image/APCache set; never appended to subresource URLs
      * @return normalized HTML ready for the browser renderer
      * @throws IllegalStateException if the fdid has no stored form HTML, or a stored, non-blank
      *         signature cannot be spliced into the form HTML; a signed document must never render
@@ -86,11 +110,6 @@ public final class EFormRenderPdfHtmlComposer {
      */
     public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, EFormRenderTokenService.RenderToken renderToken) {
         EForm eForm = new EForm(String.valueOf(formDataId));
-        eForm.setSignatureCode(contextPath, userAgent, eForm.getDemographicNo(), providerId);
-        eForm.setContextPath(contextPath);
-        // DOM normalization is scoped to the browser-render surface.
-        eForm.enableRenderNormalization();
-        eForm.addHeadJavascript(contextPath + "/eform/eform-runtime-compat.js");
 
         EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
         List<EFormValue> eFormValues = java.util.Objects.requireNonNullElse(
@@ -117,14 +136,14 @@ public final class EFormRenderPdfHtmlComposer {
      * Assembles the final render HTML for a loaded {@link EForm}: injects the stored letter content,
      * splices any stored signature image, rewrites the legacy image references
      * ({@code ../eform/displayImage}, {@code ${oscar_image_path}}, {@code /eform/displayImage}) to the
-     * {@code EFormImageViewForPdfGenerationServlet} route, hides print-suppressed blocks, and — when
-     * {@code renderToken} is non-null — carries the render grant onto every asset URL.
+     * {@code EFormImageViewForPdfGenerationServlet} route, hides print-suppressed blocks, and
+     * authorizes the exact referenced image/APCache set without exposing the token to subresources.
      *
      * <p>Ordering is load-bearing: letter and signature content are injected <em>before</em> the
      * image-path rewrites so the rewrites also cover the freshly injected markup.</p>
      *
-     * @param renderToken render-scoped grant spliced onto asset URLs, or null for the
-     *        session-authenticated (non-browser) path
+     * @param renderToken render-scoped bootstrap capability used only for server-side grant
+     *        population, or null for the session-authenticated (non-browser) path
      * @return the normalized HTML ready for capture
      * @throws IllegalStateException if the fdid has no stored form HTML or a stored, non-blank
      *         signature cannot be spliced into it
@@ -134,7 +153,14 @@ public final class EFormRenderPdfHtmlComposer {
         if (eForm.getFormHtml() == null) {
             throw new IllegalStateException("eForm render failed: no stored form HTML for the requested fdid");
         }
+        // Letter is a whole-document replacement, so every saved-view substitution and dependency
+        // must happen after it. The interactive signature marker is deliberately neutralized rather
+        // than passed to EForm.setSignatureCode(), which would mint preview/write state.
+        eForm.setContextPath(contextPath);
+        eForm.enableRenderNormalization();
+        eForm.setFdid(eForm.getFdid());
         applySignatureHtml(eForm, eFormValues, contextPath);
+        applyRendererViewProfile(eForm, contextPath, eForm.getFdid());
 
         String html = eForm.getFormHtml();
         // Normalize the legacy ".do" spelling FIRST (corpus forms hardcode
@@ -161,42 +187,15 @@ public final class EFormRenderPdfHtmlComposer {
         html = html.replace(contextPath + "/eform/displayImage", imageViewServletPath);
         html = html.replace("/eform/displayImage.do", imageViewServletPath);
         html = html.replace("/eform/displayImage", imageViewServletPath);
+        html = removeAbsentOptionalStamps(html);
         EFormRenderTokenService.getInstance().authorizeAssets(
                 renderToken, referencedImageFiles(html));
-        html = appendRenderTokenToAssetUrls(html, renderToken);
+        Set<String> apKeys = new HashSet<>(referencedApCacheKeys(html));
+        apKeys.addAll(referencedClinicScriptApCacheKeys(html));
+        EFormRenderTokenService.getInstance().authorizeApKeys(renderToken, apKeys);
         eForm.setFormHtml(html);
         eForm.setNowDateTime();
         return eForm.getFormHtml();
-    }
-
-    /**
-     * Appends the render-scoped grant to every eForm asset-servlet URL — background/asset images
-     * ({@code EFormImageViewForPdfGenerationServlet}) and digital signatures
-     * ({@code EFormSignatureViewForPdfGenerationServlet}) — so the sessionless render browser can
-     * fetch each subresource under the same grant. Every such URL has been normalized to
-     * {@code .../<servlet>?<params>} by this point, so one insertion at the {@code ?} boundary covers
-     * all forms ({@code ${oscar_image_path}}, {@code /eform/displayImage}, and the signature path).
-     * No-op on the session-authenticated path (null token). The token is unwrapped to its raw
-     * request-parameter value only here — everywhere else it travels as the redacting
-     * {@link EFormRenderTokenService.RenderToken} wrapper so an accidental {@code logger.debug("{}",
-     * renderToken)} anywhere upstream prints {@code [render-token]}, never the live capability value.
-     * The unwrapped value is URI-component encoded before it is spliced into the asset URLs (which
-     * live inside HTML {@code src} attributes): a well-formed URL-safe-base64 grant passes through
-     * unchanged, while any injected metacharacter is neutralized for both the query-string and
-     * HTML-attribute contexts.
-     */
-    private static String appendRenderTokenToAssetUrls(String html, EFormRenderTokenService.RenderToken renderToken) {
-        if (renderToken == null || renderToken.queryValue().isEmpty()) {
-            return html;
-        }
-        String tokenPrefix = "?" + EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM
-                + "=" + SafeEncode.forUriComponent(renderToken.queryValue()) + "&";
-        // Render-grant path only: note that the grant is being carried onto asset URLs. NEVER log the
-        // token value itself — only that splicing occurred.
-        logger.debug("Splicing render grant onto eForm asset URLs for browser render");
-        return html
-                .replace(IMAGE_VIEW_SERVLET_NAME + "?", IMAGE_VIEW_SERVLET_NAME + tokenPrefix)
-                .replace(SIGNATURE_VIEW_SERVLET_NAME + "?", SIGNATURE_VIEW_SERVLET_NAME + tokenPrefix);
     }
 
     static Set<String> referencedImageFiles(String html) {
@@ -215,17 +214,359 @@ public final class EFormRenderPdfHtmlComposer {
         return Set.copyOf(files);
     }
 
+    static Set<String> referencedApCacheKeys(String html) {
+        Set<String> keys = new HashSet<>();
+        Matcher lookup = APCACHE_LOOKUP_PATTERN.matcher(html == null ? "" : html);
+        while (lookup.find() && keys.size() < 128) {
+            keys.add(lookup.group(2));
+        }
+        Matcher mappings = APCACHE_VALUES_PATTERN.matcher(html == null ? "" : html);
+        while (mappings.find() && keys.size() < 128) {
+            Matcher values = QUOTED_AP_KEY_PATTERN.matcher(mappings.group(1));
+            while (values.find() && keys.size() < 128) {
+                keys.add(values.group(2));
+            }
+        }
+        return Set.copyOf(keys);
+    }
+
+    static Set<String> referencedClinicScriptApCacheKeys(String html) {
+        Set<String> keys = new HashSet<>();
+        Document document = org.jsoup.Jsoup.parse(html == null ? "" : html);
+        for (Element script : document.select("script[src*=" + IMAGE_VIEW_SERVLET_NAME + "]")) {
+            String fileName = imageFileFromUrl(script.attr("src"));
+            if (fileName == null || "APCache.js".equals(fileName)
+                    || !fileName.matches("[A-Za-z0-9_.-]{1,255}")) {
+                continue;
+            }
+            try {
+                java.io.File file = DisplayImage2Action.getImageFile(fileName);
+                if (!file.isFile() || file.length() > MAX_CLINIC_SCRIPT_BYTES) {
+                    continue;
+                }
+                keys.addAll(referencedApCacheKeys(Files.readString(
+                        file.toPath(), StandardCharsets.UTF_8)));
+            } catch (Exception ignored) {
+                // Missing/unreadable references remain visible to the browser completeness gate.
+            }
+        }
+        return Set.copyOf(keys);
+    }
+
+    private static String removeAbsentOptionalStamps(String html) {
+        if (html == null || !html.toLowerCase(java.util.Locale.ROOT).contains("stamps.js")) {
+            return html;
+        }
+        try {
+            if (DisplayImage2Action.getImageFile("stamps.js").isFile()) {
+                return html;
+            }
+        } catch (Exception ignored) {
+            // An unavailable image directory cannot prove this optional asset absent.
+            return html;
+        }
+        Document document = org.jsoup.Jsoup.parse(html);
+        for (Element script : document.select("script[src]")) {
+            if ("stamps.js".equalsIgnoreCase(imageFileFromUrl(script.attr("src")))
+                    || script.attr("src").toLowerCase(java.util.Locale.ROOT).endsWith("/stamps.js")) {
+                script.remove();
+            }
+        }
+        document.outputSettings().prettyPrint(false);
+        return document.outerHtml();
+    }
+
+    private static String imageFileFromUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = new URI(rawUrl.replace("&amp;", "&"));
+            String query = uri.getRawQuery();
+            if (query == null) {
+                return null;
+            }
+            for (String parameter : query.split("&")) {
+                String[] parts = parameter.split("=", 2);
+                if (parts.length == 2 && "imagefile".equals(parts[0])) {
+                    return URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
+                }
+            }
+        } catch (IllegalArgumentException | URISyntaxException ignored) {
+            return null;
+        }
+        return null;
+    }
+
     /** Replaces the form body with stored {@code Letter} content and remaps its signature path. */
     private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues) {
         for (EFormValue value : eFormValues) {
             if (!"Letter".equals(value.getVarName())) {
                 continue;
             }
-            String html = value.getVarValue();
+            String html = hardenLetterHtml(decodeStoredLetter(value.getVarValue()));
             html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
             eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
             return;
         }
+    }
+
+    /**
+     * Reverses the entity encoding the Rich Text Letter's {@code saveRTL()} applies before storing
+     * the letter in a textarea value. Without this the PDF prints the clinician's markup as literal
+     * text ({@code <p>Dear Dr. Smith</p>} instead of a paragraph).
+     *
+     * <p>The replacement ORDER is load-bearing and deliberately mirrors {@code editControl2.js}
+     * character for character: {@code &amp;} decodes LAST, so a letter that legitimately contains
+     * the text {@code &lt;} (stored as {@code &amp;lt;}) survives as text instead of turning into a
+     * tag. Any divergence here shows up as the PDF and the on-screen editor disagreeing about the
+     * same stored letter, so change both together or neither.</p>
+     */
+    static String decodeStoredLetter(String storedValue) {
+        if (storedValue == null) {
+            return "";
+        }
+        return storedValue
+                .replace("&#39;", "'")
+                .replace("&gt;", ">")
+                .replace("&lt;", "<")
+                .replace("&quot;", "\"")
+                .replace("&amp;", "&");
+    }
+
+    /**
+     * Removes the interaction hooks from a decoded letter without altering its structure.
+     *
+     * <p>Decoding is what makes this necessary: before it, a letter's markup reached the page as
+     * inert text, so nothing in it could run. Now that the letter is spliced in as real markup on a
+     * surface that permits {@code 'unsafe-inline'}, its event handlers and {@code javascript:} URLs
+     * would be live. Those are stripped here.</p>
+     *
+     * <p>Script <em>elements</em> are deliberately kept. They are not decoration in this corpus:
+     * {@link #applySignatureHtml} reads the stored signature's geometry out of the letter's own
+     * {@code signatureControl.initialize({...})} call, and clinic letters carry image-path fixups in
+     * inline scripts. A full allow-list sanitizer removes both and silently costs the clinician a
+     * signature. Execution is contained instead of forbidden: the render browser holds no session
+     * or cookie, its {@code connect-src} admits only the APCache endpoint, off-origin egress is
+     * blocked at the network layer, and any non-GET request fails the render gate.</p>
+     */
+    static String hardenLetterHtml(String letterHtml) {
+        if (letterHtml == null || letterHtml.isBlank()) {
+            return "";
+        }
+        Document document = org.jsoup.Jsoup.parseBodyFragment(letterHtml);
+        document.outputSettings()
+                .syntax(Document.OutputSettings.Syntax.html)
+                .escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml)
+                .charset(StandardCharsets.UTF_8)
+                .prettyPrint(false);
+        for (Element element : document.body().select("*")) {
+            for (Attribute attribute : element.attributes().asList()) {
+                String name = attribute.getKey().toLowerCase(java.util.Locale.ROOT);
+                if (name.startsWith("on")) {
+                    element.removeAttr(attribute.getKey());
+                    continue;
+                }
+                if (("href".equals(name) || "src".equals(name) || "action".equals(name))
+                        && attribute.getValue().replaceAll("[\\s\\u0000]", "")
+                                .toLowerCase(java.util.Locale.ROOT).startsWith("javascript:")) {
+                    element.removeAttr(attribute.getKey());
+                }
+            }
+        }
+        return document.body().html();
+    }
+
+    /**
+     * Applies the passive subset of the saved-viewer contract. No editor, toolbar, form action,
+     * opener, or signature-capture behavior crosses onto the renderer surface.
+     */
+    static void applyRendererViewProfile(EForm eForm, String contextPath, String formDataId) {
+        String html = eForm.getFormHtml().replace(SIGNATURE_MARKER, "");
+        Document document = org.jsoup.Jsoup.parse(html);
+        document.outputSettings()
+                .syntax(Document.OutputSettings.Syntax.html)
+                .escapeMode(org.jsoup.nodes.Entities.EscapeMode.xhtml)
+                .charset(StandardCharsets.UTF_8)
+                .prettyPrint(false);
+
+        removeInteractiveEditorContent(document);
+
+        Element head = document.head();
+        java.util.ArrayList<Element> dependencies = new java.util.ArrayList<>();
+        if (isSavedViewProfileEnabled()) {
+            dependencies.add(stylesheet(contextPath + "/library/bootstrap/5.3.8/css/bootstrap.min.css"));
+            dependencies.add(stylesheet(contextPath + "/library/jquery/jquery-ui-1.14.2.min.css"));
+            dependencies.add(script(contextPath + "/library/jquery/jquery-3.7.1.min.js"));
+            dependencies.add(script(contextPath + "/library/jquery/jquery-ui-1.14.2.min.js"));
+            dependencies.add(script(contextPath + "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
+        }
+        dependencies.add(script(contextPath + "/eform/eform-runtime-compat.js"));
+        Element signatureCompatibility = new Element(Tag.valueOf("script"), "");
+        signatureCompatibility.append(
+                "window.signatureControl=window.signatureControl||{};"
+                + "window.signatureControl.initialize=function initialize(){};");
+        dependencies.add(signatureCompatibility);
+
+        int insertionIndex = 0;
+        while (insertionIndex < head.childrenSize()
+                && (head.child(insertionIndex).nameIs("meta")
+                        || head.child(insertionIndex).nameIs("title"))) {
+            insertionIndex++;
+        }
+        head.insertChildren(insertionIndex, dependencies);
+
+        Element body = document.body();
+        addHiddenRendererValue(body, "context", contextPath);
+        addHiddenRendererValue(body, "demographicNo", eForm.getDemographicNo());
+        addHiddenRendererValue(body, "fid", eForm.getFid());
+        addHiddenRendererValue(body, "fdid", formDataId);
+        if (isSavedViewProfileEnabled()) {
+            addHiddenRendererValue(
+                    body,
+                    "carlosEformRendererApCacheUrl",
+                    contextPath + "/EFormApCacheForPdfGenerationServlet");
+        }
+        eForm.setFormHtml(document.outerHtml());
+    }
+
+    /**
+     * Removes the WYSIWYG editor and the other interactive-only control libraries from the render
+     * surface. A printed eForm is a passive snapshot of saved clinical content: an editor toolbar,
+     * a signature-capture pad, or a fax/print dialog has no meaning in a PDF and must never appear
+     * in one.
+     *
+     * <p>This is also what keeps the render honest. Left in place, {@code editControl2.js} boots a
+     * contenteditable iframe and fetches the letter-template list, and the Rich Text Letter's
+     * {@code fetchAttached()} polls the attachment sidebar — two same-origin XHRs that the render
+     * surface's {@code connect-src} (locked to the APCache endpoint) refuses. Each refusal counts
+     * as a failed content resource, so the completeness gate blocked the whole PDF over chrome the
+     * clinician was never going to see. Removing the scripts removes the requests, rather than
+     * widening the CSP to permit them.</p>
+     *
+     * <p>{@code APCache.js} is deliberately NOT removed: it populates clinical field content and is
+     * the reason the capability-scoped APCache endpoint exists. Only editor/dialog chrome goes.</p>
+     */
+    private static void removeInteractiveEditorContent(Document document) {
+        for (Element script : document.select("script[src]")) {
+            String source = script.attr("src").toLowerCase(java.util.Locale.ROOT);
+            String assetName = imageFileFromUrl(script.attr("src"));
+            String asset = assetName == null ? "" : assetName.toLowerCase(java.util.Locale.ROOT);
+            for (String editorOnly : INTERACTIVE_ONLY_SCRIPTS) {
+                if (source.contains(editorOnly) || asset.equals(editorOnly)) {
+                    script.remove();
+                    break;
+                }
+            }
+        }
+        // The editor bootstrap lives in an inline script alongside its cfg_* variables, so the
+        // src-based sweep above cannot reach it. Neutralize only the call: the surrounding inline
+        // block may also hold clinic-authored logic that legitimately populates content.
+        for (Element script : document.select("script:not([src])")) {
+            String body = script.data();
+            if (body.contains(EDITOR_BOOTSTRAP_CALL)) {
+                script.text(body.replace(EDITOR_BOOTSTRAP_CALL, ""));
+            }
+        }
+        // Editor chrome the form itself renders (toolbar mount point, floating controls). The
+        // letter body is NOT in here — it is spliced in separately by applyLetterHtml.
+        document.select("#edit-controllers, .edit-controllers, #eform_floating_toolbar").remove();
+        installStrippedEditorShim(document);
+    }
+
+    /**
+     * Supplies the few globals that clinic forms call at parse/load time but that lived inside the
+     * stripped editor, so removing the editor cannot turn into a blocked render.
+     *
+     * <p>Two of these bite immediately on the Rich Text Letter: {@code Start()} is the body's
+     * {@code onload} handler, and {@code cache} is built by {@code editControl2.js} from APCache's
+     * {@code createCache}, then referenced at parse time by the form's own
+     * {@code cache.addMapping({...})}. With the editor gone both threw ReferenceErrors, which the
+     * completeness gate counts as severe console errors and refuses to print — the clinician would
+     * have lost the PDF to chrome that was removed on purpose.</p>
+     *
+     * <p>{@code cache} is rebuilt for real (not stubbed) whenever {@code APCache.js} is present, so
+     * forms that populate clinical fields through it still populate them. Only the editor sinks —
+     * {@code doHtml} and friends, which wrote into a contenteditable iframe that no longer exists —
+     * become no-ops. The shim is inserted immediately after the APCache script so it is defined
+     * before any inline form script runs, and every assignment is guarded so a form that ships its
+     * own implementation keeps it.</p>
+     */
+    private static void installStrippedEditorShim(Document document) {
+        Element shim = new Element(Tag.valueOf("script"), "");
+        shim.append(
+                "(function(){\n"
+                + "  var w = window;\n"
+                + "  if (!w.cache) {\n"
+                + "    if (typeof createCache === 'function') {\n"
+                + "      w.cache = createCache({\n"
+                + "        defaultCacheResponseHandler: function(){},\n"
+                + "        cacheResponseErrorHandler: function(){}\n"
+                + "      });\n"
+                + "    } else {\n"
+                + "      w.cache = { addMapping: function(){}, get: function(){ return ''; },\n"
+                + "        put: function(){}, isEmpty: function(){ return true; },\n"
+                + "        lookup: function(){}, clear: function(){} };\n"
+                + "    }\n"
+                + "  }\n"
+                + "  w.Start = w.Start || function Start(){};\n"
+                + "  w.insertEditControl = w.insertEditControl || function insertEditControl(){};\n"
+                + "  w.parseTemplate = w.parseTemplate || function parseTemplate(){};\n"
+                + "  w.editControlContents = w.editControlContents || function editControlContents(){ return ''; };\n"
+                + "  w.seteditControlContents = w.seteditControlContents || function seteditControlContents(){};\n"
+                + "  w.doHtml = w.doHtml || function doHtml(){};\n"
+                + "  w.printKey = w.printKey || function printKey(){};\n"
+                + "  w.checkKeyResponse = w.checkKeyResponse || function checkKeyResponse(){ return false; };\n"
+                + "  w.getMeasures = w.getMeasures || function getMeasures(){};\n"
+                + "  w.updateAttached = w.updateAttached || function updateAttached(){};\n"
+                + "  w.fetchAttached = w.fetchAttached || function fetchAttached(){};\n"
+                + "  w.consultantSearch = w.consultantSearch || function consultantSearch(){};\n"
+                + "  w.saveRTL = w.saveRTL || function saveRTL(){};\n"
+                + "  w.maximize = w.maximize || function maximize(){};\n"
+                + "  w.viewsource = w.viewsource || function viewsource(){};\n"
+                + "  w.usecss = w.usecss || function usecss(){};\n"
+                + "  w.collapseFooter = w.collapseFooter || function collapseFooter(){};\n"
+                + "})();");
+        Element apCache = document.selectFirst("script[src*=APCache.js]");
+        if (apCache != null) {
+            apCache.after(shim);
+            return;
+        }
+        Element head = document.head();
+        head.insertChildren(head.childrenSize(), java.util.List.of(shim));
+    }
+
+    private static boolean isSavedViewProfileEnabled() {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        return properties.getProperty(RENDER_PROFILE_PROPERTY) == null
+                || properties.getBooleanProperty(RENDER_PROFILE_PROPERTY, "true");
+    }
+
+    private static Element script(String source) {
+        Element element = new Element(Tag.valueOf("script"), "");
+        element.attr("type", "text/javascript");
+        element.attr("src", source);
+        return element;
+    }
+
+    private static Element stylesheet(String href) {
+        Element element = new Element(Tag.valueOf("link"), "");
+        element.attr("rel", "stylesheet");
+        element.attr("type", "text/css");
+        element.attr("media", "all");
+        element.attr("href", href);
+        return element;
+    }
+
+    private static void addHiddenRendererValue(Element body, String name, String value) {
+        if (body.selectFirst("[name=\"" + name + "\"]") != null) {
+            return;
+        }
+        Element input = body.appendElement("input");
+        input.attr("type", "hidden");
+        input.attr("name", name);
+        input.attr("id", name);
+        input.attr("value", value == null ? "" : value);
     }
 
     /**
