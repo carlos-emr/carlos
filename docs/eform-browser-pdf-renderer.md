@@ -1,10 +1,14 @@
 # eForm Browser PDF Renderer (Selenium + Headless Chromium)
 
-CARLOS renders saved eForms to PDF with a real browser engine because eForms are
-JavaScript-built documents (signature blocks, `editControl*.js` DOM construction, dynamic
-layout) that pure-Java HTML renderers cannot reproduce faithfully. The renderer is driven
-entirely from the JVM by Selenium — **no Node.js runtime is installed, bundled, or executed
-anywhere on the server**.
+CARLOS renders saved eForms to PDF with a real browser engine because eForms are CSS- and
+JavaScript-dependent documents — absolutely-positioned fields over scanned background images,
+clinic-authored layout scripts, APCache-populated content, `@media print` rules — that pure-Java HTML
+renderers cannot reproduce faithfully. The renderer is driven entirely from the JVM by Selenium —
+**no Node.js runtime is installed, bundled, or executed anywhere on the server**.
+
+The render surface is a *passive* snapshot: the WYSIWYG editor and the other interactive control
+libraries are stripped before the page is printed (see "The render surface is passive"). A browser is
+needed for faithful layout, not to run the editor.
 
 ## Architecture
 
@@ -17,7 +21,10 @@ EformDataManagerImpl.createEformPDF
        ├─ navigates over loopback to /EFormViewForPdfGenerationServlet?fdid=…&browserRender=true&renderToken=…
        │    ├─ servlet exchanges the one-time bootstrap token for a host-only,
        │    │    HttpOnly, SameSite=Strict CARLOS_EFORM_RENDER cookie
-       │    ├─ composes a passive saved-view profile after Letter replacement
+       │    ├─ composes the passive render surface (EFormRenderPdfHtmlComposer):
+       │    │    Letter replacement → decode + harden → signature splice →
+       │    │    strip editor/controls + inject dependency profile and shim →
+       │    │    legacy image-path rewrites → drop absent optional assets
        │    └─ grants only exact referenced static/image/signature/APCache resources
        ├─ emulates print media, stabilizes the page (fonts, images, animation frames),
        │    measures each authored page div's content box, and sizes the CSS @page boxes to match
@@ -130,6 +137,15 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 - **No Node.js.** The renderer runs entirely in the JVM (Selenium driving Chromium); no Node
   runtime or npm modules are required on the host. (The dev/CI Playwright check scripts under
   `scripts/` are separate test tooling, not part of the renderer.)
+- **Redeploy `editControl2.js` when it changes.** `EFormAssetDeployer` skips assets that already
+  exist, so a fixed editor does not reach an existing install on its own; delete
+  `<OscarDocument>/eform/images/editControl2.js` before restarting. This is what makes the
+  saved-letter round trip work — without it, saving a reopened letter overwrites it with an empty
+  one.
+- **Apply the RTL attachment-route migration.**
+  `database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql` rewires the stored Rich
+  Text Letter template off the dead `../eform/attachEform.jsp` path. Without it the attach popup
+  404s, which reads like a routing regression rather than a missing migration.
 
 ## Configuration properties (`carlos.properties` / override file)
 
@@ -308,31 +324,168 @@ in CI and use their own `EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX` opt-in — not th
 ## The render surface is passive
 
 The composed render document is a snapshot of saved clinical content, never a working copy of the
-editor. `EFormRenderPdfHtmlComposer` strips the WYSIWYG editor (`editControl2.js` and its
-`insertEditControl()` bootstrap), the print/fax/image control libraries, the signature-capture
-control, and the floating toolbar. `APCache.js` is deliberately kept — it populates clinical field
-content, which is why the capability-scoped APCache endpoint exists.
+editor. The interactive viewer and the render surface serve the *same* stored HTML, but they are two
+different host pages with two different contracts, and the render surface implements only the
+passive half.
+
+### What the composer removes, and why removal is mandatory
+
+`removeInteractiveEditorContent` strips, matching on both the script URL and the `imagefile=` asset
+name (clinic forms reference these either way):
+
+| Removed | Reason |
+|---|---|
+| `editControl2.js` / `editControl.js` | The WYSIWYG editor. Boots a contenteditable iframe. |
+| `insertEditControl()` call | The editor bootstrap, neutralized inside its inline block so surrounding clinic logic survives. |
+| `printControl.js`, `faxControl.js` | Print/fax dialogs — no meaning in a PDF. |
+| `imageControl.js` | Editor image insertion UI. |
+| `signatureControl` (any URL form) | Signature *capture*. Stored signatures are spliced server-side. |
+| `eform_floating_toolbar` | Save/Print/Download/Fax/Attach toolbar. |
+| `#edit-controllers`, `.edit-controllers` | The toolbar mount point the form itself renders. |
+
+`APCache.js` is deliberately **kept** — it populates clinical field content, which is why the
+capability-scoped APCache endpoint exists at all.
 
 This is a correctness requirement, not tidiness. The render surface's `connect-src` admits only the
-APCache endpoint, so any other XHR the editor makes — the letter-template list, the attachment
-sidebar poll — is refused, counts as a failed content resource, and the completeness gate then
-blocks the entire PDF. Leaving editor chrome on the surface meant a clinician could be denied their
-letter because a toolbar dropdown could not populate.
+APCache endpoint, so any other XHR the editor issues — the letter-template list
+(`/eform/efmformrtl_templates`), the attachment sidebar poll (`/eform/displayAttachedFiles`) — is
+refused, counts as a failed *content* resource, and the completeness gate then blocks the entire
+PDF. Before the strip, a clinician could be denied their letter because a toolbar dropdown could not
+populate.
+
+### The shim for globals that lived inside the editor
+
+Removing the editor is not free: `Start()` (the Rich Text Letter's body `onload`) and `cache` are
+both **defined inside `editControl2.js`**, and clinic forms call `cache.addMapping({...})` inline at
+parse time. Stripping the editor without replacing them produced two `ReferenceError`s per render →
+two severe console errors → gate blocks. `installStrippedEditorShim` therefore injects a guarded
+shim **immediately after the `APCache.js` script tag** (so `createCache` exists, and so the shim runs
+before any inline form script):
+
+- `cache` is rebuilt **for real** from APCache's `createCache` when APCache is present, so forms that
+  populate fields through it still populate them. Only when APCache is absent does it fall back to an
+  inert stub.
+- Editor sinks that wrote into the now-absent contenteditable iframe — `doHtml`, `printKey`,
+  `editControlContents`, `seteditControlContents`, `parseTemplate`, `updateAttached`,
+  `fetchAttached`, `saveRTL`, `maximize`, `viewsource`, `usecss`, `collapseFooter`,
+  `consultantSearch`, `getMeasures`, `checkKeyResponse`, `Start`, `insertEditControl` — become
+  no-ops.
+- Every assignment is `w.x = w.x || …` guarded, so a form shipping its own implementation keeps it.
+
+A separate inline stub neutralizes `signatureControl.initialize` the same way, and the
+`${oscar_signature_code}` marker is blanked rather than passed to `EForm.setSignatureCode()` (which
+would mint preview/write state on a read-only path).
+
+### Optional assets that are referenced but not deployed
+
+`eformGenerator.jsp` injects a `stamps.js` tag into **every generated eForm**, while
+`EFormAssetDeployer` intentionally never deploys `stamps.js` (it holds clinic-specific signature-image
+mappings administrators create themselves). On a fresh install that tag 404s, and `Script` is a
+content-critical resource type — so the completeness gate blocked the PDF over an asset that is
+absent by design. `removeAbsentOptionalStamps` drops the tag only when the file is genuinely absent
+from the eForm image directory; if the directory cannot be read, the tag is left in place so the
+browser gate still reports the real failure rather than silently hiding it.
 
 ### Stored letters are decoded before they are spliced
 
 `saveRTL()` entity-encodes the letter (`&`, `"`, `<`, `>`, `'`) so it survives inside a textarea
 value. `decodeStoredLetter` reverses that in the same order `editControl2.js` uses — `&amp;` LAST,
 so text a clinician actually typed as `&lt;` stays text. Diverging from that order makes the PDF and
-the on-screen editor disagree about the same stored letter; change both together or neither.
+the on-screen editor disagree about the same stored letter; change both together or neither. Without
+the decode the PDF prints the clinician's own markup as visible text (`<h3>Consultation Letter</h3>`
+instead of a heading) — a clean render, gate-green, and clinically useless.
 
 Decoding turns previously-inert markup into live markup on a surface that permits
-`'unsafe-inline'`, so `hardenLetterHtml` strips event-handler attributes and `javascript:` URLs.
-Script *elements* are kept on purpose: the stored signature's geometry is read out of the letter's
-own `signatureControl.initialize({...})` call, and clinic letters carry image-path fixups inline. A
-full allow-list sanitizer removes both and silently costs the clinician a signature. Execution is
-contained rather than forbidden — no session or cookie in the render browser, egress blocked at the
-network layer, and any non-GET request fails the render gate.
+`'unsafe-inline'`, so `hardenLetterHtml` strips event-handler attributes and `javascript:` URLs
+(including whitespace/NUL-obfuscated forms). Script *elements* are kept on purpose: the stored
+signature's geometry is read out of the letter's own `signatureControl.initialize({...})` call, and
+clinic letters carry image-path fixups inline. A full allow-list sanitizer removes both and silently
+costs the clinician a signature — that was tried and reverted. Execution is contained rather than
+forbidden: no session or cookie in the render browser, egress blocked at the network layer,
+`connect-src` limited to the APCache endpoint, and any non-GET request fails the render gate.
+
+### Ordering inside the composer is load-bearing
+
+`buildPdfHtml` runs in a fixed order and each step depends on the previous one:
+
+1. `applyLetterHtml` — whole-document replacement, so every later substitution must follow it.
+2. `applySignatureHtml` — reads geometry from the letter's own `signatureControl.initialize(...)`.
+3. `applyRendererViewProfile` — strips the editor, injects dependencies + the shim + hidden inputs.
+4. Legacy image-path rewrites (`.do` spelling first, then `${oscar_image_path}`, then
+   `/eform/displayImage`) — these must run after letter/signature injection so they also cover the
+   freshly injected markup.
+5. `removeAbsentOptionalStamps`, then grant population (`authorizeAssets`, `authorizeApKeys`).
+
+### Corpus exposure (why this mattered)
+
+Measured against a 55-form development corpus:
+
+| Metric | Count |
+|---|---|
+| eForms total | 55 |
+| Reference a control script (`printControl` / `faxControl` / `imageControl` / `APCache`) | 23 |
+| Reference `printControl.js` **and carry no real jQuery `<script src>`** | **21** |
+| Reference `signatureControl` | 3 |
+| Reference `stamps.js` | 1 |
+
+```sql
+SELECT COUNT(*) FROM eform
+ WHERE form_html LIKE '%eforms/printControl.js%'
+   AND form_html NOT REGEXP 'src="[^"]*jquery[^"]*\\.js';
+```
+
+Roughly 38% of that corpus depended on host-page-injected libraries the render surface never
+provided; a production corpus is likely worse, since these control scripts are what
+`eformGenerator.jsp` emits for generated forms. An earlier attempt to fix this by mirroring the
+viewer's chrome (injecting jQuery) made renders get *further* and still produce nothing — the editor
+then booted and its XHRs hit `connect-src`. Stripping the editor is the fix; the saved-view
+dependency profile (jQuery, jQuery UI, Bootstrap) remains for clinic form code that expects it.
+
+## What the render gates cannot see
+
+The completeness gate reasons about **resource loading**. Two defects reached rendered PDFs with a
+completely clean gate, because both loaded successfully and failed afterwards — in paint order and in
+encoding:
+
+- **Background images painted under an opaque canvas.** `PREPARE_PRINT_JS` used to set
+  `html { background: white }`. The root element's background is propagated to the page canvas, which
+  is painted *beneath* the negative z-index layer — and `position:absolute; z-index:-1` is the
+  standard eForm idiom for a scanned form background. Every such form printed with a blank background
+  while its image returned HTTP 200. **Never declare a background on `<html>` in the print
+  preparation script**; Chromium already prints white paper. Pinned by
+  `shouldNotPaintRootBackground_whenPreparingPrint`.
+- **Letters printed as escaped markup** (see the decode section above).
+
+Neither is detectable from network evidence, console errors, or `%PDF-` plus a byte count. The
+smoke-test runbook therefore requires opening the produced PDF and looking at it — see
+`docs/ui-tests/eform-pdf-render-smoke-test.md`, "Open the produced PDF and look at it".
+
+## Saved-letter round trip (interactive viewer)
+
+This is viewer-side, not renderer-side, but it determines what the renderer is given and it silently
+destroyed content twice:
+
+- `editControl2.js` called `seteditControlContents(...)` **before** enabling `designMode`. That
+  helper only writes into the iframe when its document is already in `designMode`, so the write was a
+  no-op and reopening a saved letter showed an empty editor. `designMode` is now set first, and the
+  fallback branch refuses to assign `.value` to an iframe (it logs instead of discarding content).
+- `DOMPurify` ships in the webapp (`/library/dompurify/purify.min.js`) but was never loaded on the
+  eForm host pages, so the editor's `sanitizeHtml` gate returned `null` and fell back to
+  `textContent`. The letter then displayed as escaped text, and the next save stored it
+  **double-encoded**. Both `efmshowform_data.jsp` and `efmformadd_data.jsp` now load it.
+
+Either failure looks the same to the clinician — an empty or escaped editor — and in both cases the
+toolbar's save-and-download persisted that empty editor over the stored letter. Regression coverage
+is the round-trip step in the smoke-test runbook plus
+`npm run test:eform-rtl-attachment-behavior-playwright`.
+
+> **`editControl2.js` changes need a deliberate redeploy.** `EFormAssetDeployer` skips any asset that
+> already exists on disk, so clinic-customized copies are never clobbered — which also means a
+> *fixed* editor never reaches an existing install. After changing
+> `src/main/webapp/WEB-INF/eform-assets/editControl2.js`, delete the deployed copy
+> (`/var/lib/OscarDocument/oscar/eform/images/editControl2.js`) so the next startup redeploys it. A
+> real upgrade path (version-stamped filename or checksum-based replacement) is still open — see
+> "Known limitations".
 
 ## Known limitations and tracked follow-ups
 
@@ -356,6 +509,23 @@ operational configuration matter:
   preview page images via `createCacheVersion2`, which requires `_edoc` read. Fax users without
   `_edoc` still get a working **Open PDF** link (soft degradation) — this is an operator
   role-configuration note, not a defect.
+- **`EFormAssetDeployer` has no upgrade path for a changed asset.** `deployAssetFromPath`,
+  `deployJqueryWithCompat`, and `deployGeneratedAsset` all skip when the target file exists, so a
+  corrected `editControl2.js` (or any other shipped eForm asset) never reaches an install that
+  already has one. The manual delete-then-restart step above is the current workaround. A real fix —
+  version-stamped filenames, or checksum comparison against the shipped copy with clinic-modified
+  files left alone — changes an established never-clobber policy and is deliberately **not** made
+  here.
+- **`stamps.js` is still referenced by every generated eForm.** `removeAbsentOptionalStamps` hides
+  the consequence on the render path only; the interactive viewer still requests it and still logs a
+  404 in the browser console on a fresh install. Shipping a default empty `stamps.js` would not
+  clobber clinic files (the deployer's exists-guard already protects them), and not emitting the tag
+  when no stamps exist is the other option; neither is done here.
+- **Viewer-relative URLs built inside JavaScript strings are not re-anchored.**
+  `EForm.rewriteViewerRelativeAssetReferences` re-anchors `../` references in element attributes, but
+  a URL assembled in a script literal (`var url = "../eform/displayAttachedFiles"`) resolves against
+  the render page's shallower path and misses the context. Stripping the editor makes this moot for
+  the known cases; it would resurface for any clinic script that fetches by relative path.
 
 Two further limitations are operational realities of the later hardening work (proxy-aware
 base-URL derivation, the hard startup gate, and per-command WebDriver timeouts), not carryovers
@@ -436,10 +606,56 @@ subsequent cycles.
 
 ## Verification
 
-- Unit tests: `mvn test -Dtest=EFormBrowserPdfServiceUnitTest,EFormRenderTokenServiceUnitTest,EFormBrowserRenderPageServletUnitTest,EformViewForPdfGenerationServletUnitTest` (the last is the legacy session-gate servlet, kept alongside the browser render servlet)
-- End-to-end smoke (skips cleanly without a browser):
-  `mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest` — serves
-  `scripts/fixtures/eform/test-pattern.html` over loopback and drives the native print path,
-  asserting the PDF page count matches the authored `pageN` divs and that a real text layer is
-  present (the raster path this replaced produced zero extractable text); a companion case prints a
-  free-flow (no-`pageN`-div) letter and asserts a text-layer `%PDF` with no injected `@page` size.
+Three layers, in increasing cost. **All three are required** — the first two are structurally blind
+to the defect class described in "What the render gates cannot see".
+
+### 1. Unit and integration tests
+
+```bash
+mvn test -Dtest='EForm*UnitTest,EFormViewerRelativeAssetUnitTest,LoginFilterUnitTest,\
+EformDataManagerImplCreatePdfUnitTest,EFormJspMigrationRegressionTest,HttpMethodGuardFilter*Test'
+```
+
+Covers the composer (letter decode/harden, editor strip, shim ordering, image-path rewrites, APCache
+key extraction), the render servlet and token service, the capability cookie and static-grant
+authorization, the image/signature/APCache servlets, `LoginFilter` least-privilege, and the
+mutator/GET contract.
+
+End-to-end smoke, which skips cleanly on a host without a browser:
+
+```bash
+mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest
+```
+
+Serves `scripts/fixtures/eform/test-pattern.html` over loopback and drives the native print path,
+asserting the PDF page count matches the authored `pageN` divs and that a real text layer is present
+(the raster path this replaced produced zero extractable text); a companion case prints a free-flow
+(no-`pageN`-div) letter and asserts a text-layer `%PDF` with no injected `@page` size.
+
+### 2. Browser checks against a running app
+
+Requires Tomcat plus the dev database, and the prerequisites in the smoke-test runbook (RTL
+attachment-route migration applied; deployed `editControl2.js` current):
+
+```bash
+npm run test:eform-admin-playwright
+npm run test:eform-render-playwright
+npm run test:eform-saved-render-playwright
+npm run test:eform-test-pattern-playwright
+npm run test:eform-rtl-attachment-routes-playwright
+npm run test:eform-rtl-attachment-types-playwright
+npm run test:eform-rtl-attachment-behavior-playwright
+```
+
+`eform-rtl-attachment-behavior` is the highest-value one: it exercises a saved Rich Text Letter
+through attachment selection and a merged eForm+attachment PDF download, which is the flow that the
+editor-on-the-render-surface bug blocked entirely.
+
+### 3. Look at the PDF
+
+Mandatory before release, because layers 1 and 2 both pass while a background image is missing or a
+letter prints as raw markup. Render at least one background-image form and one Rich Text Letter, then
+confirm the background is present and correctly placed, letter content is formatted, no editor chrome
+appears, `.DoNotPrint` content is absent, and the text layer is selectable. PDFBox is already on the
+classpath — `PDFTextStripper` extracts the text layer and `PDFRenderer` rasterizes a page for visual
+inspection. Full procedure: `docs/ui-tests/eform-pdf-render-smoke-test.md`.
