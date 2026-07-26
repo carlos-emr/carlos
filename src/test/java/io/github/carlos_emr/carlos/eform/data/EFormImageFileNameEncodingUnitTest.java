@@ -109,4 +109,28 @@ class EFormImageFileNameEncodingUnitTest {
         assertThat(html).contains("imagefile=a%5B1%5D.png");
         assertThat(html).contains("imagefile=b%5B2%5D.png");
     }
+
+    @Test
+    @DisplayName("should encode parentheses in a quoted filename so the render grant can match it")
+    void shouldEncodeParentheses_inQuotedFileName() {
+        // The render grant's asset-URL pattern excludes ')' so it cannot swallow a CSS url(...)
+        // terminator. A raw paren in the filename was therefore captured truncated, the grant held
+        // a name that did not exist, and the real request was refused 403 - the background could
+        // never render. Observed on a real clinic form shipping
+        // "Diagnostic-Breast-Imaging-Requisition-(2021).png".
+        String html = substituted("<img src=\"${oscar_image_path}Requisition-(2021).png\">");
+
+        assertThat(html).contains("imagefile=Requisition-%282021%29.png");
+    }
+
+    @Test
+    @DisplayName("should still let the closing paren terminate an unquoted CSS url()")
+    void shouldKeepClosingParen_forUnquotedCssUrl() {
+        // Where the reference is embedded rather than the whole value, ')' is structural and must
+        // survive, or the CSS declaration is corrupted.
+        String html = substituted(
+                "<div style=\"background-image:url(${oscar_image_path}bg.png)\"></div>");
+
+        assertThat(html).contains("imagefile=bg.png)");
+    }
 }

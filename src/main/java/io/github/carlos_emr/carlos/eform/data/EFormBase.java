@@ -122,8 +122,16 @@ public class EFormBase {
      * references that work today. Quotes and angle brackets are excluded for a different reason —
      * they delimit the value, so treating them as both "encode this" and "the filename ends here"
      * is ambiguous, and no filename an HTML attribute can unambiguously reference contains them.</p>
+     *
+     * <p>Parentheses are legal in a URL but are encoded anyway, because the render grant's
+     * asset-URL pattern must exclude {@code )} to avoid swallowing a CSS {@code url(...)}
+     * terminator. Left raw, a name like {@code Requisition-(2021).png} was captured truncated at
+     * the closing paren, so the grant held a filename that did not exist and the real request was
+     * refused 403 — the asset could never render. They are only encoded where the value is quoted
+     * and the closing quote delimits it; inside an unquoted {@code url(...)} the paren still
+     * terminates the token.</p>
      */
-    private static final String URL_HOSTILE_FILENAME_CHARACTERS = "[]{}|\\^ ";
+    private static final String URL_HOSTILE_FILENAME_CHARACTERS = "[]{}|\\^ ()";
 
     /**
      * Percent-encodes {@link #URL_HOSTILE_FILENAME_CHARACTERS} in the filename that follows a

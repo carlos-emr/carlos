@@ -874,7 +874,7 @@ public final class EFormRenderPdfHtmlComposer {
      * no filename an HTML attribute can unambiguously reference contains them. Mirrors the
      * viewer-path set in {@code EFormBase.setImagePath}.</p>
      */
-    private static final String URL_HOSTILE_FILENAME_CHARACTERS = "[]{}|\\^ ";
+    private static final String URL_HOSTILE_FILENAME_CHARACTERS = "[]{}|\\^ ()";
 
     /**
      * Percent-encodes {@link #URL_HOSTILE_FILENAME_CHARACTERS} in each filename following
@@ -900,8 +900,12 @@ public final class EFormRenderPdfHtmlComposer {
             int index = fileNameStart;
             while (index < value.length()) {
                 char current = value.charAt(index);
-                if (current == ')' || current == '\''
-                        || (!wholeValue && Character.isWhitespace(current))) {
+                // ')' delimits only an embedded reference such as url(...). When the attribute
+                // value IS the URL, a paren belongs to the filename and must be encoded: the grant
+                // pattern excludes ')' to protect url(...), so a raw one truncated the captured
+                // name and the asset was refused 403.
+                if (current == '\'' || (!wholeValue
+                        && (current == ')' || Character.isWhitespace(current)))) {
                     break;
                 }
                 if (URL_HOSTILE_FILENAME_CHARACTERS.indexOf(current) >= 0) {
