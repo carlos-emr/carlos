@@ -471,7 +471,8 @@ public class EFormBrowserPdfService {
             // an explicit failure must all count as a compatibility failure. Checking only `failed`
             // would read a half-installed shim as healthy.
             + "const timerCompat = window.__carlosEformTimerCompat;\n"
-            + "const timerCompatibilityFailure = !timerCompat || timerCompat.installed !== true"
+            + "const timerCompatShimMissing = !timerCompat || timerCompat.installed !== true;\n"
+            + "const timerCompatibilityFailure = timerCompatShimMissing"
             + " || timerCompat.failed === true;\n"
             // Deployer marker: a lab decision-support script is missing and a stub was published under
             // its real filename, so the request returned 200 and the network scan saw nothing wrong.
@@ -499,6 +500,7 @@ public class EFormBrowserPdfService {
             + "  excludedHeight: excludedHeight,\n"
             + "  signatureBroken: signatureBroken,\n"
             + "  timerCompatibilityFailure: timerCompatibilityFailure,\n"
+            + "  timerCompatShimMissing: timerCompatShimMissing,\n"
             + "  labDecisionSupportStubbed: labDecisionSupportStubbed,\n"
             + "};";
 
@@ -776,8 +778,11 @@ public class EFormBrowserPdfService {
                             geometry.labDecisionSupportStubbed()));
             if (completeness.hasBlockingOmissions()
                     && (approval == null || !approval.permits(fdid, providerId, completeness))) {
-                logger.warn("Browser eForm renderer blocked incomplete output: fdid={} issues={} blocking={}",
-                        fdid, completeness.issueCount(), completeness.blockingIssueCount());
+                // Name the components, not just the totals: a bare "blocking=2" cannot be acted on,
+                // and three of the components have no log line of their own to infer from.
+                logger.warn("Browser eForm renderer blocked incomplete output: fdid={} issues={} blocking={} [{}]",
+                        fdid, completeness.issueCount(), completeness.blockingIssueCount(),
+                        completeness.describe(true));
                 throw new EformContentUnavailableException(
                         "The eForm could not be fully rendered. Review the reported omissions before proceeding.",
                         fdid, completeness);
@@ -789,8 +794,8 @@ public class EFormBrowserPdfService {
                 // Advisory-only: the document is delivered, so this WARN is the audit record on the
                 // fax and direct-download paths, which stream bytes and cannot carry a notice. The
                 // preview path additionally surfaces it to the clinician (see lastCompletenessReport).
-                logger.warn("Browser eForm renderer produced advisory-only issues: fdid={} advisories={}",
-                        fdid, completeness.advisoryIssueCount());
+                logger.warn("Browser eForm renderer produced advisory-only issues: fdid={} advisories={} [{}]",
+                        fdid, completeness.advisoryIssueCount(), completeness.describe(false));
             }
             List<PageSize> pageSizes = geometry.pages();
             if (!pageSizes.isEmpty()) {
@@ -1323,6 +1328,14 @@ public class EFormBrowserPdfService {
         boolean signatureBroken = requiredBoolean(rawMap, "signatureBroken");
         boolean timerCompatibilityFailure = requiredBoolean(
                 rawMap, "timerCompatibilityFailure");
+        if (timerCompatibilityFailure) {
+            // The two sub-causes need very different responses — a shim that never installed is a
+            // CARLOS-side load/ordering problem, while a shim reporting failure means the form's own
+            // legacy string timer really was blocked — and the single merged boolean cannot tell an
+            // operator which happened. Booleans only; nothing here can carry form content.
+            logger.warn("Browser eForm renderer timer compatibility failed: shimMissing={}",
+                    rawMap.get("timerCompatShimMissing"));
+        }
         boolean labDecisionSupportStubbed = requiredBoolean(
                 rawMap, "labDecisionSupportStubbed");
         return new PageGeometry(pages, excludedCount, excludedHeight, signatureBroken,

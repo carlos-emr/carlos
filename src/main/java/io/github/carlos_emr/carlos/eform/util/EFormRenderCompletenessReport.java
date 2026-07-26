@@ -105,6 +105,55 @@ public record EFormRenderCompletenessReport(
         return Math.addExact(count, labDecisionSupportStubbed ? 1 : 0);
     }
 
+    /**
+     * Names the conditions that are present, for operator diagnosis.
+     *
+     * <p>Every gate log used to carry aggregate counts only ({@code issues=9 blocking=2}), which
+     * says how many but never which — so diagnosing a blocked render meant inferring components from
+     * the <em>absence</em> of other log lines, and the three that have no log line of their own
+     * could not be distinguished at all. Each entry is a fixed identifier plus a count, so this is
+     * safe by construction under the same counts-and-booleans contract as the rest of the record:
+     * no URL, filename or rendered text can reach it.</p>
+     *
+     * @param blockingOnly when true, omit advisory conditions (the ones that never withhold the
+     *        document), so the caller can log precisely what caused a refusal
+     * @return a compact {@code name=value} summary, or {@code "none"} when nothing qualifies
+     */
+    public String describe(boolean blockingOnly) {
+        StringBuilder description = new StringBuilder();
+        appendCount(description, "failedContentResources", failedContentResources);
+        appendCount(description, "excludedContentElements", excludedContentElements);
+        if (!blockingOnly) {
+            appendCount(description, "severeConsoleErrors", severeConsoleErrors);
+        }
+        appendCount(description, "containedInteractions", containedInteractions);
+        appendFlag(description, "signatureMissing", signatureMissing);
+        appendFlag(description, "timerCompatibilityFailure", timerCompatibilityFailure);
+        appendFlag(description, "stabilizationCapped", stabilizationCapped);
+        appendFlag(description, "labDecisionSupportStubbed", labDecisionSupportStubbed);
+        return description.isEmpty() ? "none" : description.toString();
+    }
+
+    private static void appendCount(StringBuilder target, String name, int value) {
+        if (value > 0) {
+            appendSeparator(target);
+            target.append(name).append('=').append(value);
+        }
+    }
+
+    private static void appendFlag(StringBuilder target, String name, boolean value) {
+        if (value) {
+            appendSeparator(target);
+            target.append(name);
+        }
+    }
+
+    private static void appendSeparator(StringBuilder target) {
+        if (!target.isEmpty()) {
+            target.append(' ');
+        }
+    }
+
     public EFormRenderCompletenessReport merge(EFormRenderCompletenessReport other) {
         if (other == null) {
             return this;

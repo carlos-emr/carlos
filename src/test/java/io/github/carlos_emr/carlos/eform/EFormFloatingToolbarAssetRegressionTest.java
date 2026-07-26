@@ -121,6 +121,21 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should not blame the timer for an unrelated resource-load failure")
+    void shouldIgnoreResourceLoadErrors_whenCapturingTimerFailures() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        // executeStringCallback attaches a capture-phase window "error" listener while it appends the
+        // timer's script. Failed resource loads dispatch "error" too and reach that listener, so
+        // without a target check the shim blamed the timer for any 404 that happened to land in the
+        // few microseconds the listener was attached — and reported a compatibility failure that
+        // blocked the whole render. It presented as flakiness: the same saved eForm rendered or was
+        // refused run to run. Legacy forms deliberately carry such 404s (each asset is referenced
+        // twice, once bare so the form opens off a local disk), so this fired across the corpus.
+        assertThat(compat).contains("event.target !== window");
+    }
+
+    @Test
     @DisplayName("should treat an eval-blocked timer script as a compatibility failure")
     void shouldDetectBlockedTimer_forEvalBlockedUri() throws IOException {
         String compat = read(RUNTIME_COMPAT_JS);

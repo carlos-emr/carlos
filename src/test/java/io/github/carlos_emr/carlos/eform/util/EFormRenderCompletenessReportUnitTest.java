@@ -117,6 +117,23 @@ class EFormRenderCompletenessReportUnitTest {
     }
 
     @Test
+    @DisplayName("should name the conditions present so a blocked render can be diagnosed")
+    void shouldNameConditionsPresent_forOperatorDiagnosis() {
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(2, 0, 5, 1, false, true, false, false);
+
+        // blockingOnly omits the advisory console count, so the log names exactly what refused.
+        assertThat(report.describe(true))
+                .isEqualTo("failedContentResources=2 containedInteractions=1 timerCompatibilityFailure");
+        assertThat(report.describe(false))
+                .contains("severeConsoleErrors=5")
+                .contains("failedContentResources=2");
+        // Identifiers and counts only: no URL, filename or rendered text may cross this boundary.
+        assertThat(EFormRenderCompletenessReport.complete().describe(true)).isEqualTo("none");
+        assertThat(EFormRenderCompletenessReport.complete().describe(false)).isEqualTo("none");
+    }
+
+    @Test
     @DisplayName("should report every non-console condition as blocking")
     void shouldReportEveryNonConsoleCondition_asBlocking() {
         // Guards the split itself: if a new component is added to the record and quietly lands on

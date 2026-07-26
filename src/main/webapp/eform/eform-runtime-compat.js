@@ -60,6 +60,20 @@
         var script = document.createElement("script");
         var executionError = null;
         function captureError(event) {
+            // Only errors thrown BY the injected script count. A failed resource load (a 404'd
+            // <img> or <script> elsewhere on the page) also dispatches "error", and a capture-phase
+            // window listener sees it — script errors target the window, resource errors target the
+            // element, so that is the discriminator.
+            //
+            // Without this the shim blamed the timer for any subresource that happened to fail
+            // during the few microseconds this listener is attached, and reported a compatibility
+            // failure that blocked the whole render. It presented as flakiness: the same saved form
+            // rendered or was refused run to run depending on when the unrelated 404 landed. Legacy
+            // eForms deliberately carry such 404s — they reference each asset twice, once bare so
+            // the form opens off a local disk — so this fired across the shared-form corpus.
+            if (event.target && event.target !== window) {
+                return;
+            }
             executionError = event.error || new Error(event.message || "Timer callback failed");
         }
         script.textContent = String(source);
