@@ -84,6 +84,43 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should abort the save when the eForm reports unsatisfied HTML5 constraints")
+    void shouldAbortSave_whenFormConstraintsUnsatisfied() throws IOException {
+        String toolbar = read(TOOLBAR_JS);
+
+        // remoteSave submits through the eForm's own <input type="submit"> when it declares one, and
+        // a native submit click runs constraint validation. A form with an empty required field
+        // therefore never posts, but nothing throws — so without this guard remoteSave reported
+        // success while remoteDownload/remoteFax/remoteEmail had already shown a LOCKED spinner and
+        // set their workflow flag, stranding the clinician under an undismissable overlay on a form
+        // that was never saved. Observed on a real clinic form with a required history field.
+        assertThat(toolbar).contains("eFormValidationBlocked()");
+        assertThat(toolbar).contains("checkValidity");
+        // reportValidity names the offending field; a generic alert would not.
+        assertThat(toolbar).contains("reportValidity");
+
+        // Scope the ordering check to remoteSave's own body: these helpers are declared earlier in
+        // the file, so a whole-file indexOf would compare against their definitions, not their calls.
+        String saveBody = toolbar.substring(
+                toolbar.indexOf("function remoteSave()"), toolbar.indexOf("data-poload"));
+        int guard = saveBody.indexOf("if (eFormValidationBlocked())");
+        assertThat(guard).as("the validity guard must be wired into remoteSave").isNotNegative();
+        // The guard must precede the form mutations and the submit-bound spinner, or an abort leaves
+        // the toolbar's own inputs behind on a form the clinician is still editing.
+        // Match the call, not the bare name: the guard's own comment names appendImageInputs(), and
+        // matching that instead compared the comment's position rather than the statement's.
+        assertThat(guard)
+                .as("validity must be checked before appendImageInputs()/moveSubject()")
+                .isLessThan(saveBody.indexOf("appendImageInputs();"));
+        // Unlike the editorStillLoading guard, this one runs AFTER the callers have set their
+        // workflow flag, so it must clear the flag as well as the spinner.
+        String guardBody = toolbar.substring(
+                toolbar.indexOf("function eFormValidationBlocked()"),
+                toolbar.indexOf("function remoteSave()"));
+        assertThat(guardBody).contains("HideSpin()").contains("clearWorkflowFlags()");
+    }
+
+    @Test
     @DisplayName("should treat an eval-blocked timer script as a compatibility failure")
     void shouldDetectBlockedTimer_forEvalBlockedUri() throws IOException {
         String compat = read(RUNTIME_COMPAT_JS);

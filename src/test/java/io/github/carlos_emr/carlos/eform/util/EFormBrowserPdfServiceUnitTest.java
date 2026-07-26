@@ -842,6 +842,96 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should treat a failed duplicate reference as advisory when the same file also loaded")
+    void shouldTreatDuplicateReference_asAdvisoryWhenSameFileLoaded() {
+        // Much of the shared-eForm corpus references each asset twice on purpose: once bare, so the
+        // form opens off a local disk, and once through ${oscar_image_path} so it resolves when
+        // served. Over HTTP the bare reference 404s by design. Measured on the Greig Ultrasound
+        // Requisition: /carlos/onBodyLoad_Oct2018.js 404 alongside
+        // EFormImageViewForPdfGenerationServlet?imagefile=onBodyLoad_Oct2018.js 200 — the script was
+        // present and executing, yet the render was blocked for "missing content".
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=onBodyLoad_Oct2018.js\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/onBodyLoad_Oct2018.js\",\"status\":404}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).as("the file demonstrably loaded").isZero();
+        assertThat(scan.failedSubresources()).as("still reported as advisory").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should treat a duplicate reference as advisory even when the failure is scanned first")
+    void shouldTreatDuplicateReference_asAdvisoryWhenFailureScannedFirst() {
+        // The events are replayed from a buffered performance log in arrival order, so the 404 can
+        // precede the 200 for the same file. Classifying inline would make the verdict depend on
+        // event ordering; this is the pin for the deferred second pass.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/bg.png\",\"status\":404}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":200}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).isZero();
+        assertThat(scan.failedSubresources()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should still block a failed resource when no other request loaded that file")
+    void shouldStillBlock_whenNoOtherRequestLoadedThatFile() {
+        // The downgrade is narrow by construction: it needs an observed 2xx for the SAME filename.
+        // A genuinely absent asset has no such response, so it keeps blocking — otherwise this
+        // change would have quietly disabled the missing-background gate entirely.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=other.png\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":404}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).as("a different file loading proves nothing").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should not let a redirect license the downgrade of a failed reference")
+    void shouldNotDowngrade_whenSameNameOnlyRedirected() {
+        // A 302 is not a load. Missing paths under the webapp redirect to the login page, so
+        // accepting any sub-400 status as proof would let that redirect mask a genuinely absent
+        // asset — the exact failure mode this gate exists to catch.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/bg.png\",\"status\":302}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":404}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should match the imagefile parameter and the path segment as the same asset")
+    void shouldResolveResourceBasename_fromQueryAndPath() {
+        assertThat(EFormBrowserPdfService.resourceBasename(
+                "http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png"))
+                .isEqualTo("bg.png");
+        assertThat(EFormBrowserPdfService.resourceBasename("http://127.0.0.1:8080/carlos/bg.png"))
+                .isEqualTo("bg.png");
+        // Percent-encoded names must compare equal to their on-disk form, or bracketed filenames
+        // would never match their own successful load.
+        assertThat(EFormBrowserPdfService.resourceBasename(
+                "http://127.0.0.1:8080/carlos/eform/displayImage?imagefile=scan-1%5B1%5D.png"))
+                .isEqualTo("scan-1[1].png");
+        assertThat(EFormBrowserPdfService.resourceBasename(null)).isNull();
+        assertThat(EFormBrowserPdfService.resourceBasename("")).isNull();
+    }
+
+    @Test
     @DisplayName("should fail closed on WebSocket and WebTransport egress attempts")
     void shouldFailClosed_onWebSocketAndWebTransportEgress() {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");

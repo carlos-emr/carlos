@@ -161,6 +161,18 @@
             background-color: lightgray;
         }
 
+        /* Sits above the preview iframe, which fills the pane; the banner must not overlay the
+           document it is warning about. */
+        .preview-advisory {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            color: #664d03;
+            font-weight: bold;
+            margin-bottom: 6px;
+            padding: 8px 10px;
+        }
+
         .flex {
             display: flex !important;
         }
@@ -223,11 +235,15 @@
             jQuery("[class^='" + startClassName + "']:not(input[disabled='disabled'])").prop('checked', jQuery(element).prop("checked"));
         }
 
-        function addPdfAttachment(attachmentName, attachmentId, base64Data) {
+        // advisoryIssues is cached with the PDF: a re-preview is served from here without another
+        // request, so storing only the bytes would silently drop the "this form reported a script
+        // error" notice the second time the same document is opened.
+        function addPdfAttachment(attachmentName, attachmentId, base64Data, advisoryIssues) {
             const newAttachment = {
                 attachmentName,
                 attachmentId,
-                base64Data
+                base64Data,
+                advisoryIssues
             };
             pdfCache.push(newAttachment);
         }
@@ -239,7 +255,7 @@
                     attachment.attachmentId === attachmentId
             );
 
-            return foundAttachment ? foundAttachment.base64Data : null;
+            return foundAttachment ? foundAttachment : null;
         }
 
         // var + typeof guard (not a top-level `let`): this script is re-evaluated in the parent
@@ -287,6 +303,28 @@
             HideSpin();
         }
 
+        // Advisory conditions never withhold the document, so this is a banner rather than the
+        // confirm() dialog the blocking path uses. Cleared on every preview so a clean render does
+        // not inherit the previous document's notice.
+        function showAdvisory(advisoryIssues) {
+            const advisory = document.getElementById('preview-advisory');
+            if (!advisory) {
+                return;
+            }
+            const count = Number(advisoryIssues) || 0;
+            if (count < 1) {
+                advisory.classList.add('d-none');
+                advisory.textContent = '';
+                return;
+            }
+            // textContent, not innerHTML: the count is server-generated, but this element sits in a
+            // page that renders clinical documents and must never become an HTML sink.
+            advisory.textContent = "This form reported " + count
+                + (count === 1 ? " script error" : " script errors")
+                + " while rendering. The document below may be missing content — check it against the form.";
+            advisory.classList.remove('d-none');
+        }
+
         function showError(errorMessage) {
             if (errorMessage) {
                 alert("A preview of this document could not be generated.\n\n" + errorMessage);
@@ -299,9 +337,10 @@
         function getPdf(attachmentName, attachmentId, parameters) {
             // Please include "<%=request.getContextPath()%>/WEB-INF/jsp/includes/spinner.jspf" into the parent page to control the visibility of the spinner (show/hide).
             ShowSpin(true);
-            const base64Data = getPdfAttachment(attachmentName, attachmentId);
-            if (base64Data !== null) {
-                showPDF(base64Data);
+            const cached = getPdfAttachment(attachmentName, attachmentId);
+            if (cached !== null) {
+                showPDF(cached.base64Data);
+                showAdvisory(cached.advisoryIssues);
                 return;
             }
 
@@ -312,8 +351,9 @@
                 dataType: "json",
                 success: function (data) {
                     if (data.base64Data) {
-                        addPdfAttachment(attachmentName, attachmentId, data.base64Data);
+                        addPdfAttachment(attachmentName, attachmentId, data.base64Data, data.advisoryIssues);
                         showPDF(data.base64Data);
+                        showAdvisory(data.advisoryIssues);
                     } else if (data.missingContent) {
                         HideSpin();
                         // Every category EFormRenderCompletenessReport carries must appear here.
@@ -595,6 +635,12 @@
             <%-- iframe, not <object>: the eForm pages harden with CSP object-src 'none', which
                  silently blocked <object>-based PDF previews. Iframes are governed by frame-src,
                  which those pages open to 'self' and blob: for exactly this preview. --%>
+            <%-- Advisory banner: shown when a render completed but reported a non-blocking
+                 condition (currently a page-script error in the form itself). The PDF is still
+                 delivered — this must never gate the preview — but the reader has to be told,
+                 because a script that aborted midway can omit content while every other check
+                 passes. --%>
+            <div id="preview-advisory" class="preview-advisory d-none" role="status"></div>
             <iframe id="pdfObject" class="d-none" title="Attachment preview"></iframe>
             <div id="preview-filler" class="preview-filler">
                 <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.clickAnyItemToPreview"/>

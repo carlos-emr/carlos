@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.FormsManager;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -546,7 +547,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123");
         verify(mockEFormDataDao, never()).find(42);
-        verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.EFORM), any());
+        verify(mockDocumentAttachmentManager, never()).renderEform(eq(mockLoggedInInfo), any(), any());
     }
 
     @Test
@@ -594,8 +595,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
 
         // No approval token is present, so the manager receives no incomplete-render capability.
-        when(mockDocumentAttachmentManager.renderDocument(
-                mockLoggedInInfo, DocumentType.EFORM, 42, (EFormRenderApproval) null))
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("render failed"));
 
         String result = action.execute();
@@ -618,8 +618,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
         EFormRenderCompletenessReport report =
                 new EFormRenderCompletenessReport(2, 3, 0, 0, true, true, false, false);
-        when(mockDocumentAttachmentManager.renderDocument(
-                mockLoggedInInfo, DocumentType.EFORM, 42, (EFormRenderApproval) null))
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
                 .thenThrow(new EformContentUnavailableException("incomplete", 42, report));
         when(mockEFormRenderApprovalService.issue(
                 request, mockLoggedInInfo, 42, "123",
@@ -637,6 +636,53 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("\"signatureMissing\":true")
                 .contains("\"timerCompatibilityFailure\":true")
                 .doesNotContain("\"errorMessage\":\"incomplete\"");
+    }
+
+    @Test
+    @DisplayName("should deliver the eForm PDF and disclose an advisory page-script error")
+    void shouldDeliverEformPdf_andDiscloseAdvisoryPageScriptError() throws Exception {
+        // A page-script error no longer withholds the document, so this response carries BOTH the
+        // PDF and the notice. Without the notice the clinician would receive a possibly-truncated
+        // document with no indication the form errored — the reason the gate blocked before.
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+        EFormRenderCompletenessReport advisoryOnly =
+                new EFormRenderCompletenessReport(0, 0, 1, 0, false, false, false, false);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        java.nio.file.Path.of("eform-browser-render-1.pdf"), advisoryOnly));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("QUJD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"base64Data\":\"QUJD\"")
+                .contains("\"advisoryIssues\":1")
+                .doesNotContain("missingContent");
+    }
+
+    @Test
+    @DisplayName("should omit the advisory field when the eForm rendered cleanly")
+    void shouldOmitAdvisoryField_whenEformRenderedCleanly() throws Exception {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        java.nio.file.Path.of("eform-browser-render-1.pdf"),
+                        EFormRenderCompletenessReport.complete()));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("QUJD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"base64Data\":\"QUJD\"")
+                .doesNotContain("advisoryIssues");
     }
 
     @Test
@@ -758,7 +804,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("eForm does not match demographic");
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123");
-        verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.EFORM), any());
+        verify(mockDocumentAttachmentManager, never()).renderEform(eq(mockLoggedInInfo), any(), any());
     }
 
     @Test

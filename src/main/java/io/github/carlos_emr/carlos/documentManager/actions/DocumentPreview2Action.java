@@ -23,6 +23,7 @@ import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -234,9 +235,9 @@ public class DocumentPreview2Action extends ActionSupport {
             return;
         }
         try {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(
-                    loggedInInfo, DocumentType.EFORM, eFormId, approval);
-            generateResponse(response, eFormPDFPath);
+            EformDataManager.EformPdfRender rendered =
+                    documentAttachmentManager.renderEform(loggedInInfo, eFormId, approval);
+            generateResponse(response, rendered.path(), rendered.completeness());
         } catch (EformContentUnavailableException e) {
             // Return sanitized issue categories so the clinician can make an informed decision.
             logger.warn("eForm preview incomplete: offering exact-issue approval (issues={})",
@@ -582,9 +583,28 @@ public class DocumentPreview2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, Path pdfPath) throws PDFGenerationException {
+        generateResponse(response, pdfPath, null);
+    }
+
+    /**
+     * Writes the PDF response, attaching any advisory conditions the render reported.
+     *
+     * <p>Advisory conditions do not withhold the document — the reader gets the PDF — but they must
+     * still reach the reader. {@code advisoryIssues} counts uncaught exceptions thrown by the form's
+     * own script; a script that aborted midway through injecting a score, a dose or a letter body
+     * leaves no other trace, because every subresource still returned 200 and the page divs still
+     * measure. A count only: console text can carry PHI and must not cross this boundary.</p>
+     */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    private void generateResponse(HttpServletResponse response, Path pdfPath,
+            EFormRenderCompletenessReport completeness) throws PDFGenerationException {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
         json.put("base64Data", base64Data);
+        if (completeness != null && completeness.advisoryIssueCount() > 0) {
+            json.put("advisoryIssues", completeness.advisoryIssueCount());
+        }
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {

@@ -163,7 +163,7 @@ public final class PathValidationUtils {
     /**
      * Validates a user-provided filename and returns a normalized safe filename component.
      * Normalization preserves the legacy {@link MiscUtils#sanitizeFileName(String)}
-     * contract: whitespace becomes underscores, characters outside {@code [a-zA-Z0-9._]}
+     * contract: whitespace becomes underscores, characters outside {@code [a-zA-Z0-9._-]}
      * are removed, and repeated dots collapse to a single dot.
      *
      * @param userProvidedFileName the filename provided by the user
@@ -341,9 +341,25 @@ public final class PathValidationUtils {
         return value;
     }
 
+    /**
+     * Applies the legacy {@code MiscUtils.sanitizeFileName} normalization: whitespace becomes
+     * underscores, characters outside the keep-class are deleted, and dot runs collapse.
+     *
+     * <p>Hyphens are kept. They were accepted by the original guard ({@code ^[a-zA-Z0-9._-]+$}) and
+     * their deletion arrived incidentally with the move to {@code MiscUtils.sanitizeFileName}
+     * ({@code 60b81ac10e3}), whose stated intent was only to replace spaces. Deleting them is not a
+     * safety property — containment comes from {@code FilenameUtils.getName},
+     * {@link #validateWithinDirectory} and the blocked-extension list, and the read paths
+     * ({@link #validatePath}, {@link #validatePathComponent}) accept hyphens unchanged. It was also
+     * inconsistent within the eForm feature: ZIP import preserves the packaged name, so the same
+     * image kept its hyphens via one route and silently lost them via the image manager. There is no
+     * database record of eForm image names ({@code EFormUtil.listImages()} is a directory scan), so
+     * the on-disk name is the contract and a silent rename permanently breaks the form referencing
+     * it.</p>
+     */
     static String normalizeFileNameCharacters(String fileName) {
         return fileName.replaceAll("\\s+", "_")
-                .replaceAll("[^a-zA-Z0-9._]", "")
+                .replaceAll("[^a-zA-Z0-9._-]", "")
                 .replaceAll("\\.+", ".");
     }
 

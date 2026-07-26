@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfService;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -208,6 +209,12 @@ public class EformDataManagerImpl implements EformDataManager {
     @Override
     public Path createEformPDF(
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
+        return createEformPdfWithCompleteness(loggedInInfo, fdid, approval).path();
+    }
+
+    @Override
+    public EformPdfRender createEformPdfWithCompleteness(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
         if (eformData == null) {
             logger.warn("EForm PDF generation failed: no saved eForm found for fdid={}", fdid);
@@ -221,11 +228,13 @@ public class EformDataManagerImpl implements EformDataManager {
 
         logger.debug("Generating eForm PDF via browser renderer: fdid={}", fdid);
         Path path;
+        EFormRenderCompletenessReport completeness;
         try {
             // The caller owns cleanup of the returned renderer output.
             EFormBrowserPdfService.RenderedEformPdf rendered =
                     eFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid, approval);
             path = rendered.path();
+            completeness = rendered.completeness();
         } catch (PDFGenerationException e) {
             // The renderer already logged a redacted cause. Record which fdid failed and the exception
             // TYPE only for correlation — not e.getMessage(), which can re-emit unredacted renderer
@@ -247,7 +256,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new PDFGenerationException("EForm PDF generation produced an unreadable temporary file.");
         }
 
-        return path;
+        return new EformPdfRender(path, completeness);
     }
 
 

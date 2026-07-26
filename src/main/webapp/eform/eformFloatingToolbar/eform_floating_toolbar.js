@@ -130,6 +130,49 @@ function editorStillLoading() {
 	return true;
 }
 
+/**
+ * True when the eForm declares HTML5 constraints that are not satisfied, in which case the save
+ * cannot proceed and the reason has been shown to the user.
+ *
+ * <p>Why this guard has to exist: {@link remoteSave} submits through the eForm's own
+ * {@code <input type="submit" name="SubmitButton">} when the form declares one, and clicking a
+ * native submit button runs constraint validation. A form with an unsatisfied {@code required}
+ * field therefore never posts — but the click throws nothing, so remoteSave used to report success
+ * and the composite callers carried on. Since remoteDownload/remoteFax/remoteEmail/saveAsEdoc show
+ * a LOCKED spinner and set their workflow flag BEFORE saving, the result was an undismissable
+ * overlay over a form that was never saved: the same hazard the editorStillLoading() guard above
+ * already defends against. Observed on a real clinic form whose Past Medical History field is
+ * marked required.</p>
+ *
+ * <p>The check is deliberately applied to every save path, not only the native-button one. The
+ * other paths reach the server through HTMLFormElement.submit(), which bypasses constraint
+ * validation entirely — so before this, whether a form author's {@code required} was enforced at
+ * all depended on the incidental detail of whether their form declared a submit button. Two
+ * different validation semantics for the same action is the underlying defect; this makes the
+ * stricter, author-intended one uniform.</p>
+ *
+ * <p>Cleanup here (unlike the editorStillLoading guard) must also clear the workflow flags: those
+ * callers check editorStillLoading BEFORE setting their flag, but the form's validity cannot be
+ * known until the save is actually attempted, so by this point the flag is already on the form and
+ * a later plain Save would otherwise ride it into a download/fax/email.</p>
+ */
+function eFormValidationBlocked() {
+	const ef = getEForm();
+	// No resolvable form, or a browser/form without the constraint API: nothing can be asserted, so
+	// never block on it — the pre-existing submit paths stay exactly as they were.
+	if (!ef || typeof ef.checkValidity !== "function" || ef.checkValidity()) {
+		return false;
+	}
+	// reportValidity focuses the offending control and shows the browser's own message, which names
+	// the field. Do not substitute a generic alert: the clinician needs to know WHICH field.
+	if (typeof ef.reportValidity === "function") {
+		ef.reportValidity();
+	}
+	HideSpin();
+	clearWorkflowFlags();
+	return true;
+}
+
 	/**
 	 * Triggers the eForm save/submit function
 	 */
@@ -152,6 +195,13 @@ function remoteSave() {
 		if (timerCompat && typeof timerCompat.shouldBlockSubmission === "function"
 				&& timerCompat.shouldBlockSubmission()) {
 			HideSpin();
+			return false;
+		}
+
+		// Must run before appendImageInputs()/moveSubject() below mutate the form, and before the
+		// submit-bound spinner is armed: an abort after those leaves the toolbar's inputs on a form
+		// the user is still editing.
+		if (eFormValidationBlocked()) {
 			return false;
 		}
 

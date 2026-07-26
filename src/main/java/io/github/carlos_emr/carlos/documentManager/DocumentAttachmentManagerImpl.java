@@ -467,6 +467,16 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     /**
+     * Renders an eForm and returns its completeness report with the PDF, for callers that can show
+     * the reader what the render reported.
+     */
+    @Override
+    public EformDataManager.EformPdfRender renderEform(
+            LoggedInInfo loggedInInfo, Integer eFormId, EFormRenderApproval approval) throws PDFGenerationException {
+        return eformDataManager.createEformPdfWithCompleteness(loggedInInfo, eFormId, approval);
+    }
+
+    /**
      * eForm-aware overload using a server-issued approval for an exact incomplete render.
      */
     @Override

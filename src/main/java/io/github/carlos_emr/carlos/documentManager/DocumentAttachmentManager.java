@@ -4,6 +4,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -233,6 +234,17 @@ public interface DocumentAttachmentManager {
      * @param approval exact, short-lived approval capability; ignored for non-eForm documents
      */
     public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
+     * Renders an eForm and returns the observed completeness with the PDF, for callers that can
+     * show the reader what the render reported.
+     *
+     * <p>eForm-only by design: completeness reporting is a property of the browser render surface,
+     * and the other document types have no equivalent. Kept separate from the {@code renderDocument}
+     * overloads so their many call sites are unaffected.</p>
+     */
+    public EformDataManager.EformPdfRender renderEform(
+            LoggedInInfo loggedInInfo, Integer eFormId, EFormRenderApproval approval) throws PDFGenerationException;
 
     /**
      * Renders a consultation form along with all its associated attachments as a single PDF.

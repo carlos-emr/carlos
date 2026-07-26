@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
@@ -530,7 +531,8 @@ public class EFormBrowserPdfService {
      * structural — every production path is created via {@code createSecureTempFile} under
      * {@code resolveRendererTempRoot()}.</p>
      */
-    public record RenderedEformPdf(Path path) implements AutoCloseable {
+    public record RenderedEformPdf(Path path, EFormRenderCompletenessReport completeness)
+            implements AutoCloseable {
         /**
          * Rejects any path that is not this renderer's own output. {@link #close()} deletes the
          * wrapped file, so constraining the wrapper to a non-null {@code eform-browser-render-*.pdf}
@@ -538,10 +540,15 @@ public class EFormBrowserPdfService {
          * {@code new RenderedEformPdf(Path.of("/etc/passwd"))} can never turn this AutoCloseable into
          * an arbitrary-file delete.
          *
+         * <p>A null {@code completeness} normalizes to {@link EFormRenderCompletenessReport#complete()}
+         * so callers reading it never have to null-check; a delivered PDF with no report recorded is
+         * by definition one that raised nothing.</p>
+         *
          * @throws NullPointerException if {@code path} is null
          * @throws IllegalArgumentException if the filename is not a renderer output name
          */
         public RenderedEformPdf {
+            completeness = completeness == null ? EFormRenderCompletenessReport.complete() : completeness;
             Objects.requireNonNull(path, "rendered eForm PDF path must not be null");
             Path fileNamePath = path.getFileName();
             String fileName = fileNamePath == null ? "" : fileNamePath.toString();
@@ -552,6 +559,17 @@ public class EFormBrowserPdfService {
                         "RenderedEformPdf must wrap renderer output (" + RENDER_ARTIFACT_PREFIX
                         + "*.pdf); refusing: " + fileName);
             }
+        }
+
+        /**
+         * Wraps renderer output whose completeness was not recorded, reporting it as complete.
+         *
+         * <p>Retained for callers that only need the file. A render that reached the point of
+         * producing a PDF already passed the gate, so "no report" and "nothing to report" are the
+         * same statement here.</p>
+         */
+        public RenderedEformPdf(Path path) {
+            this(path, EFormRenderCompletenessReport.complete());
         }
 
         @Override
@@ -645,13 +663,13 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException("Browser rendering was aborted before it started.");
         }
         try {
-            return new RenderedEformPdf(renderWithSlot(fdid, providerId, tempRoot, approval));
+            return renderWithSlot(fdid, providerId, tempRoot, approval);
         } finally {
             RENDER_SLOTS.release();
         }
     }
 
-    private Path renderWithSlot(
+    private RenderedEformPdf renderWithSlot(
             int fdid, String providerId, Path tempRoot, EFormRenderApproval approval)
             throws PDFGenerationException {
         HttpServletRequest currentRequest = currentRequestOrNull();
@@ -756,17 +774,23 @@ public class EFormBrowserPdfService {
                             geometry.timerCompatibilityFailure(),
                             stabilizationCapped,
                             geometry.labDecisionSupportStubbed()));
-            if (!completeness.isComplete()
+            if (completeness.hasBlockingOmissions()
                     && (approval == null || !approval.permits(fdid, providerId, completeness))) {
-                logger.warn("Browser eForm renderer blocked incomplete output: fdid={} issues={}",
-                        fdid, completeness.issueCount());
+                logger.warn("Browser eForm renderer blocked incomplete output: fdid={} issues={} blocking={}",
+                        fdid, completeness.issueCount(), completeness.blockingIssueCount());
                 throw new EformContentUnavailableException(
                         "The eForm could not be fully rendered. Review the reported omissions before proceeding.",
                         fdid, completeness);
             }
-            if (!completeness.isComplete()) {
+            if (completeness.hasBlockingOmissions()) {
                 logger.warn("Browser eForm renderer proceeding with approved incomplete output: fdid={} issues={}",
                         fdid, completeness.issueCount());
+            } else if (!completeness.isComplete()) {
+                // Advisory-only: the document is delivered, so this WARN is the audit record on the
+                // fax and direct-download paths, which stream bytes and cannot carry a notice. The
+                // preview path additionally surfaces it to the clinician (see lastCompletenessReport).
+                logger.warn("Browser eForm renderer produced advisory-only issues: fdid={} advisories={}",
+                        fdid, completeness.advisoryIssueCount());
             }
             List<PageSize> pageSizes = geometry.pages();
             if (!pageSizes.isEmpty()) {
@@ -802,7 +826,9 @@ public class EFormBrowserPdfService {
             logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={}",
                     fdid, pageSizes.size(), outputPdfBytes,
                     (System.nanoTime() - startNanos) / 1_000_000L);
-            return outputPdfPath;
+            // Carry the report out with the file rather than in a field: renders run concurrently
+            // under the slot semaphore, so any per-service mutable state would cross-talk.
+            return new RenderedEformPdf(outputPdfPath, completeness);
         } catch (EformContentUnavailableException e) {
             // Re-throw incomplete renders without relabeling them as renderer-integrity failures;
             // the caller displays the sanitized issue report and requires exact approval.
@@ -1682,6 +1708,19 @@ public class EFormBrowserPdfService {
      * Both are restricted to {@link #RENDER_CRITICAL_RESOURCE_TYPES} so speculative browser loads do
      * not affect the document. Every failed render-critical type enters the approval report because
      * missing scripts or data fetches can omit clinical content as readily as missing images.</p>
+     *
+     * <p><strong>Duplicate references.</strong> A failure is only counted as missing content if no
+     * other request in the same render loaded the <em>same filename</em> successfully. Much of the
+     * shared-eForm corpus deliberately references each asset twice — once bare (so the form opens
+     * off a local disk) and once through {@code ${oscar_image_path}} (so it resolves when served) —
+     * and the bare reference is expected to 404 over HTTP. Counting that by-design 404 as missing
+     * content blocked forms whose assets were demonstrably present and executing. Matching is on the
+     * filename alone and requires an observed 2xx, so a genuinely absent file still blocks: nothing
+     * else would have loaded it.</p>
+     *
+     * <p>The classification is therefore deferred to a second pass. CDP events are replayed from a
+     * buffered log in arrival order, so the 404 for a filename can be seen before the 200 for it;
+     * deciding inline would make the verdict depend on event ordering.</p>
      */
     static NetworkGateScan scanNetworkEvents(List<String> rawEntries, String allowedOrigin) {
         int disallowedRequests = 0;
@@ -1693,6 +1732,8 @@ public class EFormBrowserPdfService {
         int failedCriticalSubresources = 0;
         int nonReadRequests = 0;
         java.util.Map<String, String> requestUrlsById = new java.util.HashMap<>();
+        java.util.Set<String> loadedResourceNames = new java.util.HashSet<>();
+        List<String> criticalFailureNames = new ArrayList<>();
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -1731,12 +1772,12 @@ public class EFormBrowserPdfService {
             } else if ("Network.responseReceived".equals(method)) {
                 String resourceType = params.path("type").asText("");
                 String responseUrl = params.path("response").path("url").asText("");
+                int status = params.path("response").path("status").asInt();
                 boolean sameOrigin = allowedOrigin != null && allowedOrigin.equals(originOf(responseUrl));
                 if (mainDocumentStatus == null && "Document".equals(resourceType) && sameOrigin) {
-                    mainDocumentStatus = params.path("response").path("status").asInt();
+                    mainDocumentStatus = status;
                     mainDocumentUrl = responseUrl;
-                } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
-                        && params.path("response").path("status").asInt() >= 400) {
+                } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType) && status >= 400) {
                     // Every failed content-bearing resource can omit clinical content. Two advisory
                     // exceptions: an empty-src placeholder resolving back to the main document URL
                     // (not a distinct form resource), and a presentation-only asset, whose loss
@@ -1744,8 +1785,21 @@ public class EFormBrowserPdfService {
                     if (responseUrl.equals(mainDocumentUrl)
                             || PRESENTATION_RESOURCE_TYPES.contains(resourceType)) {
                         failedSubresources++;
+                    } else if (criticalFailureNames.size() < MAX_TRACKED_REQUEST_URLS) {
+                        criticalFailureNames.add(resourceBasename(responseUrl));
                     } else {
+                        // Past the bound, classify immediately as missing content: dropping the
+                        // entry would silently undercount failures.
                         failedCriticalSubresources++;
+                    }
+                } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
+                        && status >= 200 && status < 300
+                        && loadedResourceNames.size() < MAX_TRACKED_REQUEST_URLS) {
+                    // Only an observed 2xx proves the asset was served; a 3xx is a redirect, not a
+                    // load, and must never license downgrading a failure for the same filename.
+                    String loadedName = resourceBasename(responseUrl);
+                    if (loadedName != null) {
+                        loadedResourceNames.add(loadedName);
                     }
                 }
             } else if ("Network.loadingFailed".equals(method)
@@ -1757,13 +1811,78 @@ public class EFormBrowserPdfService {
                 if (PRESENTATION_RESOURCE_TYPES.contains(params.path("type").asText(""))
                         || isContainmentBlockedResource(failedUrl, allowedOrigin)) {
                     failedSubresources++;
+                } else if (criticalFailureNames.size() < MAX_TRACKED_REQUEST_URLS) {
+                    criticalFailureNames.add(resourceBasename(failedUrl));
                 } else {
                     failedCriticalSubresources++;
                 }
             }
         }
+        // Second pass: a failure whose filename also loaded successfully in this render is a
+        // by-design duplicate reference, not missing content. An unknown filename (no URL recorded
+        // for the requestId) can never be matched, so it stays blocking — fail closed.
+        for (String failedName : criticalFailureNames) {
+            if (failedName != null && loadedResourceNames.contains(failedName)) {
+                failedSubresources++;
+            } else {
+                failedCriticalSubresources++;
+            }
+        }
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
                 parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests);
+    }
+
+    /**
+     * The filename a render request ultimately addresses, used only to recognise that two different
+     * URLs name the same asset.
+     *
+     * <p>The eForm image routes carry the real name in the {@code imagefile} query parameter
+     * ({@code …/EFormImageViewForPdfGenerationServlet?imagefile=bg.png}), so that value wins when
+     * present; otherwise the last path segment is used ({@code /carlos/bg.png} → {@code bg.png}).
+     * This is deliberately a name comparison, not a URL comparison: the whole point is to match a
+     * bare reference against the {@code ${oscar_image_path}} reference to the same file.</p>
+     *
+     * @return the filename, or {@code null} when none can be determined (an unusable value must not
+     *         match anything, so the caller keeps treating the failure as missing content)
+     */
+    static String resourceBasename(String url) {
+        if (url == null || url.isEmpty()) {
+            return null;
+        }
+        String value = url;
+        int fragment = value.indexOf('#');
+        if (fragment >= 0) {
+            value = value.substring(0, fragment);
+        }
+        int queryStart = value.indexOf('?');
+        String name = null;
+        if (queryStart >= 0) {
+            // "&amp;" appears when the URL was read back out of HTML rather than off the wire.
+            String query = value.substring(queryStart + 1).replace("&amp;", "&");
+            value = value.substring(0, queryStart);
+            for (String parameter : query.split("&")) {
+                int separator = parameter.indexOf('=');
+                if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
+                    try {
+                        name = URLDecoder.decode(
+                                parameter.substring(separator + 1), StandardCharsets.UTF_8);
+                    } catch (IllegalArgumentException e) {
+                        // A malformed percent sequence cannot identify an asset; fall through to
+                        // the path segment rather than matching on a half-decoded value.
+                        name = null;
+                    }
+                    break;
+                }
+            }
+        }
+        if (name == null || name.isEmpty()) {
+            name = value;
+        }
+        int lastSlash = name.lastIndexOf('/');
+        if (lastSlash >= 0) {
+            name = name.substring(lastSlash + 1);
+        }
+        return name.isEmpty() ? null : name;
     }
 
     // Package-private for the unit test that pins the fail-closed behavior.

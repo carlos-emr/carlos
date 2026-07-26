@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 
 public interface EformDataManager {
@@ -72,6 +73,29 @@ public interface EformDataManager {
      * @param approval short-lived capability bound to the provider, eForm, and observed issue digest
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
+     * Renders an eForm and returns the observed completeness alongside the PDF.
+     *
+     * <p>Use this where the caller can show the result to a clinician. A render that raises only
+     * advisory conditions — an uncaught exception from the form's own script — produces a PDF and
+     * never blocks, but the reader still needs to know the page reported an error, because a script
+     * that aborted midway leaves no other visible trace. Callers that stream bytes with no room for
+     * a notice (fax, direct download) can keep using {@link #createEformPDF(LoggedInInfo, int,
+     * EFormRenderApproval)}; the condition is recorded in the render log either way.</p>
+     */
+    public EformPdfRender createEformPdfWithCompleteness(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
+     * A rendered eForm PDF and the sanitized completeness report observed while producing it.
+     *
+     * @param path readable path to the rendered PDF; the caller owns cleanup
+     * @param completeness counts and flags only — never resource URLs or rendered text, which can
+     *        carry PHI
+     */
+    record EformPdfRender(Path path, EFormRenderCompletenessReport completeness) {
+    }
 
 
     /**

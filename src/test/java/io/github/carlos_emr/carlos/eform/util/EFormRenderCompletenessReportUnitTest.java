@@ -87,6 +87,58 @@ class EFormRenderCompletenessReportUnitTest {
     }
 
     @Test
+    @DisplayName("should not block the document for a page-script error alone")
+    void shouldNotBlockDocument_forPageScriptErrorAlone() {
+        // Advisory, not ignored. Legacy corpus forms routinely throw once during load (a
+        // getElementById(...) returning null for a field the form no longer has) while rendering
+        // every bit of their clinical content, so blocking withheld complete documents far more
+        // often than it caught truncated ones. It stays in the report so the reader is told.
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(0, 0, 1, 0, false, false, false, false);
+
+        assertThat(report.hasBlockingOmissions()).isFalse();
+        assertThat(report.blockingIssueCount()).isZero();
+        assertThat(report.advisoryIssueCount()).isEqualTo(1);
+        // Still reported: approval binds a digest over the COMPLETE issue set.
+        assertThat(report.isComplete()).isFalse();
+        assertThat(report.issueCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should still block when a content failure accompanies a page-script error")
+    void shouldStillBlock_whenContentFailureAccompaniesPageScriptError() {
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(1, 0, 1, 0, false, false, false, false);
+
+        assertThat(report.hasBlockingOmissions()).isTrue();
+        assertThat(report.blockingIssueCount()).isEqualTo(1);
+        assertThat(report.advisoryIssueCount()).isEqualTo(1);
+        assertThat(report.issueCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should report every non-console condition as blocking")
+    void shouldReportEveryNonConsoleCondition_asBlocking() {
+        // Guards the split itself: if a new component is added to the record and quietly lands on
+        // the advisory side, this fails rather than silently weakening the gate.
+        assertThat(new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 1, 0, 0, false, false, false, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 0, 0, 1, false, false, false, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, true, false, false, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, false, true, false, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, true, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, true)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(EFormRenderCompletenessReport.complete().hasBlockingOmissions()).isFalse();
+    }
+
+    @Test
     @DisplayName("should treat a stubbed lab decision-support script as incomplete")
     void shouldTreatStubbedLabDecisionSupport_asIncomplete() {
         // The stub is deployed under the real script filename, so the request returns 200 and the

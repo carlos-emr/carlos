@@ -147,7 +147,18 @@ class PathValidationUtilsUnitTest {
         void shouldNormalizeFilename_usingLegacyRules() {
             String result = PathValidationUtils.validateFileName("my report..<script>-final.pdf");
 
-            assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
+            assertThat(result).isEqualTo("my_report.script-final.pdf");
+        }
+
+        @Test
+        @DisplayName("should preserve hyphens so eForm image references keep resolving")
+        void shouldPreserveHyphens_whenNormalizingFilename() {
+            // There is no database record of eForm image names (EFormUtil.listImages() is a
+            // directory scan), so the on-disk name is the contract. Deleting hyphens renamed
+            // uploads like Req-Form-Ultrasound-2026-1.png and permanently broke the form that
+            // referenced them, while the same file kept its name when imported via ZIP.
+            assertThat(PathValidationUtils.validateFileName("Req-Form-Ultrasound-2026-1.png"))
+                    .isEqualTo("Req-Form-Ultrasound-2026-1.png");
         }
 
         @Test
@@ -296,7 +307,11 @@ class PathValidationUtilsUnitTest {
 
         @ParameterizedTest
         @DisplayName("should reject missing or empty filename")
-        @ValueSource(strings = {"", "   ", "---"})
+        // "<<<>>>" stands in for the former "---" case: hyphens are now kept (they are part of real
+        // eForm image names), so a hyphen-only name normalizes to itself rather than to empty. The
+        // behaviour under test is "nothing survives normalization", which needs characters that are
+        // still stripped.
+        @ValueSource(strings = {"", "   ", "<<<>>>"})
         void shouldRejectFilename_whenMissingOrEmpty(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)

@@ -793,13 +793,71 @@ public final class EFormRenderPdfHtmlComposer {
             for (Attribute attribute : element.attributes().asList()) {
                 String value = attribute.getValue();
                 if (value.contains(IMAGE_PATH_MARKER) || value.contains(IMAGE_PATH_MARKER_URLENCODED)) {
-                    element.attr(attribute.getKey(), value
+                    element.attr(attribute.getKey(), encodeUrlHostileFileNameCharacters(value
                             .replace(IMAGE_PATH_MARKER, assetPrefix)
-                            .replace(IMAGE_PATH_MARKER_URLENCODED, assetPrefix));
+                            .replace(IMAGE_PATH_MARKER_URLENCODED, assetPrefix), assetPrefix));
                 }
             }
         }
         return document.outerHtml();
+    }
+
+    /**
+     * Characters that are legal in a filename but illegal unencoded in a request target. Tomcat
+     * rejects such a request at the HTTP parser — {@code Invalid character found in the request
+     * target}, HTTP 400 — before this webapp sees it, so a form packaging an image named e.g.
+     * {@code scan-1[1].png} cannot render it at all. Real OSCAR Galaxy packages ship exactly such
+     * names, and the ZIP importer stores them verbatim.
+     *
+     * <p>Deliberately a small fixed set rather than general URL encoding: {@code /}, {@code ?},
+     * {@code &amp;} and {@code =} are structural here and encoding them would break references that
+     * work today. Quotes and angle brackets are excluded for a different reason — they delimit the
+     * value, so treating them as both "encode this" and "the filename ends here" is ambiguous, and
+     * no filename an HTML attribute can unambiguously reference contains them. Mirrors the
+     * viewer-path set in {@code EFormBase.setImagePath}.</p>
+     */
+    private static final String URL_HOSTILE_FILENAME_CHARACTERS = "[]{}|\\^ ";
+
+    /**
+     * Percent-encodes {@link #URL_HOSTILE_FILENAME_CHARACTERS} in each filename following
+     * {@code assetPrefix} in an already-substituted attribute value.
+     *
+     * <p>The value is a parsed jsoup attribute, so the filename normally runs to the end of it
+     * ({@code src="…?imagefile=my scan[1].png"} — the space belongs to the filename). When the
+     * reference is embedded rather than the whole value, as in
+     * {@code style="background-image:url(…bg.png)"}, the token ends at the first {@code )}, quote or
+     * whitespace instead; encoding the closing paren would corrupt the CSS.</p>
+     */
+    static String encodeUrlHostileFileNameCharacters(String value, String assetPrefix) {
+        int markerAt = value.indexOf(assetPrefix);
+        if (markerAt < 0 || assetPrefix.isEmpty()) {
+            return value;
+        }
+        StringBuilder encoded = new StringBuilder(value.length());
+        int cursor = 0;
+        while (markerAt >= 0) {
+            int fileNameStart = markerAt + assetPrefix.length();
+            encoded.append(value, cursor, fileNameStart);
+            boolean wholeValue = markerAt == 0;
+            int index = fileNameStart;
+            while (index < value.length()) {
+                char current = value.charAt(index);
+                if (current == ')' || current == '\''
+                        || (!wholeValue && Character.isWhitespace(current))) {
+                    break;
+                }
+                if (URL_HOSTILE_FILENAME_CHARACTERS.indexOf(current) >= 0) {
+                    encoded.append(String.format("%%%02X", (int) current));
+                } else {
+                    encoded.append(current);
+                }
+                index++;
+            }
+            cursor = index;
+            markerAt = value.indexOf(assetPrefix, cursor);
+        }
+        encoded.append(value, cursor, value.length());
+        return encoded.toString();
     }
 
     // Package-private for the slash-normalization unit test.

@@ -46,6 +46,13 @@ public record EFormRenderCompletenessReport(
         return new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false);
     }
 
+    /**
+     * Whether the render produced no reportable condition at all, advisory ones included.
+     *
+     * <p>This is the reporting predicate, not the gating one — see {@link #hasBlockingOmissions()}
+     * for what actually withholds a document. Approval binds a digest over every component, so this
+     * must keep considering all of them.</p>
+     */
     public boolean isComplete() {
         return failedContentResources == 0
                 && excludedContentElements == 0
@@ -55,6 +62,37 @@ public record EFormRenderCompletenessReport(
                 && !timerCompatibilityFailure
                 && !stabilizationCapped
                 && !labDecisionSupportStubbed;
+    }
+
+    /**
+     * Whether any condition present is serious enough to withhold the document pending approval.
+     *
+     * <p>Every component blocks except {@link #severeConsoleErrors}, which is advisory: it counts
+     * uncaught exceptions thrown by the <em>form's own</em> script. Across the shared-eForm corpus
+     * that is the single most common condition — decades-old hand-authored forms routinely throw
+     * once during load (a {@code getElementById(...)} returning null for a field the form no longer
+     * has) while rendering every bit of their clinical content correctly. Blocking on it withheld
+     * complete documents far more often than it caught truncated ones.</p>
+     *
+     * <p>It stays in the report rather than being discarded, because a script that aborted midway
+     * through injecting a score, a dose or a letter body leaves no other observable — every
+     * subresource returned 200 and the page divs still measure. Callers that can show it must; see
+     * {@link #advisoryIssueCount()}.</p>
+     */
+    public boolean hasBlockingOmissions() {
+        return blockingIssueCount() > 0;
+    }
+
+    /** Count of conditions that withhold the document. */
+    public int blockingIssueCount() {
+        return Math.subtractExact(issueCount(), advisoryIssueCount());
+    }
+
+    /**
+     * Count of conditions that are reported to the user but never withhold the document.
+     */
+    public int advisoryIssueCount() {
+        return severeConsoleErrors;
     }
 
     public int issueCount() {
