@@ -130,4 +130,27 @@ class EFormCdnJqueryAliasUnitTest {
                 .contains("https://cdn.example.org/analytics.js")
                 .contains("https://code.jquery.com/jquery-9.9.9.min.js");
     }
+
+    @Test
+    @DisplayName("should alias a superseded webapp jQuery build to the deployed one")
+    void shouldAliasSupersededLibraryJquery_toDeployedBuild() {
+        // 28 of 199 shared-corpus packages pin /library/jquery/jquery-3.6.4.min.js. That is CARLOS's
+        // own library path, not a third-party host, and the build is simply no longer shipped - so it
+        // 404s and takes the form's scripts down with it.
+        String html = normalized(
+                "<script src=\"/library/jquery/jquery-3.6.4.min.js\"></script>");
+
+        assertThat(html).contains("/library/jquery/jquery-3.7.1.min.js");
+        assertThat(html).doesNotContain("3.6.4");
+    }
+
+    @Test
+    @DisplayName("should leave an unrecognised jQuery build to fail visibly")
+    void shouldLeaveUnrecognisedLibraryJquery_untouched() {
+        // Exact-version matching: silently upgrading an unknown build would hide a real breakage.
+        String html = normalized(
+                "<script src=\"/library/jquery/jquery-2.0.0.min.js\"></script>");
+
+        assertThat(html).contains("/library/jquery/jquery-2.0.0.min.js");
+    }
 }

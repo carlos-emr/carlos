@@ -96,6 +96,15 @@ public class EForm extends EFormBase {
      * redirecting scripts nobody has looked at. Both {@code http} and {@code https} spellings are
      * listed because corpus forms use both. Extend only with a URL seen in a real form.</p>
      */
+    /** jQuery build actually deployed under the webapp's library path. */
+    private static final String DEPLOYED_LIBRARY_JQUERY_PATH = "/library/jquery/jquery-3.7.1.min.js";
+    /**
+     * Webapp-relative jQuery paths clinic forms pin that this CARLOS no longer ships. Exact
+     * versions only: an unknown build must 404 visibly rather than be silently swapped.
+     */
+    private static final java.util.List<String> SUPERSEDED_LIBRARY_JQUERY_PATHS = java.util.List.of(
+            "/library/jquery/jquery-3.6.4.min.js");
+
     private static final java.util.List<String> CDN_JQUERY_URLS = java.util.List.of(
             "https://code.jquery.com/jquery-1.7.1.min.js",
             "http://code.jquery.com/jquery-1.7.1.min.js",
@@ -522,6 +531,15 @@ public class EForm extends EFormBase {
             rewritten = rewritten
                     .replace(attributeReference(legacy), attributeReference(assetUrl))
                     .replace(singleQuotedAttributeReference(legacy), singleQuotedAttributeReference(assetUrl));
+        }
+        // A webapp-relative reference to a jQuery build this CARLOS no longer ships. 28 of 199
+        // shared-corpus packages pin /library/jquery/jquery-3.6.4.min.js, which 404s and takes the
+        // form's scripts down with it. This is CARLOS's own library path, not a third-party host,
+        // so pointing it at the deployed build is a version alias rather than a redirect to
+        // unvetted code -- but it stays an exact-version match, so an unrecognised build still
+        // fails visibly instead of being silently upgraded.
+        for (String supersededPath : SUPERSEDED_LIBRARY_JQUERY_PATHS) {
+            rewritten = rewritten.replace(supersededPath, DEPLOYED_LIBRARY_JQUERY_PATH);
         }
         boolean aliasedFromCdn = false;
         for (String cdnUrl : CDN_JQUERY_URLS) {
