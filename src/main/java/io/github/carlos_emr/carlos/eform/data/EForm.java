@@ -79,6 +79,38 @@ public class EForm extends EFormBase {
     private static final String SCRIPT_TAG = "script";
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
+    /** A whole opening &lt;script ...&gt; tag, for the SRI strip in the CDN alias. */
+    private static final Pattern ALIASED_SCRIPT_TAG =
+            Pattern.compile("<script\\b[^>]*>", Pattern.CASE_INSENSITIVE);
+    /** An {@code integrity=} or {@code crossorigin=} attribute, either quoting style. */
+    private static final Pattern SRI_ATTRIBUTE = Pattern.compile(
+            "\\s+(?:integrity|crossorigin)\\s*=\\s*(?:\"[^\"]*\"|'[^']*')",
+            Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Public CDN jQuery URLs observed in the shared-eForm corpus, aliased to the local bundle by
+     * {@link #rewriteLegacyRelativeJqueryReferences}. See that method for why this is an alias and
+     * not an egress allowance.
+     *
+     * <p>EXACT full URLs only — adding a host or a prefix pattern here would silently start
+     * redirecting scripts nobody has looked at. Both {@code http} and {@code https} spellings are
+     * listed because corpus forms use both. Extend only with a URL seen in a real form.</p>
+     */
+    private static final java.util.List<String> CDN_JQUERY_URLS = java.util.List.of(
+            "https://code.jquery.com/jquery-1.7.1.min.js",
+            "http://code.jquery.com/jquery-1.7.1.min.js",
+            "https://code.jquery.com/jquery-1.12.0.min.js",
+            "http://code.jquery.com/jquery-1.12.0.min.js",
+            "https://code.jquery.com/jquery-2.2.1.min.js",
+            "http://code.jquery.com/jquery-2.2.1.min.js",
+            "https://code.jquery.com/jquery-3.7.1.min.js",
+            "http://code.jquery.com/jquery-3.7.1.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js",
+            "http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
+            "http://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
+            "http://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js");
     private static final String LOAD_SIG_CALL = "loadSig()";
     // The guard preserves an existing loadSig implementation and supplies a no-op when absent.
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
@@ -456,13 +488,90 @@ public class EForm extends EFormBase {
         this.formHtml = injectLoadSigFallback(this.formHtml);
     }
 
+    /**
+     * Points known jQuery references at the locally deployed bundle.
+     *
+     * <p>Covers two families: the legacy relative spellings a clinic form uses when it expects
+     * jQuery beside itself in the eForm image directory, and the public CDN URLs that much of the
+     * shared-eForm corpus loads jQuery from.</p>
+     *
+     * <p>The CDN case is a <em>local alias, never an egress allowance</em>. The PDF render browser
+     * is deliberately unable to reach any off-origin host — a dead proxy plus a loopback-only bypass
+     * list, with CSP {@code script-src 'self'} on top — because it executes clinic-authored content
+     * while displaying PHI. Opening a hole for a CDN would mean loosening the proxy bypass (which is
+     * {@code host:port} scoped and so cannot be narrowed to a single file), the CSP, and the network
+     * gate, and would still leave a top-level-navigation exfiltration path that CSP has no directive
+     * to close. Serving our own copy gives these forms the same jQuery with none of that, works
+     * offline, and renders deterministically.</p>
+     *
+     * <p>Matching is EXACT and by full URL, never by host or prefix. An unrecognised third-party
+     * script stays untouched and fails visibly at the render gate — the correct outcome for a script
+     * nobody has vetted. Note the served bundle is jQuery 3.7.1 plus the compat shim (see
+     * {@code EFormAssetDeployer}) regardless of the version a form asked for: the same trade the
+     * legacy-filename aliasing already makes.</p>
+     */
     private String rewriteLegacyRelativeJqueryReferences(String html, String contextPath) {
         if (StringUtils.isBlank(html)) return html;
 
         String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
-        return html
-                .replace("src=\"jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"")
-                .replace("src=\"/eform/jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"");
+        // Both quoting styles for every spelling: corpus forms use them interchangeably, and a
+        // single-quoted src='jquery-1.12.0.min.js' (observed in real packages) previously slipped
+        // through and 404'd.
+        String rewritten = html;
+        for (String legacy : java.util.List.of(LEGACY_JQUERY_SOURCE, LEGACY_JQUERY_DISPLAY_PATH)) {
+            rewritten = rewritten
+                    .replace(attributeReference(legacy), attributeReference(assetUrl))
+                    .replace(singleQuotedAttributeReference(legacy), singleQuotedAttributeReference(assetUrl));
+        }
+        boolean aliasedFromCdn = false;
+        for (String cdnUrl : CDN_JQUERY_URLS) {
+            String before = rewritten;
+            rewritten = rewritten
+                    .replace(attributeReference(cdnUrl), attributeReference(assetUrl))
+                    .replace(singleQuotedAttributeReference(cdnUrl), singleQuotedAttributeReference(assetUrl));
+            aliasedFromCdn |= !before.equals(rewritten);
+        }
+        return aliasedFromCdn ? stripSubresourceIntegrity(rewritten, assetUrl) : rewritten;
+    }
+
+    /**
+     * Drops {@code integrity}/{@code crossorigin} from script tags whose src we just re-pointed at
+     * the local bundle.
+     *
+     * <p>Corpus forms pin their CDN jQuery with Subresource Integrity, e.g.
+     * {@code integrity="sha256-gvQgAFz…" crossorigin="anonymous"}. That hash describes the CDN's
+     * bytes, so once the src points at our own bundle the browser finds no valid digest and
+     * <em>refuses to execute the script at all</em> — leaving the form worse off than before the
+     * alias. The integrity guarantee is not lost, only relocated: the replacement is a local file
+     * we ship and serve ourselves, not something fetched over the network.</p>
+     *
+     * <p>Scoped to tags carrying the alias URL so a form's own SRI on any other resource is left
+     * intact.</p>
+     */
+    private static String stripSubresourceIntegrity(String html, String assetUrl) {
+        Matcher scriptTag = ALIASED_SCRIPT_TAG.matcher(html);
+        StringBuilder out = new StringBuilder();
+        while (scriptTag.find()) {
+            String tag = scriptTag.group();
+            if (!tag.contains(assetUrl)) {
+                scriptTag.appendReplacement(out, Matcher.quoteReplacement(tag));
+                continue;
+            }
+            String cleaned = SRI_ATTRIBUTE.matcher(tag).replaceAll("");
+            scriptTag.appendReplacement(out, Matcher.quoteReplacement(cleaned));
+        }
+        scriptTag.appendTail(out);
+        return out.toString();
+    }
+
+    /** {@code src="<url>"} — built via format so no value is concatenated between quote literals. */
+    private static String attributeReference(String url) {
+        return String.format("src=\"%s\"", url);
+    }
+
+    /** Single-quoted variant; corpus forms use both spellings. */
+    private static String singleQuotedAttributeReference(String url) {
+        return String.format("src=%1$s%2$s%1$s", "'", url);
     }
 
     private String injectLoadSigFallback(String html) {
