@@ -73,11 +73,20 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * provider signatures and medical templates must not be world-readable. A warning is
  * logged when the OS cannot honour the permission restriction so operators are alerted.</p>
  *
- * <h3>Skip-if-Exists Behavior</h3>
- * <p>Files are only copied if they do not already exist in the target directory.
- * This prevents overwriting clinic-customized versions. To force an update,
- * an administrator must manually delete the file from the eForm images directory
- * and restart Tomcat.</p>
+ * <h3>Managed vs. Seeded Assets</h3>
+ * <p>Deployment behavior depends on who owns the file:</p>
+ * <ul>
+ *   <li><b>Managed</b> ({@code editControl2.js}, the bundled JS libraries, {@code BNK.png} — see
+ *       {@code MANAGED_ASSETS}): application code CARLOS owns. Deployed if absent, and replaced on
+ *       startup whenever the on-disk bytes differ from the shipped version. Local edits are
+ *       unsupported and are reverted.</li>
+ *   <li><b>Seeded</b> (everything else — {@code blank.rtl}, {@code editor_help.html}, the generated
+ *       lab decision-support stubs): deployed once if absent, then never touched, because a clinic
+ *       is expected to customize them.</li>
+ * </ul>
+ * <p>An unchanged managed asset is compared and left alone, so a steady-state startup performs no
+ * writes and logs nothing. Earlier versions skipped <em>every</em> existing file, which meant a
+ * corrected asset could never reach an install that already had one.</p>
  *
  * <h3>Intentional Exclusion</h3>
  * <p>The {@code stamps.js} file is intentionally NOT auto-deployed because it
@@ -131,6 +140,38 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     private static final String[] LEGACY_SIGNATURE_ASSETS = {
         "signature_pad.min.js"
     };
+
+    /**
+     * Assets CARLOS owns outright and keeps at the shipped version: the editor engine, bundled
+     * JavaScript libraries, and a generated placeholder image. These are application code, not
+     * configuration — editing them locally is forking CARLOS, and a stale copy is a defect that
+     * follows the install forever. On every startup a managed asset whose bytes differ from the
+     * shipped version is replaced.
+     *
+     * <p>Everything else the deployer writes is <em>seeded</em>: deployed once if absent, then never
+     * touched again, because a clinic is expected to customize it. That covers {@code blank.rtl}
+     * (the default letter template), {@code editor_help.html}, and the generated lab
+     * decision-support stubs, whose entire purpose is to be replaced by a clinic's real script.
+     * {@code stamps.js} is not deployed at all and is unaffected.</p>
+     *
+     * <p>Why this split rather than a blanket never-clobber rule: the deployer previously skipped
+     * every existing file, so a corrected {@code editControl2.js} could never reach an install that
+     * already had one, and the only remedy was an administrator manually deleting the file and
+     * restarting. That cost a real defect — a saved Rich Text Letter would not load back into the
+     * editor, and the next save overwrote the stored letter with an empty one. The same hazard was
+     * already noted for the jQuery bundle in {@link #deployJqueryWithCompat}, where a degraded
+     * asset would have become permanent across redeploys.</p>
+     *
+     * <p>Adding a filename here declares "clinic edits to this file are unsupported and will be
+     * reverted on restart." Do not add anything a clinic is expected to author.</p>
+     */
+    private static final java.util.Set<String> MANAGED_ASSETS = java.util.Set.of(
+        "editControl2.js",
+        "signature_pad.min.js",
+        "BNK.png",
+        "jquery-3.1.0.min.js",
+        "jquery-1.12.0.min.js"
+    );
     private static final String[] SAMPLE_LAB_BACKGROUND_ASSETS = {
         "SOPLR_BC_2018_Sans2.png",
         "BCCW_Lab_pg2.png",
@@ -322,8 +363,11 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
 
     private void deployAssetFromPath(String filename, String resourcePath, File targetDir) {
         File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
-        if (targetFile.exists()) {
-            logger.debug("eForm asset already exists, skipping: {}", targetFile.getAbsolutePath());
+        // Managed assets fall through to deployAssetFromStream, which compares the shipped bytes
+        // against what is on disk; only seeded assets short-circuit here.
+        if (targetFile.exists() && !isManagedAsset(filename)) {
+            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
+                    targetFile.getAbsolutePath());
             return;
         }
 
@@ -348,8 +392,11 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      */
     private void deployJqueryWithCompat(String filename, File targetDir) {
         File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
-        if (targetFile.exists()) {
-            logger.debug("eForm asset already exists, skipping: {}", targetFile.getAbsolutePath());
+        // See deployAssetFromPath: managed assets are compared, not skipped. This is the case the
+        // "degraded asset would become permanent across redeploys" comment below was worried about.
+        if (targetFile.exists() && !isManagedAsset(filename)) {
+            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
+                    targetFile.getAbsolutePath());
             return;
         }
         try (InputStream jq = servletContext.getResourceAsStream(JQUERY_RESOURCE_PATH);
@@ -387,14 +434,29 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
         Path targetPath = targetFile.toPath();
         Path tempFile = null;
-        if (targetFile.exists()) {
-            logger.debug("eForm asset already exists, skipping: {}", targetFile.getAbsolutePath());
+        boolean managed = isManagedAsset(filename);
+        if (targetFile.exists() && !managed) {
+            logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
+                    targetFile.getAbsolutePath());
             return;
         }
 
         try {
             tempFile = Files.createTempFile(targetDir.toPath(), filename + ".", ".tmp");
             Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            if (targetFile.exists()) {
+                // Managed asset with a copy already on disk. Compare before writing so an unchanged
+                // asset is neither rewritten nor logged on every startup — only a genuine version
+                // change touches the filesystem.
+                if (Files.mismatch(tempFile, targetPath) < 0) {
+                    logger.debug("Managed eForm asset is already current: {}", targetFile.getAbsolutePath());
+                    return;
+                }
+                replaceTempFile(tempFile, targetPath);
+                logger.info("Updated managed eForm asset to the shipped version: {} -> {}",
+                        sourceLabel, targetFile.getAbsolutePath());
+                return;
+            }
             moveTempFile(tempFile, targetPath);
             logger.info("Deployed eForm asset: {} -> {}", sourceLabel, targetFile.getAbsolutePath());
         } catch (FileAlreadyExistsException e) {
@@ -406,6 +468,15 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
     }
 
+    /**
+     * True when CARLOS owns this asset outright and keeps it at the shipped version.
+     *
+     * @see #MANAGED_ASSETS
+     */
+    static boolean isManagedAsset(String filename) {
+        return MANAGED_ASSETS.contains(filename);
+    }
+
     void moveTempFile(Path tempFile, Path targetPath) throws IOException {
         try {
             moveTempFileAtomically(tempFile, targetPath);
@@ -413,6 +484,28 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             logger.debug("Atomic move not supported for eForm asset deployment; falling back to regular move: {} -> {}", tempFile, targetPath);
             moveTempFileWithoutAtomicOption(tempFile, targetPath);
         }
+    }
+
+    /**
+     * Replaces an existing managed asset. Separate from {@link #moveTempFile} because that path
+     * deliberately fails when the target already exists (its {@code FileAlreadyExistsException}
+     * catch is how a concurrent first-deploy is detected); replacing needs the opposite semantics.
+     */
+    void replaceTempFile(Path tempFile, Path targetPath) throws IOException {
+        try {
+            replaceTempFileAtomically(tempFile, targetPath);
+        } catch (AtomicMoveNotSupportedException e) {
+            logger.debug("Atomic move not supported for eForm asset replacement; falling back to regular move: {} -> {}", tempFile, targetPath);
+            replaceTempFileWithoutAtomicOption(tempFile, targetPath);
+        }
+    }
+
+    void replaceTempFileAtomically(Path tempFile, Path targetPath) throws IOException {
+        Files.move(tempFile, targetPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    void replaceTempFileWithoutAtomicOption(Path tempFile, Path targetPath) throws IOException {
+        Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
     }
 
     void moveTempFileAtomically(Path tempFile, Path targetPath) throws IOException {

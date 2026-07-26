@@ -137,11 +137,11 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 - **No Node.js.** The renderer runs entirely in the JVM (Selenium driving Chromium); no Node
   runtime or npm modules are required on the host. (The dev/CI Playwright check scripts under
   `scripts/` are separate test tooling, not part of the renderer.)
-- **Redeploy `editControl2.js` when it changes.** `EFormAssetDeployer` skips assets that already
-  exist, so a fixed editor does not reach an existing install on its own; delete
-  `<OscarDocument>/eform/images/editControl2.js` before restarting. This is what makes the
-  saved-letter round trip work — without it, saving a reopened letter overwrites it with an empty
-  one.
+- **Managed eForm assets update themselves.** `EFormAssetDeployer` keeps `editControl2.js`, the
+  bundled JS libraries and `BNK.png` at the shipped version, replacing the deployed copy on startup
+  whenever its bytes differ. No manual delete-and-restart step is required. Clinic-customizable
+  assets (`blank.rtl`, `editor_help.html`, the lab decision-support stubs) are still deployed once
+  and then never touched.
 - **Apply the RTL attachment-route migration.**
   `database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql` rewires the stored Rich
   Text Letter template off the dead `../eform/attachEform.jsp` path. Without it the attach popup
@@ -509,13 +509,13 @@ operational configuration matter:
   preview page images via `createCacheVersion2`, which requires `_edoc` read. Fax users without
   `_edoc` still get a working **Open PDF** link (soft degradation) — this is an operator
   role-configuration note, not a defect.
-- **`EFormAssetDeployer` has no upgrade path for a changed asset.** `deployAssetFromPath`,
-  `deployJqueryWithCompat`, and `deployGeneratedAsset` all skip when the target file exists, so a
-  corrected `editControl2.js` (or any other shipped eForm asset) never reaches an install that
-  already has one. The manual delete-then-restart step above is the current workaround. A real fix —
-  version-stamped filenames, or checksum comparison against the shipped copy with clinic-modified
-  files left alone — changes an established never-clobber policy and is deliberately **not** made
-  here.
+- **A clinic cannot customize a managed eForm asset.** `MANAGED_ASSETS` (the editor engine, the JS
+  libraries, `BNK.png`) are replaced on startup whenever they differ from the shipped bytes, so a
+  local edit is reverted at the next restart. That is the intended contract — these are application
+  code — but it means a clinic with a genuine need to patch the editor has no supported path. If one
+  ever appears, the fix is provenance tracking (record the digest CARLOS deployed; replace only when
+  the on-disk copy still matches it), not a return to skip-if-exists, which silently pinned every
+  install to whatever version it first received.
 - **`stamps.js` is still referenced by every generated eForm.** `removeAbsentOptionalStamps` hides
   the consequence on the render path only; the interactive viewer still requests it and still logs a
   404 in the browser console on a fresh install. Shipping a default empty `stamps.js` would not

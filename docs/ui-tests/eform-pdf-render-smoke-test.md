@@ -56,15 +56,11 @@ user-facing error handling?
    Without it the stored RTL template still opens `../eform/attachEform.jsp`, which 404s, and all
    three RTL attachment checks fail on an error-page assertion that looks like a routing regression.
 
-8. Confirm the deployed `editControl2.js` is current. `EFormAssetDeployer` deliberately skips any
-   asset that already exists on disk (so clinic-customized copies are never clobbered), which also
-   means a *fixed* editor never reaches an existing install. After changing
-   `src/main/webapp/WEB-INF/eform-assets/editControl2.js`, delete the deployed copy so the next
-   startup redeploys it:
-
-   ```bash
-   rm /var/lib/OscarDocument/oscar/eform/images/editControl2.js   # dev only
-   ```
+8. No action needed for `editControl2.js`. It is a *managed* asset: `EFormAssetDeployer` compares the
+   deployed copy against the shipped bytes on every startup and replaces it when they differ, so a
+   change to `src/main/webapp/WEB-INF/eform-assets/editControl2.js` reaches the running install on
+   the next restart. (Clinic-customizable assets — `blank.rtl`, `editor_help.html`, the lab
+   decision-support stubs — are still deployed once and then left alone.)
 
 ## Scripted Smoke Pass
 

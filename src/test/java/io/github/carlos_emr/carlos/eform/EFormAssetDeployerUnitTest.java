@@ -261,24 +261,70 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should skip deployment when target file already exists")
-        void shouldSkipDeployment_whenTargetFileAlreadyExists() throws Exception {
+        @DisplayName("Should preserve a seeded asset when the clinic has customized it")
+        void shouldPreserveSeededAsset_whenClinicCustomizedIt() throws Exception {
             when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
 
-            // Pre-create the file with custom content (simulating clinic customization)
-            File existingFile = new File(tempDir.toFile(), "editControl2.js");
+            // blank.rtl is the clinic's default letter template — customizing it is expected, so
+            // the deployer must never touch an existing copy.
+            File existingFile = new File(tempDir.toFile(), "blank.rtl");
             Files.writeString(existingFile.toPath(), "clinic customized content");
 
-            when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(null);
+            when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(null);
             when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(null);
 
             deployer.afterPropertiesSet();
 
-            // Verify the existing file was NOT overwritten
             assertThat(Files.readString(existingFile.toPath())).isEqualTo("clinic customized content");
+            // Not even read from the WAR: a seeded asset short-circuits before the resource lookup.
+            verify(mockServletContext, never()).getResourceAsStream(RESOURCE_BLANK);
+        }
 
-            // Verify getResourceAsStream was NOT called for the existing file
-            verify(mockServletContext, never()).getResourceAsStream(RESOURCE_EDITCONTROL);
+        @Test
+        @DisplayName("Should replace a managed asset when the deployed copy is stale")
+        void shouldReplaceManagedAsset_whenDeployedCopyIsStale() throws Exception {
+            // editControl2.js is application code. A stale copy is a defect that would otherwise
+            // follow the install forever — it is what made a saved Rich Text Letter fail to load
+            // back into the editor, after which the next save overwrote the stored letter.
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            File deployed = new File(tempDir.toFile(), "editControl2.js");
+            Files.writeString(deployed.toPath(), "stale shipped version");
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
+        }
+
+        @Test
+        @DisplayName("Should leave a managed asset untouched when it already matches the shipped bytes")
+        void shouldLeaveManagedAssetUntouched_whenAlreadyCurrent() throws Exception {
+            // Steady-state startup must perform no writes and emit no update log line.
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            File deployed = new File(tempDir.toFile(), "editControl2.js");
+            Files.writeString(deployed.toPath(), "js content");
+            Files.setLastModifiedTime(deployed.toPath(), java.nio.file.attribute.FileTime.fromMillis(0L));
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
+            assertThat(Files.getLastModifiedTime(deployed.toPath()).toMillis()).isZero();
+        }
+
+        @Test
+        @DisplayName("Should leave no temporary files behind after comparing a current managed asset")
+        void shouldLeaveNoTempFiles_whenManagedAssetIsCurrent() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            Files.writeString(tempDir.resolve("editControl2.js"), "js content");
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            try (java.util.stream.Stream<Path> entries = Files.list(tempDir)) {
+                assertThat(entries.map(path -> path.getFileName().toString()))
+                        .noneMatch(name -> name.endsWith(".tmp"));
+            }
         }
 
         @Test
