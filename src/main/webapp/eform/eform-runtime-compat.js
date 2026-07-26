@@ -16,6 +16,9 @@
     var status = {
         installed: false,
         failed: false,
+        // Set by the sentinel appended to each injected string-timer script; see
+        // executeStringCallback. Declared here so the shape is visible in one place.
+        completed: false,
         errorMessage: null
     };
     window.__carlosEformTimerCompat = status;
@@ -76,7 +79,15 @@
             }
             executionError = event.error || new Error(event.message || "Timer callback failed");
         }
-        script.textContent = String(source);
+        // Completion sentinel. The appended assignment is reached only if the stored source parsed
+        // and ran to its end, so it decides success directly instead of inferring it from whatever
+        // errors happened to fire nearby. The window "error" listener now only supplies a message
+        // for diagnostics; it no longer decides the outcome, because it cannot tell an error thrown
+        // by this script from one thrown by any other code in the same tick — and legacy eForms
+        // throw constantly. That ambiguity made healthy renders fail intermittently.
+        // The leading newline terminates a trailing // comment in the stored source.
+        status.completed = false;
+        script.textContent = String(source) + "\n;window.__carlosEformTimerCompat.completed = true;";
         window.addEventListener("error", captureError, true);
         try {
             (document.head || document.documentElement).appendChild(script);
@@ -87,9 +98,11 @@
             window.removeEventListener("error", captureError, true);
             script.remove();
         }
-        if (executionError) {
-            markFailure(executionError);
-            throw executionError;
+        if (!status.completed) {
+            var failure = executionError
+                    || new Error("Timer callback did not run to completion");
+            markFailure(failure);
+            throw failure;
         }
     }
 
