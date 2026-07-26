@@ -37,6 +37,17 @@
  * Local developer tool, deliberately NOT part of CI: it needs eForm packages that are not in the
  * repo, and third-party form quality is outside CARLOS's control.
  *
+ * SEED A PROVIDER SIGNATURE FIRST, or the numbers understate compatibility badly. A large share of
+ * the corpus carries the legacy stamp script, which builds its URL at runtime:
+ *
+ *   document.getElementById('StampSignature').src =
+ *           "../eform/displayImage.do?imagefile=consult_sig_" + ProviderNumber + ".png";
+ *
+ * With no signature on disk for the test provider that request 404s and the render is refused as
+ * incomplete - correctly, but for a reason that says nothing about CARLOS. Measured on one 49-package
+ * batch: 31/49 without a signature, 41/49 with one. Drop any PNG at
+ * <eform image dir>/consult_sig_<providerNo>.png (999998 for the devcontainer's carlosdoc).
+ *
  * USAGE
  *   EFORM_CORPUS_DIR=/path/to/zips npm run test:eform-corpus-soak
  *
