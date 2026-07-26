@@ -196,7 +196,7 @@ class EFormRenderTokenServiceUnitTest {
 
     @Test
     @DisplayName("should authorize only exact assets referenced by the rendered eForm")
-    void shouldAuthorizeOnlyExactReferencedAssets() {
+    void shouldAuthorizeAssets_onlyWhenExactlyReferenced() {
         EFormRenderTokenService service = new EFormRenderTokenService(Ticker.systemTicker());
         EFormRenderTokenService.RenderToken token = service.issue(187, "999998");
 

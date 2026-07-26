@@ -99,8 +99,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *       render only under the strict network gate ({@code eform_pdf_browser_strict_network_gate});
  *       the always-hard egress gate is a live WebSocket/WebTransport channel. {@code acceptInsecureCerts}
  *       is safe only because of this containment — it can never be leveraged against an external host.</li>
- *   <li>The browser holds no HTTP session or cookies; authorization is a render-scoped fdid-bound
- *       token minted after the caller's {@code _eform} privilege check.</li>
+ *   <li>The browser holds no CARLOS {@code HttpSession}, {@code JSESSIONID}, CSRF token or user
+ *       identity. Its ONLY credential is the host-only, HttpOnly, SameSite=Strict,
+ *       2-minute {@code CARLOS_EFORM_RENDER} capability cookie, exchanged on the first loopback
+ *       navigation from a bootstrap token minted after the caller's {@code _eform} privilege check
+ *       and bound to one fdid/provider.</li>
  *   <li>A fresh browser is launched per render so no state can bleed between users' renders.</li>
  * </ul>
  */
@@ -288,13 +291,14 @@ public class EFormBrowserPdfService {
      * print CSS. It deliberately does NOT set {@code width: max-content} or {@code overflow: visible}
      * (those were raster screenshot hacks); native print lays the form out at its natural width.
      *
-     * <p>It also deliberately does NOT paint a background colour onto {@code <html>}. The root
-     * element's background is propagated to the page canvas, which is painted beneath the negative
-     * z-index layer — and {@code position:absolute; z-index:-1} is the standard eForm idiom for a
-     * scanned form background. Forcing {@code html { background: white }} therefore covered the
-     * background image of every form authored that way, producing a blank-backgrounded PDF while
-     * the image itself loaded with HTTP 200, so no render gate could detect the loss. Chromium
-     * already prints white paper; nothing needs to declare it.</p>
+     * <p>It also deliberately does NOT paint a background colour onto {@code <html>}. Observed
+     * behaviour: with {@code html.style.background = 'white'} set here, a form whose scanned
+     * background is an {@code <img>} at {@code position:absolute; z-index:-1} — the standard eForm
+     * idiom — printed with a blank background; removing that one statement restored it, with the
+     * rendered page otherwise byte-identical. The exact Chromium paint-order reason has NOT been
+     * established, so treat this as an empirical rule rather than a derived one: never declare a
+     * background on {@code <html>} here. It matters because the image still loads with HTTP 200, so
+     * no render gate can detect the loss. Chromium already prints white paper.</p>
      */
     static final String PREPARE_PRINT_JS =
             "const existingCleanupStyle = document.getElementById('eform-browser-pdf-render-cleanup');\n"
@@ -746,6 +750,7 @@ public class EFormBrowserPdfService {
                     .merge(new EFormRenderCompletenessReport(
                             0,
                             geometry.excludedCount(),
+                            0,
                             containedInteractions,
                             geometry.signatureBroken(),
                             geometry.timerCompatibilityFailure(),
@@ -1561,7 +1566,7 @@ public class EFormBrowserPdfService {
         // divs still measure. Strict mode is off by default and cannot realistically be enabled on the
         // legacy corpus, so leaving this advisory meant shipping a silently truncated document.
         return new EFormRenderCompletenessReport(
-                scan.failedCriticalSubresources(), 0, severeConsoleEntries, false, false, false, false);
+                scan.failedCriticalSubresources(), 0, severeConsoleEntries, 0, false, false, false, false);
     }
 
     /**

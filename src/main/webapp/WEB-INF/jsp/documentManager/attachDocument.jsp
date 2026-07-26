@@ -316,10 +316,17 @@
                         showPDF(data.base64Data);
                     } else if (data.missingContent) {
                         HideSpin();
+                        // Every category EFormRenderCompletenessReport carries must appear here.
+                        // The approval digest binds to the COMPLETE issue set, so omitting a
+                        // category asks the clinician to approve issues they were never shown.
                         const details = "\n\nFailed content resources: " + data.failedContentResources
                             + "\nExcluded visible elements: " + data.excludedContentElements
                             + "\nSignature missing: " + data.signatureMissing
-                            + "\nTimer compatibility failed: " + data.timerCompatibilityFailure;
+                            + "\nTimer compatibility failed: " + data.timerCompatibilityFailure
+                            + "\nPage script errors: " + data.severeConsoleErrors
+                            + "\nBlocked dialogs or pop-ups: " + data.containedInteractions
+                            + "\nPage captured before it finished building: " + data.stabilizationCapped
+                            + "\nLab decision support unavailable: " + data.labDecisionSupportStubbed;
                         if (data.renderApproval
                                 && confirm(data.errorMessage + details + "\n\nApprove these issues and render?")) {
                             getPdf(attachmentName, attachmentId, parameters

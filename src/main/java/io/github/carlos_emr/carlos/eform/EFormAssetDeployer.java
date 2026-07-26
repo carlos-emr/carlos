@@ -84,9 +84,10 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *       lab decision-support stubs): deployed once if absent, then never touched, because a clinic
  *       is expected to customize them.</li>
  * </ul>
- * <p>An unchanged managed asset is compared and left alone, so a steady-state startup performs no
- * writes and logs nothing. Earlier versions skipped <em>every</em> existing file, which meant a
- * corrected asset could never reach an install that already had one.</p>
+ * <p>An unchanged managed asset is compared and left in place: it is never rewritten and nothing is
+ * logged above DEBUG. The comparison does stage a temp file in the target directory on every
+ * startup, so that directory must stay writable. Earlier versions skipped <em>every</em> existing
+ * file, which meant a corrected asset could never reach an install that already had one.</p>
  *
  * <h3>Intentional Exclusion</h3>
  * <p>The {@code stamps.js} file is intentionally NOT auto-deployed because it
@@ -416,10 +417,11 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                 // Fail loudly rather than publishing bare jQuery 3.7.1 under a legacy 1.x filename.
                 // Without the shim a pre-3.x form loses $.browser/.size()/.live()/.bind() and its
                 // build script throws mid-execution -- but the file still serves 200, so the render
-                // network scan sees nothing wrong and the form is captured half-built. Worse, the
-                // skip-if-exists check above would make that degraded asset permanent across
-                // redeploys. Deploying nothing makes the legacy filename 404, which the render gate
-                // does see.
+                // network scan sees nothing wrong and the form is captured half-built. Returning
+                // here leaves whatever is already on disk untouched: on a first deploy that means
+                // the legacy filename 404s, which the render gate DOES see; on a later startup it
+                // means the previous good copy stays in place rather than being replaced by a
+                // silently degraded one.
                 logger.error("jQuery compat shim not found in WAR ({}); refusing to deploy {} without it",
                         JQUERY_COMPAT_RESOURCE_PATH, filename);
                 return;

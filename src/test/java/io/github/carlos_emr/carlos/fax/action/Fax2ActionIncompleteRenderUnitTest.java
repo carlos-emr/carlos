@@ -52,7 +52,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(2, 1, 0, true, true, false, false);
+                new EFormRenderCompletenessReport(2, 1, 0, 0, true, true, false, false);
 
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(

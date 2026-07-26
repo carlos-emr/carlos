@@ -29,7 +29,7 @@ class EFormRenderApprovalServiceUnitTest {
         MockHttpServletRequest request = requestWithSession();
         LoggedInInfo user = user("999998");
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(2, 1, 0, true, false, false, false);
+                new EFormRenderCompletenessReport(2, 1, 0, 0, true, false, false, false);
 
         String token = service.issue(request, user, 42, "123",
                 EFormRenderApprovalService.Operation.FAX, report);
@@ -42,7 +42,7 @@ class EFormRenderApprovalServiceUnitTest {
         assertThat(approval.permits(43, "999998", report)).isFalse();
         assertThat(approval.permits(42, "999997", report)).isFalse();
         assertThat(approval.permits(
-                42, "999998", new EFormRenderCompletenessReport(3, 1, 0, true, false, false, false))).isFalse();
+                42, "999998", new EFormRenderCompletenessReport(3, 1, 0, 0, true, false, false, false))).isFalse();
         assertThat(service.consume(request, user, 42, "123",
                 EFormRenderApprovalService.Operation.FAX, token)).isNull();
     }
@@ -54,7 +54,7 @@ class EFormRenderApprovalServiceUnitTest {
         MockHttpServletRequest request = requestWithSession();
         LoggedInInfo user = user("999998");
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(1, 0, 0, false, false, false, false);
+                new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false);
         String token = service.issue(request, user, 42, "123",
                 EFormRenderApprovalService.Operation.PREVIEW, report);
 
@@ -71,9 +71,9 @@ class EFormRenderApprovalServiceUnitTest {
         MockHttpServletRequest request = requestWithSession();
         LoggedInInfo user = user("999998");
         EFormRenderCompletenessReport firstReport =
-                new EFormRenderCompletenessReport(1, 0, 0, false, false, false, false);
+                new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false);
         EFormRenderCompletenessReport secondReport =
-                new EFormRenderCompletenessReport(0, 2, 0, false, true, false, false);
+                new EFormRenderCompletenessReport(0, 2, 0, 0, false, true, false, false);
 
         String firstToken = service.issue(request, user, 42, "123",
                 EFormRenderApprovalService.Operation.FAX, firstReport, null, 101);

@@ -70,6 +70,7 @@
             <li>Signature missing: <carlos:encode value="${signatureMissing}"/></li>
             <li>Timer compatibility failed: <carlos:encode value="${timerCompatibilityFailure}"/></li>
             <li>Page script errors: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <li>Blocked dialogs or pop-ups: <carlos:encode value="${containedInteractions}"/></li>
             <li>Page captured before it finished building: <carlos:encode value="${stabilizationCapped}"/></li>
             <li>Lab decision support unavailable: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>

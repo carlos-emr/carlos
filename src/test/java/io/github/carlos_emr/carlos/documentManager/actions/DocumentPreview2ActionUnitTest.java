@@ -617,7 +617,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", "123");
         when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(2, 3, 0, true, true, false, false);
+                new EFormRenderCompletenessReport(2, 3, 0, 0, true, true, false, false);
         when(mockDocumentAttachmentManager.renderDocument(
                 mockLoggedInInfo, DocumentType.EFORM, 42, (EFormRenderApproval) null))
                 .thenThrow(new EformContentUnavailableException("incomplete", 42, report));

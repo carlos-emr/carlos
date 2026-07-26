@@ -106,11 +106,11 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should never paint a root background over the negative z-index layer when preparing print")
     void shouldNotPaintRootBackground_whenPreparingPrint() {
-        // `position:absolute; z-index:-1` is the standard eForm idiom for a scanned form
-        // background. The root element's background is propagated to the page canvas, which paints
-        // BENEATH that layer, so declaring one covered the background image of every form authored
-        // that way — silently, because the image still loaded with HTTP 200 and no render gate
-        // could see the loss. Chromium already prints white paper.
+        // Empirical rule, not a derived one: with a background declared on <html>, a form whose
+        // scanned background is an <img> at `position:absolute; z-index:-1` printed blank; removing
+        // that statement restored it. The loss is undetectable by any gate because the image still
+        // loads with HTTP 200. This is a tripwire on three exact spellings — the real guard is the
+        // Playwright render check, which prints a fixture using that idiom and inspects the output.
         assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
                 .doesNotContain("html.style.background")
                 .doesNotContain("background = 'white'")
@@ -695,7 +695,7 @@ class EFormBrowserPdfServiceUnitTest {
 
     @Test
     @DisplayName("should count renderer write attempts while allowing only GET and HEAD")
-    void shouldCountNonReadRendererRequests() {
+    void shouldCountNonReadRequests_whenScanningRendererNetworkEvents() {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.requestWillBeSent",

@@ -22,8 +22,8 @@ class EFormRenderCompletenessReportUnitTest {
     @DisplayName("should merge every incomplete-output category")
     void shouldMergeEveryCategory_whenCombiningReports() {
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(2, 0, 1, true, false, true, false)
-                        .merge(new EFormRenderCompletenessReport(1, 3, 2, false, true, false, true));
+                new EFormRenderCompletenessReport(2, 0, 1, 0, true, false, true, false)
+                        .merge(new EFormRenderCompletenessReport(1, 3, 2, 0, false, true, false, true));
 
         assertThat(report.failedContentResources()).isEqualTo(3);
         assertThat(report.excludedContentElements()).isEqualTo(3);
@@ -40,11 +40,11 @@ class EFormRenderCompletenessReportUnitTest {
     @DisplayName("should produce a stable digest that changes with the issue set")
     void shouldDigestExactIssueSet_forApprovalBinding() {
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(1, 2, 0, false, true, false, false);
+                new EFormRenderCompletenessReport(1, 2, 0, 0, false, true, false, false);
 
         assertThat(report.digest()).hasSize(64).isEqualTo(report.digest());
         assertThat(report.digest()).isNotEqualTo(
-                new EFormRenderCompletenessReport(1, 3, 0, false, true, false, false).digest());
+                new EFormRenderCompletenessReport(1, 3, 0, 0, false, true, false, false).digest());
         assertThat(EFormRenderCompletenessReport.complete().isComplete()).isTrue();
     }
 
@@ -52,10 +52,10 @@ class EFormRenderCompletenessReportUnitTest {
     @DisplayName("should reject invalid negative counters")
     void shouldRejectNegativeCounters_forEveryCount() {
         assertThatThrownBy(() ->
-                new EFormRenderCompletenessReport(-1, -2, 0, false, false, false, false))
+                new EFormRenderCompletenessReport(-1, -2, 0, 0, false, false, false, false))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() ->
-                new EFormRenderCompletenessReport(0, 0, -1, false, false, false, false))
+                new EFormRenderCompletenessReport(0, 0, -1, 0, false, false, false, false))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -66,7 +66,7 @@ class EFormRenderCompletenessReportUnitTest {
         // reached the report it was a WARN only: isComplete() stayed true and the half-built document
         // rendered, faxed and archived as if correct.
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(0, 0, 0, false, false, true, false);
+                new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, true, false);
 
         assertThat(report.isComplete()).isFalse();
         assertThat(report.issueCount()).isEqualTo(1);
@@ -80,7 +80,7 @@ class EFormRenderCompletenessReportUnitTest {
         // uncaught page-script exception -- the only observable for a script that aborted midway
         // through injecting clinical content while every subresource still returned 200.
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(0, 0, 2, false, false, false, false);
+                new EFormRenderCompletenessReport(0, 0, 2, 0, false, false, false, false);
 
         assertThat(report.isComplete()).isFalse();
         assertThat(report.issueCount()).isEqualTo(2);
@@ -93,7 +93,7 @@ class EFormRenderCompletenessReportUnitTest {
         // network scan cannot distinguish it from a working form; without this signal a requisition
         // renders "complete" with unpopulated fields and no tickler.
         EFormRenderCompletenessReport report =
-                new EFormRenderCompletenessReport(0, 0, 0, false, false, false, true);
+                new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, true);
 
         assertThat(report.isComplete()).isFalse();
         assertThat(report.issueCount()).isEqualTo(1);

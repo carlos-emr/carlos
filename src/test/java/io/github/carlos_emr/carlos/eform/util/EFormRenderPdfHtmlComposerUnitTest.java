@@ -260,6 +260,41 @@ class EFormRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should emit an injected shim that is syntactically valid JavaScript")
+    void shouldEmitParsableShim_whenEditorIsStripped() throws Exception {
+        // The shim is built by Java string concatenation and injected into EVERY render. A stray
+        // brace or comma is invisible to a `contains(...)` assertion but throws a parse error in the
+        // browser, taking window.Start and window.cache with it — which the completeness gate then
+        // counts as severe console errors and refuses to print. Parse it for real.
+        EForm eForm = mockEformWithHtml(
+                "<html><head><script src=\"/carlos/library/eforms/APCache.js\"></script></head>"
+                + "<body onload=\"Start();\"></body></html>");
+        String html = EFormRenderPdfHtmlComposer.buildPdfHtml(
+                eForm, List.of(), "/carlos", "carlos", null);
+
+        org.jsoup.nodes.Document document = org.jsoup.Jsoup.parse(html);
+        String shim = document.select("script:not([src])").stream()
+                .map(org.jsoup.nodes.Element::data)
+                .filter(script -> script.contains("w.Start"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("injected shim not found in composed HTML"));
+
+        java.nio.file.Path scratch = java.nio.file.Files.createTempFile("carlos-shim-", ".js");
+        try {
+            java.nio.file.Files.writeString(scratch, shim, java.nio.charset.StandardCharsets.UTF_8);
+            Process check = new ProcessBuilder("node", "--check", scratch.toString())
+                    .redirectErrorStream(true).start();
+            String output = new String(check.getInputStream().readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(check.waitFor())
+                    .as("node --check on the injected shim: %s", output)
+                    .isZero();
+        } finally {
+            java.nio.file.Files.deleteIfExists(scratch);
+        }
+    }
+
+    @Test
     @DisplayName("should shim the load-time globals the stripped editor used to define")
     void shouldShimLoadTimeGlobals_whenEditorIsStripped() {
         // The Rich Text Letter calls Start() from body onload and cache.addMapping({...}) inline,
@@ -356,7 +391,7 @@ class EFormRenderPdfHtmlComposerUnitTest {
 
     @Test
     @DisplayName("should extract the exact image files referenced by normalized asset URLs")
-    void shouldExtractExactReferencedImageFiles() {
+    void shouldExtractImageFiles_thatTheFormActuallyReferences() {
         String html = "<img src=\"/carlos/EFormImageViewForPdfGenerationServlet?"
                 + "imagefile=background%20one.png&amp;v=1\">"
                 + "<link href=\"/carlos/EFormImageViewForPdfGenerationServlet?"
@@ -369,7 +404,7 @@ class EFormRenderPdfHtmlComposerUnitTest {
 
     @Test
     @DisplayName("should grant only literal APCache lookup and mapping keys")
-    void shouldExtractLiteralApCacheKeys() {
+    void shouldExtractApCacheKeys_fromLiteralLookupsAndMappings() {
         String html = "<script>"
                 + "cache.lookup('patient_name');"
                 + "cache.lookup(dynamicKey);"
@@ -383,7 +418,7 @@ class EFormRenderPdfHtmlComposerUnitTest {
 
     @Test
     @DisplayName("should neutralize interactive signature markers and preserve dependency order")
-    void shouldApplyPassiveSavedViewerProfile() {
+    void shouldApplySavedViewerProfile_withoutInteractiveBehaviour() {
         EForm eForm = mockEformWithHtml(
                 "<html><head><script src=\"/clinic.js\"></script></head><body>"
                 + "${oscar_signature_code}"

@@ -143,7 +143,7 @@ compatibility, and genuinely optional font/style failures are the only pre-appro
 
 ## Manual Smoke Pass
 
-Perform this after the 4 scripted checks pass. Use a fresh browser session for the renderer
+Perform this after the 5 scripted checks pass. Use a fresh browser session for the renderer
 observation so an existing CARLOS login cannot mask a session-scoping defect.
 
 ### 1. Preview-on-Save
@@ -254,7 +254,7 @@ If any step fails, capture all of the following before retrying:
 
 Treat the branch as smoke-tested only if all of the following are true:
 
-- all 4 scripted checks pass
+- all 5 scripted checks pass
 - the manual preview-on-save pass works
 - the manual reopen-saved-form pass works
 - the `saveAsEdoc` success path works

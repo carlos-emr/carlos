@@ -22,12 +22,13 @@ public record EFormRenderCompletenessReport(
         int failedContentResources,
         int excludedContentElements,
         int severeConsoleErrors,
+        int containedInteractions,
         boolean signatureMissing,
         boolean timerCompatibilityFailure,
         boolean stabilizationCapped,
         boolean labDecisionSupportStubbed) implements Serializable {
 
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
 
     /**
      * Counters are grouped ahead of the flags deliberately. All three counts and all four flags are
@@ -35,19 +36,21 @@ public record EFormRenderCompletenessReport(
      * transposed argument compile cleanly and silently reclassify one omission as another.
      */
     public EFormRenderCompletenessReport {
-        if (failedContentResources < 0 || excludedContentElements < 0 || severeConsoleErrors < 0) {
+        if (failedContentResources < 0 || excludedContentElements < 0 || severeConsoleErrors < 0
+                || containedInteractions < 0) {
             throw new IllegalArgumentException("Incomplete-render counters must not be negative");
         }
     }
 
     public static EFormRenderCompletenessReport complete() {
-        return new EFormRenderCompletenessReport(0, 0, 0, false, false, false, false);
+        return new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false);
     }
 
     public boolean isComplete() {
         return failedContentResources == 0
                 && excludedContentElements == 0
                 && severeConsoleErrors == 0
+                && containedInteractions == 0
                 && !signatureMissing
                 && !timerCompatibilityFailure
                 && !stabilizationCapped
@@ -57,6 +60,7 @@ public record EFormRenderCompletenessReport(
     public int issueCount() {
         int count = Math.addExact(failedContentResources, excludedContentElements);
         count = Math.addExact(count, severeConsoleErrors);
+        count = Math.addExact(count, containedInteractions);
         count = Math.addExact(count, signatureMissing ? 1 : 0);
         count = Math.addExact(count, timerCompatibilityFailure ? 1 : 0);
         count = Math.addExact(count, stabilizationCapped ? 1 : 0);
@@ -71,6 +75,7 @@ public record EFormRenderCompletenessReport(
                 Math.addExact(failedContentResources, other.failedContentResources),
                 Math.addExact(excludedContentElements, other.excludedContentElements),
                 Math.addExact(severeConsoleErrors, other.severeConsoleErrors),
+                Math.addExact(containedInteractions, other.containedInteractions),
                 signatureMissing || other.signatureMissing,
                 timerCompatibilityFailure || other.timerCompatibilityFailure,
                 stabilizationCapped || other.stabilizationCapped,
@@ -84,6 +89,7 @@ public record EFormRenderCompletenessReport(
         String canonical = failedContentResources + ":"
                 + excludedContentElements + ":"
                 + severeConsoleErrors + ":"
+                + containedInteractions + ":"
                 + signatureMissing + ":"
                 + timerCompatibilityFailure + ":"
                 + stabilizationCapped + ":"

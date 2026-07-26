@@ -56,56 +56,27 @@ import static org.mockito.Mockito.when;
 class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
 
     @Test
-    @DisplayName("should redeem a render grant repeatedly for the bound eForm within one render")
-    void shouldRedeemRenderGrantRepeatedly_whenValidRenderTokenPresented() {
-        // liveRenderGrant peeks the singleton EFormRenderTokenService, so the singleton IS the
-        // contract under test here; the issued token is invalidated in a finally so an assertion
-        // failure cannot leak a live loopback grant into the shared cache for other tests.
+    @DisplayName("should reject the render page when the token is bound to a different eForm")
+    void shouldRejectRenderPage_whenTokenBoundToDifferentEform() throws Exception {
+        // Drives doGet, which is where the fdid binding is actually enforced. The previous version
+        // of this test called a package-private liveRenderGrant() helper that no production code
+        // used any more, so it asserted against a copy of the rule rather than the rule itself.
         EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(187, "999998");
         try {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("fdid", "999");
+            request.setParameter("browserRender", "true");
             request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
+            MockHttpServletResponse response = new MockHttpServletResponse();
 
-            EFormRenderTokenService.RenderGrant grant = EFormBrowserRenderPageServlet.liveRenderGrant(request, 187);
+            new EFormBrowserRenderPageServlet().doGet(request, response);
 
-            assertThat(grant).isNotNull();
-            assertThat(grant.providerNo()).isEqualTo("999998");
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(request.getSession(false)).isNull();
-            // Render-scoped, not consume-once: the eForm document and its asset-image subresources
-            // redeem the same grant, so a replay succeeds until the renderer invalidates the token.
-            assertThat(EFormBrowserRenderPageServlet.liveRenderGrant(request, 187))
-                    .as("render-scoped grant redeems repeatedly").isNotNull();
-            EFormRenderTokenService.getInstance().invalidate(token);
-            assertThat(EFormBrowserRenderPageServlet.liveRenderGrant(request, 187))
-                    .as("invalidated grant no longer redeems").isNull();
-        } finally {
-            EFormRenderTokenService.getInstance().invalidate(token);
-        }
-    }
-
-    @Test
-    @DisplayName("should reject browser renderer requests without a render token")
-    void shouldRejectBrowserRendererRequest_whenNoRenderTokenPresented() {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-
-        assertThat(EFormBrowserRenderPageServlet.liveRenderGrant(request, 187)).isNull();
-        assertThat(request.getSession(false)).isNull();
-    }
-
-    @Test
-    @DisplayName("should reject browser renderer requests when the token is bound to a different eForm")
-    void shouldRejectBrowserRendererRequest_whenTokenBoundToDifferentEform() {
-        // Singleton is the contract (liveRenderGrant peeks it); invalidate in finally so a failed
-        // assertion cannot leak the issued grant into the shared cache.
-        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(187, "999998");
-        try {
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-            request.setParameter(EFormBrowserRenderPageServlet.RENDER_TOKEN_PARAM, token.queryValue());
-
-            assertThat(EFormBrowserRenderPageServlet.liveRenderGrant(request, 999)).isNull();
-            // An fdid mismatch fails closed but does not burn the render-scoped token; the eForm it was
-            // actually minted for still redeems.
-            assertThat(EFormBrowserRenderPageServlet.liveRenderGrant(request, 187)).isNotNull();
+            // An fdid mismatch fails closed but must not burn the render-scoped grant: the eForm it
+            // was actually minted for still has a live grant.
+            assertThat(EFormRenderTokenService.getInstance().peek(token)).isNotNull();
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
         }
@@ -194,7 +165,7 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
         // Drive the full doGet instead of reflecting into the private auth helper: the DB-backed HTML
         // assembly is stubbed so the test exercises the servlet's own auth + header contract.
         try (MockedStatic<EFormRenderPdfHtmlComposer> composer = mockStatic(EFormRenderPdfHtmlComposer.class)) {
-            composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any(), any()))
+            composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any()))
                     .thenReturn("<html><body>session-ok</body></html>");
             new EFormBrowserRenderPageServlet().doGet(request, response);
         }
@@ -222,7 +193,7 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
                  LogCapture logs = LogCapture.forLogger(EFormBrowserRenderPageServlet.class)) {
                 // The failure message embeds the tokenized request URL, as container/machinery
                 // exceptions can; the catch-all must log type + redacted message + frames only.
-                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any(), any()))
+                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any()))
                         .thenThrow(new IllegalStateException(
                                 "boom at http://127.0.0.1/x?renderToken=" + token.queryValue()));
 
@@ -295,7 +266,7 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             try (MockedStatic<EFormRenderPdfHtmlComposer> composer = mockStatic(EFormRenderPdfHtmlComposer.class)) {
-                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any(), any()))
+                composer.when(() -> EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(anyInt(), any(), any(), any()))
                         .thenReturn("<html><body>rendered</body></html>");
                 new EFormBrowserRenderPageServlet().doGet(request, response);
             }

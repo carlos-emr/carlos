@@ -48,7 +48,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>Extracted from {@link EFormBrowserRenderPageServlet} so the HTTP concerns (loopback gate,
  * token redemption, session auth, CSP headers, response writing) stay in the servlet while the
  * stored-form HTML assembly — letter positioning, signature-image splicing, legacy image-path
- * rewriting, and render-token propagation onto asset URLs — lives in one testable place.</p>
+ * rewriting, editor stripping, and server-side population of the render grant — lives in one
+ * testable place. The render capability is never appended to subresource URLs.</p>
  *
  * <p>The class holds no state of its own and has no request or session dependency, so it is safe
  * to call off a servlet thread. It is not, however, a pure function of its inputs:
@@ -88,7 +89,8 @@ public final class EFormRenderPdfHtmlComposer {
      */
     private static final Set<String> INTERACTIVE_ONLY_SCRIPTS = Set.of(
             "editcontrol2.js", "editcontrol.js", "printcontrol.js", "faxcontrol.js",
-            "imagecontrol.js", "signaturecontrol", "eform_floating_toolbar");
+            "imagecontrol.js", "signaturecontrol.js", "signaturecontrol.jsp", "signaturecontrol",
+            "eform_floating_toolbar.js", "eform_floating_toolbar");
     private static final String EDITOR_BOOTSTRAP_CALL = "insertEditControl()";
 
     private EFormRenderPdfHtmlComposer() {
@@ -99,7 +101,6 @@ public final class EFormRenderPdfHtmlComposer {
      *
      * @param formDataId saved eForm data identifier
      * @param contextPath current servlet context path used for local asset URLs
-     * @param userAgent renderer user agent used by existing signature setup logic
      * @param providerId provider number used for provider-scoped signature rendering
      * @param renderToken render-scoped bootstrap capability used server-side to authorize the
      *        exact referenced image/APCache set; never appended to subresource URLs
@@ -108,7 +109,7 @@ public final class EFormRenderPdfHtmlComposer {
      *         signature cannot be spliced into the form HTML; a signed document must never render
      *         (and so fax/archive) unsigned
      */
-    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, EFormRenderTokenService.RenderToken renderToken) {
+    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String providerId, EFormRenderTokenService.RenderToken renderToken) {
         EForm eForm = new EForm(String.valueOf(formDataId));
 
         EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
@@ -274,6 +275,28 @@ public final class EFormRenderPdfHtmlComposer {
         }
         document.outputSettings().prettyPrint(false);
         return document.outerHtml();
+    }
+
+    /** Last path segment of a script URL, with any query/fragment and path parameters removed. */
+    private static String lastPathSegment(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return null;
+        }
+        String path = rawUrl.trim();
+        int cut = path.indexOf('?');
+        if (cut >= 0) {
+            path = path.substring(0, cut);
+        }
+        cut = path.indexOf('#');
+        if (cut >= 0) {
+            path = path.substring(0, cut);
+        }
+        cut = path.indexOf(';');
+        if (cut >= 0) {
+            path = path.substring(0, cut);
+        }
+        int slash = path.lastIndexOf('/');
+        return slash >= 0 ? path.substring(slash + 1) : path;
     }
 
     private static String imageFileFromUrl(String rawUrl) {
@@ -449,14 +472,15 @@ public final class EFormRenderPdfHtmlComposer {
      */
     private static void removeInteractiveEditorContent(Document document) {
         for (Element script : document.select("script[src]")) {
-            String source = script.attr("src").toLowerCase(java.util.Locale.ROOT);
-            String assetName = imageFileFromUrl(script.attr("src"));
-            String asset = assetName == null ? "" : assetName.toLowerCase(java.util.Locale.ROOT);
-            for (String editorOnly : INTERACTIVE_ONLY_SCRIPTS) {
-                if (source.contains(editorOnly) || asset.equals(editorOnly)) {
-                    script.remove();
-                    break;
-                }
+            // Match the FILENAME, not a substring of the whole URL. `source.contains("signaturecontrol")`
+            // also deleted a clinic's own /library/clinic/mysignaturecontrol.js — silently, since
+            // nothing counts server-side removals.
+            String source = script.attr("src");
+            String assetName = imageFileFromUrl(source);
+            String fileName = assetName != null ? assetName : lastPathSegment(source);
+            String candidate = fileName == null ? "" : fileName.toLowerCase(java.util.Locale.ROOT);
+            if (INTERACTIVE_ONLY_SCRIPTS.contains(candidate)) {
+                script.remove();
             }
         }
         // The editor bootstrap lives in an inline script alongside its cfg_* variables, so the
@@ -488,9 +512,12 @@ public final class EFormRenderPdfHtmlComposer {
      * <p>{@code cache} is rebuilt for real (not stubbed) whenever {@code APCache.js} is present, so
      * forms that populate clinical fields through it still populate them. Only the editor sinks —
      * {@code doHtml} and friends, which wrote into a contenteditable iframe that no longer exists —
-     * become no-ops. The shim is inserted immediately after the APCache script so it is defined
-     * before any inline form script runs, and every assignment is guarded so a form that ships its
-     * own implementation keeps it.</p>
+     * become no-ops. The shim is inserted immediately after the {@code APCache.js} script, so
+     * {@code createCache} exists and the shim precedes the inline {@code cache.addMapping} calls
+     * that follow it. When a form references no APCache script the shim is appended to the end of
+     * {@code <head>} instead — still ahead of every body script, but NOT ahead of an inline
+     * {@code <head>} script the form authored above it. Every assignment is guarded so a form that
+     * ships its own implementation keeps it.</p>
      */
     private static void installStrippedEditorShim(Document document) {
         Element shim = new Element(Tag.valueOf("script"), "");
@@ -504,9 +531,11 @@ public final class EFormRenderPdfHtmlComposer {
                 + "        cacheResponseErrorHandler: function(){}\n"
                 + "      });\n"
                 + "    } else {\n"
-                + "      w.cache = { addMapping: function(){}, get: function(){ return ''; },\n"
-                + "        put: function(){}, isEmpty: function(){ return true; },\n"
-                + "        lookup: function(){}, clear: function(){} };\n"
+                // No `get` stub. Returning '' here manufactured a blank clinical field with no
+                // request, no error and no gate entry — the renderer inventing empty content is
+                // worse than a form script failing loudly, which the console-error gate catches.
+                + "      w.cache = { addMapping: function(){}, put: function(){},\n"
+                + "        isEmpty: function(){ return true; }, clear: function(){} };\n"
                 + "    }\n"
                 + "  }\n"
                 + "  w.Start = w.Start || function Start(){};\n"

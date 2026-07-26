@@ -24,7 +24,7 @@ class EFormRendererRequestAuthorizationUnitTest {
 
     @Test
     @DisplayName("should permit only the exact passive path bound to the renderer cookie")
-    void shouldPermitOnlyExactGrantedStaticPath() {
+    void shouldPermitStaticRequest_onlyForAnExactGrantedPath() {
         EFormRenderTokenService service = EFormRenderTokenService.getInstance();
         EFormRenderTokenService.RenderToken token = service.issue(77, "999998");
         try {
@@ -45,6 +45,58 @@ class EFormRendererRequestAuthorizationUnitTest {
                     "GET", "/carlos/library/eforms/printControl.js", session);
             remote.setRemoteAddr("10.0.0.8");
             assertThat(EFormRendererRequestAuthorization.permitsStaticRequest(remote)).isFalse();
+        } finally {
+            service.invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should not let a path parameter smuggle a different file past the exact grant")
+    void shouldRejectStaticRequest_whenPathParametersHideTraversal() {
+        // Tomcat strips ";params" from EVERY segment and only then resolves "..", so truncating the
+        // whole URI at the first ';' let this check pass on a prefix of the path that Tomcat would
+        // actually serve — turning the exact-path grant into a prefix grant over the webapp.
+        EFormRenderTokenService service = EFormRenderTokenService.getInstance();
+        EFormRenderTokenService.RenderToken token = service.issue(77, "999998");
+        try {
+            EFormRenderTokenService.RenderGrant grant = service.peek(token);
+            service.authorizeStaticPaths(grant, java.util.Set.of("/library/eforms/printControl.js"));
+            EFormRenderTokenService.RenderSession session = service.exchange(token, null);
+
+            assertThat(EFormRendererRequestAuthorization.permitsStaticRequest(request(
+                    "GET", "/carlos/library/eforms/printControl.js;a=/../../secret.json", session)))
+                    .as("path parameter hiding traversal must not authorize").isFalse();
+            assertThat(EFormRendererRequestAuthorization.permitsStaticRequest(request(
+                    "GET", "/carlos/library/eforms/../../secret.js", session)))
+                    .as("plain traversal must not authorize").isFalse();
+            // A bare path parameter on the granted file itself still resolves to the granted path.
+            assertThat(EFormRendererRequestAuthorization.permitsStaticRequest(request(
+                    "GET", "/carlos/library/eforms/printControl.js;jsessionid=ABC", session)))
+                    .as("path parameter on the granted file stays granted").isTrue();
+        } finally {
+            service.invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should recognize a loopback caller holding a live renderer cookie")
+    void shouldIdentifyRendererRequest_whenLoopbackCallerHoldsLiveCookie() {
+        // Drives the branch LoginFilter uses to choose 403 over the login redirect. The redirect
+        // answers 200 text/html, which the render network gate reads as a successful load.
+        EFormRenderTokenService service = EFormRenderTokenService.getInstance();
+        EFormRenderTokenService.RenderToken token = service.issue(77, "999998");
+        try {
+            EFormRenderTokenService.RenderSession session = service.exchange(token, null);
+
+            assertThat(EFormRendererRequestAuthorization.isRendererRequest(
+                    request("GET", "/carlos/library/eforms/anything.js", session))).isTrue();
+            // No cookie: an ordinary unauthenticated browser, which must still get the login flow.
+            assertThat(EFormRendererRequestAuthorization.isRendererRequest(
+                    new MockHttpServletRequest("GET", "/carlos/library/eforms/anything.js"))).isFalse();
+            MockHttpServletRequest remote = request("GET", "/carlos/library/eforms/anything.js", session);
+            remote.setRemoteAddr("10.0.0.8");
+            assertThat(EFormRendererRequestAuthorization.isRendererRequest(remote))
+                    .as("a renderer cookie replayed off-loopback is not the renderer").isFalse();
         } finally {
             service.invalidate(token);
         }

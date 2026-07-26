@@ -95,6 +95,20 @@ public final class EFormRendererRequestAuthorization {
      * Used by LoginFilter for otherwise unauthenticated passive files. All conditions are required:
      * loopback, read method, live renderer cookie, passive extension, and exact path grant.
      */
+    /**
+     * True when this request comes from the PDF render browser: a loopback caller presenting a live
+     * renderer capability cookie. Never true for a clinician's browser, which holds no such cookie.
+     *
+     * <p>Used to pick the rejection SHAPE for an unauthorized renderer subresource. The login
+     * redirect is a {@code 302} to a page that answers {@code 200 text/html}, and the render
+     * network gate only counts {@code status >= 400} — so redirecting the renderer turns a denied
+     * asset into a silently blank region of a clinical PDF. A renderer request must fail with a
+     * status the gate can see.</p>
+     */
+    public static boolean isRendererRequest(HttpServletRequest request) {
+        return isLoopback(request.getRemoteAddr()) && grantFromCookie(request) != null;
+    }
+
     public static boolean permitsStaticRequest(HttpServletRequest request) {
         if (!isLoopback(request.getRemoteAddr())
                 || (!"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod()))) {
@@ -117,17 +131,21 @@ public final class EFormRendererRequestAuthorization {
                 && (path.equals(contextPath) || path.startsWith(contextPath + "/"))) {
             path = path.substring(contextPath.length());
         }
-        int parameter = path.indexOf(';');
-        if (parameter >= 0) {
-            path = path.substring(0, parameter);
-        }
         try {
             URI uri = new URI(path);
             if (uri.isAbsolute() || uri.getRawAuthority() != null || uri.getQuery() != null || uri.getFragment() != null) {
                 return null;
             }
             Deque<String> segments = new ArrayDeque<>();
-            for (String segment : uri.getPath().split("/")) {
+            for (String rawSegment : uri.getPath().split("/")) {
+                // Path parameters are stripped PER SEGMENT, matching what Tomcat does before it
+                // resolves the file. Truncating the whole URI at the first ';' instead made this
+                // check evaluate a prefix of the served path: "/library/eforms/APCache.js;a=/../..
+                // /secret.json" authorized as "APCache.js" while Tomcat served "/secret.json",
+                // silently degrading the exact-path grant into a prefix grant over every passive
+                // file in the webapp.
+                int semicolon = rawSegment.indexOf(';');
+                String segment = semicolon >= 0 ? rawSegment.substring(0, semicolon) : rawSegment;
                 if (segment.isEmpty() || ".".equals(segment)) {
                     continue;
                 }
@@ -177,7 +195,11 @@ public final class EFormRendererRequestAuthorization {
         Deque<ResourceCandidate> pendingCss = new ArrayDeque<>();
         Document document = Jsoup.parse(html == null ? "" : html);
         collectElementReferences(document, contextPath, authorized, pendingCss);
-        collectCssReferences(document.select("style").text(), "/", contextPath, authorized, pendingCss);
+        // .html(), NOT .text(): jsoup parses <style> content into a DataNode, and Element.text()
+        // collects only TextNodes — so .text() returned the empty string for every stylesheet block
+        // and this discovery pass silently did nothing. Assets referenced only from an inline
+        // <style> (background url(...), @import, @font-face src) then never entered the grant.
+        collectCssReferences(document.select("style").html(), "/", contextPath, authorized, pendingCss);
 
         int depth = 0;
         while (!pendingCss.isEmpty() && depth++ < MAX_CSS_DEPTH && authorized.size() < MAX_STATIC_REFERENCES) {

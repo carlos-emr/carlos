@@ -23,7 +23,6 @@ import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -53,10 +52,6 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     /** Render-scoped grant parameter redeemed against {@link EFormRenderTokenService}. */
     static final String RENDER_TOKEN_PARAM = "renderToken";
 
-    // SERVLET_HEADER_USER_AGENT: the User-Agent read here is passed to the HTML composer for
-    // browser-quirk selection only — it is never trusted as an authority or emitted raw — so a
-    // spoofed value cannot cross a trust boundary.
-    @SuppressFBWarnings(value = "SERVLET_HEADER_USER_AGENT", justification = "User-Agent is used only for browser-quirk selection in the render HTML composer, never trusted as authority or emitted raw")
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
@@ -137,7 +132,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     buildContentSecurityPolicy(browserRender, request));
 
             String html = EFormRenderPdfHtmlComposer.buildPdfHtmlForFdid(
-                    formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, renderToken);
+                    formDataId, request.getContextPath(), providerId, renderToken);
             if (browserGrant != null) {
                 EFormRendererRequestAuthorization.authorizeReferencedStaticResources(
                         browserGrant,
@@ -177,30 +172,6 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     }
 
     /**
-     * Returns the live render-scoped grant carried by a browser-render request, or null.
-     *
-     * <p>Renderer requests carry no HTTP session by design. Authorization happened when
-     * {@code EformDataManagerImpl} passed its {@code _eform} privilege check and minted a grant
-     * bound to this fdid. This peeks (does not consume) the grant so the same grant also authorizes
-     * the eForm's loopback asset-image subresources during the render — the sibling asset servlet
-     * {@link EFormImageViewForPdfGenerationServlet} uses the same {@code liveRenderGrant} name for
-     * its peek; the renderer's lease invalidates the token when the render finishes. Fail-closed on
-     * any mismatch.</p>
-     *
-     * @return the grant, or null when the token is missing, expired, invalidated, or bound to a
-     *         different saved eForm
-     */
-    static EFormRenderTokenService.RenderGrant liveRenderGrant(HttpServletRequest request, int formDataId) {
-        EFormRenderTokenService.RenderGrant grant = EFormRenderTokenService.getInstance().peek(
-                EFormRenderTokenService.RenderToken.fromRequestValue(request.getParameter(RENDER_TOKEN_PARAM)));
-        if (grant == null || grant.fdid() != formDataId) {
-            logger.warn("Renderer request rejected: missing, expired, or mismatched render token");
-            return null;
-        }
-        return grant;
-    }
-
-    /**
      * Session-auth path for non-browser callers: returns the logged-in user only when the request
      * carries an authenticated session with provider + security context and {@code _eform} read
      * privilege; returns null (logging the reason) on any denial.
@@ -232,16 +203,29 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     }
 
     /**
-     * Builds the response Content-Security-Policy. Legacy server-side rendering blocks all scripts
-     * ({@code script-src 'none'}); the browser-render path must allow same-origin inline/eval scripts
-     * and {@code blob:}/{@code data:} images because the eForm is a JavaScript-built document the
-     * headless browser has to execute to capture it. Both policies keep every fetch origin at
-     * {@code 'self'}.
+     * Test-only convenience overload. With no request it can only ever produce
+     * {@code connect-src 'none'}, so it cannot express the browser-render contract — see the
+     * two-argument method for the real policy.
      */
     static String buildContentSecurityPolicy(boolean browserRender) {
         return buildContentSecurityPolicy(browserRender, null);
     }
 
+    /**
+     * Builds the response Content-Security-Policy.
+     *
+     * <p>Legacy server-side rendering blocks all scripts ({@code script-src 'none'}); the
+     * browser-render path must allow same-origin inline/eval scripts and {@code blob:}/{@code data:}
+     * images because the eForm is a JavaScript-built document the headless browser has to execute to
+     * capture it.</p>
+     *
+     * <p>Both policies set {@code base-uri 'none'}, {@code form-action 'none'} and
+     * {@code frame-ancestors 'none'}, so a stored form cannot retarget relative URLs, submit
+     * anywhere, or be framed. They differ on fetch origins: the legacy policy is {@code 'self'},
+     * while the browser-render policy narrows {@code connect-src} to the single exact loopback
+     * APCache endpoint — and to {@code 'none'} when that endpoint cannot be safely formed, so an
+     * unparseable origin disables the bridge rather than widening it.</p>
+     */
     static String buildContentSecurityPolicy(
             boolean browserRender, HttpServletRequest request) {
         if (!browserRender) {

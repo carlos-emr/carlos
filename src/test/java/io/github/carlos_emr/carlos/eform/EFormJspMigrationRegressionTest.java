@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -373,5 +374,31 @@ class EFormJspMigrationRegressionTest {
             .contains("<fmt:message key=\"eform.uploadimages.processing\" var=")
             .containsPattern("alert\\(\"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"\\)")
             .containsPattern("\\.subm\\.value = \"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"");
+    }
+
+    @Test
+    @DisplayName("eForm host pages should load DOMPurify ahead of jQuery so the editor's sanitize gate works")
+    void shouldLoadDomPurifyBeforeJquery_onEformHostPages() throws IOException {
+        // editControl2.js routes every innerHTML write through sanitizeHtml(), which returns null
+        // when DOMPurify is absent and falls back to textContent. The clinician then sees their
+        // saved letter as escaped markup, and the NEXT save stores it double-encoded — silent
+        // corruption of stored clinical content.
+        //
+        // Position is load-bearing and counter-intuitive: addHeadJavascript PREPENDS ("For
+        // Javascript: First is last"), so the call listed AFTER jQuery is emitted BEFORE it.
+        // Sorting this block alphabetically would reintroduce the corruption, so pin the order.
+        for (Path hostPage : List.of(
+                Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"),
+                Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformadd_data.jsp"))) {
+            String jsp = Files.readString(hostPage, StandardCharsets.UTF_8);
+
+            assertThat(jsp)
+                    .as("%s must load DOMPurify", hostPage)
+                    .contains("/library/dompurify/purify.min.js");
+            assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
+                    .as("%s: DOMPurify must be registered after jQuery, so it is emitted before it",
+                            hostPage)
+                    .isLessThan(jsp.indexOf("/library/dompurify/purify.min.js"));
+        }
     }
 }

@@ -447,13 +447,15 @@ The completeness gate reasons about **resource loading**. Two defects reached re
 completely clean gate, because both loaded successfully and failed afterwards — in paint order and in
 encoding:
 
-- **Background images painted under an opaque canvas.** `PREPARE_PRINT_JS` used to set
-  `html { background: white }`. The root element's background is propagated to the page canvas, which
-  is painted *beneath* the negative z-index layer — and `position:absolute; z-index:-1` is the
-  standard eForm idiom for a scanned form background. Every such form printed with a blank background
-  while its image returned HTTP 200. **Never declare a background on `<html>` in the print
-  preparation script**; Chromium already prints white paper. Pinned by
-  `shouldNotPaintRootBackground_whenPreparingPrint`.
+- **Background images lost when a background was declared on `<html>`.** `PREPARE_PRINT_JS` used to
+  set `html { background: white }`. With it, a form whose scanned background is an `<img>` at
+  `position:absolute; z-index:-1` — the standard eForm idiom — printed with a blank background;
+  removing that one statement restored it, with the page otherwise byte-identical. The precise
+  Chromium paint-order reason has **not** been established, so this is recorded as an empirical
+  rule: never declare a background on `<html>` in the print preparation script. Chromium already
+  prints white paper. What makes it dangerous is that the image still returns HTTP 200, so no gate
+  can see the loss. `shouldNotPaintRootBackground_whenPreparingPrint` is a string tripwire only —
+  the real guard is opening the PDF.
 - **Letters printed as escaped markup** (see the decode section above).
 
 Neither is detectable from network evidence, console errors, or `%PDF-` plus a byte count. The
@@ -478,14 +480,6 @@ Either failure looks the same to the clinician — an empty or escaped editor �
 toolbar's save-and-download persisted that empty editor over the stored letter. Regression coverage
 is the round-trip step in the smoke-test runbook plus
 `npm run test:eform-rtl-attachment-behavior-playwright`.
-
-> **`editControl2.js` changes need a deliberate redeploy.** `EFormAssetDeployer` skips any asset that
-> already exists on disk, so clinic-customized copies are never clobbered — which also means a
-> *fixed* editor never reaches an existing install. After changing
-> `src/main/webapp/WEB-INF/eform-assets/editControl2.js`, delete the deployed copy
-> (`/var/lib/OscarDocument/oscar/eform/images/editControl2.js`) so the next startup redeploys it. A
-> real upgrade path (version-stamped filename or checksum-based replacement) is still open — see
-> "Known limitations".
 
 ## Known limitations and tracked follow-ups
 

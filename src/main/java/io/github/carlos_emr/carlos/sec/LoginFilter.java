@@ -191,7 +191,9 @@ public class LoginFilter implements Filter {
             // redirect because each servlet performs its OWN authorization: the render page accepts a
             // render-scoped token OR an authenticated _eform session; the signature route requires a
             // live render grant on the loopback path; the image route accepts a live render grant as a
-            // session alternative for shared template assets. They are NOT uniformly single-use-token gated.
+            // session alternative for shared template assets; the APCache bridge requires a live
+            // render grant AND a per-key grant, and derives patient/provider identity from the
+            // grant rather than the request. They are NOT uniformly single-use-token gated.
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
@@ -270,7 +272,9 @@ public class LoginFilter implements Filter {
             // login redirect); each servlet performs its OWN authorization: the render page accepts a
             // render-scoped token OR an authenticated _eform session; the signature route requires a
             // live render grant on the loopback path; the image route accepts a live render grant as a
-            // session alternative for shared template assets. They are NOT uniformly single-use-token gated.
+            // session alternative for shared template assets; the APCache bridge requires a live
+            // render grant AND a per-key grant, and derives patient/provider identity from the
+            // grant rather than the request. They are NOT uniformly single-use-token gated.
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
@@ -412,6 +416,17 @@ public class LoginFilter implements Filter {
             if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)
                     && !io.github.carlos_emr.carlos.eform.util.EFormRendererRequestAuthorization
                             .permitsStaticRequest(httpRequest)) {
+                // The PDF render browser must never be sent to the login page. That rejection is a
+                // 302 to /logoutPage, which answers 200 text/html — and the renderer's network gate
+                // only counts status >= 400, so a denied stylesheet or background image would be
+                // recorded as a successful load and print as a blank region of a clinical PDF. Fail
+                // with a status the gate can actually see.
+                if (io.github.carlos_emr.carlos.eform.util.EFormRendererRequestAuthorization
+                        .isRendererRequest(httpRequest)) {
+                    logger.warn("Renderer requested a resource outside its grant; denying with 403");
+                    httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
                 UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(httpRequest, httpResponse);
                 return;
             }

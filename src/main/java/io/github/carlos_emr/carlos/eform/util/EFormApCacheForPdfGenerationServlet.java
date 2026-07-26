@@ -101,9 +101,19 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
                     hidden(writer, result.key(), result.value());
                 }
             }
+        } catch (ApLookupException e) {
+            // A key that resolved to the wrong shape is a defect, not "no data". Refusing the whole
+            // batch makes the browser's XHR a 4xx, which the render network gate counts as a failed
+            // content resource — the alternative (emitting an empty value) prints a blank clinical
+            // field on a document nobody is watching.
+            logger.error("Renderer APCache lookup returned an unusable result: fdid={}", grant.fdid(), e);
+            if (!response.isCommitted()) {
+                response.sendError(422, "Renderer APCache lookup returned an unusable result");
+            }
         } catch (RuntimeException e) {
-            logger.error("Renderer APCache lookup failed: fdid={} type={}",
-                    grant.fdid(), e.getClass().getName());
+            // Log the throwable: the stack trace is class names and line numbers only (PHI-free),
+            // and without it this line reads "type=java.lang.NullPointerException" and nothing else.
+            logger.error("Renderer APCache lookup failed: fdid={}", grant.fdid(), e);
             if (!response.isCommitted()) {
                 response.sendError(422,
                         "Renderer APCache lookup failed");
@@ -111,7 +121,16 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         }
     }
 
-    private static String execute(EForm form, DatabaseAP ap) {
+    /** Raised when an AP resolves to a result the renderer cannot turn into field content. */
+    private static final class ApLookupException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        private ApLookupException(String message) {
+            super(message);
+        }
+    }
+
+    private static String execute(EForm form, DatabaseAP ap) throws ApLookupException {
         ParameterizedSql query = form.parameterizeAllFields(ap.getApSQL());
         String output = ap.getApOutput();
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
@@ -119,8 +138,18 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             return EFormUtil.getJsonValues(names, query).toString();
         }
         List<String> values = EFormUtil.getValues(names, query);
-        if (values.size() != names.size()) {
+        if (values.isEmpty()) {
+            // Genuinely no rows ("no active allergies"). That is data, and an empty field is the
+            // correct rendering of it.
             return "";
+        }
+        if (values.size() != names.size()) {
+            // Fewer values than the AP's output names: a column/name mismatch, or a SQLException
+            // that EFormUtil.getValues swallowed into a short list. Both used to return "" here,
+            // which printed a blank clinical field over HTTP 200 — indistinguishable from "no data"
+            // to every render gate, and invisible to the clinician receiving the faxed document.
+            throw new ApLookupException("AP output declares " + names.size()
+                    + " names but the query returned " + values.size() + " values");
         }
         for (int i = 0; i < names.size(); i++) {
             output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);

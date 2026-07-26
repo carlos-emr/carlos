@@ -574,6 +574,7 @@ public class Fax2Action extends ActionSupport {
                     // only informed consent if the clinician sees the complete issue set they are
                     // signing off on, and the approval digest binds to exactly that set.
                     request.setAttribute("severeConsoleErrors", e.getReport().severeConsoleErrors());
+                    request.setAttribute("containedInteractions", e.getReport().containedInteractions());
                     request.setAttribute("stabilizationCapped", e.getReport().stabilizationCapped());
                     request.setAttribute("labDecisionSupportStubbed", e.getReport().labDecisionSupportStubbed());
                     return "eFormMissingContent";
