@@ -1651,6 +1651,13 @@ public class EFormBrowserPdfService {
      * omit clinical content — {@code Image}, {@code Script}, {@code XHR}/{@code Fetch}, {@code Media},
      * {@code Document} — stay in the blocking set below.
      */
+    /**
+     * Cap on the requestId→URL map used to classify {@code Network.loadingFailed} events (which
+     * carry no URL of their own). Far above any real form's request count; bounds the memory a
+     * pathological page can make the scan hold.
+     */
+    private static final int MAX_TRACKED_REQUEST_URLS = 4096;
+
     private static final Set<String> PRESENTATION_RESOURCE_TYPES = Set.of("Stylesheet", "Font");
 
     /**
@@ -1685,6 +1692,7 @@ public class EFormBrowserPdfService {
         int liveChannelAttempts = 0;
         int failedCriticalSubresources = 0;
         int nonReadRequests = 0;
+        java.util.Map<String, String> requestUrlsById = new java.util.HashMap<>();
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -1698,6 +1706,12 @@ public class EFormBrowserPdfService {
             if ("Network.requestWillBeSent".equals(method)) {
                 String url = params.path("request").path("url").asText("");
                 String requestMethod = params.path("request").path("method").asText("");
+                // Network.loadingFailed carries only a requestId, so remember the URL here to
+                // classify the failure later. Bounded so a pathological page cannot grow this
+                // without limit.
+                if (requestUrlsById.size() < MAX_TRACKED_REQUEST_URLS) {
+                    requestUrlsById.putIfAbsent(params.path("requestId").asText(""), url);
+                }
                 if (originOf(url) != null
                         && !requestMethod.isEmpty()
                         && !"GET".equals(requestMethod) && !"HEAD".equals(requestMethod)) {
@@ -1737,8 +1751,11 @@ public class EFormBrowserPdfService {
             } else if ("Network.loadingFailed".equals(method)
                     && RENDER_CRITICAL_RESOURCE_TYPES.contains(params.path("type").asText(""))
                     && !params.path("canceled").asBoolean(false)) {
-                // Same content-vs-presentation split as the HTTP-error leg above.
-                if (PRESENTATION_RESOURCE_TYPES.contains(params.path("type").asText(""))) {
+                // Same content-vs-presentation split as the HTTP-error leg above, plus the
+                // containment split below.
+                String failedUrl = requestUrlsById.get(params.path("requestId").asText(""));
+                if (PRESENTATION_RESOURCE_TYPES.contains(params.path("type").asText(""))
+                        || isContainmentBlockedResource(failedUrl, allowedOrigin)) {
                     failedSubresources++;
                 } else {
                     failedCriticalSubresources++;
@@ -1789,6 +1806,27 @@ public class EFormBrowserPdfService {
      * {@code file://} subresource is already blocked by Chromium's default cross-scheme policy); it is
      * a hard CARLOS-side backstop only under the strict gate, not by default.
      */
+    /**
+     * True when a failed resource is one the renderer itself refused to fetch — an off-origin or
+     * non-web URL that the dead proxy and CSP block by design.
+     *
+     * <p>Such a failure is evidence that containment worked, not that clinical content is missing:
+     * the resource could never have loaded on this surface no matter what. Blocking the PDF for it
+     * means a decorative third-party asset can withhold an otherwise complete clinical record — the
+     * case that surfaced this was a Creative Commons licence badge on a real corpus form.</p>
+     *
+     * <p>Deliberately narrow: this covers ONLY off-origin resources. A same-origin image that 404s
+     * is still a hard content failure, because that one genuinely should have loaded — a missing
+     * scanned background is the catastrophic case this gate exists for. The residual risk is a form
+     * hosting a load-bearing image off-origin; that now degrades to a WARN rather than a block, and
+     * the request is still visible through the {@code disallowedRequests} count it already
+     * produces. {@code eform_pdf_browser_strict_network_gate=true} restores fail-closed.</p>
+     */
+    static boolean isContainmentBlockedResource(String requestUrl, String allowedOrigin) {
+        return requestUrl != null && !requestUrl.isEmpty()
+                && isDisallowedRendererRequestUrl(requestUrl, allowedOrigin);
+    }
+
     // IMPROPER_UNICODE: equalsIgnoreCase compares the literal request scheme against "http"/"https"
     // to fail-close non-web schemes; a case-insensitive protocol-name compare, not identity folding.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal request scheme against http/https for the fail-closed scheme gate; not user identity folding")

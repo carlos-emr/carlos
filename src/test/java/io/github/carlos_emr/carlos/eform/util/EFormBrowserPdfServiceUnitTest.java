@@ -803,6 +803,45 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should treat a containment-blocked off-origin asset as advisory, not missing content")
+    void shouldTreatContainmentBlockedAsset_asAdvisoryFailure() {
+        // A real corpus form (Saphnelo PSP) embeds a Creative Commons licence badge from
+        // i.creativecommons.org. The renderer blocks off-origin fetches by design, so that image can
+        // NEVER load here — the failure is proof containment worked, not evidence that clinical
+        // content went missing. Blocking the PDF for a decorative third-party badge withholds an
+        // otherwise complete clinical record from the clinician.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"CC-1\",\"request\":{\"url\":\"http://i.creativecommons.org/l/by-sa/3.0/80x15.png\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"CC-1\",\"type\":\"Image\",\"errorText\":\"net::ERR_BLOCKED_BY_CLIENT\",\"canceled\":false"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).as("must not block the document").isZero();
+        assertThat(scan.failedSubresources()).as("still reported as advisory").isEqualTo(1);
+        // The off-origin attempt remains separately visible to the operator.
+        assertThat(scan.disallowedRequests()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should still block when a same-origin image fails, however the off-origin rule reads")
+    void shouldStillBlock_whenSameOriginImageFails() {
+        // The narrowness is the point. A same-origin image genuinely should have loaded, and a
+        // missing scanned background is exactly the catastrophic case this gate exists for.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.requestWillBeSent", "\"requestId\":\"BG-1\",\"request\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"method\":\"GET\"}"),
+                cdpMessage("Network.loadingFailed", "\"requestId\":\"BG-1\",\"type\":\"Image\",\"errorText\":\"net::ERR_FAILED\",\"canceled\":false"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).as("a missing same-origin background still blocks").isEqualTo(1);
+        assertThat(scan.failedSubresources()).isZero();
+    }
+
+    @Test
     @DisplayName("should fail closed on WebSocket and WebTransport egress attempts")
     void shouldFailClosed_onWebSocketAndWebTransportEgress() {
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
