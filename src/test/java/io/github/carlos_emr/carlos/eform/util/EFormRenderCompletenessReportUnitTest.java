@@ -124,10 +124,10 @@ class EFormRenderCompletenessReportUnitTest {
 
         // blockingOnly omits the advisory console count, so the log names exactly what refused.
         // blockingOnly lists only what actually refused, so the advisory conditions are absent.
-        assertThat(report.describe(true))
-                .isEqualTo("failedContentResources=2 containedInteractions=1");
+        assertThat(report.describe(true)).isEqualTo("failedContentResources=2");
         assertThat(report.describe(false))
                 .contains("severeConsoleErrors=5")
+                .contains("containedInteractions=1")
                 .contains("timerCompatibilityFailure")
                 .contains("failedContentResources=2");
         // Identifiers and counts only: no URL, filename or rendered text may cross this boundary.
@@ -152,6 +152,22 @@ class EFormRenderCompletenessReportUnitTest {
     }
 
     @Test
+    @DisplayName("should not block for a dialog the renderer suppressed, but still report it")
+    void shouldNotBlock_forSuppressedDialog() {
+        // The renderer stubs alert/confirm/prompt/window.open because a modal would hang it. A
+        // suppressed dialog removes nothing from the document - across the corpus these are
+        // print-time warnings, tickler notices and data-quality messages - and blocking meant a form
+        // that warns the user at print time could never be printed.
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(0, 0, 0, 2, false, false, false, false);
+
+        assertThat(report.hasBlockingOmissions()).isFalse();
+        assertThat(report.advisoryIssueCount()).isEqualTo(2);
+        assertThat(report.describe(false)).contains("containedInteractions=2");
+        assertThat(report.describe(true)).isEqualTo("none");
+    }
+
+    @Test
     @DisplayName("should report every non-console condition as blocking")
     void shouldReportEveryNonConsoleCondition_asBlocking() {
         // Guards the split itself: if a new component is added to the record and quietly lands on
@@ -159,8 +175,6 @@ class EFormRenderCompletenessReportUnitTest {
         assertThat(new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 1, 0, 0, false, false, false, false)
-                .hasBlockingOmissions()).isTrue();
-        assertThat(new EFormRenderCompletenessReport(0, 0, 0, 1, false, false, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, true, false, false, false)
                 .hasBlockingOmissions()).isTrue();

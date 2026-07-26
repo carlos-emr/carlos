@@ -99,9 +99,19 @@ public record EFormRenderCompletenessReport(
      * field. The renderer now waits for these timers to run before capturing (see the shim's
      * {@code whenIdle}), so a failure here is a real one rather than a race, and a timer that
      * populates content gets to do so.</p>
+     *
+     * <p>{@link #containedInteractions} is advisory for a different reason: it counts
+     * {@code alert}/{@code confirm}/{@code prompt}/{@code window.open} calls the renderer stubs out,
+     * which it must do or a modal would hang the render. A suppressed dialog removes nothing from
+     * the document — measured across the corpus these are print-time warnings ("eFORM has NOT been
+     * submitted"), side-effect notices ("Tickler created and assigned to you") and data-quality
+     * messages ("No eGFR in chart"). Blocking on them meant a form that warns the user at print time
+     * could never be printed. Some carry clinical decision support, which is why the count is
+     * surfaced rather than dropped; the PDF has never recorded a form's dialogs, only its content.</p>
      */
     public int advisoryIssueCount() {
-        return Math.addExact(severeConsoleErrors, timerCompatibilityFailure ? 1 : 0);
+        int advisory = Math.addExact(severeConsoleErrors, containedInteractions);
+        return Math.addExact(advisory, timerCompatibilityFailure ? 1 : 0);
     }
 
     public int issueCount() {
@@ -134,9 +144,9 @@ public record EFormRenderCompletenessReport(
         appendCount(description, "excludedContentElements", excludedContentElements);
         if (!blockingOnly) {
             appendCount(description, "severeConsoleErrors", severeConsoleErrors);
+            appendCount(description, "containedInteractions", containedInteractions);
             appendFlag(description, "timerCompatibilityFailure", timerCompatibilityFailure);
         }
-        appendCount(description, "containedInteractions", containedInteractions);
         appendFlag(description, "signatureMissing", signatureMissing);
         appendFlag(description, "stabilizationCapped", stabilizationCapped);
         appendFlag(description, "labDecisionSupportStubbed", labDecisionSupportStubbed);
