@@ -123,14 +123,32 @@ class EFormRenderCompletenessReportUnitTest {
                 new EFormRenderCompletenessReport(2, 0, 5, 1, false, true, false, false);
 
         // blockingOnly omits the advisory console count, so the log names exactly what refused.
+        // blockingOnly lists only what actually refused, so the advisory conditions are absent.
         assertThat(report.describe(true))
-                .isEqualTo("failedContentResources=2 containedInteractions=1 timerCompatibilityFailure");
+                .isEqualTo("failedContentResources=2 containedInteractions=1");
         assertThat(report.describe(false))
                 .contains("severeConsoleErrors=5")
+                .contains("timerCompatibilityFailure")
                 .contains("failedContentResources=2");
         // Identifiers and counts only: no URL, filename or rendered text may cross this boundary.
         assertThat(EFormRenderCompletenessReport.complete().describe(true)).isEqualTo("none");
         assertThat(EFormRenderCompletenessReport.complete().describe(false)).isEqualTo("none");
+    }
+
+    @Test
+    @DisplayName("should not block for a failed legacy timer, but still report it")
+    void shouldNotBlock_forFailedLegacyTimer() {
+        // The renderer now waits for the form's string timers before capturing, so a failure here is
+        // real rather than a race. It is still not grounds to withhold: across the shared-form corpus
+        // the dominant such timer is setTimeout("SubmitButton.click()", 1800) - a form submitting
+        // itself - whose failure on a render surface is the correct outcome.
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(0, 0, 0, 0, false, true, false, false);
+
+        assertThat(report.hasBlockingOmissions()).isFalse();
+        assertThat(report.advisoryIssueCount()).isEqualTo(1);
+        assertThat(report.issueCount()).isEqualTo(1);
+        assertThat(report.describe(false)).contains("timerCompatibilityFailure");
     }
 
     @Test
@@ -145,8 +163,6 @@ class EFormRenderCompletenessReportUnitTest {
         assertThat(new EFormRenderCompletenessReport(0, 0, 0, 1, false, false, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, true, false, false, false)
-                .hasBlockingOmissions()).isTrue();
-        assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, false, true, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, true, false)
                 .hasBlockingOmissions()).isTrue();

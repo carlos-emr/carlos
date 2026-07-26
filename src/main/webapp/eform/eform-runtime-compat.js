@@ -19,6 +19,9 @@
         // Set by the sentinel appended to each injected string-timer script; see
         // executeStringCallback. Declared here so the shape is visible in one place.
         completed: false,
+        // Scheduled-but-not-yet-run string timeouts. The renderer awaits this reaching zero (see
+        // whenIdle) so a capture cannot outrun the form's own deferred work.
+        pending: 0,
         errorMessage: null
     };
     window.__carlosEformTimerCompat = status;
@@ -110,10 +113,54 @@
         if (typeof handler !== "string") {
             return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
         }
+        // Only one-shot timers are counted. A repeating setInterval would never drain, so waiting on
+        // it would stall every render that uses one.
+        var counted = nativeTimer === nativeSetTimeout;
+        if (counted) {
+            status.pending += 1;
+        }
         return nativeTimer.call(receiver, function runStoredTimerSource() {
-            executeStringCallback(handler);
+            try {
+                executeStringCallback(handler);
+            } finally {
+                // finally, not after the call: executeStringCallback rethrows a failed timer, and
+                // leaking the count would leave the renderer waiting for a timer that already ran.
+                if (counted) {
+                    status.pending -= 1;
+                }
+            }
         }, delay);
     }
+
+    /**
+     * Resolves once every scheduled string timer has run, or once maxWaitMillis has elapsed.
+     *
+     * <p>The PDF renderer awaits this before capturing. Without it the capture raced the form: page
+     * stabilization settles after a short quiet window, while stored timers are typically scheduled
+     * a second or more out, so the timer usually never ran at all — and a timer that populates a
+     * field left that field BLANK in the delivered PDF, with every gate satisfied. When the render
+     * did outlast the delay the timer fired and could report a failure, so the same saved form
+     * produced different results run to run.</p>
+     *
+     * <p>Polls with the native timer so the wait neither recurses through the wrapper above nor
+     * inflates the count it is waiting on.</p>
+     *
+     * @return {Promise<boolean>} true when the queue drained, false when the wait was capped
+     */
+    status.whenIdle = function whenIdle(maxWaitMillis) {
+        var deadline = Date.now() + (maxWaitMillis > 0 ? maxWaitMillis : 3000);
+        return new Promise(function settleWhenDrained(resolve) {
+            (function poll() {
+                if (status.pending <= 0) {
+                    resolve(true);
+                } else if (Date.now() >= deadline) {
+                    resolve(false);
+                } else {
+                    nativeSetTimeout.call(window, poll, 50);
+                }
+            }());
+        });
+    };
 
     window.setTimeout = function setTimeoutCompatible(handler, delay) {
         return schedule(

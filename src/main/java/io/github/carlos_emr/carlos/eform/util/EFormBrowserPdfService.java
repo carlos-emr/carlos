@@ -255,6 +255,17 @@ public class EFormBrowserPdfService {
             + "    image.addEventListener('load', resolve, { once: true });\n"
             + "    image.addEventListener('error', resolve, { once: true });\n"
             + "  })));\n"
+            // Let the form's own deferred work finish before the quiet-window race below starts.
+            // Stored eForms schedule string timers a second or more out (measured across the shared
+            // corpus: 49 of 50 use a delay >= 1000ms) while the quiet window is 500ms, so the capture
+            // routinely beat them. A timer that populates a field then left that field BLANK in the
+            // delivered PDF with every gate satisfied, and one that ran only on slower renders made
+            // the same saved form pass or fail run to run. Waiting makes the output deterministic and
+            // costs nothing on the forms that schedule no string timers.
+            + "  const timerCompat = window.__carlosEformTimerCompat;\n"
+            + "  if (timerCompat && typeof timerCompat.whenIdle === 'function') {\n"
+            + "    await timerCompat.whenIdle(4000);\n"
+            + "  }\n"
             + "  const capped = await new Promise((resolve) => {\n"
             + "    const quietWindowMillis = 500;\n"
             + "    const maxWaitMillis = 5000;\n"

@@ -204,14 +204,72 @@ public final class EFormRenderPdfHtmlComposer {
         html = html.replace("/eform/displayImage.do", imageViewServletPath);
         html = html.replace("/eform/displayImage", imageViewServletPath);
         html = removeAbsentOptionalStamps(html);
-        EFormRenderTokenService.getInstance().authorizeAssets(
-                renderToken, referencedImageFiles(html));
+        Set<String> authorizedAssets = new HashSet<>(referencedImageFiles(html));
+        authorizedAssets.addAll(runtimeSignatureStampFiles(html, eForm, eFormValues));
+        EFormRenderTokenService.getInstance().authorizeAssets(renderToken, authorizedAssets);
         Set<String> apKeys = new HashSet<>(referencedApCacheKeys(html));
         apKeys.addAll(referencedClinicScriptApCacheKeys(html));
         EFormRenderTokenService.getInstance().authorizeApKeys(renderToken, apKeys);
         eForm.setFormHtml(html);
         eForm.setNowDateTime();
         return eForm.getFormHtml();
+    }
+
+    /** Prefix legacy signature-stamp scripts concatenate a provider number onto. */
+    private static final String SIGNATURE_STAMP_PREFIX = "consult_sig_";
+
+    /**
+     * The provider signature stamp a form will request at runtime, when it references one.
+     *
+     * <p>The render grant is built by scanning the composed HTML, which cannot see a URL the page
+     * assembles later. A widespread legacy stamp script does exactly that:</p>
+     *
+     * <pre>{@code
+     * document.getElementById('StampSignature').src =
+     *         "../eform/displayImage.do?imagefile=consult_sig_" + ProviderNumber + ".png";
+     * }</pre>
+     *
+     * <p>Only the prefix is in the document, so the assembled filename was never authorized and the
+     * image servlet refused it — a 403 the gate then counted as missing content, blocking the render
+     * whether or not the signature existed. Measured as the single largest content-side blocker
+     * across the shared-form corpus.</p>
+     *
+     * <p>The provider number is taken from the form's own stored {@code current_user_id} value (an
+     * {@code oscarDB} field the server populated at save time), falling back to the eForm's provider.
+     * It is never read from the rendered page: the grant must not be widened by anything the
+     * clinic-authored document can influence. Exactly one filename is added, and only when the
+     * document shows intent to display a stamp — a missing file still 404s and still blocks, because
+     * a signature that should be on the record and is not is a real omission.</p>
+     */
+    static Set<String> runtimeSignatureStampFiles(
+            String html, EForm eForm, List<EFormValue> eFormValues) {
+        if (html == null || !html.contains(SIGNATURE_STAMP_PREFIX)) {
+            return Set.of();
+        }
+        String providerNumber = null;
+        if (eFormValues != null) {
+            for (EFormValue value : eFormValues) {
+                if ("current_user_id".equals(value.getVarName())) {
+                    providerNumber = value.getVarValue();
+                    break;
+                }
+            }
+        }
+        if (providerNumber == null || providerNumber.isBlank()) {
+            providerNumber = eForm == null ? null : eForm.getProviderNo();
+        }
+        if (providerNumber == null || providerNumber.isBlank()) {
+            return Set.of();
+        }
+        // Digits only. The value is server-stored, but this filename becomes an authorization grant,
+        // so it is constrained to the shape a provider number can have rather than trusted.
+        String trimmed = providerNumber.trim();
+        for (int index = 0; index < trimmed.length(); index++) {
+            if (!Character.isDigit(trimmed.charAt(index))) {
+                return Set.of();
+            }
+        }
+        return Set.of(SIGNATURE_STAMP_PREFIX + trimmed + ".png");
     }
 
     static Set<String> referencedImageFiles(String html) {

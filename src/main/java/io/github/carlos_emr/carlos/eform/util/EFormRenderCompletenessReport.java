@@ -90,9 +90,18 @@ public record EFormRenderCompletenessReport(
 
     /**
      * Count of conditions that are reported to the user but never withhold the document.
+     *
+     * <p>{@link #timerCompatibilityFailure} joins {@link #severeConsoleErrors} here. It reports that
+     * one of the form's own legacy string timers threw. That is worth telling the reader, but it is
+     * not sound grounds for withholding the document: measured across the shared-form corpus, the
+     * overwhelmingly common such timer is {@code setTimeout("SubmitButton.click()", 1800)} — a form
+     * trying to submit itself — whose failure on a render surface is the correct outcome, not a lost
+     * field. The renderer now waits for these timers to run before capturing (see the shim's
+     * {@code whenIdle}), so a failure here is a real one rather than a race, and a timer that
+     * populates content gets to do so.</p>
      */
     public int advisoryIssueCount() {
-        return severeConsoleErrors;
+        return Math.addExact(severeConsoleErrors, timerCompatibilityFailure ? 1 : 0);
     }
 
     public int issueCount() {
@@ -125,10 +134,10 @@ public record EFormRenderCompletenessReport(
         appendCount(description, "excludedContentElements", excludedContentElements);
         if (!blockingOnly) {
             appendCount(description, "severeConsoleErrors", severeConsoleErrors);
+            appendFlag(description, "timerCompatibilityFailure", timerCompatibilityFailure);
         }
         appendCount(description, "containedInteractions", containedInteractions);
         appendFlag(description, "signatureMissing", signatureMissing);
-        appendFlag(description, "timerCompatibilityFailure", timerCompatibilityFailure);
         appendFlag(description, "stabilizationCapped", stabilizationCapped);
         appendFlag(description, "labDecisionSupportStubbed", labDecisionSupportStubbed);
         return description.isEmpty() ? "none" : description.toString();

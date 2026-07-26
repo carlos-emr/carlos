@@ -641,4 +641,55 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 "/carlos/imageRenderingServlet?source=signature_preview&signatureRequestId=temp123"
         );
     }
+
+    @Test
+    @DisplayName("should authorize the signature stamp a legacy script builds at runtime")
+    void shouldAuthorizeSignatureStamp_builtAtRuntime() {
+        // The grant is built by scanning the composed HTML, which cannot see a URL the page
+        // assembles later. A widespread legacy stamp script concatenates the provider number onto
+        // "consult_sig_", so the assembled filename was never granted and the image servlet refused
+        // it with 403 - counted as missing content, blocking the render even when the signature was
+        // present. This was the single largest content-side blocker across the shared-form corpus.
+        String html = "<script>document.getElementById('StampSignature').src ="
+                + " \"/x?imagefile=consult_sig_\" + ProviderNumber + \".png\";</script>";
+        EForm eform = new EForm();
+        eform.setProviderNo("999998");
+
+        assertThat(EFormRenderPdfHtmlComposer.runtimeSignatureStampFiles(html, eform, List.of()))
+                .containsExactly("consult_sig_999998.png");
+    }
+
+    @Test
+    @DisplayName("should prefer the form's stored current_user_id for the signature stamp")
+    void shouldPreferStoredCurrentUserId_forSignatureStamp() {
+        // current_user_id is an oscarDB field the server populated at save time, so it names the
+        // provider whose stamp the page will actually request.
+        String html = "<img id=\"StampSignature\"><script>x='consult_sig_'+id;</script>";
+        EForm eform = new EForm();
+        eform.setProviderNo("111111");
+        EFormValue storedProvider = new EFormValue();
+        storedProvider.setVarName("current_user_id");
+        storedProvider.setVarValue("222222");
+
+        assertThat(EFormRenderPdfHtmlComposer.runtimeSignatureStampFiles(
+                        html, eform, List.of(storedProvider)))
+                .containsExactly("consult_sig_222222.png");
+    }
+
+    @Test
+    @DisplayName("should not widen the grant for a form that shows no stamp or a non-numeric provider")
+    void shouldNotWidenGrant_withoutStampIntentOrNumericProvider() {
+        EForm eform = new EForm();
+        eform.setProviderNo("999998");
+        // No stamp reference in the document: nothing extra may be authorized.
+        assertThat(EFormRenderPdfHtmlComposer.runtimeSignatureStampFiles(
+                "<p>no stamp here</p>", eform, List.of())).isEmpty();
+
+        // A filename becomes an authorization grant, so the provider number is constrained to the
+        // shape it can legitimately have rather than trusted.
+        EForm traversal = new EForm();
+        traversal.setProviderNo("../../etc/passwd");
+        assertThat(EFormRenderPdfHtmlComposer.runtimeSignatureStampFiles(
+                "consult_sig_", traversal, List.of())).isEmpty();
+    }
 }
