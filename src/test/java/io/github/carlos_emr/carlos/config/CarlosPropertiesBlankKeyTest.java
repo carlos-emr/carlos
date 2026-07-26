@@ -41,7 +41,7 @@ class CarlosPropertiesBlankKeyTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject a null key with IllegalArgumentException")
-    void shouldRejectNullKey() {
+    void shouldRejectKey_whenNull() {
         assertThatThrownBy(() -> CarlosProperties.getInstance().getProperty(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Property key cannot be blank.");
@@ -49,7 +49,7 @@ class CarlosPropertiesBlankKeyTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject a whitespace-only key with IllegalArgumentException")
-    void shouldRejectBlankKey() {
+    void shouldRejectKey_whenBlank() {
         assertThatThrownBy(() -> CarlosProperties.getInstance().getProperty("   "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Property key cannot be blank.");
