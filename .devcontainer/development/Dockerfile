@@ -1,5 +1,19 @@
 FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
 
+# bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
+#
+# This is not style. `curl -fsSL <url> | bash -` under a shell without pipefail reports the exit
+# status of the LAST command in the pipeline — bash, which happily exits 0 on empty input — so a
+# curl that failed with 403 looked like success and the `&&` chain carried on. That is exactly how
+# the Node install silently produced a container with no npm: NodeSource now answers 403 to CI
+# runners, curl wrote nothing, bash succeeded, and apt fell back to Ubuntu's nodejs (which packages
+# npm separately). The build then died several commands later on `npm: not found`, naming a symptom
+# rather than the cause.
+#
+# With pipefail the pipeline fails at the curl, at the line that is actually wrong. Several other
+# steps here use the same `curl | ...` shape and were masked the same way.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Set environment variables for Tomcat
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
@@ -68,24 +82,34 @@ RUN /usr/local/bin/apt-install \
     inotify-tools \
     fonts-roboto fonts-liberation fonts-noto-color-emoji
 
-# Install Node.js from NodeSource (pinned major, not "latest LTS").
+# Install Node.js from the official nodejs.org distribution, NOT NodeSource.
 #
-# This previously used setup_lts.x and broke the image build: the script no longer registered a
-# repository apt would prefer, so `apt-install nodejs` silently resolved to Ubuntu's nodejs
-# (18.19.1+dfsg-6ubuntu5) instead. Ubuntu ships npm as a SEPARATE package and apt-install passes
-# --no-install-recommends, so npm was simply absent and the build died on `npm: not found` with no
-# indication that the wrong package had been installed.
+# deb.nodesource.com now answers 403 to CI runners (verified: 403 from the GitHub Actions build and
+# from a developer machine), so `curl … | bash -` fetched nothing, added no apt repository, and
+# `apt-install nodejs` quietly resolved to Ubuntu's nodejs 18. Ubuntu packages npm separately and
+# apt-install passes --no-install-recommends, so npm was absent and the build failed later at
+# `npm: not found`. Adding an apt repository over the network was the fragile part; this removes it.
 #
-# Two changes: pin the major explicitly (setup_lts.x is a moving target whose behaviour changed
-# under us), and assert the major we actually got. Without that assertion a future silent fallback
-# to a distro package reappears as a confusing downstream error — the failure has to name its own
-# cause. NodeSource's nodejs bundles npm, so a correct install needs no separate npm package.
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && /usr/local/bin/apt-install nodejs \
+# The official tarball is a fixed URL with a published checksum, so the install is reproducible and
+# tamper-evident. `curl -f` turns an HTTP error into a non-zero exit, and the SHELL pipefail set at
+# the top of this file means a failed download can no longer be masked by a later command in a pipe.
+#
+# Pinned deliberately: an unpinned "latest" reintroduces the moving target that broke this twice.
+# Bumping it is a one-line change plus the matching checksum from
+# https://nodejs.org/dist/v<version>/SHASUMS256.txt.
+# .tar.gz, not .tar.xz: extracting xz needs the `xz` binary, which is not in this base image's
+# default package set. A dry run of these exact commands failed on "xz: Cannot exec" — gzip is
+# always present, so the gz tarball removes a dependency rather than adding one to apt.
+ENV NODE_VERSION=22.11.0
+ENV NODE_SHA256=4f862bab52039835efbe613b532238b6e4dde98d139a34e6923193e073438b13
+RUN curl -fsSLo /tmp/node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" \
+    && echo "${NODE_SHA256}  /tmp/node.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 --no-same-owner \
+    && rm /tmp/node.tar.gz \
     && node --version && npm --version \
     && case "$(node --version)" in \
-         v22.*) : ;; \
-         *) echo "ERROR: expected Node 22 from NodeSource, got $(node --version) — the NodeSource repository was not used." >&2; exit 1 ;; \
+         v${NODE_VERSION}) : ;; \
+         *) echo "ERROR: expected Node v${NODE_VERSION}, got $(node --version)." >&2; exit 1 ;; \
        esac
 
 # Install GitHub CLI
