@@ -107,7 +107,14 @@
                 <br/>
 
 
-                <input type="text" name="faxNumber" value="<%= SafeEncode.forHtmlAttribute(phoneNum) %>" size="40"/>
+                <%-- Labelled explicitly: the field previously had no label at all, so a screen
+                     reader announced only "edit text" with no indication of what to enter. The
+                     surrounding blue instruction block is not programmatically associated with the
+                     input, so it does not serve as one. Reuses the existing
+                     provider.editRxFax.msgProviderFaxNumber key, which is present in all five
+                     locale bundles. --%>
+                <label for="faxNumber"><fmt:message key='provider.editRxFax.msgProviderFaxNumber'/></label>
+                <input type="text" id="faxNumber" name="faxNumber" value="<%= SafeEncode.forHtmlAttribute(phoneNum) %>" size="40"/>
                 <br>
 
                 <input type="submit" onclick="return validate();"
