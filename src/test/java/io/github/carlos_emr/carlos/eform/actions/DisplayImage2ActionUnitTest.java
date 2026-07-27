@@ -447,6 +447,28 @@ class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should serve the clinic's customized editor_help.html instead of the bundled copy")
+        void shouldServeClinicHelp_whenEditorHelpExistsOnDisk() throws Exception {
+            // SEEDED_EDITOR_ASSETS holds TWO files and only blank.rtl was covered. Verified by
+            // mutation: moving editor_help.html back to BUNDLED_EDITOR_ASSETS — reintroducing this
+            // commit's exact regression for the second file — left the whole class green.
+            withBundledAsset("editor_help.html", "<html><body>SHIPPED HELP</body></html>");
+            Files.writeString(tempDir.resolve("editor_help.html"),
+                    "<html><body>CLINIC HELP</body></html>", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentAsString())
+                    .contains("CLINIC HELP")
+                    .doesNotContain("SHIPPED HELP");
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
+        }
+
+        @Test
         @DisplayName("should keep serving the bundled editControl2.js even when a local copy exists")
         void shouldServeBundledEditor_whenLocalEditControlExists() throws Exception {
             withBundledAsset("editControl2.js", "// SHIPPED EDITOR");

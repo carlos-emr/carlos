@@ -5,6 +5,8 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,6 +54,57 @@ class EFormRenderCompletenessReportUnitTest {
         assertThat(report.digest()).isNotEqualTo(
                 new EFormRenderCompletenessReport(1, 3, 0, 0, false, true, false, false).digest());
         assertThat(EFormRenderCompletenessReport.complete().isComplete()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should give every one of the nine components its own effect on the digest")
+    void shouldDistinguishEveryComponent_inTheDigest() {
+        // The record has NINE components but every other test here uses the 8-arg convenience
+        // constructor, which defaults providerStampMissing to false. Measured by mutation: deleting
+        // signatureMissing, providerStampMissing AND labDecisionSupportStubbed from the canonical
+        // string left 156 tests green. A digest blind to signatureMissing means a clinician's
+        // approval of one render is replayable against a DIFFERENT render that lost its signature —
+        // which is precisely what binding approval to the digest exists to prevent.
+        //
+        // Pairwise, not just "differs from complete()": that also catches two components being
+        // conflated or transposed in the canonical string, which a one-at-a-time check would miss.
+        Map<String, EFormRenderCompletenessReport> oneComponentFlipped = new LinkedHashMap<>();
+        oneComponentFlipped.put("failedContentResources",
+                new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false, false));
+        oneComponentFlipped.put("excludedContentElements",
+                new EFormRenderCompletenessReport(0, 1, 0, 0, false, false, false, false, false));
+        oneComponentFlipped.put("severeConsoleErrors",
+                new EFormRenderCompletenessReport(0, 0, 1, 0, false, false, false, false, false));
+        oneComponentFlipped.put("containedInteractions",
+                new EFormRenderCompletenessReport(0, 0, 0, 1, false, false, false, false, false));
+        oneComponentFlipped.put("signatureMissing",
+                new EFormRenderCompletenessReport(0, 0, 0, 0, true, false, false, false, false));
+        oneComponentFlipped.put("timerCompatibilityFailure",
+                new EFormRenderCompletenessReport(0, 0, 0, 0, false, true, false, false, false));
+        oneComponentFlipped.put("stabilizationCapped",
+                new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, true, false, false));
+        oneComponentFlipped.put("labDecisionSupportStubbed",
+                new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, true, false));
+        oneComponentFlipped.put("providerStampMissing",
+                new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, true));
+
+        // Derived from the record itself, so adding a tenth component fails here until it is pinned.
+        assertThat(oneComponentFlipped)
+                .describedAs("every record component must be represented")
+                .hasSize(EFormRenderCompletenessReport.class.getRecordComponents().length);
+
+        String baseline = EFormRenderCompletenessReport.complete().digest();
+        Map<String, String> digests = new LinkedHashMap<>();
+        oneComponentFlipped.forEach((name, report) -> {
+            assertThat(report.digest())
+                    .describedAs("flipping %s alone must change the digest", name)
+                    .isNotEqualTo(baseline);
+            digests.put(name, report.digest());
+        });
+
+        assertThat(digests.values())
+                .describedAs("no two components may collapse to the same digest")
+                .doesNotHaveDuplicates();
     }
 
     @Test

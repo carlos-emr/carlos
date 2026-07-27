@@ -17,6 +17,7 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -208,9 +209,43 @@ class LegacyMeasurementHistoryUnitTest {
                 + "u='oscarMeasurements/SetupDisplayHistory.do?type=HT';</script></body></html>";
         EForm eForm = mock(EForm.class);
 
-        assertThat(LegacyMeasurementHistory.embed(html, eForm, false))
-                .describedAs("no payload element may be present")
-                .isEqualTo(html)
-                .doesNotContain(LegacyMeasurementHistory.LEGACY_MEASUREMENT_ELEMENT_ID);
+        // Assert on the GATE'S OWN LOG, not on the returned html.
+        //
+        // isEqualTo(html) alone cannot fail: every path below the gate also returns html unchanged
+        // in a unit JVM (EFormLoader has no AP registered, and the mock's null return is caught at
+        // the RuntimeException handler). So the old assertion held for BOTH values of the boolean —
+        // deleting the gate entirely left this test green, which I verified by mutation. It was the
+        // only test of a PHI boundary and it could not detect that boundary being removed.
+        //
+        // The log line is the one observable that distinguishes "refused" from "tried and found
+        // nothing", so it is what makes the gate falsifiable.
+        try (LogCapture logs = LogCapture.forLogger(LegacyMeasurementHistory.class)) {
+            assertThat(LegacyMeasurementHistory.embed(html, eForm, false))
+                    .describedAs("no payload element may be present")
+                    .isEqualTo(html)
+                    .doesNotContain(LegacyMeasurementHistory.LEGACY_MEASUREMENT_ELEMENT_ID);
+
+            assertThat(logs.messages())
+                    .describedAs("the gate must record that it refused, or its removal is undetectable")
+                    .anySatisfy(message -> assertThat(message).contains("lacks measurement read"));
+        }
+    }
+
+    @Test
+    @DisplayName("should not report a measurement refusal when the requester is permitted")
+    void shouldNotReportRefusal_whenMeasurementsPermitted() {
+        // The positive control for the test above. Without it, an implementation that logged the
+        // refusal unconditionally would satisfy the assertion while embedding nothing either way.
+        String html = "<html><body><script>"
+                + "u='oscarMeasurements/SetupDisplayHistory.do?type=HT';</script></body></html>";
+        EForm eForm = mock(EForm.class);
+
+        try (LogCapture logs = LogCapture.forLogger(LegacyMeasurementHistory.class)) {
+            LegacyMeasurementHistory.embed(html, eForm, true);
+
+            assertThat(logs.messages())
+                    .describedAs("a permitted requester must never be recorded as refused")
+                    .noneSatisfy(message -> assertThat(message).contains("lacks measurement read"));
+        }
     }
 }

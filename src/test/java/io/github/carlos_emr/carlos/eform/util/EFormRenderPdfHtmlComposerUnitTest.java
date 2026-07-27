@@ -714,7 +714,24 @@ class EFormRenderPdfHtmlComposerUnitTest {
     void shouldTreatUnreadableImageDirectory_asUnableToProveAbsent() {
         // Same guard removeAbsentOptionalStamps uses: a lookup failure is not evidence of absence,
         // so the name stays granted and the render fails the ordinary way rather than on a guess.
+        //
+        // The input must be NON-EMPTY. This previously passed Set.of(), so the loop body never ran
+        // and the catch block the test is named for was never entered — the assertion held for
+        // `return Set.of();`, for `return fileNames;`, and for the loop with the catch deleted.
+        // Verified by mutation: inverting the catch to fail-closed left the whole class green.
+        //
+        // In a unit JVM DisplayImage2Action.getImageFile throws (no eForm image directory exists),
+        // which is the lookup failure being modelled. Asserting the name is RETAINED is what makes
+        // the fail-open behaviour falsifiable: were the catch removed or inverted, the result would
+        // be empty and this fails. Inverting it in production would make every provider stamp look
+        // absent, stripping #StampSignature from every rendered document and flagging every render.
+        assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(
+                java.util.Set.of("consult_sig_999999.png")))
+                .describedAs("a lookup failure must not be read as proof the stamp is absent")
+                .containsExactly("consult_sig_999999.png");
+
         assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(java.util.Set.of()))
+                .describedAs("no names in, no names out")
                 .isEmpty();
     }
 
