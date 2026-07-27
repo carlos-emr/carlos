@@ -2626,9 +2626,29 @@ def test_database_allows_only_one_pending_password_reset_per_account() -> None:
 
 
 def test_api_docs_are_available_in_development() -> None:
-    app = main.create_app(development_settings())
+    app = main.create_app(
+        development_settings(
+            enable_dev_admin=True,
+            dev_admin_token=DEV_ADMIN_TOKEN,
+        )
+    )
 
-    assert TestClient(app).get("/api/openapi.json").status_code == 200
+    response = TestClient(app).get("/api/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "401" in paths["/auth/logout"]["post"]["responses"]
+    assert "403" in paths["/portal/logout"]["post"]["responses"]
+    assert {"400", "404", "409"} <= paths["/dev/admin/invites"]["post"]["responses"].keys()
+    assert {"400", "404"} <= paths["/dev/admin/invites"]["get"]["responses"].keys()
+    assert {"404", "409"} <= paths["/dev/admin/invites/{invite_id}/resend"]["post"][
+        "responses"
+    ].keys()
+    assert {"404", "409"} <= paths["/dev/admin/invites/{invite_id}/revoke"]["post"][
+        "responses"
+    ].keys()
+    assert "404" in paths["/dev/admin/accounts/{account_id}/unlock"]["post"]["responses"]
+    assert "/internal/health/db" not in paths
 
 
 def test_api_docs_are_disabled_outside_development() -> None:

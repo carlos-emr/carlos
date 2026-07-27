@@ -211,6 +211,22 @@ ACCOUNT_LOCKED_DETAIL = "account access is locked; contact the clinic for help"
 MFA_VERIFICATION_FAILED_DETAIL = "MFA could not be verified"
 PASSWORD_RESET_COMPLETE_TEMPLATE = "password_reset_complete.jinja"
 ACTIVATION_TEMPLATE = "activate.jinja"
+AUTH_LOGOUT_RESPONSES = {
+    status.HTTP_401_UNAUTHORIZED: {"description": "Authentication is required."},
+}
+PORTAL_LOGOUT_RESPONSES = {
+    status.HTTP_403_FORBIDDEN: {"description": "The CSRF token is invalid."},
+}
+DEV_ADMIN_COMMON_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: {"description": "The staff actor is invalid."},
+    status.HTTP_404_NOT_FOUND: {
+        "description": "The endpoint is unavailable or the resource was not found."
+    },
+}
+DEV_ADMIN_CONFLICT_RESPONSES = {
+    **DEV_ADMIN_COMMON_RESPONSES,
+    status.HTTP_409_CONFLICT: {"description": "The requested state transition conflicts."},
+}
 SECURITY_HEADERS = {
     "Referrer-Policy": "same-origin",
     "X-Content-Type-Options": "nosniff",
@@ -2337,7 +2353,11 @@ def register_public_routes(
         try:
             check_database(session)
         except SQLAlchemyError as exc:
-            raise HTTPException(status_code=503, detail="database unavailable") from exc
+            # This private health probe is intentionally excluded from the OpenAPI schema.
+            raise HTTPException(  # NOSONAR
+                status_code=503,
+                detail="database unavailable",
+            ) from exc
         return {"status": "ok", "database": "ok"}
 
     @app.get("/internal/readiness", include_in_schema=False)
@@ -3548,7 +3568,11 @@ def register_logout_route(
     get_authorization_bearer_token = route_dependencies.get_authorization_bearer_token
     csrf_secret = runtime.csrf_secret
 
-    @app.post("/auth/logout", response_model=LogoutResponse)
+    @app.post(
+        "/auth/logout",
+        response_model=LogoutResponse,
+        responses=AUTH_LOGOUT_RESPONSES,
+    )
     def logout(
         session_token: Annotated[str, Depends(get_authorization_bearer_token)],
         response: Response,
@@ -3861,7 +3885,7 @@ def register_portal_routes(
     ) -> Response:
         return render_portal_page(request, session, active_module="help")
 
-    @app.post("/portal/logout")
+    @app.post("/portal/logout", responses=PORTAL_LOGOUT_RESPONSES)
     async def portal_logout(
         request: Request,
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
@@ -4038,6 +4062,7 @@ def register_dev_admin_routes(
             "/dev/admin/invites",
             response_model=InviteTokenResponse,
             status_code=status.HTTP_201_CREATED,
+            responses=DEV_ADMIN_CONFLICT_RESPONSES,
         )
         def dev_create_invite(
             actor: Annotated[str, Depends(get_dev_admin_actor)],
@@ -4073,7 +4098,11 @@ def register_dev_admin_routes(
                 ) from exc
             return invite_response_payload(invite, invite_token)
 
-        @app.get("/dev/admin/invites", response_model=list[InviteResponse])
+        @app.get(
+            "/dev/admin/invites",
+            response_model=list[InviteResponse],
+            responses=DEV_ADMIN_COMMON_RESPONSES,
+        )
         def dev_list_invites(
             actor: Annotated[str, Depends(get_dev_admin_actor)],
             session: Annotated[
@@ -4108,7 +4137,11 @@ def register_dev_admin_routes(
                 for invite in invites
             ]
 
-        @app.post("/dev/admin/invites/{invite_id}/resend", response_model=InviteTokenResponse)
+        @app.post(
+            "/dev/admin/invites/{invite_id}/resend",
+            response_model=InviteTokenResponse,
+            responses=DEV_ADMIN_CONFLICT_RESPONSES,
+        )
         def dev_resend_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
@@ -4135,7 +4168,11 @@ def register_dev_admin_routes(
                 ) from exc
             return invite_response_payload(invite, invite_token)
 
-        @app.post("/dev/admin/invites/{invite_id}/revoke", response_model=InviteResponse)
+        @app.post(
+            "/dev/admin/invites/{invite_id}/revoke",
+            response_model=InviteResponse,
+            responses=DEV_ADMIN_CONFLICT_RESPONSES,
+        )
         def dev_revoke_invite(
             invite_id: Annotated[int, PathParam(gt=0)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
@@ -4163,6 +4200,7 @@ def register_dev_admin_routes(
         @app.post(
             "/dev/admin/accounts/{account_id}/unlock",
             response_model=AccountAdminResponse,
+            responses=DEV_ADMIN_COMMON_RESPONSES,
         )
         def dev_unlock_account(
             account_id: Annotated[int, PathParam(gt=0)],
