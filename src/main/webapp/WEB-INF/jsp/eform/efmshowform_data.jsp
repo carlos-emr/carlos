@@ -129,7 +129,13 @@
     // Placed after the if/else above so it covers both the saved-instance and the admin-preview
     // branch; the latter passes demographic "-1", which resolves to no rows and embeds an empty
     // series, so the chart renders empty rather than failing a network fetch.
-    eForm.setFormHtml(LegacyMeasurementHistory.embed(eForm.getFormHtml(), eForm));
+    // Measurement data reached through an eForm still requires measurement rights: the route this
+    // replaces enforces _measurement, while this page requires only _eform read. Without the check a
+    // user with eForm access alone received the patient's full dated HT/WT/HEAD series.
+    boolean measurementsPermitted = SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
+            LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", eForm.getDemographicNo());
+    eForm.setFormHtml(LegacyMeasurementHistory.embed(
+            eForm.getFormHtml(), eForm, measurementsPermitted));
 
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.

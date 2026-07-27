@@ -146,7 +146,13 @@
     // same way the PDF renderer does. Subject to the ORDER MATTERS rule stated just above: this is a
     // string-phase edit and must run before the add*() calls below, whose jsoup document
     // getFormHtml() would otherwise re-serialize over it.
-    thisEForm.setFormHtml(LegacyMeasurementHistory.embed(thisEForm.getFormHtml(), thisEForm));
+    // Measurement data reached through an eForm still requires measurement rights: the route this
+    // replaces enforces _measurement, while this page requires only _eform read. Without the check a
+    // user with eForm access alone received the patient's full dated HT/WT/HEAD series.
+    boolean measurementsPermitted = SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
+            LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", thisEForm.getDemographicNo());
+    thisEForm.setFormHtml(LegacyMeasurementHistory.embed(
+            thisEForm.getFormHtml(), thisEForm, measurementsPermitted));
 
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.

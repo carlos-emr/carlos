@@ -206,10 +206,17 @@ public final class EFormRenderPdfHtmlComposer {
         html = html.replace("/eform/displayImage.do", imageViewServletPath);
         html = html.replace("/eform/displayImage", imageViewServletPath);
         html = removeAbsentOptionalStamps(html);
-        // Deliberately NOT added to the render grant: the payload is inlined here, so the browser
-        // makes no APCache request for it, and granting a key nothing will ask for only widens what
-        // the page is permitted to fetch.
-        html = LegacyMeasurementHistory.embed(html, eForm);
+        // The AP KEY is deliberately not added to the render grant: the payload is inlined here, so
+        // the browser makes no APCache request for it, and granting a key nothing will ask for only
+        // widens what the page may fetch.
+        //
+        // Whether the measurements may be embedded AT ALL is a separate question, and one the
+        // renderer cannot answer for itself — it holds no identity. The initiator records it on the
+        // grant, and a render whose grant is absent or silent embeds nothing.
+        EFormRenderTokenService.RenderGrant renderGrant =
+                renderToken == null ? null : EFormRenderTokenService.getInstance().peek(renderToken);
+        html = LegacyMeasurementHistory.embed(html, eForm,
+                renderGrant != null && renderGrant.allowsMeasurementHistory());
         Set<String> authorizedAssets = new HashSet<>(referencedImageFiles(html));
         Set<String> stampFiles = runtimeSignatureStampFiles(html, eForm, eFormValues);
         // Grant the stamp only when it exists. An absent one would 404 and land in the report as an

@@ -284,7 +284,27 @@
         }
     }
 
+    /**
+     * Names shadowed on an intercepted instance by send(), removed here before every reuse.
+     *
+     * The synthetic getters are own properties, so they outlive the request that installed them and
+     * permanently mask the prototype's real ones. An object reused for a genuine second request had
+     * that request actually go out — and every reader still saw the FIRST embedded body, with
+     * readyState frozen at 4 and status at 200, so a caller polling `readyState == 4 && status == 200`
+     * observed an immediate false completion carrying another endpoint's response. On this surface
+     * that means one patient's measurements answering a different question.
+     */
+    var SYNTHETIC_RESPONSE_PROPERTIES = [
+        "readyState", "status", "statusText", "responseText", "response", "responseXML"
+    ];
+
     window.XMLHttpRequest.prototype.open = function openCompatible(method, url) {
+        // Unconditionally, and before deciding whether to intercept: a reused object must start from
+        // the prototype's real getters whichever way this request is answered. They are declared
+        // configurable, so deleting an own property restores the prototype's.
+        for (var i = 0; i < SYNTHETIC_RESPONSE_PROPERTIES.length; i++) {
+            delete this[SYNTHETIC_RESPONSE_PROPERTIES[i]];
+        }
         var body = embeddedResponseFor(url);
         // Always open for real, even when this request will be answered locally. Skipping it left
         // the object UNSENT, and a caller that sets a request header between open() and send() —

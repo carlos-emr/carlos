@@ -83,6 +83,25 @@ window.__result = (function () {
     return out;
   }
   var result = {ht: getMeasures("HT"), wt: getMeasures("WT")};
+  // Reuse: the SAME object, intercepted once, then pointed at a real URL. The shim installs own
+  // accessors on the instance to synthesise its response; if it does not remove them, this second
+  // request goes out for real and every reader still sees the FIRST patient's embedded body.
+  var reused = new XMLHttpRequest();
+  reused.open("GET", window.location.origin + "${LEGACY_URL}HT", false);
+  reused.send();
+  var firstBody = String(reused.responseText || '');
+  reused.open("GET", window.location.origin + "/eform-runtime-compat.js", false);
+  reused.send();
+  result.reuse = {
+    // Search the WHOLE body; the file opens with a comment block, so a truncated prefix would miss
+    // the marker and fail for the wrong reason.
+    isRealResource: String(reused.responseText || '').indexOf('installCarlosEform') >= 0,
+    body: String(reused.responseText || '').slice(0, 60),
+    servedStaleBody: String(reused.responseText || '') === firstBody,
+    status: reused.status,
+    readyState: reused.readyState
+  };
+
   var listener = new XMLHttpRequest();
   result.listenerNotified = false;
   listener.addEventListener("readystatechange", function () {
@@ -150,6 +169,12 @@ async function main() {
       assert(served.ht.status === 200, `synchronous status not visible after send(): ${served.ht.status}`);
       assert(JSON.stringify(served.wt.dataAtReturn) === '["16.2"]',
         `WT column not selected: ${JSON.stringify(served.wt.dataAtReturn)}`);
+      assert(!served.reuse.servedStaleBody,
+        'a reused XHR replayed the embedded measurement body for a different request');
+      assert(served.reuse.isRealResource,
+        `reused XHR did not return the real resource: ${served.reuse.body}`);
+      assert(served.reuse.status === 200 && served.reuse.readyState === 4,
+        `reused XHR state not from the real request: status=${served.reuse.status} readyState=${served.reuse.readyState}`);
       assert(served.listenerNotified, 'addEventListener caller was stranded, not notified');
       assert(served.listenerBody, 'addEventListener caller received no body');
       assert(networkHits.length === 0,

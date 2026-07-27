@@ -148,7 +148,16 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         String output = ap.getApOutput();
         ArrayList<String> names = DatabaseAP.parserGetNames(output);
         if (ap.isJsonOutput()) {
-            return EFormUtil.getJsonValues(names, query).toString();
+            // The JSON branch bypassed the guard below entirely: getJsonValues reports a blocked or
+            // failed query as an empty array, and writes an unreadable column into the JSON as the
+            // literal <(name)NotFound>. Both reached the document — one as a blank clinical field
+            // over HTTP 200, the other as that text rendered where a value belongs.
+            com.fasterxml.jackson.databind.node.ArrayNode jsonValues =
+                    EFormUtil.getJsonValuesOrNull(names, query);
+            if (jsonValues == null) {
+                throw new ApLookupException("AP JSON query could not be executed or read");
+            }
+            return jsonValues.toString();
         }
         // getValuesOrNull, not getValues: the latter reports a failed or blocked query as an empty
         // list, which is the same value a healthy query returns for a patient with no matching data.

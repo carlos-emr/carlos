@@ -362,6 +362,7 @@
                         const details = "\n\nFailed content resources: " + data.failedContentResources
                             + "\nExcluded visible elements: " + data.excludedContentElements
                             + "\nSignature missing: " + data.signatureMissing
+                            + "\nProvider signature stamp not on file: " + data.providerStampMissing
                             + "\nTimer compatibility failed: " + data.timerCompatibilityFailure
                             + "\nPage script errors: " + data.severeConsoleErrors
                             + "\nBlocked dialogs or pop-ups: " + data.containedInteractions

@@ -231,7 +231,11 @@ class EFormRenderCompletenessReportUnitTest {
                 "src/main/java/io/github/carlos_emr/carlos/fax/action/Fax2Action.java",
                 "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentPreview2Action.java",
                 "src/main/webapp/WEB-INF/jsp/eform/EFormRenderMissingContent.jsp",
-                "src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp");
+                "src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp",
+                // The consumer of DocumentPreview2Action's JSON. Omitting it from this list is why
+                // providerStampMissing was fixed on the producer and stayed missing on the page the
+                // clinician actually reads.
+                "src/main/webapp/WEB-INF/jsp/documentManager/attachDocument.jsp");
 
         for (String surface : surfaces) {
             String source = Files.readString(Path.of(surface), StandardCharsets.UTF_8);

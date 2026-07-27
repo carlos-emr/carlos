@@ -19,11 +19,14 @@ package io.github.carlos_emr.carlos.eform.util;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.eform.data.EForm;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * The response contract between a stored eForm's scrape and the payload the server embeds.
@@ -192,5 +195,22 @@ class LegacyMeasurementHistoryUnitTest {
 
         assertThat(embedded).contains(LegacyMeasurementHistory.LEGACY_MEASUREMENT_ELEMENT_ID);
         assertThat(embedded).contains("\"HT\":\"\"");
+    }
+
+    @Test
+    @DisplayName("should embed nothing when the requester may not read measurements")
+    void shouldEmbedNothing_whenMeasurementsNotPermitted() {
+        // The series is measurement data reached through an eForm. The route this adapter replaces
+        // enforces _measurement, while the eForm viewer requires only _eform read — so without this
+        // gate an eForm reader received the patient's full dated HT/WT/HEAD history. Refusing leaves
+        // the fail-visible path: no payload, the form's fetch fails, and the gate reports it.
+        String html = "<html><body><script>"
+                + "u='oscarMeasurements/SetupDisplayHistory.do?type=HT';</script></body></html>";
+        EForm eForm = mock(EForm.class);
+
+        assertThat(LegacyMeasurementHistory.embed(html, eForm, false))
+                .describedAs("no payload element may be present")
+                .isEqualTo(html)
+                .doesNotContain(LegacyMeasurementHistory.LEGACY_MEASUREMENT_ELEMENT_ID);
     }
 }

@@ -661,7 +661,13 @@ public class EFormBrowserPdfService {
             throw new SecurityException("missing required sec object (_eform)");
         }
         String providerId = loggedInInfo.getLoggedInProviderNo();
-        return renderSavedEformPdfAuthorized(fdid, providerId, approval);
+        // Decided here because this is the only point on the render path that knows WHO is asking:
+        // the render browser carries no identity, so any data-access decision must be made by the
+        // initiator and travel with the render. Measurement history reached through an eForm is still
+        // measurement data — the route the renderer's adapter replaces enforces _measurement.
+        boolean measurementsPermitted = securityInfoManager.hasPrivilege(
+                loggedInInfo, "_measurement", SecurityInfoManager.READ, demographicId);
+        return renderSavedEformPdfAuthorized(fdid, providerId, approval, measurementsPermitted);
     }
 
     /**
@@ -670,6 +676,13 @@ public class EFormBrowserPdfService {
      */
     RenderedEformPdf renderSavedEformPdfAuthorized(
             int fdid, String providerId, EFormRenderApproval approval) throws PDFGenerationException {
+        // Withholds measurement history: a caller that has not stated the privilege does not get it.
+        return renderSavedEformPdfAuthorized(fdid, providerId, approval, false);
+    }
+
+    RenderedEformPdf renderSavedEformPdfAuthorized(
+            int fdid, String providerId, EFormRenderApproval approval, boolean measurementsPermitted)
+            throws PDFGenerationException {
         // Resolve the managed temp root and sweep stale renderer artifacts BEFORE competing for a
         // render slot. The sweep is best-effort housekeeping (a filesystem walk of the shared root);
         // running it while holding one of the scarce MAX_CONCURRENT_RENDERS slots would charge its
@@ -694,14 +707,15 @@ public class EFormBrowserPdfService {
             throw new PDFGenerationException("Browser rendering was aborted before it started.");
         }
         try {
-            return renderWithSlot(fdid, providerId, tempRoot, approval);
+            return renderWithSlot(fdid, providerId, tempRoot, approval, measurementsPermitted);
         } finally {
             RENDER_SLOTS.release();
         }
     }
 
     private RenderedEformPdf renderWithSlot(
-            int fdid, String providerId, Path tempRoot, EFormRenderApproval approval)
+            int fdid, String providerId, Path tempRoot, EFormRenderApproval approval,
+            boolean measurementsPermitted)
             throws PDFGenerationException {
         HttpServletRequest currentRequest = currentRequestOrNull();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
@@ -737,6 +751,12 @@ public class EFormBrowserPdfService {
         // browser ever redeems it — instead of letting it linger in the bounded token cache for its
         // full TTL. try-with-resources guarantees close() runs before the catch/finally below.
         try (var renderLease = EFormRenderTokenService.getInstance().lease(fdid, providerId)) {
+            // Record the initiator's measurement decision on the grant, before the browser is pointed
+            // at the page: the composer reads it there, and a grant that never received it embeds
+            // nothing.
+            if (measurementsPermitted) {
+                EFormRenderTokenService.getInstance().authorizeMeasurementHistory(renderLease.token());
+            }
             String appPath = validateRendererAppPath(buildAppPath(fdid, renderLease.token()));
             logger.info("Browser eForm renderer starting: fdid={} baseUrl={}", fdid, baseUrl);
 

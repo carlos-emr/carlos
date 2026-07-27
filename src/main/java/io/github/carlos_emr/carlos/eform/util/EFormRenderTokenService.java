@@ -212,6 +212,21 @@ final class EFormRenderTokenService {
         }
     }
 
+    /**
+     * Records that the provider this render was minted for may read the patient's measurements.
+     *
+     * <p>Carried on the grant for the same reason the asset and AP-key allowances are: the render
+     * browser holds no identity of its own, so anything it may reach has to be decided by the
+     * initiator — which is the only place a {@code LoggedInInfo} exists — and travel with the render.
+     * Default is false, so a path that forgets to set it withholds the data rather than leaking it.</p>
+     */
+    void authorizeMeasurementHistory(RenderToken token) {
+        RenderGrant grant = peek(token);
+        if (grant != null) {
+            grant.measurementHistoryAuthorized = true;
+        }
+    }
+
     void authorizeApKeys(RenderGrant grant, Collection<String> keys) {
         if (grant != null) {
             grant.authorizeApKeys(keys);
@@ -304,6 +319,13 @@ final class EFormRenderTokenService {
 
         boolean allowsApKey(String key) {
             return allowedApKeys.contains(key);
+        }
+
+        /** False unless the initiator confirmed measurement read for this render; see the setter. */
+        private volatile boolean measurementHistoryAuthorized;
+
+        boolean allowsMeasurementHistory() {
+            return measurementHistoryAuthorized;
         }
 
         private void authorizeAssets(Collection<String> fileNames) {
