@@ -1523,7 +1523,9 @@ class EFormBrowserPdfServiceUnitTest {
         private EFormRenderApproval approvalFor(
                 EFormRenderCompletenessReport report, int fdid, String providerNo) {
             // The constructor is package-private precisely so the util package can mint one.
-            return new EFormRenderApproval(providerNo, java.util.Map.of(fdid, report.digest()),
+            return new EFormRenderApproval(providerNo, "123",
+                    EFormRenderApprovalService.Operation.DOWNLOAD,
+                    java.util.Map.of(fdid, report.digest()),
                     java.time.Instant.now().plusSeconds(120));
         }
 
@@ -1571,7 +1573,8 @@ class EFormBrowserPdfServiceUnitTest {
         @DisplayName("should withhold when the approval has expired")
         void shouldWithhold_whenApprovalExpired() {
             EFormRenderCompletenessReport report = blocking();
-            EFormRenderApproval stale = new EFormRenderApproval(PROVIDER,
+            EFormRenderApproval stale = new EFormRenderApproval(PROVIDER, "123",
+                    EFormRenderApprovalService.Operation.DOWNLOAD,
                     java.util.Map.of(FDID, report.digest()),
                     java.time.Instant.now().minusSeconds(1));
 
