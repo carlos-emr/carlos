@@ -390,6 +390,31 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during PDF concatenation or form field flattening
      */
     public Path concatPDF(ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        return concatPDF(pdfDocumentList, null);
+    }
+
+    /**
+     * Concatenates a packet, naming the temp file after the patient it belongs to.
+     *
+     * <p>The name matters beyond tidiness. It survives into {@code DOCUMENT_DIR}: temp files are
+     * promoted by their basename, so the packet name becomes the stored document name. Naming every
+     * packet {@code combinedPDF_<epochMillis>} made that basename patient-agnostic, so two packets
+     * built in the same millisecond — different patients, different specialists — competed for one
+     * destination. {@code promoteApplicationTempFile} now claims destinations atomically so neither
+     * can overwrite the other, but a name that cannot collide across patients in the first place is
+     * the better property to hold: it keeps a same-millisecond collision within one chart, where the
+     * worst case is a confusing duplicate rather than a cross-patient disclosure.</p>
+     *
+     * @param pdfDocumentList the documents to merge
+     * @param demographicNo the patient this packet belongs to; digits only, ignored when absent or
+     *        non-numeric so a malformed request attribute degrades to the previous naming rather
+     *        than injecting into a filename
+     */
+    // Package-private, not private: DocumentAttachmentManagerImplUnitTest spies on this to assert
+    // that a single unattached eForm PDF is passed through rather than needlessly re-merged, and
+    // Mockito cannot intercept a private method.
+    Path concatPDF(ArrayList<Object> pdfDocumentList, String demographicNo)
+            throws PDFGenerationException {
         Path path = null;
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             int skipped = ConcatPDF.concat(pdfDocumentList, outputStream);
@@ -401,7 +426,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 throw new PDFGenerationException(skipped + " of " + pdfDocumentList.size()
                         + " document(s) could not be included in the merged PDF.");
             }
-            path = nioFileManager.saveTempFile("combinedPDF_" + new Date().getTime(), outputStream);
+            boolean patientScoped = demographicNo != null && demographicNo.matches("\\d{1,15}");
+            String packetName = patientScoped
+                    ? "combinedPDF_" + demographicNo + "_" + new Date().getTime()
+                    : "combinedPDF_" + new Date().getTime();
+            path = nioFileManager.saveTempFile(packetName, outputStream);
             flattenPDFFormFields(path);
             logger.debug("Concatenated {} PDF document(s) into a combined PDF ({} bytes)",
                     pdfDocumentList.size(), outputStream.size());
@@ -524,7 +553,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
         attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-        Path result = concatPDF(pdfDocumentList);
+        Path result = concatPDF(pdfDocumentList, demographicId);
         cleanupRenderedTempInputs(pdfDocumentList, result);
         return result;
     }
@@ -611,7 +640,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
             attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-            Path result = preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList);
+            Path result = preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList, demographicId);
             cleanupRenderedTempInputs(pdfDocumentList, result);
             return new EformDataManager.EformPdfRender(result, packetCompleteness);
         } catch (PDFGenerationException | RuntimeException e) {
@@ -620,11 +649,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
     }
 
-    Path preserveSingleEformPdfWhenUnattached(Path eFormPath, List<Object> pdfDocumentList) throws PDFGenerationException {
+    Path preserveSingleEformPdfWhenUnattached(Path eFormPath, List<Object> pdfDocumentList,
+            String demographicNo) throws PDFGenerationException {
         if (pdfDocumentList.size() == 1 && eFormPath.toString().equals(pdfDocumentList.get(0))) {
             return eFormPath;
         }
-        return concatPDF(new ArrayList<>(pdfDocumentList));
+        return concatPDF(new ArrayList<>(pdfDocumentList), demographicNo);
     }
 
     /**

@@ -54,10 +54,11 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
         Path eformPdf = Path.of("/tmp/eform-browser-render.pdf");
         List<Object> pdfDocumentList = List.of(eformPdf.toString());
 
-        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList);
+        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList, "1234");
 
         assertThat(result).isEqualTo(eformPdf);
-        verify(manager, never()).concatPDF(org.mockito.ArgumentMatchers.<ArrayList<Object>>any());
+        verify(manager, never()).concatPDF(
+                org.mockito.ArgumentMatchers.<ArrayList<Object>>any(), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -68,12 +69,88 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
         pdfDocumentList.add(eformPdf.toString());
         pdfDocumentList.add("/tmp/attachment.pdf");
         Path combinedPdf = Path.of("/tmp/combined.pdf");
-        doReturn(combinedPdf).when(manager).concatPDF(pdfDocumentList);
+        doReturn(combinedPdf).when(manager).concatPDF(pdfDocumentList, "1234");
 
-        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList);
+        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList, "1234");
 
         assertThat(result).isEqualTo(combinedPdf);
-        verify(manager).concatPDF(pdfDocumentList);
+        // The demographic must reach concatPDF: it scopes the packet filename, which becomes the
+        // stored document name after promotion.
+        verify(manager).concatPDF(pdfDocumentList, "1234");
+    }
+
+    @Test
+    @DisplayName("should scope the merged packet filename to the patient it belongs to")
+    void shouldScopePacketFilename_toDemographic(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // The packet's temp filename is not cosmetic: promoteApplicationTempFile promotes by
+        // basename, so this name becomes the stored document name in DOCUMENT_DIR. Naming every
+        // packet combinedPDF_<epochMillis> made it patient-agnostic, so two packets built in the same
+        // millisecond — different patients, different specialists — competed for one destination.
+        // Promotion now claims destinations atomically, but a name that cannot collide across
+        // patients keeps a same-millisecond collision inside one chart, where the worst case is a
+        // duplicate rather than a cross-patient disclosure.
+        Path input = tempDir.resolve("packet-input.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(input.toFile());
+        }
+        Path merged = tempDir.resolve("merged.pdf");
+        java.nio.file.Files.copy(input, merged);
+
+        io.github.carlos_emr.carlos.managers.NioFileManager fileManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
+        doReturn(merged).when(fileManager)
+                .saveTempFile(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "nioFileManager", fileManager);
+
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(input.toString());
+
+        manager.concatPDF(pdfDocumentList, "4242");
+
+        org.mockito.ArgumentCaptor<String> packetName = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(fileManager).saveTempFile(packetName.capture(),
+                org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        assertThat(packetName.getValue())
+                .describedAs("the packet name must identify its patient")
+                .startsWith("combinedPDF_4242_");
+    }
+
+    @Test
+    @DisplayName("should fall back to an unscoped packet filename when the demographic is unusable")
+    void shouldFallBackToUnscopedName_whenDemographicNotNumeric(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // demographicId arrives as a request attribute. A malformed one must degrade to the previous
+        // naming rather than being interpolated into a filename, so the digits-only guard is the
+        // thing under test here — not merely that some name is produced.
+        Path input = tempDir.resolve("packet-input.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(input.toFile());
+        }
+        Path merged = tempDir.resolve("merged.pdf");
+        java.nio.file.Files.copy(input, merged);
+
+        io.github.carlos_emr.carlos.managers.NioFileManager fileManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
+        doReturn(merged).when(fileManager)
+                .saveTempFile(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "nioFileManager", fileManager);
+
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(input.toString());
+
+        manager.concatPDF(pdfDocumentList, "../../etc/passwd");
+
+        org.mockito.ArgumentCaptor<String> packetName = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(fileManager).saveTempFile(packetName.capture(),
+                org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        assertThat(packetName.getValue())
+                .describedAs("a non-numeric demographic must never reach the filename")
+                .startsWith("combinedPDF_")
+                .doesNotContain("etc")
+                .doesNotContain("..");
     }
 
     @Test
