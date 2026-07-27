@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -555,6 +556,22 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     @Override
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response,
             EFormRenderApproval approval) throws PDFGenerationException {
+        return renderEFormPacket(request, response, approval).path();
+    }
+
+    /**
+     * Renders the eForm packet and returns the merged completeness alongside it, for callers that
+     * can show the reader what the render reported.
+     */
+    @Override
+    public EformDataManager.EformPdfRender renderEFormPacketWithCompleteness(
+            HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval)
+            throws PDFGenerationException {
+        return renderEFormPacket(request, response, approval);
+    }
+
+    private EformDataManager.EformPdfRender renderEFormPacket(HttpServletRequest request,
+            HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
         String demographicId = (String) request.getAttribute("demographicId");
@@ -568,7 +585,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         try {
-            Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, fdidValue, approval);
+            EformDataManager.EformPdfRender primary =
+                    eformDataManager.createEformPdfWithCompleteness(loggedInInfo, fdidValue, approval);
+            Path eFormPath = primary.path();
+            // Advisory conditions no longer withhold the document, so they would otherwise vanish on
+            // this path. Merge every rendered eForm's report and hand it back for the caller to show.
+            EFormRenderCompletenessReport packetCompleteness = primary.completeness();
             pdfDocumentList.add(eFormPath.toString());
 
             List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
@@ -582,7 +604,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     LogSafe.sanitize(fdid), attachedEForms.size(), attachedEDocs.size(), attachedLabs.size(),
                     attachedHRMs.size(), attachedForms.size());
 
-            attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, approval);
+            packetCompleteness = packetCompleteness.merge(
+                    attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, approval));
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
             attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
@@ -590,7 +613,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
             Path result = preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList);
             cleanupRenderedTempInputs(pdfDocumentList, result);
-            return result;
+            return new EformDataManager.EformPdfRender(result, packetCompleteness);
         } catch (PDFGenerationException | RuntimeException e) {
             cleanupRenderedTempInputs(pdfDocumentList, null);
             throw e;
@@ -713,12 +736,21 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, null);
     }
 
-    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms,
-            ArrayList<Object> pdfDocumentList, EFormRenderApproval approval) throws PDFGenerationException {
+    /**
+     * @return the merged completeness of every attached eForm, so an advisory condition on an
+     *         attachment is not silently dropped from the packet the clinician receives
+     */
+    private EFormRenderCompletenessReport attachEFormPDFs(LoggedInInfo loggedInInfo,
+            List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList,
+            EFormRenderApproval approval) throws PDFGenerationException {
+        EFormRenderCompletenessReport merged = EFormRenderCompletenessReport.complete();
         for (EFormData eForm : attachedEForms) {
-            Path path = renderDocument(loggedInInfo, DocumentType.EFORM, eForm.getId(), approval);
-            pdfDocumentList.add(path.toString());
+            EformDataManager.EformPdfRender rendered =
+                    eformDataManager.createEformPdfWithCompleteness(loggedInInfo, eForm.getId(), approval);
+            merged = merged.merge(rendered.completeness());
+            pdfDocumentList.add(rendered.path().toString());
         }
+        return merged;
     }
 
     private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {

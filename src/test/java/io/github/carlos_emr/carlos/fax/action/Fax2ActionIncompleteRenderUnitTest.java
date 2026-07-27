@@ -60,7 +60,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(faxManager.getFaxGatewayAccounts(loggedInInfo))
                 .thenReturn(List.of(mock(FaxConfig.class)));
-        when(documentAttachmentManager.renderEFormWithAttachments(
+        when(documentAttachmentManager.renderEFormPacketWithCompleteness(
                 eq(request), eq(response), isNull(EFormRenderApproval.class)))
                 .thenThrow(new EformContentUnavailableException("incomplete", 42, report));
         when(approvalService.issue(
@@ -135,7 +135,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(response.getErrorMessage()).contains("invalid or expired");
-        verify(documentAttachmentManager, never()).renderEFormWithAttachments(
+        verify(documentAttachmentManager, never()).renderEFormPacketWithCompleteness(
                 any(), any(), any());
     }
 

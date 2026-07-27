@@ -543,8 +543,14 @@ public class Fax2Action extends ActionSupport {
                     return NONE;
                 }
                 try {
-                    pdfPath = documentAttachmentManager.renderEFormWithAttachments(
-                            request, response, approval);
+                    io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender rendered =
+                            documentAttachmentManager.renderEFormPacketWithCompleteness(
+                                    request, response, approval);
+                    pdfPath = rendered.path();
+                    // Advisory conditions deliver the document rather than blocking it, so the fax
+                    // preview must still say the render reported something. Count only: console and
+                    // dialog text are form-authored and can carry PHI.
+                    request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
                     if (logger.isDebugEnabled()) {
                         logger.debug("prepareFax renderEFormWithAttachments returned readable={} exists={}",
                                 pdfPath != null && Files.isReadable(pdfPath),

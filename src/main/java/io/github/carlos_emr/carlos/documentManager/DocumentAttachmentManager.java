@@ -285,6 +285,17 @@ public interface DocumentAttachmentManager {
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException;
 
     /**
+     * Renders the eForm packet and returns the merged completeness with it.
+     *
+     * <p>Advisory conditions no longer withhold a document, so without this the reader would receive
+     * a possibly-truncated PDF with no indication anything was reported. Merged across the primary
+     * form and every attached eForm, so an attachment's advisory is not silently dropped.</p>
+     */
+    public EformDataManager.EformPdfRender renderEFormPacketWithCompleteness(
+            HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval)
+            throws PDFGenerationException;
+
+    /**
      * Converts an electronic form (eForm) to an electronic document (eDoc) for permanent archival.
      *
      * <p>This method renders an eForm as a PDF and saves it as an electronic document in the

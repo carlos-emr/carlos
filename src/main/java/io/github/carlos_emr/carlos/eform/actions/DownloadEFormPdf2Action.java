@@ -17,7 +17,6 @@
  */
 package io.github.carlos_emr.carlos.eform.actions;
 
-import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -32,6 +31,7 @@ import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -124,8 +124,10 @@ public class DownloadEFormPdf2Action extends ActionSupport {
         request.setAttribute("demographicId", demographicNo);
 
         try {
-            Path pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response, approval);
-            request.setAttribute("eFormPDF", documentAttachmentManager.convertPDFToBase64(pdfPath));
+            EformDataManager.EformPdfRender rendered = documentAttachmentManager
+                    .renderEFormPacketWithCompleteness(request, response, approval);
+            request.setAttribute("eFormPDF", documentAttachmentManager.convertPDFToBase64(rendered.path()));
+            request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
             request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, demographicValue));
             request.setAttribute("isDownload", "true");
             request.setAttribute("fdid", fdid);

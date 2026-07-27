@@ -157,8 +157,10 @@ class DownloadEFormPdf2ActionUnitTest {
         EFormRenderApproval approval = org.mockito.Mockito.mock(EFormRenderApproval.class);
         when(renderApprovalService.consume(request, loggedInInfo, 42, "123",
                 EFormRenderApprovalService.Operation.DOWNLOAD, "ticket")).thenReturn(approval);
-        when(documentAttachmentManager.renderEFormWithAttachments(eq(request), any(), eq(approval)))
-                .thenReturn(Path.of("eform-browser-render-1.pdf"));
+        when(documentAttachmentManager.renderEFormPacketWithCompleteness(eq(request), any(), eq(approval)))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        Path.of("eform-browser-render-1.pdf"),
+                        io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport.complete()));
         when(documentAttachmentManager.convertPDFToBase64(any())).thenReturn("QUJD");
 
         String result = action.execute();
@@ -168,6 +170,6 @@ class DownloadEFormPdf2ActionUnitTest {
         // The ticket is scoped to DOWNLOAD: a PREVIEW or FAX ticket must not unlock a download.
         verify(renderApprovalService).consume(request, loggedInInfo, 42, "123",
                 EFormRenderApprovalService.Operation.DOWNLOAD, "ticket");
-        verify(documentAttachmentManager).renderEFormWithAttachments(eq(request), any(), eq(approval));
+        verify(documentAttachmentManager).renderEFormPacketWithCompleteness(eq(request), any(), eq(approval));
     }
 }

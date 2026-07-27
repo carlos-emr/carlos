@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const isDownload = document.getElementById("isDownloadEForm") ? document.getElementById("isDownloadEForm").value : "false";
     if (isDownload && isDownload === "true") {
         downloadEForm();
+        showRenderAdvisory();
     }
 
     // Handle EForm errors
@@ -415,6 +416,35 @@ function remoteDownload() {
     setHiddenFormInput("saveAndDownloadEForm", "saveAndDownloadEForm", "true");
 
     remoteSave();
+}
+
+/**
+ * Tells the reader that the render reported a condition that did not withhold the document.
+ *
+ * Advisory conditions - an uncaught error in the form's own script, a dialog the renderer had to
+ * suppress, a legacy timer that threw - now deliver the PDF instead of blocking it. Without this the
+ * clinician receives a possibly-truncated document with no indication anything happened; on the
+ * preview path they already get an equivalent banner.
+ *
+ * A count only, rendered with textContent: console and dialog text is form-authored and can carry
+ * PHI, and this page renders clinical documents so it must never become an HTML sink.
+ */
+function showRenderAdvisory() {
+    const field = document.getElementById("advisoryIssues");
+    const count = field ? Number(field.value) : 0;
+    if (!count || count < 1) {
+        return;
+    }
+    const notice = document.createElement("div");
+    notice.id = "carlos-render-advisory";
+    notice.setAttribute("role", "status");
+    notice.style.cssText = "position:fixed;z-index:2147483646;top:0;left:0;right:0;padding:10px;"
+            + "background:#fff3cd;color:#664d03;border-bottom:1px solid #ffc107;"
+            + "font:14px sans-serif;text-align:center";
+    notice.textContent = "This form reported " + count
+            + (count === 1 ? " issue" : " issues")
+            + " while rendering. The downloaded PDF may be missing content - check it against the form.";
+    document.body.insertBefore(notice, document.body.firstChild);
 }
 
 function downloadEForm() {

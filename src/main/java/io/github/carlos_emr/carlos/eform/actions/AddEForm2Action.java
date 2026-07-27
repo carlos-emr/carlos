@@ -326,8 +326,13 @@ public class AddEForm2Action extends ActionSupport {
                 String fileName = generateFileName(loggedInInfo, Integer.parseInt(demographic_no));
                 String pdfBase64 = "";
                 try {
-                    Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-                    pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
+                    EformDataManager.EformPdfRender rendered = documentAttachmentManager
+                            .renderEFormPacketWithCompleteness(request, response, null);
+                    pdfBase64 = documentAttachmentManager.convertPDFToBase64(rendered.path());
+                    // Advisory conditions deliver the PDF rather than blocking it, so the reader
+                    // must still be told the render reported something. Count only: console and
+                    // dialog text are form-authored and can carry PHI.
+                    request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
                 } catch (EformContentUnavailableException e) {
                     // MUST precede the PDFGenerationException catch below: this is a subclass, and
                     // being swallowed by the general handler is exactly why an incomplete download
@@ -395,8 +400,13 @@ public class AddEForm2Action extends ActionSupport {
                 String fileName = generateFileName(loggedInInfo, Integer.parseInt(demographic_no));
                 String pdfBase64 = "";
                 try {
-                    Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-                    pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
+                    EformDataManager.EformPdfRender rendered = documentAttachmentManager
+                            .renderEFormPacketWithCompleteness(request, response, null);
+                    pdfBase64 = documentAttachmentManager.convertPDFToBase64(rendered.path());
+                    // Advisory conditions deliver the PDF rather than blocking it, so the reader
+                    // must still be told the render reported something. Count only: console and
+                    // dialog text are form-authored and can carry PHI.
+                    request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
                 } catch (EformContentUnavailableException e) {
                     // Same subclass-before-superclass ordering as the save branch above.
                     return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no);

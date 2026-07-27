@@ -156,6 +156,13 @@
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));
     eForm.addHiddenInputElement("eFormPDF", (String) request.getAttribute("eFormPDF"));
     eForm.addHiddenInputElement("isDownloadEForm", (String) request.getAttribute("isDownload"));
+    // Advisory conditions (page-script errors, suppressed dialogs, failed legacy timers) deliver the
+    // PDF rather than blocking it, so the reader is told here instead of being silently handed a
+    // possibly-truncated document. A count only: console and dialog text are form-authored and can
+    // carry PHI, which is why the completeness report is counts-and-booleans in the first place.
+    Object advisoryIssues = request.getAttribute("advisoryIssues");
+    eForm.addHiddenInputElement("advisoryIssues",
+            advisoryIssues == null ? null : String.valueOf(advisoryIssues));
     eForm.addHiddenInputElement("isSuccess_Autoclose", (String) request.getAttribute("isSuccess_Autoclose"));
     // Add EForm attachments
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
