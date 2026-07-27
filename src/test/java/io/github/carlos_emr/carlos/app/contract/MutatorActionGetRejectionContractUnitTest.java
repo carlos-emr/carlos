@@ -218,7 +218,12 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_demographic", "w"),
             // --- eform ---
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
-                    "_admin.eform", "w")
+                    "_admin.eform", "w"),
+            // Creates a document from an approved-but-incomplete render, so a GET must not reach
+            // saveDocument. Registered explicitly for the same reason DelEForm2Action is: the eform
+            // package is not in IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan does not find it.
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
+                    "_eform", "u")
         );
     }
 
@@ -353,8 +358,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
-        // eform slice: only DelEForm2Action is registered; broader slice audit tracked in issue #2828.
+        // eform slice: only these are registered; broader slice audit tracked in issue #2828.
         "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
+        "io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
         // Fax slice: only Fax2Action is registered; the fax package is not in
         // IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",

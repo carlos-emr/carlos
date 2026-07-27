@@ -54,6 +54,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class SaveEFormAsEDoc2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String APPROVAL_EXPIRED_MESSAGE =
+            "The incomplete-render approval is no longer valid. Add the eForm to documents again to "
+            + "review the listed issues and approve them.";
     private static final String EDOC_FAILURE_MESSAGE =
             "This eForm (and attachments, if applicable) could not be added to this patient’s documents.";
 
@@ -111,10 +114,19 @@ public class SaveEFormAsEDoc2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        String approvalToken = request.getParameter("renderApproval");
         EFormRenderApproval approval = renderApprovalService.consume(
                 request, loggedInInfo, fdidValue, demographicNo,
-                EFormRenderApprovalService.Operation.EDOC,
-                request.getParameter("renderApproval"));
+                EFormRenderApprovalService.Operation.EDOC, approvalToken);
+        if (approvalToken != null && approval == null) {
+            // A token was presented and did not survive — most likely the two-minute lifetime, since
+            // the approval page is a list of clinical omissions meant to be read. Saying so lets the
+            // clinician retry instead of hunting for a problem with the eForm itself.
+            logger.info("eForm eDoc approval expired or did not match: fdid={}", fdidValue);
+            request.setAttribute("error", "true");
+            request.setAttribute("errorMessage", APPROVAL_EXPIRED_MESSAGE);
+            return "error";
+        }
 
         // saveEFormAsEDoc reads these as request ATTRIBUTES, not parameters.
         request.setAttribute("fdid", fdid);

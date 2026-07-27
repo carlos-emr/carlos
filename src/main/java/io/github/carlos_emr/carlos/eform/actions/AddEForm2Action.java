@@ -536,7 +536,13 @@ public class AddEForm2Action extends ActionSupport {
 
 	private String generateFileName(LoggedInInfo loggedInInfo, int demographicNo) {
 		DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-		String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
+		// Null-tolerant: getDemographicFormattedName returns null when the demographic row is
+		// missing, and this runs after the eForm has already been saved and rendered — an NPE here
+		// would discard a completed save over a filename.
+		String formattedName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
+		String demographicLastName = formattedName == null || formattedName.isBlank()
+				? "eform"
+				: formattedName.split(", ")[0];
 
         Date currentDate = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd");

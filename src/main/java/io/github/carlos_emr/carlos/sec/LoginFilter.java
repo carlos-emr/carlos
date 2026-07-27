@@ -166,6 +166,15 @@ public class LoginFilter implements Filter {
             "/library/jquery/",
             // Flatpickr backs the /share/calendar/ shim below; both are static widget assets
             // (no PHI) the sessionless browser-PDF renderer must fetch without a session.
+            //
+            // These CANNOT be moved to the renderer's per-render grant instead — that was tried and
+            // reverted. The grant is built by statically scanning the composed eForm HTML for
+            // <link>/<script> and CSS references, and calendar.js injects flatpickr at RUNTIME
+            // (createElement("script"); js.src = basePath + "library/flatpickr/flatpickr.min.js",
+            // calendar.js:108-109). A URL that only exists once the page runs is invisible to that
+            // scan, so dropping these entries breaks every date-picker eForm render. Same shape as
+            // the runtime signature stamp, which needed its own explicit allowance for the same
+            // reason. LoginFilterUnitTest pins both.
             "/library/flatpickr/",
             "/signature_pad/",
             "/share/css/",

@@ -200,39 +200,39 @@
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
-                        class="fa-solid fa-file" title="<%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formFileName")))%>"></i><%}%></td>
-                <td title="<%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>">
+                        class="fa-solid fa-file" title="<%=SafeEncode.forHtmlAttribute((String) curForm.get("formFileName"))%>"></i><%}%></td>
+                <td title="<%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>">
                     <a href="#"
-                       onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScript(String.valueOf(curForm.get("fid")))%>', '<%="Form"+i%>'); return false;"><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formName")))%>
+                       onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>', '<%="Form"+i%>'); return false;"><%=SafeEncode.forHtmlContent((String) curForm.get("formName"))%>
                     </a>
                 </td>
-                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formSubject")))%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formSubject"))%>
                 </td>
-                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formDate")))%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formDate"))%>
                 </td>
-                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("formTime")))%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("formTime"))%>
                 </td>
-                <td><%=SafeEncode.forHtmlContent(String.valueOf(curForm.get("roleType")))%>
+                <td><%=SafeEncode.forHtmlContent((String) curForm.get("roleType"))%>
                 </td>
                 <td>
 
                     <div class="btn-group">
                         <a class="btn btn-link contentLink"
-                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("fid")))%>"
-                           title='<fmt:message key="eform.uploadhtml.editform"/><%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>'><i
+                           href="<%= request.getContextPath() %>/eform/efmformmanageredit?fid=<%= SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>"
+                           title='<fmt:message key="eform.uploadhtml.editform"/><%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
                                 class="fa-solid fa-pencil" title="<fmt:message key="eform.uploadhtml.editform"/>"></i></a>
 
 
                         <a class="btn btn-link"
-                           href='<%= request.getContextPath() %>/eform/manageEForm?method=exportEForm&fid=<%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("fid")))%>'
-                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>'><i
+                           href='<%= request.getContextPath() %>/eform/manageEForm?method=exportEForm&fid=<%=SafeEncode.forHtmlAttribute((String) curForm.get("fid"))%>'
+                           title='<fmt:message key="eform.uploadhtml.btnExport"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
                                 class="fa-solid fa-download" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
                         <% if (canDelete) { %>
                         <a class="btn btn-link contentLink"
-                           href='javascript:void(0);' onclick='confirmNDelete("<%=SafeEncode.forJavaScript(String.valueOf(curForm.get("fid")))%>")'
-                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=SafeEncode.forHtmlAttribute(String.valueOf(curForm.get("formName")))%>'><i
+                           href='javascript:void(0);' onclick='confirmNDelete("<%=SafeEncode.forJavaScript((String) curForm.get("fid"))%>")'
+                           title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=SafeEncode.forHtmlAttribute((String) curForm.get("formName"))%>'><i
                                 class="fa-solid fa-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
                         <% } %>
                     </div>

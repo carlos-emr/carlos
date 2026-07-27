@@ -59,6 +59,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class DownloadEFormPdf2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String APPROVAL_EXPIRED_MESSAGE =
+            "The incomplete-render approval is no longer valid. Download the eForm again to review "
+            + "the listed issues and approve them.";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE =
             "This eForm (and attachments, if applicable) could not be downloaded.";
 
@@ -117,20 +120,31 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        // A null approval is not an error: the gate simply refuses again and the caller sees the
-        // ordinary failure. Only a ticket matching this provider, session, form, patient and
-        // operation yields one.
+        // Only a ticket matching this provider, session, form, patient and operation yields an
+        // approval. A null one is not by itself an error — the gate simply refuses again.
+        String approvalToken = request.getParameter("renderApproval");
         EFormRenderApproval approval = renderApprovalService.consume(
                 request, loggedInInfo, fdidValue, demographicNo,
-                EFormRenderApprovalService.Operation.DOWNLOAD,
-                request.getParameter("renderApproval"));
+                EFormRenderApprovalService.Operation.DOWNLOAD, approvalToken);
+        if (approvalToken != null && approval == null) {
+            // A token WAS presented and did not survive. The two-minute lifetime is the likely
+            // cause, and the approval page is a list of clinical omissions meant to be read — so
+            // this is an ordinary outcome, not a failure of the eForm. Reporting it as "could not
+            // be downloaded" sent the clinician looking for a problem with the document.
+            // Fax2Action and DocumentPreview2Action already say this; say it here too.
+            logger.info("eForm download approval expired or did not match: fdid={}", fdidValue);
+            request.setAttribute("error", "true");
+            request.setAttribute("errorMessage", APPROVAL_EXPIRED_MESSAGE);
+            return "error";
+        }
 
         // renderEFormWithAttachments reads these as request ATTRIBUTES, not parameters.
         request.setAttribute("fdid", fdid);
         request.setAttribute("demographicId", demographicNo);
 
+        EformDataManager.EformPdfRender rendered = null;
         try {
-            EformDataManager.EformPdfRender rendered = documentAttachmentManager
+            rendered = documentAttachmentManager
                     .renderEFormPacketWithCompleteness(request, response, approval);
             request.setAttribute("eFormPDF", documentAttachmentManager.convertPDFToBase64(rendered.path()));
             request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
@@ -152,13 +166,40 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", PDF_DOWNLOAD_FAILURE_MESSAGE);
             return "error";
+        } finally {
+            // The rendered packet is the patient's full document, and EformPdfRender's contract puts
+            // cleanup on the caller. The base64 copy is already in the request by this point, so the
+            // file has no further use — left behind, every approved download sat in the renderer temp
+            // root until the 24h sweep.
+            deleteRenderedPacket(rendered, fdidValue);
         }
     }
 
-    /** Mirrors {@code AddEForm2Action.generateFileName} so an approved download is named the same. */
+    /** Best-effort removal of the temporary render output; never fails the download over it. */
+    private void deleteRenderedPacket(EformDataManager.EformPdfRender rendered, int fdidValue) {
+        if (rendered == null || rendered.path() == null) {
+            return;
+        }
+        try {
+            java.nio.file.Files.deleteIfExists(rendered.path());
+        } catch (java.io.IOException e) {
+            logger.warn("Could not delete the temporary eForm download render: fdid={}", fdidValue);
+        }
+    }
+
+    /**
+     * Mirrors {@code AddEForm2Action.generateFileName} so an approved download is named the same.
+     *
+     * <p>Tolerates a missing demographic row. {@code getDemographicFormattedName} returns null when
+     * the lookup finds nothing, and this runs AFTER the one-time approval ticket has been consumed
+     * and the PDF rendered — so an NPE here cost the clinician the ticket and forced them through
+     * the whole approval again, to produce a file whose only defect would have been its name.</p>
+     */
     private String generateFileName(LoggedInInfo loggedInInfo, int demographicNo) {
-        String lastName = demographicManager
-                .getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
+        String formattedName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
+        String lastName = formattedName == null || formattedName.isBlank()
+                ? "eform"
+                : formattedName.split(", ")[0];
         return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + "_" + lastName + ".pdf";
     }
 }

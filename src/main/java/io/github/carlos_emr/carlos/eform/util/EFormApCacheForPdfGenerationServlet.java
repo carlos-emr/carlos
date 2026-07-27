@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -111,14 +112,21 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             // batch makes the browser's XHR a 4xx, which the render network gate counts as a failed
             // content resource — the alternative (emitting an empty value) prints a blank clinical
             // field on a document nobody is watching.
-            logger.error("Renderer APCache lookup returned an unusable result: fdid={}", grant.fdid(), e);
+            // Summary, not the throwable: every sibling render surface routes through
+            // RenderLogRedaction because a third-party exception MESSAGE (not just its stack) can
+            // embed URLs, and for JDBC/Hibernate the SQL text and its parameter values.
+            logger.error("Renderer APCache lookup returned an unusable result: fdid={} cause={}",
+                    LogSafe.sanitize(String.valueOf(grant.fdid())),
+                    RenderLogRedaction.stackSummary(e));
             if (!response.isCommitted()) {
                 response.sendError(422, "Renderer APCache lookup returned an unusable result");
             }
         } catch (RuntimeException e) {
             // Log the throwable: the stack trace is class names and line numbers only (PHI-free),
             // and without it this line reads "type=java.lang.NullPointerException" and nothing else.
-            logger.error("Renderer APCache lookup failed: fdid={}", grant.fdid(), e);
+            logger.error("Renderer APCache lookup failed: fdid={} cause={}",
+                    LogSafe.sanitize(String.valueOf(grant.fdid())),
+                    RenderLogRedaction.stackSummary(e));
             if (!response.isCommitted()) {
                 response.sendError(422,
                         "Renderer APCache lookup failed");

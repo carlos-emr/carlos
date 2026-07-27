@@ -106,15 +106,23 @@ let editorLoadingBlockCount = 0;
  * clinician to "wait" forever. The (visible) alert is raised here so callers stay simple.
  */
 function editorStillLoading() {
-	const stillLoading = Array.from(document.querySelectorAll('select option'))
-		.some((option) => option.textContent.trim() === 'loading...');
+	// Scoped to the editor's OWN template dropdown (#template, created by editControl2.js and
+	// repopulated when efmformrtl_templates returns). The previous query was every `select option`
+	// in the document, and the "loading..." literal appears nowhere in CARLOS-shipped code — it can
+	// only come from a stored eForm's markup. So any third-party form that happened to ship an
+	// option with that exact text blocked Save, Download, Fax, Email and Add-to-Documents outright,
+	// with no timeout, and the escalation below told the clinician to reopen the letter, which
+	// reproduced it.
+	const templateSelect = document.getElementById('template');
+	const stillLoading = templateSelect !== null
+		&& Array.from(templateSelect.options)
+			.some((option) => option.textContent.trim() === 'loading...');
 	if (!stillLoading) {
 		editorLoadingBlockCount = 0;
 		return false;
 	}
 	editorLoadingBlockCount += 1;
 	if (editorLoadingBlockCount >= 3) {
-		alert('The letter editor did not finish loading. Close and reopen the letter; if this keeps happening, contact support.');
 		try {
 			const contextEl = document.getElementById('context');
 			const fidEl = document.getElementById('fid');
@@ -125,9 +133,14 @@ function editorStillLoading() {
 		} catch (e) {
 			// best-effort telemetry only; never let it block the guard
 		}
-	} else {
-		alert('The letter editor is still loading. Please wait a moment and try again.');
+		// After three blocks the editor is not going to finish (a failed template fetch never
+		// leaves the placeholder), so the choice is the clinician's: refusing forever loses whatever
+		// they have typed, which is its own kind of data loss. The risk is named rather than implied.
+		return !confirm('The letter editor did not finish loading. Saving now may store an incomplete '
+			+ 'letter that reopens as a blank "loading" page.\n\nClick OK to save anyway, or Cancel to '
+			+ 'close and reopen the letter.');
 	}
+	alert('The letter editor is still loading. Please wait a moment and try again.');
 	return true;
 }
 
@@ -504,7 +517,13 @@ function remoteFax() {
  * the first, so a stale duplicate could otherwise win over a fresh value).
  */
 function setHiddenFormInput(id, name, value) {
-    let input = document.getElementById(id);
+    // Scoped to inputs the toolbar itself created. A bare getElementById(id) matched the eForm's own
+    // markup too — eForms are third-party HTML and a referral form with its own visible "recipient"
+    // field is entirely plausible — so the clinician's typed value was overwritten on Fax. The
+    // removal side below was already guarded by this marker, which meant clearWorkflowFlags() then
+    // refused to remove the hijacked field and the overwritten value survived into the save.
+    let input = document.querySelector(
+        '[data-carlos-workflow-flag][id="' + CSS.escape(id) + '"]');
     if (!input) {
         input = document.createElement("input");
         input.setAttribute("id", id);
