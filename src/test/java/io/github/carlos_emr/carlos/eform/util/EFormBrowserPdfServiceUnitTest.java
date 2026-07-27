@@ -1487,4 +1487,16 @@ class EFormBrowserPdfServiceUnitTest {
         assertThat(scan.failedCriticalSubresources()).isZero();
         assertThat(scan.failedSubresources()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("should hide CARLOS warning chrome from the printed document")
+    void shouldHideCarlosWarningChrome_fromPrintedDocument() {
+        // The timer-compat shim inserts a fixed-position red notice at the top of the body to warn a
+        // clinician on screen. On the render surface it was being printed INTO the PDF, and on a real
+        // corpus form it covered the document's title. Found by rasterizing a random sample of
+        // rendered PDFs and looking at them — no gate could see it, because nothing was missing.
+        assertThat(EFormBrowserPdfService.PREPARE_PRINT_JS)
+                .contains("#carlos-eform-timer-compat-error")
+                .contains("#carlos-render-advisory");
+    }
 }

@@ -329,6 +329,14 @@ public class EFormBrowserPdfService {
             + "    #BottomButtons,\n"
             + "    #BaseSelect,\n"
             + "    #SupplementalInfo,\n"
+            // CARLOS's own on-screen warning banners are viewer chrome, not clinical content. The
+            // timer-compat shim inserts a fixed-position notice at the top of the body; on the render
+            // surface that was being PRINTED INTO the PDF, and on at least one corpus form it covered
+            // the document's title. It became visible once timer failures were reclassified as
+            // advisory, since those forms now produce a PDF instead of being refused. The condition
+            // still reaches the reader through the render report and the download banner.
+            + "    #carlos-eform-timer-compat-error,\n"
+            + "    #carlos-render-advisory,\n"
             + "    #labDetail {\n"
             + "      display: none !important;\n"
             + "      visibility: hidden !important;\n"
