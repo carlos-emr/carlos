@@ -39,21 +39,34 @@ enable_devcontainer_javamelody_system_actions() {
       }
       next
     }
-    /^[[:space:]]*<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>[[:space:]]*$/ {
+    /^[[:space:]]*<init-param>[[:space:]]*$/ {
+      if (in_init_param) {
+        invalid_structure = 1
+      }
+      in_init_param = 1
+      in_system_actions = 0
+      pending_replacement = 0
+    }
+    in_init_param && /^[[:space:]]*<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>[[:space:]]*$/ {
       system_actions_params++
       in_system_actions = 1
     }
     in_system_actions && /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/ {
       sub(/<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
-      replacements++
+      pending_replacement = 1
       in_system_actions = 0
     }
-    in_system_actions && /<\/init-param>/ {
+    /^[[:space:]]*<\/init-param>[[:space:]]*$/ {
+      if (in_init_param && pending_replacement) {
+        replacements++
+      }
+      in_init_param = 0
       in_system_actions = 0
+      pending_replacement = 0
     }
     { print }
     END {
-      if (system_actions_params != 1 || replacements != 1) {
+      if (invalid_structure || in_init_param || system_actions_params != 1 || replacements != 1) {
         exit 1
       }
     }

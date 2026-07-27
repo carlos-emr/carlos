@@ -121,6 +121,19 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                 -->
             </web-app>
             """;
+    private static final String ORPHANED_PARAM_WEB_XML = """
+            <web-app>
+                <param-name>system-actions-enabled</param-name>
+                <param-value>false</param-value>
+            </web-app>
+            """;
+    private static final String UNCLOSED_PARAM_WEB_XML = """
+            <web-app>
+                <init-param>
+                    <param-name>system-actions-enabled</param-name>
+                    <param-value>false</param-value>
+            </web-app>
+            """;
 
     @TempDir
     private Path tempDir;
@@ -171,7 +184,9 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                 new OverrideScenario("commented-value", COMMENTED_VALUE_WEB_XML, false),
                 new OverrideScenario("invalid-value", INVALID_VALUE_WEB_XML, false),
                 new OverrideScenario("empty-value", EMPTY_VALUE_WEB_XML, false),
-                new OverrideScenario("multiline-comment", MULTILINE_COMMENT_WEB_XML, false));
+                new OverrideScenario("multiline-comment", MULTILINE_COMMENT_WEB_XML, false),
+                new OverrideScenario("orphaned-param", ORPHANED_PARAM_WEB_XML, false),
+                new OverrideScenario("unclosed-param", UNCLOSED_PARAM_WEB_XML, false));
 
         for (ShellHelper helper : helpers) {
             String source = Files.readString(helper.source(), StandardCharsets.UTF_8);
