@@ -134,6 +134,24 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                     <param-value>false</param-value>
             </web-app>
             """;
+    private static final String DUPLICATE_VALUE_WEB_XML = """
+            <web-app>
+                <init-param>
+                    <param-name>system-actions-enabled</param-name>
+                    <param-value>false</param-value>
+                    <param-value>false</param-value>
+                </init-param>
+            </web-app>
+            """;
+    private static final String DISPLACED_VALUE_WEB_XML = """
+            <web-app>
+                <init-param>
+                    <param-name>system-actions-enabled</param-name>
+                    <param-name>other-param</param-name>
+                    <param-value>false</param-value>
+                </init-param>
+            </web-app>
+            """;
 
     @TempDir
     private Path tempDir;
@@ -186,7 +204,9 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                 new OverrideScenario("empty-value", EMPTY_VALUE_WEB_XML, false),
                 new OverrideScenario("multiline-comment", MULTILINE_COMMENT_WEB_XML, false),
                 new OverrideScenario("orphaned-param", ORPHANED_PARAM_WEB_XML, false),
-                new OverrideScenario("unclosed-param", UNCLOSED_PARAM_WEB_XML, false));
+                new OverrideScenario("unclosed-param", UNCLOSED_PARAM_WEB_XML, false),
+                new OverrideScenario("duplicate-value", DUPLICATE_VALUE_WEB_XML, false),
+                new OverrideScenario("displaced-value", DISPLACED_VALUE_WEB_XML, false));
 
         for (ShellHelper helper : helpers) {
             String source = Files.readString(helper.source(), StandardCharsets.UTF_8);

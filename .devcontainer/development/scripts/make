@@ -39,19 +39,34 @@ enable_devcontainer_javamelody_system_actions() {
       }
       next
     }
+    in_init_param && /^[[:space:]]*<[^!?\/][^>]*>/ {
+      block_elements++
+      if (target_block && !(in_system_actions && $0 ~ /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/)) {
+        invalid_structure = 1
+      }
+    }
     /^[[:space:]]*<init-param>[[:space:]]*$/ {
       if (in_init_param) {
         invalid_structure = 1
       }
       in_init_param = 1
+      block_elements = 0
+      target_block = 0
       in_system_actions = 0
       pending_replacement = 0
     }
     in_init_param && /^[[:space:]]*<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>[[:space:]]*$/ {
       system_actions_params++
+      if (block_elements != 1 || target_block) {
+        invalid_structure = 1
+      }
+      target_block = 1
       in_system_actions = 1
     }
     in_system_actions && /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/ {
+      if (block_elements != 2) {
+        invalid_structure = 1
+      }
       sub(/<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
       pending_replacement = 1
       in_system_actions = 0
@@ -61,6 +76,7 @@ enable_devcontainer_javamelody_system_actions() {
         replacements++
       }
       in_init_param = 0
+      target_block = 0
       in_system_actions = 0
       pending_replacement = 0
     }
