@@ -62,9 +62,19 @@ const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+// Shared eForm Playwright helpers. gotoApp/appUrl are the repository's guarded navigation path:
+// validateBaseUrl restricts the host to loopback unless explicitly overridden, and appUrl rejects a
+// non-root-relative path. Using them instead of raw page.goto() is what keeps this script — which
+// logs in and performs destructive imports and saves — from being a URL-injection sink.
+const {
+  appUrl,
+  getLaunchOptions,
+  gotoApp,
+  validateBaseUrl,
+} = require('./eform-local-playwright-utils');
 
 const config = {
-  baseUrl: process.env.BASE_URL || 'http://127.0.0.1:8080/carlos',
+  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
   chromePath: process.env.CHROME_PATH || '',
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
@@ -120,10 +130,60 @@ function packageFormName(zipPath) {
   return match ? match[1].trim() || null : null;
 }
 
+/**
+ * Rasterizes page 1 of a random sample of successfully rendered PDFs so a human can actually look at
+ * them.
+ *
+ * A clean completeness gate does not mean the page is correct — a blank background and a letter
+ * printed as raw markup both passed every automated check in this project before anyone opened the
+ * output. The sample is random rather than fixed so repeated runs cover different forms over time
+ * instead of re-confirming the same handful.
+ *
+ * The PICKS are always reported, even where no rasterizer is available — that list is the portable
+ * part and is what tells a reviewer which files to open. Rasterization via pdftoppm (poppler-utils)
+ * is a convenience layered on top; its absence is noted, never fatal, since the render results are
+ * the primary product.
+ */
+function renderVisualSample(results, outDir, sampleSize) {
+  const rendered = results.filter((r) => r.outcome === 'PDF OK' && r.pdfBytes > 0);
+  if (rendered.length === 0) return [];
+  const pool = rendered.slice();
+  const picked = [];
+  while (picked.length < Math.min(sampleSize, pool.length)) {
+    picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+  console.log(`\nvisual check — ${picked.length} randomly picked of ${rendered.length} rendered:`);
+  for (const result of picked) {
+    const safe = String(result.form).replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60);
+    console.log(`  ${path.join(outDir, `${safe}.pdf`)}\t${result.form}`);
+  }
+
+  const sampleDir = path.join(outDir, 'visual-sample');
+  fs.mkdirSync(sampleDir, { recursive: true });
+  const images = [];
+  for (const result of picked) {
+    const safeName = String(result.form).replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60);
+    const pdf = path.join(outDir, `${safeName}.pdf`);
+    if (!fs.existsSync(pdf)) continue;
+    const stem = path.join(sampleDir, safeName);
+    try {
+      require('node:child_process').execFileSync(
+        'pdftoppm', ['-png', '-r', '80', '-f', '1', '-l', '1', pdf, stem], { stdio: 'pipe' });
+      for (const produced of fs.readdirSync(sampleDir)) {
+        if (produced.startsWith(`${safeName}-`) && produced.endsWith('.png')) {
+          images.push({ form: result.form, image: path.join(sampleDir, produced) });
+        }
+      }
+    } catch (error) {
+      // No rasterizer (or a corrupt PDF). The pick list above still names the file to open.
+      console.log(`  (no preview image for ${result.form}: ${String(error.message).split('\n')[0].slice(0, 60)})`);
+    }
+  }
+  return images;
+}
+
 function launchOptions() {
-  const options = { args: ['--no-sandbox'] };
-  if (config.chromePath) options.executablePath = config.chromePath;
-  return options;
+  return getLaunchOptions(config.chromePath);
 }
 
 (async () => {
@@ -156,7 +216,7 @@ function launchOptions() {
     });
 
     const page = await context.newPage();
-    await page.goto(`${config.baseUrl}/`);
+    await gotoApp(page, config.baseUrl, '/');
     await page.fill('input[name="username"]', config.testUser);
     await page.fill('input[name="password"]', config.testPassword);
     await page.fill('input[name="pin"]', config.testPin);
@@ -171,7 +231,7 @@ function launchOptions() {
     for (const zip of zips) {
       // Go straight to the import partial rather than the manager page: on the manager the partial
       // lives in a collapsed accordion, so its submit button is present but never visible.
-      await importer.goto(`${config.baseUrl}/eform/partials/import`);
+      await gotoApp(importer, config.baseUrl, '/eform/partials/import');
       await importer.waitForLoadState('networkidle').catch(() => {});
       await importer.locator('#zippedForm').setInputFiles(path.join(config.corpusDir, zip));
       await Promise.all([
@@ -185,7 +245,7 @@ function launchOptions() {
 
     // --- render each imported form ---
     const manager = await context.newPage();
-    await manager.goto(`${config.baseUrl}/eform/efmformmanager`);
+    await gotoApp(manager, config.baseUrl, '/eform/efmformmanager');
     await manager.waitForLoadState('networkidle').catch(() => {});
 
     for (const zip of zips) {
@@ -221,7 +281,11 @@ function launchOptions() {
         }
       });
       try {
-        await form.goto(`${config.baseUrl}/eform/efmformadd_data?fid=${result.fid}&demographic_no=${config.demographicNo}`);
+        // Identifiers are encoded rather than trusted: fid is scraped from the manager page and
+        // demographicNo comes from the environment, so neither is inherently safe to interpolate.
+        await gotoApp(form, config.baseUrl,
+            `/eform/efmformadd_data?fid=${encodeURIComponent(result.fid)}`
+            + `&demographic_no=${encodeURIComponent(config.demographicNo)}`);
         await form.waitForLoadState('networkidle').catch(() => {});
         await form.evaluate(() => {
           const subject = document.getElementById('remote_eform_subject');
@@ -259,6 +323,14 @@ function launchOptions() {
   const ok = results.filter((r) => r.outcome === 'PDF OK').length;
   console.log(`\ncorpus soak: ${ok}/${results.length} rendered — PDFs in ${config.outDir}`);
   console.log('Open them. A clean render gate does not mean the page is correct.');
+
+  const sample = renderVisualSample(results, config.outDir, Number(process.env.EFORM_CORPUS_VISUAL_SAMPLE || 6));
+  if (sample.length) {
+    console.log(`\npreview images (page 1 each):`);
+    for (const entry of sample) {
+      console.log(`  ${entry.image}\t${entry.form}`);
+    }
+  }
 })().catch((error) => {
   console.error('FAIL eForm corpus soak');
   console.error(error.stack || error.message);

@@ -76,13 +76,19 @@ public class SaveEFormAsEDoc2Action extends ActionSupport {
         this.renderApprovalService = renderApprovalService;
     }
 
+    @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        // Mutator: reject read verbs before any side effect fires.
-        String method = request.getMethod();
-        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+        // Mutator: reject every verb but POST before any side effect fires.
+        //
+        // Written as an ALLOW-list on purpose. The obvious alternative — a deny-list asking "is this
+        // GET or HEAD?" — cannot safely use exact comparison, because a request whose method is
+        // "get" would stop matching and fall straight through to the archive. Allow-listing gives
+        // the exact, case-sensitive comparison (RFC 9110 §9.1 makes method tokens case-sensitive)
+        // AND refuses anything unexpected, rather than only the verbs someone remembered to list.
+        if (!"POST".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

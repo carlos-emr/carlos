@@ -904,9 +904,10 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should not let a redirect license the downgrade of a failed reference")
     void shouldNotDowngrade_whenSameNameOnlyRedirected() {
-        // A 302 is not a load. Missing paths under the webapp redirect to the login page, so
-        // accepting any sub-400 status as proof would let that redirect mask a genuinely absent
-        // asset — the exact failure mode this gate exists to catch.
+        // A 302 is not a load, so it cannot license downgrading a failure for the same filename.
+        // Both references here genuinely failed to deliver the asset — the redirect is now counted
+        // as a failure in its own right — so the expected total is 2, and crucially neither is
+        // softened to advisory.
         String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
         List<String> rawEntries = List.of(
                 cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
@@ -915,7 +916,8 @@ class EFormBrowserPdfServiceUnitTest {
 
         EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
 
-        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(2);
+        assertThat(scan.failedSubresources()).as("neither reference is downgraded").isZero();
     }
 
     @Test
@@ -1433,4 +1435,56 @@ class EFormBrowserPdfServiceUnitTest {
         }
     }
 
+
+    @Test
+    @DisplayName("should count a redirected subresource as missing content")
+    void shouldCountRedirectedSubresource_asMissingContent() {
+        // A redirect means the browser never received the asset. The gate scored a 3xx as neither
+        // loaded nor failed, which is a silent hole in a completeness guarantee even though the
+        // render surface does not currently produce one.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Image\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png\",\"status\":302}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should treat 304 Not Modified as a successful load, not a redirect")
+    void shouldTreatNotModified_asSuccessfulLoad() {
+        // The half that could actually bite. A 304 is a conditional cache hit — the browser has the
+        // bytes. Lumping it in with redirects would mark every cached asset as missing content and
+        // refuse essentially every document the moment a render-surface cache existed.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormImageViewForPdfGenerationServlet?imagefile=form.js\",\"status\":304}"),
+                // Same filename, bare duplicate reference, fails. The 304 above must license the
+                // downgrade or a cached asset would stop counting as present.
+                cdpMessage("Network.responseReceived", "\"type\":\"Script\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/form.js\",\"status\":404}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).as("304 proves the asset loaded").isZero();
+        assertThat(scan.failedSubresources()).as("the duplicate 404 is advisory").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should keep a redirected presentation asset advisory")
+    void shouldKeepRedirectedPresentationAsset_advisory() {
+        // The redirect branch reuses the existing exceptions rather than adding a new blocking path,
+        // so losing a stylesheet still degrades presentation only.
+        String allowedOrigin = EFormBrowserPdfService.originOf("http://127.0.0.1:8080/carlos");
+        List<String> rawEntries = List.of(
+                cdpMessage("Network.responseReceived", "\"type\":\"Document\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/EFormViewForPdfGenerationServlet?fdid=1\",\"status\":200}"),
+                cdpMessage("Network.responseReceived", "\"type\":\"Stylesheet\",\"response\":{\"url\":\"http://127.0.0.1:8080/carlos/css/x.css\",\"status\":302}"));
+
+        EFormBrowserPdfService.NetworkGateScan scan = EFormBrowserPdfService.scanNetworkEvents(rawEntries, allowedOrigin);
+
+        assertThat(scan.failedCriticalSubresources()).isZero();
+        assertThat(scan.failedSubresources()).isEqualTo(1);
+    }
 }

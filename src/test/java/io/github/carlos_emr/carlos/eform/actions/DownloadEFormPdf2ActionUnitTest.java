@@ -172,4 +172,30 @@ class DownloadEFormPdf2ActionUnitTest {
                 EFormRenderApprovalService.Operation.DOWNLOAD, "ticket");
         verify(documentAttachmentManager).renderEFormPacketWithCompleteness(eq(request), any(), eq(approval));
     }
+
+    @Test
+    @DisplayName("should reject a lowercase method token rather than case-folding it")
+    void shouldRejectLowercaseMethodToken_ratherThanCaseFolding() {
+        // HTTP method tokens are case-sensitive uppercase ASCII (RFC 9110 section 9.1), and the
+        // check is an allow-list, so only an exact "POST" proceeds. Case-folding a value that gates
+        // a security decision is the pattern IMPROPER_UNICODE warns about.
+        request.setMethod("post");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
+    @DisplayName("should still reject a lowercase read verb after the allow-list conversion")
+    void shouldStillRejectLowercaseReadVerb_afterAllowListConversion() {
+        // The regression guard for this change. The previous deny-list matched GET/HEAD
+        // case-insensitively; had it been converted to exact comparison instead of to an
+        // allow-list, "get" would have stopped matching and fallen through to the action body.
+        request.setMethod("get");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager);
+    }
 }

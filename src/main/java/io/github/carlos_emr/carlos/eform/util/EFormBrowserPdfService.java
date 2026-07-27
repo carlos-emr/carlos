@@ -1808,7 +1808,8 @@ public class EFormBrowserPdfService {
                 if (mainDocumentStatus == null && "Document".equals(resourceType) && sameOrigin) {
                     mainDocumentStatus = status;
                     mainDocumentUrl = responseUrl;
-                } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType) && status >= 400) {
+                } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
+                        && (status >= 400 || isRedirect(status))) {
                     // Every failed content-bearing resource can omit clinical content. Two advisory
                     // exceptions: an empty-src placeholder resolving back to the main document URL
                     // (not a distinct form resource), and a presentation-only asset, whose loss
@@ -1824,10 +1825,10 @@ public class EFormBrowserPdfService {
                         failedCriticalSubresources++;
                     }
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
-                        && status >= 200 && status < 300
+                        && isLoaded(status)
                         && loadedResourceNames.size() < MAX_TRACKED_REQUEST_URLS) {
-                    // Only an observed 2xx proves the asset was served; a 3xx is a redirect, not a
-                    // load, and must never license downgrading a failure for the same filename.
+                    // A 2xx, or a 304 which means the browser already holds the bytes. A redirect is
+                    // neither and must never license downgrading a failure for the same filename.
                     String loadedName = resourceBasename(responseUrl);
                     if (loadedName != null) {
                         loadedResourceNames.add(loadedName);
@@ -1861,6 +1862,37 @@ public class EFormBrowserPdfService {
         }
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
                 parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests);
+    }
+
+    /**
+     * Whether a response redirected the browser away from the asset it asked for.
+     *
+     * <p>A redirect means the subresource was not delivered. On the render surface that is how a
+     * missing or unauthorized asset would present if it ever reached a filter that redirects rather
+     * than refuses — the browser holds no session, so it has nothing to follow a login redirect
+     * with. Measured across 394 render windows the surface produced only 200/404/403/400 and no
+     * redirect at all, so this is hardening rather than a fix for an observed failure; it exists
+     * because a status the gate scores as <em>neither</em> loaded nor failed is a silent hole in a
+     * completeness guarantee.</p>
+     *
+     * <p>304 is deliberately excluded — see {@link #isLoaded(int)}.</p>
+     */
+    static boolean isRedirect(int status) {
+        return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
+    }
+
+    /**
+     * Whether a response means the browser has the asset's bytes.
+     *
+     * <p>Includes 304 Not Modified. That is the half of this rule that can actually bite: a 304 is a
+     * successful conditional load, and lumping it in with redirects would mark every cached asset as
+     * missing content and refuse essentially every document. The render browser is launched fresh
+     * per render so its cache is empty and 304 does not arise there today, but it is common on the
+     * interactive viewer, and any future change that reuses a browser or enables a render-surface
+     * cache would otherwise turn this gate into a blanket refusal.</p>
+     */
+    static boolean isLoaded(int status) {
+        return (status >= 200 && status < 300) || status == 304;
     }
 
     /**

@@ -85,11 +85,17 @@ public class DownloadEFormPdf2Action extends ActionSupport {
         this.demographicManager = demographicManager;
     }
 
+    @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // Exact comparison, not equalsIgnoreCase. This is an ALLOW-list — anything that is not
+        // exactly "POST" is refused — so exact matching is the strictly stricter choice, and HTTP
+        // method tokens are case-sensitive uppercase ASCII (RFC 9110 §9.1). Note the inverse holds
+        // for a deny-list ("is this GET?"), where case-insensitive is the safe form; see
+        // SaveEFormAsEDoc2Action, which is written as an allow-list for exactly this reason.
+        if (!"POST".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
