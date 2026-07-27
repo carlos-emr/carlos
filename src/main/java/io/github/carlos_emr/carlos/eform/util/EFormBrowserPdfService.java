@@ -1714,6 +1714,15 @@ public class EFormBrowserPdfService {
             Set.of("Document", "Image", "Script", "Stylesheet", "Font", "Media", "XHR", "Fetch");
 
     /**
+     * Render-critical types that carry data rather than a named file.
+     *
+     * <p>These are excluded from the duplicate-basename downgrade: several of them legitimately
+     * share one path and differ only by query string, which {@link #resourceBasename} discards, so
+     * the "this filename also loaded successfully" test would silently excuse a real failure.</p>
+     */
+    private static final Set<String> DATA_RESOURCE_TYPES = Set.of("XHR", "Fetch");
+
+    /**
      * Render-critical types whose failure degrades presentation only — an unstyled heading, a glyph
      * that falls back to a system font. These are reported (and rejected under the strict gate) but
      * never block the document on their own: refusing to hand a clinician their letter because an
@@ -1830,6 +1839,17 @@ public class EFormBrowserPdfService {
                     if (responseUrl.equals(mainDocumentUrl)
                             || PRESENTATION_RESOURCE_TYPES.contains(resourceType)) {
                         failedSubresources++;
+                    } else if (DATA_RESOURCE_TYPES.contains(resourceType)) {
+                        // Never eligible for the duplicate-basename downgrade below. That rule
+                        // exists for assets the corpus deliberately references twice under one
+                        // filename; data fetches instead share a filename by construction — every
+                        // APCache lookup hits the same servlet path and differs only in its query
+                        // string, which resourceBasename discards. Downgrading here meant a 422 for
+                        // one clinical field was reclassified as a by-design duplicate whenever any
+                        // other lookup in the same render returned 200, and the downgraded bucket is
+                        // then dropped from the report entirely — the document shipped complete with
+                        // that whole batch of fields blank.
+                        failedCriticalSubresources++;
                     } else if (criticalFailureNames.size() < MAX_TRACKED_REQUEST_URLS) {
                         criticalFailureNames.add(resourceBasename(responseUrl));
                     } else {

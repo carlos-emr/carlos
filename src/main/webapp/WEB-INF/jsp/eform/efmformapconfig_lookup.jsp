@@ -77,15 +77,24 @@
                     ParameterizedSql query = form.parameterizeAllFields(sql);
 
                     ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
-                    ArrayList<String> values = EFormUtil.getValues(names, query);
-                    if (values.isEmpty()) {
+                    // getValuesOrNull, not getValues: the latter reports a failed or blocked query
+                    // as an empty list, indistinguishable from a healthy query over a patient with
+                    // no matching data. Read as "no data" it blanked the field silently, which is
+                    // exactly the case this notice exists to surface.
+                    ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
+                    if (values == null) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                                "AP config lookup query failed for key=" + key + " fid=" + fid);
+                        unresolvedKeys.add(key);
+                        output = "";
+                    } else if (names.isEmpty()) {
+                        // Constant output: nothing to substitute and no row required, so `output`
+                        // already holds the final literal and is deliberately left untouched.
+                        // Ordered before the empty test below, which would otherwise blank it.
+                    } else if (values.isEmpty()) {
                         // Genuinely no rows. An empty field is the correct rendering of that.
                         output = "";
                     } else if (values.size() != names.size()) {
-                        // Fewer values than the AP declares output names: a column/name mismatch, or
-                        // a SQLException that getValues swallowed into a short list. This used to be
-                        // silent in both directions — no log, and a blank field the clinician could
-                        // not tell apart from "no data" before saving it into the record.
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                                 "AP config lookup returned an unusable result for key=" + key
                                         + " fid=" + fid + ": output declares " + names.size()

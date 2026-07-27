@@ -5,6 +5,12 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -196,5 +202,43 @@ class EFormRenderCompletenessReportUnitTest {
 
         assertThat(report.isComplete()).isFalse();
         assertThat(report.issueCount()).isEqualTo(1);
+    }
+
+    /**
+     * Every component must be disclosed on every approval surface.
+     *
+     * <p>A clinician's approval is bound by {@code digest()}, which covers all components. If a
+     * surface lists only some of them, the page can show every condition as {@code 0}/{@code false}
+     * under a generic message while the render was in fact blocked by the omitted one — the
+     * clinician then approves a document without being told what is wrong with it.</p>
+     *
+     * <p>This is a source scan rather than a reflective check because the disclosure sites are
+     * hand-written {@code setAttribute}/{@code json.put} lists in three different files. A comment
+     * asking future editors to keep them in step already existed at one of those sites and did not
+     * prevent {@code providerStampMissing} from being omitted from two of the three, which is why
+     * this is a test.</p>
+     */
+    @Test
+    @DisplayName("should disclose every report component on every approval surface")
+    void shouldDiscloseEveryComponent_onEveryApprovalSurface() throws Exception {
+        List<String> components = Stream.of(EFormRenderCompletenessReport.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName)
+                .toList();
+        assertThat(components).hasSizeGreaterThanOrEqualTo(9);
+
+        List<String> surfaces = List.of(
+                "src/main/java/io/github/carlos_emr/carlos/eform/actions/AddEForm2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/fax/action/Fax2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentPreview2Action.java",
+                "src/main/webapp/WEB-INF/jsp/eform/EFormRenderMissingContent.jsp",
+                "src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp");
+
+        for (String surface : surfaces) {
+            String source = Files.readString(Path.of(surface), StandardCharsets.UTF_8);
+            assertThat(components)
+                    .describedAs("%s must publish every completeness component; approval binds a "
+                            + "digest over all of them", surface)
+                    .allSatisfy(component -> assertThat(source).contains(component));
+        }
     }
 }

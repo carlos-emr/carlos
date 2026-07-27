@@ -274,8 +274,9 @@ public final class EFormRenderPdfHtmlComposer {
      * {@code oscarDB} field the server populated at save time), falling back to the eForm's provider.
      * It is never read from the rendered page: the grant must not be widened by anything the
      * clinic-authored document can influence. Exactly one filename is added, and only when the
-     * document shows intent to display a stamp — a missing file still 404s and still blocks, because
-     * a signature that should be on the record and is not is a real omission.</p>
+     * document shows intent to display a stamp. A stamp that is not on file does not 404: the element
+     * the script targets is removed instead, so the condition is reported as itself
+     * ({@code providerStampMissing}, blocking) rather than as an anonymous failed resource.</p>
      */
     static Set<String> runtimeSignatureStampFiles(
             String html, EForm eForm, List<EFormValue> eFormValues) {
@@ -413,6 +414,9 @@ public final class EFormRenderPdfHtmlComposer {
         }
         String series;
         try {
+            // getAP reads a static list populated only by getInstance()/parseXML. Reaching here
+            // after an EForm has been built makes that true in practice today, but only by ordering.
+            EFormLoader.getInstance();
             DatabaseAP ap = EFormLoader.getAP(LEGACY_MEASUREMENT_AP);
             if (ap == null) {
                 logger.warn("Form fetches the legacy measurement route but AP '{}' is not configured",
@@ -420,9 +424,21 @@ public final class EFormRenderPdfHtmlComposer {
                 return html;
             }
             ArrayList<String> names = DatabaseAP.parserGetNames(ap.getApOutput());
-            List<String> values = EFormUtil.getValues(names, eForm.parameterizeAllFields(ap.getApSQL()));
-            // One GROUP_CONCAT column. An empty result is a patient with no recorded measurements —
-            // still embed it, so the form renders an empty chart instead of failing a network fetch.
+            // getValuesOrNull distinguishes a failed query from one that matched nothing; getValues
+            // reports both as empty, which here would embed an empty chart for a database error and
+            // present it as "this patient has no measurements".
+            List<String> values = EFormUtil.getValuesOrNull(
+                    names, eForm.parameterizeAllFields(ap.getApSQL()));
+            if (values == null) {
+                logger.error("Legacy measurement history query failed for fdid={}",
+                        LogSafe.sanitize(eForm.getFdid()));
+                return html;
+            }
+            // One GROUP_CONCAT column. who_measurements is an unGROUPed aggregate, so it returns
+            // exactly one row even for a patient with nothing recorded (the column comes back NULL,
+            // which Misc.getString trims to ""). A genuinely empty list therefore should not occur;
+            // it is handled as "no measurements" rather than as a failure because the query
+            // demonstrably ran — a query that did NOT run returns null above and aborts the embed.
             series = values.isEmpty() ? "" : String.valueOf(values.get(0));
         } catch (RuntimeException e) {
             logger.error("Legacy measurement history lookup failed for fdid={}",
@@ -648,9 +664,11 @@ public final class EFormRenderPdfHtmlComposer {
      * {@link #applySignatureHtml} reads the stored signature's geometry out of the letter's own
      * {@code signatureControl.initialize({...})} call, and clinic letters carry image-path fixups in
      * inline scripts. A full allow-list sanitizer removes both and silently costs the clinician a
-     * signature. Execution is contained instead of forbidden: the render browser holds no session
-     * or cookie, its {@code connect-src} admits only the APCache endpoint, off-origin egress is
-     * blocked at the network layer, and any non-GET request fails the render gate.</p>
+     * signature. Execution is contained instead of forbidden: the render browser holds no HttpSession,
+     * JSESSIONID, CSRF token or user identity — its only credential is the short-lived, HttpOnly
+     * capability cookie, which authorizes exactly the grant's asset and AP-key set and nothing else.
+     * Its {@code connect-src} admits only the APCache endpoint, off-origin egress is blocked at the
+     * network layer, and any non-GET request fails the render gate.</p>
      */
     static String hardenLetterHtml(String letterHtml) {
         if (letterHtml == null || letterHtml.isBlank()) {

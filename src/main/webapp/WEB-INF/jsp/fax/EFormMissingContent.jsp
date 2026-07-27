@@ -68,6 +68,7 @@
             <li>Failed content resources: <carlos:encode value="${failedContentResources}"/></li>
             <li>Excluded visible elements: <carlos:encode value="${excludedContentElements}"/></li>
             <li>Signature missing: <carlos:encode value="${signatureMissing}"/></li>
+            <li>Provider signature stamp not on file: <carlos:encode value="${providerStampMissing}"/></li>
             <li>Timer compatibility failed: <carlos:encode value="${timerCompatibilityFailure}"/></li>
             <li>Page script errors: <carlos:encode value="${severeConsoleErrors}"/></li>
             <li>Blocked dialogs or pop-ups: <carlos:encode value="${containedInteractions}"/></li>

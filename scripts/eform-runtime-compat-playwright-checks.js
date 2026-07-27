@@ -42,8 +42,11 @@ const SHIM_PATH = path.join(__dirname, '..', 'src', 'main', 'webapp', 'eform', '
 const PAYLOAD_ELEMENT_ID = 'carlos-legacy-measurement-history';
 const LEGACY_URL = '/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=';
 
-// Two dated rows for HT, one for WT, and a HT row whose height is blank. The blank one is the point:
-// if the shim emitted a date cell for it, every later height would pair with the wrong date.
+// Two dated rows for HT and one for WT, in the shape the composer emits. Row-skipping (a row with
+// no value for the requested type must contribute NEITHER cell, or every later value pairs with the
+// wrong date) is asserted on the Java side, in EFormRenderPdfHtmlComposerUnitTest — that is where
+// the markup is built. Here the fixture is the composer's *output*, held deliberately literal so a
+// change to that output has to be made in both places consciously.
 const PAYLOAD = {
   HT: '<td title="data">101.5</td><td title="observed date">2024-03-01</td>'
     + '<td title="data">99</td><td title="observed date">2024-01-01</td>',
@@ -69,8 +72,14 @@ window.__result = (function () {
     };
     xmlhttp.open("GET", window.location.origin + "${LEGACY_URL}" + measure, false);
     xmlhttp.send();
-    // Read immediately: this line is what proves synchronous delivery.
+    // SNAPSHOT, on the line after send() returns. Asserting on out.data directly would prove
+    // nothing: it is a live array read by the harness long afterwards, so a shim that delivered
+    // late (setTimeout, promise, real async XHR) would fill it in before anyone looked and the
+    // check would pass while the real form — which reads measureArray on this very line — got an
+    // empty array and plotted nothing.
     out.status = xmlhttp.status;
+    out.dataAtReturn = out.data.slice();
+    out.datesAtReturn = out.dates.slice();
     return out;
   }
   var result = {ht: getMeasures("HT"), wt: getMeasures("WT")};
@@ -132,15 +141,15 @@ async function main() {
     await tab.goto(`${base}/embedded`);
     const served = await tab.evaluate('window.__result');
     try {
-      assert(JSON.stringify(served.ht.data) === '["101.5","99"]',
-        `HT values wrong: ${JSON.stringify(served.ht.data)}`);
-      assert(JSON.stringify(served.ht.dates) === '["2024-03-01","2024-01-01"]',
-        `HT dates wrong: ${JSON.stringify(served.ht.dates)}`);
-      assert(served.ht.data.length === served.ht.dates.length,
+      assert(JSON.stringify(served.ht.dataAtReturn) === '["101.5","99"]',
+        `HT values not present when send() returned: ${JSON.stringify(served.ht.dataAtReturn)}`);
+      assert(JSON.stringify(served.ht.datesAtReturn) === '["2024-03-01","2024-01-01"]',
+        `HT dates not present when send() returned: ${JSON.stringify(served.ht.datesAtReturn)}`);
+      assert(served.ht.dataAtReturn.length === served.ht.datesAtReturn.length,
         'data and date arrays are misaligned; the form indexes them in parallel');
       assert(served.ht.status === 200, `synchronous status not visible after send(): ${served.ht.status}`);
-      assert(JSON.stringify(served.wt.data) === '["16.2"]',
-        `WT column not selected: ${JSON.stringify(served.wt.data)}`);
+      assert(JSON.stringify(served.wt.dataAtReturn) === '["16.2"]',
+        `WT column not selected: ${JSON.stringify(served.wt.dataAtReturn)}`);
       assert(served.listenerNotified, 'addEventListener caller was stranded, not notified');
       assert(served.listenerBody, 'addEventListener caller received no body');
       assert(networkHits.length === 0,
@@ -149,14 +158,14 @@ async function main() {
       failures.push(`embedded payload: ${error.message}`);
     }
 
+    const hitsAfterEmbedded = networkHits.length;
     await tab.goto(`${base}/absent`);
     const unserved = await tab.evaluate('window.__result');
     try {
       assert(unserved.ht.status === 404,
         `missing payload must fail visibly, got status ${unserved.ht.status}`);
-      assert(unserved.ht.data.length === 0, 'missing payload must not yield fabricated values');
       assert(unserved.served === 0, `shim served ${unserved.served} responses with no payload present`);
-      assert(networkHits.length > 0,
+      assert(networkHits.length > hitsAfterEmbedded,
         'missing payload did not reach the network; the completeness gate would never see it');
     } catch (error) {
       failures.push(`absent payload: ${error.message}`);

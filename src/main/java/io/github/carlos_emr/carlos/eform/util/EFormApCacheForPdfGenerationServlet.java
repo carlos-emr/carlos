@@ -67,6 +67,11 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         }
 
         try {
+            // getAP reads a static list that only getInstance() populates (via parseXML). This
+            // servlet resolves keys before it constructs its EForm, so on a JVM whose first eForm
+            // touch is a scheduled render every key would otherwise resolve null and be reported as
+            // "not configured" — misdirecting the operator to apconfig.xml for a load-order bug.
+            EFormLoader.getInstance();
             List<ApDefinition> definitions = new ArrayList<>(requestedKeys.length);
             for (String key : requestedKeys) {
                 DatabaseAP ap = EFormLoader.getAP(key);
@@ -137,17 +142,29 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         if (ap.isJsonOutput()) {
             return EFormUtil.getJsonValues(names, query).toString();
         }
-        List<String> values = EFormUtil.getValues(names, query);
+        // getValuesOrNull, not getValues: the latter reports a failed or blocked query as an empty
+        // list, which is the same value a healthy query returns for a patient with no matching data.
+        // Reading it as "no data" printed a blank clinical field over HTTP 200 — invisible to every
+        // render gate and to the clinician receiving the document.
+        List<String> values = EFormUtil.getValuesOrNull(names, query);
+        if (values == null) {
+            throw new ApLookupException("AP query could not be executed or read");
+        }
+        if (names.isEmpty()) {
+            // A constant AP output declares no ${name} markers, so there is nothing to substitute
+            // and no row is required. Checked before the empty test below, which would otherwise
+            // blank the literal.
+            return output;
+        }
         if (values.isEmpty()) {
             // Genuinely no rows ("no active allergies"). That is data, and an empty field is the
             // correct rendering of it.
             return "";
         }
         if (values.size() != names.size()) {
-            // Fewer values than the AP's output names: a column/name mismatch, or a SQLException
-            // that EFormUtil.getValues swallowed into a short list. Both used to return "" here,
-            // which printed a blank clinical field over HTTP 200 — indistinguishable from "no data"
-            // to every render gate, and invisible to the clinician receiving the faxed document.
+            // Defensive only, and deliberately kept. getValuesOrNull returns either null, an empty
+            // list, or exactly names.size() values, so this cannot fire today — but it is the assert
+            // that a future change to that contract must trip rather than silently mis-substitute.
             throw new ApLookupException("AP output declares " + names.size()
                     + " names but the query returned " + values.size() + " values");
         }

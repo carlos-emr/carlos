@@ -33,7 +33,7 @@ public record EFormRenderCompletenessReport(
     private static final long serialVersionUID = 4L;
 
     /**
-     * Counters are grouped ahead of the flags deliberately. All three counts and all five flags are
+     * Counters are grouped ahead of the flags deliberately. All four counts and all five flags are
      * same-typed and carry different clinical meanings, so an interleaved layout would let a
      * transposed argument compile cleanly and silently reclassify one omission as another.
      */
@@ -86,7 +86,12 @@ public record EFormRenderCompletenessReport(
     /**
      * Whether any condition present is serious enough to withhold the document pending approval.
      *
-     * <p>Every component blocks except {@link #severeConsoleErrors}, which is advisory: it counts
+     * <p>Three components are advisory and never withhold the document — {@link #severeConsoleErrors},
+     * {@link #containedInteractions} and {@link #timerCompatibilityFailure}. {@link #advisoryIssueCount()}
+     * is the single authority on that set; keep this list in step with it rather than reasoning from
+     * this sentence. Every other component blocks.</p>
+     *
+     * <p>Taking the first of the three: it counts
      * uncaught exceptions thrown by the <em>form's own</em> script. Across the shared-eForm corpus
      * that is the single most common condition — decades-old hand-authored forms routinely throw
      * once during load (a {@code getElementById(...)} returning null for a field the form no longer

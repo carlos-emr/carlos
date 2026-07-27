@@ -575,6 +575,7 @@ public class Fax2Action extends ActionSupport {
                     request.setAttribute("failedContentResources", e.getReport().failedContentResources());
                     request.setAttribute("excludedContentElements", e.getReport().excludedContentElements());
                     request.setAttribute("signatureMissing", e.getReport().signatureMissing());
+                    request.setAttribute("providerStampMissing", e.getReport().providerStampMissing());
                     request.setAttribute("timerCompatibilityFailure", e.getReport().timerCompatibilityFailure());
                     // Every category the report carries must reach the approval page: the approval is
                     // only informed consent if the clinician sees the complete issue set they are

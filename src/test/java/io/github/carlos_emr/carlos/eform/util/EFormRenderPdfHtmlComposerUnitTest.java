@@ -794,6 +794,40 @@ class EFormRenderPdfHtmlComposerUnitTest {
         }
 
         @Test
+        @DisplayName("should map each measurement type to its own column in the payload")
+        void shouldMapEachType_toItsOwnColumn() {
+            // The row is height|weight|head-circumference, and the type keys are what the form asks
+            // for by name. Transposing two of them is silent: every value is a plausible number, the
+            // render reports complete, and the chart plots weight against the height percentiles.
+            // Asserting only that the keys EXIST cannot catch that, so assert the values.
+            String element = EFormRenderPdfHtmlComposer.legacyMeasurementPayloadElement(
+                    "2024-03-01|101.5|16.2|48|");
+
+            // "<" is escaped to < in the payload (see legacyMeasurementPayloadElement), so the
+            // expected text is built from the same constant rather than hand-written.
+            String dataCell = "\\u003ctd title=\\\"data\\\">";
+            assertThat(element)
+                    .contains("\"HT\":\"" + dataCell + "101.5")
+                    .contains("\"WT\":\"" + dataCell + "16.2")
+                    .contains("\"HEAD\":\"" + dataCell + "48");
+        }
+
+        @Test
+        @DisplayName("should carry the resolved series into the embedded payload")
+        void shouldCarrySeries_intoEmbeddedPayload() {
+            // Guards the wiring, not the formatting: passing "" (or any other series) to the payload
+            // builder would leave the element present and correctly positioned, so the placement
+            // assertions above stay green while the chart renders empty.
+            String html = "<html><body><script>"
+                    + "u='oscarMeasurements/SetupDisplayHistory.do?type=HT';</script></body></html>";
+
+            String embedded = EFormRenderPdfHtmlComposer.embedLegacyMeasurementSeries(
+                    html, "2024-03-01|101.5|16.2|48|");
+
+            assertThat(embedded).contains("101.5").contains("2024-03-01");
+        }
+
+        @Test
         @DisplayName("should escape angle brackets so the payload cannot close its own script block")
         void shouldEscapeAngleBrackets_forScriptBlockSafety() {
             // The payload is <td> markup inside <script type="application/json">. Script content is

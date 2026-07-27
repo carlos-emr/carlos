@@ -170,9 +170,9 @@ Below we will modify some of the examples above to create a fully working eform 
  * "this patient has no such data" and saved into the record that way.
  *
  * Deliberately does not block: on the viewer the form is still being filled, and the decision to
- * refuse a document belongs to the PDF completeness gate, which already blocks on the same
- * condition and offers an explicit approval. This is the earlier, quieter half of that — a chance
- * to notice and correct before saving.
+ * refuse a document belongs to the PDF completeness gate, which blocks on the same condition and
+ * offers an explicit approval. This is the earlier, quieter half of that — a chance to notice and
+ * correct before saving, at the point where correcting is still cheap.
  *
  * @param {string} failedKeys comma-separated AP key names the server could not resolve
  */

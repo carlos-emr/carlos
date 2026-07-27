@@ -655,6 +655,7 @@ public class DocumentPreview2Action extends ActionSupport {
         json.put("failedContentResources", report.failedContentResources());
         json.put("excludedContentElements", report.excludedContentElements());
         json.put("signatureMissing", report.signatureMissing());
+        json.put("providerStampMissing", report.providerStampMissing());
         json.put("timerCompatibilityFailure", report.timerCompatibilityFailure());
         // Keep in step with EFormRenderCompletenessReport: an omitted category would let the caller
         // present an incomplete issue set for an approval whose digest covers all of them.

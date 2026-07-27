@@ -585,6 +585,55 @@ public class EFormUtil {
         return getValues(names, new ParameterizedSql(sql, List.of()));
     }
 
+    /**
+     * Resolves AP column values, keeping "the query failed" distinguishable from "it matched no rows".
+     *
+     * <p>{@link #getValues(List, ParameterizedSql)} cannot express that difference: {@link #getSQL}
+     * logs and returns {@code null} for a blocked or failed statement, and {@code getValues} turns
+     * that into an empty list — the same value a healthy query over a patient with no matching data
+     * returns. Every AP caller then renders an empty clinical field, over HTTP 200, with nothing for
+     * the PDF completeness gate to report. A dropped database connection while resolving an allergy
+     * list therefore prints a blank allergy field on a faxed document.</p>
+     *
+     * <p>A column that cannot be read is also treated as failure here, rather than becoming the
+     * {@code <(name)NotFound>} placeholder {@code getValues} substitutes — that placeholder is
+     * otherwise spliced into the document and delivered to a clinician as if it were content.</p>
+     *
+     * @return the row's values; an <strong>empty</strong> list when the query ran and matched
+     *         nothing; {@code null} when the query could not be executed or read
+     */
+    public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql) {
+        ResultSet resultSet;
+        try {
+            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SecurityException | SQLException e) {
+            logger.error("eForm AP query could not be executed", e);
+            return null;
+        }
+        if (resultSet == null) {
+            return null;
+        }
+        ArrayList<String> values = new ArrayList<String>();
+        try (ResultSet rows = resultSet) {
+            while (rows.next()) {
+                values = new ArrayList<String>();
+                for (int i = 0; i < names.size(); i++) {
+                    try {
+                        values.add(Misc.getString(rows, names.get(i)));
+                    } catch (Exception columnError) {
+                        logger.error("eForm AP column could not be read: " + names.get(i), columnError);
+                        return null;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("eForm AP result set could not be read", e);
+            return null;
+        }
+        return values;
+    }
+
     public static ArrayList<String> getValues(List<String> names, ParameterizedSql sql) {
         // gets the values for each column name in the sql (used by DatabaseAP)
         ArrayList<String> values = new ArrayList<String>();
