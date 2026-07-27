@@ -82,16 +82,32 @@ public class DisplayImage2Action extends ActionSupport {
     /** Immutable WAR path holding the bundled Rich Text Letter editor assets (mirrors EFormAssetDeployer). */
     private static final String BUNDLED_EDITOR_ASSETS_PATH = "/WEB-INF/eform-assets/";
     /**
-     * Trusted, WAR-shipped RTL editor assets. The editor loads {@code blank.rtl}/{@code editor_help.html} into
-     * a frame and runs scripts in it, so they cannot carry the stored-asset {@code sandbox} CSP or the editor
-     * breaks (no fdid after save). Rather than exempt these by basename off the user-writable image directory
-     * — which a user could bypass by uploading a same-named file — they are served directly from the immutable
-     * WAR path ({@link #serveBundledEditorAsset}). Membership is an exact-string match, so no path traversal is
-     * possible. Every other text/html file (anything a user can store) keeps the unconditional sandbox in
-     * {@link #process}.
+     * WAR-shipped RTL editor assets CARLOS owns outright. Mirrors {@code EFormAssetDeployer}'s
+     * {@code MANAGED_ASSETS}: the deployer replaces these on startup whenever the on-disk bytes differ,
+     * so the WAR copy is authoritative and serving it from the immutable path can never lose a local
+     * change that was going to survive anyway. Membership is an exact-string match, so no path
+     * traversal is possible.
      */
-    static final java.util.Set<String> BUNDLED_EDITOR_ASSETS = java.util.Set.of(
-            "editControl2.js", "blank.rtl", "editor_help.html");
+    static final java.util.Set<String> BUNDLED_EDITOR_ASSETS = java.util.Set.of("editControl2.js");
+
+    /**
+     * RTL editor assets the deployer <em>seeds</em> — written once if absent, then never touched again,
+     * because a clinic is expected to customize them ({@code blank.rtl} is the default letter template
+     * and typically carries clinic letterhead). These are served from the eForm image directory so that
+     * customization is honoured, falling back to the WAR copy only when the file is absent.
+     *
+     * <p>They are exempt from the stored-asset {@code sandbox} CSP, because the editor loads them into a
+     * frame and runs scripts in them — sandboxed, the editor breaks (no fdid after save). That exemption
+     * grants nothing new: writing this directory requires {@code _eform} write
+     * ({@code ImageUpload2Action:68}), and that same privilege already stores arbitrary form HTML which
+     * {@code efmshowform_data.jsp} prints raw under {@code script-src 'self' 'unsafe-inline'}. Anyone who
+     * could plant a hostile {@code blank.rtl} can already run same-origin script by authoring an eForm,
+     * so sandboxing these two files defends nothing while silently breaking clinic letterhead. The real
+     * control is who holds {@code _eform} write. Every OTHER text/html file keeps the unconditional
+     * sandbox in {@link #process}.</p>
+     */
+    static final java.util.Set<String> SEEDED_EDITOR_ASSETS = java.util.Set.of(
+            "blank.rtl", "editor_help.html");
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -126,12 +142,26 @@ public class DisplayImage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        // Trusted RTL editor assets are served from the immutable WAR path, not the user-writable image
-        // directory, and are exempt from the sandbox CSP so the editor's own scripts can run. Because the
-        // bytes come from the WAR (never a user upload) a same-named uploaded file cannot bypass the
-        // sandbox that every image-directory file below still receives unconditionally.
+        // editControl2.js is MANAGED (EFormAssetDeployer replaces it on every startup when the on-disk
+        // bytes differ), so the WAR copy is authoritative by definition and serving it from the
+        // immutable path costs nothing. It stays exempt from the sandbox CSP so the editor can run.
         if (BUNDLED_EDITOR_ASSETS.contains(fileName)) {
             return serveBundledEditorAsset(fileName);
+        }
+
+        // blank.rtl and editor_help.html are SEEDED, not managed: EFormAssetDeployer writes them once
+        // if absent and then never touches them again, precisely because a clinic is expected to
+        // customize them (blank.rtl is the default letter template and carries clinic letterhead).
+        // Serving the WAR copy unconditionally therefore discarded that customization silently —
+        // every new Rich Text Letter opened blank, with nothing logged. Prefer the on-disk copy and
+        // fall back to the WAR only when the file is absent, which is the state of a fresh install
+        // before the deployer has run.
+        if (SEEDED_EDITOR_ASSETS.contains(fileName)) {
+            File seeded = getValidatedImageFile(fileName);
+            if (!seeded.exists() || !seeded.isFile()) {
+                return serveBundledEditorAsset(fileName);
+            }
+            return serveSeededEditorAsset(seeded, fileName);
         }
 
         File validatedFile = getValidatedImageFile(fileName);
@@ -175,12 +205,38 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     /**
-     * Streams a bundled RTL editor asset ({@link #BUNDLED_EDITOR_ASSETS}) from the immutable WAR path.
-     * {@code fileName} is already an exact match against the fixed set, so the resource path cannot be
-     * traversed. These trusted assets are served with {@code nosniff} but WITHOUT the sandbox CSP — they
-     * are the editor's own code/templates and must execute — and because the bytes come from the WAR
-     * (not the user-writable image directory) a user cannot override them to escape the sandbox that the
-     * image-directory route applies unconditionally.
+     * Streams a clinic-customizable seeded editor asset ({@link #SEEDED_EDITOR_ASSETS}) from the eForm
+     * image directory, honouring any local customization the deployer deliberately preserved.
+     *
+     * <p>Served with {@code nosniff} but WITHOUT the sandbox CSP, for the reason given on
+     * {@link #SEEDED_EDITOR_ASSETS}: the editor executes these in a frame, and the privilege needed to
+     * write this directory already permits same-origin script through stored form HTML, so the sandbox
+     * would cost the letterhead feature without denying anything.</p>
+     *
+     * @param file the validated on-disk asset, already confirmed to exist by the caller
+     * @param fileName the exact allowlisted basename, used only for the content-type decision
+     */
+    private String serveSeededEditorAsset(File file, String fileName) throws IOException {
+        String contentType = EFormAssetContentType.forFilename(fileName)
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        try (InputStream stream = new FileInputStream(file)) {
+            if (RequestNegotiation.isHtmlContentType(contentType)) {
+                HtmlResponse.writeStoredHtml(response, contentType, stream);
+            } else {
+                response.setContentType(contentType);
+                IOUtils.copy(stream, response.getOutputStream());
+            }
+        }
+        return NONE;
+    }
+
+    /**
+     * Streams a bundled RTL editor asset ({@link #BUNDLED_EDITOR_ASSETS}) from the immutable WAR path,
+     * and serves as the fallback for a {@link #SEEDED_EDITOR_ASSETS} file that is not yet on disk.
+     * {@code fileName} is already an exact match against a fixed set, so the resource path cannot be
+     * traversed. Served with {@code nosniff} but WITHOUT the sandbox CSP — these are the editor's own
+     * code/templates and must execute.
      */
     private String serveBundledEditorAsset(String fileName) throws IOException {
         String contentType = EFormAssetContentType.forFilename(fileName)

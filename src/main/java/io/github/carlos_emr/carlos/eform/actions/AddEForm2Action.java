@@ -597,7 +597,7 @@ public class AddEForm2Action extends ActionSupport {
             String fdid, String demographicNo) {
         return offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
                 EFormRenderApprovalService.Operation.DOWNLOAD, PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE,
-                "eform/downloadEFormPdf", "Approve listed issues and download");
+                "eform/downloadEFormPdf", "eform.renderMissingContent.btnApproveAndDownload");
     }
 
     /**
@@ -615,7 +615,7 @@ public class AddEForm2Action extends ActionSupport {
      */
     private String offerRenderApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
             String fdid, String demographicNo, EFormRenderApprovalService.Operation operation,
-            String message, String approvalAction, String approvalButtonLabel) {
+            String message, String approvalAction, String approvalButtonLabelKey) {
         logger.warn("eForm render incomplete: offering exact-issue approval (operation={} issues={})",
                 operation, e.getIssueCount());
         EFormRenderApprovalService approvalService = SpringUtils.getBean(EFormRenderApprovalService.class);
@@ -634,7 +634,10 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("demographicNo", demographicNo);
         request.setAttribute("missingContentMessage", message);
         request.setAttribute("approvalAction", approvalAction);
-        request.setAttribute("approvalButtonLabel", approvalButtonLabel);
+        // A bundle KEY, not a label: the JSP resolves it with <fmt:message>, so the approve button
+        // is translated like every other string on that page instead of being hardcoded English
+        // here. The action has no ResourceBundle and should not acquire one just to render a label.
+        request.setAttribute("approvalButtonLabelKey", approvalButtonLabelKey);
         request.setAttribute("failedContentResources", report.failedContentResources());
         request.setAttribute("excludedContentElements", report.excludedContentElements());
         request.setAttribute("severeConsoleErrors", report.severeConsoleErrors());
@@ -654,7 +657,7 @@ public class AddEForm2Action extends ActionSupport {
                 EFormRenderApprovalService.Operation.EDOC,
                 "This eForm could not be fully rendered, so it was not added to the patient's documents."
                         + " Review the omissions below before archiving it.",
-                "eform/saveEFormAsEDoc", "Approve listed issues and add to documents");
+                "eform/saveEFormAsEDoc", "eform.renderMissingContent.btnApproveAndAddToDocuments");
         return result;
     }
 

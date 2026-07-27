@@ -295,6 +295,9 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         // at another patient's bytes. Failing closed here turns that silent cross-patient
         // overwrite into a loud FileAlreadyExistsException the caller surfaces.
         try (InputStream fis = Files.newInputStream(docFile.toPath());
+                // codeql[java/path-injection] -- destinationFile comes from PathValidationUtils.validatePath,
+                // which sanitizes the name to [a-zA-Z0-9._-], enforces the extension allowlist, and canonically
+                // validates containment within baseDir. CodeQL cannot follow that cross-method check.
                 OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             byte[] buf = new byte[128 * 1024];

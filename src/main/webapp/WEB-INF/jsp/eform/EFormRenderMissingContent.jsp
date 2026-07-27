@@ -32,11 +32,13 @@
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
-    <title>eForm content could not be rendered</title>
+    <title><fmt:message key="eform.renderMissingContent.title"/></title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <style>
         .missing-content-card { max-width: 720px; margin: 32px auto; }
@@ -45,24 +47,28 @@
 <body>
 <div class="card missing-content-card">
     <div class="card-header bg-warning-subtle">
-        <h5 class="mb-0">Some eForm content could not be loaded</h5>
+        <h5 class="mb-0"><fmt:message key="eform.renderMissingContent.heading"/></h5>
     </div>
     <div class="card-body">
         <p><carlos:encode value="${missingContentMessage}"/></p>
         <p class="text-muted small">
-            Proceeding with an incomplete clinical document is your decision. Consider cancelling and
-            correcting the eForm when any required content or behavior is missing.
+            <fmt:message key="eform.renderMissingContent.msgDecision"/>
         </p>
+        <%-- The eForm is ALREADY SAVED at this point: AddEForm2Action persists it before the render
+             runs, so this page is about PDF delivery only. Saying so explicitly is what stops a
+             clinician treating Cancel as an undo and re-submitting, which would create a second
+             eform_data row for one clinical act. --%>
+        <p class="small"><strong><fmt:message key="eform.renderMissingContent.msgAlreadySaved"/></strong></p>
         <ul class="small">
-            <li>Failed content resources: <carlos:encode value="${failedContentResources}"/></li>
-            <li>Excluded visible elements: <carlos:encode value="${excludedContentElements}"/></li>
-            <li>Signature missing: <carlos:encode value="${signatureMissing}"/></li>
-            <li>Provider signature stamp not on file: <carlos:encode value="${providerStampMissing}"/></li>
-            <li>Timer compatibility failed: <carlos:encode value="${timerCompatibilityFailure}"/></li>
-            <li>Page script errors: <carlos:encode value="${severeConsoleErrors}"/></li>
-            <li>Blocked dialogs or pop-ups: <carlos:encode value="${containedInteractions}"/></li>
-            <li>Page captured before it finished building: <carlos:encode value="${stabilizationCapped}"/></li>
-            <li>Lab decision support unavailable: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
+            <li><fmt:message key="eform.renderIssue.failedContentResources"/>: <carlos:encode value="${failedContentResources}"/></li>
+            <li><fmt:message key="eform.renderIssue.excludedContentElements"/>: <carlos:encode value="${excludedContentElements}"/></li>
+            <li><fmt:message key="eform.renderIssue.signatureMissing"/>: <carlos:encode value="${signatureMissing}"/></li>
+            <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <carlos:encode value="${providerStampMissing}"/></li>
+            <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <carlos:encode value="${timerCompatibilityFailure}"/></li>
+            <li><fmt:message key="eform.renderIssue.severeConsoleErrors"/>: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
+            <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
+            <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
             <form method="post" action="${pageContext.request.contextPath}/${approvalAction}">
@@ -71,10 +77,18 @@
                 <input type="hidden" name="parentAjaxId" value="eforms">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
                 <button type="submit" class="btn btn-warning">
-                    <carlos:encode value="${approvalButtonLabel}"/>
+                    <fmt:message key="${approvalButtonLabelKey}"/>
                 </button>
             </form>
-            <button type="button" class="btn btn-secondary" onclick="history.back();">Cancel</button>
+            <%-- NOT history.back(): that returned the clinician to the populated, re-submittable form,
+                 and re-submitting calls saveEformData again — eFormDataDao.persist is an unconditional
+                 INSERT, so it produces a SECOND eform_data row for one clinical act plus any repeated
+                 chart-template side effects. Navigate forward to the patient's eForm list instead, which
+                 cannot resubmit and shows the row that was already saved. --%>
+            <a class="btn btn-secondary"
+               href="${pageContext.request.contextPath}/eform/efmpatientformlist?demographic_no=${carlos:forUriComponent(demographicNo)}&amp;parentAjaxId=eforms">
+                <fmt:message key="eform.renderMissingContent.btnReturnToList"/>
+            </a>
         </div>
     </div>
 </div>

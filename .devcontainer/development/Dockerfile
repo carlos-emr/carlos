@@ -68,10 +68,25 @@ RUN /usr/local/bin/apt-install \
     inotify-tools \
     fonts-roboto fonts-liberation fonts-noto-color-emoji
 
-# Install Node.js (latest LTS)
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+# Install Node.js from NodeSource (pinned major, not "latest LTS").
+#
+# This previously used setup_lts.x and broke the image build: the script no longer registered a
+# repository apt would prefer, so `apt-install nodejs` silently resolved to Ubuntu's nodejs
+# (18.19.1+dfsg-6ubuntu5) instead. Ubuntu ships npm as a SEPARATE package and apt-install passes
+# --no-install-recommends, so npm was simply absent and the build died on `npm: not found` with no
+# indication that the wrong package had been installed.
+#
+# Two changes: pin the major explicitly (setup_lts.x is a moving target whose behaviour changed
+# under us), and assert the major we actually got. Without that assertion a future silent fallback
+# to a distro package reappears as a confusing downstream error — the failure has to name its own
+# cause. NodeSource's nodejs bundles npm, so a correct install needs no separate npm package.
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && /usr/local/bin/apt-install nodejs \
-    && node --version && npm --version
+    && node --version && npm --version \
+    && case "$(node --version)" in \
+         v22.*) : ;; \
+         *) echo "ERROR: expected Node 22 from NodeSource, got $(node --version) — the NodeSource repository was not used." >&2; exit 1 ;; \
+       esac
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \

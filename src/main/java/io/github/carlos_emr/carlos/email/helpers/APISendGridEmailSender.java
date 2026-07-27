@@ -23,6 +23,7 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuil
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -159,16 +160,36 @@ public class APISendGridEmailSender {
                 StringEntity entity = new StringEntity(createEmailJSON(), ContentType.APPLICATION_JSON);
                 httpPost.setEntity(entity);
                 try (var response = httpClient.execute(httpPost)) {
-                    if (response.getCode() >= 400) {
-                        throw new EmailSendingException(
-                                "SendGrid rejected the request with HTTP " + response.getCode() + ".");
-                    }
+                    assertAccepted(response.getCode());
                 }
             }
         } catch (EmailSendingException e) {
             throw e;
         } catch (IOException | GeneralSecurityException e) {
             throw new EmailSendingException(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Accepts only SendGrid's {@code 202 Accepted}; every other status is a send failure.
+     *
+     * <p>Deliberately not a {@code < 400} test. Redirect handling is disabled on the client for SSRF
+     * containment, so a {@code 301}/{@code 302}/{@code 307} is returned here rather than followed —
+     * and a 3xx is not {@code >= 400}, so the old check passed it as success and the caller recorded
+     * a clinical notification that was never queued. A {@code 200} is likewise not an acceptance.
+     * Once you stop following redirects, "not an error" stops meaning "delivered".</p>
+     *
+     * <p>Extracted so this is reachable from a unit test: the status check previously sat inside the
+     * {@code try-with-resources} around a live {@code CloseableHttpClient}, which is why nothing
+     * covered it.</p>
+     *
+     * @param statusCode the HTTP status SendGrid returned
+     * @throws EmailSendingException naming the received status, for anything other than 202
+     */
+    static void assertAccepted(int statusCode) throws EmailSendingException {
+        if (statusCode != HttpStatus.SC_ACCEPTED) {
+            throw new EmailSendingException(
+                    "SendGrid did not accept the request: expected HTTP 202, got " + statusCode + ".");
         }
     }
 

@@ -53,6 +53,18 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="previewAction" key="encounter.oscarConsultationRequest.AttachDocPopup.previewAction"/>
+<%-- Completeness-report category labels, shared with EFormRenderMissingContent.jsp and
+     fax/EFormMissingContent.jsp so the nine categories cannot drift between surfaces. Resolved into
+     vars here because they are consumed inside a JavaScript string literal further down. --%>
+<fmt:message var="lblFailedContentResources" key="eform.renderIssue.failedContentResources"/>
+<fmt:message var="lblExcludedContentElements" key="eform.renderIssue.excludedContentElements"/>
+<fmt:message var="lblSignatureMissing" key="eform.renderIssue.signatureMissing"/>
+<fmt:message var="lblProviderStampMissing" key="eform.renderIssue.providerStampMissing"/>
+<fmt:message var="lblTimerCompatibilityFailure" key="eform.renderIssue.timerCompatibilityFailure"/>
+<fmt:message var="lblSevereConsoleErrors" key="eform.renderIssue.severeConsoleErrors"/>
+<fmt:message var="lblContainedInteractions" key="eform.renderIssue.containedInteractions"/>
+<fmt:message var="lblStabilizationCapped" key="eform.renderIssue.stabilizationCapped"/>
+<fmt:message var="lblLabDecisionSupportStubbed" key="eform.renderIssue.labDecisionSupportStubbed"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -359,15 +371,21 @@
                         // Every category EFormRenderCompletenessReport carries must appear here.
                         // The approval digest binds to the COMPLETE issue set, so omitting a
                         // category asks the clinician to approve issues they were never shown.
-                        const details = "\n\nFailed content resources: " + data.failedContentResources
-                            + "\nExcluded visible elements: " + data.excludedContentElements
-                            + "\nSignature missing: " + data.signatureMissing
-                            + "\nProvider signature stamp not on file: " + data.providerStampMissing
-                            + "\nTimer compatibility failed: " + data.timerCompatibilityFailure
-                            + "\nPage script errors: " + data.severeConsoleErrors
-                            + "\nBlocked dialogs or pop-ups: " + data.containedInteractions
-                            + "\nPage captured before it finished building: " + data.stabilizationCapped
-                            + "\nLab decision support unavailable: " + data.labDecisionSupportStubbed;
+                        //
+                        // Labels come from the SAME eform.renderIssue.* keys the two JSP surfaces use.
+                        // They were previously duplicated as hardcoded English in three files and could
+                        // drift independently; one key per category means all three move together, and
+                        // this dialog stops being English-only. forJavaScript, not forHtmlContent:
+                        // these are interpolated into a JS string literal.
+                        const details = "\n\n${carlos:forJavaScript(lblFailedContentResources)}: " + data.failedContentResources
+                            + "\n${carlos:forJavaScript(lblExcludedContentElements)}: " + data.excludedContentElements
+                            + "\n${carlos:forJavaScript(lblSignatureMissing)}: " + data.signatureMissing
+                            + "\n${carlos:forJavaScript(lblProviderStampMissing)}: " + data.providerStampMissing
+                            + "\n${carlos:forJavaScript(lblTimerCompatibilityFailure)}: " + data.timerCompatibilityFailure
+                            + "\n${carlos:forJavaScript(lblSevereConsoleErrors)}: " + data.severeConsoleErrors
+                            + "\n${carlos:forJavaScript(lblContainedInteractions)}: " + data.containedInteractions
+                            + "\n${carlos:forJavaScript(lblStabilizationCapped)}: " + data.stabilizationCapped
+                            + "\n${carlos:forJavaScript(lblLabDecisionSupportStubbed)}: " + data.labDecisionSupportStubbed;
                         if (data.renderApproval
                                 && confirm(data.errorMessage + details + "\n\nApprove these issues and render?")) {
                             getPdf(attachmentName, attachmentId, parameters

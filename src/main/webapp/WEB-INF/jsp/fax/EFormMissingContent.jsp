@@ -41,12 +41,14 @@
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
-    <title>Incomplete eForm — Fax anyway?</title>
+    <title><fmt:message key="fax.eformMissingContent.title"/></title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <style>
         body { padding: 2rem; }
@@ -56,24 +58,26 @@
 <body>
 <div class="card missing-content-card">
     <div class="card-header bg-warning-subtle">
-        <h5 class="mb-0">Some eForm content could not be loaded</h5>
+        <h5 class="mb-0"><fmt:message key="eform.renderMissingContent.heading"/></h5>
     </div>
     <div class="card-body">
         <p><carlos:encode value="${missingContentMessage}"/></p>
         <p class="text-muted small">
-            Faxing an incomplete clinical document is your decision. Consider cancelling and correcting
-            the eForm when any required content or behavior is missing.
+            <fmt:message key="fax.eformMissingContent.msgDecision"/>
         </p>
+        <%-- Same nine keys as the eForm page: these labels were previously duplicated verbatim in three
+             places (here, EFormRenderMissingContent.jsp, and the JS in attachDocument.jsp) and could
+             drift independently. One key per category means all three surfaces move together. --%>
         <ul class="small">
-            <li>Failed content resources: <carlos:encode value="${failedContentResources}"/></li>
-            <li>Excluded visible elements: <carlos:encode value="${excludedContentElements}"/></li>
-            <li>Signature missing: <carlos:encode value="${signatureMissing}"/></li>
-            <li>Provider signature stamp not on file: <carlos:encode value="${providerStampMissing}"/></li>
-            <li>Timer compatibility failed: <carlos:encode value="${timerCompatibilityFailure}"/></li>
-            <li>Page script errors: <carlos:encode value="${severeConsoleErrors}"/></li>
-            <li>Blocked dialogs or pop-ups: <carlos:encode value="${containedInteractions}"/></li>
-            <li>Page captured before it finished building: <carlos:encode value="${stabilizationCapped}"/></li>
-            <li>Lab decision support unavailable: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
+            <li><fmt:message key="eform.renderIssue.failedContentResources"/>: <carlos:encode value="${failedContentResources}"/></li>
+            <li><fmt:message key="eform.renderIssue.excludedContentElements"/>: <carlos:encode value="${excludedContentElements}"/></li>
+            <li><fmt:message key="eform.renderIssue.signatureMissing"/>: <carlos:encode value="${signatureMissing}"/></li>
+            <li><fmt:message key="eform.renderIssue.providerStampMissing"/>: <carlos:encode value="${providerStampMissing}"/></li>
+            <li><fmt:message key="eform.renderIssue.timerCompatibilityFailure"/>: <carlos:encode value="${timerCompatibilityFailure}"/></li>
+            <li><fmt:message key="eform.renderIssue.severeConsoleErrors"/>: <carlos:encode value="${severeConsoleErrors}"/></li>
+            <li><fmt:message key="eform.renderIssue.containedInteractions"/>: <carlos:encode value="${containedInteractions}"/></li>
+            <li><fmt:message key="eform.renderIssue.stabilizationCapped"/>: <carlos:encode value="${stabilizationCapped}"/></li>
+            <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
             <form method="post" action="${pageContext.request.contextPath}/fax/faxAction">
@@ -85,9 +89,12 @@
                 <input type="hidden" name="recipientFaxNumber" value="<carlos:encode value="${recipientFaxNumber}" context="htmlAttribute"/>">
                 <input type="hidden" name="letterheadFax" value="<carlos:encode value="${letterheadFax}" context="htmlAttribute"/>">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
-                <button type="submit" class="btn btn-warning">Approve listed issues and fax</button>
+                <button type="submit" class="btn btn-warning"><fmt:message key="fax.eformMissingContent.btnApproveAndFax"/></button>
             </form>
-            <button type="button" class="btn btn-secondary" onclick="history.back();">Cancel</button>
+            <%-- history.back() is correct HERE, unlike the eForm page: this flow is rendered by
+                 Fax2Action against an already-stored document and never calls saveEformData, so
+                 going back returns to the fax dialog without risking a duplicate eform_data row. --%>
+            <button type="button" class="btn btn-secondary" onclick="history.back();"><fmt:message key="fax.eformMissingContent.btnCancel"/></button>
         </div>
     </div>
 </div>
