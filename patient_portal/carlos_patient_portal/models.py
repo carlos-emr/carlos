@@ -93,6 +93,10 @@ MAX_UNLOCK_SECRET_ALGORITHM_LENGTH = 32
 MAX_UNLOCK_SECRET_KEY_ID_LENGTH = 64
 MAX_UNLOCK_SECRET_REVOKE_REASON_LENGTH = 64
 UNLOCK_SECRET_NONCE_LENGTH = 12
+ACCOUNT_FOREIGN_KEY_TARGET = "patient_portal_accounts.id"
+DEMOGRAPHIC_NO_POSITIVE_SQL = "demographic_no > 0"
+EXPIRY_AFTER_CREATION_SQL = "expires_at > created_at"
+PENDING_STATUS_SQL = "status = 'pending'"
 
 
 def utc_now() -> datetime:
@@ -105,7 +109,7 @@ class PatientPortalAccount(Base):
     __tablename__ = "patient_portal_accounts"
     __table_args__ = (
         CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_patient_portal_accounts_demographic_no_positive",
         ),
         CheckConstraint(
@@ -203,7 +207,7 @@ class PatientPortalContactReviewRequest(Base):
             name="ck_patient_portal_contact_review_requests_clinic_id_length",
         ),
         CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_pp_contact_review_demographic_positive",
         ),
         CheckConstraint(
@@ -254,8 +258,8 @@ class PatientPortalContactReviewRequest(Base):
             "ux_portal_contact_review_pending_account",
             "account_id",
             unique=True,
-            sqlite_where=text("status = 'pending'"),
-            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text(PENDING_STATUS_SQL),
+            postgresql_where=text(PENDING_STATUS_SQL),
         ),
         Index(
             "ix_pp_contact_review_clinic_status_requested",
@@ -267,7 +271,7 @@ class PatientPortalContactReviewRequest(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     account_id: Mapped[int] = mapped_column(
-        ForeignKey("patient_portal_accounts.id"),
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
         nullable=False,
     )
     clinic_id: Mapped[str] = mapped_column(String(MAX_CLINIC_ID_LENGTH), nullable=False)
@@ -304,7 +308,7 @@ class PatientPortalSession(Base):
             name="ck_patient_portal_sessions_token_hash_length",
         ),
         CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_sessions_expires_after_created",
         ),
         CheckConstraint(
@@ -317,7 +321,7 @@ class PatientPortalSession(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     account_id: Mapped[int] = mapped_column(
-        ForeignKey("patient_portal_accounts.id"),
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
         nullable=False,
     )
     token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
@@ -358,7 +362,7 @@ class PatientPortalMfaChallenge(Base):
             name="ck_patient_portal_mfa_challenges_failed_attempts_non_negative",
         ),
         CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_mfa_challenges_expires_after_created",
         ),
         CheckConstraint(
@@ -379,7 +383,7 @@ class PatientPortalMfaChallenge(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     account_id: Mapped[int] = mapped_column(
-        ForeignKey("patient_portal_accounts.id"),
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
         nullable=False,
     )
     challenge_token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
@@ -424,7 +428,7 @@ class PatientPortalPasswordResetToken(Base):
             name="ck_patient_portal_password_reset_tokens_status",
         ),
         CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_password_reset_tokens_expires_after_created",
         ),
         CheckConstraint(
@@ -453,14 +457,14 @@ class PatientPortalPasswordResetToken(Base):
             "ux_portal_reset_pending_account",
             "account_id",
             unique=True,
-            sqlite_where=text("status = 'pending'"),
-            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text(PENDING_STATUS_SQL),
+            postgresql_where=text(PENDING_STATUS_SQL),
         ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     account_id: Mapped[int] = mapped_column(
-        ForeignKey("patient_portal_accounts.id"),
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
         nullable=False,
     )
     token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
@@ -485,7 +489,7 @@ class PatientPortalInvite(Base):
             name="ck_patient_portal_invites_clinic_id_length",
         ),
         CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_patient_portal_invites_demographic_no_positive",
         ),
         CheckConstraint(
@@ -531,7 +535,7 @@ class PatientPortalInvite(Base):
             name="ck_patient_portal_invites_proof_hash_version",
         ),
         CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_invites_expires_after_created",
         ),
         CheckConstraint(
@@ -573,8 +577,8 @@ class PatientPortalInvite(Base):
             "clinic_id",
             "demographic_no",
             unique=True,
-            sqlite_where=text("status = 'pending'"),
-            postgresql_where=text("status = 'pending'"),
+            sqlite_where=text(PENDING_STATUS_SQL),
+            postgresql_where=text(PENDING_STATUS_SQL),
         ),
     )
 
@@ -617,7 +621,7 @@ class PatientPortalInvite(Base):
     proof_hash_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     accepted_account_id: Mapped[int | None] = mapped_column(
-        ForeignKey("patient_portal_accounts.id"),
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
         nullable=True,
     )
 
@@ -632,7 +636,7 @@ class PatientPortalUnlockSecret(Base):
             name="ck_patient_portal_unlock_secrets_clinic_id_length",
         ),
         CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_patient_portal_unlock_secrets_demographic_no_positive",
         ),
         CheckConstraint(
@@ -723,7 +727,7 @@ class PatientPortalUnlockSecret(Base):
     clinic_id: Mapped[str] = mapped_column(String(MAX_CLINIC_ID_LENGTH), nullable=False)
     demographic_no: Mapped[int] = mapped_column(Integer, nullable=False)
     account_id: Mapped[int | None] = mapped_column(
-        ForeignKey("patient_portal_accounts.id"),
+        ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
         nullable=True,
     )
     secret_type: Mapped[str] = mapped_column(String(MAX_UNLOCK_SECRET_TYPE_LENGTH), nullable=False)

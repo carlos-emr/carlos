@@ -3,6 +3,7 @@ from datetime import datetime
 
 DEFAULT_LOCALE = "en"
 DATETIME_FORMATS = {DEFAULT_LOCALE: "%Y-%m-%d %H:%M"}
+SIGN_IN_LABEL = "Sign in"
 
 
 @dataclass(frozen=True)
@@ -170,9 +171,9 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
             "Contact the clinic for help."
         ),
         "session_locked_heading": "Account locked",
-        "sign_in_aria_label": "Sign in",
-        "sign_in_button": "Sign in",
-        "sign_in_heading": "Sign in",
+        "sign_in_aria_label": SIGN_IN_LABEL,
+        "sign_in_button": SIGN_IN_LABEL,
+        "sign_in_heading": SIGN_IN_LABEL,
         "subject": "Subject",
         "unavailable": "Unavailable",
         "update_contact": "Update contact",

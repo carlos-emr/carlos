@@ -18,6 +18,13 @@ _ALEMBIC_REVISION_IDENTIFIERS: dict[str, str | Sequence[str] | None] = {
 }
 globals().update(_ALEMBIC_REVISION_IDENTIFIERS)
 
+ACCOUNT_FOREIGN_KEY_TARGET = "patient_portal_accounts.id"
+CLINIC_ID_LENGTH_SQL = "length(clinic_id) between 1 and 64"
+DEMOGRAPHIC_NO_POSITIVE_SQL = "demographic_no > 0"
+EXPIRY_AFTER_CREATION_SQL = "expires_at > created_at"
+PENDING_STATUS_SQL = "status = 'pending'"
+TOKEN_HASH_LENGTH_SQL = "length(token_hash) = 64"
+
 
 def upgrade() -> None:
     op.create_table(
@@ -40,11 +47,11 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("password_updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_patient_portal_accounts_demographic_no_positive",
         ),
         sa.CheckConstraint(
-            "length(clinic_id) between 1 and 64",
+            CLINIC_ID_LENGTH_SQL,
             name="ck_patient_portal_accounts_clinic_id_length",
         ),
         sa.CheckConstraint(
@@ -105,11 +112,11 @@ def upgrade() -> None:
         sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("reviewed_by", sa.String(length=128), nullable=True),
         sa.CheckConstraint(
-            "length(clinic_id) between 1 and 64",
+            CLINIC_ID_LENGTH_SQL,
             name="ck_patient_portal_contact_review_requests_clinic_id_length",
         ),
         sa.CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_pp_contact_review_demographic_positive",
         ),
         sa.CheckConstraint(
@@ -144,7 +151,7 @@ def upgrade() -> None:
             "status != 'reviewed' or (reviewed_at is not null and reviewed_by is not null)",
             name="ck_pp_contact_review_reviewed_present",
         ),
-        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.ForeignKeyConstraint(["account_id"], [ACCOUNT_FOREIGN_KEY_TARGET]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -158,8 +165,8 @@ def upgrade() -> None:
         "patient_portal_contact_review_requests",
         ["account_id"],
         unique=True,
-        sqlite_where=sa.text("status = 'pending'"),
-        postgresql_where=sa.text("status = 'pending'"),
+        sqlite_where=sa.text(PENDING_STATUS_SQL),
+        postgresql_where=sa.text(PENDING_STATUS_SQL),
     )
     op.create_index(
         "ix_pp_contact_review_clinic_status_requested",
@@ -178,18 +185,18 @@ def upgrade() -> None:
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revoked_reason", sa.String(length=64), nullable=True),
         sa.CheckConstraint(
-            "length(token_hash) = 64",
+            TOKEN_HASH_LENGTH_SQL,
             name="ck_patient_portal_sessions_token_hash_length",
         ),
         sa.CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_sessions_expires_after_created",
         ),
         sa.CheckConstraint(
             "revoked_reason is null or length(revoked_reason) between 1 and 64",
             name="ck_patient_portal_sessions_revoked_reason_length",
         ),
-        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.ForeignKeyConstraint(["account_id"], [ACCOUNT_FOREIGN_KEY_TARGET]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -240,7 +247,7 @@ def upgrade() -> None:
             name="ck_patient_portal_mfa_challenges_failed_attempts_non_negative",
         ),
         sa.CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_mfa_challenges_expires_after_created",
         ),
         sa.CheckConstraint(
@@ -251,7 +258,7 @@ def upgrade() -> None:
             "status != 'verified' or verified_at is not null",
             name="ck_patient_portal_mfa_challenges_verified_at_present",
         ),
-        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.ForeignKeyConstraint(["account_id"], [ACCOUNT_FOREIGN_KEY_TARGET]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -277,7 +284,7 @@ def upgrade() -> None:
         sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("client_reference_hash", sa.String(length=64), nullable=True),
         sa.CheckConstraint(
-            "length(token_hash) = 64",
+            TOKEN_HASH_LENGTH_SQL,
             name="ck_patient_portal_password_reset_tokens_token_hash_length",
         ),
         sa.CheckConstraint(
@@ -285,7 +292,7 @@ def upgrade() -> None:
             name="ck_patient_portal_password_reset_tokens_status",
         ),
         sa.CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_password_reset_tokens_expires_after_created",
         ),
         sa.CheckConstraint(
@@ -300,7 +307,7 @@ def upgrade() -> None:
             "client_reference_hash is null or length(client_reference_hash) = 64",
             name="ck_patient_portal_password_reset_tokens_client_hash_length",
         ),
-        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.ForeignKeyConstraint(["account_id"], [ACCOUNT_FOREIGN_KEY_TARGET]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -320,8 +327,8 @@ def upgrade() -> None:
         "patient_portal_password_reset_tokens",
         ["account_id"],
         unique=True,
-        sqlite_where=sa.text("status = 'pending'"),
-        postgresql_where=sa.text("status = 'pending'"),
+        sqlite_where=sa.text(PENDING_STATUS_SQL),
+        postgresql_where=sa.text(PENDING_STATUS_SQL),
     )
     op.create_table(
         "patient_portal_invites",
@@ -347,11 +354,11 @@ def upgrade() -> None:
         sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("accepted_account_id", sa.Integer(), nullable=True),
         sa.CheckConstraint(
-            "length(clinic_id) between 1 and 64",
+            CLINIC_ID_LENGTH_SQL,
             name="ck_patient_portal_invites_clinic_id_length",
         ),
         sa.CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_patient_portal_invites_demographic_no_positive",
         ),
         sa.CheckConstraint(
@@ -359,7 +366,7 @@ def upgrade() -> None:
             name="ck_patient_portal_invites_sent_count_non_negative",
         ),
         sa.CheckConstraint(
-            "length(token_hash) = 64",
+            TOKEN_HASH_LENGTH_SQL,
             name="ck_patient_portal_invites_token_hash_length",
         ),
         sa.CheckConstraint(
@@ -394,7 +401,7 @@ def upgrade() -> None:
             name="ck_patient_portal_invites_proof_hash_version",
         ),
         sa.CheckConstraint(
-            "expires_at > created_at",
+            EXPIRY_AFTER_CREATION_SQL,
             name="ck_patient_portal_invites_expires_after_created",
         ),
         sa.CheckConstraint(
@@ -419,7 +426,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["accepted_account_id"],
-            ["patient_portal_accounts.id"],
+            [ACCOUNT_FOREIGN_KEY_TARGET],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -452,8 +459,8 @@ def upgrade() -> None:
         "patient_portal_invites",
         ["clinic_id", "demographic_no"],
         unique=True,
-        sqlite_where=sa.text("status = 'pending'"),
-        postgresql_where=sa.text("status = 'pending'"),
+        sqlite_where=sa.text(PENDING_STATUS_SQL),
+        postgresql_where=sa.text(PENDING_STATUS_SQL),
     )
     op.create_table(
         "patient_portal_unlock_secrets",
@@ -477,11 +484,11 @@ def upgrade() -> None:
         sa.Column("revoked_by", sa.String(length=128), nullable=True),
         sa.Column("revoke_reason", sa.String(length=64), nullable=True),
         sa.CheckConstraint(
-            "length(clinic_id) between 1 and 64",
+            CLINIC_ID_LENGTH_SQL,
             name="ck_patient_portal_unlock_secrets_clinic_id_length",
         ),
         sa.CheckConstraint(
-            "demographic_no > 0",
+            DEMOGRAPHIC_NO_POSITIVE_SQL,
             name="ck_patient_portal_unlock_secrets_demographic_no_positive",
         ),
         sa.CheckConstraint(
@@ -541,7 +548,7 @@ def upgrade() -> None:
             "status != 'revoked' or (revoked_at is not null and revoked_by is not null)",
             name="ck_patient_portal_unlock_secrets_revoked_fields_present",
         ),
-        sa.ForeignKeyConstraint(["account_id"], ["patient_portal_accounts.id"]),
+        sa.ForeignKeyConstraint(["account_id"], [ACCOUNT_FOREIGN_KEY_TARGET]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(

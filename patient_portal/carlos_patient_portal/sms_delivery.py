@@ -76,9 +76,9 @@ class WebhookPortalSmsSender:
                 self.request_path,
                 body=body,
                 headers={
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
-                "User-Agent": "carlos-patient-portal/0.1",
+                    "Authorization": f"Bearer {self.token}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "carlos-patient-portal/0.1",
                 },
             )
             response = connection.getresponse()
@@ -87,7 +87,7 @@ class WebhookPortalSmsSender:
                 raise PortalSmsDeliveryError("portal SMS delivery failed")
         except PortalSmsDeliveryError:
             raise
-        except (HTTPException, OSError, TimeoutError, ValueError):
+        except (HTTPException, OSError, ValueError):
             raise PortalSmsDeliveryError("portal SMS delivery failed") from None
         finally:
             connection.close()

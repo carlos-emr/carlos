@@ -30,6 +30,31 @@ ENVIRONMENT_ALIASES = {
 }
 
 
+def parse_unlock_secret_keyring(encoded_keyring: str) -> dict[str, str]:
+    try:
+        parsed_keyring = json.loads(encoded_keyring)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a JSON object"
+        ) from exc
+    if not isinstance(parsed_keyring, dict) or not parsed_keyring:
+        raise ValueError(
+            "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a non-empty JSON object"
+        )
+
+    normalized_keyring: dict[str, str] = {}
+    for key_id, secret in parsed_keyring.items():
+        if not isinstance(key_id, str) or not key_id.strip() or len(key_id.strip()) > 64:
+            raise ValueError("unlock-secret key IDs must contain 1 to 64 characters")
+        if not isinstance(secret, str) or len(secret.strip()) < MIN_PRODUCTION_SECRET_LENGTH:
+            raise ValueError(
+                "each unlock-secret encryption key must be at least "
+                f"{MIN_PRODUCTION_SECRET_LENGTH} characters"
+            )
+        normalized_keyring[key_id.strip()] = secret.strip()
+    return normalized_keyring
+
+
 class Settings(BaseSettings):
     """Runtime configuration for the patient portal service."""
 
@@ -271,26 +296,7 @@ class Settings(BaseSettings):
                 "configure either PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET or "
                 "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING, not both"
             )
-        try:
-            parsed_keyring = json.loads(encoded_keyring)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a JSON object"
-            ) from exc
-        if not isinstance(parsed_keyring, dict) or not parsed_keyring:
-            raise ValueError(
-                "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING must be a non-empty JSON object"
-            )
-        normalized_keyring: dict[str, str] = {}
-        for key_id, secret in parsed_keyring.items():
-            if not isinstance(key_id, str) or not key_id.strip() or len(key_id.strip()) > 64:
-                raise ValueError("unlock-secret key IDs must contain 1 to 64 characters")
-            if not isinstance(secret, str) or len(secret.strip()) < MIN_PRODUCTION_SECRET_LENGTH:
-                raise ValueError(
-                    "each unlock-secret encryption key must be at least "
-                    f"{MIN_PRODUCTION_SECRET_LENGTH} characters"
-                )
-            normalized_keyring[key_id.strip()] = secret.strip()
+        normalized_keyring = parse_unlock_secret_keyring(encoded_keyring)
         if self.unlock_secret_active_key_id not in normalized_keyring:
             raise ValueError(
                 "PATIENT_PORTAL_UNLOCK_SECRET_ACTIVE_KEY_ID must exist in the keyring"
@@ -342,12 +348,19 @@ class Settings(BaseSettings):
             raise ValueError("PATIENT_PORTAL_REQUIRE_MFA must stay enabled in production")
 
     def validate_smtp_policy(self) -> None:
+        self.validate_smtp_credentials()
+        self.validate_smtp_sender()
+        self.validate_smtp_transport()
+
+    def validate_smtp_credentials(self) -> None:
         smtp_password_value = self.secret_value("smtp_password")
         if (self.smtp_username is None) != (smtp_password_value is None):
             raise ValueError(
                 "PATIENT_PORTAL_SMTP_USERNAME and PATIENT_PORTAL_SMTP_PASSWORD "
                 "must be configured together"
             )
+
+    def validate_smtp_sender(self) -> None:
         if self.smtp_host is None:
             if self.smtp_from_address is not None:
                 raise ValueError(
@@ -363,6 +376,8 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_SMTP_FROM_ADDRESS is required when "
                 "PATIENT_PORTAL_SMTP_HOST is set"
             )
+
+    def validate_smtp_transport(self) -> None:
         if not self.is_development and self.smtp_host is not None:
             if not self.smtp_starttls:
                 raise ValueError(

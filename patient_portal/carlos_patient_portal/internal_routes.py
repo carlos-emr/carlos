@@ -51,6 +51,18 @@ PERMISSION_INVITE_MANAGE = "portal.invite.manage"
 PERMISSION_ACCOUNT_UNLOCK = "portal.account.unlock"
 PERMISSION_SECRET_MANAGE = "portal.secret.manage"
 PERMISSION_CONTACT_REVIEW = "portal.contact.review"
+COMMON_INTERNAL_RESPONSES = {
+    status.HTTP_403_FORBIDDEN: {"description": "Staff permission is required."},
+    status.HTTP_404_NOT_FOUND: {"description": "Resource or service endpoint was not found."},
+}
+INTERNAL_CONFLICT_RESPONSES = {
+    **COMMON_INTERNAL_RESPONSES,
+    status.HTTP_409_CONFLICT: {"description": "The requested state transition conflicts."},
+}
+INTERNAL_CREATE_INVITE_RESPONSES = {
+    **INTERNAL_CONFLICT_RESPONSES,
+    status.HTTP_400_BAD_REQUEST: {"description": "The demographic scope does not match."},
+}
 
 
 class InternalRuntime(Protocol):
@@ -86,7 +98,8 @@ def require_permission(principal: StaffPrincipal, permission: str) -> None:
     try:
         principal.require(permission)
     except CarlosStaffPermissionError as exc:
-        raise HTTPException(status_code=403, detail="permission denied") from exc
+        # Sonar cannot associate dependency-level errors with every route's OpenAPI responses.
+        raise HTTPException(status_code=403, detail="permission denied") from exc  # NOSONAR
 
 
 def invite_payload(invite, *, invite_token: str | None = None) -> dict[str, object]:
@@ -134,9 +147,14 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
         except CarlosServiceAuthenticationError as exc:
             raise HTTPException(status_code=404, detail="not found") from exc
 
-    session_dependency = Depends(get_database_session, scope="function")
+    # FastAPI supports function-scoped teardown; Sonar's FastAPI stub does not.
+    session_dependency = Depends(get_database_session, scope="function")  # NOSONAR
 
-    @app.post("/internal/carlos/patients/{demographic_no}/invites", status_code=201)
+    @app.post(
+        "/internal/carlos/patients/{demographic_no}/invites",
+        status_code=201,
+        responses=INTERNAL_CREATE_INVITE_RESPONSES,
+    )
     def internal_create_invite(
         demographic_no: Annotated[int, Path(gt=0)],
         payload: InviteCreateRequest,
@@ -166,7 +184,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             raise HTTPException(status_code=409, detail="pending invite already exists") from exc
         return invite_payload(invite, invite_token=invite_token)
 
-    @app.get("/internal/carlos/patients/{demographic_no}/invites")
+    @app.get(
+        "/internal/carlos/patients/{demographic_no}/invites",
+        responses=COMMON_INTERNAL_RESPONSES,
+    )
     def internal_list_invites(
         demographic_no: Annotated[int, Path(gt=0)],
         principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
@@ -183,7 +204,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             )
         ]
 
-    @app.post("/internal/carlos/invites/{invite_id}/resend")
+    @app.post(
+        "/internal/carlos/invites/{invite_id}/resend",
+        responses=INTERNAL_CONFLICT_RESPONSES,
+    )
     def internal_resend_invite(
         invite_id: Annotated[int, Path(gt=0)],
         principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
@@ -204,7 +228,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             raise HTTPException(status_code=409, detail="invite cannot be resent") from exc
         return invite_payload(invite, invite_token=invite_token)
 
-    @app.post("/internal/carlos/invites/{invite_id}/revoke")
+    @app.post(
+        "/internal/carlos/invites/{invite_id}/revoke",
+        responses=INTERNAL_CONFLICT_RESPONSES,
+    )
     def internal_revoke_invite(
         invite_id: Annotated[int, Path(gt=0)],
         principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
@@ -228,7 +255,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             ) from exc
         return invite_payload(invite)
 
-    @app.post("/internal/carlos/patients/{demographic_no}/unlock")
+    @app.post(
+        "/internal/carlos/patients/{demographic_no}/unlock",
+        responses=COMMON_INTERNAL_RESPONSES,
+    )
     def internal_unlock_account(
         demographic_no: Annotated[int, Path(gt=0)],
         principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
@@ -263,6 +293,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     @app.post(
         "/internal/carlos/patients/{demographic_no}/unlock-secrets",
         status_code=status.HTTP_201_CREATED,
+        responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_create_unlock_secret(
         demographic_no: Annotated[int, Path(gt=0)],
@@ -352,7 +383,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             "source_reference": created.unlock_secret.source_reference,
         }
 
-    @app.post("/internal/carlos/unlock-secrets/{unlock_secret_id}/revoke")
+    @app.post(
+        "/internal/carlos/unlock-secrets/{unlock_secret_id}/revoke",
+        responses=COMMON_INTERNAL_RESPONSES,
+    )
     def internal_revoke_unlock_secret(
         unlock_secret_id: Annotated[int, Path(gt=0)],
         payload: InternalUnlockSecretRevokeRequest,
@@ -379,7 +413,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             raise HTTPException(status_code=404, detail="unlock secret not found") from exc
         return {"id": unlock_secret.id, "status": unlock_secret.status}
 
-    @app.get("/internal/carlos/contact-reviews")
+    @app.get(
+        "/internal/carlos/contact-reviews",
+        responses=COMMON_INTERNAL_RESPONSES,
+    )
     def internal_list_contact_reviews(
         principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
         session: Annotated[Session, session_dependency],
@@ -405,7 +442,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             ]
         }
 
-    @app.post("/internal/carlos/contact-reviews/{review_request_id}/decision")
+    @app.post(
+        "/internal/carlos/contact-reviews/{review_request_id}/decision",
+        responses=COMMON_INTERNAL_RESPONSES,
+    )
     def internal_review_contact_update(
         review_request_id: Annotated[int, Path(gt=0)],
         payload: InternalContactReviewDecision,

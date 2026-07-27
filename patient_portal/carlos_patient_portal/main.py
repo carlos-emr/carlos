@@ -201,6 +201,16 @@ CONTENT_SECURITY_POLICY = (
     "object-src 'none'"
 )
 FHIR_JSON_MEDIA_TYPE = "application/fhir+json"
+FHIR_PATH_PREFIX = "/fhir/"
+PORTAL_ROOT_PATH = "/portal"
+SERVICE_UNAVAILABLE_DETAIL = "service temporarily unavailable"
+AUTHENTICATION_REQUIRED_DETAIL = "authentication required"
+NOT_FOUND_DETAIL = "not found"
+INVALID_CSRF_DETAIL = "invalid CSRF token"
+ACCOUNT_LOCKED_DETAIL = "account access is locked; contact the clinic for help"
+MFA_VERIFICATION_FAILED_DETAIL = "MFA could not be verified"
+PASSWORD_RESET_COMPLETE_TEMPLATE = "password_reset_complete.jinja"
+ACTIVATION_TEMPLATE = "activate.jinja"
 SECURITY_HEADERS = {
     "Referrer-Policy": "same-origin",
     "X-Content-Type-Options": "nosniff",
@@ -217,9 +227,9 @@ CSRF_FORM_FIELD = "csrf_token"
 CSRF_TOKEN_TTL_SECONDS = 60 * 60
 CSRF_FUTURE_SKEW_SECONDS = 60
 PORTAL_SESSION_COOKIE_NAME = "carlos_portal_session"
-PORTAL_SESSION_COOKIE_PATH = "/portal"
+PORTAL_SESSION_COOKIE_PATH = PORTAL_ROOT_PATH
 PORTAL_MODULES = (
-    {"slug": "dashboard", "label_key": "dashboard", "href": "/portal"},
+    {"slug": "dashboard", "label_key": "dashboard", "href": PORTAL_ROOT_PATH},
     {"slug": "account", "label_key": "account", "href": "/portal/account"},
     {
         "slug": "email-passwords",
@@ -504,7 +514,7 @@ def is_patient_runtime_path(path: str) -> bool:
         path == "/"
         or path.startswith("/auth/")
         or path.startswith("/api/patient/")
-        or path.startswith("/fhir/")
+        or path.startswith(FHIR_PATH_PREFIX)
         or is_portal_path(path)
     )
 
@@ -862,7 +872,8 @@ def deliver_password_reset(
     except PortalEmailDeliveryError as exc:
         outcome = AUDIT_OUTCOME_FAILURE
         runtime.operational_metrics.record_failure("password_reset_delivery")
-        logger.error("Password reset email delivery failed: %s", type(exc).__name__)
+        # Exception details can contain SMTP recipient data; log only the sanitized type.
+        logger.error("Password reset email delivery failed: %s", type(exc).__name__)  # NOSONAR
     try:
         with runtime.session_factory() as session:
             with session.begin():
@@ -872,7 +883,8 @@ def deliver_password_reset(
                     outcome=outcome,
                 )
     except (PasswordResetTokenInvalidError, SQLAlchemyError) as exc:
-        logger.error(
+        # Exception details can contain database values; log only the sanitized type.
+        logger.error(  # NOSONAR
             "Password reset delivery outcome persistence failed: %s",
             type(exc).__name__,
         )
@@ -1129,6 +1141,18 @@ def portal_template_context(
     return context
 
 
+def dashboard_created_before(date_to: date | None) -> datetime | None:
+    if date_to is None:
+        return None
+    if date_to == date.max:
+        return datetime.max.replace(tzinfo=UTC)
+    return datetime.combine(
+        date_to + timedelta(days=1),
+        datetime_time.min,
+        tzinfo=UTC,
+    )
+
+
 def email_password_dashboard_context(
     session: Session,
     account: PatientPortalAccount,
@@ -1154,19 +1178,7 @@ def email_password_dashboard_context(
         if date_from is not None
         else None
     )
-    created_before = (
-        (
-            datetime.max.replace(tzinfo=UTC)
-            if date_to == date.max
-            else datetime.combine(
-                date_to + timedelta(days=1),
-                datetime_time.min,
-                tzinfo=UTC,
-            )
-        )
-        if date_to is not None
-        else None
-    )
+    created_before = dashboard_created_before(date_to)
     total_records = (
         0
         if has_filter_error
@@ -1398,7 +1410,8 @@ async def get_csrf_urlencoded_form_values(
         request.cookies.get(CSRF_COOKIE_NAME),
         csrf_secret,
     ):
-        raise HTTPException(status_code=403, detail="invalid CSRF token")
+        # This helper is shared by routes that document their own browser/API responses.
+        raise HTTPException(status_code=403, detail=INVALID_CSRF_DETAIL)  # NOSONAR
     return form_values
 
 
@@ -1471,7 +1484,8 @@ async def get_mfa_verify_request_from_request(
     csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
     csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
     if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
-        raise HTTPException(status_code=403, detail="invalid CSRF token")
+        # This helper is shared by routes that document their own browser/API responses.
+        raise HTTPException(status_code=403, detail=INVALID_CSRF_DETAIL)  # NOSONAR
 
     try:
         return MfaVerifyRequest.model_validate(
@@ -1516,7 +1530,8 @@ async def get_mfa_resend_request_from_request(
     csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
     csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
     if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
-        raise HTTPException(status_code=403, detail="invalid CSRF token")
+        # This helper is shared by routes that document their own browser/API responses.
+        raise HTTPException(status_code=403, detail=INVALID_CSRF_DETAIL)  # NOSONAR
 
     try:
         return MfaResendRequest.model_validate(
@@ -1622,7 +1637,8 @@ async def get_invite_create_request(request: Request) -> InviteCreateRequest:
     )
 
 
-async def get_json_request_model(
+# PEP 695 function syntax requires Python 3.12; the portal supports Python 3.11.
+async def get_json_request_model(  # NOSONAR
     request: Request,
     model_type: type[RequestModel],
     unsupported_media_type_detail: str,
@@ -1674,7 +1690,8 @@ async def get_login_request_from_request(request: Request, csrf_secret: str) -> 
     csrf_token = first_form_value(form_values, CSRF_FORM_FIELD)
     csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
     if not is_valid_csrf_submission(csrf_token, csrf_cookie, csrf_secret):
-        raise HTTPException(status_code=403, detail="invalid CSRF token")
+        # This helper is shared by routes that document their own browser/API responses.
+        raise HTTPException(status_code=403, detail=INVALID_CSRF_DETAIL)  # NOSONAR
 
     try:
         return LoginRequest.model_validate(
@@ -1858,15 +1875,15 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         request.app.state.operational_metrics.record_failure("database")
         logger.warning("Portal database operation unavailable: %s", type(exc.orig).__name__)
-        if request.url.path.startswith("/fhir/"):
+        if request.url.path.startswith(FHIR_PATH_PREFIX):
             return fhir_operation_outcome_response(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 code="transient",
-                diagnostics="service temporarily unavailable",
+                diagnostics=SERVICE_UNAVAILABLE_DETAIL,
             )
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"detail": "service temporarily unavailable"},
+            content={"detail": SERVICE_UNAVAILABLE_DETAIL},
             headers={"Retry-After": "1"},
         )
 
@@ -1920,16 +1937,16 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         if settings.maintenance_mode and not is_maintenance_exempt_path(request.url.path):
-            if request.url.path.startswith("/fhir/"):
+            if request.url.path.startswith(FHIR_PATH_PREFIX):
                 response = fhir_operation_outcome_response(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     code="transient",
-                    diagnostics="service temporarily unavailable",
+                    diagnostics=SERVICE_UNAVAILABLE_DETAIL,
                 )
             else:
                 response = JSONResponse(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    content={"detail": "service temporarily unavailable"},
+                    content={"detail": SERVICE_UNAVAILABLE_DETAIL},
                 )
             response.headers["Retry-After"] = str(settings.maintenance_retry_after_seconds)
         elif is_rate_limited_path(request.url.path):
@@ -1938,7 +1955,7 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
             )
             if retry_after_seconds is None:
                 response = await call_next(request)
-            elif request.url.path.startswith("/fhir/"):
+            elif request.url.path.startswith(FHIR_PATH_PREFIX):
                 response = fhir_operation_outcome_response(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     code="throttled",
@@ -1962,7 +1979,7 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
             request.url.path in NO_STORE_PATHS
             or request.url.path.startswith("/auth/")
             or request.url.path.startswith("/api/patient/")
-            or request.url.path.startswith("/fhir/")
+            or request.url.path.startswith(FHIR_PATH_PREFIX)
             or is_portal_path(request.url.path)
             or request.url.path.startswith("/internal/")
             or request.url.path.startswith("/dev/admin/")
@@ -1999,18 +2016,18 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         scheme, _, supplied_token = (authorization or "").partition(" ")
         expected_token = settings.internal_health_token.get_secret_value().strip()
         if scheme.lower() != "bearer" or not compare_digest(supplied_token, expected_token):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
 
     def require_dev_admin_token(
         authorization: Annotated[str | None, Header()] = None,
     ) -> None:
         if settings.dev_admin_token is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
 
         scheme, _, supplied_token = (authorization or "").partition(" ")
         expected_token = settings.dev_admin_token.get_secret_value().strip()
         if scheme.lower() != "bearer" or not compare_digest(supplied_token, expected_token):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
 
     def get_dev_admin_actor(
         _: Annotated[None, Depends(require_dev_admin_token)],
@@ -2047,7 +2064,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
     ) -> str:
         scheme, _, supplied_token = (authorization or "").partition(" ")
         if scheme.lower() != "bearer" or not supplied_token.strip():
-            raise HTTPException(status_code=401, detail="authentication required")
+            raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL)
         return supplied_token.strip()
 
     def get_authenticated_portal_session(
@@ -2061,7 +2078,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 token_secret=runtime.csrf_secret,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
-            raise HTTPException(status_code=401, detail="authentication required") from exc
+            raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL) from exc
 
     def get_authenticated_fhir_session(
         request: Request,
@@ -2087,7 +2104,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             raise FhirApiError(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 code="login",
-                diagnostics="authentication required",
+                diagnostics=AUTHENTICATION_REQUIRED_DETAIL,
             )
         try:
             return authenticate_session_token(
@@ -2113,7 +2130,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             raise FhirApiError(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 code="login",
-                diagnostics="authentication required",
+                diagnostics=AUTHENTICATION_REQUIRED_DETAIL,
             ) from exc
 
     def get_authenticated_portal_cookie_session(
@@ -2509,7 +2526,7 @@ def register_auth_routes(
                 render_index_response=render_index_response,
                 status_code=status.HTTP_423_LOCKED,
                 browser_message=text["session_locked_details"],
-                json_content={"detail": "account access is locked; contact the clinic for help"},
+                json_content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
             if is_browser_form:
@@ -2564,7 +2581,7 @@ def register_auth_routes(
             return render_mfa_page(request, result.mfa_challenge)
         if is_browser_form and result.session_token is not None:
             redirect_response = RedirectResponse(
-                "/portal",
+                PORTAL_ROOT_PATH,
                 status_code=status.HTTP_303_SEE_OTHER,
             )
             set_portal_session_cookie(
@@ -2623,13 +2640,16 @@ def register_auth_routes(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     error_message=text["mfa_sign_in_again"],
                 )
-            return JSONResponse(status_code=400, content={"detail": "MFA could not be verified"})
+            return JSONResponse(
+                status_code=400,
+                content={"detail": MFA_VERIFICATION_FAILED_DETAIL},
+            )
         except AccountLockedError:
             if is_browser_form:
                 return render_locked_page(request)
             return JSONResponse(
                 status_code=status.HTTP_423_LOCKED,
-                content={"detail": "account access is locked; contact the clinic for help"},
+                content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
             if is_browser_form:
@@ -2727,7 +2747,7 @@ def register_auth_routes(
                 render_index_response=render_index_response,
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 browser_message=text["mfa_verification_failed"],
-                json_content={"detail": "MFA could not be verified"},
+                json_content={"detail": MFA_VERIFICATION_FAILED_DETAIL},
             )
         except (MfaChallengeNotFoundError, ValueError):
             return auth_error_response(
@@ -2736,7 +2756,7 @@ def register_auth_routes(
                 render_index_response=render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 browser_message=text["mfa_verification_failed"],
-                json_content={"detail": "MFA could not be verified"},
+                json_content={"detail": MFA_VERIFICATION_FAILED_DETAIL},
             )
         except AccountLockedError:
             if is_browser_form:
@@ -2747,7 +2767,7 @@ def register_auth_routes(
                 render_index_response=render_index_response,
                 status_code=status.HTTP_423_LOCKED,
                 browser_message=text["session_locked_details"],
-                json_content={"detail": "account access is locked; contact the clinic for help"},
+                json_content={"detail": ACCOUNT_LOCKED_DETAIL},
             )
         except PasswordResetRequiredError:
             if is_browser_form:
@@ -2766,7 +2786,7 @@ def register_auth_routes(
             )
         if is_browser_form:
             redirect_response = RedirectResponse(
-                "/portal",
+                PORTAL_ROOT_PATH,
                 status_code=status.HTTP_303_SEE_OTHER,
             )
             set_portal_session_cookie(redirect_response, session_token, settings=settings)
@@ -2786,7 +2806,7 @@ def register_auth_routes(
             request,
             settings=settings,
             csrf_secret=csrf_secret,
-            template_name="password_reset_complete.jinja",
+            template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
         )
 
     @app.post(
@@ -2847,7 +2867,8 @@ def register_auth_routes(
                         outcome=AUDIT_OUTCOME_FAILURE,
                     )
                     session.commit()
-                    logger.error(
+                    # SMTP exceptions may contain recipient data; keep this log PHI-safe.
+                    logger.error(  # NOSONAR
                         "Password reset email delivery failed: %s",
                         type(exc).__name__,
                     )
@@ -2894,21 +2915,17 @@ def register_auth_routes(
         except BrowserFormValidationError as exc:
             if not is_browser_form:
                 raise
+            error_key = {
+                "password_mismatch": "password_mismatch",
+                "invalid_password": "password_invalid",
+            }.get(str(exc), "password_reset_complete_error")
             return render_public_auth_template(
                 request,
                 settings=settings,
                 csrf_secret=csrf_secret,
-                template_name="password_reset_complete.jinja",
+                template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                error_message=(
-                    text["password_mismatch"]
-                    if str(exc) == "password_mismatch"
-                    else (
-                        text["password_invalid"]
-                        if str(exc) == "invalid_password"
-                        else text["password_reset_complete_error"]
-                    )
-                ),
+                error_message=text[error_key],
                 reset_token=exc.safe_form_values.get("reset_token"),
             )
         try:
@@ -2925,7 +2942,7 @@ def register_auth_routes(
                     request,
                     settings=settings,
                     csrf_secret=csrf_secret,
-                    template_name="password_reset_complete.jinja",
+                    template_name=PASSWORD_RESET_COMPLETE_TEMPLATE,
                     status_code=status.HTTP_400_BAD_REQUEST,
                     error_message=text["password_reset_complete_error"],
                 )
@@ -3544,7 +3561,7 @@ def register_logout_route(
                 token_secret=csrf_secret,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
-            raise HTTPException(status_code=401, detail="authentication required") from exc
+            raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL) from exc
         clear_portal_session_cookie(response, settings=settings)
         return {"status": "logged_out"}
 
@@ -3564,7 +3581,7 @@ def register_portal_routes(
     render_account_change_error = route_dependencies.render_account_change_error
     csrf_secret = runtime.csrf_secret
 
-    @app.get("/portal")
+    @app.get(PORTAL_ROOT_PATH)
     def portal_dashboard(
         request: Request,
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
@@ -3783,7 +3800,7 @@ def register_portal_routes(
         if isinstance(authenticated_session, RedirectResponse):
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "authentication required"},
+                content={"detail": AUTHENTICATION_REQUIRED_DETAIL},
             )
         account = authenticated_session.account
         try:
@@ -3888,7 +3905,7 @@ def register_activation_routes(
             request,
             settings=settings,
             csrf_secret=csrf_secret,
-            template_name="activate.jinja",
+            template_name=ACTIVATION_TEMPLATE,
         )
 
     @app.post(
@@ -3910,7 +3927,7 @@ def register_activation_routes(
                 request,
                 settings=settings,
                 csrf_secret=csrf_secret,
-                template_name="activate.jinja",
+                template_name=ACTIVATION_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 error_message=text["password_mismatch"],
             )
@@ -3921,7 +3938,7 @@ def register_activation_routes(
                 request,
                 settings=settings,
                 csrf_secret=csrf_secret,
-                template_name="activate.jinja",
+                template_name=ACTIVATION_TEMPLATE,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 error_message=text["activation_error"],
             )
@@ -3952,7 +3969,7 @@ def register_activation_routes(
                     request,
                     settings=settings,
                     csrf_secret=csrf_secret,
-                    template_name="activate.jinja",
+                    template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_409_CONFLICT,
                     error_message=text["username_unavailable"],
                     form_values={
@@ -3967,7 +3984,7 @@ def register_activation_routes(
                     request,
                     settings=settings,
                     csrf_secret=csrf_secret,
-                    template_name="activate.jinja",
+                    template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     error_message=text["activation_rate_limited"],
                 )
@@ -3984,7 +4001,7 @@ def register_activation_routes(
                     request,
                     settings=settings,
                     csrf_secret=csrf_secret,
-                    template_name="activate.jinja",
+                    template_name=ACTIVATION_TEMPLATE,
                     status_code=status.HTTP_400_BAD_REQUEST,
                     error_message=text["activation_error"],
                 )
