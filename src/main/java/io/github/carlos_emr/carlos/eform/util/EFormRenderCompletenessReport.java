@@ -26,12 +26,14 @@ public record EFormRenderCompletenessReport(
         boolean signatureMissing,
         boolean timerCompatibilityFailure,
         boolean stabilizationCapped,
-        boolean labDecisionSupportStubbed) implements Serializable {
+        boolean labDecisionSupportStubbed,
+        boolean providerStampMissing) implements Serializable {
 
-    private static final long serialVersionUID = 3L;
+    // 4L: providerStampMissing was added, which changes both the serialized shape and digest().
+    private static final long serialVersionUID = 4L;
 
     /**
-     * Counters are grouped ahead of the flags deliberately. All three counts and all four flags are
+     * Counters are grouped ahead of the flags deliberately. All three counts and all five flags are
      * same-typed and carry different clinical meanings, so an interleaved layout would let a
      * transposed argument compile cleanly and silently reclassify one omission as another.
      */
@@ -42,8 +44,24 @@ public record EFormRenderCompletenessReport(
         }
     }
 
+    /**
+     * Reports a render in which no provider signature stamp was expected.
+     *
+     * <p>Retained so the many existing construction sites keep their meaning unchanged: none of them
+     * concern the stamp, and appending the flag positionally to each would risk exactly the
+     * transposed-argument mistake the component ordering above exists to prevent.</p>
+     */
+    public EFormRenderCompletenessReport(
+            int failedContentResources, int excludedContentElements, int severeConsoleErrors,
+            int containedInteractions, boolean signatureMissing, boolean timerCompatibilityFailure,
+            boolean stabilizationCapped, boolean labDecisionSupportStubbed) {
+        this(failedContentResources, excludedContentElements, severeConsoleErrors,
+                containedInteractions, signatureMissing, timerCompatibilityFailure,
+                stabilizationCapped, labDecisionSupportStubbed, false);
+    }
+
     public static EFormRenderCompletenessReport complete() {
-        return new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false);
+        return new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, false);
     }
 
     /**
@@ -61,7 +79,8 @@ public record EFormRenderCompletenessReport(
                 && !signatureMissing
                 && !timerCompatibilityFailure
                 && !stabilizationCapped
-                && !labDecisionSupportStubbed;
+                && !labDecisionSupportStubbed
+                && !providerStampMissing;
     }
 
     /**
@@ -121,7 +140,8 @@ public record EFormRenderCompletenessReport(
         count = Math.addExact(count, signatureMissing ? 1 : 0);
         count = Math.addExact(count, timerCompatibilityFailure ? 1 : 0);
         count = Math.addExact(count, stabilizationCapped ? 1 : 0);
-        return Math.addExact(count, labDecisionSupportStubbed ? 1 : 0);
+        count = Math.addExact(count, labDecisionSupportStubbed ? 1 : 0);
+        return Math.addExact(count, providerStampMissing ? 1 : 0);
     }
 
     /**
@@ -150,6 +170,7 @@ public record EFormRenderCompletenessReport(
         appendFlag(description, "signatureMissing", signatureMissing);
         appendFlag(description, "stabilizationCapped", stabilizationCapped);
         appendFlag(description, "labDecisionSupportStubbed", labDecisionSupportStubbed);
+        appendFlag(description, "providerStampMissing", providerStampMissing);
         return description.isEmpty() ? "none" : description.toString();
     }
 
@@ -185,7 +206,8 @@ public record EFormRenderCompletenessReport(
                 signatureMissing || other.signatureMissing,
                 timerCompatibilityFailure || other.timerCompatibilityFailure,
                 stabilizationCapped || other.stabilizationCapped,
-                labDecisionSupportStubbed || other.labDecisionSupportStubbed);
+                labDecisionSupportStubbed || other.labDecisionSupportStubbed,
+                providerStampMissing || other.providerStampMissing);
     }
 
     /**
@@ -199,7 +221,8 @@ public record EFormRenderCompletenessReport(
                 + signatureMissing + ":"
                 + timerCompatibilityFailure + ":"
                 + stabilizationCapped + ":"
-                + labDecisionSupportStubbed;
+                + labDecisionSupportStubbed + ":"
+                + providerStampMissing;
         try {
             return HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256")

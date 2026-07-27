@@ -490,6 +490,10 @@ public class EFormBrowserPdfService {
             // Without this the requisition renders "complete" with unpopulated fields and no tickler.
             + "const labDecisionSupportStubbed = "
             + "!!document.querySelector('#carlos-lab-ds-stubbed');\n"
+            // Composer marker: the form expects a provider signature stamp that is not on file. Kept
+            // separate from signatureBroken, which means a SIGNED document lost its signature.
+            + "const providerStampMissing = "
+            + "!!document.querySelector('#carlos-provider-stamp-missing');\n"
             + "return {\n"
             + "  pages: pageNodes.map((pageNode) => {\n"
             + "    const own = rectOf(pageNode);\n"
@@ -513,6 +517,7 @@ public class EFormBrowserPdfService {
             + "  timerCompatibilityFailure: timerCompatibilityFailure,\n"
             + "  timerCompatShimMissing: timerCompatShimMissing,\n"
             + "  labDecisionSupportStubbed: labDecisionSupportStubbed,\n"
+            + "  providerStampMissing: providerStampMissing,\n"
             + "};";
 
     /**
@@ -786,7 +791,8 @@ public class EFormBrowserPdfService {
                             geometry.signatureBroken(),
                             geometry.timerCompatibilityFailure(),
                             stabilizationCapped,
-                            geometry.labDecisionSupportStubbed()));
+                            geometry.labDecisionSupportStubbed(),
+                            geometry.providerStampMissing()));
             if (completeness.hasBlockingOmissions()
                     && (approval == null || !approval.permits(fdid, providerId, completeness))) {
                 // Name the components, not just the totals: a bare "blocking=2" cannot be acted on,
@@ -1349,8 +1355,9 @@ public class EFormBrowserPdfService {
         }
         boolean labDecisionSupportStubbed = requiredBoolean(
                 rawMap, "labDecisionSupportStubbed");
+        boolean providerStampMissing = requiredBoolean(rawMap, "providerStampMissing");
         return new PageGeometry(pages, excludedCount, excludedHeight, signatureBroken,
-                timerCompatibilityFailure, labDecisionSupportStubbed);
+                timerCompatibilityFailure, labDecisionSupportStubbed, providerStampMissing);
     }
 
     private static double requiredNonNegativeNumber(Map<?, ?> rawMap, String key)
@@ -1511,7 +1518,7 @@ public class EFormBrowserPdfService {
      */
     record PageGeometry(List<PageSize> pages, int excludedCount, double excludedHeight,
             boolean signatureBroken, boolean timerCompatibilityFailure,
-            boolean labDecisionSupportStubbed) {
+            boolean labDecisionSupportStubbed, boolean providerStampMissing) {
         PageGeometry {
             // Defensive copy: readPageSizes hands back a mutable ArrayList.
             pages = List.copyOf(Objects.requireNonNull(pages, "pages must not be null"));

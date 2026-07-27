@@ -692,4 +692,29 @@ class EFormRenderPdfHtmlComposerUnitTest {
         assertThat(EFormRenderPdfHtmlComposer.runtimeSignatureStampFiles(
                 "consult_sig_", traversal, List.of())).isEmpty();
     }
+
+    @Test
+    @DisplayName("should report an absent provider stamp as its own condition, not a 404")
+    void shouldReportAbsentProviderStamp_asItsOwnCondition() {
+        // The stamp URL is built by the form's own script at load time, so there is no src to
+        // rewrite - blanking the element the script targets is what stops the request. Left alone it
+        // 404s and lands in the report as an unexplained failed content resource, which a clinician
+        // cannot act on.
+        String html = "<html><body><img id=\"StampSignature\">"
+                + "<script>x='consult_sig_'+id;</script></body></html>";
+
+        String marked = EFormRenderPdfHtmlComposer.markProviderStampMissing(html);
+
+        assertThat(marked).contains("carlos-provider-stamp-missing");
+        assertThat(marked).doesNotContain("StampSignature");
+    }
+
+    @Test
+    @DisplayName("should treat an unreadable image directory as unable to prove a stamp absent")
+    void shouldTreatUnreadableImageDirectory_asUnableToProveAbsent() {
+        // Same guard removeAbsentOptionalStamps uses: a lookup failure is not evidence of absence,
+        // so the name stays granted and the render fails the ordinary way rather than on a guess.
+        assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(java.util.Set.of()))
+                .isEmpty();
+    }
 }

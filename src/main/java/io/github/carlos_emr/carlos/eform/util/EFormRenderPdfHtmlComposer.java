@@ -205,7 +205,15 @@ public final class EFormRenderPdfHtmlComposer {
         html = html.replace("/eform/displayImage", imageViewServletPath);
         html = removeAbsentOptionalStamps(html);
         Set<String> authorizedAssets = new HashSet<>(referencedImageFiles(html));
-        authorizedAssets.addAll(runtimeSignatureStampFiles(html, eForm, eFormValues));
+        Set<String> stampFiles = runtimeSignatureStampFiles(html, eForm, eFormValues);
+        // Grant the stamp only when it exists. An absent one would 404 and land in the report as an
+        // unexplained failed content resource; reporting it as its own condition instead lets the
+        // approval page say what is actually missing.
+        Set<String> presentStamps = existingImageFiles(stampFiles);
+        authorizedAssets.addAll(presentStamps);
+        if (!stampFiles.isEmpty() && presentStamps.isEmpty()) {
+            html = markProviderStampMissing(html);
+        }
         EFormRenderTokenService.getInstance().authorizeAssets(renderToken, authorizedAssets);
         Set<String> apKeys = new HashSet<>(referencedApCacheKeys(html));
         apKeys.addAll(referencedClinicScriptApCacheKeys(html));
@@ -270,6 +278,55 @@ public final class EFormRenderPdfHtmlComposer {
             }
         }
         return Set.of(SIGNATURE_STAMP_PREFIX + trimmed + ".png");
+    }
+
+    /**
+     * Hidden marker injected when the form expects a provider signature stamp that is not on file.
+     *
+     * <p>Deliberately NOT {@link #SIGNATURE_UNRENDERED_MARKER}: that one means a <em>signed</em>
+     * document's stored signature could not be spliced into its placeholder — an integrity failure.
+     * A provider who has never uploaded a stamp image is routine, and collapsing the two would make
+     * a signed record that lost its signature indistinguishable from a clinic that never configured
+     * stamps.</p>
+     */
+    static final String PROVIDER_STAMP_MISSING_MARKER =
+            "<div id=\"carlos-provider-stamp-missing\" style=\"display:none\"></div>";
+
+    /**
+     * Filters a stamp set down to the files actually present in the eForm image directory.
+     *
+     * <p>Mirrors {@code removeAbsentOptionalStamps}: an unreadable image directory cannot prove an
+     * asset absent, so on any lookup failure the name is treated as present and behaviour is
+     * unchanged — the render then fails the ordinary way rather than on a guess.</p>
+     */
+    static Set<String> existingImageFiles(Set<String> fileNames) {
+        Set<String> present = new HashSet<>();
+        for (String fileName : fileNames) {
+            try {
+                if (DisplayImage2Action.getImageFile(fileName).isFile()) {
+                    present.add(fileName);
+                }
+            } catch (Exception e) {
+                present.add(fileName);
+            }
+        }
+        return present;
+    }
+
+    /**
+     * Neutralizes the runtime stamp assignment and marks the render, so an absent stamp is reported
+     * as itself instead of as a 404.
+     *
+     * <p>The URL is built by the form's own script at load time, so there is no {@code src} to
+     * rewrite. Blanking the element the script targets is what stops the request being issued.</p>
+     */
+    static String markProviderStampMissing(String html) {
+        Document document = org.jsoup.Jsoup.parse(html);
+        for (Element stamp : document.select("#StampSignature")) {
+            stamp.remove();
+        }
+        document.outputSettings().prettyPrint(false);
+        return document.outerHtml() + PROVIDER_STAMP_MISSING_MARKER;
     }
 
     static Set<String> referencedImageFiles(String html) {

@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
@@ -44,6 +46,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -81,6 +84,8 @@ public class AddEForm2Action extends ActionSupport {
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
     private static final String ERROR_ATTRIBUTE = "error";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
+    private static final String PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE =
+            "Some content of this eForm could not be rendered. Review the omissions below before downloading it.";
     private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
     private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
     private static final String WARNING_MESSAGE_ATTRIBUTE = "warningMessage";
@@ -323,6 +328,12 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
                     pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
+                } catch (EformContentUnavailableException e) {
+                    // MUST precede the PDFGenerationException catch below: this is a subclass, and
+                    // being swallowed by the general handler is exactly why an incomplete download
+                    // was a dead end with no way for the clinician to review the omissions and
+                    // decide. Mirrors the fax path.
+                    return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no);
                 } catch (PDFGenerationException e) {
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
@@ -386,6 +397,9 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
                     pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
+                } catch (EformContentUnavailableException e) {
+                    // Same subclass-before-superclass ordering as the save branch above.
+                    return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no);
                 } catch (PDFGenerationException e) {
                     setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
@@ -514,6 +528,49 @@ public class AddEForm2Action extends ActionSupport {
             logger.warn("Falling back to a generic PDF preview filename for demographic {}", LogSafe.sanitize(demographicNo), e);
             return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
         }
+    }
+
+    /**
+     * Offers the clinician an exact, one-time approval for a download the completeness gate refused.
+     *
+     * <p>Mirrors the fax path. The retry deliberately targets {@code eform/downloadEFormPdf} rather
+     * than resubmitting this action: {@code saveEformData} persists a NEW eForm on every submit, so
+     * re-posting to approve a render would duplicate the saved record — and would put every form
+     * field, patient data included, into the approval page as hidden inputs. The eForm is already
+     * saved by this point; only the render failed.</p>
+     *
+     * <p>Every category the report carries is surfaced. The approval digest binds to the complete
+     * issue set, so a category the clinician was never shown is one they cannot meaningfully have
+     * approved.</p>
+     */
+    private String offerDownloadApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
+            String fdid, String demographicNo) {
+        logger.warn("eForm download incomplete: offering exact-issue approval (issues={})", e.getIssueCount());
+        EFormRenderApprovalService approvalService = SpringUtils.getBean(EFormRenderApprovalService.class);
+        int requestFdid;
+        try {
+            requestFdid = Integer.parseInt(fdid);
+        } catch (NumberFormatException parseFailure) {
+            setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
+            return "error";
+        }
+        String token = approvalService.issue(request, loggedInInfo, requestFdid, demographicNo,
+                EFormRenderApprovalService.Operation.DOWNLOAD, e.getReport(), null, e.getFdid());
+        EFormRenderCompletenessReport report = e.getReport();
+        request.setAttribute("renderApproval", token);
+        request.setAttribute("fdid", fdid);
+        request.setAttribute("demographicNo", demographicNo);
+        request.setAttribute("missingContentMessage", PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE);
+        request.setAttribute("failedContentResources", report.failedContentResources());
+        request.setAttribute("excludedContentElements", report.excludedContentElements());
+        request.setAttribute("severeConsoleErrors", report.severeConsoleErrors());
+        request.setAttribute("containedInteractions", report.containedInteractions());
+        request.setAttribute("signatureMissing", report.signatureMissing());
+        request.setAttribute("timerCompatibilityFailure", report.timerCompatibilityFailure());
+        request.setAttribute("stabilizationCapped", report.stabilizationCapped());
+        request.setAttribute("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
+        request.setAttribute("providerStampMissing", report.providerStampMissing());
+        return "missingContent";
     }
 
     private void setPdfError(String message, Exception e) {

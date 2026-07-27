@@ -35,7 +35,8 @@ public class EFormRenderApprovalService {
 
     public enum Operation {
         PREVIEW,
-        FAX
+        FAX,
+        DOWNLOAD
     }
 
     private final Cache<String, PendingApproval> approvals = Caffeine.newBuilder()

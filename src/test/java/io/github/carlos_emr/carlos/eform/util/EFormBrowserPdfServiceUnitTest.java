@@ -167,12 +167,16 @@ class EFormBrowserPdfServiceUnitTest {
                 "excludedHeight", 210.5d,
                 "signatureBroken", false,
                 "timerCompatibilityFailure", true,
-                "labDecisionSupportStubbed", true));
+                "labDecisionSupportStubbed", true,
+                "providerStampMissing", true));
 
         assertThat(geometry.pages()).hasSize(1);
         assertThat(geometry.excludedCount()).isEqualTo(2);
         assertThat(geometry.excludedHeight()).isEqualTo(210.5d);
         assertThat(geometry.signatureBroken()).isFalse();
+        // Distinct from signatureBroken: a stamp the provider never uploaded is routine, while a
+        // signed document that lost its signature is an integrity failure. They must not collapse.
+        assertThat(geometry.providerStampMissing()).isTrue();
         assertThat(geometry.timerCompatibilityFailure()).isTrue();
         assertThat(geometry.labDecisionSupportStubbed()).isTrue();
 
