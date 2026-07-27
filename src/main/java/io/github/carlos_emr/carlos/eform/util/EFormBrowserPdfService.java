@@ -806,8 +806,7 @@ public class EFormBrowserPdfService {
                             stabilizationCapped,
                             geometry.labDecisionSupportStubbed(),
                             geometry.providerStampMissing()));
-            if (completeness.hasBlockingOmissions()
-                    && (approval == null || !approval.permits(fdid, providerId, completeness))) {
+            if (withholdsDocument(completeness, approval, fdid, providerId)) {
                 // Name the components, not just the totals: a bare "blocking=2" cannot be acted on,
                 // and three of the components have no log line of their own to infer from.
                 logger.warn("Browser eForm renderer blocked incomplete output: fdid={} issues={} blocking={} [{}]",
@@ -1895,6 +1894,26 @@ public class EFormBrowserPdfService {
         }
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
                 parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests);
+    }
+
+    /**
+     * Whether this render must be withheld from the clinician pending their explicit approval.
+     *
+     * <p>Extracted from {@code renderWithSlot} for one reason: it is the single decision that gives
+     * every approval in this feature its meaning, and inline it was untestable. It sits below
+     * {@code createDriver}, which builds a real {@code ChromeDriver} with no injection point, so
+     * nothing above it can be reached from a unit test without a browser on the machine — the
+     * clause could have been deleted outright and the whole suite would still have passed.</p>
+     *
+     * <p>A null approval withholds: the caller supplied none, so there is no consent to rely on.
+     * A non-null approval only releases the document when {@link EFormRenderApproval#permits} finds
+     * this exact provider, an unexpired ticket, and a digest matching this exact issue set — a
+     * render that failed differently than the one the clinician read cannot ride the old ticket.</p>
+     */
+    static boolean withholdsDocument(EFormRenderCompletenessReport completeness,
+            EFormRenderApproval approval, int fdid, String providerId) {
+        return completeness.hasBlockingOmissions()
+                && (approval == null || !approval.permits(fdid, providerId, completeness));
     }
 
     /**

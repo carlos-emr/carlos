@@ -1499,4 +1499,112 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("#carlos-eform-timer-compat-error")
                 .contains("#carlos-render-advisory");
     }
+
+    /**
+     * The decision that gives every approval in this feature its meaning.
+     *
+     * <p>Until this predicate was extracted it lived inline below {@code createDriver}, which builds
+     * a real browser with no injection point — so it could not be reached from a unit test at all,
+     * and deleting the {@code approval == null} clause (which would release every document when no
+     * approval was supplied) broke nothing in the suite.</p>
+     */
+    @org.junit.jupiter.api.Nested
+    @DisplayName("withholdsDocument")
+    class WithholdsDocument {
+
+        private static final String PROVIDER = "doc1";
+        private static final int FDID = 42;
+
+        private EFormRenderCompletenessReport blocking() {
+            // A failed content resource: blocking, not advisory.
+            return new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false, false);
+        }
+
+        private EFormRenderApproval approvalFor(
+                EFormRenderCompletenessReport report, int fdid, String providerNo) {
+            // The constructor is package-private precisely so the util package can mint one.
+            return new EFormRenderApproval(providerNo, java.util.Map.of(fdid, report.digest()),
+                    java.time.Instant.now().plusSeconds(120));
+        }
+
+        @Test
+        @DisplayName("should withhold a blocking render when no approval was supplied")
+        void shouldWithhold_whenNoApprovalSupplied() {
+            assertThat(EFormBrowserPdfService.withholdsDocument(blocking(), null, FDID, PROVIDER))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("should release a blocking render for an exactly matching approval")
+        void shouldRelease_forExactlyMatchingApproval() {
+            EFormRenderCompletenessReport report = blocking();
+
+            assertThat(EFormBrowserPdfService.withholdsDocument(
+                    report, approvalFor(report, FDID, PROVIDER), FDID, PROVIDER)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should withhold when the approval covers a different issue set")
+        void shouldWithhold_whenApprovalCoversDifferentIssueSet() {
+            // The clinician approved one failed resource; this render reported two. Consent was
+            // given for a document that no longer exists, so the ticket must not carry over.
+            EFormRenderApproval approved = approvalFor(blocking(), FDID, PROVIDER);
+            EFormRenderCompletenessReport different =
+                    new EFormRenderCompletenessReport(2, 0, 0, 0, false, false, false, false, false);
+
+            assertThat(EFormBrowserPdfService.withholdsDocument(different, approved, FDID, PROVIDER))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("should withhold when the approval belongs to another provider or eForm")
+        void shouldWithhold_whenApprovalBelongsElsewhere() {
+            EFormRenderCompletenessReport report = blocking();
+
+            assertThat(EFormBrowserPdfService.withholdsDocument(
+                    report, approvalFor(report, FDID, "someoneElse"), FDID, PROVIDER)).isTrue();
+            assertThat(EFormBrowserPdfService.withholdsDocument(
+                    report, approvalFor(report, 999, PROVIDER), FDID, PROVIDER)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should withhold when the approval has expired")
+        void shouldWithhold_whenApprovalExpired() {
+            EFormRenderCompletenessReport report = blocking();
+            EFormRenderApproval stale = new EFormRenderApproval(PROVIDER,
+                    java.util.Map.of(FDID, report.digest()),
+                    java.time.Instant.now().minusSeconds(1));
+
+            assertThat(EFormBrowserPdfService.withholdsDocument(report, stale, FDID, PROVIDER))
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("should release a render whose only conditions are advisory")
+        void shouldRelease_whenOnlyAdvisoryConditionsPresent() {
+            // A page-script error and a suppressed dialog are reported but never withhold, so an
+            // approval is not required and none is supplied.
+            EFormRenderCompletenessReport advisoryOnly =
+                    new EFormRenderCompletenessReport(0, 0, 3, 1, false, true, false, false, false);
+
+            assertThat(EFormBrowserPdfService.withholdsDocument(advisoryOnly, null, FDID, PROVIDER))
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should withhold when a missing provider stamp is the only condition")
+        void shouldWithhold_whenProviderStampMissingAlone() {
+            // The 9th report component, and the one that reaches the gate without any failed
+            // resource to accompany it. Nothing else constructs it true.
+            EFormRenderCompletenessReport stampMissing =
+                    new EFormRenderCompletenessReport(0, 0, 0, 0, false, false, false, false, true);
+
+            assertThat(stampMissing.hasBlockingOmissions()).isTrue();
+            assertThat(EFormBrowserPdfService.withholdsDocument(stampMissing, null, FDID, PROVIDER))
+                    .isTrue();
+            // An approval minted for a STAMPED render must not release an unstamped one.
+            assertThat(EFormBrowserPdfService.withholdsDocument(
+                    stampMissing, approvalFor(blocking(), FDID, PROVIDER), FDID, PROVIDER)).isTrue();
+        }
+    }
 }

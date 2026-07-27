@@ -258,7 +258,13 @@ public class AddEForm2Action extends ActionSupport {
 //            return mapping.getInputForward();
 //        }
 
-        //Check if eform same as previous, if same -> not saved
+        // Check if eform same as previous, if same -> not saved.
+        //
+        // Dead in practice: nothing in the repository ever SETS "eform_data_id" — these two lines
+        // are its only references — so prev_fdid is always null and sameform always false. The
+        // entire `else` branch below (including its own eDoc/approval handling) is therefore
+        // unreachable. Left in place rather than deleted because removing it is a behavioural
+        // decision about a duplicate-submission guard that was evidently once wired up.
         String prev_fdid = (String) se.getAttribute("eform_data_id");
         se.removeAttribute("eform_data_id");
         boolean sameform = false;
@@ -304,6 +310,33 @@ public class AddEForm2Action extends ActionSupport {
 
             request.setAttribute("fdid", fdid);
             request.setAttribute("demographicId", demographic_no);
+
+            // Runs BEFORE the saveAsEdoc block below, and that ordering is the whole point.
+            //
+            // This is the eForm's template write: the CPP and encounter notes (EncounterNote,
+            // SocHistory, FamHistory, MedHistory, OngoingConcerns, RiskFactors, Reminders, OMeds)
+            // plus any template-declared document, prevention, message, tickler or consult request.
+            // It used to sit in the final `else` of the workflow chain below, which the eDoc branch's
+            // approval return jumped straight over — so an eForm saved as an eDoc, refused by the
+            // completeness gate and then approved by the clinician, created the eDoc, reported
+            // success, auto-closed, and left the chart notes permanently unwritten. Nothing re-runs
+            // them: writeEformTemplate assigns a fresh UUID and persists unconditionally, so it is
+            // not idempotent and a later retry would duplicate rather than reconcile.
+            //
+            // The condition reproduces that `else` exactly — fax, print, download and email each
+            // return before reaching it, and each has its own reason not to write the template.
+            // Hoisting this WITHOUT the condition would run it on those paths too and duplicate
+            // every note, which is a worse defect than the one being fixed here.
+            if (!fax && !print && !isDownloadEForm && !isEmailEForm) {
+                //write template message to echart
+                String program_no = new EctProgram(se).getProgram(providerNo);
+                String path = request.getRequestURL().toString();
+                String uri = request.getRequestURI();
+                path = path.substring(0, path.indexOf(uri));
+                path += request.getContextPath();
+
+                EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
+            }
 
             if (saveAsEdoc) {
                 try {
@@ -370,16 +403,9 @@ public class AddEForm2Action extends ActionSupport {
                 addEmailAttachmentsToSession(request, settings);
                 redirectToEmailCompose(fid);
                 return NONE;
-            } else {
-                //write template message to echart
-                String program_no = new EctProgram(se).getProgram(providerNo);
-                String path = request.getRequestURL().toString();
-                String uri = request.getRequestURI();
-                path = path.substring(0, path.indexOf(uri));
-                path += request.getContextPath();
-
-                EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
+            // No trailing `else`: the template write it used to hold now runs above, before the
+            // saveAsEdoc block, so no early return can skip it.
 
         } else {
             logger.debug("Warning! Form HTML exactly the same, new form data not saved.");
