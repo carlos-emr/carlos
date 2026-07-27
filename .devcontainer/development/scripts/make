@@ -25,12 +25,26 @@ enable_devcontainer_javamelody_system_actions() {
 
   tmp_file="${web_xml}.tmp"
   if awk '
+    in_xml_comment {
+      print
+      if (/-->/) {
+        in_xml_comment = 0
+      }
+      next
+    }
+    /<!--/ {
+      print
+      if (!/-->/) {
+        in_xml_comment = 1
+      }
+      next
+    }
     /^[[:space:]]*<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>[[:space:]]*$/ {
       system_actions_params++
       in_system_actions = 1
     }
-    in_system_actions && /^[[:space:]]*<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>[[:space:]]*$/ {
-      sub(/<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
+    in_system_actions && /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/ {
+      sub(/<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
       replacements++
       in_system_actions = 0
     }
