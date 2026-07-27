@@ -88,7 +88,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("AddEForm2Action template write")
 @Tag("unit")
 @Tag("eform")
-class AddEForm2ActionTemplateWriteTest extends CarlosUnitTestBase {
+class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
