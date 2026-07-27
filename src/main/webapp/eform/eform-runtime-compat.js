@@ -269,15 +269,39 @@
     var nativeOpen = window.XMLHttpRequest.prototype.open;
     var nativeSend = window.XMLHttpRequest.prototype.send;
 
+    /**
+     * @return {?Document} the body parsed as HTML, or null if it cannot be parsed.
+     *
+     * The embedded payload is a fragment of table cells rather than a whole document, so it is
+     * parsed as text/html — parsing it as XML would fail on the first unclosed tag and hand back a
+     * parsererror document that looks like content.
+     */
+    function parseResponseXml(body) {
+        try {
+            return new DOMParser().parseFromString(body, "text/html");
+        } catch (error) {
+            return null;
+        }
+    }
+
     window.XMLHttpRequest.prototype.open = function openCompatible(method, url) {
         var body = embeddedResponseFor(url);
+        // Always open for real, even when this request will be answered locally. Skipping it left
+        // the object UNSENT, and a caller that sets a request header between open() and send() —
+        // which the growth-chart form does — then hit "InvalidStateError: Failed to execute
+        // 'setRequestHeader'" and abandoned the request before send() was ever reached. The shim
+        // never ran, the chart plotted nothing, and the only trace was a console error.
+        //
+        // Opening costs nothing on its own: XMLHttpRequest issues no traffic until send(), and the
+        // intercepted path below never calls it.
+        var opened = nativeOpen.apply(this, arguments);
         if (body === null) {
             // Clear any marker from a previous use of this same object before delegating.
             delete this.__carlosLegacyResponse;
-            return nativeOpen.apply(this, arguments);
+        } else {
+            this.__carlosLegacyResponse = body;
         }
-        this.__carlosLegacyResponse = body;
-        return undefined;
+        return opened;
     };
 
     window.XMLHttpRequest.prototype.send = function sendCompatible() {
@@ -294,6 +318,10 @@
         Object.defineProperty(this, "statusText", readOnly("OK"));
         Object.defineProperty(this, "responseText", readOnly(body));
         Object.defineProperty(this, "response", readOnly(body));
+        // responseXML too, parsed from the same body. Left unstubbed it returned the real XHR's
+        // null, so a form reading the history as a DOM plotted nothing while status.served still
+        // counted the request as delivered — a success the shim itself would have reported.
+        Object.defineProperty(this, "responseXML", readOnly(parseResponseXml(body)));
         status.served += 1;
         // Dispatch rather than calling this.onreadystatechange directly. Handler properties are
         // themselves registered listeners, so dispatching notifies both them and any

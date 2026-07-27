@@ -30,6 +30,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.EmailComposeManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -140,6 +141,12 @@
     // (setContextPath/setSource/...), BEFORE any add*() call — those mutate the jsoup document, and
     // getFormHtml() re-serializes that document at print, discarding later string-level edits.
     thisEForm.setFdid("");
+
+    // Serve the measurement history to forms that still fetch it from the pre-migration route, the
+    // same way the PDF renderer does. Subject to the ORDER MATTERS rule stated just above: this is a
+    // string-phase edit and must run before the add*() calls below, whose jsoup document
+    // getFormHtml() would otherwise re-serialize over it.
+    thisEForm.setFormHtml(LegacyMeasurementHistory.embed(thisEForm.getFormHtml(), thisEForm));
 
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.

@@ -31,6 +31,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
@@ -115,6 +116,20 @@
         eForm.setImagePath(request.getContextPath());
         eForm.setFdid("");
     }
+
+    // Serve the measurement history to forms that still fetch it from the pre-migration route, the
+    // same way the PDF renderer does. Without it the identical growth chart plotted correctly in a
+    // downloaded PDF and stayed empty here on screen.
+    //
+    // ORDER MATTERS: this is a string-phase edit and must precede every add*() call below. Those
+    // populate a cached jsoup document that getFormHtml() re-serializes at print, which would
+    // discard anything written to the string afterwards. setFormHtml() also clears that cache, which
+    // is correct at this point because no document has been built yet.
+    //
+    // Placed after the if/else above so it covers both the saved-instance and the admin-preview
+    // branch; the latter passes demographic "-1", which resolves to no rows and embeds an empty
+    // series, so the chart renders empty rather than failing a network fetch.
+    eForm.setFormHtml(LegacyMeasurementHistory.embed(eForm.getFormHtml(), eForm));
 
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.
