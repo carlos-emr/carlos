@@ -78,6 +78,10 @@ def normalize_staff_actor(actor: str) -> str:
     return normalized_actor
 
 
+def normalize_staff_actor_id(actor_id: str | None, actor: str) -> str:
+    return normalize_staff_actor(actor if actor_id is None else actor_id)
+
+
 def validate_demographic_no(demographic_no: int) -> None:
     if demographic_no <= 0:
         raise ValueError("demographic_no must be positive")
@@ -117,7 +121,9 @@ def revoke_pending_invites_for_patient(
     clinic_id: str,
     demographic_no: int,
     actor: str,
+    actor_id: str | None = None,
 ) -> None:
+    normalized_actor_id = normalize_staff_actor_id(actor_id, actor)
     now = utc_now()
     pending_invites = list(
         session.scalars(
@@ -134,6 +140,7 @@ def revoke_pending_invites_for_patient(
         invite.status = INVITE_STATUS_REVOKED
         invite.revoked_at = now
         invite.revoked_by = actor
+        invite.revoked_by_id = normalized_actor_id
         invite.updated_at = now
         record_audit_event(
             session,
@@ -141,6 +148,7 @@ def revoke_pending_invites_for_patient(
             outcome=AUDIT_OUTCOME_SUCCESS,
             actor_type=AUDIT_ACTOR_TYPE_STAFF,
             actor=actor,
+            actor_id=normalized_actor_id,
             clinic_id=clinic_id,
             demographic_no=demographic_no,
             invite_id=invite.id,
@@ -156,10 +164,12 @@ def create_invite(
     identity_proof: IdentityProof,
     proof_secret: str,
     clinic_id: str = "default",
+    actor_id: str | None = None,
 ) -> tuple[PatientPortalInvite, str]:
     validate_demographic_no(demographic_no)
     normalized_clinic_id = normalize_clinic_id(clinic_id)
     normalized_actor = normalize_staff_actor(actor)
+    normalized_actor_id = normalize_staff_actor_id(actor_id, normalized_actor)
     if not proof_secret or not proof_secret.strip():
         raise ValueError("proof_secret must not be blank")
     proof_salt = create_proof_salt()
@@ -176,6 +186,7 @@ def create_invite(
         clinic_id=normalized_clinic_id,
         demographic_no=demographic_no,
         actor=normalized_actor,
+        actor_id=normalized_actor_id,
     )
     if patient_has_account(
         session,
@@ -192,11 +203,13 @@ def create_invite(
         token_hash=hash_invite_token(invite_token),
         status=INVITE_STATUS_PENDING,
         created_by=normalized_actor,
+        created_by_id=normalized_actor_id,
         created_at=now,
         updated_at=now,
         sent_count=1,
         last_sent_at=now,
         last_sent_by=normalized_actor,
+        last_sent_by_id=normalized_actor_id,
         expires_at=now + DEFAULT_INVITE_TTL,
         proof_salt=proof_salt,
         proof_hash_version=IDENTITY_PROOF_HASH_VERSION,
@@ -214,6 +227,7 @@ def create_invite(
         outcome=AUDIT_OUTCOME_SUCCESS,
         actor_type=AUDIT_ACTOR_TYPE_STAFF,
         actor=normalized_actor,
+        actor_id=normalized_actor_id,
         clinic_id=normalized_clinic_id,
         demographic_no=demographic_no,
         invite_id=invite.id,
@@ -268,6 +282,7 @@ def resend_invite(
     actor: str,
     *,
     clinic_id: str | None = None,
+    actor_id: str | None = None,
 ) -> tuple[PatientPortalInvite, str]:
     invite = get_invite(session, invite_id, clinic_id=clinic_id, lock=True)
     if invite.status == INVITE_STATUS_REVOKED:
@@ -276,6 +291,7 @@ def resend_invite(
         raise AcceptedInviteError()
 
     normalized_actor = normalize_staff_actor(actor)
+    normalized_actor_id = normalize_staff_actor_id(actor_id, normalized_actor)
     invite_token = create_invite_token()
     now = utc_now()
     invite.token_hash = hash_invite_token(invite_token)
@@ -283,6 +299,7 @@ def resend_invite(
     invite.sent_count += 1
     invite.last_sent_at = now
     invite.last_sent_by = normalized_actor
+    invite.last_sent_by_id = normalized_actor_id
     invite.expires_at = now + DEFAULT_INVITE_TTL
     invite.updated_at = now
     session.flush()
@@ -292,6 +309,7 @@ def resend_invite(
         outcome=AUDIT_OUTCOME_SUCCESS,
         actor_type=AUDIT_ACTOR_TYPE_STAFF,
         actor=normalized_actor,
+        actor_id=normalized_actor_id,
         clinic_id=invite.clinic_id,
         demographic_no=invite.demographic_no,
         invite_id=invite.id,
@@ -305,16 +323,19 @@ def revoke_invite(
     actor: str,
     *,
     clinic_id: str | None = None,
+    actor_id: str | None = None,
 ) -> PatientPortalInvite:
     invite = get_invite(session, invite_id, clinic_id=clinic_id, lock=True)
     if invite.status == INVITE_STATUS_ACCEPTED:
         raise AcceptedInviteError()
     if invite.status != INVITE_STATUS_REVOKED:
         normalized_actor = normalize_staff_actor(actor)
+        normalized_actor_id = normalize_staff_actor_id(actor_id, normalized_actor)
         now = utc_now()
         invite.status = INVITE_STATUS_REVOKED
         invite.revoked_at = now
         invite.revoked_by = normalized_actor
+        invite.revoked_by_id = normalized_actor_id
         invite.updated_at = now
         session.flush()
         record_audit_event(
@@ -323,6 +344,7 @@ def revoke_invite(
             outcome=AUDIT_OUTCOME_SUCCESS,
             actor_type=AUDIT_ACTOR_TYPE_STAFF,
             actor=normalized_actor,
+            actor_id=normalized_actor_id,
             clinic_id=invite.clinic_id,
             demographic_no=invite.demographic_no,
             invite_id=invite.id,

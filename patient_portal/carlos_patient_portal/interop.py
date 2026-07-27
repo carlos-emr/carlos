@@ -220,10 +220,25 @@ def build_fhir_r4_capability_statement(
         "rest": [
             {
                 "mode": "server",
+                "security": {
+                    "cors": True,
+                    "service": [
+                        {
+                            "text": (
+                                "CARLOS portal Bearer session token; this MVP does not "
+                                "implement SMART on FHIR."
+                            ),
+                        }
+                    ],
+                    "description": (
+                        "Patient-scoped read access using a CARLOS portal Bearer session token."
+                    ),
+                },
                 "resource": [
                     {
                         "type": resource_type,
                         "interaction": [{"code": "read"}, {"code": "search-type"}],
+                        "searchParam": fhir_search_parameters(resource_type),
                     }
                     for resource_type in [
                         "Patient",
@@ -236,6 +251,27 @@ def build_fhir_r4_capability_statement(
         ],
     }
     return CapabilityStatement(capability_statement).as_json()
+
+
+def fhir_search_parameters(resource_type: str) -> list[dict[str, str]]:
+    common = [
+        {"name": "_id", "type": "token", "documentation": "FHIR logical resource id."},
+        {"name": "_count", "type": "number", "documentation": "Page size, from 1 to 100."},
+        {
+            "name": "_offset",
+            "type": "number",
+            "documentation": "Zero-based offset used by this portal's bounded search.",
+        },
+    ]
+    if resource_type == "DocumentReference":
+        common.append(
+            {
+                "name": "subject",
+                "type": "reference",
+                "documentation": "Must identify the authenticated portal patient.",
+            }
+        )
+    return common
 
 
 def build_fhir_r4_operation_outcome(
@@ -264,6 +300,9 @@ def build_fhir_r4_bundle(
     base_url: str = CARLOS_PORTAL_FHIR_BASE,
     bundle_type: str = "searchset",
     self_link: str | None = None,
+    total: int | None = None,
+    next_link: str | None = None,
+    previous_link: str | None = None,
 ) -> dict[str, object]:
     normalized_base_url = base_url.rstrip("/")
     entries = [
@@ -277,11 +316,20 @@ def build_fhir_r4_bundle(
     bundle_payload = {
         "resourceType": "Bundle",
         "type": bundle_type,
-        "total": len(resources),
+        "total": len(resources) if total is None else total,
         "entry": entries,
     }
-    if self_link is not None:
-        bundle_payload["link"] = [{"relation": "self", "url": self_link}]
+    links = [
+        {"relation": relation, "url": url}
+        for relation, url in (
+            ("self", self_link),
+            ("previous", previous_link),
+            ("next", next_link),
+        )
+        if url is not None
+    ]
+    if links:
+        bundle_payload["link"] = links
     return Bundle(bundle_payload).as_json()
 
 
@@ -306,23 +354,41 @@ def build_fhir_organization_id(clinic_id: str) -> str:
     return build_fhir_id("organization", normalize_clinic_id(clinic_id))
 
 
-def build_fhir_r4_practitioner(*, clinic_id: str, name: str) -> dict[str, object]:
+def build_fhir_r4_practitioner(
+    *,
+    clinic_id: str,
+    name: str,
+    provider_id: str | None = None,
+) -> dict[str, object]:
     normalized_name = normalize_fhir_display_text(name, "name")
     return Practitioner(
         {
             "resourceType": "Practitioner",
-            "id": build_fhir_practitioner_id(clinic_id=clinic_id, name=normalized_name),
+            "id": build_fhir_practitioner_id(
+                clinic_id=clinic_id,
+                name=normalized_name,
+                provider_id=provider_id,
+            ),
             "active": True,
             "name": [{"text": normalized_name}],
         }
     ).as_json()
 
 
-def build_fhir_practitioner_id(*, clinic_id: str, name: str) -> str:
+def build_fhir_practitioner_id(
+    *,
+    clinic_id: str,
+    name: str,
+    provider_id: str | None = None,
+) -> str:
     return build_fhir_id(
         "practitioner",
         normalize_clinic_id(clinic_id),
-        normalize_fhir_display_text(name, "name"),
+        (
+            normalize_fhir_display_text(provider_id, "provider_id")
+            if provider_id is not None
+            else normalize_fhir_display_text(name, "name")
+        ),
     )
 
 
@@ -351,6 +417,7 @@ def build_fhir_r4_document_reference(
                 + build_fhir_practitioner_id(
                     clinic_id=unlock_secret.clinic_id,
                     name=unlock_secret.created_by,
+                    provider_id=getattr(unlock_secret, "created_by_id", None),
                 )
             }
         ],

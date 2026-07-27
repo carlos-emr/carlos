@@ -41,6 +41,8 @@ AUDIT_EVENT_PASSWORD_RESET_COMPLETE = "password_reset.complete"
 AUDIT_EVENT_PASSWORD_RESET_DELIVERY = "password_reset.delivery"
 AUDIT_EVENT_PASSWORD_RESET_REQUEST = "password_reset.request"
 AUDIT_EVENT_SESSION_LOGOUT = "session.logout"
+AUDIT_EVENT_FHIR_READ = "fhir.read"
+AUDIT_EVENT_FHIR_SEARCH = "fhir.search"
 AUDIT_EVENT_UNLOCK_SECRET_CREATE = "unlock_secret.create"
 AUDIT_EVENT_UNLOCK_SECRET_LIST = "unlock_secret.list"
 AUDIT_EVENT_UNLOCK_SECRET_READ = "unlock_secret.read"
@@ -61,6 +63,8 @@ SESSION_REVOKED_REASON_PASSWORD_CHANGE = "password_change"
 SESSION_REVOKED_REASON_PASSWORD_RESET = "password_reset"
 CONTACT_REVIEW_STATUS_PENDING = "pending"
 CONTACT_REVIEW_STATUS_REVIEWED = "reviewed"
+CONTACT_REVIEW_DECISION_APPROVED = "approved"
+CONTACT_REVIEW_DECISION_REJECTED = "rejected"
 UNLOCK_SECRET_STATUS_ACTIVE = "active"
 UNLOCK_SECRET_STATUS_REVOKED = "revoked"
 UNLOCK_SECRET_TYPE_EMAIL = "email"
@@ -76,6 +80,9 @@ IDENTITY_PROOF_HASH_VERSION = "v1"
 MAX_AUDIT_EVENT_TYPE_LENGTH = 64
 MAX_AUDIT_OUTCOME_LENGTH = 16
 MAX_AUDIT_ACTOR_TYPE_LENGTH = 16
+MAX_AUDIT_ACTOR_ID_LENGTH = 128
+MAX_AUDIT_RESOURCE_TYPE_LENGTH = 64
+MAX_AUDIT_RESOURCE_ID_LENGTH = 128
 MAX_AUDIT_REASON_LENGTH = 64
 MAX_UNLOCK_SECRET_LABEL_LENGTH = 128
 MAX_UNLOCK_SECRET_SOURCE_REFERENCE_LENGTH = 128
@@ -162,6 +169,7 @@ class PatientPortalAccount(Base):
     failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     locked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    locked_by_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     force_password_reset: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
@@ -223,11 +231,18 @@ class PatientPortalContactReviewRequest(Base):
             name="ck_patient_portal_contact_review_requests_reviewed_by_length",
         ),
         CheckConstraint(
-            "status = 'reviewed' or (reviewed_at is null and reviewed_by is null)",
+            (
+                "status = 'reviewed' or "
+                "(reviewed_at is null and reviewed_by is null and review_decision is null)"
+            ),
             name="ck_pp_contact_review_unreviewed_null",
         ),
         CheckConstraint(
-            "status != 'reviewed' or (reviewed_at is not null and reviewed_by is not null)",
+            (
+                "status != 'reviewed' or "
+                "(reviewed_at is not null and reviewed_by is not null and "
+                "review_decision in ('approved', 'rejected'))"
+            ),
             name="ck_pp_contact_review_reviewed_present",
         ),
         Index(
@@ -275,6 +290,8 @@ class PatientPortalContactReviewRequest(Base):
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reviewed_by_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    review_decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class PatientPortalSession(Base):
@@ -567,6 +584,7 @@ class PatientPortalInvite(Base):
     token_hash: Mapped[str] = mapped_column(String(HASH_LENGTH), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_by_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
@@ -581,9 +599,11 @@ class PatientPortalInvite(Base):
     sent_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     last_sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_sent_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    last_sent_by_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    revoked_by_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     proof_email_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
     proof_date_of_birth_hash: Mapped[str | None] = mapped_column(
         String(HASH_LENGTH),
@@ -688,6 +708,15 @@ class PatientPortalUnlockSecret(Base):
             "ix_patient_portal_unlock_secrets_key_id",
             "encryption_key_id",
         ),
+        Index(
+            "ux_pp_unlock_secrets_source_reference",
+            "clinic_id",
+            "secret_type",
+            "source_reference",
+            unique=True,
+            sqlite_where=text("source_reference is not null"),
+            postgresql_where=text("source_reference is not null"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -721,6 +750,10 @@ class PatientPortalUnlockSecret(Base):
         nullable=False,
     )
     created_by: Mapped[str] = mapped_column(String(MAX_UNLOCK_SECRET_ACTOR_LENGTH), nullable=False)
+    created_by_id: Mapped[str | None] = mapped_column(
+        String(MAX_UNLOCK_SECRET_ACTOR_LENGTH),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
@@ -738,6 +771,10 @@ class PatientPortalUnlockSecret(Base):
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_by: Mapped[str | None] = mapped_column(
+        String(MAX_UNLOCK_SECRET_ACTOR_LENGTH),
+        nullable=True,
+    )
+    revoked_by_id: Mapped[str | None] = mapped_column(
         String(MAX_UNLOCK_SECRET_ACTOR_LENGTH),
         nullable=True,
     )
@@ -769,6 +806,7 @@ class PatientPortalAuditEvent(Base):
                 "'login', 'mfa.challenge', 'mfa.delivery', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.delivery', "
                 "'password_reset.request', 'session.logout', "
+                "'fhir.read', 'fhir.search', "
                 "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
                 "'unlock_secret.revoke')"
             ),
@@ -806,6 +844,18 @@ class PatientPortalAuditEvent(Base):
             "reason is null or length(reason) between 1 and 64",
             name="ck_patient_portal_audit_events_reason_length",
         ),
+        CheckConstraint(
+            "actor_id is null or length(actor_id) between 1 and 128",
+            name="ck_patient_portal_audit_events_actor_id_length",
+        ),
+        CheckConstraint(
+            "resource_type is null or length(resource_type) between 1 and 64",
+            name="ck_patient_portal_audit_events_resource_type_length",
+        ),
+        CheckConstraint(
+            "resource_id is null or length(resource_id) between 1 and 128",
+            name="ck_patient_portal_audit_events_resource_id_length",
+        ),
         Index(
             "ix_patient_portal_audit_events_activation_invite",
             "event_type",
@@ -819,6 +869,13 @@ class PatientPortalAuditEvent(Base):
             "created_at",
         ),
         Index("ix_patient_portal_audit_events_clinic_created", "clinic_id", "created_at"),
+        Index("ix_patient_portal_audit_events_actor_id_created", "actor_id", "created_at"),
+        Index(
+            "ix_patient_portal_audit_events_resource_created",
+            "resource_type",
+            "resource_id",
+            "created_at",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -827,11 +884,23 @@ class PatientPortalAuditEvent(Base):
     outcome: Mapped[str] = mapped_column(String(MAX_AUDIT_OUTCOME_LENGTH), nullable=False)
     actor_type: Mapped[str] = mapped_column(String(MAX_AUDIT_ACTOR_TYPE_LENGTH), nullable=False)
     actor: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    actor_id: Mapped[str | None] = mapped_column(
+        String(MAX_AUDIT_ACTOR_ID_LENGTH),
+        nullable=True,
+    )
     demographic_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     invite_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     account_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     invite_token_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
     client_reference_hash: Mapped[str | None] = mapped_column(String(HASH_LENGTH), nullable=True)
+    resource_type: Mapped[str | None] = mapped_column(
+        String(MAX_AUDIT_RESOURCE_TYPE_LENGTH),
+        nullable=True,
+    )
+    resource_id: Mapped[str | None] = mapped_column(
+        String(MAX_AUDIT_RESOURCE_ID_LENGTH),
+        nullable=True,
+    )
     reason: Mapped[str | None] = mapped_column(String(MAX_AUDIT_REASON_LENGTH), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

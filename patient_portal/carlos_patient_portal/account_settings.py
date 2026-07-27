@@ -18,12 +18,16 @@ from carlos_patient_portal.credentials import password_hasher, validate_password
 from carlos_patient_portal.identity import normalize_email
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
+    AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
     AUDIT_EVENT_ACCOUNT_MFA_UPDATE,
     AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
+    CONTACT_REVIEW_DECISION_APPROVED,
+    CONTACT_REVIEW_DECISION_REJECTED,
     CONTACT_REVIEW_STATUS_PENDING,
+    CONTACT_REVIEW_STATUS_REVIEWED,
     MFA_DELIVERY_METHOD_SMS,
     SESSION_REVOKED_REASON_PASSWORD_CHANGE,
     PatientPortalAccount,
@@ -44,6 +48,10 @@ class AccountSettingsStepUpError(Exception):
 
 class AccountSettingsValidationError(Exception):
     """Raised when an account setting value would leave the account unusable."""
+
+
+class ContactReviewNotFoundError(Exception):
+    """Raised when a staff contact review is missing or no longer pending."""
 
 
 def change_account_password(
@@ -204,6 +212,93 @@ def update_account_mfa_method(
         outcome=AUDIT_OUTCOME_SUCCESS,
         reason=normalized_method,
     )
+
+
+def list_pending_contact_reviews(
+    session: Session,
+    *,
+    clinic_id: str,
+    limit: int = 100,
+) -> list[PatientPortalContactReviewRequest]:
+    if limit < 1 or limit > 100:
+        raise ValueError("limit must be between 1 and 100")
+    return list(
+        session.scalars(
+            select(PatientPortalContactReviewRequest)
+            .where(
+                PatientPortalContactReviewRequest.clinic_id == clinic_id,
+                PatientPortalContactReviewRequest.status == CONTACT_REVIEW_STATUS_PENDING,
+            )
+            .order_by(
+                PatientPortalContactReviewRequest.requested_at,
+                PatientPortalContactReviewRequest.id,
+            )
+            .limit(limit)
+        )
+    )
+
+
+def review_contact_update(
+    session: Session,
+    review_request_id: int,
+    *,
+    clinic_id: str,
+    reviewer: str,
+    reviewer_id: str,
+    approve: bool,
+) -> PatientPortalContactReviewRequest:
+    review_request = session.scalar(
+        select(PatientPortalContactReviewRequest)
+        .where(
+            PatientPortalContactReviewRequest.id == review_request_id,
+            PatientPortalContactReviewRequest.clinic_id == clinic_id,
+            PatientPortalContactReviewRequest.status == CONTACT_REVIEW_STATUS_PENDING,
+        )
+        .with_for_update()
+    )
+    if review_request is None:
+        raise ContactReviewNotFoundError()
+    account = session.scalar(
+        select(PatientPortalAccount)
+        .where(
+            PatientPortalAccount.id == review_request.account_id,
+            PatientPortalAccount.clinic_id == clinic_id,
+            PatientPortalAccount.demographic_no == review_request.demographic_no,
+        )
+        .with_for_update()
+    )
+    if account is None:
+        raise ContactReviewNotFoundError()
+
+    decision = (
+        CONTACT_REVIEW_DECISION_APPROVED if approve else CONTACT_REVIEW_DECISION_REJECTED
+    )
+    now = utc_now()
+    if approve:
+        account.email = review_request.email_after
+        account.phone_number = review_request.phone_number_after
+        account.updated_at = now
+        cancel_pending_mfa_challenges(session, account.id, now=now)
+    review_request.status = CONTACT_REVIEW_STATUS_REVIEWED
+    review_request.review_decision = decision
+    review_request.reviewed_at = now
+    review_request.reviewed_by = reviewer
+    review_request.reviewed_by_id = reviewer_id
+    record_audit_event(
+        session,
+        event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+        outcome=AUDIT_OUTCOME_SUCCESS,
+        actor_type=AUDIT_ACTOR_TYPE_STAFF,
+        actor=reviewer,
+        actor_id=reviewer_id,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        account_id=account.id,
+        resource_type="contact_review",
+        resource_id=str(review_request.id),
+        reason=decision,
+    )
+    return review_request
 
 
 def verify_current_password(

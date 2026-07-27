@@ -135,6 +135,9 @@ class MfaChallengeDelivery:
     destination: str
     available_delivery_methods: tuple[str, ...]
     expires_at: datetime
+    previous_code_hash: str | None = None
+    previous_delivery_method: str | None = None
+    previous_expires_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -197,9 +200,18 @@ def normalize_phone_number(phone_number: str | None) -> str | None:
         return None
     if len(normalized_number) > MAX_PHONE_NUMBER_LENGTH:
         raise ValueError(f"phone_number must be {MAX_PHONE_NUMBER_LENGTH} characters or fewer")
-    if sum(character.isdigit() for character in normalized_number) < 7:
-        raise ValueError("phone_number must include at least seven digits")
-    return normalized_number
+    digits = "".join(character for character in normalized_number if character.isdigit())
+    if normalized_number.startswith("+"):
+        e164_number = f"+{digits}"
+    elif len(digits) == 10:
+        e164_number = f"+1{digits}"
+    elif len(digits) == 11 and digits.startswith("1"):
+        e164_number = f"+{digits}"
+    else:
+        raise ValueError("phone_number must use international format")
+    if not 8 <= len(digits) <= 15:
+        raise ValueError("phone_number must contain between 8 and 15 digits")
+    return e164_number
 
 
 def hash_mfa_code(secret: str, challenge_token: str, code: str) -> str:
@@ -251,6 +263,11 @@ def ensure_mfa_delivery_available(
     delivery_method: str,
 ) -> None:
     if delivery_method == MFA_DELIVERY_METHOD_EMAIL and account.email:
+        return
+    if (
+        delivery_method == MFA_DELIVERY_METHOD_SMS
+        and normalize_phone_number(account.phone_number) is not None
+    ):
         return
     raise MfaDeliveryUnavailableError()
 
@@ -326,6 +343,7 @@ def lock_account(
     if account.locked_at is None:
         account.locked_at = now
         account.locked_by = AUTH_LOCKED_BY_AUTOMATION
+        account.locked_by_id = AUTH_LOCKED_BY_AUTOMATION
         account.force_password_reset = True
         account.updated_at = now
         revoke_account_sessions(
@@ -630,7 +648,12 @@ def get_mfa_challenge_for_token(
 def available_mfa_delivery_methods(
     account: PatientPortalAccount,
 ) -> tuple[str, ...]:
-    return (MFA_DELIVERY_METHOD_EMAIL,) if account.email else ()
+    methods: list[str] = []
+    if account.email:
+        methods.append(MFA_DELIVERY_METHOD_EMAIL)
+    if normalize_phone_number(account.phone_number) is not None:
+        methods.append(MFA_DELIVERY_METHOD_SMS)
+    return tuple(methods)
 
 
 def get_mfa_challenge_delivery_state(
@@ -759,6 +782,9 @@ def resend_mfa_challenge(
         )
         raise MfaRateLimitedError(retry_after_seconds)
 
+    previous_code_hash = challenge.code_hash
+    previous_delivery_method = challenge.delivery_method
+    previous_expires_at = challenge.expires_at
     code = create_mfa_code()
     challenge.code_hash = hash_mfa_code(code_secret, challenge_token, code)
     challenge.delivery_method = normalized_delivery_method
@@ -791,6 +817,9 @@ def resend_mfa_challenge(
         destination=destination,
         available_delivery_methods=available_mfa_delivery_methods(account),
         expires_at=challenge.expires_at,
+        previous_code_hash=previous_code_hash,
+        previous_delivery_method=previous_delivery_method,
+        previous_expires_at=previous_expires_at,
     )
 
 
@@ -821,6 +850,18 @@ def record_mfa_delivery_outcome(
             challenge.last_email_sent_at = delivered_at
         else:
             challenge.last_sms_sent_at = delivered_at
+    elif (
+        delivery.previous_code_hash is not None
+        and delivery.previous_delivery_method is not None
+        and delivery.previous_expires_at is not None
+    ):
+        challenge.code_hash = delivery.previous_code_hash
+        challenge.delivery_method = delivery.previous_delivery_method
+        challenge.expires_at = delivery.previous_expires_at
+        challenge.updated_at = utc_now()
+    else:
+        challenge.status = MFA_CHALLENGE_STATUS_CANCELLED
+        challenge.updated_at = utc_now()
 
     record_audit_event(
         session,
@@ -1122,6 +1163,7 @@ def complete_password_reset(
     account.failed_login_count = 0
     account.locked_at = None
     account.locked_by = None
+    account.locked_by_id = None
     account.force_password_reset = False
     account.updated_at = now
     reset_record.status = PASSWORD_RESET_STATUS_USED
@@ -1215,8 +1257,10 @@ def unlock_patient_account(
     actor: str,
     *,
     clinic_id: str | None = None,
+    actor_id: str | None = None,
 ) -> PatientPortalAccount:
     normalized_actor = normalize_staff_actor(actor)
+    normalized_actor_id = normalize_staff_actor(actor if actor_id is None else actor_id)
     statement = select(PatientPortalAccount).where(PatientPortalAccount.id == account_id)
     if clinic_id is not None:
         statement = statement.where(
@@ -1230,6 +1274,7 @@ def unlock_patient_account(
     account.failed_login_count = 0
     account.locked_at = None
     account.locked_by = None
+    account.locked_by_id = None
     account.force_password_reset = True
     account.updated_at = now
     revoke_account_sessions(
@@ -1245,6 +1290,7 @@ def unlock_patient_account(
         outcome=AUDIT_OUTCOME_SUCCESS,
         actor_type=AUDIT_ACTOR_TYPE_STAFF,
         actor=normalized_actor,
+        actor_id=normalized_actor_id,
         clinic_id=account.clinic_id,
         demographic_no=account.demographic_no,
         account_id=account.id,

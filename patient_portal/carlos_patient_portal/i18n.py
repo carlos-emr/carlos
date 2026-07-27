@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 DEFAULT_LOCALE = "en"
+DATETIME_FORMATS = {DEFAULT_LOCALE: "%Y-%m-%d %H:%M"}
 
 
 @dataclass(frozen=True)
@@ -200,3 +202,8 @@ def supported_locale_options(current_locale: str = DEFAULT_LOCALE) -> tuple[dict
         }
         for locale in SUPPORTED_LOCALES
     )
+
+
+def format_portal_datetime(value: datetime, locale: str = DEFAULT_LOCALE) -> str:
+    date_format = DATETIME_FORMATS.get(locale, DATETIME_FORMATS[DEFAULT_LOCALE])
+    return value.strftime(date_format)

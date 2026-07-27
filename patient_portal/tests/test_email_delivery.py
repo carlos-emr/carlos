@@ -165,7 +165,15 @@ def test_smtp_configuration_rejects_incomplete_settings(
 
 def test_non_development_smtp_configuration_requires_from_address() -> None:
     with pytest.raises(ValueError, match="PATIENT_PORTAL_SMTP_FROM_ADDRESS"):
-        Settings(environment="staging", smtp_host="mail.internal")
+        Settings(
+            environment="staging",
+            smtp_host="mail.internal",
+            session_secret="s" * 32,
+            identity_proof_secret="i" * 32,
+            audit_hash_secret="a" * 32,
+            unlock_secret_encryption_secret="u" * 32,
+            internal_health_token="h" * 32,
+        )
 
 
 def test_non_development_smtp_requires_https_public_base_url() -> None:
@@ -175,6 +183,11 @@ def test_non_development_smtp_requires_https_public_base_url() -> None:
             smtp_host="mail.internal",
             smtp_from_address="portal@example.test",
             smtp_starttls=True,
+            session_secret="s" * 32,
+            identity_proof_secret="i" * 32,
+            audit_hash_secret="a" * 32,
+            unlock_secret_encryption_secret="u" * 32,
+            internal_health_token="h" * 32,
         )
     with pytest.raises(ValueError, match="must use HTTPS"):
         Settings(
@@ -183,6 +196,11 @@ def test_non_development_smtp_requires_https_public_base_url() -> None:
             smtp_host="mail.internal",
             smtp_from_address="portal@example.test",
             smtp_starttls=True,
+            session_secret="s" * 32,
+            identity_proof_secret="i" * 32,
+            audit_hash_secret="a" * 32,
+            unlock_secret_encryption_secret="u" * 32,
+            internal_health_token="h" * 32,
         )
 
     settings = Settings(
@@ -208,4 +226,9 @@ def test_non_development_smtp_requires_transport_encryption() -> None:
             public_base_url="https://portal.example.test",
             smtp_host="mail.internal",
             smtp_from_address="portal@example.test",
+            session_secret="s" * 32,
+            identity_proof_secret="i" * 32,
+            audit_hash_secret="a" * 32,
+            unlock_secret_encryption_secret="u" * 32,
+            internal_health_token="h" * 32,
         )

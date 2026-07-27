@@ -127,15 +127,48 @@ if (
 const portalMessageModal = document.getElementById("portal-message-modal");
 const portalMessageTitle = document.getElementById("portal-message-title");
 const portalMessageBody = document.getElementById("portal-message-body");
+let portalMessageOpener = null;
+let inertBackgroundElements = [];
 
-function hidePortalMessageModal() {
+function setPortalBackgroundInert() {
   if (!(portalMessageModal instanceof HTMLElement)) {
     return;
   }
-  portalMessageModal.hidden = true;
+  inertBackgroundElements = [];
+  let activeBranch = portalMessageModal;
+  let parent = activeBranch.parentElement;
+  while (parent instanceof HTMLElement) {
+    for (const sibling of parent.children) {
+      if (sibling !== activeBranch && sibling instanceof HTMLElement && !sibling.inert) {
+        sibling.inert = true;
+        inertBackgroundElements.push(sibling);
+      }
+    }
+    activeBranch = parent;
+    parent = parent.parentElement;
+  }
 }
 
-function showPortalMessageModal(title, message) {
+function restorePortalBackground() {
+  for (const element of inertBackgroundElements) {
+    element.inert = false;
+  }
+  inertBackgroundElements = [];
+}
+
+function hidePortalMessageModal() {
+  if (!(portalMessageModal instanceof HTMLElement) || portalMessageModal.hidden) {
+    return;
+  }
+  portalMessageModal.hidden = true;
+  restorePortalBackground();
+  if (portalMessageOpener instanceof HTMLElement) {
+    portalMessageOpener.focus();
+  }
+  portalMessageOpener = null;
+}
+
+function showPortalMessageModal(title, message, opener) {
   if (
     !(portalMessageModal instanceof HTMLElement)
     || !(portalMessageTitle instanceof HTMLElement)
@@ -146,7 +179,9 @@ function showPortalMessageModal(title, message) {
 
   portalMessageTitle.textContent = title;
   portalMessageBody.textContent = message;
+  portalMessageOpener = opener instanceof HTMLElement ? opener : null;
   portalMessageModal.hidden = false;
+  setPortalBackgroundInert();
   const closeButton = portalMessageModal.querySelector("[data-modal-close]");
   if (closeButton instanceof HTMLElement) {
     closeButton.focus();
@@ -164,6 +199,7 @@ document.addEventListener("click", (event) => {
     showPortalMessageModal(
       modalTrigger.dataset.modalTitle || "",
       modalTrigger.dataset.modalMessage || "",
+      modalTrigger,
     );
     return;
   }
@@ -181,7 +217,32 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (!(portalMessageModal instanceof HTMLElement) || portalMessageModal.hidden) {
+    return;
+  }
   if (event.key === "Escape") {
+    event.preventDefault();
     hidePortalMessageModal();
+    return;
+  }
+  if (event.key !== "Tab") {
+    return;
+  }
+  const focusableElements = [...portalMessageModal.querySelectorAll(
+    "a[href], button:not([disabled]), input:not([disabled]), "
+      + "select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+  )].filter((element) => element instanceof HTMLElement && !element.hidden);
+  if (focusableElements.length === 0) {
+    event.preventDefault();
+    return;
+  }
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+  if (event.shiftKey && document.activeElement === firstElement) {
+    event.preventDefault();
+    lastElement.focus();
+  } else if (!event.shiftKey && document.activeElement === lastElement) {
+    event.preventDefault();
+    firstElement.focus();
   }
 });

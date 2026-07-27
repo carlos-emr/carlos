@@ -13,12 +13,15 @@ from carlos_patient_portal.database import (
 )
 from carlos_patient_portal.maintenance import (
     DEFAULT_AUDIT_PRUNE_BATCH_SIZE,
+    DEFAULT_TRANSIENT_RETENTION_DAYS,
     audit_retention_cutoff,
     backup_sqlite_database,
+    cleanup_transient_auth_rows,
     count_prunable_audit_events,
     prune_audit_events,
     restore_sqlite_database,
 )
+from carlos_patient_portal.unlock_secrets import reencrypt_unlock_secrets
 
 
 def build_alembic_config() -> Config:
@@ -89,6 +92,31 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
         action="store_true",
         help="Replace the configured SQLite database path.",
     )
+    rotate_parser = subparsers.add_parser(
+        "rotate-unlock-secrets",
+        help="Re-encrypt one batch of stored unlock secrets with the active key.",
+    )
+    rotate_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=100,
+        help="Maximum unlock secrets to rotate in this run.",
+    )
+    cleanup_parser = subparsers.add_parser(
+        "cleanup-transient-auth",
+        help="Delete expired authentication rows after a conservative retention period.",
+    )
+    cleanup_parser.add_argument(
+        "--retention-days",
+        type=int,
+        default=DEFAULT_TRANSIENT_RETENTION_DAYS,
+    )
+    cleanup_parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=DEFAULT_AUDIT_PRUNE_BATCH_SIZE,
+    )
+    cleanup_parser.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args(argv)
     settings = get_settings()
@@ -111,11 +139,41 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
         print(f"restored SQLite database to {restored_path}")
         return
 
-    database_engine = create_portal_engine(settings.database_url)
+    database_engine = create_portal_engine(
+        settings.database_url,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_timeout_seconds=settings.database_pool_timeout_seconds,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        statement_timeout_ms=settings.database_statement_timeout_ms,
+        lock_timeout_ms=settings.database_lock_timeout_ms,
+        sqlite_busy_timeout_ms=settings.sqlite_busy_timeout_ms,
+    )
     session_factory = create_session_factory(database_engine)
-    cutoff = audit_retention_cutoff(settings.audit_retention_days)
     try:
         with session_scope(session_factory) as session:
+            if args.command == "rotate-unlock-secrets":
+                rotated_count = reencrypt_unlock_secrets(
+                    session,
+                    encryption_keys=settings.resolved_unlock_secret_keyring,
+                    active_key_id=settings.unlock_secret_active_key_id,
+                    limit=args.batch_size,
+                )
+                print(f"rotated {rotated_count} unlock secrets")
+                return
+            if args.command == "cleanup-transient-auth":
+                cutoff = audit_retention_cutoff(args.retention_days)
+                cleanup_transient_auth_rows(
+                    session,
+                    before=cutoff,
+                    batch_size=args.batch_size,
+                    dry_run=args.dry_run,
+                )
+                action = "dry run completed" if args.dry_run else "cleanup completed"
+                print(f"transient authentication {action}")
+                return
+
+            cutoff = audit_retention_cutoff(settings.audit_retention_days)
             if args.dry_run:
                 prunable_count = count_prunable_audit_events(session, before=cutoff)
                 print(f"{prunable_count} audit events older than retention")

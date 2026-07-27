@@ -85,7 +85,7 @@
             <button class="secondary-action" type="submit">{{ text.mfa_resend }}</button>
             <p class="clinic-help-line">{{ mfa_rate_limit_message }}</p>
             {% if development_mfa_code %}
-              <p class="clinic-help-line">{{ text.development_mfa_code }} {{ development_mfa_code }}</p>
+              <p class="clinic-help-line" data-development-mfa-code="{{ development_mfa_code }}">{{ text.development_mfa_code }} {{ development_mfa_code }}</p>
             {% endif %}
           </form>
           <a class="auth-back-link" href="/">{{ text.back_to_sign_in }}</a>

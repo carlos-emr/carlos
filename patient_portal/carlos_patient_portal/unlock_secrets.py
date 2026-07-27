@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
@@ -139,9 +140,17 @@ def encrypt_unlock_secret_payload(
 def decrypt_unlock_secret_payload(
     unlock_secret: PatientPortalUnlockSecret,
     *,
-    encryption_secret: str,
+    encryption_secret: str | None = None,
+    encryption_keys: Mapping[str, str] | None = None,
 ) -> str:
-    aesgcm = AESGCM(derive_unlock_secret_key(encryption_secret))
+    resolved_secret = encryption_secret
+    if encryption_keys is not None:
+        resolved_secret = encryption_keys.get(unlock_secret.encryption_key_id)
+    if resolved_secret is None:
+        raise UnlockSecretDecryptionError(
+            f"unlock secret encryption key is unavailable: {unlock_secret.encryption_key_id}"
+        )
+    aesgcm = AESGCM(derive_unlock_secret_key(resolved_secret))
     try:
         decrypted_secret = aesgcm.decrypt(
             unlock_secret.encryption_nonce,
@@ -168,6 +177,7 @@ def create_unlock_secret(
     clinic_id: str,
     demographic_no: int,
     created_by: str,
+    created_by_id: str | None = None,
     encryption_secret: str,
     secret_type: str = UNLOCK_SECRET_TYPE_EMAIL,
     secret: str | None = None,
@@ -182,6 +192,11 @@ def create_unlock_secret(
     normalized_created_by = normalize_required_text(
         created_by,
         field_name="created_by",
+        max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH,
+    )
+    normalized_created_by_id = normalize_optional_text(
+        created_by_id,
+        field_name="created_by_id",
         max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH,
     )
     normalized_key_id = normalize_required_text(
@@ -228,6 +243,7 @@ def create_unlock_secret(
         encryption_algorithm=ENCRYPTION_ALGORITHM,
         encryption_key_id=normalized_key_id,
         created_by=normalized_created_by,
+        created_by_id=normalized_created_by_id,
         created_at=now,
         updated_at=now,
     )
@@ -239,9 +255,12 @@ def create_unlock_secret(
         outcome=AUDIT_OUTCOME_SUCCESS,
         actor_type=AUDIT_ACTOR_TYPE_STAFF,
         actor=normalized_created_by,
+        actor_id=normalized_created_by_id,
         clinic_id=normalized_clinic_id,
         demographic_no=normalized_demographic_no,
         account_id=resolved_account_id,
+        resource_type="unlock_secret",
+        resource_id=str(unlock_secret.id),
     )
     return CreatedUnlockSecret(unlock_secret=unlock_secret, secret=plaintext_secret)
 
@@ -251,9 +270,11 @@ def read_unlock_secret(
     unlock_secret_id: int,
     *,
     clinic_id: str,
-    encryption_secret: str,
+    encryption_secret: str | None = None,
+    encryption_keys: Mapping[str, str] | None = None,
     actor_type: str,
     actor: str,
+    actor_id: str | None = None,
     account_id: int | None = None,
     audit_account_id: int | None = None,
     demographic_no: int | None = None,
@@ -267,6 +288,11 @@ def read_unlock_secret(
     )
     normalized_audit_account_id = (
         normalize_account_id(audit_account_id) if audit_account_id is not None else None
+    )
+    normalized_actor_id = normalize_optional_text(
+        actor_id,
+        field_name="actor_id",
+        max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH,
     )
     unlock_secret = get_scoped_unlock_secret(
         session,
@@ -283,6 +309,7 @@ def read_unlock_secret(
     plaintext_secret = decrypt_unlock_secret_payload(
         unlock_secret,
         encryption_secret=encryption_secret,
+        encryption_keys=encryption_keys,
     )
     now = utc_now()
     unlock_secret.last_viewed_at = now
@@ -293,6 +320,7 @@ def read_unlock_secret(
         outcome=AUDIT_OUTCOME_SUCCESS,
         actor_type=normalized_actor_type,
         actor=normalized_actor,
+        actor_id=normalized_actor_id,
         clinic_id=unlock_secret.clinic_id,
         demographic_no=unlock_secret.demographic_no,
         account_id=(
@@ -300,8 +328,46 @@ def read_unlock_secret(
             if normalized_audit_account_id is not None
             else unlock_secret.account_id
         ),
+        resource_type="unlock_secret",
+        resource_id=str(unlock_secret.id),
     )
     return plaintext_secret
+
+
+def reencrypt_unlock_secrets(
+    session: Session,
+    *,
+    encryption_keys: Mapping[str, str],
+    active_key_id: str,
+    limit: int = 100,
+) -> int:
+    active_secret = encryption_keys.get(active_key_id)
+    if active_secret is None:
+        raise ValueError("active unlock-secret encryption key is unavailable")
+    records = list(
+        session.scalars(
+            select(PatientPortalUnlockSecret)
+            .where(PatientPortalUnlockSecret.encryption_key_id != active_key_id)
+            .order_by(PatientPortalUnlockSecret.id)
+            .limit(normalize_list_limit(limit))
+            .with_for_update()
+        )
+    )
+    for record in records:
+        plaintext = decrypt_unlock_secret_payload(record, encryption_keys=encryption_keys)
+        encrypted_payload = encrypt_unlock_secret_payload(
+            plaintext,
+            encryption_secret=active_secret,
+            clinic_id=record.clinic_id,
+            demographic_no=record.demographic_no,
+            secret_type=record.secret_type,
+            encryption_key_id=active_key_id,
+        )
+        record.encrypted_secret = encrypted_payload.encrypted_secret
+        record.encryption_nonce = encrypted_payload.encryption_nonce
+        record.encryption_key_id = active_key_id
+        record.updated_at = utc_now()
+    return len(records)
 
 
 def revoke_unlock_secret(
@@ -310,6 +376,7 @@ def revoke_unlock_secret(
     *,
     clinic_id: str,
     revoked_by: str,
+    revoked_by_id: str | None = None,
     account_id: int | None = None,
     demographic_no: int | None = None,
     reason: str | None = None,
@@ -324,6 +391,11 @@ def revoke_unlock_secret(
         field_name="reason",
         max_length=MAX_UNLOCK_SECRET_REVOKE_REASON_LENGTH,
     )
+    normalized_revoked_by_id = normalize_optional_text(
+        revoked_by_id,
+        field_name="revoked_by_id",
+        max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH,
+    )
     unlock_secret = get_scoped_unlock_secret(
         session,
         unlock_secret_id,
@@ -337,6 +409,7 @@ def revoke_unlock_secret(
         unlock_secret.status = UNLOCK_SECRET_STATUS_REVOKED
         unlock_secret.revoked_at = now
         unlock_secret.revoked_by = normalized_revoked_by
+        unlock_secret.revoked_by_id = normalized_revoked_by_id
         unlock_secret.revoke_reason = normalized_reason
         unlock_secret.updated_at = now
     record_audit_event(
@@ -345,9 +418,12 @@ def revoke_unlock_secret(
         outcome=AUDIT_OUTCOME_SUCCESS,
         actor_type=AUDIT_ACTOR_TYPE_STAFF,
         actor=normalized_revoked_by,
+        actor_id=normalized_revoked_by_id,
         clinic_id=unlock_secret.clinic_id,
         demographic_no=unlock_secret.demographic_no,
         account_id=unlock_secret.account_id,
+        resource_type="unlock_secret",
+        resource_id=str(unlock_secret.id),
         reason=normalized_reason,
     )
     return unlock_secret
@@ -479,6 +555,39 @@ def list_unlock_secrets(
     return list(session.scalars(statement))
 
 
+def list_unlock_secret_provider_identities(
+    session: Session,
+    *,
+    clinic_id: str,
+    account_id: int | None = None,
+    demographic_no: int | None = None,
+    secret_type: str | None = None,
+    limit: int = MAX_UNLOCK_SECRET_PROVIDER_OPTIONS,
+    offset: int = 0,
+) -> list[tuple[str | None, str]]:
+    scoped_statement = scoped_unlock_secret_statement(
+        clinic_id=clinic_id,
+        account_id=account_id,
+        demographic_no=demographic_no,
+        secret_type=secret_type,
+    )
+    statement = (
+        scoped_statement.with_only_columns(
+            PatientPortalUnlockSecret.created_by_id,
+            PatientPortalUnlockSecret.created_by,
+        )
+        .where(PatientPortalUnlockSecret.status == UNLOCK_SECRET_STATUS_ACTIVE)
+        .distinct()
+        .order_by(
+            PatientPortalUnlockSecret.created_by_id,
+            PatientPortalUnlockSecret.created_by,
+        )
+        .limit(normalize_list_limit(limit))
+        .offset(normalize_list_offset(offset))
+    )
+    return [(row[0], row[1]) for row in session.execute(statement)]
+
+
 def list_unlock_secret_providers(
     session: Session,
     *,
@@ -487,20 +596,42 @@ def list_unlock_secret_providers(
     demographic_no: int | None = None,
     secret_type: str | None = None,
 ) -> list[str]:
+    return [
+        display_name
+        for _, display_name in list_unlock_secret_provider_identities(
+            session,
+            clinic_id=clinic_id,
+            account_id=account_id,
+            demographic_no=demographic_no,
+            secret_type=secret_type,
+        )
+    ]
+
+
+def count_unlock_secret_providers(
+    session: Session,
+    *,
+    clinic_id: str,
+    account_id: int | None = None,
+    demographic_no: int | None = None,
+    secret_type: str | None = None,
+) -> int:
     scoped_statement = scoped_unlock_secret_statement(
         clinic_id=clinic_id,
         account_id=account_id,
         demographic_no=demographic_no,
         secret_type=secret_type,
     )
-    statement = (
-        scoped_statement.with_only_columns(PatientPortalUnlockSecret.created_by)
+    distinct_providers = (
+        scoped_statement.with_only_columns(
+            PatientPortalUnlockSecret.created_by_id,
+            PatientPortalUnlockSecret.created_by,
+        )
         .where(PatientPortalUnlockSecret.status == UNLOCK_SECRET_STATUS_ACTIVE)
         .distinct()
-        .order_by(PatientPortalUnlockSecret.created_by)
-        .limit(MAX_UNLOCK_SECRET_PROVIDER_OPTIONS)
+        .subquery()
     )
-    return list(session.scalars(statement))
+    return int(session.scalar(select(func.count()).select_from(distinct_providers)) or 0)
 
 
 def get_scoped_unlock_secret(
@@ -527,6 +658,30 @@ def get_scoped_unlock_secret(
     if unlock_secret is None:
         raise UnlockSecretNotFoundError()
     return unlock_secret
+
+
+def get_unlock_secret_by_source_reference(
+    session: Session,
+    *,
+    clinic_id: str,
+    demographic_no: int,
+    secret_type: str,
+    source_reference: str,
+    for_update: bool = False,
+) -> PatientPortalUnlockSecret | None:
+    normalized_source_reference = normalize_required_text(
+        source_reference,
+        field_name="source_reference",
+        max_length=MAX_UNLOCK_SECRET_SOURCE_REFERENCE_LENGTH,
+    )
+    statement = scoped_unlock_secret_statement(
+        clinic_id=clinic_id,
+        demographic_no=demographic_no,
+        secret_type=secret_type,
+    ).where(PatientPortalUnlockSecret.source_reference == normalized_source_reference)
+    if for_update:
+        statement = statement.with_for_update()
+    return session.scalar(statement)
 
 
 def scoped_unlock_secret_statement(

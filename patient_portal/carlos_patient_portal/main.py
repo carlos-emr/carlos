@@ -1,7 +1,8 @@
+import json
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as datetime_time
 from hashlib import sha256
@@ -16,7 +17,7 @@ from time import monotonic, time
 from typing import Annotated, TypeVar
 from urllib.parse import parse_qs, quote, urlencode
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -25,7 +26,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import Engine
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
@@ -61,6 +62,7 @@ from carlos_patient_portal.auth import (
     MfaChallengeNotFoundError,
     MfaDeliveryUnavailableError,
     MfaRateLimitedError,
+    PasswordResetRequestResult,
     PasswordResetRequiredError,
     PasswordResetTokenInvalidError,
     PortalSessionInvalidError,
@@ -78,7 +80,9 @@ from carlos_patient_portal.auth import (
 )
 from carlos_patient_portal.config import Settings, get_settings
 from carlos_patient_portal.database import (
+    DatabaseSchemaMismatchError,
     check_database,
+    check_database_schema_current,
     create_portal_engine,
     create_session_factory,
 )
@@ -87,8 +91,14 @@ from carlos_patient_portal.email_delivery import (
     PortalEmailSender,
     build_portal_email_sender,
 )
-from carlos_patient_portal.i18n import DEFAULT_LOCALE, portal_text, supported_locale_options
+from carlos_patient_portal.i18n import (
+    DEFAULT_LOCALE,
+    format_portal_datetime,
+    portal_text,
+    supported_locale_options,
+)
 from carlos_patient_portal.identity import IdentityProof
+from carlos_patient_portal.internal_routes import register_carlos_internal_routes
 from carlos_patient_portal.interop import (
     build_fhir_organization_id,
     build_fhir_patient_id,
@@ -118,6 +128,8 @@ from carlos_patient_portal.invites import (
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
+    AUDIT_EVENT_FHIR_READ,
+    AUDIT_EVENT_FHIR_SEARCH,
     AUDIT_EVENT_INVITE_LIST,
     AUDIT_EVENT_UNLOCK_SECRET_LIST,
     AUDIT_EVENT_UNLOCK_SECRET_READ,
@@ -154,6 +166,11 @@ from carlos_patient_portal.schemas import (
     PasswordResetRequestResponse,
     SessionResponse,
 )
+from carlos_patient_portal.sms_delivery import (
+    PortalSmsDeliveryError,
+    PortalSmsSender,
+    build_portal_sms_sender,
+)
 from carlos_patient_portal.unlock_secrets import (
     DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     MAX_UNLOCK_SECRET_LIST_LIMIT,
@@ -161,8 +178,10 @@ from carlos_patient_portal.unlock_secrets import (
     UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
     UnlockSecretRevokedError,
+    count_unlock_secret_providers,
     count_unlock_secrets,
     get_scoped_unlock_secret,
+    list_unlock_secret_provider_identities,
     list_unlock_secret_providers,
     list_unlock_secrets,
     read_unlock_secret,
@@ -291,6 +310,32 @@ class BrowserFormValidationError(Exception):
         self.safe_form_values = safe_form_values or {}
 
 
+@dataclass
+class PortalOperationalMetrics:
+    _lock: Lock = field(default_factory=Lock)
+    _request_counts: dict[str, int] = field(default_factory=dict)
+    _failure_counts: dict[str, int] = field(default_factory=dict)
+    _request_duration_ms_total: int = 0
+
+    def record_request(self, status_code: int, duration_ms: int) -> None:
+        status_group = f"{status_code // 100}xx"
+        with self._lock:
+            self._request_counts[status_group] = self._request_counts.get(status_group, 0) + 1
+            self._request_duration_ms_total += max(0, duration_ms)
+
+    def record_failure(self, failure_type: str) -> None:
+        with self._lock:
+            self._failure_counts[failure_type] = self._failure_counts.get(failure_type, 0) + 1
+
+    def snapshot(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "requests": dict(self._request_counts),
+                "failures": dict(self._failure_counts),
+                "request_duration_ms_total": self._request_duration_ms_total,
+            }
+
+
 @dataclass(frozen=True)
 class PortalRuntime:
     settings: Settings
@@ -304,6 +349,12 @@ class PortalRuntime:
     auth_policy: AuthPolicy
     rate_limiter: InMemoryRateLimiter
     email_sender: PortalEmailSender | None
+    sms_sender: PortalSmsSender | None
+    unlock_secret_encryption_keys: dict[str, str] | None = None
+    unlock_secret_active_key_id: str = "primary"
+    operational_metrics: PortalOperationalMetrics = field(
+        default_factory=PortalOperationalMetrics
+    )
 
 
 @dataclass(frozen=True)
@@ -614,8 +665,110 @@ def fhir_patient_reference(account: PatientPortalAccount) -> str:
     return f"Patient/{build_fhir_patient_id(account.clinic_id, account.demographic_no)}"
 
 
-def fhir_base_url(request: Request) -> str:
+def fhir_base_url(settings: Settings, request: Request) -> str:
+    if settings.public_base_url is not None:
+        return f"{settings.public_base_url.rstrip('/')}/fhir"
     return f"{str(request.base_url).rstrip('/')}/fhir"
+
+
+def fhir_search_url(
+    *,
+    base_url: str,
+    resource_type: str,
+    count: int,
+    offset: int,
+    resource_id: str | None = None,
+    subject: str | None = None,
+) -> str:
+    query: list[tuple[str, str]] = [
+        ("_count", str(count)),
+        ("_offset", str(offset)),
+    ]
+    if resource_id is not None:
+        query.append(("_id", resource_id))
+    if subject is not None:
+        query.append(("subject", subject))
+    return f"{base_url.rstrip('/')}/{resource_type}?{urlencode(query)}"
+
+
+def fhir_bundle_links(
+    *,
+    base_url: str,
+    resource_type: str,
+    count: int,
+    offset: int,
+    total: int,
+    resource_id: str | None = None,
+    subject: str | None = None,
+) -> tuple[str, str | None, str | None]:
+    build_link = lambda page_offset: fhir_search_url(  # noqa: E731
+        base_url=base_url,
+        resource_type=resource_type,
+        count=count,
+        offset=page_offset,
+        resource_id=resource_id,
+        subject=subject,
+    )
+    self_link = build_link(offset)
+    previous_link = build_link(max(0, offset - count)) if offset > 0 else None
+    next_link = build_link(offset + count) if offset + count < total else None
+    return self_link, previous_link, next_link
+
+
+def record_fhir_access(
+    session: Session,
+    account: PatientPortalAccount,
+    *,
+    event_type: str,
+    resource_type: str,
+    resource_id: str | None,
+    outcome: str,
+    reason: str,
+) -> None:
+    record_audit_event(
+        session,
+        event_type=event_type,
+        outcome=outcome,
+        actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+        actor=account.username,
+        actor_id=str(account.id),
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        account_id=account.id,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        reason=reason,
+    )
+
+
+def find_fhir_practitioner(
+    session: Session,
+    account: PatientPortalAccount,
+    practitioner_id: str,
+) -> tuple[str | None, str] | None:
+    total = count_unlock_secret_providers(
+        session,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+    )
+    for provider_offset in range(0, total, MAX_UNLOCK_SECRET_LIST_LIMIT):
+        provider_rows = list_unlock_secret_provider_identities(
+            session,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
+            offset=provider_offset,
+        )
+        for provider_id, name in provider_rows:
+            if practitioner_id == build_fhir_practitioner_id(
+                clinic_id=account.clinic_id,
+                name=name,
+                provider_id=provider_id,
+            ):
+                return provider_id, name
+    return None
 
 
 def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
@@ -649,8 +802,15 @@ def send_mfa_challenge(runtime: PortalRuntime, delivery: MfaChallengeDelivery) -
         )
         return
 
-    if not runtime.settings.is_development:
-        raise PortalEmailDeliveryError("MFA delivery is not configured")
+    if runtime.sms_sender is None:
+        if runtime.settings.is_development:
+            return
+        raise PortalSmsDeliveryError("MFA SMS delivery is not configured")
+    runtime.sms_sender.send_code(
+        recipient=delivery.destination,
+        code=delivery.code,
+        expires_in_seconds=runtime.settings.mfa_code_ttl_seconds,
+    )
 
 
 def build_password_reset_url(
@@ -684,6 +844,51 @@ def send_password_reset_email(
         reset_url=reset_url,
         expires_in_seconds=runtime.settings.password_reset_token_ttl_seconds,
     )
+
+
+def deliver_password_reset(
+    runtime: PortalRuntime,
+    *,
+    result: PasswordResetRequestResult,
+    reset_url: str,
+) -> None:
+    outcome = AUDIT_OUTCOME_SUCCESS
+    try:
+        send_password_reset_email(
+            runtime,
+            recipient=result.recipient or "",
+            reset_url=reset_url,
+        )
+    except PortalEmailDeliveryError as exc:
+        outcome = AUDIT_OUTCOME_FAILURE
+        runtime.operational_metrics.record_failure("password_reset_delivery")
+        logger.error("Password reset email delivery failed: %s", type(exc).__name__)
+    try:
+        with runtime.session_factory() as session:
+            with session.begin():
+                record_password_reset_delivery_outcome(
+                    session,
+                    result=result,
+                    outcome=outcome,
+                )
+    except (PasswordResetTokenInvalidError, SQLAlchemyError) as exc:
+        logger.error(
+            "Password reset delivery outcome persistence failed: %s",
+            type(exc).__name__,
+        )
+
+
+def send_contact_change_notice(runtime: PortalRuntime, *, recipient: str) -> None:
+    if runtime.email_sender is None:
+        if runtime.settings.is_development:
+            return
+        raise PortalEmailDeliveryError("contact-change email delivery is not configured")
+    sender = getattr(runtime.email_sender, "send_contact_change_notice", None)
+    if sender is None:
+        if runtime.settings.is_development:
+            return
+        raise PortalEmailDeliveryError("contact-change email delivery is not configured")
+    sender(recipient=recipient)
 
 
 def record_mfa_delivery_and_commit(
@@ -1001,7 +1206,7 @@ def email_password_dashboard_context(
     )
     return {
         "rows": [
-            email_password_dashboard_row(record)
+            email_password_dashboard_row(record, text=text)
             for record in records
         ],
         "search": normalized_search or "",
@@ -1060,12 +1265,14 @@ def email_password_dashboard_context(
 
 def email_password_dashboard_row(
     unlock_secret: PatientPortalUnlockSecret,
+    *,
+    text: dict[str, str],
 ) -> dict[str, object]:
     return {
         "id": unlock_secret.id,
-        "subject": unlock_secret.label or "Email password",
+        "subject": unlock_secret.label or text["email_password"],
         "provider": unlock_secret.created_by,
-        "sent_at": unlock_secret.created_at.strftime("%Y-%m-%d %H:%M"),
+        "sent_at": format_portal_datetime(unlock_secret.created_at),
         "source_reference": unlock_secret.source_reference,
         "is_available": unlock_secret.status == UNLOCK_SECRET_STATUS_ACTIVE,
     }
@@ -1540,6 +1747,7 @@ def build_portal_runtime(
     settings: Settings,
     *,
     email_sender: PortalEmailSender | None = None,
+    sms_sender: PortalSmsSender | None = None,
 ) -> PortalRuntime:
     csrf_secret = (
         settings.session_secret.get_secret_value()
@@ -1556,12 +1764,23 @@ def build_portal_runtime(
         if settings.audit_hash_secret is not None
         else token_urlsafe(32)
     )
-    unlock_secret_encryption_secret = (
-        settings.unlock_secret_encryption_secret.get_secret_value()
-        if settings.unlock_secret_encryption_secret is not None
-        else token_urlsafe(32)
+    unlock_secret_encryption_keys = settings.resolved_unlock_secret_keyring
+    if not unlock_secret_encryption_keys:
+        unlock_secret_encryption_keys = {"primary": token_urlsafe(32)}
+    unlock_secret_active_key_id = settings.unlock_secret_active_key_id
+    unlock_secret_encryption_secret = unlock_secret_encryption_keys[
+        unlock_secret_active_key_id
+    ]
+    database_engine = create_portal_engine(
+        settings.database_url,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_timeout_seconds=settings.database_pool_timeout_seconds,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        statement_timeout_ms=settings.database_statement_timeout_ms,
+        lock_timeout_ms=settings.database_lock_timeout_ms,
+        sqlite_busy_timeout_ms=settings.sqlite_busy_timeout_ms,
     )
-    database_engine = create_portal_engine(settings.database_url)
     session_factory = create_session_factory(database_engine)
     activation_rate_limit = ActivationRateLimit(
         failure_window=timedelta(seconds=settings.activation_failure_window_seconds),
@@ -1581,6 +1800,8 @@ def build_portal_runtime(
         identity_proof_secret=identity_proof_secret,
         audit_hash_secret=audit_hash_secret,
         unlock_secret_encryption_secret=unlock_secret_encryption_secret,
+        unlock_secret_encryption_keys=unlock_secret_encryption_keys,
+        unlock_secret_active_key_id=unlock_secret_active_key_id,
         activation_rate_limit=activation_rate_limit,
         auth_policy=auth_policy,
         rate_limiter=rate_limiter,
@@ -1588,6 +1809,11 @@ def build_portal_runtime(
             email_sender
             if email_sender is not None
             else build_portal_email_sender(settings)
+        ),
+        sms_sender=(
+            sms_sender
+            if sms_sender is not None
+            else build_portal_sms_sender(settings)
         ),
     )
 
@@ -1625,9 +1851,68 @@ def register_exception_handlers(app: FastAPI) -> None:
             diagnostics=exc.diagnostics,
         )
 
+    @app.exception_handler(OperationalError)
+    async def database_operational_error_handler(
+        request: Request,
+        exc: OperationalError,
+    ) -> JSONResponse:
+        request.app.state.operational_metrics.record_failure("database")
+        logger.warning("Portal database operation unavailable: %s", type(exc.orig).__name__)
+        if request.url.path.startswith("/fhir/"):
+            return fhir_operation_outcome_response(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                code="transient",
+                diagnostics="service temporarily unavailable",
+            )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "service temporarily unavailable"},
+            headers={"Retry-After": "1"},
+        )
+
 
 def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
     settings = runtime.settings
+
+    @app.middleware("http")
+    async def record_operational_signal(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        supplied_request_id = request.headers.get("X-Request-ID", "")
+        request_id = (
+            supplied_request_id
+            if 1 <= len(supplied_request_id) <= 64
+            and all(character.isalnum() or character in "._-" for character in supplied_request_id)
+            else token_urlsafe(12)
+        )
+        started_at = monotonic()
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            response.headers["X-Request-ID"] = request_id
+            return response
+        finally:
+            duration_ms = round((monotonic() - started_at) * 1000)
+            runtime.operational_metrics.record_request(status_code, duration_ms)
+            route = request.scope.get("route")
+            route_path = getattr(route, "path", "unmatched")
+            logger.info(
+                "%s",
+                json.dumps(
+                    {
+                        "event": "http_request",
+                        "request_id": request_id,
+                        "method": request.method,
+                        "route": route_path,
+                        "status": status_code,
+                        "duration_ms": duration_ms,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+            )
 
     @app.middleware("http")
     async def add_security_headers(
@@ -1779,11 +2064,26 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             raise HTTPException(status_code=401, detail="authentication required") from exc
 
     def get_authenticated_fhir_session(
+        request: Request,
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         authorization: Annotated[str | None, Header()] = None,
     ) -> AuthenticatedPortalSession:
         scheme, _, supplied_token = (authorization or "").partition(" ")
         if scheme.lower() != "bearer" or not supplied_token.strip():
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_FHIR_SEARCH,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                client_reference_hash=hash_sensitive_reference(
+                    runtime.audit_hash_secret,
+                    "fhir_client",
+                    get_request_client_reference(request, settings),
+                ),
+                resource_type=request.url.path.split("/")[2][:64],
+                reason="authentication_failed",
+            )
+            session.commit()
             raise FhirApiError(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 code="login",
@@ -1796,6 +2096,20 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 token_secret=runtime.csrf_secret,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_FHIR_SEARCH,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                client_reference_hash=hash_sensitive_reference(
+                    runtime.audit_hash_secret,
+                    "fhir_client",
+                    get_request_client_reference(request, settings),
+                ),
+                resource_type=request.url.path.split("/")[2][:64],
+                reason="authentication_failed",
+            )
+            session.commit()
             raise FhirApiError(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 code="login",
@@ -1933,9 +2247,14 @@ def create_app(
     settings: Settings | None = None,
     *,
     email_sender: PortalEmailSender | None = None,
+    sms_sender: PortalSmsSender | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
-    runtime = build_portal_runtime(settings, email_sender=email_sender)
+    runtime = build_portal_runtime(
+        settings,
+        email_sender=email_sender,
+        sms_sender=sms_sender,
+    )
 
     app = FastAPI(
         title=settings.service_name,
@@ -1949,6 +2268,7 @@ def create_app(
     app.state.database_engine = runtime.database_engine
     app.state.session_factory = runtime.session_factory
     app.state.rate_limiter = runtime.rate_limiter
+    app.state.operational_metrics = runtime.operational_metrics
     app.state.unlock_secret_encryption_secret = runtime.unlock_secret_encryption_secret
     app.mount(
         "/static",
@@ -1971,6 +2291,7 @@ def register_app_routes(app: FastAPI, runtime: PortalRuntime) -> None:
     register_portal_routes(app, runtime, route_dependencies)
     register_activation_routes(app, runtime, route_dependencies)
     register_dev_admin_routes(app, runtime, route_dependencies)
+    register_carlos_internal_routes(app, runtime)
 
 
 def register_public_routes(
@@ -2015,6 +2336,19 @@ def register_public_routes(
                 content={
                     "status": "unavailable",
                     "database": "unavailable",
+                    "schema": "unknown",
+                    "maintenance": settings.maintenance_mode,
+                },
+            )
+        try:
+            check_database_schema_current(session)
+        except (DatabaseSchemaMismatchError, SQLAlchemyError):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "unavailable",
+                    "database": "ok",
+                    "schema": "mismatch",
                     "maintenance": settings.maintenance_mode,
                 },
             )
@@ -2022,12 +2356,28 @@ def register_public_routes(
         if settings.maintenance_mode:
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={"status": "maintenance", "database": "ok", "maintenance": True},
+                content={
+                    "status": "maintenance",
+                    "database": "ok",
+                    "schema": "ok",
+                    "maintenance": True,
+                },
                 headers={"Retry-After": str(settings.maintenance_retry_after_seconds)},
             )
         return JSONResponse(
-            content={"status": "ok", "database": "ok", "maintenance": False}
+            content={
+                "status": "ok",
+                "database": "ok",
+                "schema": "ok",
+                "maintenance": False,
+            }
         )
+
+    @app.get("/internal/metrics", include_in_schema=False)
+    def operational_metrics(
+        _: Annotated[None, Depends(require_internal_health_token)],
+    ) -> dict[str, object]:
+        return runtime.operational_metrics.snapshot()
 
 
 def register_auth_routes(
@@ -2130,7 +2480,8 @@ def register_auth_routes(
             get_request_client_reference(request, settings),
         )
         try:
-            result = start_login(
+            result = await run_in_threadpool(
+                start_login,
                 session,
                 username=payload.username,
                 password=payload.password,
@@ -2157,7 +2508,7 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                browser_message="Account access is locked; contact the clinic for help.",
+                browser_message=text["session_locked_details"],
                 json_content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
@@ -2173,7 +2524,7 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_403_FORBIDDEN,
-                browser_message="Password reset is required before sign-in.",
+                browser_message=text["password_reset_forced"],
                 json_content={"status": "password_reset_required"},
             )
         except MfaDeliveryUnavailableError:
@@ -2182,14 +2533,15 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                browser_message="MFA delivery method is unavailable.",
+                browser_message=text["mfa_delivery_unavailable"],
                 json_content={"detail": "MFA delivery method is unavailable"},
             )
         if result.mfa_challenge is not None:
             session.commit()
             try:
                 await run_in_threadpool(send_mfa_challenge, runtime, result.mfa_challenge)
-            except PortalEmailDeliveryError:
+            except (PortalEmailDeliveryError, PortalSmsDeliveryError):
+                runtime.operational_metrics.record_failure("mfa_delivery")
                 record_mfa_delivery_and_commit(
                     session,
                     delivery=result.mfa_challenge,
@@ -2231,7 +2583,8 @@ def register_auth_routes(
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_mfa_resend_request_from_request(request, csrf_secret)
         try:
-            delivery = resend_mfa_challenge(
+            delivery = await run_in_threadpool(
+                resend_mfa_challenge,
                 session,
                 challenge_token=payload.mfa_challenge_token,
                 delivery_method=payload.mfa_delivery_method,
@@ -2306,7 +2659,8 @@ def register_auth_routes(
         session.commit()
         try:
             await run_in_threadpool(send_mfa_challenge, runtime, delivery)
-        except PortalEmailDeliveryError:
+        except (PortalEmailDeliveryError, PortalSmsDeliveryError):
+            runtime.operational_metrics.record_failure("mfa_delivery")
             record_mfa_delivery_and_commit(
                 session,
                 delivery=delivery,
@@ -2348,7 +2702,8 @@ def register_auth_routes(
         is_browser_form = is_urlencoded_form_request(request)
         payload = await get_mfa_verify_request_from_request(request, csrf_secret)
         try:
-            session_token = verify_mfa_challenge(
+            session_token = await run_in_threadpool(
+                verify_mfa_challenge,
                 session,
                 challenge_token=payload.mfa_challenge_token,
                 code=payload.code,
@@ -2371,7 +2726,7 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                browser_message="MFA could not be verified.",
+                browser_message=text["mfa_verification_failed"],
                 json_content={"detail": "MFA could not be verified"},
             )
         except (MfaChallengeNotFoundError, ValueError):
@@ -2380,7 +2735,7 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
-                browser_message="MFA could not be verified.",
+                browser_message=text["mfa_verification_failed"],
                 json_content={"detail": "MFA could not be verified"},
             )
         except AccountLockedError:
@@ -2391,7 +2746,7 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_423_LOCKED,
-                browser_message="Account access is locked; contact the clinic for help.",
+                browser_message=text["session_locked_details"],
                 json_content={"detail": "account access is locked; contact the clinic for help"},
             )
         except PasswordResetRequiredError:
@@ -2406,7 +2761,7 @@ def register_auth_routes(
                 request=request,
                 render_index_response=render_index_response,
                 status_code=status.HTTP_403_FORBIDDEN,
-                browser_message="Password reset is required before sign-in.",
+                browser_message=text["password_reset_forced"],
                 json_content={"status": "password_reset_required"},
             )
         if is_browser_form:
@@ -2441,6 +2796,7 @@ def register_auth_routes(
     )
     async def request_reset(
         request: Request,
+        background_tasks: BackgroundTasks,
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> dict[str, object] | Response:
         is_browser_form = is_urlencoded_form_request(request)
@@ -2471,22 +2827,12 @@ def register_auth_routes(
         development_reset_url = None
         if result.reset_token is not None and result.recipient is not None:
             session.commit()
-            if runtime.email_sender is None and not settings.is_development:
-                record_password_reset_delivery_outcome(
-                    session,
-                    result=result,
-                    outcome=AUDIT_OUTCOME_FAILURE,
-                )
-                session.commit()
-                logger.error("Password reset email delivery is not configured")
-                response_reset_token = None
-            else:
-                reset_url = build_password_reset_url(
-                    request,
-                    settings=settings,
-                    reset_token=result.reset_token,
-                )
-                delivery_succeeded = False
+            reset_url = build_password_reset_url(
+                request,
+                settings=settings,
+                reset_token=result.reset_token,
+            )
+            if settings.is_development:
                 try:
                     await run_in_threadpool(
                         send_password_reset_email,
@@ -2513,9 +2859,14 @@ def register_auth_routes(
                         outcome=AUDIT_OUTCOME_SUCCESS,
                     )
                     session.commit()
-                    delivery_succeeded = True
-                if settings.is_development and delivery_succeeded:
                     development_reset_url = reset_url
+            else:
+                background_tasks.add_task(
+                    deliver_password_reset,
+                    runtime,
+                    result=result,
+                    reset_url=reset_url,
+                )
         if is_browser_form:
             return render_password_reset_request(
                 request,
@@ -2561,7 +2912,8 @@ def register_auth_routes(
                 reset_token=exc.safe_form_values.get("reset_token"),
             )
         try:
-            account = complete_password_reset(
+            account = await run_in_threadpool(
+                complete_password_reset,
                 session,
                 reset_token=payload.reset_token,
                 new_password=payload.new_password,
@@ -2622,7 +2974,7 @@ def register_fhir_routes(
         return fhir_json_response(
             build_fhir_r4_capability_statement(
                 service_name=settings.service_name,
-                base_url=fhir_base_url(request),
+                base_url=fhir_base_url(settings, request),
             ),
         )
 
@@ -2633,13 +2985,42 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
+        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
+        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
     ) -> JSONResponse:
-        patient = build_fhir_r4_portal_patient(authenticated_session.account)
+        account = authenticated_session.account
+        patient = build_fhir_r4_portal_patient(account)
+        matches = resource_id is None or resource_id == patient["id"]
+        resources = [patient] if matches and offset == 0 else []
+        total = 1 if matches else 0
+        base_url = fhir_base_url(settings, request)
+        self_link, previous_link, next_link = fhir_bundle_links(
+            base_url=base_url,
+            resource_type="Patient",
+            count=count,
+            offset=offset,
+            total=total,
+            resource_id=resource_id,
+        )
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_SEARCH,
+            resource_type="Patient",
+            resource_id=str(patient["id"]),
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason="search",
+        )
         return fhir_json_response(
             build_fhir_r4_bundle(
-                resources=[patient],
-                base_url=fhir_base_url(request),
-                self_link=str(request.url),
+                resources=resources,
+                base_url=base_url,
+                self_link=self_link,
+                previous_link=previous_link,
+                next_link=next_link,
+                total=total,
             )
         )
 
@@ -2650,11 +3031,31 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
         expected_patient_id = build_fhir_patient_id(account.clinic_id, account.demographic_no)
         if patient_id != expected_patient_id:
+            record_fhir_access(
+                session,
+                account,
+                event_type=AUDIT_EVENT_FHIR_READ,
+                resource_type="Patient",
+                resource_id=patient_id,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                reason="not_found",
+            )
+            session.commit()
             raise fhir_not_found()
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_READ,
+            resource_type="Patient",
+            resource_id=patient_id,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason="read",
+        )
         return fhir_json_response(build_fhir_r4_portal_patient(account))
 
     @app.get("/fhir/DocumentReference")
@@ -2665,27 +3066,82 @@ def register_fhir_routes(
             Depends(get_authenticated_fhir_session),
         ],
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
+        subject: Annotated[str | None, Query(max_length=128)] = None,
+        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
+        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
     ) -> JSONResponse:
         account = authenticated_session.account
-        records = list_unlock_secrets(
-            session,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
+        patient_reference = fhir_patient_reference(account)
+        subject_matches = subject is None or subject.removeprefix("Patient/") == (
+            patient_reference.removeprefix("Patient/")
         )
+        records: list[PatientPortalUnlockSecret] = []
+        total = 0
+        if subject_matches and resource_id is not None:
+            try:
+                record = get_scoped_unlock_secret(
+                    session,
+                    parse_fhir_numeric_id(resource_id),
+                    clinic_id=account.clinic_id,
+                    demographic_no=account.demographic_no,
+                    secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                )
+                if record.status == UNLOCK_SECRET_STATUS_ACTIVE:
+                    total = 1
+                    if offset == 0:
+                        records = [record]
+            except (FhirApiError, UnlockSecretNotFoundError):
+                pass
+        elif subject_matches:
+            total = count_unlock_secrets(
+                session,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+            )
+            records = list_unlock_secrets(
+                session,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                limit=count,
+                offset=offset,
+            )
         resources = [
             build_fhir_r4_document_reference(
                 record,
-                patient_reference=fhir_patient_reference(account),
+                patient_reference=patient_reference,
             )
             for record in records
         ]
+        base_url = fhir_base_url(settings, request)
+        self_link, previous_link, next_link = fhir_bundle_links(
+            base_url=base_url,
+            resource_type="DocumentReference",
+            count=count,
+            offset=offset,
+            total=total,
+            resource_id=resource_id,
+            subject=subject,
+        )
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_SEARCH,
+            resource_type="DocumentReference",
+            resource_id=resource_id or patient_reference,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason="search",
+        )
         return fhir_json_response(
             build_fhir_r4_bundle(
                 resources=resources,
-                base_url=fhir_base_url(request),
-                self_link=str(request.url),
+                base_url=base_url,
+                self_link=self_link,
+                previous_link=previous_link,
+                next_link=next_link,
+                total=total,
             )
         )
 
@@ -2709,9 +3165,38 @@ def register_fhir_routes(
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             )
         except UnlockSecretNotFoundError as exc:
+            record_fhir_access(
+                session,
+                account,
+                event_type=AUDIT_EVENT_FHIR_READ,
+                resource_type="DocumentReference",
+                resource_id=document_reference_id,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                reason="not_found",
+            )
+            session.commit()
             raise fhir_not_found() from exc
         if record.status != UNLOCK_SECRET_STATUS_ACTIVE:
+            record_fhir_access(
+                session,
+                account,
+                event_type=AUDIT_EVENT_FHIR_READ,
+                resource_type="DocumentReference",
+                resource_id=document_reference_id,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                reason="not_found",
+            )
+            session.commit()
             raise fhir_not_found()
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_READ,
+            resource_type="DocumentReference",
+            resource_id=document_reference_id,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason="read",
+        )
         return fhir_json_response(
             build_fhir_r4_document_reference(
                 record,
@@ -2726,17 +3211,45 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
+        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
+        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
     ) -> JSONResponse:
         account = authenticated_session.account
         organization = build_fhir_r4_organization(
             clinic_id=account.clinic_id,
             clinic_name=settings.clinic_name,
         )
+        matches = resource_id is None or resource_id == organization["id"]
+        total = 1 if matches else 0
+        resources = [organization] if matches and offset == 0 else []
+        base_url = fhir_base_url(settings, request)
+        self_link, previous_link, next_link = fhir_bundle_links(
+            base_url=base_url,
+            resource_type="Organization",
+            count=count,
+            offset=offset,
+            total=total,
+            resource_id=resource_id,
+        )
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_SEARCH,
+            resource_type="Organization",
+            resource_id=str(organization["id"]),
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason="search",
+        )
         return fhir_json_response(
             build_fhir_r4_bundle(
-                resources=[organization],
-                base_url=fhir_base_url(request),
-                self_link=str(request.url),
+                resources=resources,
+                base_url=base_url,
+                self_link=self_link,
+                previous_link=previous_link,
+                next_link=next_link,
+                total=total,
             )
         )
 
@@ -2747,10 +3260,30 @@ def register_fhir_routes(
             AuthenticatedPortalSession,
             Depends(get_authenticated_fhir_session),
         ],
+        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
         if organization_id != build_fhir_organization_id(account.clinic_id):
+            record_fhir_access(
+                session,
+                account,
+                event_type=AUDIT_EVENT_FHIR_READ,
+                resource_type="Organization",
+                resource_id=organization_id,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                reason="not_found",
+            )
+            session.commit()
             raise fhir_not_found()
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_READ,
+            resource_type="Organization",
+            resource_id=organization_id,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason="read",
+        )
         return fhir_json_response(
             build_fhir_r4_organization(
                 clinic_id=account.clinic_id,
@@ -2766,24 +3299,65 @@ def register_fhir_routes(
             Depends(get_authenticated_fhir_session),
         ],
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
+        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
+        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
+        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
     ) -> JSONResponse:
         account = authenticated_session.account
-        records = list_unlock_secrets(
+        total = count_unlock_secret_providers(
             session,
             clinic_id=account.clinic_id,
             demographic_no=account.demographic_no,
             secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
         )
-        resources = [
-            build_fhir_r4_practitioner(clinic_id=account.clinic_id, name=name)
-            for name in sorted({record.created_by for record in records})
-        ]
+        if resource_id is None:
+            provider_rows = list_unlock_secret_provider_identities(
+                session,
+                clinic_id=account.clinic_id,
+                demographic_no=account.demographic_no,
+                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+                limit=count,
+                offset=offset,
+            )
+        else:
+            provider = find_fhir_practitioner(session, account, resource_id)
+            provider_rows = [provider] if provider is not None and offset == 0 else []
+            total = 1 if provider is not None else 0
+        resources = []
+        for provider_id, name in provider_rows:
+            practitioner = build_fhir_r4_practitioner(
+                clinic_id=account.clinic_id,
+                name=name,
+                provider_id=provider_id,
+            )
+            if resource_id is None or practitioner["id"] == resource_id:
+                resources.append(practitioner)
+        base_url = fhir_base_url(settings, request)
+        self_link, previous_link, next_link = fhir_bundle_links(
+            base_url=base_url,
+            resource_type="Practitioner",
+            count=count,
+            offset=offset,
+            total=total,
+            resource_id=resource_id,
+        )
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_SEARCH,
+            resource_type="Practitioner",
+            resource_id=resource_id or fhir_patient_reference(account),
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            reason="search",
+        )
         return fhir_json_response(
             build_fhir_r4_bundle(
                 resources=resources,
-                base_url=fhir_base_url(request),
-                self_link=str(request.url),
+                base_url=base_url,
+                self_link=self_link,
+                previous_link=previous_link,
+                next_link=next_link,
+                total=total,
             )
         )
 
@@ -2797,21 +3371,35 @@ def register_fhir_routes(
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
-        records = list_unlock_secrets(
-            session,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
-        )
-        for name in sorted({record.created_by for record in records}):
-            if practitioner_id == build_fhir_practitioner_id(
-                clinic_id=account.clinic_id,
-                name=name,
-            ):
-                return fhir_json_response(
-                    build_fhir_r4_practitioner(clinic_id=account.clinic_id, name=name)
+        provider = find_fhir_practitioner(session, account, practitioner_id)
+        if provider is not None:
+            provider_id, name = provider
+            record_fhir_access(
+                session,
+                account,
+                event_type=AUDIT_EVENT_FHIR_READ,
+                resource_type="Practitioner",
+                resource_id=practitioner_id,
+                outcome=AUDIT_OUTCOME_SUCCESS,
+                reason="read",
+            )
+            return fhir_json_response(
+                build_fhir_r4_practitioner(
+                    clinic_id=account.clinic_id,
+                    name=name,
+                    provider_id=provider_id,
                 )
+            )
+        record_fhir_access(
+            session,
+            account,
+            event_type=AUDIT_EVENT_FHIR_READ,
+            resource_type="Practitioner",
+            resource_id=practitioner_id,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            reason="not_found",
+        )
+        session.commit()
         raise fhir_not_found()
 
 
@@ -2822,7 +3410,6 @@ def register_patient_email_password_routes(
 ) -> None:
     get_app_database_session = route_dependencies.get_app_database_session
     get_authenticated_portal_session = route_dependencies.get_authenticated_portal_session
-    unlock_secret_encryption_secret = runtime.unlock_secret_encryption_secret
 
     @app.get("/api/patient/email-passwords", response_model=EmailPasswordListResponse)
     def list_patient_email_passwords(
@@ -2884,7 +3471,10 @@ def register_patient_email_password_routes(
                 audit_account_id=account.id,
                 actor_type=AUDIT_ACTOR_TYPE_PATIENT,
                 actor=account.username,
-                encryption_secret=unlock_secret_encryption_secret,
+                encryption_keys=(
+                    runtime.unlock_secret_encryption_keys
+                    or {"primary": runtime.unlock_secret_encryption_secret}
+                ),
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             )
             unlock_secret = get_scoped_unlock_secret(
@@ -2911,6 +3501,7 @@ def register_patient_email_password_routes(
                 content={"detail": "email password not found"},
             )
         except UnlockSecretDecryptionError:
+            runtime.operational_metrics.record_failure("unlock_secret_decryption")
             record_audit_event(
                 session,
                 event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
@@ -3012,7 +3603,8 @@ def register_portal_routes(
             return authenticated_session
 
         try:
-            change_account_password(
+            await run_in_threadpool(
+                change_account_password,
                 session,
                 authenticated_session.account,
                 authenticated_session.portal_session,
@@ -3051,7 +3643,8 @@ def register_portal_routes(
             return authenticated_session
 
         try:
-            review_request = update_account_contact(
+            review_request = await run_in_threadpool(
+                update_account_contact,
                 session,
                 authenticated_session.account,
                 current_password=first_form_value_or_empty(form_values, "current_password"),
@@ -3071,6 +3664,20 @@ def register_portal_routes(
                 session,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
+        if review_request is not None:
+            try:
+                await run_in_threadpool(
+                    send_contact_change_notice,
+                    runtime,
+                    recipient=review_request.email_before,
+                )
+            except PortalEmailDeliveryError:
+                runtime.operational_metrics.record_failure("contact_change_delivery")
+                logger.error("Contact-change notice delivery failed")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="contact update could not be completed",
+                ) from None
         status_key = "contact-updated" if review_request is not None else "no-change"
         return RedirectResponse(
             f"/portal/account?status={status_key}",
@@ -3091,7 +3698,8 @@ def register_portal_routes(
             return authenticated_session
 
         try:
-            update_account_mfa_method(
+            await run_in_threadpool(
+                update_account_mfa_method,
                 session,
                 authenticated_session.account,
                 current_password=first_form_value_or_empty(form_values, "current_password"),
@@ -3187,7 +3795,10 @@ def register_portal_routes(
                 audit_account_id=account.id,
                 actor_type=AUDIT_ACTOR_TYPE_PATIENT,
                 actor=account.username,
-                encryption_secret=runtime.unlock_secret_encryption_secret,
+                encryption_keys=(
+                    runtime.unlock_secret_encryption_keys
+                    or {"primary": runtime.unlock_secret_encryption_secret}
+                ),
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             )
         except (UnlockSecretNotFoundError, UnlockSecretRevokedError):
@@ -3207,6 +3818,7 @@ def register_portal_routes(
                 content={"detail": "email password not found"},
             )
         except UnlockSecretDecryptionError:
+            runtime.operational_metrics.record_failure("unlock_secret_decryption")
             record_audit_event(
                 session,
                 event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
@@ -3319,7 +3931,8 @@ def register_activation_routes(
             get_request_client_reference(request, settings),
         )
         try:
-            account = activate_patient_account(
+            account = await run_in_threadpool(
+                activate_patient_account,
                 session,
                 invite_code=payload.invite_code,
                 identity_proof=IdentityProof(

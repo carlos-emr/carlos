@@ -11,7 +11,8 @@ The MVP foundation currently includes:
 - Minimal public `/health` liveness endpoint.
 - Internal `/internal/health/db` database readiness endpoint.
 - Server-rendered responsive sign-in, activation, password-reset, lockout, and MFA screens.
-- Development-only staff invite API for creating, listing, resending, and revoking invites.
+- Authenticated CARLOS internal API for invites, unlock, contact review, and unlock-secret
+  create/revoke operations, plus a development-only staff API for local testing.
 - Seven-day invite expiry metadata, refreshed on resend.
 - Patient invite activation using invite code, email, date of birth, and HCN/HIN proof.
 - Activation attempt throttling backed by portal audit events.
@@ -22,11 +23,24 @@ The MVP foundation currently includes:
 - Encrypted unlock-secret storage service for generated email/PDF passphrases.
 - Pilot hardening hooks for readiness checks, maintenance mode, coarse request throttling, audit
   retention pruning, and local SQLite backup/restore drills.
-- Minimal FHIR R4 Patient and HL7 v2.5.1 patient-registration validation helpers for the MVP
-  CARLOS integration contract.
+- Patient-scoped FHIR R4 metadata/read/search endpoints with bounded paging and access auditing,
+  plus an HL7 v2.5.1 patient-registration conformance artifact.
 - Tests for app wiring, template rendering, database readiness, invite lifecycle,
-  activation/auth/unlock-secret behavior, scoped patient APIs, FHIR/HL7 artifacts, and pilot
-  hardening hooks.
+  activation/auth/unlock-secret behavior, scoped patient APIs, FHIR/HL7 artifacts, PostgreSQL
+  behavior, desktop/mobile Playwright workflows, and pilot hardening hooks.
+
+## Current MVP Status
+
+| Slice | Portal status | Remaining integration |
+| --- | --- | --- |
+| Foundation, invite, activation, auth/MFA | Implemented and tested | CARLOS must call the internal staff endpoints |
+| Dashboard, unlock secrets, email-password API/UI | Implemented and tested | CARLOS must publish source records through the internal API |
+| Account settings | Implemented and tested | CARLOS must present pending contact reviews to authorized staff |
+| FHIR R4 and HL7 v2.5.1 | Implemented and validator-tested | Additional resources/messages require new explicit profiles |
+| Pilot hardening | Implemented baseline | Deployment owner must configure alerts, protected audit export, backups, and restore drills |
+
+The portal-side API contract is deployable only after the CARLOS Java application is wired to it.
+Green portal CI does not by itself prove that staff can reach these actions from CARLOS.
 
 ## Local Setup
 
@@ -111,8 +125,11 @@ export PATIENT_PORTAL_SMTP_PORT=25
 ```
 
 The default database URL targets local PostgreSQL because PostgreSQL is the intended MVP database.
-Tests pass a SQLite database URL into the app factory so the foundation test suite does not require a
-running PostgreSQL instance.
+Most unit tests use SQLite; CI also runs security-critical concurrency and transaction behavior
+against PostgreSQL 16. File-backed SQLite is supported for local development, not a shared pilot.
+Database pool, connect, checkout, statement, and lock timeouts have explicit configuration fields.
+Remote production PostgreSQL URLs must use `sslmode=verify-full`; deliver database credentials and
+CA material through the deployment secret manager rather than committed URLs.
 
 The portal defaults to `production`, so deployments fail closed unless required secrets are set.
 Local development should explicitly set `PATIENT_PORTAL_ENVIRONMENT=development`.
@@ -131,6 +148,13 @@ SMTP is configured outside development. It must use HTTPS outside development. R
 in the link fragment so they are not sent in the initial HTTP request or written to access logs.
 Matched password-reset requests are limited to one email per account per minute by default; tune
 this with `PATIENT_PORTAL_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS`.
+Production delivery runs after the uniform HTTP response so SMTP latency does not disclose whether
+the submitted identity matched an account.
+
+Production SMS uses an authenticated HTTPS JSON webhook configured with
+`PATIENT_PORTAL_SMS_WEBHOOK_URL` and `PATIENT_PORTAL_SMS_WEBHOOK_TOKEN`. The provider adapter receives
+only the normalized destination, code, expiry, sender ID, and message purpose. Production startup
+fails closed when SMS delivery is not configured.
 
 The development container's capture-only Postfix setup stores messages locally instead of relaying
 them externally. Use `/scripts/mail list` and `/scripts/mail read latest` to inspect captured MFA
@@ -155,8 +179,10 @@ If the same value is used in HL7 v2 messages, keep it to letters, numbers, dots,
 hyphens, and 20 characters or fewer.
 
 Non-development deployments must set `PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN`,
-`PATIENT_PORTAL_SESSION_SECRET`, `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`, and
-`PATIENT_PORTAL_AUDIT_HASH_SECRET`, and `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET`.
+`PATIENT_PORTAL_SESSION_SECRET`, `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`,
+`PATIENT_PORTAL_AUDIT_HASH_SECRET`, `PATIENT_PORTAL_INTERNAL_API_TOKEN`, SMTP, SMS, and either
+`PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET` or
+`PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING`.
 The internal readiness endpoint expects the health token as a Bearer token:
 
 ```bash
@@ -165,6 +191,9 @@ curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
 
 curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
   http://127.0.0.1:8090/internal/readiness
+
+curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
+  http://127.0.0.1:8090/internal/metrics
 ```
 
 Expose `/internal/health/db` and `/internal/readiness` only to trusted infrastructure such as a load
@@ -187,12 +216,12 @@ within a one-hour window. The deployment can tune this with
 Authentication defaults:
 
 - MFA is required by default and cannot be disabled in production.
-- Password login locks the account after 50 failed password attempts.
+- Password login and account-setting step-up lock the account after 10 failed password attempts.
 - MFA verification locks the account after 10 failed code attempts.
 - MFA codes expire after 10 minutes.
 - Email MFA resend is limited to once per minute.
-- SMS is represented in the data model and UI structure but remains disabled until a real sender is
-  configured.
+- SMS MFA is available when the account has a valid phone number and the webhook sender is
+  configured; delivery failures are audited and do not silently invalidate another method.
 - Patient sessions expire after 12 hours.
 - Password reset tokens expire after one hour and are one-time use.
 
@@ -220,6 +249,22 @@ Pilot hardening defaults:
   retry hint with `PATIENT_PORTAL_MAINTENANCE_RETRY_AFTER_SECONDS`.
 - `PATIENT_PORTAL_AUDIT_RETENTION_DAYS` defaults to 25 years. Audit pruning is explicit rather than
   automatic so clinics can align the retention job with their backup and legal-retention process.
+- Requests emit PHI-safe structured log records containing a generated/canonical request ID,
+  route template, method, status, and duration. `/internal/metrics` exposes aggregate status-class
+  and delivery-failure counters without patient identifiers.
+
+Minimum pilot alerts:
+
+- Page the service owner when readiness is unavailable for 5 minutes or the schema is not current.
+- Page on any sustained unlock-secret decryption failure or backup/restore failure.
+- Alert on a 5xx rate above 1% for 5 minutes, repeated database 503s, or MFA/reset delivery failures.
+- Alert security staff on an unusual increase in account lockouts or rate-limit responses.
+- Ship application logs and audit-event exports to access-controlled, append-only centralized
+  storage, with request IDs preserved for correlation.
+
+The clinic/deployment operator owns SMTP/SMS delivery, database and backup alerts, restore drills,
+and incident response. CARLOS maintainers own application regression alerts and migration
+compatibility. Runbooks must identify both contacts before pilot traffic is enabled.
 
 ## Migrations
 
@@ -245,6 +290,8 @@ Run audit retention pruning from an installed wheel:
 ```bash
 carlos-patient-portal-maintenance prune-audit --dry-run
 carlos-patient-portal-maintenance prune-audit --batch-size 1000
+carlos-patient-portal-maintenance cleanup-transient-auth --dry-run
+carlos-patient-portal-maintenance cleanup-transient-auth --retention-days 30
 ```
 
 The built-in backup/restore helper is intentionally limited to file-backed SQLite databases for
@@ -260,10 +307,38 @@ the deployment platform. Before a pilot, run and document at least one restore d
 non-production database.
 
 Keep `PATIENT_PORTAL_SESSION_SECRET`, `PATIENT_PORTAL_IDENTITY_PROOF_SECRET`,
-`PATIENT_PORTAL_AUDIT_HASH_SECRET`, and `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET` as separate
-random values stored in the deployment secret manager. Back up the database before rotating any
-secret; rotating the unlock-secret encryption secret without a re-encryption migration makes stored
-email/PDF passphrases unreadable.
+`PATIENT_PORTAL_AUDIT_HASH_SECRET`, and unlock-secret encryption keys as separate random values in
+the deployment secret manager. For rotation, configure
+`PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING` as a JSON object containing the old and new keys,
+set `PATIENT_PORTAL_UNLOCK_SECRET_ACTIVE_KEY_ID` to the new key, and run:
+
+```bash
+carlos-patient-portal-maintenance rotate-unlock-secrets --batch-size 100
+```
+
+Repeat until the command reports zero, verify reads and a backup, then retire the old key. New writes
+always use the active key; reads select the retained key by each record's `encryption_key_id`.
+
+## CARLOS Internal API
+
+Set `PATIENT_PORTAL_INTERNAL_API_TOKEN` to enable the production staff/service contract. Requests
+must include its Bearer token and CARLOS-authenticated `X-CARLOS-Provider-ID`,
+`X-CARLOS-Provider-Name`, `X-CARLOS-Clinic-ID`, and `X-CARLOS-Permissions` headers. The reverse
+proxy must strip externally supplied copies of these headers and allow this route family only from
+CARLOS application instances.
+
+Permissions are deliberately narrow:
+
+- `portal.invite.manage`: create, list, resend, and revoke clinic-scoped invites.
+- `portal.account.unlock`: unlock a patient and require a fresh password reset.
+- `portal.secret.manage`: idempotently create and revoke generated email/PDF passphrases.
+- `portal.contact.review`: list and approve/reject pending patient contact changes.
+
+The service token authenticates CARLOS itself; provider ID and permissions must be derived from the
+authenticated CARLOS session by the CARLOS server, never accepted from a browser. Every mutation
+retains the stable provider ID, display snapshot, clinic scope, and target resource in the audit
+trail. A duplicate unlock-secret `source_reference` returns the original record and plaintext so a
+CARLOS retry after a timeout is safe; a revoked source reference returns a conflict.
 
 ## Development Invite API
 
@@ -307,8 +382,8 @@ endpoint has a clear server-side expiry boundary. Invite list responses default 
 capped at 100 records per request.
 
 The current development API requires email, date of birth, and HCN/HIN at invite creation time so it
-cannot create invites that patients are unable to activate. The future CARLOS-backed staff action
-should populate those proof hashes from CARLOS demographics instead of staff-entered JSON fields.
+cannot create invites that patients are unable to activate. The CARLOS-backed staff action should
+populate those proof hashes from CARLOS demographics instead of staff-entered JSON fields.
 The development API derives the staff actor from `X-CARLOS-Staff-Actor`; the production CARLOS
 integration should derive it from authenticated CARLOS provider context instead of client JSON.
 Creating a new pending invite for the same patient revokes older pending invites. Identity proof
@@ -369,8 +444,7 @@ curl -X POST -H "Authorization: Bearer <session_token>" \
   http://127.0.0.1:8090/auth/logout
 ```
 
-MFA resend currently supports email. SMS requests fail closed until an SMS delivery provider is
-implemented:
+MFA resend supports email and SMS when their destinations and delivery providers are available:
 
 ```bash
 curl -X POST http://127.0.0.1:8090/auth/mfa/resend \
@@ -431,6 +505,12 @@ passphrases use AES-256-GCM with a key derived from
 `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET`; audit events record create/read/revoke without
 storing the raw passphrase.
 
+For production integration, `/internal/carlos/patients/{demographic_no}/unlock-secrets` provides
+clinic-scoped, permission-checked, idempotent create behavior using `source_reference`; revoke uses
+`/internal/carlos/unlock-secrets/{id}/revoke`. The caller supplies a service Bearer token plus
+authenticated CARLOS provider ID, display name, clinic ID, and permission headers. Stable provider
+IDs and target secret IDs are retained in the audit trail.
+
 Generated values use the PR #3135 format `word-word-###-word-word-###`, selecting four words
 uniformly from the reviewed 4096-word list and six independent decimal digits. This provides about
 68 bits of entropy while remaining copyable and readable to patients.
@@ -448,7 +528,10 @@ general-purpose exchange server:
 - FHIR target: R4 `CapabilityStatement`, `Patient`, `DocumentReference`, `Organization`,
   `Practitioner`, `OperationOutcome`, and search `Bundle` resources under `/fhir`. Resources are
   built with `fhir.resources==5.1.1`, and generated examples are checked in CI with the official
-  HL7 FHIR validator CLI.
+  HL7 FHIR validator CLI. Searches support the parameters declared in `/fhir/metadata`, including
+  `_id`, `_count`, `_offset`, and `DocumentReference.subject`. Bundle totals cover all matches and
+  canonical previous/next links use `PATIENT_PORTAL_PUBLIC_BASE_URL`. Authentication uses a
+  patient-scoped portal Bearer session and is explicitly not SMART on FHIR.
 - HL7 v2 target: v2.5.1 ADT A04 patient-registration trigger using HL7apy validation plus the
   packaged CARLOS profile artifact
   `carlos_patient_portal/interop_profiles/carlos_patient_registration_adt_a04_v251.json`. The

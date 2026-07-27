@@ -23,6 +23,7 @@ const baseUrl = validateBaseUrl(process.env.PORTAL_BASE_URL || 'http://127.0.0.1
 const testUser = process.env.PORTAL_TEST_USER || 'CarlosPatient';
 const testPassword = process.env.PORTAL_TEST_PASSWORD || ['Carlos', '2026', '!!'].join('');
 const mailCommand = process.env.PORTAL_MAIL_COMMAND || '/scripts/mail';
+const useDevelopmentMfaCode = process.env.PORTAL_USE_DEVELOPMENT_MFA_CODE === 'true';
 const screenshotDir = path.resolve(process.env.PORTAL_SCREENSHOT_DIR || '/tmp');
 const chromePath = process.env.CHROME_PATH || '';
 
@@ -134,7 +135,9 @@ function screenshotPath(name) {
   });
 
   try {
-    runMailCommand('clear');
+    if (!useDevelopmentMfaCode) {
+      runMailCommand('clear');
+    }
     await page.goto(portalUrl('/'), { waitUntil: 'networkidle', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- portalUrl requires a root-relative path and validateBaseUrl restricts targets to local/private hosts by default
 
     await page.getByRole('heading', { name: 'Sign in' }).waitFor();
@@ -144,12 +147,20 @@ function screenshotPath(name) {
     assert(logoLoaded, 'CARLOS logo did not load');
     assert(await page.locator('.language-switch button').count() === 5, 'expected five languages');
 
-    await page.locator('[data-language-code="fr"]').click();
+    const languageTrigger = page.locator('[data-language-code="fr"]');
+    await languageTrigger.click();
     const modal = page.locator('#portal-message-modal');
     await modal.waitFor({ state: 'visible' });
     await modal.getByRole('heading', { name: 'Language not implemented' }).waitFor();
-    await modal.locator('[data-modal-close]').click();
+    await page.keyboard.press('Tab');
+    assert(
+      await page.evaluate(() => Boolean(document.activeElement?.closest('#portal-message-modal'))),
+      'keyboard focus escaped the open modal'
+    );
+    await page.keyboard.press('Escape');
     await modal.waitFor({ state: 'hidden' });
+    assert(await languageTrigger.evaluate((element) => element === document.activeElement),
+      'closing the modal did not restore focus to its trigger');
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({
@@ -229,15 +240,24 @@ function screenshotPath(name) {
       fullPage: true,
     });
 
-    const capturedMail = readCapturedMfaCode();
-    assert(
-      capturedMail.recipient === 'example.patient@example.com',
-      `unexpected MFA recipient ${capturedMail.recipient}`
-    );
-    assert(
-      capturedMail.subject === 'Your CARLOS Patient Portal verification code',
-      `unexpected MFA subject ${capturedMail.subject}`
-    );
+    const capturedMail = useDevelopmentMfaCode
+      ? {
+          code: await page.locator('[data-development-mfa-code]').getAttribute(
+            'data-development-mfa-code'
+          ),
+        }
+      : readCapturedMfaCode();
+    assert(capturedMail.code, 'MFA code was not available');
+    if (!useDevelopmentMfaCode) {
+      assert(
+        capturedMail.recipient === 'example.patient@example.com',
+        `unexpected MFA recipient ${capturedMail.recipient}`
+      );
+      assert(
+        capturedMail.subject === 'Your CARLOS Patient Portal verification code',
+        `unexpected MFA subject ${capturedMail.subject}`
+      );
+    }
     const resendResponsePromise = page.waitForResponse(
       (response) => new URL(response.url()).pathname === '/auth/mfa/resend'
     );

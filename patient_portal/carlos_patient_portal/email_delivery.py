@@ -29,6 +29,9 @@ class PortalEmailSender(Protocol):
     ) -> None:
         raise NotImplementedError
 
+    def send_contact_change_notice(self, *, recipient: str) -> None:
+        raise NotImplementedError
+
 
 class SmtpPortalEmailSender:
     def __init__(self, settings: Settings) -> None:
@@ -89,6 +92,19 @@ class SmtpPortalEmailSender:
             f"Open this link to choose a new password:\n{reset_url}\n\n"
             f"This link expires in {expires_in_minutes} minutes and can only be used once.\n\n"
             f"If you did not request this reset, contact {self.clinic_name}."
+        )
+        self._send_message(message)
+
+    def send_contact_change_notice(self, *, recipient: str) -> None:
+        message = EmailMessage()
+        message["From"] = self.from_address
+        message["To"] = recipient
+        message["Subject"] = f"Contact update requested for {self.service_name}"
+        message["Auto-Submitted"] = "auto-generated"
+        message.set_content(
+            f"A contact-information update was requested for your {self.service_name} "
+            "account. Clinic staff will review it before the new details are used.\n\n"
+            f"If you did not request this change, contact {self.clinic_name} immediately."
         )
         self._send_message(message)
 
