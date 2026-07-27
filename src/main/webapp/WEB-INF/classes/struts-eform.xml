@@ -83,7 +83,7 @@
             <result name="fax">/fax/faxAction</result>
             <result name="download">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
             <result name="error">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
-            <result name="missingContent">/WEB-INF/jsp/eform/EFormDownloadMissingContent.jsp</result>
+            <result name="missingContent">/WEB-INF/jsp/eform/EFormRenderMissingContent.jsp</result>
             <result name="emailCompose">/email/emailComposeAction</result>
         </action>
         <!-- Render-only retry for a download the completeness gate refused. Deliberately NOT a
@@ -91,6 +91,12 @@
              render through it would duplicate the saved clinical record. -->
         <action name="eform/downloadEFormPdf" class="io.github.carlos_emr.carlos.eform.actions.DownloadEFormPdf2Action">
             <result name="download">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
+            <result name="error">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
+        </action>
+        <!-- Archive-only retry for an eDoc save the completeness gate refused. A mutator (it
+             creates a document), so it rejects GET/HEAD before any side effect. -->
+        <action name="eform/saveEFormAsEDoc" class="io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action">
+            <result name="close">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
             <result name="error">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>
         </action>
         <action name="eform/efmPrintPDF" class="io.github.carlos_emr.carlos.eform.actions.PrintPDF2Action">

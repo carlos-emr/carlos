@@ -674,10 +674,20 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during rendering or document creation
      */
     public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
+        return saveEFormAsEDoc(request, response, null);
+    }
+
+    /**
+     * Archives the eForm packet as an eDoc, using an exact approval for a render the completeness
+     * gate refused.
+     */
+    @Override
+    public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response,
+            EFormRenderApproval approval) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
         String demographicId = (String) request.getAttribute("demographicId");
-        Path eFormPath = renderEFormWithAttachments(request, response);
+        Path eFormPath = renderEFormWithAttachments(request, response, approval);
         return eformDataManager.saveEFormWithAttachmentsAsEDoc(loggedInInfo, fdid, demographicId, eFormPath);
     }
 

@@ -11,8 +11,12 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-    Offers a clinician an exact, one-time approval for an eForm download the completeness gate
-    refused.
+    Offers a clinician an exact, one-time approval for an eForm render the completeness gate refused.
+
+    Shared by every eForm path that can be refused (download, save-as-eDoc). The target route and
+    button label come from request attributes so the category list below exists exactly once: a
+    per-path copy would drift, and a category missing from one copy is one those clinicians approve
+    without ever seeing.
 
     Every category the completeness report carries is listed. That is deliberate and must stay that
     way: the approval token's digest binds to the COMPLETE issue set, so a category omitted here is
@@ -46,7 +50,7 @@
     <div class="card-body">
         <p><carlos:encode value="${missingContentMessage}"/></p>
         <p class="text-muted small">
-            Downloading an incomplete clinical document is your decision. Consider cancelling and
+            Proceeding with an incomplete clinical document is your decision. Consider cancelling and
             correcting the eForm when any required content or behavior is missing.
         </p>
         <ul class="small">
@@ -61,12 +65,14 @@
             <li>Lab decision support unavailable: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
-            <form method="post" action="${pageContext.request.contextPath}/eform/downloadEFormPdf">
+            <form method="post" action="${pageContext.request.contextPath}/${approvalAction}">
                 <input type="hidden" name="fdid" value="<carlos:encode value="${fdid}" context="htmlAttribute"/>">
                 <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
                 <input type="hidden" name="parentAjaxId" value="eforms">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
-                <button type="submit" class="btn btn-warning">Approve listed issues and download</button>
+                <button type="submit" class="btn btn-warning">
+                    <carlos:encode value="${approvalButtonLabel}"/>
+                </button>
             </form>
             <button type="button" class="btn btn-secondary" onclick="history.back();">Cancel</button>
         </div>

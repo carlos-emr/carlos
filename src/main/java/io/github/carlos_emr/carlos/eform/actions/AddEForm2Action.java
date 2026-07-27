@@ -308,6 +308,10 @@ public class AddEForm2Action extends ActionSupport {
             if (saveAsEdoc) {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
+                } catch (EformContentUnavailableException e) {
+                    // Subclass before superclass, same as the download branches: swallowed by the
+                    // general handler this was a dead end with no way to review and proceed.
+                    return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
                     setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
@@ -442,6 +446,10 @@ public class AddEForm2Action extends ActionSupport {
             if (saveAsEdoc) {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
+                } catch (EformContentUnavailableException e) {
+                    // Subclass before superclass, same as the download branches: swallowed by the
+                    // general handler this was a dead end with no way to review and proceed.
+                    return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
                 } catch (PDFGenerationException e) {
                     setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
@@ -555,22 +563,46 @@ public class AddEForm2Action extends ActionSupport {
      */
     private String offerDownloadApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
             String fdid, String demographicNo) {
-        logger.warn("eForm download incomplete: offering exact-issue approval (issues={})", e.getIssueCount());
+        return offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
+                EFormRenderApprovalService.Operation.DOWNLOAD, PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE,
+                "eform/downloadEFormPdf", "Approve listed issues and download");
+    }
+
+    /**
+     * Offers the clinician an exact, one-time approval for a render the completeness gate refused.
+     *
+     * <p>Shared by the download and save-as-eDoc paths. The retry always targets a render-only or
+     * archive-only route rather than resubmitting this action: {@code saveEformData} persists a NEW
+     * eForm on every submit, so re-posting to approve a render would duplicate the saved record and
+     * would put every form field, patient data included, into the approval page as hidden inputs.
+     * The eForm is already saved by this point; only rendering failed.</p>
+     *
+     * <p>Every category the report carries is published. The approval digest binds to the complete
+     * issue set, so a category the clinician was never shown is one they cannot meaningfully have
+     * approved — which is also why the page listing them exists once rather than per path.</p>
+     */
+    private String offerRenderApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
+            String fdid, String demographicNo, EFormRenderApprovalService.Operation operation,
+            String message, String approvalAction, String approvalButtonLabel) {
+        logger.warn("eForm render incomplete: offering exact-issue approval (operation={} issues={})",
+                operation, e.getIssueCount());
         EFormRenderApprovalService approvalService = SpringUtils.getBean(EFormRenderApprovalService.class);
         int requestFdid;
         try {
             requestFdid = Integer.parseInt(fdid);
-        } catch (NumberFormatException parseFailure) {
+        } catch (NumberFormatException | NullPointerException parseFailure) {
             setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
             return "error";
         }
         String token = approvalService.issue(request, loggedInInfo, requestFdid, demographicNo,
-                EFormRenderApprovalService.Operation.DOWNLOAD, e.getReport(), null, e.getFdid());
+                operation, e.getReport(), null, e.getFdid());
         EFormRenderCompletenessReport report = e.getReport();
         request.setAttribute("renderApproval", token);
         request.setAttribute("fdid", fdid);
         request.setAttribute("demographicNo", demographicNo);
-        request.setAttribute("missingContentMessage", PDF_DOWNLOAD_MISSING_CONTENT_MESSAGE);
+        request.setAttribute("missingContentMessage", message);
+        request.setAttribute("approvalAction", approvalAction);
+        request.setAttribute("approvalButtonLabel", approvalButtonLabel);
         request.setAttribute("failedContentResources", report.failedContentResources());
         request.setAttribute("excludedContentElements", report.excludedContentElements());
         request.setAttribute("severeConsoleErrors", report.severeConsoleErrors());
@@ -581,6 +613,17 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("labDecisionSupportStubbed", report.labDecisionSupportStubbed());
         request.setAttribute("providerStampMissing", report.providerStampMissing());
         return "missingContent";
+    }
+
+    /** Offers approval for an eForm the completeness gate refused to archive as an eDoc. */
+    private String offerEDocApproval(LoggedInInfo loggedInInfo, EformContentUnavailableException e,
+            String fdid, String demographicNo) {
+        String result = offerRenderApproval(loggedInInfo, e, fdid, demographicNo,
+                EFormRenderApprovalService.Operation.EDOC,
+                "This eForm could not be fully rendered, so it was not added to the patient's documents."
+                        + " Review the omissions below before archiving it.",
+                "eform/saveEFormAsEDoc", "Approve listed issues and add to documents");
+        return result;
     }
 
     private void setPdfError(String message, Exception e) {

@@ -64,8 +64,12 @@ class AddEFormDownloadApprovalRegressionTest {
                     .as("download branch keyed on %s must offer the approval", fdidVariable)
                     .contains(branch);
         }
+        // Both save-as-eDoc branches too: that path is refused by the same gate.
+        assertThat(source.split("offerEDocApproval\\(", -1).length - 1)
+                .as("both eDoc branches plus the helper declaration")
+                .isGreaterThanOrEqualTo(3);
         assertThat(source)
-                .as("the specific catch must guard the download render")
+                .as("the specific catch must guard the refusable renders")
                 .contains("catch (EformContentUnavailableException e)");
     }
 
@@ -76,10 +80,15 @@ class AddEFormDownloadApprovalRegressionTest {
         // this action would duplicate the saved clinical record and would carry every form field,
         // patient data included, through the approval page as hidden inputs.
         String approvalPage = Files.readString(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
-                "eform", "EFormDownloadMissingContent.jsp"), StandardCharsets.UTF_8);
+                "eform", "EFormRenderMissingContent.jsp"), StandardCharsets.UTF_8);
 
-        assertThat(approvalPage).contains("/eform/downloadEFormPdf");
+        // The retry target is supplied per path, so assert the page never posts back to the save
+        // action and that both refusable paths name a render-only/archive-only route.
+        assertThat(approvalPage).contains("${approvalAction}");
         assertThat(approvalPage).doesNotContain("/eform/addEForm");
+        String action = Files.readString(ADD_EFORM_ACTION, StandardCharsets.UTF_8);
+        assertThat(action).contains("\"eform/downloadEFormPdf\"");
+        assertThat(action).contains("\"eform/saveEFormAsEDoc\"");
         // Every category the report carries must be listed: the approval digest binds to the
         // complete issue set, so an omitted category is one the clinician never saw.
         assertThat(approvalPage)

@@ -314,6 +314,12 @@ public interface DocumentAttachmentManager {
     public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 
     /**
+     * Archives the eForm packet as an eDoc using an exact approval for a refused render.
+     */
+    public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response,
+            EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
      * Converts a PDF document to Base64-encoded string representation.
      *
      * <p>This method reads a PDF document from the file system and encodes it as a Base64 string,
