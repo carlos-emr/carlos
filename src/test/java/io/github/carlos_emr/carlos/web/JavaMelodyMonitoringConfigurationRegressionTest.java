@@ -87,6 +87,14 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                 </init-param>
             </web-app>
             """;
+    private static final String COMMENTED_VALUE_WEB_XML = """
+            <web-app>
+                <init-param>
+                    <param-name>system-actions-enabled</param-name>
+                    <!-- <param-value>false</param-value> -->
+                </init-param>
+            </web-app>
+            """;
 
     @TempDir
     private Path tempDir;
@@ -133,7 +141,8 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                 new OverrideScenario("valid", VALID_WEB_XML, true),
                 new OverrideScenario("missing", MISSING_PARAM_WEB_XML, false),
                 new OverrideScenario("duplicate", DUPLICATE_PARAM_WEB_XML, false),
-                new OverrideScenario("malformed", MALFORMED_PARAM_WEB_XML, false));
+                new OverrideScenario("malformed", MALFORMED_PARAM_WEB_XML, false),
+                new OverrideScenario("commented-value", COMMENTED_VALUE_WEB_XML, false));
 
         for (ShellHelper helper : helpers) {
             String source = Files.readString(helper.source(), StandardCharsets.UTF_8);

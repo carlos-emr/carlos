@@ -56,14 +56,13 @@ enable_devcontainer_javamelody_system_actions() {
 
   local tmp_file="${web_xml}.tmp"
   if awk '
-    /<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>/ {
+    /^[[:space:]]*<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>[[:space:]]*$/ {
       system_actions_params++
       in_system_actions = 1
     }
-    in_system_actions && /<param-value>/ {
-      if (sub(/<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")) {
-        replacements++
-      }
+    in_system_actions && /^[[:space:]]*<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>[[:space:]]*$/ {
+      sub(/<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
+      replacements++
       in_system_actions = 0
     }
     in_system_actions && /<\/init-param>/ {
