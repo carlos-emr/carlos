@@ -31,6 +31,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Set;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -579,6 +584,53 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             } else {
                 CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
             }
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a symlinked temp root without modifying the link target")
+    void shouldRejectSymlinkedTempRoot_withoutModifyingTarget() throws Exception {
+        // The rejection used to run AFTER setPosixFilePermissions and getOwner, both of which follow
+        // symlinks — so a pre-planted carlos-temp link had its TARGET chmodded to rwx------ before the
+        // write was refused, and the ownership check inspected the target rather than the link (as
+        // root, a link to a root-owned directory passes). java.io.tmpdir is world-writable on both
+        // /tmp and Tomcat's CATALINA_BASE/temp, so planting the link needs no privilege.
+        //
+        // The load-bearing assertion is the target's mode, not the exception: refusing the write was
+        // already correct, and refusing it is not what was broken.
+        Path scratch = Files.createTempDirectory("carlos-symlink-root-" + UUID.randomUUID());
+        if (!scratch.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+            return;
+        }
+        Path victim = Files.createDirectory(scratch.resolve("victim"));
+        Set<PosixFilePermission> before = PosixFilePermissions.fromString("rwxr-xr-x");
+        Files.setPosixFilePermissions(victim, before);
+        Files.createSymbolicLink(
+                scratch.resolve(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME), victim);
+
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        try {
+            System.setProperty("java.io.tmpdir", scratch.toString());
+            Method applicationTempParent =
+                    NioFileManagerImpl.class.getDeclaredMethod("applicationTempParent");
+            applicationTempParent.setAccessible(true);
+
+            assertThatThrownBy(() -> {
+                try {
+                    applicationTempParent.invoke(null);
+                } catch (InvocationTargetException e) {
+                    throw e.getCause();
+                }
+            }).isInstanceOf(IOException.class);
+
+            assertThat(Files.getPosixFilePermissions(victim))
+                    .describedAs("the link target must not have been chmodded before the refusal")
+                    .isEqualTo(before);
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            deleteQuietly(scratch.resolve(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+            deleteQuietly(victim);
+            deleteQuietly(scratch);
         }
     }
 

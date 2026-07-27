@@ -91,6 +91,42 @@ class ValidatedHttpEndpointUnitTest {
                 .hasMessageContaining("local or private");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "rejects {0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+        "http://100.64.0.1/fax",        // CGNAT, RFC 6598
+        "http://100.127.255.254/fax",   // CGNAT upper bound
+        "http://198.18.0.1/fax",        // benchmarking, RFC 2544
+        "http://198.19.255.1/fax",      // benchmarking upper half
+        "http://192.0.0.1/fax",         // IETF protocol assignments
+        "http://0.1.2.3/fax",           // 0.0.0.0/8 this-network
+        "http://255.255.255.255/fax",   // limited broadcast
+        "http://[fc00::1]/fax",         // IPv6 ULA
+        "http://[fd12:3456::1]/fax",    // IPv6 ULA, fd half
+        "http://[64:ff9b::c000:0201]/fax" // NAT64 mapping an IPv4 target
+    })
+    @DisplayName("should reject non-global ranges the JDK predicates do not report")
+    void shouldRejectNonGlobalRanges_notCoveredByJdkPredicates(String endpoint) {
+        // None of isAnyLocal/isLoopback/isLinkLocal/isSiteLocal/isMulticast returns true for these —
+        // isSiteLocalAddress in particular is fec0::/10 for IPv6, the deprecated range, not the ULA
+        // range that is actually used. Each is unroutable on the public internet, so an endpoint that
+        // resolves to one is only meaningful as an internal target and must go through the allowlist.
+        assertThatThrownBy(() -> ValidatedHttpEndpoint.resolve(endpoint, ALLOWLIST_PROPERTY))
+                .isInstanceOf(ValidatedHttpEndpoint.ValidationException.class)
+                .hasMessageContaining("local or private");
+    }
+
+    @Test
+    @DisplayName("should still accept a genuinely global address")
+    void shouldAcceptGlobalAddress_afterNonGlobalRangesAdded() throws Exception {
+        // Guards the new predicate against over-reach: 100.64/10 must not swallow 100.63 or 100.128,
+        // and 198.18/15 must not swallow 198.17 or 198.20.
+        assertThat(ValidatedHttpEndpoint.resolve("http://100.63.255.255/fax", ALLOWLIST_PROPERTY)).isNotNull();
+        assertThat(ValidatedHttpEndpoint.resolve("http://100.128.0.1/fax", ALLOWLIST_PROPERTY)).isNotNull();
+        assertThat(ValidatedHttpEndpoint.resolve("http://198.17.255.255/fax", ALLOWLIST_PROPERTY)).isNotNull();
+        assertThat(ValidatedHttpEndpoint.resolve("http://198.20.0.1/fax", ALLOWLIST_PROPERTY)).isNotNull();
+        assertThat(ValidatedHttpEndpoint.resolve("http://[2001:4860:4860::8888]/fax", ALLOWLIST_PROPERTY)).isNotNull();
+    }
+
     @Test
     @DisplayName("should permit only the exact configured private host")
     void shouldPermitExactAllowlistedHost() throws Exception {

@@ -235,6 +235,17 @@ public class ApplicationTempPurgeJob {
             logger.debug("Application temp root does not exist yet, nothing to purge");
             return PurgeOutcome.EMPTY;
         }
+        // Refuse a symlinked ROOT. purgeExpiredEntries already skips symlinked children, but this
+        // job resolves the path itself rather than going through NioFileManagerImpl, so nothing had
+        // ever checked the root — and java.io.tmpdir is world-writable, so any local account can
+        // pre-create carlos-temp as a link. newDirectoryStream follows it, and every expired child of
+        // the TARGET would then be handed to deleteEntry. Deleting is not recoverable; refusing to
+        // sweep merely leaves temp files for an operator to notice.
+        if (Files.isSymbolicLink(tempRoot)) {
+            logger.error("Application temp root is a symbolic link; refusing to purge through it: {}",
+                    LogSafe.sanitize(String.valueOf(tempRoot)));
+            return PurgeOutcome.EMPTY;
+        }
         return purgeExpiredEntries(tempRoot, cutoff);
     }
 

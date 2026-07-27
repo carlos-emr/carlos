@@ -82,7 +82,8 @@ public final class ValidatedHttpEndpoint {
                         || address.isLoopbackAddress()
                         || address.isLinkLocalAddress()
                         || address.isSiteLocalAddress()
-                        || address.isMulticastAddress()) {
+                        || address.isMulticastAddress()
+                        || isNonGlobalRange(address)) {
                     throw new ValidationException(
                             "The endpoint host resolves to a disallowed local or private address.");
                 }
@@ -90,6 +91,81 @@ public final class ValidatedHttpEndpoint {
         }
         return new ValidatedHttpEndpoint(
                 uri, addresses, "https".equals(scheme), normalizedHost);
+    }
+
+    /**
+     * Non-global address ranges that {@link InetAddress}'s own predicates do not report.
+     *
+     * <p>The JDK's {@code isSiteLocalAddress}/{@code isLinkLocalAddress}/{@code isLoopbackAddress}/
+     * {@code isAnyLocalAddress} between them cover RFC 1918, 169.254/16, 127/8 and 0.0.0.0 — but
+     * nothing else that is unroutable on the public internet. In particular
+     * {@code isSiteLocalAddress} is fec0::/10 for IPv6, which is deprecated and does <em>not</em>
+     * include the ULA range that actually gets used.</p>
+     *
+     * <p>Ranges added here, each unreachable from the internet and therefore only meaningful as an
+     * internal target:</p>
+     * <ul>
+     *   <li>{@code 100.64.0.0/10} — carrier-grade NAT (RFC 6598)</li>
+     *   <li>{@code 198.18.0.0/15} — benchmarking (RFC 2544)</li>
+     *   <li>{@code 192.0.0.0/24} — IETF protocol assignments (RFC 6890)</li>
+     *   <li>{@code 0.0.0.0/8} beyond the exact any-address, which is all this-network</li>
+     *   <li>{@code 255.255.255.255} — limited broadcast</li>
+     *   <li>{@code fc00::/7} — IPv6 unique local addresses (RFC 4193)</li>
+     *   <li>{@code 64:ff9b::/96} — NAT64 well-known prefix (RFC 6052), which maps onto IPv4 and can
+     *       therefore reach an internal v4 target through a v6 literal</li>
+     * </ul>
+     *
+     * <p>This is defence in depth rather than a fix for an open door: both callers take an
+     * operator-configured endpoint (a fax URL behind {@code _admin.fax} write, and a mail
+     * {@code end_point} no request path writes at all), so the practical effect is that an admin can
+     * no longer point credentials at these ranges without the allowlist the design intends them to
+     * use.</p>
+     */
+    private static boolean isNonGlobalRange(InetAddress address) {
+        byte[] octets = address.getAddress();
+        if (octets.length == 4) {
+            int first = octets[0] & 0xff;
+            int second = octets[1] & 0xff;
+            // 0.0.0.0/8 (this network) — the exact any-address is already covered upstream.
+            if (first == 0) {
+                return true;
+            }
+            // 100.64.0.0/10 (CGNAT).
+            if (first == 100 && second >= 64 && second <= 127) {
+                return true;
+            }
+            // 198.18.0.0/15 (benchmarking).
+            if (first == 198 && (second == 18 || second == 19)) {
+                return true;
+            }
+            // 192.0.0.0/24 (IETF protocol assignments).
+            if (first == 192 && second == 0 && (octets[2] & 0xff) == 0) {
+                return true;
+            }
+            // 255.255.255.255 (limited broadcast).
+            return first == 255 && second == 255
+                    && (octets[2] & 0xff) == 255 && (octets[3] & 0xff) == 255;
+        }
+        if (octets.length == 16) {
+            // fc00::/7 (unique local). isSiteLocalAddress only covers the deprecated fec0::/10.
+            if ((octets[0] & 0xfe) == 0xfc) {
+                return true;
+            }
+            // 64:ff9b::/96 (NAT64 well-known prefix), which embeds an IPv4 destination.
+            return (octets[0] & 0xff) == 0x00 && (octets[1] & 0xff) == 0x64
+                    && (octets[2] & 0xff) == 0xff && (octets[3] & 0xff) == 0x9b
+                    && allZero(octets, 4, 12);
+        }
+        return false;
+    }
+
+    private static boolean allZero(byte[] octets, int fromInclusive, int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (octets[i] != 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public URI uri() {

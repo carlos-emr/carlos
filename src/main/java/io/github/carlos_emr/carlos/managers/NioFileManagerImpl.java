@@ -721,8 +721,24 @@ public class NioFileManagerImpl implements NioFileManager {
                 // Existing root (possibly pre-created by another local user): tighten its permissions
                 // and verify this JVM owns it — refuse to write PHI beneath a root owned by someone else.
                 created = parent;
+                // Reject a symlinked root HERE, before anything that follows the link.
+                //
+                // This check used to sit at the end of the method, after the two calls below. Both
+                // follow symlinks by default, so a pre-planted carlos-temp link meant
+                // setPosixFilePermissions chmodded the link's TARGET to rwx------, and getOwner
+                // inspected the target rather than the link — as root a link to /etc reports owner
+                // root, matches user.name, and passes. The write was then refused, but the target had
+                // already been modified. java.io.tmpdir is world-writable (mode 1777, both /tmp and
+                // Tomcat's CATALINA_BASE/temp), so pre-planting needs no privilege at all.
+                if (Files.isSymbolicLink(created)) {
+                    throw new IOException("Application temp root is a symbolic link: " + created);
+                }
                 Files.setPosixFilePermissions(created, ownerOnly);
-                java.nio.file.attribute.UserPrincipal owner = Files.getOwner(created);
+                // NOFOLLOW_LINKS: ask who owns the entry itself, not whatever it points at. Redundant
+                // after the guard above and kept deliberately — the ownership check must not silently
+                // become a check on someone else's file if that guard is ever moved or removed.
+                java.nio.file.attribute.UserPrincipal owner =
+                        Files.getOwner(created, java.nio.file.LinkOption.NOFOLLOW_LINKS);
                 String jvmUser = System.getProperty("user.name");
                 if (jvmUser != null && owner != null && !jvmUser.equals(owner.getName())) {
                     throw new IOException("Application temp root is not owned by the CARLOS process user: " + created);

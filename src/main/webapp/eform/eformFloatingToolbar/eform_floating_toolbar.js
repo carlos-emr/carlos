@@ -596,7 +596,26 @@ function remoteEmail() {
 /**
  * Triggers the eForm print function
  */
+/**
+ * Clears any workflow intent left on the form, then saves.
+ *
+ * Bound to the plain Save button. remoteSave() itself must NOT do this: the composite actions
+ * (remoteDownload/remoteFax/remoteEmail/remoteEdocument) clear and then set their own flag before
+ * calling it, so clearing inside remoteSave would erase the intent they just declared.
+ *
+ * Without it, a cancelled composite leaves its inputs behind. A form-authored onsubmit that returns
+ * false cancels the POST, but remoteSave() still reports success, so faxEForm/recipient/
+ * recipientFaxNumber survive on the form — and AddEForm2Action reads those parameters verbatim, so
+ * the clinician's next plain Save would take the fax branch with the earlier recipient.
+ */
+function remoteSaveOnly() {
+    clearWorkflowFlags();
+    return remoteSave();
+}
+
 function remotePrint() {
+    // Same reason as remoteSaveOnly above: Print saves, and must not inherit a cancelled Fax's intent.
+    clearWorkflowFlags();
 
     if (typeof formPrint === "function") {
         try {

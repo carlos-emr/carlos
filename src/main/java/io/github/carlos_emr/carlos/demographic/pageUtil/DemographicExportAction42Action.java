@@ -2612,14 +2612,23 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 
                     // Validate export against xsd
+                    // The export filename is PHI, not an identifier: it is composed as
+                    // First_Last_demographicNo_DDMMYYYY a few lines above, so logging it writes a
+                    // patient's name and date of birth into the operator log. The log line carries
+                    // the position in the batch instead, which is what an operator needs to correlate
+                    // with the returned error list; the message shown to the USER may still name the
+                    // file, because that reader is already authorized to see this export.
+                    int exportIndex = 0;
                     for (File f : files) {
+                        exportIndex++;
                         Boolean valid = validateExport(f);
                         if (!valid) {
                             String msg = "Exported file " + f.getName() + " fails OntarioMD XSD validation";
-                            logger.warn(msg);
+                            logger.warn("Exported file {} of {} fails OntarioMD XSD validation",
+                                    exportIndex, files.size());
                             exportError.add(msg);
                         } else {
-                            logger.info("Exported file " + f.getName() + " is valid");
+                            logger.info("Exported file {} of {} is valid", exportIndex, files.size());
                         }
 
                     }
