@@ -131,6 +131,40 @@ class EFormRendererRequestAuthorizationUnitTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "forwarded via {0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+        "X-Forwarded-For", "Forwarded", "X-Real-IP", "X-Forwarded-Host", "X-Forwarded-Proto"})
+    @DisplayName("should refuse a renderer grant to a request that arrived through a proxy")
+    void shouldRefuseGrant_whenRequestWasForwarded(String header) {
+        // getRemoteAddr() is the TCP peer, so behind a same-host reverse proxy it is 127.0.0.1 for
+        // every request off the internet — the deployment this feature's own docs assume, with
+        // WAF_TRUSTED_PROXY_IPS empty by default and no RemoteIpValve. The loopback check alone
+        // therefore cannot tell the render browser from a remote caller. The render browser is a
+        // local process talking straight to Tomcat and never sets these headers.
+        EFormRenderTokenService service = EFormRenderTokenService.getInstance();
+        EFormRenderTokenService.RenderToken token = service.issue(78, "999998");
+        try {
+            EFormRenderTokenService.RenderGrant grant = service.peek(token);
+            service.authorizeStaticPaths(grant, java.util.Set.of("/library/eforms/APCache.js"));
+            EFormRenderTokenService.RenderSession session = service.exchange(token, null);
+
+            MockHttpServletRequest forwarded =
+                    request("GET", "/carlos/library/eforms/APCache.js", session);
+            forwarded.addHeader(header, "203.0.113.7");
+
+            assertThat(EFormRendererRequestAuthorization.grantFromCookie(forwarded)).isNull();
+            assertThat(EFormRendererRequestAuthorization.isRendererRequest(forwarded)).isFalse();
+            assertThat(EFormRendererRequestAuthorization.permitsStaticRequest(forwarded)).isFalse();
+
+            // Control: the identical request without the header still authorizes, so this measures
+            // the header and not some unrelated rejection.
+            assertThat(EFormRendererRequestAuthorization.permitsStaticRequest(
+                    request("GET", "/carlos/library/eforms/APCache.js", session))).isTrue();
+        } finally {
+            service.invalidate(token);
+        }
+    }
+
     private static MockHttpServletRequest request(
             String method, String uri, EFormRenderTokenService.RenderSession session) {
         MockHttpServletRequest request = new MockHttpServletRequest(method, uri);

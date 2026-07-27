@@ -54,8 +54,50 @@ public final class EFormRendererRequestAuthorization {
     private EFormRendererRequestAuthorization() {
     }
 
+    /**
+     * Forwarding headers a reverse proxy adds. Their presence proves the request did not come from
+     * the render browser.
+     */
+    private static final String[] FORWARDING_HEADERS = {
+        "X-Forwarded-For", "Forwarded", "X-Real-IP", "X-Forwarded-Host", "X-Forwarded-Proto"
+    };
+
     static EFormRenderTokenService.RenderGrant grantFromCookie(HttpServletRequest request) {
+        if (wasForwarded(request)) {
+            return null;
+        }
         return EFormRenderTokenService.getInstance().peekSession(readCookie(request));
+    }
+
+    /**
+     * Whether this request reached Tomcat through a proxy, in which case it is not the renderer.
+     *
+     * <p>Every renderer surface authorizes through {@link #grantFromCookie}, so refusing a grant
+     * here refuses all of them at once.</p>
+     *
+     * <p><strong>Why this is needed.</strong> The loopback checks elsewhere in this class read
+     * {@code getRemoteAddr()}, which is the TCP peer. Behind a same-host reverse proxy — nginx
+     * terminating TLS and forwarding to Tomcat on {@code 127.0.0.1}, the deployment this feature's
+     * own documentation assumes — that peer is the proxy, so {@code getRemoteAddr()} is
+     * {@code 127.0.0.1} for every request off the internet and {@code isLoopback} is true for a
+     * remote caller. CARLOS ships {@code XforwardHeaderFilter} to rewrite the address, but it only
+     * acts when the peer is in {@code WAF_TRUSTED_PROXY_IPS}/{@code WAF_TRUSTED_PROXY_CIDRS}, and
+     * both are empty by default; there is no {@code RemoteIpValve} either. So the "loopback-only"
+     * invariant asserted throughout this package does not hold on a default proxied install.</p>
+     *
+     * <p>The remaining gate in that situation is the 256-bit capability cookie, which is
+     * unguessable — this is a defence-in-depth repair, not a live exploit. It costs nothing: the
+     * render browser is a local process connecting straight to Tomcat, so it never sets any of
+     * these headers, while a request that carries one demonstrably came from somewhere else.</p>
+     */
+    static boolean wasForwarded(HttpServletRequest request) {
+        for (String header : FORWARDING_HEADERS) {
+            String value = request.getHeader(header);
+            if (value != null && !value.isBlank()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // FindSecBugs COOKIE_USAGE: the renderer cookie carries only an opaque 32-byte capability handle with a 2-minute TTL — no PHI, no user identity, no session authority. See docs/static-analysis-workflows.md
