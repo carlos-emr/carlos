@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
         env:
           POSTGRES_DB: carlos_portal
           POSTGRES_PASSWORD: carlos_portal
@@ -65,6 +65,11 @@ jobs:
 
       - name: Install dependencies
         run: python -m pip install --require-hashes -r requirements.lock
+
+      - name: Audit dependencies
+        run: |
+          python -m pip_audit --require-hashes --progress-spinner off -r requirements-runtime.lock
+          python -m pip_audit --require-hashes --progress-spinner off -r requirements.lock
 
       - name: Run Ruff
         run: python -m ruff check .

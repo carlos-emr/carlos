@@ -56,6 +56,25 @@ pip-compile --extra dev --all-build-deps --generate-hashes --allow-unsafe --stri
   --output-file requirements.lock pyproject.toml
 ```
 
+CI installs both lock files with hash verification and audits their exact versions against the
+Python Packaging Advisory Database. Keep both generated locks in the same dependency-change commit.
+
+### Dependency decisions
+
+- `fhir.resources` remains pinned to 5.1.1 because it models FHIR R4 4.0.1. Newer major versions
+  provide R5 and R4B rather than exact R4. Portal FHIR routes are output-only, and CI validates
+  generated resources with the official FHIR validator rather than treating this library as the
+  conformance authority. Reassess the model library before accepting inbound FHIR resources.
+- The runtime installs base `uvicorn` only. Development installs `uvicorn[standard]` for reload and
+  optional local performance support without shipping WebSocket and file-watcher dependencies in
+  production.
+- The MVP uses `psycopg[binary]` because there is not yet a managed production portal image. Its
+  bundled client libraries are patched by updating the locked Psycopg package and rebuilding the
+  deployment. When a production image is defined, evaluate `psycopg[c]` linked to image-managed
+  `libpq` and `libssl`.
+- The CI PostgreSQL service uses a digest-pinned `postgres:16` image. Update the tag and digest
+  together after reviewing upstream PostgreSQL image changes.
+
 ## Run
 
 ```bash
