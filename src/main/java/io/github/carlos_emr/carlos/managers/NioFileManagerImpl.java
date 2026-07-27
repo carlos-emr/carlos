@@ -955,19 +955,30 @@ public class NioFileManagerImpl implements NioFileManager {
         //
         // Source names are not unique enough to make that theoretical. saveTempFile creates a unique
         // temp DIRECTORY but keeps the caller's filename verbatim inside it, and this method promotes
-        // by that filename. DocumentAttachmentManagerImpl's consult-fax packet is named
-        // "combinedPDF_" + epochMillis with NO demographic in it, so two consult packets built in the
-        // same millisecond collide ACROSS PATIENTS — and the loser's fax job then points at a path
-        // holding the other patient's consultation letter, addressed to the wrong specialist.
+        // by that filename, so any two callers choosing the same name compete for one destination.
+        //
+        // The motivating case was DocumentAttachmentManagerImpl's consult-fax packet, then named
+        // "combinedPDF_" + epochMillis with no demographic, so a same-millisecond collision crossed
+        // PATIENTS and the loser's fax job pointed at another patient's consultation letter. That
+        // name is now patient-scoped (see concatPDF), which is why this guard no longer has a
+        // cross-patient example — but it is still what makes the name-collision safe at all, and it
+        // is the only defence for any OTHER caller whose filename is not patient-scoped.
         //
         // Files.createFile is O_CREAT|O_EXCL, so it either reserves the name or throws with no
         // window. Retrying with a fresh UUID on collision keeps the preferred filename in the common
         // case, which is what operators browsing DOCUMENT_DIR rely on.
+        // Copy BEFORE claiming, so the common failure (a copy that fails on a full or unreadable
+        // disk) leaves nothing behind in DOCUMENT_DIR at all. Claiming first meant every such
+        // failure deposited a permanently orphaned 0-byte file — and after the packet-naming change
+        // that orphan is named combinedPDF_<demographicNo>_<millis>.pdf, i.e. a PHI-correlating
+        // identifier, in a directory nothing sweeps. It also squatted the PREFERRED filename, so an
+        // operator recovering a fax by that name would open zero bytes.
         Path staged = null;
+        Path claimed = null;
         try {
-            Path claimed = claimDestination(documentDirectory, destination, fileName);
             staged = Files.createTempFile(documentDirectory, ".promotion-", ".tmp");
             Files.copy(realSource, staged, StandardCopyOption.REPLACE_EXISTING);
+            claimed = claimDestination(documentDirectory, destination, fileName);
             // Replaces our OWN empty reservation, so the replace semantics are safe here: the name is
             // already ours and no other promotion can have taken it.
             try {
@@ -977,9 +988,19 @@ public class NioFileManagerImpl implements NioFileManager {
             }
             return claimed;
         } catch (IOException e) {
+            // Clean up BOTH. The reservation was previously left to a "document-directory
+            // maintenance" sweep that does not exist — ApplicationTempPurgeJob covers only the
+            // application temp root and the preview cache, never DOCUMENT_DIR.
             if (staged != null) {
                 try {
                     Files.deleteIfExists(staged);
+                } catch (IOException cleanupFailure) {
+                    e.addSuppressed(cleanupFailure);
+                }
+            }
+            if (claimed != null) {
+                try {
+                    Files.deleteIfExists(claimed);
                 } catch (IOException cleanupFailure) {
                     e.addSuppressed(cleanupFailure);
                 }
@@ -991,9 +1012,12 @@ public class NioFileManagerImpl implements NioFileManager {
     /**
      * Reserves a destination filename atomically, falling back to a UUID-suffixed name when taken.
      *
-     * <p>Returns a path that exists as an empty file owned by this promotion. The caller replaces it
-     * with the real bytes; on any later failure the caller's cleanup removes the staging file, and
-     * the empty reservation is swept by the ordinary document-directory maintenance.</p>
+     * <p>Returns a path that exists as an empty file owned by this promotion. The caller must replace
+     * it with the real bytes and, on any failure after this returns, must delete it — nothing else
+     * will. {@code ApplicationTempPurgeJob} sweeps only the application temp root and the preview
+     * cache; there is no sweeper for {@code DOCUMENT_DIR}, so an orphaned reservation is permanent.
+     * The caller therefore stages and copies the bytes BEFORE calling this, which keeps the window
+     * in which an orphan is possible as small as it can be.</p>
      *
      * @param documentDirectory the validated destination directory
      * @param preferred the first-choice destination, already validated to sit directly in it

@@ -13,6 +13,7 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
@@ -317,7 +318,14 @@ public final class EFormRenderPdfHtmlComposer {
         Set<String> present = new HashSet<>();
         for (String fileName : fileNames) {
             try {
-                if (DisplayImage2Action.getImageFile(fileName).isFile()) {
+                // length() > 0, not merely isFile(): this decides whether the provider signature
+                // stamp EXISTS, and a zero-byte stamp file counted as present means
+                // markProviderStampMissing is never called — so providerStampMissing, a BLOCKING
+                // component, stays false and the unsigned document ships with no approval prompt.
+                // The stamp <img> then fetches 200/0 bytes, which the network gate also scores as
+                // loaded. Both detectors miss it unless emptiness is treated as absence here.
+                File imageFile = DisplayImage2Action.getImageFile(fileName);
+                if (imageFile.isFile() && imageFile.length() > 0) {
                     present.add(fileName);
                 }
             } catch (Exception e) {

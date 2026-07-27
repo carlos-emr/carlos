@@ -19,6 +19,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -84,7 +85,7 @@
                     ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
                     if (values == null) {
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                                "AP config lookup query failed for key=" + key + " fid=" + fid);
+                                "AP config lookup query failed for key=" + LogSafe.sanitize(key) + " fid=" + fid);
                         unresolvedKeys.add(key);
                         output = "";
                     } else if (names.isEmpty()) {
@@ -96,7 +97,7 @@
                         output = "";
                     } else if (values.size() != names.size()) {
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                                "AP config lookup returned an unusable result for key=" + key
+                                "AP config lookup returned an unusable result for key=" + LogSafe.sanitize(key)
                                         + " fid=" + fid + ": output declares " + names.size()
                                         + " names but the query returned " + values.size() + " values");
                         unresolvedKeys.add(key);
@@ -109,7 +110,7 @@
                 }
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= output %>' context="htmlAttribute"/>"/><%
 } catch (Exception e) {
-    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + key + " fid=" + fid, e);
+    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + LogSafe.sanitize(key) + " fid=" + fid, e);
     unresolvedKeys.add(key);
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
     }
@@ -117,7 +118,7 @@
     // A key the form asks for that apconfig.xml does not define. Previously the only branch here
     // with no log at all, so a misconfigured form blanked a clinical field with no trace anywhere.
     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-            "AP config lookup requested an unconfigured key=" + key + " fid=" + fid);
+            "AP config lookup requested an unconfigured key=" + LogSafe.sanitize(key) + " fid=" + fid);
     unresolvedKeys.add(key);
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
         }

@@ -23,6 +23,8 @@
  */
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -149,6 +151,21 @@ public class FrmPDFServlet extends HttpServlet {
                 log.warn("Unable to send 403 for unauthenticated form PDF request", ioe);
             }
             return;
+        }
+        // AUTHENTICATED IS NOT AUTHORIZED. The check above only proves someone is logged in; the
+        // patient whose form is rendered comes straight from the request (`demographic_no`, read at
+        // generatePDFDocumentBytes and passed to FrmRecord.getFormRecord, which does raw SQL with no
+        // gate of its own). Without this, any authenticated user — including a role holding no _form
+        // privilege at all — could POST an arbitrary demographic_no and receive that patient's stored
+        // form as a PDF, with the audit line written only AFTER the PHI had been streamed.
+        //
+        // Scoped to the requested demographic, matching the sibling this servlet parallels
+        // (EFormPDFServlet:149-152). One check covers every path: there is exactly one
+        // demographic_no parameter, and the `multiple` loop below varies only the page index.
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_form", "r", req.getParameter("demographic_no"))) {
+            throw new SecurityException("missing required sec object (_form)");
         }
         List<File> tempFiles = new ArrayList<>();
 

@@ -296,10 +296,14 @@ public class DisplayImage2Action extends ActionSupport {
             // origin: a stored-XSS channel if asset-upload rights are ever broader than admin. The
             // sandbox directive (no allow-* tokens) strips scripts/forms/origin from the served
             // document while keeping passive <img>/CSS embedding working, so legacy html/rtl/svg
-            // assets stay servable without staying scriptable. This is UNCONDITIONAL for every file
-            // served from the (user-writable) image directory; trusted editor assets are served
-            // separately from the immutable WAR path (see serveBundledEditorAsset) so a user-uploaded
-            // same-named file can never reach this route unsandboxed.
+            // assets stay servable without staying scriptable. This applies to every file that
+            // reaches THIS method — which is everything in the image directory except the two exact
+            // basenames in SEEDED_EDITOR_ASSETS, which are routed to serveSeededEditorAsset above and
+            // deliberately exempt (see that field's javadoc: the editor executes them in a frame, and
+            // _eform write already grants same-origin script through stored form HTML, so sandboxing
+            // them would break clinic letterhead without denying anything). editControl2.js comes
+            // from the immutable WAR. Do not read this as "the image directory is wholly sandboxed":
+            // it is sandboxed apart from those two deliberately-exempt names.
             response.setHeader("Content-Security-Policy", "sandbox");
         }
         response.setContentType(contentType);

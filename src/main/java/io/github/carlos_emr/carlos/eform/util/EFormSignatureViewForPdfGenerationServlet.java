@@ -148,7 +148,15 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
                 byte[] image = digitalSignature.getSignatureImage();
-                if (image == null) {
+                // length == 0 as well as null. An empty blob set Content-Length: 0 and committed a
+                // 200 with no body — which is exactly the "falling through to an empty 200" this
+                // file's own comment below refuses to do, and it bypasses the decrypt-failure
+                // defence in DigitalSignatureManagerImpl, which nulls undecryptable bytes SO THAT
+                // this branch 404s. A zero-length blob never enters that catch, so looksLikeImage
+                // never runs. The renderer's naturalWidth check only covers the first
+                // #signatureDisplay img, so a signature referenced from letter content — precisely
+                // what this servlet serves — had no other detector.
+                if (image == null || image.length == 0) {
                     // Referenced signature row exists but carries no image bytes. No id in the message
                     // (signatures are PHI); a blank signature in a PDF is now traceable to this branch.
                     logger.debug("eForm signature fetch: referenced signature has no image data (404)");

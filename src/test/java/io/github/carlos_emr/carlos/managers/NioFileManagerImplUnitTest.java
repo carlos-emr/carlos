@@ -563,7 +563,8 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         // This is reachable because source filenames are not unique: saveTempFile creates a unique
         // temp DIRECTORY but keeps the caller's filename inside it, and the consult-fax packet is
         // named "combinedPDF_" + epochMillis with no demographic — so a same-millisecond collision
-        // crosses PATIENTS, and the loser's fax job points at another patient's letter.
+        // crossed PATIENTS. That name is now patient-scoped, but this guard is what makes ANY
+        // same-name collision safe, including for callers whose names are not patient-scoped.
         //
         // All threads are released together so they reach the name decision before any of them
         // finishes writing; under the old code this loses documents outright rather than flaking.

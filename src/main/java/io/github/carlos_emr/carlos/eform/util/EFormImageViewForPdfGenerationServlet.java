@@ -108,8 +108,15 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             }
 
             File file = DisplayImage2Action.getImageFile(fileName);
-            if (!file.exists() || !file.isFile()) {
-                logger.debug("eForm asset not found: {}", LogSafe.sanitize(fileName));
+            // length() == 0, not just exists(): a zero-byte file would otherwise stream as a 200 with
+            // an empty body, and the render gate scores purely on status (isLoaded is 200..299). An
+            // empty asset would therefore be counted as LOADED, and its basename entered into
+            // loadedResourceNames — which additionally downgrades a genuine 404 for the same filename
+            // elsewhere in the render. A truncated scanned background (interrupted upload, disk full,
+            // partial copy of the image directory) would print as blank paper on a complete-looking
+            // PDF. Zero bytes is never a valid image; treat it as absent.
+            if (!file.exists() || !file.isFile() || file.length() == 0) {
+                logger.debug("eForm asset not found or empty: {}", LogSafe.sanitize(fileName));
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }

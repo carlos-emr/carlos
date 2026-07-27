@@ -220,6 +220,15 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             }
 
             byte[] imageData = Files.readAllBytes(stampFile.toPath());
+            // Emptiness guard, matching saveDigitalSignatureFromTempFile above. Without it a
+            // zero-byte stamp file is encrypted and stored as a valid-looking row, and the signature
+            // servlet then streams it as a 200 with Content-Length: 0 — a blank signature block on a
+            // rendered consult that no gate can see, because the decrypt-failure defence below only
+            // inspects bytes that failed to decrypt. Refuse to store what can only render blank.
+            if (imageData.length == 0) {
+                logger.warn("Stamp signature file is empty; refusing to store it: {}", stampFilename);
+                return null;
+            }
             return this.saveDigitalSignature(
                     loggedInInfo.getCurrentFacility().getId(),
                     providerNo, demographicNo, imageData, moduleType
