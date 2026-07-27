@@ -49,7 +49,7 @@ enable_devcontainer_javamelody_system_actions() {
   fi
 
   rm -f "$tmp_file" 2>/dev/null || true
-  echo "WARN: Could not enable JavaMelody system actions in $web_xml; leaving them disabled"
+  echo "WARN: Could not enable JavaMelody system actions in $web_xml; devcontainer override not applied"
   return 0
 }
 

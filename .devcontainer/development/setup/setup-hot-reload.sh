@@ -80,7 +80,7 @@ enable_devcontainer_javamelody_system_actions() {
   fi
 
   rm -f "$tmp_file" 2>/dev/null || true
-  echo "[$(date +'%H:%M:%S')] WARN: Could not enable JavaMelody system actions in $web_xml; leaving them disabled" >> "$LOG_FILE"
+  echo "[$(date +'%H:%M:%S')] WARN: Could not enable JavaMelody system actions in $web_xml; devcontainer override not applied" >> "$LOG_FILE"
   return 0
 }
 
