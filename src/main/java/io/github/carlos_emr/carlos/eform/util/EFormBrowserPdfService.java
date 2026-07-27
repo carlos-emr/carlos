@@ -337,6 +337,11 @@ public class EFormBrowserPdfService {
             // still reaches the reader through the render report and the download banner.
             + "    #carlos-eform-timer-compat-error,\n"
             + "    #carlos-render-advisory,\n"
+            // Same reasoning for the APCache lookup-failure notice: it tells a clinician filling the
+            // form that a field could not be populated. On the render surface the equivalent
+            // condition is a 422 that the completeness gate reports, so the banner is redundant here
+            // and must never be baked into a delivered document.
+            + "    #carlos-apcache-lookup-failure,\n"
             + "    #labDetail {\n"
             + "      display: none !important;\n"
             + "      visibility: hidden !important;\n"

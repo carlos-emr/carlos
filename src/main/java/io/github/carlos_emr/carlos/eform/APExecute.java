@@ -92,6 +92,7 @@ public class APExecute {
         } else {
             ArrayList<String> values = EFormUtil.getValues(names, query);
             if (values.size() != names.size()) {
+                logUnusableResult(ap, names.size(), values.size());
                 output = "";
             } else {
                 for (int i = 0; i < names.size(); i++) {
@@ -100,6 +101,23 @@ public class APExecute {
             }
         }
         return output;
+    }
+
+    /**
+     * Records a result the AP cannot be rendered from.
+     *
+     * <p>The two callers below return {@code ""} here, which reaches printed records and generated
+     * patient letters as a blank field indistinguishable from "this patient has no such data". That
+     * is a decision worth keeping — these are batch paths with no user to prompt — but it was
+     * previously taken with no log of any kind, so a column/name mismatch or a swallowed
+     * {@code SQLException} left no trace at all. An empty result is <em>not</em> reported: a query
+     * that legitimately matched no rows is data, not a defect.</p>
+     */
+    private static void logUnusableResult(String ap, int declaredNames, int returnedValues) {
+        MiscUtils.getLogger().error(
+                "AP {} returned an unusable result: output declares {} names but the query returned"
+                        + " {} values; the field will render blank",
+                ap, declaredNames, returnedValues);
     }
 
     public String execute(String ap, String demographicNo, Integer invoiceNo) {
@@ -130,6 +148,7 @@ public class APExecute {
 
         ArrayList<String> values = EFormUtil.getValues(names, query);
         if (values.size() != names.size()) {
+            logUnusableResult(ap, names.size(), values.size());
             output = "";
         } else {
             for (int i = 0; i < names.size(); i++) {

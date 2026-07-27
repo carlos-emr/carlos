@@ -57,7 +57,9 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -136,6 +138,18 @@ public class EFormPDFServlet extends HttpServlet {
      */
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
+
+        // This servlet is mapped at /eform/createpdf in web.xml, so it is reachable by direct URL
+        // independently of PrintPDF2Action — the only route that forwards here. LoginFilter covers
+        // authentication, but until now nothing checked AUTHORIZATION: any authenticated user could
+        // generate a PDF for any demographic. Scoped to the requested patient, matching the check
+        // the calling action now performs.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_eform", "r", req.getParameter("demographic_no"))) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
 
         ByteArrayOutputStream baosPDF = null;
         FileInputStream fis = null;

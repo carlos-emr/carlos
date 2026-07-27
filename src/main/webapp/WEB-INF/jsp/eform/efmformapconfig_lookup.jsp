@@ -62,6 +62,10 @@
     // into DatabaseAP SQL.
     form.setAppointmentNo(appointmentParam);
 //form.setApptProvider(request.getParameter("apptProvider"));
+    // Keys that could not be resolved, as opposed to keys that legitimately resolved to nothing.
+    // Only the former are reported to the page: a patient with no recorded allergies is data, and
+    // flagging that would fire the notice on almost every form and train clinicians to ignore it.
+    java.util.List<String> unresolvedKeys = new java.util.ArrayList<String>();
     for (String key : keys) {
         ap = EFormLoader.getAP(key);
         if (ap != null) {
@@ -74,7 +78,19 @@
 
                     ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
                     ArrayList<String> values = EFormUtil.getValues(names, query);
-                    if (values.size() != names.size()) {
+                    if (values.isEmpty()) {
+                        // Genuinely no rows. An empty field is the correct rendering of that.
+                        output = "";
+                    } else if (values.size() != names.size()) {
+                        // Fewer values than the AP declares output names: a column/name mismatch, or
+                        // a SQLException that getValues swallowed into a short list. This used to be
+                        // silent in both directions — no log, and a blank field the clinician could
+                        // not tell apart from "no data" before saving it into the record.
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                                "AP config lookup returned an unusable result for key=" + key
+                                        + " fid=" + fid + ": output declares " + names.size()
+                                        + " names but the query returned " + values.size() + " values");
+                        unresolvedKeys.add(key);
                         output = "";
                     } else {
                         for (int i = 0; i < names.size(); i++) {
@@ -85,10 +101,20 @@
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= output %>' context="htmlAttribute"/>"/><%
 } catch (Exception e) {
     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + key + " fid=" + fid, e);
+    unresolvedKeys.add(key);
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
     }
 } else {
+    // A key the form asks for that apconfig.xml does not define. Previously the only branch here
+    // with no log at all, so a misconfigured form blanked a clinical field with no trace anywhere.
+    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+            "AP config lookup requested an unconfigured key=" + key + " fid=" + fid);
+    unresolvedKeys.add(key);
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
         }
+    }
+    // Reserved name, read and skipped by APCache.js the same way oscarAPCacheLookupType is.
+    if (!unresolvedKeys.isEmpty()) {
+%><input type="hidden" name="oscarAPCacheLookupFailures" value="<carlos:encode value='<%= String.join(",", unresolvedKeys) %>' context="htmlAttribute"/>"/><%
     }
 %>

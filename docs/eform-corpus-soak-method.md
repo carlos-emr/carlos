@@ -107,6 +107,56 @@ Each of these produced a confidently wrong answer at least once.
   packages and is not shipped, which looked urgent. The render surface never loads it: 1 request in
   400 renders, and all 160 packages also load an aliased jQuery. Frequency in the *corpus* is not
   frequency in the *render*.
+- **`unzip` is not installed in this devcontainer.** A scan built on `unzip -p … 2>/dev/null`
+  reports **zero hits for everything** and reads as a clean negative result. It produced a wrong
+  conclusion during this work — a finding was nearly retracted on the strength of it. Use Python's
+  `zipfile`, and **assert a known-positive control in the same pass**: `oscarDB=` matches 198 of 199
+  packages, so any scan reporting 0 for it is broken, not informative. The same rule generalises —
+  every corpus scan should carry one expression whose answer you already know.
+
+## AP coverage audit
+
+What the 199 packages actually ask the `oscarDB=` / `APCache` channel for, measured against
+`src/main/resources/oscar/eform/apconfig.xml`. Re-run it before assuming a form's blank field is a
+missing AP — most apparent gaps are not.
+
+**Two false-positive classes will dominate a naive scan:**
+
+- **Dynamic module references.** `m$WT#value`, `e$formname#field` and friends are not apconfig
+  entries at all; `EForm.getAPExtra` (`EForm.java:788`) resolves a leading `<letter>$` as a module —
+  `m$` reads the patient's *last* measurement of that type via
+  `EctMeasurementsDataBeanHandler.getLast`, `e$` reads stored eform values. 46 distinct such
+  references appear in the corpus. Truncate a key at `#` and every one of them looks undefined.
+- **Case.** `EFormLoader.getAP` compares with `equalsIgnoreCase` (`EFormLoader.java:154`), so `DOB`,
+  `HIN`, `patient_namef` and 11 other keys that differ from apconfig only in case resolve correctly.
+
+**Findings, after excluding both:**
+
+| Finding | Count | Notes |
+|---|---|---|
+| Keys genuinely undefined | **3** | `formatted_clinic_address`, `him_her`, `PatientNameL` — one package each |
+| Duplicated `<ap-name>` entries | **13** | 378 entries, 365 distinct names |
+| Dynamic `m$`/`e$` references | 46 | Already work; no apconfig entry needed |
+
+The duplicates matter because `getAP` returns the **first** match, so every later definition of a
+repeated name is dead — `current_user*` accounts for most of them. Worth a cleanup pass, but nothing
+is currently mis-resolved by it.
+
+**No new APs were added for the three undefined keys, deliberately.** Two of them are one form's
+naming variance on an AP that already exists — `PatientNameL` against the defined `patient_nameL`,
+`formatted_clinic_address` against `clinic_address` — and the underscore difference puts them out of
+reach of the case-insensitive lookup. Only `him_her` is a capability CARLOS lacks (there are no
+pronoun APs at all), and it is used by a single package. Adding aliases so that one third-party
+form's typo resolves would make apconfig a dumping ground for other people's spelling; the better
+outcome is the one now in place — the viewer names the unresolved key to the clinician and the
+server logs it, so a blank field is visible rather than silent.
+
+**On measurements specifically:** 15 packages read `m$WT#value` and 13 read `m$HT#value`, so
+measurement access is common and already works — it is *last-value* access, resolved server-side at
+load. Only **one** package needs a full dated *series*, and that is the growth chart the legacy fetch
+adapter serves from the `who_measurements` AP. Measurement support is therefore not a platform gap;
+treat a new obsolete-fetch form as another row in the adapter's route table, not as evidence that the
+channel is missing.
 
 ## Environment
 

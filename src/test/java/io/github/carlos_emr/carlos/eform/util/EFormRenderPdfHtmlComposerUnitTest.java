@@ -717,4 +717,135 @@ class EFormRenderPdfHtmlComposerUnitTest {
         assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(java.util.Set.of()))
                 .isEmpty();
     }
+
+    /**
+     * Legacy measurement-history embedding.
+     *
+     * <p>These pin the response contract of a route the render surface answers locally. The calling
+     * forms scrape the response with regexes and then index two arrays in parallel, so the failure
+     * mode is not an exception — it is a chart that plots nothing on an otherwise passing render.</p>
+     */
+    @org.junit.jupiter.api.Nested
+    @DisplayName("legacy measurement history")
+    class LegacyMeasurementHistory {
+
+        /** The exact regexes the WHO growth-chart form applies to xmlhttp.responseText. */
+        private final java.util.regex.Pattern formDataPattern =
+                java.util.regex.Pattern.compile("<td title=\"data\">([\\d,\\.,/]+)</td>");
+        private final java.util.regex.Pattern formDatePattern =
+                java.util.regex.Pattern.compile("<td title=\"observed date\">([0-9,-]+)</td>");
+
+        private List<String> matches(java.util.regex.Pattern pattern, String text) {
+            List<String> found = new java.util.ArrayList<>();
+            java.util.regex.Matcher matcher = pattern.matcher(text);
+            while (matcher.find()) {
+                found.add(matcher.group(1));
+            }
+            return found;
+        }
+
+        @Test
+        @DisplayName("should emit cells the form's own regexes match, with data and dates aligned")
+        void shouldEmitCells_whenScrapedByTheFormsRegexes() {
+            // Row 2 has no height. If it still emitted a date cell, every later height would pair
+            // with the wrong date — the arrays are indexed in parallel by the form.
+            String series = "2024-03-01|101.5|16.2|48|;2024-02-01||15.8|47|;2024-01-01|99|15.1|47|";
+
+            String markup = EFormRenderPdfHtmlComposer.legacyMeasurementMarkup(series, 1);
+
+            assertThat(matches(formDataPattern, markup)).containsExactly("101.5", "99");
+            assertThat(matches(formDatePattern, markup)).containsExactly("2024-03-01", "2024-01-01");
+        }
+
+        @Test
+        @DisplayName("should select the column matching the requested measurement type")
+        void shouldSelectColumn_forRequestedType() {
+            String series = "2024-03-01|101.5|16.2|48|";
+
+            assertThat(matches(formDataPattern,
+                    EFormRenderPdfHtmlComposer.legacyMeasurementMarkup(series, 2)))
+                    .containsExactly("16.2");
+            assertThat(matches(formDataPattern,
+                    EFormRenderPdfHtmlComposer.legacyMeasurementMarkup(series, 3)))
+                    .containsExactly("48");
+        }
+
+        @Test
+        @DisplayName("should place values flush against the tags rather than pretty-printed")
+        void shouldPlaceValuesFlushAgainstTags_forDateCells() {
+            // DisplayHistory.jsp pretty-prints its date cell — a newline between ">" and the value —
+            // which the form's [0-9,-]+ regex does not match. Proxying that page would fill the data
+            // array and leave the date array empty, so the spacing here is the contract, not style.
+            String markup = EFormRenderPdfHtmlComposer.legacyMeasurementMarkup(
+                    "2024-03-01|101.5|16.2|48|", 1);
+
+            assertThat(markup).isEqualTo(
+                    "<td title=\"data\">101.5</td><td title=\"observed date\">2024-03-01</td>");
+        }
+
+        @Test
+        @DisplayName("should expose every scraped type in the embedded payload")
+        void shouldExposeEveryType_inEmbeddedPayload() {
+            String element = EFormRenderPdfHtmlComposer.legacyMeasurementPayloadElement(
+                    "2024-03-01|101.5|16.2|48|");
+
+            assertThat(element).contains(EFormRenderPdfHtmlComposer.LEGACY_MEASUREMENT_ELEMENT_ID);
+            assertThat(element).contains("\"HT\"", "\"WT\"", "\"HEAD\"");
+        }
+
+        @Test
+        @DisplayName("should escape angle brackets so the payload cannot close its own script block")
+        void shouldEscapeAngleBrackets_forScriptBlockSafety() {
+            // The payload is <td> markup inside <script type="application/json">. Script content is
+            // raw text, so an unescaped "</script>" in it would terminate the block early and spill
+            // the rest of the payload into the document as markup.
+            String element = EFormRenderPdfHtmlComposer.legacyMeasurementPayloadElement(
+                    "2024-03-01|101.5|16.2|48|");
+
+            assertThat(element).endsWith("</script>");
+            assertThat(element.substring(0, element.length() - "</script>".length()))
+                    .doesNotContain("<td")
+                    .doesNotContain("</");
+            assertThat(element).contains("\\u003c");
+        }
+
+        @Test
+        @DisplayName("should leave forms that never fetch the legacy route untouched")
+        void shouldLeaveHtmlUntouched_whenRouteAbsent() {
+            String html = "<html><body><p>no measurements here</p></body></html>";
+
+            assertThat(EFormRenderPdfHtmlComposer.embedLegacyMeasurementSeries(html, "2024-03-01|1|2|3|"))
+                    .isEqualTo(html);
+        }
+
+        @Test
+        @DisplayName("should insert the payload inside the body when the route is fetched")
+        void shouldInsertPayloadInsideBody_whenRouteFetched() {
+            String html = "<html><body><script>"
+                    + "u='/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=HT';"
+                    + "</script></body></html>";
+
+            String embedded = EFormRenderPdfHtmlComposer.embedLegacyMeasurementSeries(
+                    html, "2024-03-01|101.5|16.2|48|");
+
+            assertThat(embedded).contains(EFormRenderPdfHtmlComposer.LEGACY_MEASUREMENT_ELEMENT_ID);
+            assertThat(embedded.indexOf(EFormRenderPdfHtmlComposer.LEGACY_MEASUREMENT_ELEMENT_ID))
+                    .isLessThan(embedded.indexOf("</body>"));
+        }
+
+        @Test
+        @DisplayName("should still embed an empty payload for a patient with no recorded measurements")
+        void shouldEmbedEmptyPayload_whenNoMeasurementsRecorded() {
+            // "No measurements" is data. Embedding it lets the shim answer, so the form plots an
+            // empty chart; omitting it would send the form to the network and fail the render on a
+            // patient whose record is simply empty.
+            String html = "<html><body><script>"
+                    + "u='oscarMeasurements/SetupDisplayHistory.do?type=WT';</script></body></html>";
+
+            String embedded = EFormRenderPdfHtmlComposer.embedLegacyMeasurementSeries(html, "");
+
+            assertThat(embedded).contains(EFormRenderPdfHtmlComposer.LEGACY_MEASUREMENT_ELEMENT_ID);
+            assertThat(embedded).contains("\"HT\":\"\"");
+        }
+    }
 }

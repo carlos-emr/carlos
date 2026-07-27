@@ -1,8 +1,14 @@
 /*
- * Runtime compatibility for stored eForms that use string timer callbacks.
+ * Runtime compatibility for stored eForms written against pre-migration CARLOS.
  *
- * Modern CSP blocks native setTimeout("code", delay) and setInterval("code", delay). The browser
- * remains the JavaScript parser: stored source is never scanned or rewritten on the server.
+ * Two adaptations live here:
+ *
+ *  - String timer callbacks. Modern CSP blocks native setTimeout("code", delay) and
+ *    setInterval("code", delay). The browser remains the JavaScript parser: stored source is never
+ *    scanned or rewritten on the server.
+ *  - Obsolete clinical-data fetches. Some forms XHR a route that has since been renamed and that the
+ *    render surface could not use even under its new name; those are answered from data the server
+ *    embedded in the page. See installCarlosEformLegacyFetchCompatibility below.
  */
 (function installCarlosEformTimerCompatibility(window, document) {
     "use strict";
@@ -201,5 +207,103 @@
             }
         });
     }
+    status.installed = true;
+}(window, document));
+
+/*
+ * Answers obsolete clinical-data fetches from data embedded in the page.
+ *
+ * Some stored forms plot measurement history fetched from
+ * "oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=HT". That action still exists under a
+ * new name, but the PDF render surface cannot reach it: it reads its demographic from the HTTP
+ * session, requires _measurement write, and returns a full JSP page — and the render browser holds no
+ * session by design. EFormRenderPdfHtmlComposer therefore inlines the history, and this shim serves it.
+ *
+ * The interception must be SYNCHRONOUS. The calling forms use xmlhttp.open(url, false) and read the
+ * parsed result on the line after send() returns, so anything deferred arrives after the form has
+ * already given up and plotted nothing.
+ */
+(function installCarlosEformLegacyFetchCompatibility(window, document) {
+    "use strict";
+
+    if (!window.XMLHttpRequest || window.__carlosEformLegacyFetch) {
+        return;
+    }
+
+    // Matched on the path tail: the forms assemble the URL from window.location at runtime, so this
+    // is the only stable part of it.
+    var LEGACY_MEASUREMENT_ROUTE = "oscarMeasurements/SetupDisplayHistory";
+    var PAYLOAD_ELEMENT_ID = "carlos-legacy-measurement-history";
+    var TYPE_PATTERN = /[?&]type=([A-Za-z0-9_]{1,32})/;
+
+    var status = {installed: false, served: 0};
+    window.__carlosEformLegacyFetch = status;
+
+    /**
+     * @return {?string} the embedded response for this URL, or null to leave the request alone.
+     *
+     * Returning null on a missing or unparseable payload is deliberate. The request then goes to the
+     * network and fails there, which the renderer's completeness gate counts as missing content —
+     * whereas answering with an empty body would produce a blank chart on a passing render, which
+     * nobody would notice.
+     */
+    function embeddedResponseFor(url) {
+        var text = String(url == null ? "" : url);
+        if (text.indexOf(LEGACY_MEASUREMENT_ROUTE) < 0) {
+            return null;
+        }
+        var element = document.getElementById(PAYLOAD_ELEMENT_ID);
+        var type = TYPE_PATTERN.exec(text);
+        if (!element || !type) {
+            return null;
+        }
+        var byType;
+        try {
+            byType = JSON.parse(element.textContent);
+        } catch (error) {
+            return null;
+        }
+        return typeof byType[type[1]] === "string" ? byType[type[1]] : null;
+    }
+
+    var nativeOpen = window.XMLHttpRequest.prototype.open;
+    var nativeSend = window.XMLHttpRequest.prototype.send;
+
+    window.XMLHttpRequest.prototype.open = function openCompatible(method, url) {
+        var body = embeddedResponseFor(url);
+        if (body === null) {
+            // Clear any marker from a previous use of this same object before delegating.
+            delete this.__carlosLegacyResponse;
+            return nativeOpen.apply(this, arguments);
+        }
+        this.__carlosLegacyResponse = body;
+        return undefined;
+    };
+
+    window.XMLHttpRequest.prototype.send = function sendCompatible() {
+        if (typeof this.__carlosLegacyResponse !== "string") {
+            return nativeSend.apply(this, arguments);
+        }
+        var body = this.__carlosLegacyResponse;
+        function readOnly(value) {
+            return {configurable: true, get: function () { return value; }};
+        }
+        // Own accessors shadow the prototype's read-only ones for this instance.
+        Object.defineProperty(this, "readyState", readOnly(4));
+        Object.defineProperty(this, "status", readOnly(200));
+        Object.defineProperty(this, "statusText", readOnly("OK"));
+        Object.defineProperty(this, "responseText", readOnly(body));
+        Object.defineProperty(this, "response", readOnly(body));
+        status.served += 1;
+        // Dispatch rather than calling this.onreadystatechange directly. Handler properties are
+        // themselves registered listeners, so dispatching notifies both them and any
+        // addEventListener callers exactly once; calling the property directly would strand a
+        // listener-based caller waiting on a request that is never going to the network.
+        this.dispatchEvent(new Event("readystatechange"));
+        this.dispatchEvent(new Event("load"));
+        this.dispatchEvent(new Event("loadend"));
+        return undefined;
+    };
+
     status.installed = true;
 }(window, document));
