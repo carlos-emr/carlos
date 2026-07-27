@@ -87,6 +87,13 @@ public class NioFileManagerImpl implements NioFileManager {
     private static final String DEFAULT_GENERIC_TEMP = "tempDirectory";
 
     /**
+     * Attempts to reserve a UUID-suffixed promotion destination before giving up. A UUID collision is
+     * not credible, so exhausting these means the document directory is unwritable or full — a
+     * condition that must surface as an error rather than spin.
+     */
+    private static final int MAX_PROMOTION_NAME_ATTEMPTS = 5;
+
+    /**
      * Resolves the configured document root on each call rather than capturing it in a load-time
      * {@code static final}, so a test can point it at an isolated temporary directory (and so a
      * reconfigured root is picked up without a redeploy).
@@ -938,25 +945,37 @@ public class NioFileManagerImpl implements NioFileManager {
         if (!documentDirectory.equals(destination.getParent())) {
             throw new FilePromotionException("The promoted filename is invalid.");
         }
-        if (Files.exists(destination)) {
-            int extensionSeparator = fileName.lastIndexOf('.');
-            boolean hasExtension = extensionSeparator > 0 && extensionSeparator < fileName.length() - 1;
-            String stem = hasExtension ? fileName.substring(0, extensionSeparator) : fileName;
-            String extension = hasExtension ? fileName.substring(extensionSeparator) : "";
-            String uniqueName = stem + "-" + java.util.UUID.randomUUID() + extension;
-            destination = documentDirectory.resolve(uniqueName);
-        }
-
+        // CLAIM the destination name, do not merely test it.
+        //
+        // `if (Files.exists(destination))` was check-then-act, and the act is rename(2): ATOMIC_MOVE
+        // is atomic in the sense that no reader sees a partial file, NOT in the sense that it fails
+        // on an occupied target — it silently replaces. So two promotions of the same filename could
+        // both observe an absent destination, both proceed, and the second would overwrite the
+        // first's bytes with no error on either path.
+        //
+        // Source names are not unique enough to make that theoretical. saveTempFile creates a unique
+        // temp DIRECTORY but keeps the caller's filename verbatim inside it, and this method promotes
+        // by that filename. DocumentAttachmentManagerImpl's consult-fax packet is named
+        // "combinedPDF_" + epochMillis with NO demographic in it, so two consult packets built in the
+        // same millisecond collide ACROSS PATIENTS — and the loser's fax job then points at a path
+        // holding the other patient's consultation letter, addressed to the wrong specialist.
+        //
+        // Files.createFile is O_CREAT|O_EXCL, so it either reserves the name or throws with no
+        // window. Retrying with a fresh UUID on collision keeps the preferred filename in the common
+        // case, which is what operators browsing DOCUMENT_DIR rely on.
         Path staged = null;
         try {
+            Path claimed = claimDestination(documentDirectory, destination, fileName);
             staged = Files.createTempFile(documentDirectory, ".promotion-", ".tmp");
             Files.copy(realSource, staged, StandardCopyOption.REPLACE_EXISTING);
+            // Replaces our OWN empty reservation, so the replace semantics are safe here: the name is
+            // already ours and no other promotion can have taken it.
             try {
-                Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE);
+                Files.move(staged, claimed, StandardCopyOption.ATOMIC_MOVE);
             } catch (AtomicMoveNotSupportedException e) {
-                Files.move(staged, destination);
+                Files.move(staged, claimed, StandardCopyOption.REPLACE_EXISTING);
             }
-            return destination;
+            return claimed;
         } catch (IOException e) {
             if (staged != null) {
                 try {
@@ -966,6 +985,46 @@ public class NioFileManagerImpl implements NioFileManager {
                 }
             }
             throw new FilePromotionException("The temporary file could not be promoted.", e);
+        }
+    }
+
+    /**
+     * Reserves a destination filename atomically, falling back to a UUID-suffixed name when taken.
+     *
+     * <p>Returns a path that exists as an empty file owned by this promotion. The caller replaces it
+     * with the real bytes; on any later failure the caller's cleanup removes the staging file, and
+     * the empty reservation is swept by the ordinary document-directory maintenance.</p>
+     *
+     * @param documentDirectory the validated destination directory
+     * @param preferred the first-choice destination, already validated to sit directly in it
+     * @param fileName the source filename, used to build the stem/extension of a fallback name
+     * @return the reserved path, which the caller owns
+     * @throws IOException if no name could be reserved
+     */
+    private static Path claimDestination(Path documentDirectory, Path preferred, String fileName)
+            throws IOException {
+        try {
+            return Files.createFile(preferred);
+        } catch (FileAlreadyExistsException taken) {
+            int extensionSeparator = fileName.lastIndexOf('.');
+            boolean hasExtension = extensionSeparator > 0 && extensionSeparator < fileName.length() - 1;
+            String stem = hasExtension ? fileName.substring(0, extensionSeparator) : fileName;
+            String extension = hasExtension ? fileName.substring(extensionSeparator) : "";
+            // Bounded rather than while(true): a UUID collision is not credible, so repeated failure
+            // means something else is wrong (a full or read-only directory) and must surface as an
+            // error instead of spinning.
+            for (int attempt = 0; attempt < MAX_PROMOTION_NAME_ATTEMPTS; attempt++) {
+                Path candidate =
+                        documentDirectory.resolve(stem + "-" + java.util.UUID.randomUUID() + extension);
+                try {
+                    return Files.createFile(candidate);
+                } catch (FileAlreadyExistsException stillTaken) {
+                    taken.addSuppressed(stillTaken);
+                }
+            }
+            throw new IOException(
+                    "Could not reserve a promotion destination after "
+                            + MAX_PROMOTION_NAME_ATTEMPTS + " attempts.", taken);
         }
     }
 

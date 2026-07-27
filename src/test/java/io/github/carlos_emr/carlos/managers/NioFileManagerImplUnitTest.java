@@ -22,6 +22,13 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.CyclicBarrier;
+import java.util.List;
+import java.util.ArrayList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -542,6 +549,87 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
         assertThat(winner).exists();
         assertThat(Files.size(winner)).isIn(3L, 4L);
+    }
+
+    @Test
+    @DisplayName("Never lets concurrent promotions of one filename overwrite each other")
+    void shouldNotOverwriteConcurrentPromotions_whenBasenameCollides() throws Exception {
+        // The sequential test below only covers the case where the destination ALREADY exists when
+        // the second promotion looks. That was a check-then-act: `if (Files.exists(destination))`
+        // followed later by a rename. ATOMIC_MOVE is atomic against partial reads, NOT against an
+        // occupied target — rename(2) silently replaces — so N promotions could all observe an
+        // absent destination, all proceed, and all but one lose their bytes with no error raised.
+        //
+        // This is reachable because source filenames are not unique: saveTempFile creates a unique
+        // temp DIRECTORY but keeps the caller's filename inside it, and the consult-fax packet is
+        // named "combinedPDF_" + epochMillis with no demographic — so a same-millisecond collision
+        // crosses PATIENTS, and the loser's fax job points at another patient's letter.
+        //
+        // All threads are released together so they reach the name decision before any of them
+        // finishes writing; under the old code this loses documents outright rather than flaking.
+        int promoters = 8;
+        String sharedFilename = "concurrent-collision.pdf";
+        List<Path> sources = new ArrayList<>();
+        for (int i = 0; i < promoters; i++) {
+            sources.add(createApplicationTempDirectory("nio-promote-race-" + i + "-"));
+        }
+        assumeTrue(sources.stream().allMatch(p -> PathValidationUtils.isInApplicationTempDirectory(p.toFile())),
+                "test temp directories must resolve inside a CARLOS-owned temp directory");
+
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        Path documentDir = tempDir.resolve("document-race");
+        Files.createDirectories(documentDir);
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        ExecutorService pool = Executors.newFixedThreadPool(promoters);
+        try {
+            CyclicBarrier startTogether = new CyclicBarrier(promoters);
+            List<Future<Path>> promotions = new ArrayList<>();
+            for (int i = 0; i < promoters; i++) {
+                Path source = sources.get(i).resolve(sharedFilename);
+                String body = "document body " + i;
+                Files.writeString(source, body);
+                promotions.add(pool.submit(() -> {
+                    startTogether.await(10, TimeUnit.SECONDS);
+                    return nioFileManager.promoteApplicationTempFile(source);
+                }));
+            }
+
+            List<Path> promoted = new ArrayList<>();
+            for (Future<Path> promotion : promotions) {
+                promoted.add(promotion.get(30, TimeUnit.SECONDS));
+            }
+
+            assertThat(promoted)
+                    .describedAs("each promotion must land on its own name; a shared name means one "
+                            + "document silently overwrote another")
+                    .doesNotHaveDuplicates()
+                    .hasSize(promoters);
+
+            // Contents, not just names: distinct paths would still permit a lost write if the bytes
+            // were copied to the wrong reservation.
+            List<String> bodies = new ArrayList<>();
+            for (Path path : promoted) {
+                bodies.add(Files.readString(path));
+            }
+            assertThat(bodies)
+                    .describedAs("every promoted document must retain its OWN bytes")
+                    .containsExactlyInAnyOrderElementsOf(
+                            java.util.stream.IntStream.range(0, promoters)
+                                    .mapToObj(i -> "document body " + i)
+                                    .toList());
+        } finally {
+            pool.shutdownNow();
+            for (Path source : sources) {
+                deleteQuietly(source.resolve(sharedFilename));
+                deleteQuietly(source);
+            }
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+        }
     }
 
     @Test
