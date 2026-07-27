@@ -263,9 +263,27 @@ public class EFormBrowserPdfService {
             // the same saved form pass or fail run to run. Waiting makes the output deterministic and
             // costs nothing on the forms that schedule no string timers.
             + "  const timerCompat = window.__carlosEformTimerCompat;\n"
+            + "  let timersDrained = true;\n"
             + "  if (timerCompat && typeof timerCompat.whenIdle === 'function') {\n"
-            + "    await timerCompat.whenIdle(4000);\n"
+            + "    timersDrained = await timerCompat.whenIdle(4000);\n"
             + "  }\n"
+            // whenIdle's answer was previously discarded. It resolves false when the 4s cap expired
+            // with timers still pending — the one signal that says the page was captured before its
+            // own deferred work ran — and nothing consumed it, so that render reported complete.
+            //
+            // Then re-await fonts and images: the waits above ran BEFORE the timers did, and the
+            // quiet window below observes DOM mutations, not resource completion. A timer that sets
+            // img.src restarts the quiet window and the page is captured with the image still in
+            // flight. This pass is bounded by the same script timeout as everything else here, and
+            // only awaits resources that already exist — it cannot wait on a request never made.
+            + "  if (document.fonts && document.fonts.ready instanceof Promise) {\n"
+            + "    await document.fonts.ready;\n"
+            + "  }\n"
+            + "  const timerImages = Array.from(document.images).filter((image) => !image.complete);\n"
+            + "  await Promise.all(timerImages.map((image) => new Promise((resolve) => {\n"
+            + "    image.addEventListener('load', resolve, { once: true });\n"
+            + "    image.addEventListener('error', resolve, { once: true });\n"
+            + "  })));\n"
             + "  const capped = await new Promise((resolve) => {\n"
             + "    const quietWindowMillis = 500;\n"
             + "    const maxWaitMillis = 5000;\n"
@@ -290,8 +308,8 @@ public class EFormBrowserPdfService {
             + "    setTimeout(() => finish(true), maxWaitMillis);\n"
             + "  });\n"
             + "  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n"
-            + "  return capped;\n"
-            + "})().then((capped) => callback(capped ? 'CAPPED' : null)).catch((error) => callback(String(error)));";
+            + "  return capped ? 'CAPPED' : (timersDrained ? null : 'TIMERS_PENDING');\n"
+            + "})().then((outcome) => callback(outcome)).catch((error) => callback(String(error)));";
 
     /**
      * Baseline print stylesheet injected before printing. This is a <em>safety net</em>: a
@@ -1300,7 +1318,16 @@ public class EFormBrowserPdfService {
         Object settleResult = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
         boolean capped = false;
         if (settleResult != null) {
-            if ("CAPPED".equals(settleResult)) {
+            if ("TIMERS_PENDING".equals(settleResult)) {
+                // The form's own deferred work had not finished when the wait expired, so whatever
+                // those timers populate is missing from the capture. Reported through the same
+                // component as the DOM cap below: the clinical condition is identical — the document
+                // was captured before it finished building — and so is the clinician's decision. The
+                // log distinguishes them so an operator can tell which wait ran out.
+                capped = true;
+                logger.warn("eForm page still had pending legacy timers at the stabilization cap; "
+                        + "capturing as-is: fdid={}", fdid);
+            } else if ("CAPPED".equals(settleResult)) {
                 // The DOM never reached a quiet window before the 5s cap — a form with a perpetual
                 // timer/animation, or a broken editor that keeps mutating. The render proceeds with the
                 // captured-as-is page, but the clinician must be told: the captured document may be

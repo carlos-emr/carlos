@@ -1500,6 +1500,31 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("#carlos-render-advisory");
     }
 
+    @Test
+    @DisplayName("should consume the timer-idle result and re-await assets the timers started")
+    void shouldConsumeTimerIdleResult_andReawaitAssets() {
+        // whenIdle's boolean used to be discarded — a bare `await`. It resolves false when the 4s cap
+        // expired with the form's own timers still pending, which is the only signal that the page was
+        // captured before its deferred work ran, and nothing consumed it: that render reported
+        // complete. The script now returns TIMERS_PENDING for it.
+        assertThat(EFormBrowserPdfService.STABILIZE_ASYNC_JS)
+                .contains("timersDrained = await timerCompat.whenIdle(4000)")
+                .contains("timersDrained ? null : 'TIMERS_PENDING'");
+
+        // And the asset waits must run AGAIN after the timers, not only before. document.fonts.ready
+        // and the pending-image wait both appear twice for that reason; the quiet window between them
+        // observes DOM mutations, not resource completion, so a timer that sets img.src would
+        // otherwise be captured mid-flight.
+        // Count the await, not the identifier: each block names document.fonts.ready twice (the
+        // instanceof guard and the await itself), so counting mentions would say four.
+        assertThat(EFormBrowserPdfService.STABILIZE_ASYNC_JS.split("await document\\.fonts\\.ready", -1).length - 1)
+                .describedAs("fonts awaited before and after the legacy timers")
+                .isEqualTo(2);
+        assertThat(EFormBrowserPdfService.STABILIZE_ASYNC_JS.split("!image\\.complete", -1).length - 1)
+                .describedAs("pending images awaited before and after the legacy timers")
+                .isEqualTo(2);
+    }
+
     /**
      * The decision that gives every approval in this feature its meaning.
      *

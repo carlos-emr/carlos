@@ -33,7 +33,6 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import com.sun.net.httpserver.HttpServer;
@@ -306,18 +305,21 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
             // guarantees a real Chromium binary exists, so a browser that starts then crashes, is
             // missing shared libraries ("...libnss3.so: No such file"), or is a stale wrapper
             // ("cannot find Chrome binary") is a renderer regression and must FAIL, not become a
-            // green skip. NoSuchDriverException is Selenium Manager's precise "could not obtain a
-            // driver" signal; the substring fallback is narrowed to messages that name chromedriver,
-            // so a broken BROWSER (whose errors never name chromedriver) can never be misclassified as
-            // an absent DRIVER — the earlier bare "no such file"/"executable" tokens did exactly that.
+            // green skip. Classification is by exception TYPE only — see below for why matching on
+            // the message cannot work.
+            // The substring fallback above described an invariant Selenium does not honour, so it is
+            // gone. WebDriverException.getMessage() does not return the raw message: it calls
+            // createMessage(), which appends getAdditionalInformation(), and
+            // RemoteWebDriver.populateWebDriverException adds
+            // "Driver info: org.openqa.selenium.chrome.ChromeDriver" to EVERY session-creation
+            // failure. Lower-cased, that contains "chromedriver" — so the discriminator always
+            // passed, the classification collapsed to the OR-group, and a stale wrapper reporting
+            // "unknown error: cannot find Chrome binary" (the exact case the old comment said must
+            // FAIL) became a green skip while production aborts startup for the same condition.
+            //
+            // NoSuchDriverException is Selenium Manager's precise "could not obtain a driver" signal
+            // and needs no message parsing. A broken browser is not that exception, so it now fails.
             boolean driverUnavailable = e instanceof org.openqa.selenium.remote.NoSuchDriverException;
-            if (!driverUnavailable) {
-                String message = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
-                driverUnavailable = message.contains("chromedriver")
-                        && (message.contains("cannot find")
-                            || message.contains("unable to find")
-                            || message.contains("unable to obtain"));
-            }
             if (driverUnavailable) {
                 assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
                 throw new IllegalStateException("unreachable");
