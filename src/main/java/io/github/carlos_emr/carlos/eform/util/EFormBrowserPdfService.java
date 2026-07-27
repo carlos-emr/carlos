@@ -461,13 +461,28 @@ public class EFormBrowserPdfService {
             + "  .filter((el) => /^page\\d+$/i.test(el.id));\n"
             + "let excludedCount = 0;\n"
             + "let excludedHeight = 0;\n"
-            + "if (pageNodes.length > 0 && document.body) {\n"
-            + "  for (const child of Array.from(document.body.children)) {\n"
+            // DESCEND, don't skip, through elements that merely CONTAIN a page div. Scanning only
+            // document.body.children made this whole pass dead on almost the entire real corpus:
+            // eformGenerator.jsp wraps the form body in <form id="FormName"> (emitted at its line
+            // 1287, closed at 1675) and emits every <div id="pageN"> inside it, so body.children is
+            // just [<form>], that one child contains every page node, and the loop `continue`d on
+            // its only iteration. Measured against the 227 stored forms in this instance: 223 use
+            // page divs and 220 of those nest them inside a <form> — so excludedCount was
+            // structurally pinned at 0 for 98.7% of them, and excludedContentElements (a BLOCKING
+            // component) could never fire. Interstitial content between </div> and the next
+            // <div id="pageN"> then stays in flow and takes its own printed page, shifting every
+            // later authored page off its boundary — the checkbox-misalignment bug this pass exists
+            // to catch.
+            + "const scanForExcluded = (container) => {\n"
+            + "  for (const child of Array.from(container.children)) {\n"
             + "    if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE') {\n"
             + "      continue;\n"
             + "    }\n"
-            + "    const isOrHasPage = pageNodes.some((pageNode) => child === pageNode || child.contains(pageNode));\n"
-            + "    if (isOrHasPage) {\n"
+            + "    if (pageNodes.some((pageNode) => child === pageNode)) {\n"
+            + "      continue;\n"
+            + "    }\n"
+            + "    if (pageNodes.some((pageNode) => child.contains(pageNode))) {\n"
+            + "      scanForExcluded(child);\n"
             + "      continue;\n"
             + "    }\n"
             + "    const position = window.getComputedStyle(child).position;\n"
@@ -491,6 +506,9 @@ public class EFormBrowserPdfService {
             + "      child.classList.add('carlos-render-nonpage');\n"
             + "    }\n"
             + "  }\n"
+            + "};\n"
+            + "if (pageNodes.length > 0 && document.body) {\n"
+            + "  scanForExcluded(document.body);\n"
             + "}\n"
             // Signed-form safety: the composer splices a stored signature as
             // <div id="signatureDisplay"><img src=...>. After the async image settle, a present but
@@ -1769,20 +1787,25 @@ public class EFormBrowserPdfService {
     private static final Set<String> DATA_RESOURCE_TYPES = Set.of("XHR", "Fetch");
 
     /**
-     * Render-critical types whose failure degrades presentation only — an unstyled heading, a glyph
-     * that falls back to a system font. These are reported (and rejected under the strict gate) but
-     * never block the document on their own: refusing to hand a clinician their letter because an
-     * icon-font stylesheet 404'd withholds a complete clinical record over cosmetics. Types that can
-     * omit clinical content — {@code Image}, {@code Script}, {@code XHR}/{@code Fetch}, {@code Media},
-     * {@code Document} — stay in the blocking set below.
-     */
-    /**
      * Cap on the requestId→URL map used to classify {@code Network.loadingFailed} events (which
      * carry no URL of their own). Far above any real form's request count; bounds the memory a
      * pathological page can make the scan hold.
      */
     private static final int MAX_TRACKED_REQUEST_URLS = 4096;
 
+    /**
+     * Render-critical types whose failure degrades presentation only — an unstyled heading, a glyph
+     * that falls back to a system font. These are reported (and rejected under the strict gate) but
+     * never block the document on their own: refusing to hand a clinician their letter because an
+     * icon-font stylesheet 404'd withholds a complete clinical record over cosmetics.
+     *
+     * <p>There is no corresponding constant for the blocking types — the classification is by
+     * <em>exclusion</em>: a failed render-critical resource blocks unless it is listed here. So the
+     * types that can omit clinical content ({@code Image}, {@code Script}, {@code XHR}/{@code Fetch},
+     * {@code Media}, {@code Document}) block by virtue of being absent from this set. Adding a type
+     * here therefore silently demotes it from blocking to advisory; that is the whole effect of
+     * editing this line, and it is the reason to be conservative about it.</p>
+     */
     private static final Set<String> PRESENTATION_RESOURCE_TYPES = Set.of("Stylesheet", "Font");
 
     /**
@@ -2076,18 +2099,6 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Allowlist classifier for the network gate. Permitted requests are exactly the inert
-     * pseudo-schemes ({@code data:}/{@code blob:}/{@code about:}) or http(s) to the validated loopback
-     * origin. Everything else — {@code file:}, {@code filesystem:}, {@code chrome:},
-     * {@code view-source:}, {@code ftp:}, etc. — is classified as a <em>disallowed request</em>.
-     * IMPORTANT: a disallowed request is <em>advisory</em> by default — it increments the
-     * {@code disallowedRequests} counter that drives an operator WARN, and only hard-fails the render
-     * when the strict network gate ({@code eform_pdf_browser_strict_network_gate}) is enabled. So this
-     * is a defense-in-depth <em>signal</em> against local file disclosure into the captured PDF (a
-     * {@code file://} subresource is already blocked by Chromium's default cross-scheme policy); it is
-     * a hard CARLOS-side backstop only under the strict gate, not by default.
-     */
-    /**
      * True when a failed resource is one the renderer itself refused to fetch — an off-origin or
      * non-web URL that the dead proxy and CSP block by design.
      *
@@ -2108,6 +2119,19 @@ public class EFormBrowserPdfService {
                 && isDisallowedRendererRequestUrl(requestUrl, allowedOrigin);
     }
 
+    /**
+     * Allowlist classifier for the network gate. Permitted requests are exactly the inert
+     * pseudo-schemes ({@code data:}/{@code blob:}/{@code about:}) or http(s) to the validated loopback
+     * origin. Everything else — {@code file:}, {@code filesystem:}, {@code chrome:},
+     * {@code view-source:}, {@code ftp:}, etc. — is classified as a <em>disallowed request</em>.
+     *
+     * <p>IMPORTANT: a disallowed request is <em>advisory</em> by default. It increments the
+     * {@code disallowedRequests} counter that drives an operator WARN, and only hard-fails the render
+     * when the strict network gate ({@code eform_pdf_browser_strict_network_gate}) is enabled. So this
+     * is a defence-in-depth <em>signal</em> against local file disclosure into the captured PDF — a
+     * {@code file://} subresource is already blocked by Chromium's default cross-scheme policy — and
+     * a hard CARLOS-side backstop only under the strict gate, not by default.</p>
+     */
     // IMPROPER_UNICODE: equalsIgnoreCase compares the literal request scheme against "http"/"https"
     // to fail-close non-web schemes; a case-insensitive protocol-name compare, not identity folding.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal request scheme against http/https for the fail-closed scheme gate; not user identity folding")

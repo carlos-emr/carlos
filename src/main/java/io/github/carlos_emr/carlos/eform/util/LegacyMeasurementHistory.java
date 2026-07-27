@@ -94,19 +94,26 @@ public final class LegacyMeasurementHistory {
      * <p>On any failure this returns the HTML untouched, which is deliberate: the shim then finds no
      * payload, the request goes to the network, and the resulting failed load is counted by the
      * completeness gate. A silently blank chart on a passing render is the outcome worth avoiding.</p>
-     */
-    /**
-     * @param measurementsPermitted whether the requester may read this patient's measurements
      *
-     * <p>The caller decides, because only the caller knows who is asking: the viewer has a
-     * {@code LoggedInInfo}, the renderer has a grant minted for the provider who initiated it.</p>
+     * <p>The {@code measurementsPermitted} gate exists because this is measurement data reached
+     * through an eForm: the eForm viewer requires only {@code _eform} read, so embedding
+     * unconditionally handed the full dated HT/WT/HEAD history to a user who could not have
+     * requested it directly. The caller decides, because only the caller knows who is asking — the
+     * viewer has a {@code LoggedInInfo}, the renderer has a grant minted for the provider who
+     * initiated it.</p>
      *
-     * <p>This gate exists because the series is measurement data reached through an eForm. The route
-     * this adapter replaces requires {@code _measurement} (see {@code EctSetupDisplayHistory2Action}),
-     * while the eForm viewer requires only {@code _eform} read — so embedding unconditionally handed
-     * the full dated HT/WT/HEAD history to a user who could not have requested it directly. Refusing
-     * leaves the ordinary fail-visible path: no payload, the form's fetch reaches the network and
-     * fails, and the completeness gate reports it rather than printing a blank chart.</p>
+     * <p><strong>The gate is deliberately weaker than the route it replaces.</strong>
+     * {@code EctSetupDisplayHistory2Action:58} demands {@code _measurement} <em>write</em>; all three
+     * call sites here demand {@code read}. That is a considered choice, not an oversight: requiring
+     * write to look at a chart is stricter than read-only access to the data warrants, and the legacy
+     * route's own {@code "w"} on a read-only view is itself questionable. Anyone tightening this to
+     * write should change the legacy route in the same pass rather than only this adapter.</p>
+     *
+     * @param html the stored form markup; returned untouched when it does not fetch the legacy route
+     * @param eForm the form being rendered, supplying the demographic and {@code fdid}
+     * @param measurementsPermitted whether the requester may read this patient's measurements;
+     *        {@code false} embeds nothing and leaves the fail-visible path above
+     * @return the markup with the payload inlined, or the input unchanged on any failure
      */
     public static String embed(String html, EForm eForm, boolean measurementsPermitted) {
         if (html == null || eForm == null || !html.contains(LEGACY_MEASUREMENT_ROUTE)) {

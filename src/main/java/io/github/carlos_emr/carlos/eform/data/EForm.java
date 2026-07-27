@@ -87,15 +87,6 @@ public class EForm extends EFormBase {
             "\\s+(?:integrity|crossorigin)\\s*=\\s*(?:\"[^\"]*\"|'[^']*')",
             Pattern.CASE_INSENSITIVE);
 
-    /**
-     * Public CDN jQuery URLs observed in the shared-eForm corpus, aliased to the local bundle by
-     * {@link #rewriteLegacyRelativeJqueryReferences}. See that method for why this is an alias and
-     * not an egress allowance.
-     *
-     * <p>EXACT full URLs only — adding a host or a prefix pattern here would silently start
-     * redirecting scripts nobody has looked at. Both {@code http} and {@code https} spellings are
-     * listed because corpus forms use both. Extend only with a URL seen in a real form.</p>
-     */
     /** jQuery build actually deployed under the webapp's library path. */
     private static final String DEPLOYED_LIBRARY_JQUERY_PATH = "/library/jquery/jquery-3.7.1.min.js";
     /**
@@ -105,6 +96,15 @@ public class EForm extends EFormBase {
     private static final java.util.List<String> SUPERSEDED_LIBRARY_JQUERY_PATHS = java.util.List.of(
             "/library/jquery/jquery-3.6.4.min.js");
 
+    /**
+     * Public CDN jQuery URLs observed in the shared-eForm corpus, aliased to the local bundle by
+     * {@link #rewriteLegacyRelativeJqueryReferences}. See that method for why this is an alias and
+     * not an egress allowance.
+     *
+     * <p>EXACT full URLs only — adding a host or a prefix pattern here would silently start
+     * redirecting scripts nobody has looked at. Both {@code http} and {@code https} spellings are
+     * listed because corpus forms use both. Extend only with a URL seen in a real form.</p>
+     */
     private static final java.util.List<String> CDN_JQUERY_URLS = java.util.List.of(
             "https://code.jquery.com/jquery-1.7.1.min.js",
             "http://code.jquery.com/jquery-1.7.1.min.js",

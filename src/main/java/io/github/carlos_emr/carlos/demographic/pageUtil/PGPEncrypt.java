@@ -135,6 +135,18 @@ public class PGPEncrypt {
         }
     }
 
+    /** Replaces the operand filename (and its bare basename) wherever the child echoes it back. */
+    private static String redactOperand(String line, String sensitiveOperand) {
+        if (line == null || sensitiveOperand == null || sensitiveOperand.isBlank()) {
+            return line;
+        }
+        String redacted = line.replace(sensitiveOperand, "[redacted]");
+        int separator = Math.max(sensitiveOperand.lastIndexOf('/'), sensitiveOperand.lastIndexOf('\\'));
+        String baseName = separator >= 0 ? sensitiveOperand.substring(separator + 1) : sensitiveOperand;
+        // gpg reports the operand as given, but a wrapper script may echo only the basename.
+        return baseName.isBlank() ? redacted : redacted.replace(baseName, "[redacted]");
+    }
+
     /**
      * Consumes a subprocess stream on a daemon thread, logging each line, so its pipe never fills.
      *
@@ -148,20 +160,10 @@ public class PGPEncrypt {
      * <p>{@code LogSafe} alone would not be enough here: it neutralises CRLF injection, it does not
      * remove PHI. Both are applied — the subprocess output is still untrusted text.</p>
      *
+     * @param stream the child's stdout or stderr; closed by this thread
      * @param sensitiveOperand filename to redact from the stream, or null when there is none
+     * @return the started daemon thread, so the caller can join it before reaping the process
      */
-    /** Replaces the operand filename (and its bare basename) wherever the child echoes it back. */
-    private static String redactOperand(String line, String sensitiveOperand) {
-        if (line == null || sensitiveOperand == null || sensitiveOperand.isBlank()) {
-            return line;
-        }
-        String redacted = line.replace(sensitiveOperand, "[redacted]");
-        int separator = Math.max(sensitiveOperand.lastIndexOf('/'), sensitiveOperand.lastIndexOf('\\'));
-        String baseName = separator >= 0 ? sensitiveOperand.substring(separator + 1) : sensitiveOperand;
-        // gpg reports the operand as given, but a wrapper script may echo only the basename.
-        return baseName.isBlank() ? redacted : redacted.replace(baseName, "[redacted]");
-    }
-
     private static Thread drainAsync(InputStream stream, String sensitiveOperand) {
         Thread t = new Thread(() -> {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {

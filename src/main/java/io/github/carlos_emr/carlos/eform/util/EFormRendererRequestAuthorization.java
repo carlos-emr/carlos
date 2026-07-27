@@ -139,10 +139,6 @@ public final class EFormRendererRequestAuthorization {
     }
 
     /**
-     * Used by LoginFilter for otherwise unauthenticated passive files. All conditions are required:
-     * loopback, read method, live renderer cookie, passive extension, and exact path grant.
-     */
-    /**
      * True when this request comes from the PDF render browser: a loopback caller presenting a live
      * renderer capability cookie. Never true for a clinician's browser, which holds no such cookie.
      *
@@ -156,6 +152,17 @@ public final class EFormRendererRequestAuthorization {
         return isLoopback(request.getRemoteAddr()) && grantFromCookie(request) != null;
     }
 
+    /**
+     * Authorizes a single passive static file for the render browser, which holds no session.
+     *
+     * <p>This is the authentication bypass {@code LoginFilter} consults before it would otherwise
+     * redirect an unauthenticated request to the login page. All five conditions are required and
+     * none is redundant: loopback origin, a read-only method, a passive (non-executable) extension,
+     * a live renderer capability cookie, and an <em>exact</em> path grant — the grant is matched
+     * whole, not as a prefix, so a grant for one asset never widens into a directory.</p>
+     *
+     * @return {@code true} only when every condition holds; any single failure denies
+     */
     public static boolean permitsStaticRequest(HttpServletRequest request) {
         if (!isLoopback(request.getRemoteAddr())
                 || (!"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod()))) {
