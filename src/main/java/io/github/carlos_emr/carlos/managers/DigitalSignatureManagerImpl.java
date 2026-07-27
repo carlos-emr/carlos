@@ -196,9 +196,13 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             return null;
         }
 
-        // Prevent provider impersonation: the stamp must belong to the logged-in user
+        // Prevent provider impersonation: the stamp must belong to the logged-in user.
+        // Objects.equals, not loggedInProvider.equals(...): getLoggedInProviderNo() is nullable, and
+        // a null receiver threw an NPE out of this check rather than denying. On a security gate
+        // that is the wrong failure — an unattributable session must be refused, not crash the
+        // caller. Null never equals a real providerNo, so this now falls through to the deny below.
         String loggedInProvider = loggedInInfo.getLoggedInProviderNo();
-        if (!loggedInProvider.equals(providerNo)) {
+        if (!Objects.equals(loggedInProvider, providerNo)) {
             logger.warn("Provider {} attempted to use stamp signature of provider {} — denied",
                     loggedInProvider, providerNo);
             return null;

@@ -320,7 +320,15 @@ public class HL7CreateFile {
             pid19 = "X" + healthCard;
         }
 
-        return "PID|1|" + StringUtils.noNull(demographic.getHin()) + "|" + lab.getAccessionNumber() + "|" + healthCard + "|" + demographic.getLastName() + "^" + demographic.getFirstName() + "||" + new SimpleDateFormat(FULL_DATE).format(demographic.getBirthDay().getTime()) + "|" + demographic.getSex() + "|||||" + demographicPhone + "|" + demographicPhone2 + "|||||" + pid19;
+        // getBirthDay() is nullable — a demographic with no recorded date of birth threw an NPE out
+        // of HL7 generation here, failing the whole message rather than emitting a PID with an empty
+        // DOB field. HL7 treats an empty component as "not supplied", which is the honest encoding
+        // of a birth date CARLOS does not hold.
+        String birthDate = demographic.getBirthDay() == null
+                ? ""
+                : new SimpleDateFormat(FULL_DATE).format(demographic.getBirthDay().getTime());
+
+        return "PID|1|" + StringUtils.noNull(demographic.getHin()) + "|" + lab.getAccessionNumber() + "|" + healthCard + "|" + demographic.getLastName() + "^" + demographic.getFirstName() + "||" + birthDate + "|" + demographic.getSex() + "|||||" + demographicPhone + "|" + demographicPhone2 + "|||||" + pid19;
     }
 
     private String generateZFR(LaboratoryResultsDocument.LaboratoryResults lab) {

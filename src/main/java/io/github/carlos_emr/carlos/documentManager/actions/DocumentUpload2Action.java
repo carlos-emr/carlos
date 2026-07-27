@@ -272,24 +272,31 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void writeLocalFile(File docFile, String fileName) throws Exception {
-        InputStream fis = null;
-        OutputStream fos = null;
-        try {
-            fis = Files.newInputStream(docFile.toPath());
-            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-            if (!documentDir.endsWith(File.separator)) {
-                documentDir += File.separator;
-            }
-            // Validate the destination path using PathValidationUtils
-            File baseDir = new File(documentDir);
-            File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (!documentDir.endsWith(File.separator)) {
+            documentDir += File.separator;
+        }
+        // Validate the destination path using PathValidationUtils. Resolved BEFORE the source is
+        // opened so an invalid destination cannot leave an open input stream behind.
+        File baseDir = new File(documentDir);
+        File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
 
-            // CREATE_NEW (not truncate/overwrite): the upload filename carries only a one-second
-            // timestamp prefix, so two same-named uploads in the same second previously resolved to
-            // one path and the second silently overwrote the first — leaving a document row pointing
-            // at another patient's bytes. Failing closed here turns that silent cross-patient
-            // overwrite into a loud FileAlreadyExistsException the caller surfaces.
-            fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        // try-with-resources, not a finally chain: the previous `if (fis != null) fis.close();
+        // if (fos != null) fos.close();` closed the streams in sequence with no protection, so a
+        // throw from the FIRST close skipped the second entirely (leaking the output stream) and,
+        // worse, REPLACED the exception being propagated. The exception most likely to be in flight
+        // here is the FileAlreadyExistsException below, whose entire purpose is to be loud — a close
+        // failure silently substituting for it would restore the cross-patient overwrite as a
+        // confusing I/O error. Suppressed close exceptions now attach to the primary instead.
+        //
+        // CREATE_NEW (not truncate/overwrite): the upload filename carries only a one-second
+        // timestamp prefix, so two same-named uploads in the same second previously resolved to
+        // one path and the second silently overwrote the first — leaving a document row pointing
+        // at another patient's bytes. Failing closed here turns that silent cross-patient
+        // overwrite into a loud FileAlreadyExistsException the caller surfaces.
+        try (InputStream fis = Files.newInputStream(docFile.toPath());
+                OutputStream fos = Files.newOutputStream(destinationFile.toPath(),
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             byte[] buf = new byte[128 * 1024];
             int i = 0;
             while ((i = fis.read(buf)) != -1) {
@@ -298,11 +305,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         } catch (Exception e) {
             logger.error("Error writing local file", e);
             throw e;
-        } finally {
-            if (fis != null)
-                fis.close();
-            if (fos != null)
-                fos.close();
         }
     }
 

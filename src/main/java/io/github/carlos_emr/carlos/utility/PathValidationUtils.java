@@ -102,6 +102,13 @@ public final class PathValidationUtils {
      * Lazily-initialized map of canonical temp-root path to the CARLOS-owned first segments permitted
      * directly beneath that specific root (see {@link #buildApplicationTempRoots()}).
      */
+    // Sonar java:S3077 ("volatile is not enough for a mutable type") does not apply: this field is
+    // only ever assigned the result of buildApplicationTempRoots(), which returns an
+    // unmodifiableMap whose values are Set.copyOf(...) — deeply immutable. Volatile is then exactly
+    // the right idiom, giving safe publication of a fully-constructed immutable value under the
+    // double-checked lock below. Swapping in a ConcurrentHashMap would make the CONTENTS mutable
+    // and lose the immutability this depends on.
+    @SuppressWarnings("java:S3077")
     private static volatile Map<String, Set<String>> applicationTempRoots;
 
     private PathValidationUtils() {
