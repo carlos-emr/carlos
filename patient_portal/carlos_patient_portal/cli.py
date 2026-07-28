@@ -171,6 +171,8 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                 )
                 action = "dry run completed" if args.dry_run else "cleanup completed"
                 print(
+                    # Every interpolated value is an aggregate row count, never a token or hash.
+                    # codeql[py/clear-text-logging-sensitive-data]
                     "transient authentication "
                     f"{action}: sessions={cleanup_result.sessions} "
                     f"mfa_challenges={cleanup_result.mfa_challenges} "
