@@ -589,60 +589,44 @@ public class RxUtil {
             Pattern p = Pattern.compile(s);
             Matcher matcher = p.matcher(instructions);
             if (matcher.find()) {
-                frequency = (instructions.substring(matcher.start(), matcher.end())).trim();
-                frequency = changeToStandardFrequencyCode(frequency);
-                String origFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
-
-                Pattern p2 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(origFrequency)); //allow to detect decimal number.
-                Matcher m2 = p2.matcher(instructions);
-
-                Pattern p4 = Pattern.compile("\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
-                Matcher m4 = p4.matcher(instructions);
+                String matchedFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
+                frequency = changeToStandardFrequencyCode(matchedFrequency);
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
-                if (m4.find()) {
-                    String str2 = instructions.substring(m4.start(), m4.end());
-                    Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-                    Matcher m5 = p5.matcher(str2);
-                    if (m5.find()) {
-                        String str3 = str2.substring(m5.start(), m5.end());
-                        //       p("here str3", str3);
-                        takeMinFrequency = str3.split("-")[0];
-                        takeMaxFrequency = str3.split("-")[1];
-                    }
-                } else if (m2.find()) {
-                    String str = instructions.substring(m2.start(), m2.end());
-                    Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-                    Matcher m3 = p3.matcher(str);
-                    //     p("here22", str);
-                    if (m3.find()) {
-                        amountFrequency = str.substring(m3.start(), m3.end());
-                    }
+                NumberRange frequencyRange = findRangeBeforeFrequency(instructions, matcher.start());
+                if (frequencyRange != null) {
+                    takeMinFrequency = frequencyRange.min;
+                    takeMaxFrequency = frequencyRange.max;
                 } else {
-                    p("word amount");
-                    for (String word : zeroToTen) {
-                        String r1 = "\\s" + word + "\\s*" + Pattern.quote(frequency);
-                        String r2 = "^" + word + "\\s*" + Pattern.quote(frequency); //start at the begin of instructions
-                        Pattern p5 = Pattern.compile(r1);
-                        Matcher m5 = p5.matcher(instructions);
-                        p("pattern word =" + r1);
-                        if (m5.find()) {
-                            amountFrequency = instructions.substring(m5.start(), m5.end());
-                            amountFrequency = amountFrequency.replace(frequency, "").trim();
-                            p("amountFreq=" + amountFrequency);
-                            amountFrequency = convertWordToNumerical(amountFrequency);
-                            p("num amountFreq=" + amountFrequency);
-                            break;
-                        }
-                        p5 = Pattern.compile(r2);
-                        m5 = p5.matcher(instructions);
-                        if (m5.find()) {
-                            amountFrequency = instructions.substring(m5.start(), m5.end());
-                            amountFrequency = amountFrequency.replace(frequency, "").trim();
-                            p("amountFreq=" + amountFrequency);
-                            amountFrequency = convertWordToNumerical(amountFrequency);
-                            p("num amountFreq=" + amountFrequency);
-                            break;
+                    NumberToken frequencyAmount = findDecimalBeforeFrequency(instructions, matcher.start());
+                    if (frequencyAmount != null) {
+                        amountFrequency = frequencyAmount.value;
+                    } else {
+                        p("word amount");
+                        for (String word : zeroToTen) {
+                            String r1 = "\\s" + word + "\\s*" + Pattern.quote(frequency);
+                            String r2 = "^" + word + "\\s*" + Pattern.quote(frequency); //start at the begin of instructions
+                            Pattern p5 = Pattern.compile(r1);
+                            Matcher m5 = p5.matcher(instructions);
+                            p("pattern word =" + r1);
+                            if (m5.find()) {
+                                amountFrequency = instructions.substring(m5.start(), m5.end());
+                                amountFrequency = amountFrequency.replace(frequency, "").trim();
+                                p("amountFreq=" + amountFrequency);
+                                amountFrequency = convertWordToNumerical(amountFrequency);
+                                p("num amountFreq=" + amountFrequency);
+                                break;
+                            }
+                            p5 = Pattern.compile(r2);
+                            m5 = p5.matcher(instructions);
+                            if (m5.find()) {
+                                amountFrequency = instructions.substring(m5.start(), m5.end());
+                                amountFrequency = amountFrequency.replace(frequency, "").trim();
+                                p("amountFreq=" + amountFrequency);
+                                amountFrequency = convertWordToNumerical(amountFrequency);
+                                p("num amountFreq=" + amountFrequency);
+                                break;
+                            }
                         }
                     }
                 }
@@ -914,144 +898,343 @@ public class RxUtil {
     }
 
     public static boolean isStringToNumber(String s) {//see if string contains decimal or integer
-        boolean retBool = false;
-        Pattern p1 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-        Matcher m1 = p1.matcher(s);
-        if (m1.find()) {
-            String numStr = s.substring(m1.start(), m1.end());
-            String restStr = s.replace(numStr, "").trim();
-            if (restStr != null && restStr.length() > 0) retBool = false;
-            else retBool = true;
-        } else retBool = false;
+        if (s == null) {
+            return false;
+        }
+        String trimmed = s.trim();
+        NumberToken token = findDecimalAt(trimmed, 0);
+        return token != null && token.start == 0 && token.end == trimmed.length();
+    }
 
-        return retBool;
+    private static NumberRange findRangeBeforeFrequency(String text, int frequencyStart) {
+        return findRangeBefore(text, frequencyStart);
+    }
+
+    private static NumberToken findDecimalBeforeFrequency(String text, int frequencyStart) {
+        return findDecimalBefore(text, frequencyStart);
+    }
+
+    private static NumberRange findRangeBefore(String text, int endExclusive) {
+        int end = skipWhitespaceBackward(text, endExclusive);
+        NumberToken max = findDecimalBefore(text, end, false);
+        if (max == null || max.end != end) {
+            return null;
+        }
+
+        int hyphenIndex = skipWhitespaceBackward(text, max.start) - 1;
+        if (hyphenIndex < 0 || text.charAt(hyphenIndex) != '-') {
+            return null;
+        }
+
+        NumberToken min = findDecimalBefore(text, hyphenIndex);
+        if (min == null || min.end != hyphenIndex) {
+            return null;
+        }
+
+        return new NumberRange(min.value, max.value, max.end);
+    }
+
+    private static NumberRange findRangeAt(String text, int start) {
+        NumberToken min = findDecimalAt(text, start);
+        if (min == null || min.end >= text.length() || text.charAt(min.end) != '-') {
+            return null;
+        }
+
+        int maxStart = skipWhitespaceForward(text, min.end + 1);
+        NumberToken max = findDecimalAt(text, maxStart);
+        if (max == null) {
+            return null;
+        }
+
+        return new NumberRange(min.value, max.value, max.end);
+    }
+
+    private static NumberToken findDecimalBefore(String text, int endExclusive) {
+        return findDecimalBefore(text, endExclusive, true);
+    }
+
+    private static NumberToken findDecimalBefore(String text, int endExclusive, boolean requireBoundaryBefore) {
+        int end = skipWhitespaceBackward(text, endExclusive);
+        if (end == 0 || !isDigit(text.charAt(end - 1))) {
+            return null;
+        }
+
+        int start = end;
+        while (start > 0 && isDigit(text.charAt(start - 1))) {
+            start--;
+        }
+
+        if (start > 0 && text.charAt(start - 1) == '.') {
+            int dotIndex = start - 1;
+            int tokenStart = dotIndex;
+            while (tokenStart > 0 && isDigit(text.charAt(tokenStart - 1))) {
+                tokenStart--;
+            }
+            if (requireBoundaryBefore && !hasTokenBoundaryBefore(text, tokenStart)) {
+                return null;
+            }
+            return new NumberToken(text, tokenStart, end);
+        }
+
+        if (requireBoundaryBefore && !hasTokenBoundaryBefore(text, start)) {
+            return null;
+        }
+        return new NumberToken(text, start, end);
+    }
+
+    private static NumberToken findDecimalAt(String text, int start) {
+        if (start < 0 || start >= text.length()) {
+            return null;
+        }
+
+        int index = start;
+        while (index < text.length() && isDigit(text.charAt(index))) {
+            index++;
+        }
+
+        if (index < text.length() && text.charAt(index) == '.') {
+            int decimalPoint = index;
+            index++;
+            int fractionStart = index;
+            while (index < text.length() && isDigit(text.charAt(index))) {
+                index++;
+            }
+            if (index > fractionStart) {
+                return new NumberToken(text, start, index);
+            }
+            if (decimalPoint > start) {
+                return new NumberToken(text, start, decimalPoint);
+            }
+            return null;
+        }
+
+        if (index > start) {
+            return new NumberToken(text, start, index);
+        }
+
+        return null;
+    }
+
+    private static String findFractionAt(String text, int start) {
+        if (start < 0 || start >= text.length() || !isDigit(text.charAt(start))) {
+            return null;
+        }
+
+        int index = start;
+        while (index < text.length() && isDigit(text.charAt(index))) {
+            index++;
+        }
+
+        if (index >= text.length() || text.charAt(index) != '/') {
+            return null;
+        }
+
+        index++;
+        int denominatorStart = index;
+        while (index < text.length() && isDigit(text.charAt(index))) {
+            index++;
+        }
+        if (index == denominatorStart) {
+            return null;
+        }
+        if (!hasTokenBoundaryAt(text, index)) {
+            return null;
+        }
+
+        return text.substring(start, index);
+    }
+
+    private static int skipWhitespaceBackward(String text, int endExclusive) {
+        int index = Math.min(endExclusive, text.length());
+        while (index > 0 && Character.isWhitespace(text.charAt(index - 1))) {
+            index--;
+        }
+        return index;
+    }
+
+    private static int skipWhitespaceForward(String text, int start) {
+        int index = Math.max(0, start);
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private static boolean hasTokenBoundaryAt(String text, int index) {
+        return index >= text.length() || Character.isWhitespace(text.charAt(index));
+    }
+
+    private static boolean hasTokenBoundaryBefore(String text, int index) {
+        return index <= 0 || Character.isWhitespace(text.charAt(index - 1));
+    }
+
+    private static boolean isDigit(char c) {
+        return c >= '0' && c <= '9';
     }
 
 
-	private static InstructionSegment scanInstruction(String instructions, String[] methods) {
-		InstructionSegment segment = new InstructionSegment();
+    private static InstructionSegment scanInstruction(String instructions, String[] methods) {
+        InstructionSegment segment = new InstructionSegment();
 
-		for (String s : methods) {
-			Pattern p = Pattern.compile(s);
-			Matcher m = p.matcher(instructions);
-			if (m.find()) {
-				p("must be here");
+        for (String s : methods) {
+            Pattern p = Pattern.compile(s);
+            Matcher m = p.matcher(instructions);
+            if (m.find()) {
+                p("must be here");
+                segment.method = instructions.substring(m.start(), m.end());
+                scanForFrequencyAndUpdateInstructionSegment(segment, instructions, segment.method, m.end());
+                break;
+            }
+        }
 
-				segment.method = instructions.substring(m.start(), m.end());
-				scanForFrequencyAndUpdateInstructionSegment(segment, instructions, segment.method);
-				break;
-			}
-		}
+        if (segment.method == null) {
+            String placeholderMethod = "<NO_METHOD>";
+            String instructionWithPlaceholderMethod = placeholderMethod + " " + instructions;
+            Pattern p = Pattern.compile("(?i)" + placeholderMethod);
+            Matcher m = p.matcher(instructionWithPlaceholderMethod);
+            if (m.find()) {
+                scanForFrequencyAndUpdateInstructionSegment(segment, instructionWithPlaceholderMethod, placeholderMethod, m.end());
+            }
+        }
 
-		if (segment.method == null) {
-			String placeholderMethod = "<NO_METHOD>";
-			String instructionWithPlaceholderMethod = placeholderMethod + " " + instructions;
-			Pattern p = Pattern.compile("(?i)" + placeholderMethod);
-			Matcher m = p.matcher(instructionWithPlaceholderMethod);
-			if (m.find())
-				scanForFrequencyAndUpdateInstructionSegment(segment, instructionWithPlaceholderMethod, placeholderMethod);
-		}
+        return segment;
+    }
 
-		return segment;
-	}
+    private static void scanForFrequencyAndUpdateInstructionSegment(InstructionSegment segment, String instructions, String method, int methodEnd) {
+        int amountStart = skipWhitespaceForward(instructions, methodEnd);
+        if (setRangeAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
+        if (setDecimalAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
+        if (setFractionAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
 
-	private static void scanForFrequencyAndUpdateInstructionSegment(InstructionSegment segment, String instructions, String method) {
-		String takeMinMethod = null;
-		String takeMaxMethod = null;
-		String amountMethod = null;
-		String amountFrequency = null;
+        segment.amountMethod = findWordAmountAfterMethod(instructions, method);
+    }
 
-		Pattern p2 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
-		Matcher m2 = p2.matcher(instructions);
+    private static boolean setRangeAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        NumberRange methodRange = findRangeAt(instructions, amountStart);
+        if (methodRange == null || !hasTokenBoundaryAt(instructions, methodRange.end)) {
+            return false;
+        }
 
-		Pattern pF1 = Pattern.compile(Pattern.quote(method) + "\\s*[0-9]+(?:\\/[0-9]+)?\\s+");
-		Matcher mF1 = pF1.matcher(instructions);
+        p("else if 1");
+        segment.takeMin = methodRange.min;
+        segment.takeMax = methodRange.max;
+        return true;
+    }
 
-		Pattern p4 = Pattern.compile(Pattern.quote(method) + "\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)\\s+");
-		Matcher m4 = p4.matcher(instructions);
+    private static boolean setDecimalAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        NumberToken methodAmount = findDecimalAt(instructions, amountStart);
+        if (methodAmount == null || !hasTokenBoundaryAt(instructions, methodAmount.end)) {
+            return false;
+        }
 
-		//since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
-		if (m4.find()) {
-			p("else if 1");
-			String str2 = instructions.substring(m4.start(), m4.end());
-			Pattern p5 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)-\\s*(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-			Matcher m5 = p5.matcher(str2);
-			if (m5.find()) {
-				String str3 = str2.substring(m5.start(), m5.end());
-				//           p("str3", str3);
-				takeMinMethod = str3.split("-")[0];
-				takeMaxMethod = str3.split("-")[1];
-			}
-		} else if (m2.find()) {
-			p("if 1");
-			String str = instructions.substring(m2.start(), m2.end());
-			p("str1 ", str);
-			Pattern p3 = Pattern.compile("(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)");
-			Matcher m3 = p3.matcher(str);
-			if (m3.find()) {
-				p("found1");
-				amountMethod = str.substring(m3.start(), m3.end());
-				//      p("amountMethod", amountMethod);
-			}
-		} else if (mF1.find()) {
-			String partInstructions = instructions.substring(mF1.start(), mF1.end());
-			Pattern pF2 = Pattern.compile("[0-9]+(?:\\/[0-9]+)?");
-			Matcher mF2 = pF2.matcher(partInstructions);
+        p("if 1");
+        p("str1 ", instructions.substring(amountStart, methodAmount.end));
+        p("found1");
+        segment.amountMethod = methodAmount.value;
+        //      p("amountMethod", amountMethod);
+        return true;
+    }
 
-			if (mF2.find()) {
-				String fraction = partInstructions.substring(mF2.start(), mF2.end());
-				amountFrequency = "0";
-				if (fraction.equals("1/2"))
-					amountFrequency = "0.5";
-				else if (fraction.equals("1/4"))
-					amountFrequency = "0.25";
-			}
-		} else {
-			p("word amount");
-			for (String word : zeroToTen) {
-                String safeMethod = Pattern.quote(method);
-                String safeWord = Pattern.quote(word);
-				String r1 = safeMethod + "\\s+" + safeWord + "\\s";
-				String r2 = safeMethod + "\\s+" + safeWord + "$";
-				Pattern p5 = Pattern.compile(r1);
-				Matcher m5 = p5.matcher(instructions);
-				p("pattern word =" + r1);
-				if (m5.find()) {
-					amountMethod = instructions.substring(m5.start(), m5.end());
-					amountMethod = amountMethod.replace(method, "").trim();
-					p("amountMethod=" + amountMethod);
-					amountMethod = convertWordToNumerical(amountMethod);
-					p("num amountMethod=" + amountMethod);
-					break;
-				} else {
-					p5 = Pattern.compile(r2);
-					m5 = p5.matcher(instructions);
-					p("pattern word =" + r2);
-					if (m5.find()) {
-						amountMethod = instructions.substring(m5.start(), m5.end());
-						amountMethod = amountMethod.replace(method, "").trim();
-						p("amountMethod=" + amountMethod);
-						amountMethod = convertWordToNumerical(amountMethod);
-						p("num amountMethod=" + amountMethod);
-						break;
-					}
-				}
-			}
-		}
+    private static boolean setFractionAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        String fraction = findFractionAt(instructions, amountStart);
+        if (fraction == null) {
+            return false;
+        }
 
-		segment.takeMax = takeMaxMethod;
-		segment.takeMin = takeMinMethod;
-		segment.amountMethod = amountMethod;
-		segment.amountFrequency = amountFrequency;
-	}
+        segment.amountFrequency = convertFractionToAmount(fraction);
+        return true;
+    }
 
-	private static class InstructionSegment {
-		String method;
-		String takeMin;
-		String takeMax;
-		String amountMethod;
-		String amountFrequency;
-	}
+    private static String convertFractionToAmount(String fraction) {
+        int separator = fraction.indexOf('/');
+        if (separator <= 0 || separator == fraction.length() - 1) {
+            return "0";
+        }
+
+        try {
+            double numerator = Double.parseDouble(fraction.substring(0, separator));
+            double denominator = Double.parseDouble(fraction.substring(separator + 1));
+            if (denominator == 0d || !Double.isFinite(numerator) || !Double.isFinite(denominator)) {
+                return "0";
+            }
+
+            double amount = numerator / denominator;
+            return Double.isFinite(amount) ? Double.toString(amount) : "0";
+        } catch (NumberFormatException e) {
+            return "0";
+        }
+    }
+
+    private static String findWordAmountAfterMethod(String instructions, String method) {
+        p("word amount");
+        for (String word : zeroToTen) {
+            String amountMethod = findWordAmountAfterMethod(instructions, method, word, "\\s");
+            if (amountMethod != null) {
+                return amountMethod;
+            }
+            amountMethod = findWordAmountAfterMethod(instructions, method, word, "$");
+            if (amountMethod != null) {
+                return amountMethod;
+            }
+        }
+        return null;
+    }
+
+    private static String findWordAmountAfterMethod(String instructions, String method, String word, String suffix) {
+        String safeMethod = Pattern.quote(method);
+        String regex = safeMethod + "\\s+" + word + suffix;
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(instructions);
+        p("pattern word =" + regex);
+        if (!matcher.find()) {
+            return null;
+        }
+
+        String amountMethod = instructions.substring(matcher.start(), matcher.end());
+        amountMethod = amountMethod.replace(method, "").trim();
+        p("amountMethod=" + amountMethod);
+        amountMethod = convertWordToNumerical(amountMethod);
+        p("num amountMethod=" + amountMethod);
+        return amountMethod;
+    }
+
+    private static class InstructionSegment {
+        String method;
+        String takeMin;
+        String takeMax;
+        String amountMethod;
+        String amountFrequency;
+    }
+
+    private static class NumberToken {
+        final int start;
+        final int end;
+        final String value;
+
+        NumberToken(String text, int start, int end) {
+            this.start = start;
+            this.end = end;
+            this.value = text.substring(start, end);
+        }
+    }
+
+    private static class NumberRange {
+        final String min;
+        final String max;
+        final int end;
+
+        NumberRange(String min, String max, int end) {
+            this.min = min;
+            this.max = max;
+            this.end = end;
+        }
+    }
 
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

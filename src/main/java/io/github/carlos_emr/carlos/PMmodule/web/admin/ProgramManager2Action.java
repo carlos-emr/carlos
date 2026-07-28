@@ -83,6 +83,7 @@ import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1541,7 +1542,7 @@ public class ProgramManager2Action extends ActionSupport {
         obj.put("error", error);
 
         try {
-            response.getWriter().print(obj.toString());
+            JsonResponseWriter.write(response, obj);
         } catch (IOException e) {
             MiscUtils.getLogger().warn("error writing json", e);
         }
