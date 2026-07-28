@@ -538,7 +538,7 @@ public class Fax2Action extends ActionSupport {
                                 String.valueOf(demographicNo), approvalToken);
                 if (approvalToken != null && stagedPreview == null) {
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
-                            "The incomplete-render approval is invalid or expired. Prepare the fax again.");
+                            "The incomplete-render approval is no longer available. Prepare the fax again.");
                     return NONE;
                 }
                 if (stagedPreview != null) {

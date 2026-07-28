@@ -228,6 +228,41 @@ class EFormRenderApprovalServiceUnitTest {
         }
     }
 
+
+    @Test
+    @DisplayName("should keep a staged fax preview until it is claimed or its session is destroyed")
+    void shouldKeepStagedFaxPreview_untilClaimOrSessionDestruction() throws java.io.IOException {
+        java.time.Instant start = java.time.Instant.parse("2026-07-28T10:00:00Z");
+        java.util.concurrent.atomic.AtomicReference<java.time.Instant> now =
+                new java.util.concurrent.atomic.AtomicReference<>(start);
+        EFormRenderApprovalService service = new EFormRenderApprovalService(movableClock(now));
+        MockHttpServletRequest request = requestWithSession();
+        LoggedInInfo user = user("999998");
+        java.nio.file.Path root = java.nio.file.Path.of(
+                System.getProperty("java.io.tmpdir"), "carlos-temp");
+        java.nio.file.Files.createDirectories(root);
+        java.nio.file.Path claimed = java.nio.file.Files.createTempFile(root, "staged-fax-", ".pdf");
+        java.nio.file.Path abandoned = java.nio.file.Files.createTempFile(root, "staged-fax-", ".pdf");
+        try {
+            String claimToken = service.issueStagedFaxPreview(request, user, 42, "123",
+                    java.util.Map.of(42, incompleteReport()), claimed);
+            now.set(start.plus(java.time.Duration.ofHours(3)));
+            assertThat(service.consumeStagedFaxPreview(request, user, 42, "123", claimToken))
+                    .describedAs("a staged fax preview has no arbitrary wall-clock expiry")
+                    .isNotNull();
+
+            String abandonedToken = service.issueStagedFaxPreview(request, user, 42, "123",
+                    java.util.Map.of(42, incompleteReport()), abandoned);
+            service.invalidateStagedFaxPreviewsForSession(request.getSession().getId());
+
+            assertThat(java.nio.file.Files.exists(abandoned)).isFalse();
+            assertThat(service.consumeStagedFaxPreview(request, user, 42, "123", abandonedToken)).isNull();
+        } finally {
+            java.nio.file.Files.deleteIfExists(claimed);
+            java.nio.file.Files.deleteIfExists(abandoned);
+        }
+    }
+
     private static EFormRenderCompletenessReport incompleteReport() {
         return new EFormRenderCompletenessReport(2, 1, 0, 0, true, false, false, false);
     }

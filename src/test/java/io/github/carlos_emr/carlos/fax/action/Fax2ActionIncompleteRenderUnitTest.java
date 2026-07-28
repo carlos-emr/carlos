@@ -7,13 +7,11 @@ package io.github.carlos_emr.carlos.fax.action;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
@@ -24,7 +22,9 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,13 +60,12 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(faxManager.getFaxGatewayAccounts(loggedInInfo))
                 .thenReturn(List.of(mock(FaxConfig.class)));
-        when(documentAttachmentManager.renderEFormPacketWithCompleteness(
-                eq(request), eq(response), isNull(EFormRenderApproval.class)))
-                .thenThrow(new EformContentUnavailableException("incomplete", 42, report));
-        when(approvalService.issue(
-                eq(request), eq(loggedInInfo), eq(42), eq("123"),
-                eq(EFormRenderApprovalService.Operation.FAX), eq(report),
-                isNull(EFormRenderApproval.class), eq(42)))
+        when(documentAttachmentManager.stageEFormPacketForFaxPreview(eq(request), eq(response)))
+                .thenReturn(new io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender(
+                        Path.of("staged-eform.pdf"), report, Map.of(42, report)));
+        when(approvalService.issueStagedFaxPreview(
+                eq(request), eq(loggedInInfo), eq(42), eq("123"), eq(Map.of(42, report)),
+                eq(Path.of("staged-eform.pdf"))))
                 .thenReturn("exact-approval-token");
 
         registerMock(FaxManager.class, faxManager);
@@ -90,14 +89,13 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("signatureMissing")).isEqualTo(true);
         assertThat(request.getAttribute("timerCompatibilityFailure")).isEqualTo(true);
         assertThat(response.isCommitted()).isFalse();
-        verify(approvalService).issue(
-                request, loggedInInfo, 42, "123",
-                EFormRenderApprovalService.Operation.FAX, report, null, 42);
+        verify(approvalService).issueStagedFaxPreview(
+                request, loggedInInfo, 42, "123", Map.of(42, report), Path.of("staged-eform.pdf"));
     }
 
     @Test
-    @DisplayName("should reject an invalid or expired incomplete-render approval before rendering")
-    void shouldRejectInvalidApproval_beforeRenderingEForm() throws Exception {
+    @DisplayName("should reject an unavailable staged incomplete-render approval before rendering")
+    void shouldRejectUnavailableStagedApproval_beforeRenderingEForm() throws Exception {
         FaxManager faxManager = mock(FaxManager.class);
         DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
@@ -113,9 +111,8 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(faxManager.getFaxGatewayAccounts(loggedInInfo))
                 .thenReturn(List.of(mock(FaxConfig.class)));
-        when(approvalService.consume(
-                request, loggedInInfo, 42, "123",
-                EFormRenderApprovalService.Operation.FAX, "forged-or-expired"))
+        when(approvalService.consumeStagedFaxPreview(
+                request, loggedInInfo, 42, "123", "forged-or-expired"))
                 .thenReturn(null);
 
         registerMock(FaxManager.class, faxManager);
@@ -134,9 +131,9 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         }
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-        assertThat(response.getErrorMessage()).contains("invalid or expired");
-        verify(documentAttachmentManager, never()).renderEFormPacketWithCompleteness(
-                any(), any(), any());
+        assertThat(response.getErrorMessage()).contains("no longer available");
+        verify(documentAttachmentManager, never()).stageEFormPacketForFaxPreview(
+                any(), any());
     }
 
     private static Fax2Action eFormAction() {

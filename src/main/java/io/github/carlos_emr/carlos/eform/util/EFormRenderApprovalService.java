@@ -46,6 +46,7 @@ public class EFormRenderApprovalService {
     }
 
     private final Cache<String, PendingApproval> approvals;
+    private final Cache<String, PendingApproval> stagedFaxApprovals;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Clock clock;
 
@@ -54,7 +55,7 @@ public class EFormRenderApprovalService {
     }
 
     /**
-     * Test seam for the two-minute ticket lifetime.
+     * Test seam for the two-minute lifetime of non-staged approval tickets.
      *
      * <p>A {@code Clock} rather than a Caffeine {@code Ticker}: the ticker would only move cache
      * eviction, while the expiry that actually rejects a ticket is the explicit
@@ -68,6 +69,13 @@ public class EFormRenderApprovalService {
                 .expireAfterWrite(TTL)
                 .maximumSize(MAX_PENDING_APPROVALS)
                 .ticker(() -> clock.instant().toEpochMilli() * 1_000_000L)
+                .build();
+        this.stagedFaxApprovals = Caffeine.newBuilder()
+                // A staged fax preview is bound to the authenticated servlet session rather than an
+                // arbitrary wall-clock interval. It is removed on use, explicit invalidation, session
+                // destruction, or bounded-cache eviction; the removal listener deletes unclaimed PHI.
+                .maximumSize(MAX_PENDING_APPROVALS)
+                .executor(Runnable::run)
                 .removalListener((String token, PendingApproval pending, com.github.benmanes.caffeine.cache.RemovalCause cause) -> {
                     if (pending != null && pending.stagedPreview() != null) {
                         pending.stagedPreview().deleteUnlessClaimed();
@@ -147,9 +155,9 @@ public class EFormRenderApprovalService {
             }
         });
         String token = generateToken();
-        approvals.put(token, new PendingApproval(session.getId(), providerNo, fdid,
+        stagedFaxApprovals.put(token, new PendingApproval(session.getId(), providerNo, fdid,
                 Objects.requireNonNull(demographicNo, "demographicNo must not be null"), Operation.FAX,
-                Map.copyOf(digests), clock.instant().plus(TTL), new StagedFaxPreview(path)));
+                Map.copyOf(digests), Instant.MAX, new StagedFaxPreview(path)));
         logger.info("Incomplete eForm fax preview staged: fdid={} provider={} approvedForms={}",
                 fdid, providerNo, digests.size());
         return token;
@@ -160,16 +168,16 @@ public class EFormRenderApprovalService {
             int fdid, String demographicNo, String token) {
         if (token == null || token.isBlank() || request.getSession(false) == null) return null;
         String providerNo = requireProvider(loggedInInfo);
-        PendingApproval pending = approvals.asMap().get(token);
-        if (pending == null || pending.stagedPreview() == null || clock.instant().isAfter(pending.expiresAt())
+        PendingApproval pending = stagedFaxApprovals.asMap().get(token);
+        if (pending == null || pending.stagedPreview() == null
                 || !pending.sessionId().equals(request.getSession(false).getId())
                 || !pending.providerNo().equals(providerNo) || pending.fdid() != fdid
                 || !pending.demographicNo().equals(demographicNo) || pending.operation() != Operation.FAX) {
-            if (pending != null) approvals.invalidate(token);
+            if (pending != null) stagedFaxApprovals.invalidate(token);
             return null;
         }
         Path path = pending.stagedPreview().claim();
-        if (path == null || !approvals.asMap().remove(token, pending)) {
+        if (path == null || !stagedFaxApprovals.asMap().remove(token, pending)) {
             pending.stagedPreview().deleteClaimed();
             return null;
         }
@@ -179,7 +187,24 @@ public class EFormRenderApprovalService {
             return null;
         }
         return new StagedFaxPreview(path, new EFormRenderApproval(pending.providerNo(), pending.demographicNo(),
-                pending.operation(), pending.issueDigests(), pending.expiresAt()));
+                pending.operation(), pending.issueDigests(), Instant.MAX));
+    }
+
+    /**
+     * Removes every unclaimed staged fax preview belonging to a servlet session. Invoked from the
+     * session-destruction listener so logging out or timing out of the authenticated
+     * session cannot leave its PHI-bearing temporary PDFs available for later approval.
+     */
+    public void invalidateStagedFaxPreviewsForSession(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        stagedFaxApprovals.asMap().forEach((token, pending) -> {
+            if (sessionId.equals(pending.sessionId())) {
+                stagedFaxApprovals.invalidate(token);
+            }
+        });
+        stagedFaxApprovals.cleanUp();
     }
 
     /**
