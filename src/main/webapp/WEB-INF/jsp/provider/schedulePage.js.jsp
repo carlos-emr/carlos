@@ -797,6 +797,7 @@ form.submit();
 }
 
 <fmt:message var="apptStatusUpdateErrorMessage" key="provider.appointmentProviderAdminDay.statusUpdateError"/>
+var apptStatusUpdateInFlight = false;
 /**
  * Updates an appointment status in place via an AJAX POST instead of a
  * full-page form submission. This keeps the schedule visible (avoiding the
@@ -808,9 +809,13 @@ form.submit();
  * @param {string} url - providercontrol AddStatus URL with query parameters
  */
 function updateApptStatus(url) {
+if (apptStatusUpdateInFlight) {
+    return false;
+}
 if (typeof window.fetch !== 'function') {
+    apptStatusUpdateInFlight = true;
     postViaForm(url);
-    return;
+    return false;
 }
 var parts = url.split('?');
 var body = new URLSearchParams();
@@ -832,6 +837,7 @@ var csrfInput = document.querySelector('input[name="CSRF-TOKEN"]');
 if (csrfInput) { body.append(csrfInput.name, csrfInput.value); }
 var previousCursor = document.body.style.cursor;
 document.body.style.cursor = 'wait';
+apptStatusUpdateInFlight = true;
 fetch(parts[0], {
     method: 'post',
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -848,10 +854,12 @@ fetch(parts[0], {
         throw new Error('empty response');
     }
 }).catch(function(e){
+    apptStatusUpdateInFlight = false;
     document.body.style.cursor = previousCursor;
     console.error(e);
     alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
 });
+return false;
 }
 
 function scrollOnLoad() {

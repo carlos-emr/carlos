@@ -21,8 +21,12 @@
  */
 package io.github.carlos_emr.carlos.provider;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
@@ -53,47 +57,138 @@ class SchedulePageStatusUpdateRegressionTest {
 
     private static final Pattern UPDATE_APPT_STATUS_FUNCTION = Pattern.compile(
             "function\\s+updateApptStatus\\s*\\(\\s*url\\s*\\)\\s*\\{", Pattern.DOTALL);
+    private static final Pattern AJAX_RESPONSE_BRANCH = Pattern.compile(
+            "if\\s*\\(\\s*ajaxRequest\\s*\\)\\s*\\{", Pattern.DOTALL);
     private static final Pattern USES_FETCH_POST = Pattern.compile(
             "fetch\\s*\\([^)]*?\\{[^}]*?method:\\s*['\"]post['\"]", Pattern.DOTALL);
     private static final Pattern SENDS_AJAX_HEADER = Pattern.compile(
             "['\"]X-Requested-With['\"]\\s*:\\s*['\"]XMLHttpRequest['\"]", Pattern.DOTALL);
+    private static final Pattern SENDS_SCROLL_POSITION = Pattern.compile(
+            "body\\.append\\s*\\(\\s*['\"]x['\"]\\s*,\\s*X\\s*\\)\\s*;.*?"
+                    + "body\\.append\\s*\\(\\s*['\"]y['\"]\\s*,\\s*Y\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern SENDS_CSRF_TOKEN = Pattern.compile(
+            "body\\.append\\s*\\(\\s*csrfInput\\.name\\s*,\\s*csrfInput\\.value\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern USES_BUSY_CURSOR = Pattern.compile(
+            "previousCursor\\s*=\\s*document\\.body\\.style\\.cursor\\s*;.*?"
+                    + "document\\.body\\.style\\.cursor\\s*=\\s*['\"]wait['\"]",
+            Pattern.DOTALL);
+    private static final Pattern RESTORES_CURSOR_ON_FAILURE = Pattern.compile(
+            "\\.catch\\s*\\(.*?document\\.body\\.style\\.cursor\\s*=\\s*previousCursor",
+            Pattern.DOTALL);
+    private static final Pattern FETCH_UNAVAILABLE_FALLBACK = Pattern.compile(
+            "typeof\\s+window\\.fetch\\s*!==\\s*['\"]function['\"].*?"
+                    + "postViaForm\\s*\\(\\s*url\\s*\\).*?return\\s+false",
+            Pattern.DOTALL);
+    private static final Pattern IN_FLIGHT_GUARD_DECLARATION = Pattern.compile(
+            "var\\s+apptStatusUpdateInFlight\\s*=\\s*false\\s*;");
+    private static final Pattern IN_FLIGHT_GUARD = Pattern.compile(
+            "if\\s*\\(\\s*apptStatusUpdateInFlight\\s*\\)\\s*\\{\\s*return\\s+false\\s*;",
+            Pattern.DOTALL);
+    private static final Pattern SETS_IN_FLIGHT_GUARD = Pattern.compile(
+            "apptStatusUpdateInFlight\\s*=\\s*true\\s*;");
+    private static final Pattern CLEARS_IN_FLIGHT_GUARD_ON_FAILURE = Pattern.compile(
+            "\\.catch\\s*\\(.*?apptStatusUpdateInFlight\\s*=\\s*false\\s*;",
+            Pattern.DOTALL);
     private static final Pattern HISTORY_REPLACING_NAVIGATION = Pattern.compile(
             "window\\.location\\.replace\\s*\\(", Pattern.DOTALL);
     private static final Pattern HAS_ERROR_HANDLER = Pattern.compile(
             "\\.catch\\s*\\(.*?apptStatusUpdateErrorMessage", Pattern.DOTALL);
 
     private static final Pattern DAY_VIEW_USES_HELPER = Pattern.compile(
-            "onclick=\"updateApptStatus\\('[^\"]*?displaymode=addstatus", Pattern.DOTALL);
+            "onclick=\"return\\s+updateApptStatus\\('[^\"]*?displaymode=addstatus", Pattern.DOTALL);
     private static final Pattern DAY_VIEW_STATUS_NOT_FULL_PAGE_POST = Pattern.compile(
             "onclick=\"postViaForm\\('[^\"]*?displaymode=addstatus", Pattern.DOTALL);
 
     private static final Pattern ADD_STATUS_DETECTS_AJAX = Pattern.compile(
             "\"XMLHttpRequest\"\\.equals\\(request\\.getHeader\\(\"X-Requested-With\"\\)\\)", Pattern.DOTALL);
     private static final Pattern ADD_STATUS_RETURNS_URL_FOR_AJAX = Pattern.compile(
-            "if\\s*\\(\\s*ajaxRequest\\s*\\)\\s*\\{.*?out\\.print\\(displaypage\\)", Pattern.DOTALL);
+            "out\\.print\\s*\\(\\s*displaypage\\s*\\)", Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_EMPTY_AJAX_FAILURE = Pattern.compile(
+            "out\\.clear\\s*\\(\\s*\\)\\s*;\\s*return\\s*;", Pattern.DOTALL);
 
     @Test
     @DisplayName("should update appointment status in place via AJAX helper")
     void shouldUpdateStatusInPlace_viaAjaxHelper() throws Exception {
-        String script = Files.readString(SCHEDULE_PAGE_SCRIPT);
-        String dayView = Files.readString(DAY_VIEW);
-        String addStatus = Files.readString(ADD_STATUS);
+        String script = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
+        String dayView = Files.readString(DAY_VIEW, StandardCharsets.UTF_8);
+        String addStatus = Files.readString(ADD_STATUS, StandardCharsets.UTF_8);
+        String updateApptStatusBody = extractFunctionBody(script, UPDATE_APPT_STATUS_FUNCTION);
+        List<String> ajaxResponseBranches = extractBlockBodies(addStatus, AJAX_RESPONSE_BRANCH);
 
         // The in-place helper must exist and use a non-navigating AJAX POST.
-        assertThat(UPDATE_APPT_STATUS_FUNCTION.matcher(script).find()).isTrue();
-        assertThat(USES_FETCH_POST.matcher(script).find()).isTrue();
-        assertThat(SENDS_AJAX_HEADER.matcher(script).find()).isTrue();
+        assertThat(matches(updateApptStatusBody, USES_FETCH_POST)).isTrue();
+        assertThat(matches(updateApptStatusBody, SENDS_AJAX_HEADER)).isTrue();
+        assertThat(matches(updateApptStatusBody, SENDS_SCROLL_POSITION)).isTrue();
+        assertThat(matches(updateApptStatusBody, SENDS_CSRF_TOKEN)).isTrue();
+        assertThat(matches(updateApptStatusBody, USES_BUSY_CURSOR)).isTrue();
+        assertThat(matches(updateApptStatusBody, RESTORES_CURSOR_ON_FAILURE)).isTrue();
+        assertThat(matches(updateApptStatusBody, FETCH_UNAVAILABLE_FALLBACK)).isTrue();
+
+        // A shared guard must prevent duplicate status mutations and allow retries after failure.
+        assertThat(matches(script, IN_FLIGHT_GUARD_DECLARATION)).isTrue();
+        assertThat(matches(updateApptStatusBody, IN_FLIGHT_GUARD)).isTrue();
+        assertThat(matches(updateApptStatusBody, SETS_IN_FLIGHT_GUARD)).isTrue();
+        assertThat(matches(updateApptStatusBody, CLEARS_IN_FLIGHT_GUARD_ON_FAILURE)).isTrue();
+
         // Success must navigate with a history-replacing GET so Back does not replay.
-        assertThat(HISTORY_REPLACING_NAVIGATION.matcher(script).find()).isTrue();
+        assertThat(matches(updateApptStatusBody, HISTORY_REPLACING_NAVIGATION)).isTrue();
         // Failures must surface a localized error rather than silently failing.
-        assertThat(HAS_ERROR_HANDLER.matcher(script).find()).isTrue();
+        assertThat(matches(updateApptStatusBody, HAS_ERROR_HANDLER)).isTrue();
 
         // The day-view status icon must call the in-place helper, not the full-page POST.
-        assertThat(DAY_VIEW_USES_HELPER.matcher(dayView).find()).isTrue();
-        assertThat(DAY_VIEW_STATUS_NOT_FULL_PAGE_POST.matcher(dayView).find()).isFalse();
+        assertThat(matches(dayView, DAY_VIEW_USES_HELPER)).isTrue();
+        assertThat(matches(dayView, DAY_VIEW_STATUS_NOT_FULL_PAGE_POST)).isFalse();
 
-        // The mutation JSP must answer AJAX requests with the refreshed-day URL.
-        assertThat(ADD_STATUS_DETECTS_AJAX.matcher(addStatus).find()).isTrue();
-        assertThat(ADD_STATUS_RETURNS_URL_FOR_AJAX.matcher(addStatus).find()).isTrue();
+        // The mutation JSP must return the refreshed URL on success and an empty body on failure.
+        assertThat(matches(addStatus, ADD_STATUS_DETECTS_AJAX)).isTrue();
+        assertThat(ajaxResponseBranches).hasSize(2);
+        assertThat(matches(ajaxResponseBranches.get(0), ADD_STATUS_RETURNS_URL_FOR_AJAX)).isTrue();
+        assertThat(matches(ajaxResponseBranches.get(1), ADD_STATUS_EMPTY_AJAX_FAILURE)).isTrue();
+        assertThat(matches(ajaxResponseBranches.get(1), ADD_STATUS_RETURNS_URL_FOR_AJAX)).isFalse();
+    }
+
+    private static boolean matches(String source, Pattern pattern) {
+        return pattern.matcher(source).find();
+    }
+
+    private static String extractFunctionBody(String source, Pattern functionPattern) {
+        Matcher matcher = functionPattern.matcher(source);
+        assertThat(matcher.find())
+                .as("expected to find updateApptStatus in schedulePage.js.jsp")
+                .isTrue();
+
+        return extractBracedBody(source, matcher.end() - 1);
+    }
+
+    private static List<String> extractBlockBodies(String source, Pattern blockPattern) {
+        Matcher matcher = blockPattern.matcher(source);
+        List<String> bodies = new ArrayList<>();
+        while (matcher.find()) {
+            bodies.add(extractBracedBody(source, matcher.end() - 1));
+        }
+        return bodies;
+    }
+
+    private static String extractBracedBody(String source, int openingBrace) {
+        assertThat(source.charAt(openingBrace))
+                .as("expected the matched block to end with an opening brace")
+                .isEqualTo('{');
+
+        int depth = 0;
+        for (int i = openingBrace; i < source.length(); i++) {
+            char current = source.charAt(i);
+            if (current == '{') {
+                depth++;
+            } else if (current == '}') {
+                depth--;
+                if (depth == 0) {
+                    return source.substring(openingBrace + 1, i);
+                }
+            }
+        }
+
+        throw new IllegalStateException("Unable to find end of matched block");
     }
 }
