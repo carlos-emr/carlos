@@ -29,7 +29,7 @@ DEFAULT_TRANSIENT_RETENTION_DAYS = 30
 class TransientCleanupResult:
     sessions: int
     mfa_challenges: int
-    reset_tokens: int
+    reset_records: int
     invites: int
 
     @property
@@ -37,7 +37,7 @@ class TransientCleanupResult:
         return (
             self.sessions
             + self.mfa_challenges
-            + self.reset_tokens
+            + self.reset_records
             + self.invites
         )
 

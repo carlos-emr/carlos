@@ -140,6 +140,6 @@ def test_transient_cleanup_cli_reports_each_table_count(
     output = capsys.readouterr().out
     assert "sessions=0" in output
     assert "mfa_challenges=0" in output
-    assert "reset_tokens=0" in output
+    assert "reset_records=0" in output
     assert "invites=0" in output
     assert "total=0" in output
