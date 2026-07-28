@@ -14,7 +14,7 @@ SMS_TOKEN = "sms-webhook-token-value-32-characters"
 class FakeResponse:
     status = 202
 
-    def read(self) -> bytes:
+    def read(self, _: int | None = None) -> bytes:
         return b""
 
 
@@ -93,3 +93,39 @@ def test_sms_webhook_failure_does_not_expose_recipient(
     assert raised_error.value.__cause__ is None
     assert raised_error.value.__context__ is not None
     assert raised_error.value.__suppress_context__
+
+
+def test_sms_webhook_rejects_oversized_gateway_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class OversizedResponse:
+        status = 202
+
+        def read(self, amount: int) -> bytes:
+            return b"x" * amount
+
+    class OversizedConnection:
+        def __init__(self, *_: object, **__: object):
+            pass
+
+        def request(self, *_: object, **__: object):
+            pass
+
+        def getresponse(self):
+            return OversizedResponse()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "carlos_patient_portal.sms_delivery.HTTPSConnection",
+        OversizedConnection,
+    )
+    sender = WebhookPortalSmsSender(sms_settings())
+
+    with pytest.raises(PortalSmsDeliveryError):
+        sender.send_code(
+            recipient="+15550105555",
+            code="123456",
+            expires_in_seconds=600,
+        )

@@ -221,7 +221,7 @@ def build_fhir_r4_capability_statement(
             {
                 "mode": "server",
                 "security": {
-                    "cors": True,
+                    "cors": False,
                     "service": [
                         {
                             "text": (
@@ -409,7 +409,7 @@ def build_fhir_r4_document_reference(
             }
         ],
         "subject": {"reference": patient_reference},
-        "date": unlock_secret.created_at.isoformat(),
+        "date": fhir_instant(unlock_secret.created_at),
         "description": title,
         "author": [
             {
@@ -436,6 +436,11 @@ def build_fhir_r4_document_reference(
             "value": unlock_secret.source_reference,
         }
     return DocumentReference(document_reference).as_json()
+
+
+def fhir_instant(value: datetime) -> str:
+    aware_value = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return aware_value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def load_hl7_v251_patient_registration_profile() -> dict[str, object]:

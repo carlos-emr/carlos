@@ -1,19 +1,26 @@
 from collections.abc import Generator
 from typing import Annotated, Protocol
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, status
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request, status
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from carlos_patient_portal.account_settings import (
+    ContactReviewConflictError,
     ContactReviewNotFoundError,
+    count_pending_contact_reviews,
     list_pending_contact_reviews,
     review_contact_update,
 )
 from carlos_patient_portal.accounts import find_account_id_for_patient
-from carlos_patient_portal.auth import AccountNotFoundError, unlock_patient_account
+from carlos_patient_portal.audit import record_audit_event
+from carlos_patient_portal.auth import (
+    AccountNotFoundError,
+    set_patient_account_access,
+    unlock_patient_account,
+)
 from carlos_patient_portal.config import Settings
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.invites import (
@@ -28,7 +35,12 @@ from carlos_patient_portal.invites import (
     revoke_invite,
 )
 from carlos_patient_portal.models import (
+    AUDIT_ACTOR_TYPE_STAFF,
+    AUDIT_EVENT_STAFF_ACTION,
+    AUDIT_OUTCOME_FAILURE,
+    UNLOCK_SECRET_STATUS_PENDING,
     UNLOCK_SECRET_STATUS_REVOKED,
+    PatientPortalAccount,
     PatientPortalUnlockSecret,
 )
 from carlos_patient_portal.schemas import InviteCreateRequest
@@ -39,16 +51,19 @@ from carlos_patient_portal.staff_identity import (
     authenticate_carlos_staff,
 )
 from carlos_patient_portal.unlock_secrets import (
-    MAX_UNLOCK_SECRET_PLAINTEXT_BYTES,
+    UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
+    UnlockSecretRevokedError,
     create_unlock_secret,
-    decrypt_unlock_secret_payload,
     get_unlock_secret_by_source_reference,
+    publish_unlock_secret,
+    read_unlock_secret,
     revoke_unlock_secret,
 )
 
 PERMISSION_INVITE_MANAGE = "portal.invite.manage"
 PERMISSION_ACCOUNT_UNLOCK = "portal.account.unlock"
+PERMISSION_ACCOUNT_MANAGE = "portal.account.manage"
 PERMISSION_SECRET_MANAGE = "portal.secret.manage"
 PERMISSION_CONTACT_REVIEW = "portal.contact.review"
 COMMON_INTERNAL_RESPONSES = {
@@ -72,18 +87,19 @@ class InternalRuntime(Protocol):
     unlock_secret_encryption_secret: str
     unlock_secret_encryption_keys: dict[str, str] | None
     unlock_secret_active_key_id: str
+    operational_metrics: "InternalOperationalMetrics"
+
+
+class InternalOperationalMetrics(Protocol):
+    def record_failure(self, failure_type: str) -> None: ...
 
 
 class InternalUnlockSecretRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     source_reference: str = Field(min_length=1, max_length=128)
     label: str | None = Field(default=None, max_length=128)
-    secret_type: str = Field(default="email", pattern="^(email|pdf)$")
-    secret: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=MAX_UNLOCK_SECRET_PLAINTEXT_BYTES,
-        repr=False,
-    )
+    secret_type: str = Field(default="email", pattern="^email$")
 
 
 class InternalUnlockSecretRevokeRequest(BaseModel):
@@ -92,6 +108,12 @@ class InternalUnlockSecretRevokeRequest(BaseModel):
 
 class InternalContactReviewDecision(BaseModel):
     approve: bool
+    revision: str = Field(min_length=1, max_length=64)
+
+
+class InternalAccountAccessRequest(BaseModel):
+    enabled: bool
+    reason: str = Field(default="staff_action", min_length=1, max_length=64)
 
 
 def require_permission(principal: StaffPrincipal, permission: str) -> None:
@@ -110,7 +132,9 @@ def invite_payload(invite, *, invite_token: str | None = None) -> dict[str, obje
         "status": invite.status,
         "created_by_id": invite.created_by_id,
         "created_by": invite.created_by,
-        "sent_count": invite.sent_count,
+        "issued_count": invite.sent_count,
+        "last_issued_at": invite.last_sent_at,
+        "last_issued_by": invite.last_sent_by,
         "expires_at": invite.expires_at,
         "accepted_account_id": invite.accepted_account_id,
     }
@@ -122,6 +146,55 @@ def invite_payload(invite, *, invite_token: str | None = None) -> dict[str, obje
 def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> None:
     if not runtime.settings.is_internal_api_enabled:
         return
+
+    @app.middleware("http")
+    async def audit_failed_internal_action(request: Request, call_next):
+        response = await call_next(request)
+        if (
+            not request.url.path.startswith("/internal/carlos/")
+            or response.status_code < 400
+        ):
+            return response
+        principal: StaffPrincipal | None = None
+        try:
+            principal = authenticate_carlos_staff(
+                runtime.settings,
+                authorization=request.headers.get("Authorization"),
+                provider_id=request.headers.get("X-CARLOS-Provider-ID"),
+                provider_name=request.headers.get("X-CARLOS-Provider-Name"),
+                clinic_id=request.headers.get("X-CARLOS-Clinic-ID"),
+                permissions=request.headers.get("X-CARLOS-Permissions"),
+            )
+        except CarlosServiceAuthenticationError:
+            pass
+        reason = (
+            "authentication_failed"
+            if principal is None
+            else {
+                403: "authorization_failed",
+                404: "not_found",
+                409: "conflict",
+                422: "validation_failed",
+                429: "throttled",
+            }.get(response.status_code, "internal_failure")
+        )
+        try:
+            with runtime.session_factory() as audit_session:
+                with audit_session.begin():
+                    record_audit_event(
+                        audit_session,
+                        event_type=AUDIT_EVENT_STAFF_ACTION,
+                        outcome=AUDIT_OUTCOME_FAILURE,
+                        actor_type=AUDIT_ACTOR_TYPE_STAFF,
+                        actor=principal.display_name if principal is not None else "carlos-service",
+                        actor_id=principal.provider_id if principal is not None else None,
+                        clinic_id=principal.clinic_id if principal is not None else None,
+                        resource_type="internal_api",
+                        reason=reason,
+                    )
+        except SQLAlchemyError:
+            runtime.operational_metrics.record_failure("internal_audit")
+        return response
 
     def get_database_session() -> Generator[Session, None, None]:
         with runtime.session_factory() as session:
@@ -149,6 +222,32 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     # FastAPI supports function-scoped teardown; Sonar's FastAPI stub does not.
     session_dependency = Depends(get_database_session, scope="function")  # NOSONAR
+
+    def disclose_unlock_secret(
+        session: Session,
+        unlock_secret: PatientPortalUnlockSecret,
+        principal: StaffPrincipal,
+    ) -> str:
+        try:
+            return read_unlock_secret(
+                session,
+                unlock_secret.id,
+                clinic_id=principal.clinic_id,
+                encryption_keys=(
+                    runtime.unlock_secret_encryption_keys
+                    or {"primary": runtime.unlock_secret_encryption_secret}
+                ),
+                actor_type="staff",
+                actor=principal.display_name,
+                actor_id=principal.provider_id,
+                demographic_no=unlock_secret.demographic_no,
+            )
+        except UnlockSecretDecryptionError as exc:
+            runtime.operational_metrics.record_failure("unlock_secret_decryption")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="unlock secret is temporarily unavailable",
+            ) from exc
 
     @app.post(
         "/internal/carlos/patients/{demographic_no}/invites",
@@ -290,6 +389,71 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             "force_password_reset": account.force_password_reset,
         }
 
+    @app.get(
+        "/internal/carlos/patients/{demographic_no}/portal-account",
+        responses=COMMON_INTERNAL_RESPONSES,
+    )
+    def internal_get_account_status(
+        demographic_no: Annotated[int, Path(gt=0)],
+        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        session: Annotated[Session, session_dependency],
+    ) -> dict[str, object]:
+        require_permission(principal, PERMISSION_ACCOUNT_MANAGE)
+        account = session.scalar(
+            select(PatientPortalAccount).where(
+                PatientPortalAccount.clinic_id == principal.clinic_id,
+                PatientPortalAccount.demographic_no == demographic_no,
+            )
+        )
+        if account is None:
+            raise HTTPException(status_code=404, detail="portal account not found")
+        return {
+            "id": account.id,
+            "clinic_id": account.clinic_id,
+            "demographic_no": account.demographic_no,
+            "status": account.status,
+            "locked": account.locked_at is not None,
+            "force_password_reset": account.force_password_reset,
+            "disabled_at": account.disabled_at,
+            "disabled_reason": account.disabled_reason,
+        }
+
+    @app.post(
+        "/internal/carlos/patients/{demographic_no}/portal-account/access",
+        responses=COMMON_INTERNAL_RESPONSES,
+    )
+    def internal_set_account_access(
+        demographic_no: Annotated[int, Path(gt=0)],
+        payload: InternalAccountAccessRequest,
+        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        session: Annotated[Session, session_dependency],
+    ) -> dict[str, object]:
+        require_permission(principal, PERMISSION_ACCOUNT_MANAGE)
+        account_id = find_account_id_for_patient(
+            session,
+            clinic_id=principal.clinic_id,
+            demographic_no=demographic_no,
+        )
+        if account_id is None:
+            raise HTTPException(status_code=404, detail="portal account not found")
+        try:
+            account = set_patient_account_access(
+                session,
+                account_id,
+                principal.display_name,
+                enabled=payload.enabled,
+                clinic_id=principal.clinic_id,
+                actor_id=principal.provider_id,
+                reason=payload.reason,
+            )
+        except (AccountNotFoundError, ValueError) as exc:
+            raise HTTPException(status_code=404, detail="portal account not found") from exc
+        return {
+            "id": account.id,
+            "status": account.status,
+            "force_password_reset": account.force_password_reset,
+        }
+
     @app.post(
         "/internal/carlos/patients/{demographic_no}/unlock-secrets",
         status_code=status.HTTP_201_CREATED,
@@ -313,18 +477,13 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
         if existing_secret is not None:
             if existing_secret.status == UNLOCK_SECRET_STATUS_REVOKED:
                 raise HTTPException(status_code=409, detail="source reference was revoked")
-            plaintext = decrypt_unlock_secret_payload(
-                existing_secret,
-                encryption_keys=(
-                    runtime.unlock_secret_encryption_keys
-                    or {"primary": runtime.unlock_secret_encryption_secret}
-                ),
-            )
+            plaintext = disclose_unlock_secret(session, existing_secret, principal)
             return {
                 "id": existing_secret.id,
                 "created": False,
                 "secret": plaintext,
                 "source_reference": existing_secret.source_reference,
+                "status": existing_secret.status,
             }
         try:
             with session.begin_nested():
@@ -337,9 +496,9 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                     encryption_secret=runtime.unlock_secret_encryption_secret,
                     encryption_key_id=runtime.unlock_secret_active_key_id,
                     secret_type=payload.secret_type,
-                    secret=payload.secret,
                     label=payload.label,
                     source_reference=payload.source_reference,
+                    initial_status=UNLOCK_SECRET_STATUS_PENDING,
                 )
         except IntegrityError:
             existing_secret = session.scalar(
@@ -363,25 +522,55 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                     status_code=409,
                     detail="source reference was revoked",
                 ) from None
-            plaintext = decrypt_unlock_secret_payload(
-                existing_secret,
-                encryption_keys=(
-                    runtime.unlock_secret_encryption_keys
-                    or {"primary": runtime.unlock_secret_encryption_secret}
-                ),
-            )
+            plaintext = disclose_unlock_secret(session, existing_secret, principal)
             return {
                 "id": existing_secret.id,
                 "created": False,
                 "secret": plaintext,
                 "source_reference": existing_secret.source_reference,
+                "status": existing_secret.status,
             }
         return {
             "id": created.unlock_secret.id,
             "created": True,
             "secret": created.secret,
             "source_reference": created.unlock_secret.source_reference,
+            "status": created.unlock_secret.status,
         }
+
+    @app.post(
+        "/internal/carlos/unlock-secrets/{unlock_secret_id}/publish",
+        responses=INTERNAL_CONFLICT_RESPONSES,
+    )
+    def internal_publish_unlock_secret(
+        unlock_secret_id: Annotated[int, Path(gt=0)],
+        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        session: Annotated[Session, session_dependency],
+    ) -> dict[str, object]:
+        require_permission(principal, PERMISSION_SECRET_MANAGE)
+        demographic_no = session.scalar(
+            select(PatientPortalUnlockSecret.demographic_no).where(
+                PatientPortalUnlockSecret.id == unlock_secret_id,
+                PatientPortalUnlockSecret.clinic_id == principal.clinic_id,
+            )
+        )
+        if demographic_no is None:
+            raise HTTPException(status_code=404, detail="unlock secret not found")
+        try:
+            unlock_secret = publish_unlock_secret(
+                session,
+                unlock_secret_id,
+                clinic_id=principal.clinic_id,
+                demographic_no=demographic_no,
+                published_by=principal.display_name,
+                published_by_id=principal.provider_id,
+            )
+        except (UnlockSecretNotFoundError, UnlockSecretRevokedError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="unlock secret cannot be published",
+            ) from exc
+        return {"id": unlock_secret.id, "status": unlock_secret.status}
 
     @app.post(
         "/internal/carlos/unlock-secrets/{unlock_secret_id}/revoke",
@@ -420,12 +609,17 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     def internal_list_contact_reviews(
         principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
         session: Annotated[Session, session_dependency],
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
     ) -> dict[str, object]:
         require_permission(principal, PERMISSION_CONTACT_REVIEW)
         reviews = list_pending_contact_reviews(
             session,
             clinic_id=principal.clinic_id,
+            limit=limit,
+            offset=offset,
         )
+        total = count_pending_contact_reviews(session, clinic_id=principal.clinic_id)
         return {
             "items": [
                 {
@@ -437,9 +631,14 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                     "phone_number_before": review.phone_number_before,
                     "phone_number_after": review.phone_number_after,
                     "requested_at": review.requested_at,
+                    "revision": review.revision,
                 }
                 for review in reviews
-            ]
+            ],
+            "limit": limit,
+            "offset": offset,
+            "total": total,
+            "next_offset": offset + limit if offset + len(reviews) < total else None,
         }
 
     @app.post(
@@ -461,9 +660,12 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 reviewer=principal.display_name,
                 reviewer_id=principal.provider_id,
                 approve=payload.approve,
+                expected_revision=payload.revision,
             )
         except ContactReviewNotFoundError as exc:
             raise HTTPException(status_code=404, detail="contact review not found") from exc
+        except ContactReviewConflictError as exc:
+            raise HTTPException(status_code=409, detail="contact review revision conflict") from exc
         return {
             "id": review.id,
             "status": review.status,

@@ -1,6 +1,7 @@
 from datetime import datetime
+from secrets import token_urlsafe
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
@@ -13,8 +14,9 @@ from carlos_patient_portal.auth import (
     normalize_mfa_delivery_method,
     normalize_phone_number,
     password_matches,
+    revoke_pending_password_reset_tokens,
 )
-from carlos_patient_portal.credentials import password_hasher, validate_password
+from carlos_patient_portal.credentials import hash_password, validate_password
 from carlos_patient_portal.identity import normalize_email
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
@@ -26,6 +28,7 @@ from carlos_patient_portal.models import (
     AUDIT_OUTCOME_SUCCESS,
     CONTACT_REVIEW_DECISION_APPROVED,
     CONTACT_REVIEW_DECISION_REJECTED,
+    CONTACT_REVIEW_DECISION_SUPERSEDED,
     CONTACT_REVIEW_STATUS_PENDING,
     CONTACT_REVIEW_STATUS_REVIEWED,
     MFA_DELIVERY_METHOD_SMS,
@@ -54,6 +57,10 @@ class ContactReviewNotFoundError(Exception):
     """Raised when a staff contact review is missing or no longer pending."""
 
 
+class ContactReviewConflictError(Exception):
+    """Raised when a staff decision does not match the reviewed revision."""
+
+
 def change_account_password(
     session: Session,
     account: PatientPortalAccount,
@@ -72,9 +79,10 @@ def change_account_password(
         max_failed_password_attempts=max_failed_password_attempts,
     )
     now = utc_now()
-    account.password_hash = password_hasher.hash(new_password)
+    account.password_hash = hash_password(new_password)
     account.password_updated_at = now
     account.failed_login_count = 0
+    account.failed_mfa_count = 0
     account.updated_at = now
     revoke_other_account_sessions(
         session,
@@ -138,7 +146,7 @@ def update_account_contact(
     )
     if locked_account_id is None:
         raise AccountSettingsValidationError()
-    review_request = session.scalar(
+    previous_review_request = session.scalar(
         select(PatientPortalContactReviewRequest)
         .where(
             PatientPortalContactReviewRequest.account_id == account.id,
@@ -146,23 +154,33 @@ def update_account_contact(
         )
         .with_for_update()
     )
-    if review_request is None:
-        review_request = PatientPortalContactReviewRequest(
-            account_id=account.id,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            status=CONTACT_REVIEW_STATUS_PENDING,
-            email_before=account.email,
-            email_after=normalized_email,
-            phone_number_before=account.phone_number,
-            phone_number_after=normalized_phone_number,
-            requested_at=now,
-        )
-        session.add(review_request)
-    else:
-        review_request.email_after = normalized_email
-        review_request.phone_number_after = normalized_phone_number
-        review_request.requested_at = now
+    email_before = account.email
+    phone_number_before = account.phone_number
+    if previous_review_request is not None:
+        previous_review_request.status = CONTACT_REVIEW_STATUS_REVIEWED
+        previous_review_request.review_decision = CONTACT_REVIEW_DECISION_SUPERSEDED
+        previous_review_request.reviewed_at = now
+        previous_review_request.reviewed_by = account.username
+        previous_review_request.reviewed_by_id = str(account.id)
+
+    account.email = normalized_email
+    account.phone_number = normalized_phone_number
+    account.updated_at = now
+    cancel_pending_mfa_challenges(session, account.id, now=now)
+    revoke_pending_password_reset_tokens(session, account.id)
+    review_request = PatientPortalContactReviewRequest(
+        account_id=account.id,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        status=CONTACT_REVIEW_STATUS_PENDING,
+        revision=token_urlsafe(24),
+        email_before=email_before,
+        email_after=normalized_email,
+        phone_number_before=phone_number_before,
+        phone_number_after=normalized_phone_number,
+        requested_at=now,
+    )
+    session.add(review_request)
     session.flush()
     record_account_settings_audit_event(
         session,
@@ -219,9 +237,12 @@ def list_pending_contact_reviews(
     *,
     clinic_id: str,
     limit: int = 100,
+    offset: int = 0,
 ) -> list[PatientPortalContactReviewRequest]:
     if limit < 1 or limit > 100:
         raise ValueError("limit must be between 1 and 100")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
     return list(
         session.scalars(
             select(PatientPortalContactReviewRequest)
@@ -234,7 +255,20 @@ def list_pending_contact_reviews(
                 PatientPortalContactReviewRequest.id,
             )
             .limit(limit)
+            .offset(offset)
         )
+    )
+
+
+def count_pending_contact_reviews(session: Session, *, clinic_id: str) -> int:
+    return int(
+        session.scalar(
+            select(func.count(PatientPortalContactReviewRequest.id)).where(
+                PatientPortalContactReviewRequest.clinic_id == clinic_id,
+                PatientPortalContactReviewRequest.status == CONTACT_REVIEW_STATUS_PENDING,
+            )
+        )
+        or 0
     )
 
 
@@ -246,18 +280,27 @@ def review_contact_update(
     reviewer: str,
     reviewer_id: str,
     approve: bool,
+    expected_revision: str,
 ) -> PatientPortalContactReviewRequest:
     review_request = session.scalar(
         select(PatientPortalContactReviewRequest)
         .where(
             PatientPortalContactReviewRequest.id == review_request_id,
             PatientPortalContactReviewRequest.clinic_id == clinic_id,
-            PatientPortalContactReviewRequest.status == CONTACT_REVIEW_STATUS_PENDING,
         )
         .with_for_update()
     )
     if review_request is None:
         raise ContactReviewNotFoundError()
+    decision = (
+        CONTACT_REVIEW_DECISION_APPROVED if approve else CONTACT_REVIEW_DECISION_REJECTED
+    )
+    if review_request.revision != expected_revision:
+        raise ContactReviewConflictError()
+    if review_request.status == CONTACT_REVIEW_STATUS_REVIEWED:
+        if review_request.review_decision == decision:
+            return review_request
+        raise ContactReviewConflictError()
     account = session.scalar(
         select(PatientPortalAccount)
         .where(
@@ -270,15 +313,7 @@ def review_contact_update(
     if account is None:
         raise ContactReviewNotFoundError()
 
-    decision = (
-        CONTACT_REVIEW_DECISION_APPROVED if approve else CONTACT_REVIEW_DECISION_REJECTED
-    )
     now = utc_now()
-    if approve:
-        account.email = review_request.email_after
-        account.phone_number = review_request.phone_number_after
-        account.updated_at = now
-        cancel_pending_mfa_challenges(session, account.id, now=now)
     review_request.status = CONTACT_REVIEW_STATUS_REVIEWED
     review_request.review_decision = decision
     review_request.reviewed_at = now

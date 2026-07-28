@@ -279,5 +279,20 @@ def restore_sqlite_database(
         raise BackupDestinationExistsError(
             f"restore destination already exists: {destination_path}"
         )
+    active_sidecars = [
+        sidecar
+        for sidecar in (
+            Path(f"{destination_path}-wal"),
+            Path(f"{destination_path}-shm"),
+        )
+        if sidecar.exists()
+    ]
+    if active_sidecars:
+        raise BackupUnavailableError(
+            "SQLite restore requires the portal to be stopped and WAL sidecars removed "
+            "after a clean checkpoint"
+        )
     validate_sqlite_database(source_path)
-    return atomic_sqlite_copy(source_path, destination_path)
+    restored_path = atomic_sqlite_copy(source_path, destination_path)
+    validate_sqlite_database(restored_path)
+    return restored_path

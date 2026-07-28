@@ -67,6 +67,23 @@
               <span>{{ text.password_confirmation }}</span>
               <input type="password" name="password_confirmation" autocomplete="new-password" required>
             </label>
+            <label>
+              <span>{{ text.mfa_method }}</span>
+              <select name="mfa_delivery_method">
+                <option value="email">{{ text.mfa_email }}</option>
+                <option value="sms"{% if not sms_mfa_available %} disabled{% endif %}>{{ text.mfa_sms }}</option>
+              </select>
+            </label>
+            <label>
+              <span>{{ text.phone }}</span>
+              <input
+                type="tel"
+                name="phone_number"
+                value="{{ form_values.phone_number or '' }}"
+                maxlength="32"
+                autocomplete="tel"
+              >
+            </label>
             <p class="clinic-help-line">{{ text.password_requirements }}</p>
             <button class="primary-action" type="submit">{{ text.activate_account }}</button>
           </form>

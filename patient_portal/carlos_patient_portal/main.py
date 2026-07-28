@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import OrderedDict
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from threading import Lock
 from time import monotonic, time
 from typing import Annotated, TypeVar
 from urllib.parse import parse_qs, quote, urlencode
+from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
@@ -135,7 +137,6 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
-    MAX_UNLOCK_SECRET_ACTOR_LENGTH,
     MFA_DELIVERY_METHOD_EMAIL,
     MFA_DELIVERY_METHOD_SMS,
     UNLOCK_SECRET_STATUS_ACTIVE,
@@ -174,6 +175,7 @@ from carlos_patient_portal.sms_delivery import (
 from carlos_patient_portal.unlock_secrets import (
     DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
     MAX_UNLOCK_SECRET_LIST_LIMIT,
+    MAX_UNLOCK_SECRET_PROVIDER_FILTER_LENGTH,
     MAX_UNLOCK_SECRET_SEARCH_LENGTH,
     UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
@@ -182,7 +184,7 @@ from carlos_patient_portal.unlock_secrets import (
     count_unlock_secrets,
     get_scoped_unlock_secret,
     list_unlock_secret_provider_identities,
-    list_unlock_secret_providers,
+    list_unlock_secret_provider_options,
     list_unlock_secrets,
     read_unlock_secret,
 )
@@ -273,10 +275,17 @@ class RateLimitBucket:
 class InMemoryRateLimiter:
     """Small per-process limiter for pilot deployments before shared edge limits exist."""
 
-    def __init__(self, *, window_seconds: int, max_requests: int) -> None:
+    def __init__(
+        self,
+        *,
+        window_seconds: int,
+        max_requests: int,
+        max_buckets: int = 10_000,
+    ) -> None:
         self.window_seconds = window_seconds
         self.max_requests = max_requests
-        self.buckets: dict[str, RateLimitBucket] = {}
+        self.max_buckets = max_buckets
+        self.buckets: OrderedDict[str, RateLimitBucket] = OrderedDict()
         self.lock = Lock()
 
     def retry_after_seconds(self, key: str, *, now: float | None = None) -> int | None:
@@ -285,11 +294,14 @@ class InMemoryRateLimiter:
             self.prune_expired_buckets(current_time)
             bucket = self.buckets.get(key)
             if bucket is None:
+                if len(self.buckets) >= self.max_buckets:
+                    self.buckets.popitem(last=False)
                 self.buckets[key] = RateLimitBucket(
                     window_started_at=current_time,
                     request_count=1,
                 )
                 return None
+            self.buckets.move_to_end(key)
 
             elapsed_seconds = current_time - bucket.window_started_at
             if elapsed_seconds >= self.window_seconds:
@@ -304,12 +316,10 @@ class InMemoryRateLimiter:
             return None
 
     def prune_expired_buckets(self, current_time: float) -> None:
-        expired_keys = [
-            key
-            for key, bucket in self.buckets.items()
-            if current_time - bucket.window_started_at >= self.window_seconds
-        ]
-        for key in expired_keys:
+        while self.buckets:
+            key, bucket = next(iter(self.buckets.items()))
+            if current_time - bucket.window_started_at < self.window_seconds:
+                break
             del self.buckets[key]
 
 
@@ -374,6 +384,7 @@ class PortalRuntime:
     activation_rate_limit: ActivationRateLimit
     auth_policy: AuthPolicy
     rate_limiter: InMemoryRateLimiter
+    auth_rate_limiter: InMemoryRateLimiter
     email_sender: PortalEmailSender | None
     sms_sender: PortalSmsSender | None
     unlock_secret_encryption_keys: dict[str, str] | None = None
@@ -540,7 +551,12 @@ def is_rate_limited_path(path: str) -> bool:
 
 
 def is_maintenance_exempt_path(path: str) -> bool:
-    return path == "/health" or path.startswith("/internal/")
+    return path in {
+        "/health",
+        "/internal/health/db",
+        "/internal/readiness",
+        "/internal/metrics",
+    }
 
 
 def function_scoped_database_dependency(
@@ -585,9 +601,9 @@ def invite_response_payload(
         "created_by": invite.created_by,
         "created_at": invite.created_at,
         "updated_at": invite.updated_at,
-        "sent_count": invite.sent_count,
-        "last_sent_at": invite.last_sent_at,
-        "last_sent_by": invite.last_sent_by,
+        "issued_count": invite.sent_count,
+        "last_issued_at": invite.last_sent_at,
+        "last_issued_by": invite.last_sent_by,
         "expires_at": invite.expires_at,
         "revoked_at": invite.revoked_at,
         "revoked_by": invite.revoked_by,
@@ -976,14 +992,18 @@ def auth_error_response(
     status_code: int,
     browser_message: str,
     json_content: dict[str, object],
+    headers: dict[str, str] | None = None,
 ) -> Response:
     if is_browser_form:
-        return render_index_response(
+        response = render_index_response(
             request,
             status_code=status_code,
             error_message=browser_message,
         )
-    return JSONResponse(status_code=status_code, content=json_content)
+        if headers:
+            response.headers.update(headers)
+        return response
+    return JSONResponse(status_code=status_code, content=json_content, headers=headers)
 
 
 def index_template_context(
@@ -1133,6 +1153,7 @@ def portal_template_context(
     settings: Settings,
     active_module: str,
     csrf_token: str,
+    sms_mfa_available: bool,
     account_notice: str | None = None,
     account_error: str | None = None,
     extra_context: dict[str, object] | None = None,
@@ -1150,6 +1171,7 @@ def portal_template_context(
         "csrf_token": csrf_token,
         "account_notice": account_notice,
         "account_error": account_error,
+        "sms_mfa_available": sms_mfa_available and account.phone_number is not None,
         "text": text,
     }
     if extra_context is not None:
@@ -1157,16 +1179,21 @@ def portal_template_context(
     return context
 
 
-def dashboard_created_before(date_to: date | None) -> datetime | None:
+def dashboard_created_before(
+    date_to: date | None,
+    *,
+    timezone_name: str = "UTC",
+) -> datetime | None:
     if date_to is None:
         return None
     if date_to == date.max:
         return datetime.max.replace(tzinfo=UTC)
-    return datetime.combine(
+    local_boundary = datetime.combine(
         date_to + timedelta(days=1),
         datetime_time.min,
-        tzinfo=UTC,
+        tzinfo=ZoneInfo(timezone_name),
     )
+    return local_boundary.astimezone(UTC)
 
 
 def email_password_dashboard_context(
@@ -1178,6 +1205,7 @@ def email_password_dashboard_context(
     date_from: date | None,
     date_to: date | None,
     page: int,
+    timezone_name: str = "UTC",
     filter_error: str | None = None,
 ) -> dict[str, object]:
     text = portal_text(DEFAULT_LOCALE)
@@ -1190,11 +1218,15 @@ def email_password_dashboard_context(
     )
     has_filter_error = filter_error is not None or invalid_date_range
     created_from = (
-        datetime.combine(date_from, datetime_time.min, tzinfo=UTC)
+        datetime.combine(
+            date_from,
+            datetime_time.min,
+            tzinfo=ZoneInfo(timezone_name),
+        ).astimezone(UTC)
         if date_from is not None
         else None
     )
-    created_before = dashboard_created_before(date_to)
+    created_before = dashboard_created_before(date_to, timezone_name=timezone_name)
     total_records = (
         0
         if has_filter_error
@@ -1232,19 +1264,27 @@ def email_password_dashboard_context(
             offset=offset,
         )
     )
+    provider_options = list_unlock_secret_provider_options(
+        session,
+        clinic_id=account.clinic_id,
+        demographic_no=account.demographic_no,
+        secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+    )
     return {
         "rows": [
-            email_password_dashboard_row(record, text=text)
+            email_password_dashboard_row(
+                record,
+                text=text,
+                timezone_name=timezone_name,
+            )
             for record in records
         ],
         "search": normalized_search or "",
         "provider": normalized_provider or "",
-        "provider_options": list_unlock_secret_providers(
-            session,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-        ),
+        "provider_options": [
+            {"value": value, "label": label} for value, label in provider_options
+        ],
+        "provider_option_values": [value for value, _ in provider_options],
         "date_from": date_from.isoformat() if date_from is not None else "",
         "date_to": date_to.isoformat() if date_to is not None else "",
         "has_filters": any(
@@ -1295,12 +1335,16 @@ def email_password_dashboard_row(
     unlock_secret: PatientPortalUnlockSecret,
     *,
     text: dict[str, str],
+    timezone_name: str = "UTC",
 ) -> dict[str, object]:
     return {
         "id": unlock_secret.id,
         "subject": unlock_secret.label or text["email_password"],
         "provider": unlock_secret.created_by,
-        "sent_at": format_portal_datetime(unlock_secret.created_at),
+        "sent_at": format_portal_datetime(
+            unlock_secret.created_at,
+            timezone_name=timezone_name,
+        ),
         "source_reference": unlock_secret.source_reference,
         "is_available": unlock_secret.status == UNLOCK_SECRET_STATUS_ACTIVE,
     }
@@ -1465,6 +1509,12 @@ async def get_activation_request_from_request(
                 "health_card_number": first_form_value(form_values, "health_card_number"),
                 "username": first_form_value(form_values, "username"),
                 "password": password,
+                "mfa_delivery_method": first_form_value_or_empty(
+                    form_values,
+                    "mfa_delivery_method",
+                )
+                or MFA_DELIVERY_METHOD_EMAIL,
+                "phone_number": first_form_value(form_values, "phone_number"),
             }
         )
     except ValidationError as exc:
@@ -1824,6 +1874,12 @@ def build_portal_runtime(
     rate_limiter = InMemoryRateLimiter(
         window_seconds=settings.global_rate_limit_window_seconds,
         max_requests=settings.global_rate_limit_max_requests,
+        max_buckets=settings.rate_limit_max_buckets,
+    )
+    auth_rate_limiter = InMemoryRateLimiter(
+        window_seconds=settings.auth_rate_limit_window_seconds,
+        max_requests=settings.auth_rate_limit_max_requests,
+        max_buckets=settings.rate_limit_max_buckets,
     )
     return PortalRuntime(
         settings=settings,
@@ -1838,6 +1894,7 @@ def build_portal_runtime(
         activation_rate_limit=activation_rate_limit,
         auth_policy=auth_policy,
         rate_limiter=rate_limiter,
+        auth_rate_limiter=auth_rate_limiter,
         email_sender=(
             email_sender
             if email_sender is not None
@@ -1966,8 +2023,11 @@ def register_security_middleware(app: FastAPI, runtime: PortalRuntime) -> None:
                 )
             response.headers["Retry-After"] = str(settings.maintenance_retry_after_seconds)
         elif is_rate_limited_path(request.url.path):
-            retry_after_seconds = runtime.rate_limiter.retry_after_seconds(
-                get_request_client_reference(request, settings)
+            is_login = request.url.path == "/auth/login"
+            limiter = runtime.auth_rate_limiter if is_login else runtime.rate_limiter
+            client_reference = get_request_client_reference(request, settings)
+            retry_after_seconds = limiter.retry_after_seconds(
+                f"login:{client_reference}" if is_login else client_reference
             )
             if retry_after_seconds is None:
                 response = await call_next(request)
@@ -2194,6 +2254,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 date_from=email_password_date_from,
                 date_to=email_password_date_to,
                 page=email_password_page,
+                timezone_name=settings.clinic_timezone,
                 filter_error=email_password_filter_error,
             )
         csrf_token = create_csrf_token(runtime.csrf_secret)
@@ -2206,6 +2267,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 settings=settings,
                 active_module=active_module,
                 csrf_token=csrf_token,
+                sms_mfa_available=runtime.sms_sender is not None,
                 account_notice=account_notice,
                 account_error=account_error,
                 extra_context=extra_context,
@@ -2301,6 +2363,7 @@ def create_app(
     app.state.database_engine = runtime.database_engine
     app.state.session_factory = runtime.session_factory
     app.state.rate_limiter = runtime.rate_limiter
+    app.state.auth_rate_limiter = runtime.auth_rate_limiter
     app.state.operational_metrics = runtime.operational_metrics
     app.state.unlock_secret_encryption_secret = runtime.unlock_secret_encryption_secret
     app.mount(
@@ -2572,6 +2635,18 @@ def register_auth_routes(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 browser_message=text["mfa_delivery_unavailable"],
                 json_content={"detail": "MFA delivery method is unavailable"},
+            )
+        except MfaRateLimitedError as exc:
+            return auth_error_response(
+                is_browser_form=is_browser_form,
+                request=request,
+                render_index_response=render_index_response,
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                browser_message=text["mfa_rate_limited"].format(
+                    seconds=exc.retry_after_seconds,
+                ),
+                json_content={"detail": "MFA code was sent recently; try again later"},
+                headers={"Retry-After": str(exc.retry_after_seconds)},
             )
         if result.mfa_challenge is not None:
             session.commit()
@@ -3539,17 +3614,6 @@ def register_patient_email_password_routes(
             )
         except UnlockSecretDecryptionError:
             runtime.operational_metrics.record_failure("unlock_secret_decryption")
-            record_audit_event(
-                session,
-                event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
-                outcome=AUDIT_OUTCOME_FAILURE,
-                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
-                actor=account.username,
-                clinic_id=account.clinic_id,
-                demographic_no=account.demographic_no,
-                account_id=account.id,
-                reason="decryption_failed",
-            )
             logger.error("Unlock-secret decryption failed")
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -3643,6 +3707,16 @@ def register_portal_routes(
         if isinstance(authenticated_session, RedirectResponse):
             return authenticated_session
 
+        new_password = first_form_value_or_empty(form_values, "new_password")
+        if new_password != first_form_value_or_empty(
+            form_values,
+            "new_password_confirmation",
+        ):
+            return render_account_change_error(
+                request,
+                session,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             await run_in_threadpool(
                 change_account_password,
@@ -3650,7 +3724,7 @@ def register_portal_routes(
                 authenticated_session.account,
                 authenticated_session.portal_session,
                 current_password=first_form_value_or_empty(form_values, "current_password"),
-                new_password=first_form_value_or_empty(form_values, "new_password"),
+                new_password=new_password,
                 max_failed_password_attempts=settings.auth_max_failed_password_attempts,
             )
         except AccountSettingsStepUpError:
@@ -3706,19 +3780,23 @@ def register_portal_routes(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         if review_request is not None:
-            try:
-                await run_in_threadpool(
-                    send_contact_change_notice,
-                    runtime,
-                    recipient=review_request.email_before,
+            session.commit()
+            recipients = dict.fromkeys(
+                (
+                    review_request.email_before,
+                    review_request.email_after,
                 )
-            except PortalEmailDeliveryError:
-                runtime.operational_metrics.record_failure("contact_change_delivery")
-                logger.error("Contact-change notice delivery failed")
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="contact update could not be completed",
-                ) from None
+            )
+            for recipient in recipients:
+                try:
+                    await run_in_threadpool(
+                        send_contact_change_notice,
+                        runtime,
+                        recipient=recipient,
+                    )
+                except PortalEmailDeliveryError:
+                    runtime.operational_metrics.record_failure("contact_change_delivery")
+                    logger.error("Contact-change notice delivery failed")
         status_key = "contact-updated" if review_request is not None else "no-change"
         return RedirectResponse(
             f"/portal/account?status={status_key}",
@@ -3774,7 +3852,7 @@ def register_portal_routes(
         q: Annotated[str | None, Query(max_length=MAX_UNLOCK_SECRET_SEARCH_LENGTH)] = None,
         provider: Annotated[
             str | None,
-            Query(max_length=MAX_UNLOCK_SECRET_ACTOR_LENGTH),
+            Query(max_length=MAX_UNLOCK_SECRET_PROVIDER_FILTER_LENGTH),
         ] = None,
         date_from: Annotated[str | None, Query()] = None,
         date_to: Annotated[str | None, Query()] = None,
@@ -3860,17 +3938,6 @@ def register_portal_routes(
             )
         except UnlockSecretDecryptionError:
             runtime.operational_metrics.record_failure("unlock_secret_decryption")
-            record_audit_event(
-                session,
-                event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
-                outcome=AUDIT_OUTCOME_FAILURE,
-                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
-                actor=account.username,
-                clinic_id=account.clinic_id,
-                demographic_no=account.demographic_no,
-                account_id=account.id,
-                reason="decryption_failed",
-            )
             logger.error("Unlock-secret decryption failed")
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -3930,6 +3997,7 @@ def register_activation_routes(
             settings=settings,
             csrf_secret=csrf_secret,
             template_name=ACTIVATION_TEMPLATE,
+            sms_mfa_available=runtime.sms_sender is not None,
         )
 
     @app.post(
@@ -3971,6 +4039,24 @@ def register_activation_routes(
             "activation_client",
             get_request_client_reference(request, settings),
         )
+        if (
+            payload.mfa_delivery_method == MFA_DELIVERY_METHOD_SMS
+            and runtime.sms_sender is None
+        ):
+            if is_browser_form:
+                return render_public_auth_template(
+                    request,
+                    settings=settings,
+                    csrf_secret=csrf_secret,
+                    template_name=ACTIVATION_TEMPLATE,
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    error_message=text["mfa_delivery_unavailable"],
+                    sms_mfa_available=False,
+                )
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "MFA delivery method is unavailable"},
+            )
         try:
             account = await run_in_threadpool(
                 activate_patient_account,
@@ -3983,6 +4069,8 @@ def register_activation_routes(
                 ),
                 username=payload.username,
                 password=payload.password,
+                preferred_mfa_method=payload.mfa_delivery_method,
+                phone_number=payload.phone_number,
                 proof_secret=identity_proof_secret,
                 client_reference_hash=client_reference_hash,
                 rate_limit=activation_rate_limit,

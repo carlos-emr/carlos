@@ -4,6 +4,9 @@ import stat
 
 import pytest
 
+from carlos_patient_portal import cli
+from carlos_patient_portal.config import Settings
+from carlos_patient_portal.database import Base, create_portal_engine
 from carlos_patient_portal.maintenance import (
     BackupUnavailableError,
     backup_sqlite_database,
@@ -90,3 +93,53 @@ def test_backup_rejects_symlink_destination(tmp_path) -> None:
         )
 
     assert read_sqlite_value(target_path) == "target"
+
+
+def test_restore_rejects_live_wal_sidecars_instead_of_reporting_success(tmp_path) -> None:
+    database_path = tmp_path / "live.db"
+    backup_path = tmp_path / "backup.db"
+    create_sqlite_database(database_path, "live")
+    create_sqlite_database(backup_path, "backup")
+
+    connection = sqlite3.connect(database_path)
+    try:
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("UPDATE sample SET value = 'live-wal'")
+        connection.commit()
+        assert (tmp_path / "live.db-wal").exists()
+
+        with pytest.raises(BackupUnavailableError, match="portal to be stopped"):
+            restore_sqlite_database(
+                f"sqlite+pysqlite:///{database_path}",
+                backup_path,
+                overwrite=True,
+            )
+
+        assert connection.execute("SELECT value FROM sample").fetchone() == ("live-wal",)
+    finally:
+        connection.close()
+
+
+def test_transient_cleanup_cli_reports_each_table_count(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "cleanup.db"
+    settings = Settings(
+        environment="development",
+        database_url=f"sqlite+pysqlite:///{database_path}",
+    )
+    engine = create_portal_engine(settings.database_url)
+    Base.metadata.create_all(engine)
+    engine.dispose()
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+
+    cli.maintenance(["cleanup-transient-auth", "--dry-run"])
+
+    output = capsys.readouterr().out
+    assert "sessions=0" in output
+    assert "mfa_challenges=0" in output
+    assert "reset_tokens=0" in output
+    assert "invites=0" in output
+    assert "total=0" in output

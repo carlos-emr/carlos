@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 DEFAULT_LOCALE = "en"
-DATETIME_FORMATS = {DEFAULT_LOCALE: "%Y-%m-%d %H:%M"}
+DATETIME_FORMATS = {DEFAULT_LOCALE: "%Y-%m-%d %H:%M %Z"}
 SIGN_IN_LABEL = "Sign in"
 
 
@@ -26,7 +27,9 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "account": "Account",
         "account_change_error": "Account change could not be completed.",
         "account_help": "Account help",
-        "account_status_contact_updated": "Contact update sent for staff review.",
+        "account_status_contact_updated": (
+            "Portal contact updated. Staff will review the matching CARLOS demographics."
+        ),
         "account_status_mfa_updated": "MFA settings updated.",
         "account_status_no_change": "No account changes.",
         "account_status_password_updated": "Password updated.",
@@ -53,6 +56,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "contact_info": "Contact info",
         "contact_the_clinic": "Contact the clinic",
         "copy": "Copy",
+        "copy_failed": "Select and copy manually",
         "copied": "Copied",
         "current_password": "Current password",
         "dashboard": "Dashboard",
@@ -205,6 +209,11 @@ def supported_locale_options(current_locale: str = DEFAULT_LOCALE) -> tuple[dict
     )
 
 
-def format_portal_datetime(value: datetime, locale: str = DEFAULT_LOCALE) -> str:
+def format_portal_datetime(
+    value: datetime,
+    locale: str = DEFAULT_LOCALE,
+    timezone_name: str = "UTC",
+) -> str:
     date_format = DATETIME_FORMATS.get(locale, DATETIME_FORMATS[DEFAULT_LOCALE])
-    return value.strftime(date_format)
+    utc_value = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return utc_value.astimezone(ZoneInfo(timezone_name)).strftime(date_format)

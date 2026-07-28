@@ -6,6 +6,8 @@ from urllib.parse import urlsplit
 
 from carlos_patient_portal.config import Settings
 
+MAX_SMS_GATEWAY_RESPONSE_BYTES = 4096
+
 
 class PortalSmsDeliveryError(Exception):
     """Raised when a portal authentication SMS cannot be delivered."""
@@ -82,7 +84,9 @@ class WebhookPortalSmsSender:
                 },
             )
             response = connection.getresponse()
-            response.read()
+            response_body = response.read(MAX_SMS_GATEWAY_RESPONSE_BYTES + 1)
+            if len(response_body) > MAX_SMS_GATEWAY_RESPONSE_BYTES:
+                raise PortalSmsDeliveryError("portal SMS gateway response was too large")
             if not 200 <= response.status < 300:
                 raise PortalSmsDeliveryError("portal SMS delivery failed")
         except PortalSmsDeliveryError:

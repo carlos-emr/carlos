@@ -20,7 +20,8 @@ The MVP foundation currently includes:
   logout, password reset, lockout, staff unlock, and forced reset after unlock.
 - Authenticated dashboard landing page with Account, Email passwords, and Help modules plus disabled
   placeholders for future Documents and Messages modules.
-- Encrypted unlock-secret storage service for generated email/PDF passphrases.
+- Encrypted unlock-secret storage service for generated passphrases used by CARLOS encrypted email
+  attachments.
 - Pilot hardening hooks for readiness checks, maintenance mode, coarse request throttling, audit
   retention pruning, and local SQLite backup/restore drills.
 - Patient-scoped FHIR R4 metadata/read/search endpoints with bounded paging and access auditing,
@@ -33,11 +34,12 @@ The MVP foundation currently includes:
 
 | Slice | Portal status | Remaining integration |
 | --- | --- | --- |
-| Foundation, invite, activation, auth/MFA | Implemented and tested | CARLOS must call the internal staff endpoints |
-| Dashboard, unlock secrets, email-password API/UI | Implemented and tested | CARLOS must publish source records through the internal API |
-| Account settings | Implemented and tested | CARLOS must present pending contact reviews to authorized staff |
-| FHIR R4 and HL7 v2.5.1 | Implemented and validator-tested | Additional resources/messages require new explicit profiles |
-| Pilot hardening | Implemented baseline | Deployment owner must configure alerts, protected audit export, backups, and restore drills |
+| Foundation and activation | Portal implementation and tests present | CARLOS invite delivery and activation-link UI are not wired |
+| Authentication and MFA | Portal implementation and account-scoped controls present | Durable reset delivery and shared edge throttling are pilot blockers |
+| Dashboard and email passwords | Portal implementation and responsive tests present | CARLOS must confirm successful message delivery before publishing each password |
+| Account settings | Portal contact changes are immediate; immutable sync reviews are queued | CARLOS must update eChart then idempotently confirm the reviewed revision |
+| FHIR R4 and HL7 v2.5.1 | Scoped resources and conformance artifacts are validator-tested | This is a narrow portal profile, not a general-purpose exchange server |
+| Pilot hardening | In-process controls and operator commands are present | External monitoring, audit export, managed backups, and restore drills remain required |
 
 The portal-side API contract is deployable only after the CARLOS Java application is wired to it.
 Green portal CI does not by itself prove that staff can reach these actions from CARLOS.
@@ -149,7 +151,10 @@ in the link fragment so they are not sent in the initial HTTP request or written
 Matched password-reset requests are limited to one email per account per minute by default; tune
 this with `PATIENT_PORTAL_PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS`.
 Production delivery runs after the uniform HTTP response so SMTP latency does not disclose whether
-the submitted identity matched an account.
+the submitted identity matched an account. That handoff currently uses an in-process
+`BackgroundTasks` callback and is not durable across worker loss. A production pilot must replace
+it with a transactional outbox/queue with idempotent retry; until then, reset delivery remains a
+documented pilot blocker.
 
 Production SMS uses an authenticated HTTPS JSON webhook configured with
 `PATIENT_PORTAL_SMS_WEBHOOK_URL` and `PATIENT_PORTAL_SMS_WEBHOOK_TOKEN`. The provider adapter receives
@@ -175,6 +180,9 @@ The test refuses public hosts unless `ALLOW_NON_LOCAL_BASE_URL=true` is delibera
 
 `PATIENT_PORTAL_CLINIC_ID` defaults to `default`; set a stable clinic identifier before using a
 shared or persistent database so CARLOS `demographic_no` values are scoped correctly.
+`PATIENT_PORTAL_CLINIC_TIMEZONE` defaults to `America/Toronto`. Set the clinic's IANA timezone so
+dashboard timestamps and date filters use the clinic's local calendar day; FHIR instants and
+database storage remain UTC.
 If the same value is used in HL7 v2 messages, keep it to letters, numbers, dots, underscores, or
 hyphens, and 20 characters or fewer.
 
@@ -218,6 +226,7 @@ Authentication defaults:
 - MFA is required by default and cannot be disabled in production.
 - Password login and account-setting step-up lock the account after 10 failed password attempts.
 - MFA verification locks the account after 10 failed code attempts.
+- MFA failures and delivery cooldowns are account-scoped across replacement challenges.
 - MFA codes expire after 10 minutes.
 - Email MFA resend is limited to once per minute.
 - SMS MFA is available when the account has a valid phone number and the webhook sender is
@@ -240,10 +249,14 @@ For `X-Forwarded-For`, the portal walks the chain from the right and uses the fi
 
 Pilot hardening defaults:
 
-- Coarse per-process request throttling allows 300 patient-facing requests per client per minute.
-  Tune with `PATIENT_PORTAL_GLOBAL_RATE_LIMIT_WINDOW_SECONDS` and
-  `PATIENT_PORTAL_GLOBAL_RATE_LIMIT_MAX_REQUESTS`. Keep edge/load-balancer throttles in front of
-  this service for multi-instance deployments.
+- Coarse per-process request throttling allows 300 patient-facing requests per client per minute,
+  while login is limited to 10 attempts per client per minute before Argon2 work is scheduled.
+  Tune with `PATIENT_PORTAL_GLOBAL_RATE_LIMIT_WINDOW_SECONDS`,
+  `PATIENT_PORTAL_GLOBAL_RATE_LIMIT_MAX_REQUESTS`,
+  `PATIENT_PORTAL_AUTH_RATE_LIMIT_WINDOW_SECONDS`, and
+  `PATIENT_PORTAL_AUTH_RATE_LIMIT_MAX_REQUESTS`. The bucket cache is bounded by
+  `PATIENT_PORTAL_RATE_LIMIT_MAX_BUCKETS`. Keep shared edge/load-balancer throttles in front of
+  every production deployment because worker-local counters are not distributed.
 - `PATIENT_PORTAL_MAINTENANCE_MODE=true` returns `503` and `Retry-After` on patient-facing routes
   while keeping `/health`, `/internal/health/db`, and `/internal/readiness` available. Tune the
   retry hint with `PATIENT_PORTAL_MAINTENANCE_RETRY_AFTER_SECONDS`.
@@ -283,6 +296,11 @@ This PR adds the portal foundation, initial staff invite table, initial patient 
 initial audit event table. It also adds portal-owned session, MFA challenge, password reset token,
 and encrypted unlock-secret tables.
 
+Migration `0003_portal_lifecycle_hardening` refuses to downgrade while v3-only encrypted records,
+pending secrets, disabled accounts, superseded reviews, or v3 audit events exist. This prevents a
+rollback from dropping encryption context or lifecycle evidence. Preserve or transform those rows
+under an approved retention and key-management procedure before retrying a downgrade.
+
 ## Pilot Operations
 
 Run audit retention pruning from an installed wheel:
@@ -302,6 +320,11 @@ carlos-patient-portal-maintenance backup-sqlite --output /secure/backups/portal.
 carlos-patient-portal-maintenance restore-sqlite --input /secure/backups/portal.db --overwrite
 ```
 
+Stop every portal process and SQLite client before restore. The restore command rejects an existing
+destination `-wal` or `-shm` sidecar rather than risking a false-success restore over live WAL state;
+checkpoint and close the database cleanly, verify the sidecars are gone, run restore, then restart
+the application and readiness checks.
+
 PostgreSQL deployments should use managed database snapshots, PITR, or `pg_dump`/`pg_restore` from
 the deployment platform. Before a pilot, run and document at least one restore drill against a
 non-production database.
@@ -318,6 +341,18 @@ carlos-patient-portal-maintenance rotate-unlock-secrets --batch-size 100
 
 Repeat until the command reports zero, verify reads and a backup, then retire the old key. New writes
 always use the active key; reads select the retained key by each record's `encryption_key_id`.
+The rotation command also upgrades legacy unlock-secret ciphertext to the record-bound v2
+encryption context.
+
+The remaining secrets have deliberately different rotation behavior:
+
+- Rotating `PATIENT_PORTAL_SESSION_SECRET` invalidates all sessions, MFA challenges, reset tokens,
+  and CSRF tokens. Schedule it as a patient sign-out event.
+- Rotating `PATIENT_PORTAL_IDENTITY_PROOF_SECRET` invalidates pending invitations; reissue them
+  after cutover.
+- Rotating `PATIENT_PORTAL_AUDIT_HASH_SECRET` changes pseudonymous client/invite correlations;
+  record the cutover time for investigations.
+- Rotating `PATIENT_PORTAL_INTERNAL_API_TOKEN` requires a coordinated CARLOS/portal cutover.
 
 ## CARLOS Internal API
 
@@ -331,14 +366,16 @@ Permissions are deliberately narrow:
 
 - `portal.invite.manage`: create, list, resend, and revoke clinic-scoped invites.
 - `portal.account.unlock`: unlock a patient and require a fresh password reset.
-- `portal.secret.manage`: idempotently create and revoke generated email/PDF passphrases.
+- `portal.account.manage`: read portal status and disable/re-enable patient access.
+- `portal.secret.manage`: idempotently create, publish, and revoke generated email passphrases.
 - `portal.contact.review`: list and approve/reject pending patient contact changes.
 
 The service token authenticates CARLOS itself; provider ID and permissions must be derived from the
 authenticated CARLOS session by the CARLOS server, never accepted from a browser. Every mutation
 retains the stable provider ID, display snapshot, clinic scope, and target resource in the audit
-trail. A duplicate unlock-secret `source_reference` returns the original record and plaintext so a
-CARLOS retry after a timeout is safe; a revoked source reference returns a conflict.
+trail. A duplicate unlock-secret `source_reference` returns the original record and plaintext
+through the same audited disclosure path, so a CARLOS retry after a timeout is safe; a revoked
+source reference returns a conflict.
 
 ## Development Invite API
 
@@ -376,6 +413,10 @@ curl -X POST http://127.0.0.1:8090/dev/admin/accounts/1/unlock \
 ```
 
 Invite tokens are shown only on create/resend responses. The database stores only the token hash.
+The API reports `issued_count`, `last_issued_at`, and `last_issued_by`; these describe token
+issuance, not successful email/SMS delivery. Resend invalidates the previous token immediately, so
+CARLOS must deliver the returned replacement and record delivery outcome in its own durable
+messaging workflow.
 When identity proof is supplied, the database stores only per-invite salted keyed hashes of email,
 date of birth, and HCN/HIN values. Invites carry a seven-day `expires_at` timestamp so the activation
 endpoint has a clear server-side expiry boundary. Invite list responses default to 10 records and are
@@ -404,13 +445,17 @@ curl -X POST http://127.0.0.1:8090/auth/activate \
     "date_of_birth": "1980-05-20",
     "health_card_number": "ABCD-1234 5678",
     "username": "patient.username",
-    "password": "Stronger1!word"
+    "password": "Stronger1!word",
+    "mfa_delivery_method": "sms",
+    "phone_number": "+16135550199"
   }'
 ```
 
 Activation checks the invite code, email, date of birth, and HCN/HIN together and returns a generic
 failure when they do not match. Usernames are normalized to lowercase and must be unique. Passwords
-are hashed with Argon2id before storage.
+are hashed with Argon2id before storage. Activation chooses email MFA by default; SMS enrollment
+requires a valid phone number and a configured SMS gateway, and the first delivered code verifies
+control of that destination.
 
 Activation accepts the CSRF-protected browser form or `application/json`; request bodies are capped
 at 16 KiB before validation. Failed activation attempts are audited and rate-limited without storing
@@ -494,24 +539,33 @@ Dashboard routes:
 
 The dashboard is server-rendered and responsive. Desktop uses a left module rail; mobile uses a
 horizontal module bar with logout kept in the top-right header area.
-Contact edits create or update a staff-review request; they do not immediately replace the email
-address used for MFA and password reset.
+Contact edits immediately update the portal account, revoke outstanding reset/MFA factors tied to
+the old destination, notify both addresses, and create a new immutable CARLOS demographic-sync
+review. CARLOS must update eChart first and then confirm the exact review `revision`; repeat
+confirmations are idempotent and stale revisions return a conflict. Contact-change notices are sent
+only after the database commit, but their delivery is not yet backed by a durable outbox; clinics
+must treat the notice delivery metric as a pilot blocker until retryable delivery is wired.
 
 ## Unlock Secret Storage
 
-`carlos_patient_portal.unlock_secrets` owns generated passphrase storage for CARLOS emails/PDFs.
+`carlos_patient_portal.unlock_secrets` owns generated passphrase storage for encrypted CARLOS
+emails.
 It provides service functions to generate, create, list, read/decrypt, and revoke secrets. Stored
 passphrases use AES-256-GCM with a key derived from
 `PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET`; audit events record create/read/revoke without
 storing the raw passphrase.
 
-For production integration, `/internal/carlos/patients/{demographic_no}/unlock-secrets` provides
-clinic-scoped, permission-checked, idempotent create behavior using `source_reference`; revoke uses
-`/internal/carlos/unlock-secrets/{id}/revoke`. The caller supplies a service Bearer token plus
+For production integration, `/internal/carlos/patients/{demographic_no}/unlock-secrets` generates a
+clinic-scoped, permission-checked, idempotent password in `pending` state using `source_reference`.
+After CARLOS successfully encrypts and sends the message it calls
+`/internal/carlos/unlock-secrets/{id}/publish`; send failure calls
+`/internal/carlos/unlock-secrets/{id}/revoke`. Patient and FHIR surfaces expose only published
+records. The caller supplies a service Bearer token plus
 authenticated CARLOS provider ID, display name, clinic ID, and permission headers. Stable provider
 IDs and target secret IDs are retained in the audit trail.
 
-Generated values use the PR #3135 format `word-word-###-word-word-###`, selecting four words
+The normal internal API never accepts caller-supplied plaintext. Generated values use the PR #3135
+format `word-word-###-word-word-###`, selecting four words
 uniformly from the reviewed 4096-word list and six independent decimal digits. This provides about
 68 bits of entropy while remaining copyable and readable to patients.
 

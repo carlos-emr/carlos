@@ -286,6 +286,42 @@ function screenshotPath(name) {
       path: screenshotPath('patient-portal-dashboard-mobile'),
       fullPage: true,
     });
+    await page.getByRole('link', { name: 'Account', exact: true }).click();
+    await page.waitForURL(/\/portal\/account$/);
+    await page.getByRole('heading', { name: 'Account' }).waitFor();
+    assert(
+      await page.locator('input[name="new_password_confirmation"][required]').count() === 1,
+      'account password confirmation is missing'
+    );
+    assert(
+      await page.locator('select[name="preferred_mfa_method"] option[value="sms"]:disabled').count()
+        === 1,
+      'account SMS option must reflect the unavailable test sender'
+    );
+    const mfaSettingsForm = page.locator('form', {
+      has: page.locator('select[name="preferred_mfa_method"]'),
+    });
+    await mfaSettingsForm.locator('select[name="preferred_mfa_method"]').selectOption('email');
+    await mfaSettingsForm.locator('input[name="current_password"]').fill(testPassword);
+    await Promise.all([
+      page.waitForURL((url) => (
+        url.pathname === '/portal/account'
+        && url.searchParams.get('status') === 'mfa-updated'
+      )),
+      mfaSettingsForm.getByRole('button', { name: 'Update MFA' }).click(),
+    ]);
+    await page.getByRole('status').filter({ hasText: 'MFA settings updated.' }).waitFor();
+    await page.screenshot({
+      path: screenshotPath('patient-portal-account-mobile'),
+      fullPage: true,
+    });
+    await page.getByRole('link', { name: 'Help', exact: true }).click();
+    await page.waitForURL(/\/portal\/help$/);
+    await page.getByRole('heading', { name: 'Help' }).waitFor();
+    await page.screenshot({
+      path: screenshotPath('patient-portal-help-mobile'),
+      fullPage: true,
+    });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('link', { name: 'Email passwords', exact: true }).click();
     await page.waitForURL(/\/portal\/email-passwords$/);
@@ -318,6 +354,24 @@ function screenshotPath(name) {
       clipboardPassphrase === firstPassphrase,
       'Copy control did not write the displayed passphrase'
     );
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: () => Promise.reject(new Error('clipboard denied by test')),
+        },
+      });
+    });
+    const secondPasswordRow = page.locator('.email-password-table tbody tr').nth(1);
+    await secondPasswordRow.getByRole('button', { name: 'Reveal' }).click();
+    await secondPasswordRow.getByRole('button', { name: 'Copy' }).click();
+    await secondPasswordRow.getByRole('button', { name: 'Select and copy manually' }).waitFor();
+    assert(
+      await secondPasswordRow.locator('.copyable-password').evaluate(
+        (element) => window.getSelection().toString() === element.textContent.trim()
+      ),
+      'clipboard denial fallback did not select the displayed passphrase'
+    );
 
     await page.locator('input[name="q"]').fill('Care');
     await Promise.all([
@@ -336,6 +390,29 @@ function screenshotPath(name) {
       await page.getByText('Referral package password', { exact: true }).count() === 0,
       'Care search returned a non-matching email-password record'
     );
+    await Promise.all([
+      page.waitForURL(/\/portal\/email-passwords$/),
+      page.getByRole('link', { name: 'Clear filters' }).click(),
+    ]);
+    await Promise.all([
+      page.waitForURL((url) => url.searchParams.get('page') === '2'),
+      page.getByRole('link', { name: 'Next' }).click(),
+    ]);
+    await page.getByText('Page 2 of 2', { exact: true }).waitFor();
+    assert(
+      await page.locator('.email-password-table tbody tr').count() === 2,
+      'second page should contain the final two seeded records'
+    );
+    await Promise.all([
+      page.waitForURL(/\/portal\/email-passwords$/),
+      page.getByRole('link', { name: 'Previous' }).click(),
+    ]);
+    await page.locator('input[name="q"]').fill('No such message');
+    await Promise.all([
+      page.waitForURL((url) => url.searchParams.get('q') === 'No such message'),
+      page.getByRole('button', { name: 'Search' }).click(),
+    ]);
+    await page.getByText('No matching email passwords', { exact: true }).waitFor();
     await Promise.all([
       page.waitForURL(/\/portal\/email-passwords$/),
       page.getByRole('link', { name: 'Clear filters' }).click(),
@@ -377,6 +454,8 @@ function screenshotPath(name) {
     console.log(`MFA mobile screenshot: ${screenshotPath('patient-portal-mfa-mobile')}`);
     console.log(`Desktop screenshot: ${screenshotPath('patient-portal-live-desktop')}`);
     console.log(`Dashboard mobile screenshot: ${screenshotPath('patient-portal-dashboard-mobile')}`);
+    console.log(`Account mobile screenshot: ${screenshotPath('patient-portal-account-mobile')}`);
+    console.log(`Help mobile screenshot: ${screenshotPath('patient-portal-help-mobile')}`);
     console.log(`Mobile screenshot: ${screenshotPath('patient-portal-live-mobile')}`);
   } finally {
     await context.close().catch(() => {});

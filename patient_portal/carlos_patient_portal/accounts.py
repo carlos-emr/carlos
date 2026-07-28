@@ -11,7 +11,8 @@ from carlos_patient_portal.audit import (
     record_audit_event,
     summarize_recent_activation_failures,
 )
-from carlos_patient_portal.credentials import password_hasher, validate_password, validate_username
+from carlos_patient_portal.auth import normalize_mfa_delivery_method, normalize_phone_number
+from carlos_patient_portal.credentials import hash_password, validate_password, validate_username
 from carlos_patient_portal.identity import IdentityProof, normalize_email, verify_identity_proof
 from carlos_patient_portal.invites import hash_invite_token
 from carlos_patient_portal.models import (
@@ -23,6 +24,7 @@ from carlos_patient_portal.models import (
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     MFA_DELIVERY_METHOD_EMAIL,
+    MFA_DELIVERY_METHOD_SMS,
     PatientPortalAccount,
     PatientPortalInvite,
     utc_now,
@@ -165,6 +167,8 @@ def activate_patient_account(
     identity_proof: IdentityProof,
     username: str,
     password: str,
+    preferred_mfa_method: str = MFA_DELIVERY_METHOD_EMAIL,
+    phone_number: str | None = None,
     proof_secret: str,
     client_reference_hash: str,
     rate_limit: ActivationRateLimit,
@@ -176,6 +180,10 @@ def activate_patient_account(
     normalized_username = validate_username(username)
     validate_password(password)
     normalized_email = normalize_email(identity_proof.email)
+    normalized_mfa_method = normalize_mfa_delivery_method(preferred_mfa_method)
+    normalized_phone_number = normalize_phone_number(phone_number)
+    if normalized_mfa_method == MFA_DELIVERY_METHOD_SMS and normalized_phone_number is None:
+        raise ActivationError()
     invite_token_hash = hash_invite_token(normalized_invite_code)
     now = utc_now()
     enforce_activation_rate_limit(
@@ -250,8 +258,9 @@ def activate_patient_account(
         demographic_no=invite.demographic_no,
         username=normalized_username,
         email=normalized_email,
-        preferred_mfa_method=MFA_DELIVERY_METHOD_EMAIL,
-        password_hash=password_hasher.hash(password),
+        phone_number=normalized_phone_number,
+        preferred_mfa_method=normalized_mfa_method,
+        password_hash=hash_password(password),
         status=ACCOUNT_STATUS_ACTIVE,
         failed_login_count=0,
         force_password_reset=False,

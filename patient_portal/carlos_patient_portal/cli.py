@@ -163,14 +163,20 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                 return
             if args.command == "cleanup-transient-auth":
                 cutoff = audit_retention_cutoff(args.retention_days)
-                cleanup_transient_auth_rows(
+                cleanup_result = cleanup_transient_auth_rows(
                     session,
                     before=cutoff,
                     batch_size=args.batch_size,
                     dry_run=args.dry_run,
                 )
                 action = "dry run completed" if args.dry_run else "cleanup completed"
-                print(f"transient authentication {action}")
+                print(
+                    "transient authentication "
+                    f"{action}: sessions={cleanup_result.sessions} "
+                    f"mfa_challenges={cleanup_result.mfa_challenges} "
+                    f"reset_tokens={cleanup_result.reset_tokens} "
+                    f"invites={cleanup_result.invites} total={cleanup_result.total}"
+                )
                 return
 
             cutoff = audit_retention_cutoff(settings.audit_retention_days)

@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from carlos_patient_portal.auth import normalize_phone_number
 from carlos_patient_portal.credentials import (
     MAX_PASSWORD_LENGTH,
     validate_password,
@@ -45,9 +46,9 @@ class InviteResponse(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
-    sent_count: int
-    last_sent_at: datetime
-    last_sent_by: str
+    issued_count: int
+    last_issued_at: datetime
+    last_issued_by: str
     expires_at: datetime
     revoked_at: datetime | None
     revoked_by: str | None
@@ -70,6 +71,8 @@ class ActivationRequest(BaseModel):
     )
     username: str = Field(min_length=1)
     password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH, repr=False)
+    mfa_delivery_method: MfaDeliveryMethod = "email"
+    phone_number: str | None = Field(default=None, max_length=32)
 
     @field_validator("invite_code")
     @classmethod
@@ -104,6 +107,14 @@ class ActivationRequest(BaseModel):
     @classmethod
     def validate_activation_password(cls, value: str) -> str:
         return validate_password(value)
+
+    @model_validator(mode="after")
+    def validate_mfa_enrollment(self) -> "ActivationRequest":
+        normalized_phone = normalize_phone_number(self.phone_number)
+        if self.mfa_delivery_method == "sms" and normalized_phone is None:
+            raise ValueError("phone_number is required for SMS MFA")
+        self.phone_number = normalized_phone
+        return self
 
 
 class ActivationResponse(BaseModel):

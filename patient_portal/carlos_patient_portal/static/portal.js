@@ -82,17 +82,32 @@ document.addEventListener("click", (event) => {
     target.select();
     target.setSelectionRange(0, target.value.length);
   }
-  if (!navigator.clipboard) {
-    return;
-  }
-
-  void navigator.clipboard.writeText(copyValue).then(() => {
-    const originalText = copyButton.textContent || copyButton.dataset.copyLabel || "Copy";
-    copyButton.textContent = copyButton.dataset.copiedLabel || "Copied";
-    window.setTimeout(() => {
-      copyButton.textContent = originalText;
-    }, 1500);
-  });
+  const originalText = copyButton.textContent || copyButton.dataset.copyLabel || "Copy";
+  const copyPromise = navigator.clipboard
+    ? navigator.clipboard.writeText(copyValue)
+    : Promise.reject(new Error("clipboard unavailable"));
+  void copyPromise
+    .then(() => {
+      copyButton.textContent = copyButton.dataset.copiedLabel || "Copied";
+    })
+    .catch(() => {
+      copyButton.textContent = (
+        copyButton.dataset.copyFailedLabel || "Select and copy manually"
+      );
+      target.focus();
+      const selection = window.getSelection();
+      if (!(target instanceof HTMLInputElement) && selection) {
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    })
+    .finally(() => {
+      window.setTimeout(() => {
+        copyButton.textContent = originalText;
+      }, 2500);
+    });
 });
 
 const resetTokenForm = document.querySelector("[data-reset-token-form]");

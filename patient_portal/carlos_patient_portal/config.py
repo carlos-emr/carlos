@@ -3,6 +3,7 @@ from functools import lru_cache
 from ipaddress import ip_address, ip_network
 from typing import Literal
 from urllib.parse import parse_qs, urlsplit, urlunsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -62,6 +63,7 @@ class Settings(BaseSettings):
     environment: Environment = "production"
     clinic_id: str = Field(default="default", max_length=MAX_CLINIC_ID_LENGTH)
     clinic_name: str = "Maple Creek Medical"
+    clinic_timezone: str = Field(default="America/Toronto", min_length=1, max_length=64)
     public_base_url: str | None = Field(default=None, max_length=2048)
     database_url: str = DEFAULT_DATABASE_URL
     database_pool_size: int = Field(default=DEFAULT_DATABASE_POOL_SIZE, ge=1, le=100)
@@ -132,6 +134,9 @@ class Settings(BaseSettings):
     )
     global_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
     global_rate_limit_max_requests: int = Field(default=300, ge=1, le=10000)
+    auth_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
+    auth_rate_limit_max_requests: int = Field(default=10, ge=1, le=100)
+    rate_limit_max_buckets: int = Field(default=10_000, ge=100, le=1_000_000)
     audit_retention_days: int = Field(default=DEFAULT_AUDIT_RETENTION_DAYS, ge=365, le=100 * 365)
     maintenance_mode: bool = False
     maintenance_retry_after_seconds: int = Field(default=5 * 60, ge=60, le=24 * 60 * 60)
@@ -254,6 +259,16 @@ class Settings(BaseSettings):
         if not clinic_id:
             raise ValueError("PATIENT_PORTAL_CLINIC_ID must not be blank")
         return clinic_id
+
+    @field_validator("clinic_timezone")
+    @classmethod
+    def validate_clinic_timezone(cls, value: str) -> str:
+        timezone_name = value.strip()
+        try:
+            ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("PATIENT_PORTAL_CLINIC_TIMEZONE must be an IANA timezone") from exc
+        return timezone_name
 
     @field_validator(
         "session_secret",

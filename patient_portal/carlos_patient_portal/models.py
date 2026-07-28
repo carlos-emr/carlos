@@ -20,10 +20,13 @@ INVITE_STATUS_PENDING = "pending"
 INVITE_STATUS_REVOKED = "revoked"
 INVITE_STATUS_ACCEPTED = "accepted"
 ACCOUNT_STATUS_ACTIVE = "active"
+ACCOUNT_STATUS_DISABLED = "disabled"
 AUDIT_ACTOR_TYPE_PATIENT = "patient"
 AUDIT_ACTOR_TYPE_STAFF = "staff"
 AUDIT_EVENT_ACTIVATION = "activation"
 AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE = "account.contact_update"
+AUDIT_EVENT_ACCOUNT_DISABLE = "account.disable"
+AUDIT_EVENT_ACCOUNT_ENABLE = "account.enable"
 AUDIT_EVENT_ACCOUNT_LOCK = "account.lock"
 AUDIT_EVENT_ACCOUNT_MFA_UPDATE = "account.mfa_update"
 AUDIT_EVENT_ACCOUNT_PASSWORD_CHANGE = "account.password_change"
@@ -41,10 +44,12 @@ AUDIT_EVENT_PASSWORD_RESET_COMPLETE = "password_reset.complete"
 AUDIT_EVENT_PASSWORD_RESET_DELIVERY = "password_reset.delivery"
 AUDIT_EVENT_PASSWORD_RESET_REQUEST = "password_reset.request"
 AUDIT_EVENT_SESSION_LOGOUT = "session.logout"
+AUDIT_EVENT_STAFF_ACTION = "staff.action"
 AUDIT_EVENT_FHIR_READ = "fhir.read"
 AUDIT_EVENT_FHIR_SEARCH = "fhir.search"
 AUDIT_EVENT_UNLOCK_SECRET_CREATE = "unlock_secret.create"
 AUDIT_EVENT_UNLOCK_SECRET_LIST = "unlock_secret.list"
+AUDIT_EVENT_UNLOCK_SECRET_PUBLISH = "unlock_secret.publish"
 AUDIT_EVENT_UNLOCK_SECRET_READ = "unlock_secret.read"
 AUDIT_EVENT_UNLOCK_SECRET_REVOKE = "unlock_secret.revoke"
 AUDIT_OUTCOME_FAILURE = "failure"
@@ -61,11 +66,15 @@ PASSWORD_RESET_STATUS_USED = "used"
 SESSION_REVOKED_REASON_LOGOUT = "logout"
 SESSION_REVOKED_REASON_PASSWORD_CHANGE = "password_change"
 SESSION_REVOKED_REASON_PASSWORD_RESET = "password_reset"
+SESSION_REVOKED_REASON_ACCOUNT_DISABLED = "account_disabled"
 CONTACT_REVIEW_STATUS_PENDING = "pending"
 CONTACT_REVIEW_STATUS_REVIEWED = "reviewed"
 CONTACT_REVIEW_DECISION_APPROVED = "approved"
 CONTACT_REVIEW_DECISION_REJECTED = "rejected"
-UNLOCK_SECRET_STATUS_ACTIVE = "active"
+CONTACT_REVIEW_DECISION_SUPERSEDED = "superseded"
+UNLOCK_SECRET_STATUS_PENDING = "pending"
+UNLOCK_SECRET_STATUS_AVAILABLE = "available"
+UNLOCK_SECRET_STATUS_ACTIVE = UNLOCK_SECRET_STATUS_AVAILABLE
 UNLOCK_SECRET_STATUS_REVOKED = "revoked"
 UNLOCK_SECRET_TYPE_EMAIL = "email"
 UNLOCK_SECRET_TYPE_PDF = "pdf"
@@ -121,7 +130,7 @@ class PatientPortalAccount(Base):
             name="ck_patient_portal_accounts_username_length",
         ),
         CheckConstraint(
-            "status in ('active')",
+            "status in ('active', 'disabled')",
             name="ck_patient_portal_accounts_status",
         ),
         CheckConstraint(
@@ -137,6 +146,10 @@ class PatientPortalAccount(Base):
             name="ck_patient_portal_accounts_failed_login_count_non_negative",
         ),
         CheckConstraint(
+            "failed_mfa_count >= 0",
+            name="ck_patient_portal_accounts_failed_mfa_count_non_negative",
+        ),
+        CheckConstraint(
             "locked_by is null or length(locked_by) between 1 and 128",
             name="ck_patient_portal_accounts_locked_by_length",
         ),
@@ -144,6 +157,11 @@ class PatientPortalAccount(Base):
             "(locked_at is null and locked_by is null) or "
             "(locked_at is not null and locked_by is not null)",
             name="ck_patient_portal_accounts_lock_fields_complete",
+        ),
+        CheckConstraint(
+            "(status = 'active' and disabled_at is null and disabled_by is null) or "
+            "(status = 'disabled' and disabled_at is not null and disabled_by is not null)",
+            name="ck_patient_portal_accounts_disabled_fields_complete",
         ),
         UniqueConstraint(
             "clinic_id",
@@ -171,11 +189,27 @@ class PatientPortalAccount(Base):
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_mfa_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     locked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     locked_by_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    disabled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    disabled_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    disabled_by_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    disabled_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     force_password_reset: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_mfa_email_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_mfa_sms_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -245,7 +279,7 @@ class PatientPortalContactReviewRequest(Base):
             (
                 "status != 'reviewed' or "
                 "(reviewed_at is not null and reviewed_by is not null and "
-                "review_decision in ('approved', 'rejected'))"
+                "review_decision in ('approved', 'rejected', 'superseded'))"
             ),
             name="ck_pp_contact_review_reviewed_present",
         ),
@@ -267,6 +301,11 @@ class PatientPortalContactReviewRequest(Base):
             "status",
             "requested_at",
         ),
+        Index(
+            "ux_pp_contact_review_revision",
+            "revision",
+            unique=True,
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -277,6 +316,7 @@ class PatientPortalContactReviewRequest(Base):
     clinic_id: Mapped[str] = mapped_column(String(MAX_CLINIC_ID_LENGTH), nullable=False)
     demographic_no: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
+    revision: Mapped[str] = mapped_column(String(64), nullable=False)
     email_before: Mapped[str] = mapped_column(String(MAX_EMAIL_LENGTH), nullable=False)
     email_after: Mapped[str] = mapped_column(String(MAX_EMAIL_LENGTH), nullable=False)
     phone_number_before: Mapped[str | None] = mapped_column(
@@ -648,7 +688,7 @@ class PatientPortalUnlockSecret(Base):
             name="ck_patient_portal_unlock_secrets_secret_type",
         ),
         CheckConstraint(
-            "status in ('active', 'revoked')",
+            "status in ('pending', 'available', 'revoked')",
             name="ck_patient_portal_unlock_secrets_status",
         ),
         CheckConstraint(
@@ -670,6 +710,10 @@ class PatientPortalUnlockSecret(Base):
         CheckConstraint(
             "length(encryption_key_id) between 1 and 64",
             name="ck_patient_portal_unlock_secrets_key_id_length",
+        ),
+        CheckConstraint(
+            "encryption_context is null or length(encryption_context) = 36",
+            name="ck_patient_portal_unlock_secrets_context_length",
         ),
         CheckConstraint(
             f"length(encryption_nonce) = {UNLOCK_SECRET_NONCE_LENGTH}",
@@ -753,6 +797,7 @@ class PatientPortalUnlockSecret(Base):
         String(MAX_UNLOCK_SECRET_KEY_ID_LENGTH),
         nullable=False,
     )
+    encryption_context: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_by: Mapped[str] = mapped_column(String(MAX_UNLOCK_SECRET_ACTOR_LENGTH), nullable=False)
     created_by_id: Mapped[str | None] = mapped_column(
         String(MAX_UNLOCK_SECRET_ACTOR_LENGTH),
@@ -804,15 +849,17 @@ class PatientPortalAuditEvent(Base):
         CheckConstraint(
             (
                 "event_type in "
-                "('activation', 'account.contact_update', 'account.lock', "
+                "('activation', 'account.contact_update', 'account.disable', "
+                "'account.enable', 'account.lock', "
                 "'account.mfa_update', 'account.password_change', 'account.unlock', "
                 "'invite.create', 'invite.list', 'invite.resend', 'invite.revoke', "
                 "'login', 'mfa.challenge', 'mfa.delivery', 'mfa.resend', 'mfa.verify', "
                 "'password_reset.complete', 'password_reset.delivery', "
                 "'password_reset.request', 'session.logout', "
+                "'staff.action', "
                 "'fhir.read', 'fhir.search', "
                 "'unlock_secret.create', 'unlock_secret.list', 'unlock_secret.read', "
-                "'unlock_secret.revoke')"
+                "'unlock_secret.publish', 'unlock_secret.revoke')"
             ),
             name="ck_patient_portal_audit_events_event_type",
         ),

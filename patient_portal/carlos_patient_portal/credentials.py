@@ -1,4 +1,5 @@
 import re
+from threading import BoundedSemaphore
 
 from argon2 import PasswordHasher
 
@@ -8,6 +9,7 @@ MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 256
 USERNAME_PATTERN = re.compile(r"^[a-z0-9._-]+$")
 PASSWORD_SYMBOL_PATTERN = re.compile(r"[^A-Za-z0-9]")
+PASSWORD_HASH_MAX_CONCURRENCY = 4
 password_hasher = PasswordHasher(
     time_cost=3,
     memory_cost=65536,
@@ -15,6 +17,17 @@ password_hasher = PasswordHasher(
     hash_len=32,
     salt_len=16,
 )
+password_hash_semaphore = BoundedSemaphore(PASSWORD_HASH_MAX_CONCURRENCY)
+
+
+def hash_password(password: str) -> str:
+    with password_hash_semaphore:
+        return password_hasher.hash(password)
+
+
+def verify_password(password_hash: str, password: str) -> bool:
+    with password_hash_semaphore:
+        return password_hasher.verify(password_hash, password)
 
 
 def validate_username(username: str) -> str:

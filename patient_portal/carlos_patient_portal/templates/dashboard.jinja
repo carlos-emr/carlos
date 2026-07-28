@@ -82,10 +82,10 @@
               <h1>{{ text.account }}</h1>
             </header>
             {% if account_notice %}
-              <p class="form-notice">{{ account_notice }}</p>
+              <p class="form-notice" role="status">{{ account_notice }}</p>
             {% endif %}
             {% if account_error %}
-              <p class="form-error">{{ account_error }}</p>
+              <p class="form-error" role="alert">{{ account_error }}</p>
             {% endif %}
             <dl class="detail-list">
               <div>
@@ -112,11 +112,15 @@
                   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <label>
                     {{ text.current_password }}
-                    <input type="password" name="current_password" autocomplete="current-password">
+                    <input type="password" name="current_password" autocomplete="current-password" required>
                   </label>
                   <label>
                     {{ text.new_password }}
-                    <input type="password" name="new_password" autocomplete="new-password">
+                    <input type="password" name="new_password" autocomplete="new-password" required>
+                  </label>
+                  <label>
+                    {{ text.new_password_confirmation }}
+                    <input type="password" name="new_password_confirmation" autocomplete="new-password" required>
                   </label>
                   <button class="primary-action" type="submit">{{ text.update_password }}</button>
                 </form>
@@ -142,7 +146,7 @@
                   </label>
                   <label>
                     {{ text.current_password }}
-                    <input type="password" name="current_password" autocomplete="current-password">
+                    <input type="password" name="current_password" autocomplete="current-password" required>
                   </label>
                   <button class="primary-action" type="submit">{{ text.update_contact }}</button>
                 </form>
@@ -156,12 +160,16 @@
                     {{ text.mfa_method }}
                     <select name="preferred_mfa_method">
                       <option value="email"{% if account.preferred_mfa_method == "email" %} selected{% endif %}>{{ text.mfa_email }}</option>
-                      <option value="sms" disabled>{{ text.mfa_sms }}</option>
+                      <option
+                        value="sms"
+                        {% if account.preferred_mfa_method == "sms" %}selected{% endif %}
+                        {% if not sms_mfa_available %}disabled{% endif %}
+                      >{{ text.mfa_sms }}</option>
                     </select>
                   </label>
                   <label>
                     {{ text.current_password }}
-                    <input type="password" name="current_password" autocomplete="current-password">
+                    <input type="password" name="current_password" autocomplete="current-password" required>
                   </label>
                   <button class="primary-action" type="submit">{{ text.update_mfa }}</button>
                 </form>
@@ -187,11 +195,11 @@
                 <span>{{ text.provider }}</span>
                 <select id="email-password-provider" name="provider">
                   <option value="">{{ text.all_providers }}</option>
-                  {% if email_passwords.provider and email_passwords.provider not in email_passwords.provider_options %}
+                  {% if email_passwords.provider and email_passwords.provider not in email_passwords.provider_option_values %}
                     <option value="{{ email_passwords.provider }}" selected>{{ email_passwords.provider }}</option>
                   {% endif %}
                   {% for provider in email_passwords.provider_options %}
-                    <option value="{{ provider }}"{% if provider == email_passwords.provider %} selected{% endif %}>{{ provider }}</option>
+                    <option value="{{ provider.value }}"{% if provider.value == email_passwords.provider %} selected{% endif %}>{{ provider.label }}</option>
                   {% endfor %}
                 </select>
               </label>
@@ -258,6 +266,7 @@
                                 data-copy-target="email-password-{{ row.id }}"
                                 data-copy-label="{{ text['copy'] }}"
                                 data-copied-label="{{ text.copied }}"
+                                data-copy-failed-label="{{ text.copy_failed }}"
                                 hidden
                               >{{ text['copy'] }}</button>
                             </div>

@@ -29,6 +29,10 @@ permissions:
 jobs:
   patient-portal:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
     services:
       postgres:
         image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
@@ -53,17 +57,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: patient_portal/requirements.lock
 
       - name: Set up Node.js
+        if: matrix.python-version == '3.12'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
 
       - name: Set up Java 21
+        if: matrix.python-version == '3.12'
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: "temurin"
@@ -73,6 +79,7 @@ jobs:
         run: python -m pip install --require-hashes -r requirements.lock
 
       - name: Install browser test dependencies
+        if: matrix.python-version == '3.12'
         working-directory: .
         run: |
           npm ci
@@ -97,6 +104,7 @@ jobs:
         run: python -m compileall carlos_patient_portal tests
 
       - name: Cache FHIR validator CLI
+        if: matrix.python-version == '3.12'
         id: cache-fhir-validator
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -104,7 +112,7 @@ jobs:
           key: fhir-validator-${{ env.FHIR_VALIDATOR_VERSION }}-${{ env.FHIR_VALIDATOR_SHA256 }}
 
       - name: Download FHIR validator CLI
-        if: steps.cache-fhir-validator.outputs.cache-hit != 'true'
+        if: matrix.python-version == '3.12' && steps.cache-fhir-validator.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/fhir-validator"
           curl -fsSL --retry 3 --proto '=https' --tlsv1.2 \
@@ -112,6 +120,7 @@ jobs:
             "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${FHIR_VALIDATOR_VERSION}/validator_cli.jar"
 
       - name: Verify FHIR validator CLI checksum
+        if: matrix.python-version == '3.12'
         run: |
           printf '%s  %s\n' \
             "$FHIR_VALIDATOR_SHA256" \
@@ -119,12 +128,14 @@ jobs:
           sha256sum -c "$RUNNER_TEMP/fhir-validator/validator.sha256"
 
       - name: Cache FHIR package cache
+        if: matrix.python-version == '3.12'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.fhir/packages
           key: fhir-package-cache-r4-4.0.1-validator-${{ env.FHIR_VALIDATOR_VERSION }}
 
       - name: Validate FHIR examples
+        if: matrix.python-version == '3.12'
         run: |
           python tests/fhir_examples.py "$RUNNER_TEMP/fhir-examples"
           java -jar "$RUNNER_TEMP/fhir-validator/validator_cli.jar" \
@@ -141,6 +152,7 @@ jobs:
         run: alembic -c alembic.ini upgrade head
 
       - name: Run PostgreSQL migrations
+        if: matrix.python-version == '3.12'
         env:
           PATIENT_PORTAL_ENVIRONMENT: development
           PATIENT_PORTAL_DATABASE_URL: "postgresql+psycopg://carlos_portal:carlos_portal@127.0.0.1:5432/carlos_portal"
@@ -150,11 +162,13 @@ jobs:
           alembic -c alembic.ini upgrade head
 
       - name: Run PostgreSQL security integration tests
+        if: matrix.python-version == '3.12'
         env:
           PORTAL_TEST_POSTGRES_URL: "postgresql+psycopg://carlos_portal:carlos_portal@127.0.0.1:5432/carlos_portal"
         run: python -m pytest -q tests/test_postgresql_integration.py
 
       - name: Run patient portal Playwright smoke test
+        if: matrix.python-version == '3.12'
         working-directory: .
         env:
           PATIENT_PORTAL_ENVIRONMENT: development
@@ -185,7 +199,7 @@ jobs:
           npm run test:patient-portal-playwright
 
       - name: Upload Playwright diagnostics
-        if: failure()
+        if: failure() && matrix.python-version == '3.12'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: patient-portal-playwright
@@ -194,9 +208,11 @@ jobs:
             /tmp/patient-portal-uvicorn.log
 
       - name: Build wheel
+        if: matrix.python-version == '3.12'
         run: python -m build --wheel --no-isolation
 
       - name: Validate runtime lock
+        if: matrix.python-version == '3.12'
         run: |
           python -m venv "$RUNNER_TEMP/patient-portal-runtime"
           . "$RUNNER_TEMP/patient-portal-runtime/bin/activate"

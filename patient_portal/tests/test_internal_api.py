@@ -3,15 +3,20 @@ from sqlalchemy import select
 
 from carlos_patient_portal.account_settings import update_account_contact
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
+from carlos_patient_portal.credentials import hash_password
 from carlos_patient_portal.database import Base
 from carlos_patient_portal.main import create_app
 from carlos_patient_portal.models import (
     AUDIT_EVENT_ACCOUNT_UNLOCK,
     AUDIT_EVENT_INVITE_CREATE,
+    AUDIT_EVENT_STAFF_ACTION,
     AUDIT_EVENT_UNLOCK_SECRET_CREATE,
+    AUDIT_EVENT_UNLOCK_SECRET_PUBLISH,
+    AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_EVENT_UNLOCK_SECRET_REVOKE,
     PatientPortalAccount,
     PatientPortalAuditEvent,
+    PatientPortalContactReviewRequest,
     PatientPortalInvite,
     PatientPortalUnlockSecret,
     utc_now,
@@ -24,7 +29,7 @@ UNLOCK_SECRET = "u" * MIN_PRODUCTION_SECRET_LENGTH
 PASSWORD = "Stronger1!word"
 
 
-def internal_app():
+def internal_app(**overrides: object):
     app = create_app(
         Settings(
             environment="development",
@@ -33,6 +38,7 @@ def internal_app():
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
             unlock_secret_encryption_secret=UNLOCK_SECRET,
+            **overrides,
         )
     )
     Base.metadata.create_all(app.state.database_engine)
@@ -83,6 +89,33 @@ def test_internal_api_requires_service_authentication_and_permission() -> None:
     assert missing_auth.status_code == 404
     assert wrong_token.status_code == 404
     assert missing_permission.status_code == 403
+    with client.app.state.session_factory() as session:
+        failures = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_STAFF_ACTION)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+        assert [event.reason for event in failures] == [
+            "authentication_failed",
+            "authentication_failed",
+            "authorization_failed",
+        ]
+
+
+def test_maintenance_mode_blocks_internal_business_mutations() -> None:
+    client = TestClient(internal_app(maintenance_mode=True))
+
+    mutation = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_request(),
+    )
+    health = client.get("/health")
+
+    assert mutation.status_code == 503
+    assert health.status_code == 200
 
 
 def test_internal_invite_records_stable_provider_identity() -> None:
@@ -174,6 +207,10 @@ def test_internal_unlock_secret_is_idempotent_scoped_and_target_audited() -> Non
         headers=headers,
         json=request,
     )
+    published = client.post(
+        f"/internal/carlos/unlock-secrets/{created.json()['id']}/publish",
+        headers=headers,
+    )
     cross_patient_replay = client.post(
         "/internal/carlos/patients/5678/unlock-secrets",
         headers=headers,
@@ -192,9 +229,12 @@ def test_internal_unlock_secret_is_idempotent_scoped_and_target_audited() -> Non
 
     assert created.status_code == 201
     assert created.json()["created"] is True
+    assert created.json()["status"] == "pending"
     assert repeated.status_code == 201
     assert repeated.json()["created"] is False
     assert repeated.json()["secret"] == created.json()["secret"]
+    assert published.status_code == 200
+    assert published.json()["status"] == "available"
     assert cross_patient_replay.status_code == 409
     assert cross_clinic_revoke.status_code == 404
     assert revoked.status_code == 200
@@ -207,6 +247,8 @@ def test_internal_unlock_secret_is_idempotent_scoped_and_target_audited() -> Non
                     PatientPortalAuditEvent.event_type.in_(
                         {
                             AUDIT_EVENT_UNLOCK_SECRET_CREATE,
+                            AUDIT_EVENT_UNLOCK_SECRET_PUBLISH,
+                            AUDIT_EVENT_UNLOCK_SECRET_READ,
                             AUDIT_EVENT_UNLOCK_SECRET_REVOKE,
                         }
                     )
@@ -220,7 +262,93 @@ def test_internal_unlock_secret_is_idempotent_scoped_and_target_audited() -> Non
         assert [(event.resource_type, event.resource_id) for event in events] == [
             ("unlock_secret", str(secret.id)),
             ("unlock_secret", str(secret.id)),
+            ("unlock_secret", str(secret.id)),
+            ("unlock_secret", str(secret.id)),
         ]
+
+
+def test_internal_unlock_secret_rejects_caller_plaintext_and_pdf_type() -> None:
+    client = TestClient(internal_app())
+    headers = carlos_headers("portal.secret.manage")
+
+    supplied_secret = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=headers,
+        json={
+            "source_reference": "weak-message",
+            "secret_type": "email",
+            "secret": "x",
+        },
+    )
+    pdf_type = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=headers,
+        json={
+            "source_reference": "pdf-message",
+            "secret_type": "pdf",
+        },
+    )
+
+    assert supplied_secret.status_code == 422
+    assert pdf_type.status_code == 422
+
+
+def test_internal_unlock_secret_is_hidden_until_carlos_publishes_it() -> None:
+    app = internal_app()
+    client = TestClient(app)
+    invite = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_request(),
+    )
+    client.post(
+        "/auth/activate",
+        json={
+            "invite_code": invite.json()["invite_token"],
+            "email": "example.patient@example.com",
+            "date_of_birth": "1980-05-20",
+            "health_card_number": "ABCD 1234-5678",
+            "username": "patient.user",
+            "password": PASSWORD,
+        },
+    )
+    login = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": PASSWORD},
+    )
+    verified = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": login.json()["mfa_challenge_token"],
+            "code": login.json()["development_mfa_code"],
+        },
+    )
+    patient_headers = {
+        "Authorization": f"Bearer {verified.json()['session_token']}",
+    }
+    created = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=carlos_headers("portal.secret.manage"),
+        json={"source_reference": "delivery-pending", "secret_type": "email"},
+    )
+    before_publish = client.get(
+        "/api/patient/email-passwords",
+        headers=patient_headers,
+    )
+    published = client.post(
+        f"/internal/carlos/unlock-secrets/{created.json()['id']}/publish",
+        headers=carlos_headers("portal.secret.manage"),
+    )
+    after_publish = client.get(
+        "/api/patient/email-passwords",
+        headers=patient_headers,
+    )
+
+    assert before_publish.json()["items"] == []
+    assert published.json()["status"] == "available"
+    assert [item["id"] for item in after_publish.json()["items"]] == [
+        created.json()["id"]
+    ]
 
 
 def test_internal_staff_unlock_forces_fresh_password_reset() -> None:
@@ -272,6 +400,62 @@ def test_internal_staff_unlock_forces_fresh_password_reset() -> None:
         assert audit.actor_id == "provider-42"
 
 
+def test_internal_staff_can_disable_and_reenable_portal_access() -> None:
+    app = internal_app()
+    client = TestClient(app)
+    invite = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_request(),
+    )
+    client.post(
+        "/auth/activate",
+        json={
+            "invite_code": invite.json()["invite_token"],
+            "email": "example.patient@example.com",
+            "date_of_birth": "1980-05-20",
+            "health_card_number": "ABCD 1234-5678",
+            "username": "patient.user",
+            "password": PASSWORD,
+        },
+    )
+    headers = carlos_headers("portal.account.manage")
+
+    initial = client.get(
+        "/internal/carlos/patients/1234/portal-account",
+        headers=headers,
+    )
+    disabled = client.post(
+        "/internal/carlos/patients/1234/portal-account/access",
+        headers=headers,
+        json={"enabled": False, "reason": "patient_requested"},
+    )
+    disabled_login = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": PASSWORD},
+    )
+    cross_clinic = client.post(
+        "/internal/carlos/patients/1234/portal-account/access",
+        headers=carlos_headers("portal.account.manage", clinic_id="clinic-b"),
+        json={"enabled": True, "reason": "staff_reviewed"},
+    )
+    enabled = client.post(
+        "/internal/carlos/patients/1234/portal-account/access",
+        headers=headers,
+        json={"enabled": True, "reason": "staff_reviewed"},
+    )
+
+    assert initial.json()["status"] == "active"
+    assert disabled.json()["status"] == "disabled"
+    assert disabled_login.status_code == 401
+    assert cross_clinic.status_code == 404
+    assert enabled.json() == {
+        "id": initial.json()["id"],
+        "status": "active",
+        "force_password_reset": True,
+    }
+
+
 def test_internal_contact_review_is_clinic_scoped_and_applies_staff_decision() -> None:
     app = internal_app()
     client = TestClient(app)
@@ -306,6 +490,7 @@ def test_internal_contact_review_is_clinic_scoped_and_applies_staff_decision() -
             )
             assert review is not None
             review_id = review.id
+            review_revision = review.revision
 
     cross_clinic = client.get(
         "/internal/carlos/contact-reviews",
@@ -318,12 +503,12 @@ def test_internal_contact_review_is_clinic_scoped_and_applies_staff_decision() -
     approved = client.post(
         f"/internal/carlos/contact-reviews/{review_id}/decision",
         headers=carlos_headers("portal.contact.review"),
-        json={"approve": True},
+        json={"approve": True, "revision": review_revision},
     )
     replay = client.post(
         f"/internal/carlos/contact-reviews/{review_id}/decision",
         headers=carlos_headers("portal.contact.review"),
-        json={"approve": True},
+        json={"approve": True, "revision": review_revision},
     )
 
     assert cross_clinic.status_code == 200
@@ -332,7 +517,7 @@ def test_internal_contact_review_is_clinic_scoped_and_applies_staff_decision() -
     assert [item["id"] for item in pending.json()["items"]] == [review_id]
     assert approved.status_code == 200
     assert approved.json()["decision"] == "approved"
-    assert replay.status_code == 404
+    assert replay.status_code == 200
     with app.state.session_factory() as session:
         account = session.scalar(select(PatientPortalAccount))
         assert account is not None
@@ -373,11 +558,12 @@ def test_internal_contact_review_rejection_retains_current_contact() -> None:
             )
             assert review is not None
             review_id = review.id
+            review_revision = review.revision
 
     rejected = client.post(
         f"/internal/carlos/contact-reviews/{review_id}/decision",
         headers=carlos_headers("portal.contact.review"),
-        json={"approve": False},
+        json={"approve": False, "revision": review_revision},
     )
 
     assert rejected.status_code == 200
@@ -385,4 +571,121 @@ def test_internal_contact_review_rejection_retains_current_contact() -> None:
     with app.state.session_factory() as session:
         account = session.scalar(select(PatientPortalAccount))
         assert account is not None
-        assert account.email == "example.patient@example.com"
+        assert account.email == "rejected.patient@example.com"
+
+
+def test_internal_contact_review_rejects_superseded_revision() -> None:
+    app = internal_app()
+    client = TestClient(app)
+    invite = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_request(),
+    )
+    client.post(
+        "/auth/activate",
+        json={
+            "invite_code": invite.json()["invite_token"],
+            "email": "example.patient@example.com",
+            "date_of_birth": "1980-05-20",
+            "health_card_number": "ABCD 1234-5678",
+            "username": "patient.user",
+            "password": PASSWORD,
+        },
+    )
+    with app.state.session_factory() as session:
+        with session.begin():
+            account = session.scalar(select(PatientPortalAccount))
+            assert account is not None
+            first = update_account_contact(
+                session,
+                account,
+                current_password=PASSWORD,
+                email="first.patient@example.com",
+                phone_number=None,
+                max_failed_password_attempts=10,
+            )
+            second = update_account_contact(
+                session,
+                account,
+                current_password=PASSWORD,
+                email="second.patient@example.com",
+                phone_number=None,
+                max_failed_password_attempts=10,
+            )
+            assert first is not None and second is not None
+            first_id = first.id
+            first_revision = first.revision
+
+    stale = client.post(
+        f"/internal/carlos/contact-reviews/{first_id}/decision",
+        headers=carlos_headers("portal.contact.review"),
+        json={"approve": True, "revision": first_revision},
+    )
+
+    assert stale.status_code == 409
+    with app.state.session_factory() as session:
+        account = session.scalar(select(PatientPortalAccount))
+        assert account is not None
+        assert account.email == "second.patient@example.com"
+
+
+def test_internal_contact_review_feed_pages_beyond_one_hundred_requests() -> None:
+    app = internal_app()
+    client = TestClient(app)
+    now = utc_now()
+    password_hash = hash_password(PASSWORD)
+    with app.state.session_factory() as session:
+        with session.begin():
+            accounts = [
+                PatientPortalAccount(
+                    clinic_id="clinic-a",
+                    demographic_no=10_000 + index,
+                    username=f"review.patient.{index}",
+                    email=f"review.patient.{index}@example.com",
+                    preferred_mfa_method="email",
+                    password_hash=password_hash,
+                    status="active",
+                    created_at=now,
+                    updated_at=now,
+                    password_updated_at=now,
+                )
+                for index in range(101)
+            ]
+            session.add_all(accounts)
+            session.flush()
+            session.add_all(
+                [
+                    PatientPortalContactReviewRequest(
+                        account_id=account.id,
+                        clinic_id=account.clinic_id,
+                        demographic_no=account.demographic_no,
+                        status="pending",
+                        revision=f"review-revision-{index}",
+                        email_before=account.email,
+                        email_after=f"updated.{account.email}",
+                        requested_at=now,
+                    )
+                    for index, account in enumerate(accounts)
+                ]
+            )
+
+    first_page = client.get(
+        "/internal/carlos/contact-reviews",
+        headers=carlos_headers("portal.contact.review"),
+        params={"limit": 100, "offset": 0},
+    )
+    second_page = client.get(
+        "/internal/carlos/contact-reviews",
+        headers=carlos_headers("portal.contact.review"),
+        params={"limit": 100, "offset": 100},
+    )
+
+    assert first_page.status_code == 200
+    assert len(first_page.json()["items"]) == 100
+    assert first_page.json()["total"] == 101
+    assert first_page.json()["next_offset"] == 100
+    assert second_page.status_code == 200
+    assert len(second_page.json()["items"]) == 1
+    assert second_page.json()["total"] == 101
+    assert second_page.json()["next_offset"] is None
