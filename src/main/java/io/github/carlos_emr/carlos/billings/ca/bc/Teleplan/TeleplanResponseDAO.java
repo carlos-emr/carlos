@@ -27,15 +27,16 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanResponseLogDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+
 /**
- * @author jay
+ * Data Access Object for persisting raw and processed Teleplan responses.
+ * Maintains a historical record of all provincial remittance advice for audit purposes.
  */
 public class TeleplanResponseDAO {
 

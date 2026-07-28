@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import java.util.ArrayList;
@@ -43,13 +42,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
 /**
- * @author jay
+ * Data Access Object for tracking provider billing activity.
+ * Used primarily for generating productivity reports and financial summaries.
  */
 public class BillActivityDAO {
 
     private BillActivityDao dao = SpringUtils.getBean(BillActivityDao.class);
-
 
     public BillActivityDAO() {
     }
@@ -102,7 +102,6 @@ public class BillActivityDAO {
 
         return batchCount;
     }
-
 
     public int saveBillactivity(String monthCode, String batchCount, String htmlFilename, String mspFilename, String providerNo, String htmlFile, String mspFile, Date date, int records, String fileTotal) {
         BillActivity b = new BillActivity();

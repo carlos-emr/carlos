@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.io.BufferedWriter;
@@ -37,8 +36,10 @@ import java.io.FileWriter;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+
 /**
- * @author jay
+ * Orchestration service for Teleplan workflows.
+ * Coordinates batch generation, API communication, and response reconciliation for BC billing.
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();
@@ -48,7 +49,6 @@ public class TeleplanService {
      */
     public TeleplanService() {
     }
-
 
     ////////
 //     public int findExpectedSequenceNumber(){
@@ -60,12 +60,10 @@ public class TeleplanService {
 //        return i;
 //    }
 
-
     public TeleplanAPI getTeleplanAPI(String username, String password) throws Exception {
         TeleplanAPI tAPI = new TeleplanAPI(); //
 
         TeleplanResponse tr = tAPI.login(username, password);
-
 
         if (tr != null && tr.getResult().equals("SUCCESS")) {
             return tAPI;
@@ -74,7 +72,6 @@ public class TeleplanService {
 
         throw new Exception(tr.getMsgs());
     }
-
 
     //////
     public static int findExpectedSequenceNumber(String errormsg) throws Exception {
@@ -87,7 +84,6 @@ public class TeleplanService {
         String numStr = errormsg.substring(i + 10);
         return Integer.parseInt(numStr);
     }
-
 
     //ATTEMPT to get the latest sequence number from teleplan.	
     //Creates a one-line (just the header )submission file with the last possible sequence number in it. 
@@ -164,11 +160,9 @@ public class TeleplanService {
         log.debug(tr.toString());
         */
 
-
     //  tr = tAPI.logoff();
     //  log.debug(tr.toString());
 
     ////////
-
 
 }

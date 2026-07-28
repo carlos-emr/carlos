@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.BufferedOutputStream;
@@ -53,7 +52,6 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 /**
  * Holds Data about a teleplan submission
  *
- * @author jay
  */
 public class TeleplanSubmission {
 
@@ -67,7 +65,6 @@ public class TeleplanSubmission {
     private BigDecimal bigTotal = null;
     private ArrayList logList = null;
     private int totalClaims = 0;
-
 
     /**
      * Creates a new instance of TeleplanSubmission
@@ -86,7 +83,6 @@ public class TeleplanSubmission {
         this.logList = logList;
         this.totalClaims = totalClaims;
     }
-
 
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -121,7 +117,6 @@ public class TeleplanSubmission {
     public BigDecimal getBigTotal() {
         return bigTotal;
     }
-
 
     // -commit log
     // +commit billing
@@ -171,7 +166,6 @@ public class TeleplanSubmission {
                 this.getNumClaims(),
                 this.getBigTotal().toString());
 
-
         BillingmasterDAO billingmaster = SpringUtils.getBean(BillingmasterDAO.class);
         billingmaster.markListAsBilled(billingmasterToBeMarkedAsBilled);
 
@@ -193,7 +187,6 @@ public class TeleplanSubmission {
 
     }
 
-
     //NEEDS TO BE MOVED OUT OF HERE    
     private void markListAsBilled(List<String> list) {
         for (Billing b : billingDao.findSet(list)) {
@@ -201,7 +194,6 @@ public class TeleplanSubmission {
             billingDao.merge(b);
         }
     }
-
 
     public void writeFile(String fileName, File home_dir) throws Exception {
         File file = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(fileName), home_dir);
@@ -229,6 +221,5 @@ public class TeleplanSubmission {
             p.println(fileValue); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- MSP billing data stream
         }
     }
-
 
 }

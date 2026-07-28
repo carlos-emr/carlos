@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.BufferedReader;
@@ -63,18 +62,19 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+
+/**
+ * Struts 2 Action for generating Teleplan Authorization (TA) records.
+ * Facilitates the workflow for requesting and recording pre-authorizations for specific procedures.
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
-
 
     private TeleplanS21Dao s21Dao = SpringUtils.getBean(TeleplanS21Dao.class);
     private TeleplanS00Dao s00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
@@ -83,27 +83,24 @@ public class GenTa2Action extends ActionSupport {
     private TeleplanS22Dao s22Dao = SpringUtils.getBean(TeleplanS22Dao.class);
     private TeleplanC12Dao c12Dao = SpringUtils.getBean(TeleplanC12Dao.class);
 
-
     /**
      * Creates a new instance of GenTaAction
      */
     public GenTa2Action() {
     }
 
-
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute()
             throws IOException, ServletException, Exception {
+        /* Processes the authorization request, validating the clinical justification before securely communicating with the Teleplan network. */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-
-
         MSPReconcile mspReconcile = new MSPReconcile();
-
 
         int recFlag = 0;
         String raNo = "";
@@ -276,7 +273,6 @@ public class GenTa2Action extends ActionSupport {
 
                     s00Dao.persist(t);
 
-
                     if (header.equals("S02")) { //header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
                         mspReconcile.updateStat(MSPReconcile.PAIDWITHEXP, s02.getBillingMasterNo());
                     } else if (header.equals("S03")) {
@@ -346,7 +342,6 @@ public class GenTa2Action extends ActionSupport {
                     t.setFiller(s04.t_filler);
 
                     s00Dao.persist(t);
-
 
                     mspReconcile.updateStat(MSPReconcile.HELD, s04.getBillingMasterNo());
                 }
@@ -547,7 +542,6 @@ class S21 {
 
     }
 
-
     public String getT_datacenter() {
         return t_datacenter;
     }
@@ -599,7 +593,6 @@ class S21 {
     public String getT_filler() {
         return t_filler;
     }
-
 
 }
 
@@ -737,7 +730,6 @@ class S01 {
     }
 }
 
-
 class S02 {//{") == 0 || header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
     //if (header.equals("S02")){ //header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
     //}else if (header.equals("S03")){
@@ -799,7 +791,6 @@ class S02 {//{") == 0 || header.compareTo("S00") == 0 || header.compareTo("S03")
     String t_icbcwcb;
     String t_filler;
 
-
     void parse(String nextline) {
         t_s00type = nextline.substring(0, 3);
         t_datacenter = nextline.substring(3, 8);
@@ -860,7 +851,6 @@ class S02 {//{") == 0 || header.compareTo("S00") == 0 || header.compareTo("S03")
 
     public String[] getParam(String filename, String raNo) {
 
-
         String[] param02 = new String[54];
         param02[0] = raNo;
         param02[1] = filename; //(30),
@@ -920,9 +910,7 @@ class S02 {//{") == 0 || header.compareTo("S00") == 0 || header.compareTo("S03")
         return param02;
     }
 
-
 }
-
 
 class S04 {
 
@@ -1116,7 +1104,6 @@ class S23 { //S24
         t_filler = nextline.substring(134, 165);
     }
 
-
     String[] getParams(String filename, String raNo) {
         String[] param23 = new String[22];
         param23[0] = raNo;
@@ -1175,7 +1162,6 @@ class S25 {
     String t_message;
     String t_filler;
 
-
     void parse(String nextline) {
         t_s25type = nextline.substring(0, 3);
         t_datacenter = nextline.substring(3, 8);
@@ -1188,7 +1174,6 @@ class S25 {
         t_message = nextline.substring(40, 120);
         t_filler = nextline.substring(120, 165);
     }
-
 
     String[] getParams(String filename, String raNo) {
 
@@ -1240,7 +1225,6 @@ class S22 {
     String t_amtpaid;
     String t_filler;
 
-
     void parse(String nextline) {
         t_s22type = nextline.substring(0, 3);
         t_datacenter = nextline.substring(3, 8);
@@ -1255,7 +1239,6 @@ class S22 {
         t_amtpaid = nextline.substring(74, 83);
         t_filler = nextline.substring(83, 165);
     }
-
 
     String[] getParams(String filename, String raNo) {
         String[] param22 = new String[14];
@@ -1298,7 +1281,6 @@ class C12 {
     private String t_officefolioclaimno;
     private String t_filler;
 
-
     void parse(String nextline) {
         t_c12type = nextline.substring(0, 3);
         t_datacenter = nextline.substring(3, 8);
@@ -1319,7 +1301,6 @@ class C12 {
     public String getBillingMasterNo() {
         return Integer.toString(Integer.parseInt(t_officefolioclaimno));
     }
-
 
     String[] getParams(String filename, String raNo) {
         return new String[]{raNo, filename, t_datacenter, t_dataseq, t_payeeno, t_practitionerno, t_exp1, t_exp2, t_exp3, t_exp4, t_exp5, t_exp6, t_exp7, t_officefolioclaimno, t_filler};
@@ -1401,6 +1382,5 @@ class C12 {
     public String getT_filler() {
         return t_filler;
     }
-
 
 }

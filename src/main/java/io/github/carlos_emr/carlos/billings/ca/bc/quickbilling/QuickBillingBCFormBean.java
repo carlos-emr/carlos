@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
 
-
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
@@ -38,10 +37,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Data Transfer Object (DTO) for BC Quick Billing forms.
+ * Encapsulates the UI inputs from the quick billing view for processing by the action layer.
+ */
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */
@@ -56,7 +58,6 @@ public class QuickBillingBCFormBean {
     private String creator;
     private String halfBilling;
 
-
     public QuickBillingBCFormBean() {
 
         this.billingProvider = "";
@@ -69,26 +70,21 @@ public class QuickBillingBCFormBean {
 
     }
 
-
     public String getHalfBilling() {
         return halfBilling;
     }
-
 
     public void setHalfBilling(String halfBilling) {
         this.halfBilling = halfBilling;
     }
 
-
     public String getCreator() {
         return creator;
     }
 
-
     public void setCreator(String creator) {
         this.creator = creator;
     }
-
 
     public void setIsHeaderSet(Boolean set) {
         this.isHeaderSet = set;
@@ -106,56 +102,45 @@ public class QuickBillingBCFormBean {
         this.providerList = providerList;
     }
 
-
     public String getBillingProviderNo() {
         return billingProviderNo;
     }
-
 
     public void setBillingProviderNo(String billingProviderNo) {
         this.billingProviderNo = billingProviderNo;
     }
 
-
     public List<BillingVisit> getBillingVisitTypes() {
         return billingVisitTypes;
     }
-
 
     public void setBillingVisitTypes(List<BillingVisit> billingVisitTypes) {
         this.billingVisitTypes = billingVisitTypes;
     }
 
-
     public String getBillingProvider() {
         return billingProvider;
     }
-
 
     public void setBillingProvider(String billingProvider) {
         this.billingProvider = billingProvider;
     }
 
-
     public String getServiceDate() {
         return serviceDate;
     }
-
 
     public void setServiceDate(String serviceDate) {
         this.serviceDate = serviceDate;
     }
 
-
     public String getVisitLocation() {
         return visitLocation;
     }
 
-
     public void setVisitLocation(String visitLocation) {
         this.visitLocation = visitLocation;
     }
-
 
     public ArrayList<BillingSessionBean> getBillingData() {
         return billingData;
@@ -178,6 +163,5 @@ public class QuickBillingBCFormBean {
                         " BILL DATA=" + billingData.size() + " ENTRY(S)"
         );
     }
-
 
 }

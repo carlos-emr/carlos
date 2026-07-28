@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport;
 
 import java.io.BufferedReader;
@@ -58,7 +57,6 @@ import io.github.carlos_emr.CarlosProperties;
  * Class used to Manage BillingGuidelines.
  * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
  *
- * @author jay
  */
 public class BillingGuidelines {
 
@@ -84,7 +82,6 @@ public class BillingGuidelines {
 
             region = code;
             measurementTemplateFlowSheetConfig.loadGuidelines(region);
-
 
         }
         return measurementTemplateFlowSheetConfig;
@@ -195,7 +192,6 @@ public class BillingGuidelines {
         }
     }
 
-
     public List<DSConsequence> evaluateAndGetConsequences(LoggedInInfo loggedInInfo, String demographicNo, String providerNo) {
         if (demographicNo == null) {
             return new ArrayList<DSConsequence>();
@@ -216,6 +212,5 @@ public class BillingGuidelines {
         log.debug("Decision Support 'evaluateAndGetConsequences' finished, returing " + allResultingConsequences.size() + " consequences");
         return allResultingConsequences;
     }
-
 
 }

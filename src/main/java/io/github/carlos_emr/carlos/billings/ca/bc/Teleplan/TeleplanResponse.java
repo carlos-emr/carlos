@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.io.BufferedReader;
@@ -46,8 +45,10 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+
 /**
- * @author jay
+ * Parses and encapsulates response payloads from the Teleplan API.
+ * Handles remittance advice parsing and mapping payment statuses back to local claims.
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();
@@ -64,7 +65,6 @@ public class TeleplanResponse {
      */
     public TeleplanResponse() {
     }
-
 
     // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local Teleplan temp filename suffix.
     // Do not use this suppression for secrets, tokens, authorization, or request-controlled random values.
@@ -117,7 +117,6 @@ public class TeleplanResponse {
                 }
             }
 
-
         } catch (IOException | SecurityException e) {
             // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
             // generated destination; clean up the partial temp file like the IOException path.
@@ -127,7 +126,6 @@ public class TeleplanResponse {
             }
         }
     }
-
 
     //#TID=001;Result=SUCCESS;Filename=TPBULET-I.txt;Msgs=;
     //	String str = "#TID=001;Result=SUCCESS;Filename=TPBULET-I.txt;Msgs

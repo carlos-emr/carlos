@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import org.apache.logging.log4j.Logger;
@@ -45,8 +44,10 @@ import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+
 /**
- * @author jaygallagher
+ * Generates Teleplan submission payloads specifically formatted for WorkSafeBC claims.
+ * Applies specialized formatting rules required for occupational injury billing.
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();
@@ -57,7 +58,6 @@ public class WCBTeleplanSubmission {
     public String getHtmlLine(WCB wcb, Billingmaster bm) {
         log.debug("WCB " + wcb + " BM " + bm);
         return getHtmlLine("" + bm.getBillingmasterNo(), "" + bm.getBillingNo(), wcb.getW_lname() + "," + wcb.getW_fname(), wcb.getW_phn(), dateFormat(wcb.getW_servicedate()), bm.getBillingCode(), bm.getBillAmount(), bm.getDxCode1(), "", "");
-
 
     }
 
@@ -85,7 +85,6 @@ public class WCBTeleplanSubmission {
         return htmlContent;
     }
 
-
     public boolean isFormNeeded(Billingmaster bm) {
         return WCBCodes.getInstance().isFormNeeded(bm.getBillingCode());
     }
@@ -93,7 +92,6 @@ public class WCBTeleplanSubmission {
     public String dateFormat(String date) {
         return Misc.forwardZero(Misc.cleanNumber(date), 8);
     }
-
 
     public String validate(WCB wcb, Billingmaster bm) {
         StringBuilder m = new StringBuilder();
@@ -103,7 +101,6 @@ public class WCBTeleplanSubmission {
         } catch (Exception e) {
             m.append(": ICD9 may only contain Numbers ");
         }
-
 
         if (wcb.getW_wcbno() != null && !wcb.getW_wcbno().trim().equals("")) {
             try {
@@ -131,7 +128,6 @@ public class WCBTeleplanSubmission {
             }
         }
 
-
         String ret = "<tr bgcolor='red'><td colspan='11'>"
                 + "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no="
                 + Misc.forwardZero("" + bm.getBillingmasterNo(), 7)
@@ -142,7 +138,6 @@ public class WCBTeleplanSubmission {
         }
         return ret;
     }
-
 
     public String Line1(LoggedInInfo loggedInInfo, String dsn, Billingmaster bm, WCB wcb) {
         return this.Claim1(loggedInInfo, dsn, bm, wcb);
@@ -184,7 +179,6 @@ public class WCBTeleplanSubmission {
         return this.Claim(loggedInInfo, logNo, bm.getBillAmount(), bm.getBillingCode(), TeleplanFileWriter.roundUp(bm.getBillingUnit()), "N", bm, wcb);
     }
 
-
     private String replaceExtendedAskiiValues(String s) {
         log.debug("s " + s.length());
         StringBuilder sb = new StringBuilder();
@@ -201,7 +195,6 @@ public class WCBTeleplanSubmission {
         log.debug("sb " + sb.toString().length());
         return sb.toString();
     }
-
 
     private String Note1(String logNo, Billingmaster bm, WCB wcb) {
 
@@ -273,7 +266,6 @@ public class WCBTeleplanSubmission {
         return "N01" + this.ClaimNote1Head(logNo, bm.getPayeeNo(), bm.getPractitionerNo()) + "W" + replaceExtendedAskiiValues(a) + replaceExtendedAskiiValues(b);
     }
 
-
     String dateFormat(Date date) {
         Format formatterDate = new SimpleDateFormat("yyyyMMdd");
         log.debug("DATE try to convert " + date);
@@ -283,7 +275,6 @@ public class WCBTeleplanSubmission {
         }
         return formatterDate.format(date);
     }
-
 
     private String Claim(LoggedInInfo loggedInInfo, String logNo, String billedAmount, String feeitem, String correspondenceCode, Billingmaster bm, WCB wcb) {
         String billingUnit = "1";
@@ -324,7 +315,6 @@ public class WCBTeleplanSubmission {
         dLine.append(Misc.forwardZero(bm.getServiceStartTime(), 4));                 //p48   4
         dLine.append(Misc.forwardZero(bm.getServiceEndTime(), 4));
 
-
         dLine.append(Misc.zero(8));  //
         dLine.append(Misc.forwardZero("" + bm.getBillingmasterNo(), 7));
         dLine.append(Misc.forwardZero(correspondenceCode, 1)); //correspondence code//+ Misc.zero(1)
@@ -344,7 +334,6 @@ public class WCBTeleplanSubmission {
         //+ Misc.backwardSpace(wcb.getW_lname(), 18)
         dLine.append(Misc.backwardSpace(d.getLastName(), 18));
 
-
         dLine.append(Misc.backwardSpace(d.getSex(), 1));    //WHAT TO DO ABOUT TRANSGENDERED!!??
 
         //+ Misc.backwardSpace(wcb.getW_gender(), 1)
@@ -363,11 +352,9 @@ public class WCBTeleplanSubmission {
                 + Misc.forwardZero(w_pracno, 5);
     }
 
-
     public void setDemographicManager(
             DemographicManager demographicManager) {
         this.demographicManager = demographicManager;
     }
-
 
 }

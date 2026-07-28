@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.io.BufferedReader;
@@ -45,7 +44,8 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * @author jay
+ * Manager component for updating and validating Teleplan service codes.
+ * Handles the synchronization of local billing code definitions with provincial updates.
  */
 public class TeleplanCodesManager {
 
@@ -115,6 +115,5 @@ REM076 **                                                             **
         MiscUtils.getLogger().debug("end while");
         return list;
     }
-
 
 }

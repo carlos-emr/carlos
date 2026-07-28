@@ -34,7 +34,6 @@ package io.github.carlos_emr.carlos.entities;
  *
  * <p>Description: Represents a bill status type as defined by MSP</p>
  *
- * @author not attributable
  * @version 1.0
  */
 public class BillingStatusType {
@@ -56,6 +55,8 @@ public class BillingStatusType {
     private String displayNameExt;
 
     public BillingStatusType() {
+        /* Initializes the BillingStatusType instance. Default constructors are used heavily by Hibernate for instantiating the entity during data fetching from the database. */
+
     }
 
     public void setBillingstatus(String billingstatus) {

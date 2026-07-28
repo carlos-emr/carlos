@@ -21,11 +21,9 @@
  * Hamilton
  * Ontario, Canada
  *
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -37,7 +35,6 @@
  */
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -74,10 +71,8 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 
 /**
- * @author Dennis Warren
- * @Revised Jun 4, 2012
- * @Comment
- *
+ * Service handler for British Columbia rapid billing workflows.
+ * Orchestrates the conversion of quick billing forms into persistent billing entities.
  */
 public class QuickBillingBCHandler {
 
@@ -154,7 +149,6 @@ public class QuickBillingBCHandler {
 
     }
 
-
     /**
      *
      * @return Provider Data Access Object
@@ -170,7 +164,6 @@ public class QuickBillingBCHandler {
     public Properties getCarlosProperties() {
         return oscarProperties;
     }
-
 
     /**
      * The number of invoices saved in the last
@@ -222,7 +215,6 @@ public class QuickBillingBCHandler {
                 (!visitLocation.equals("empty")) ||
                 (!visitDate.equals(""))
         ) {
-
 
             // set the header data in the quickBillingbean. Only happens on the first add.
             // Then they are set and used during the entire session.

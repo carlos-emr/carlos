@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.util.Arrays;
@@ -38,8 +37,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+
 /**
- * @author jaygallagher
+ * Static reference and utility class for WorkSafeBC specific billing codes.
+ * Provides lookup and validation logic for occupational health fee items.
  */
 public class WCBCodes {
 

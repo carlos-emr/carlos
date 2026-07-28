@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import java.util.Date;
@@ -39,15 +38,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+
 /**
- * @author root
+ * Data transfer object encapsulating fee schedule details for a specific service code.
+ * Includes pricing, effective dates, and modifier requirements.
  */
 public final class BillingCodeData implements Comparable {
     /**
      * DAO used for billing service persistence operations.
      */
     private final BillingServiceDao billingServiceDao;
-  
 
   /*
    +-----------------------+-------------+------+-----+---------+----------------+
@@ -99,6 +99,8 @@ public final class BillingCodeData implements Comparable {
     //}
 
     public List<BillingService> search(String str, Date date) {
+        /* Performs a database search for billing codes matching the specified criteria, supporting auto-complete features in the user interface. */
+
         return billingServiceDao.search(str, "BC", date);
     }
 
@@ -174,7 +176,6 @@ public final class BillingCodeData implements Comparable {
         return retval;
     }
 
-
     public BillingService getBillingCodeByCode(String code, Date date) {
         List list = billingServiceDao.findBillingCodesByCode(code, BillingServiceDao.BC, date, 1);
 
@@ -185,7 +186,6 @@ public final class BillingCodeData implements Comparable {
         return (BillingService) list.get(0);
 
     }
-
 
     public BillingService getBillingCodeByCode(String code) {
         List list = billingServiceDao.findBillingCodesByCode(code, "BC");
@@ -206,7 +206,6 @@ public final class BillingCodeData implements Comparable {
     public List findBillingCodesByCode(String code, int order) {
         return billingServiceDao.findBillingCodesByCode(code, BillingServiceDao.BC, order);
     }
-
 
     public List getBillingCodesLookup(String searchTerm) {
         return SqlUtils.getQueryResultsList("select service_code,description from billingservice where description like ?", searchTerm + "%");

@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.entities;
 
 import java.util.ArrayList;
@@ -45,8 +44,10 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+
 /**
- * @author jaygallagher
+ * Represents a Workers' Compensation Board (WCB) claim in the system.
+ * Stores claim details, employer information, and billing associations for injury-related care.
  */
 @Entity
 @Table(name = "wcb")
@@ -662,7 +663,6 @@ public class WCB {
             errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_bp.numeric");
         }
 
-
         if ("1".equals(formNeeded)) {
             if (w_empname == null || "".equals(w_empname)) {
                 errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_empname");
@@ -784,7 +784,6 @@ public class WCB {
             errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_bp.numeric");
         }
 
-
 //DR31  1 of 4  C02  P116  WCB-Anatomical-Position  Yes     Yes  Not checked because it's a drop box in the interface.
         return errors;
     }
@@ -876,7 +875,6 @@ public class WCB {
         checkNullOrBlankValue(w_doi, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_doi");
         checkNullOrBlankValue(w_noi, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_noi");
 
-
         if ((w_noi != null && w_noi.length() > 0) && !StringUtils.isNumeric(w_noi)) {
             errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_noi.numeric");
         }
@@ -927,7 +925,6 @@ public class WCB {
 ////            if (w_reportype == null) {
 ////                errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_reportype");
 ////            }
-
 
         return errors;
     }

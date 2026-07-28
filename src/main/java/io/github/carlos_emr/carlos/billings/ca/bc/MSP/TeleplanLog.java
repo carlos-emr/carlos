@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 /**
@@ -40,7 +39,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * | billingmaster_no | int(10) | YES  |     | NULL    |                |
  * +------------------+---------+------+-----+---------+----------------+
  *
- * @author jay
  */
 public class TeleplanLog {
     private int logNo;

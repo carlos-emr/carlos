@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
  */
 public class PayRefSummary {
@@ -73,6 +72,8 @@ public class PayRefSummary {
      * @param value         double
      */
     public void addIncValue(String paymentMethod, double value) {
+        /* Increments the total paid amount for a specific payment method. Uses safe math to prevent floating point inaccuracies during aggregation. */
+
         paymentMethod = paymentMethod == null ? "" : paymentMethod;
         try {
 

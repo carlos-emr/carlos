@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -41,7 +40,6 @@ import java.util.Date;
 /**
  * Used to consolidate the teleplan submission html into one place.
  *
- * @author jay
  */
 public class HtmlTeleplanHelper {
 
@@ -56,7 +54,6 @@ public class HtmlTeleplanHelper {
     private static void appendTrustedTeleplanValidationRows(StringBuilder html, String validationRowsHtml) {
         html.append(validationRowsHtml);
     }
-
 
     public static String htmlHeaderGen(String errorMsg) {
         StringBuilder htmlContentHeader = new StringBuilder();

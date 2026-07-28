@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  * <p>Copyright: Copyright (c) 2005</p>
  * <p>Company: </p>
  *
- * @author Joel Legris
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
@@ -41,6 +40,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+
+/**
+ * Struts 2 Action for generating aggregated MSP billing reports.
+ * Collects claim data over a specified period and formats it for administrative review.
+ */
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -64,6 +68,8 @@ public class CreateBillingReport2Action extends ActionSupport {
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
     public String execute() {
+        /* Generates the billing report, ensuring that the requesting user has the appropriate financial reporting privileges before accessing the data. */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -164,7 +170,6 @@ public class CreateBillingReport2Action extends ActionSupport {
                     IOUtils.closeQuietly(subPractSum);
                 }
 
-
                 //This is the S23 summary subreport stream
                 InputStream subS23 = osc.getDocumentStream(REPORTS_PATH + this.reportCfg.getProperty("REP_MSPREMSUM_S23"));
                 try {
@@ -229,7 +234,6 @@ public class CreateBillingReport2Action extends ActionSupport {
             } else if (repType.equals(MSPReconcile.REP_REJ)) {
                 billSearch = msp.getBillsByType(account, payee, provider, startDate, endDate, !showWCB, !showMSP, !showPriv, !showICBC, repType);
 
-
                 Provider payProv = msp.getProvider(payee, 1);
                 reportParams.put("account", account.equals("ALL") ? "ALL" : payProv.getFullName());
                 //Fill document with report parameter data
@@ -290,7 +294,6 @@ public class CreateBillingReport2Action extends ActionSupport {
         this.reportCfg.setProperty("MSGS", "broadcastmessages.jrxml");
     }
 
-
     /**
      * Configures the response header for upload of specified mime-type
      *
@@ -327,7 +330,6 @@ public class CreateBillingReport2Action extends ActionSupport {
         // Also remove quotes and semicolons that could break header parsing
         return input.replaceAll("[\r\n\0]|[\\p{Cntrl}]|[\"';]", "").trim();
     }
-
 
     /**
      * A convenience method for retrieving the servlet outputstream without

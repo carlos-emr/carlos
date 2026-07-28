@@ -26,7 +26,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.administration;
 
 import java.io.IOException;
@@ -60,7 +59,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -74,6 +72,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+
+/**
+ * Struts 2 Action controller for managing WCB Teleplan corrections.
+ * Handles the UI workflows for reviewing and amending rejected WorkSafeBC claims.
+ */
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -90,11 +93,12 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws IOException, ServletException {
+        /* Validates administrative privileges before presenting the correction interface, ensuring only authorized billing staff can modify rejected claims. */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
-
 
         String where = "success";
 
@@ -131,7 +135,6 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
                 dao.createBillingHistoryArchive(this.getId());
             }
             updateUnitValue(this.getBillingUnit(), this.getBillingNo());
-
 
             Billing billing = billingDao.find(Integer.parseInt(this.getBillingNo()));
             if (billing != null) {
@@ -204,7 +207,6 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             String payee = pd.getBilling_no();
             String pracno = pd.getOhip_no();
             String billingNo = this.getBillingNo();
-
 
             for (Wcb wcb : wcbDao.findByBillingNo(Integer.parseInt(billingNo))) {
                 //TODO: This has to be eventually changed to a string

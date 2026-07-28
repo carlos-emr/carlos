@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import java.sql.Connection;
@@ -51,8 +50,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+
 /**
- * @author jay
+ * Entity representing a diagnostic code reference entry.
+ * Maps ICD-9 or ICD-10 codes to their clinical descriptions for validation and UI lookup.
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();
@@ -128,7 +129,6 @@ public class DxReference {
         }
     }
 
-
     public class DxCode implements Comparable {
 
         public DxCode(Date d, String dx) {
@@ -163,7 +163,6 @@ public class DxReference {
         public String getDesc() {
             return this.desc;
         }
-
 
         public int getNumMonthSinceDate() {
             return getNumMonths(date, Calendar.getInstance().getTime());
@@ -207,6 +206,5 @@ public class DxReference {
             return 0;
         }
     }
-
 
 }

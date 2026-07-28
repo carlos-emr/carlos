@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.util.ArrayList;
@@ -37,8 +36,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
 /**
- * @author Jay Gallagher
+ * Utility class for formatting and processing WorkSafeBC specific data.
+ * Translates internal EMR representations into WCB-compliant data structures.
  */
 public class WcbHelper {
 
@@ -69,14 +70,12 @@ public class WcbHelper {
         return employers;
     }
 
-
     private void getInfo(String demographic_no) {
         empList = new ArrayList();
         claimList = new ArrayList();
 
         WcbDao dao = SpringUtils.getBean(WcbDao.class);
         for (Wcb w : dao.findByDemographic(ConversionUtils.fromIntString(demographic_no))) {
-
 
             WCBClaim wcb = new WCBClaim(w.getWcbNo());
             WCBEmployer wcbEmp = new WCBEmployer();
@@ -170,9 +169,7 @@ public class WcbHelper {
             return w_wcbNo;
         }
 
-
     }
-
 
     public class WCBEmployer {
         public String w_empname;

@@ -50,8 +50,10 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+
 /**
- * @author jay
+ * Primary Data Access Object for the Billingmaster entity.
+ * Facilitates complex querying, aggregation, and lifecycle management for all billing records.
  */
 @Repository
 @SuppressWarnings("unchecked")
@@ -185,7 +187,6 @@ public class BillingmasterDAO {
         return query.executeUpdate();
     }
 
-
     public WCB getWcbByBillingNo(Integer billing_no) {
         Query query = entityManager.createQuery("FROM WCB w WHERE w.billing_no = :billingNo");
         query.setParameter("billingNo", billing_no);
@@ -197,7 +198,6 @@ public class BillingmasterDAO {
         return ws.get(0);
     }
 
-
     public List<Object[]> findByStatus(String status) {
         Query query = entityManager.createQuery("SELECT b, bm FROM Billing b, Billingmaster bm " +
                 "WHERE b.id = bm.billingNo " +
@@ -205,7 +205,6 @@ public class BillingmasterDAO {
         query.setParameter("st", status);
         return query.getResultList();
     }
-
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")

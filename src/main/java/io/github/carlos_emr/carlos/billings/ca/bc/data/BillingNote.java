@@ -59,7 +59,6 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * | note_type        | int(2)     | YES  |     | NULL    |                |
  * +------------------+------------+------+-----+---------+----------------+
  *
- * @author root
  */
 public class BillingNote {
 
@@ -71,6 +70,8 @@ public class BillingNote {
 
     //
     public boolean hasNote(String billingmaster_no) {
+        /* Indicates if there is a note associated with this billing item, which signals to the UI that additional review may be necessary. */
+
         BillingNoteDao dao = SpringUtils.getBean(BillingNoteDao.class);
         return !dao.findNotes(ConversionUtils.fromIntString(billingmaster_no), 2).isEmpty();
     }

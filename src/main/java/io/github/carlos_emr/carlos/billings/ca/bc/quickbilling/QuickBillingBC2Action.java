@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -64,12 +63,16 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+
+/**
+ * Struts 2 Action controller for displaying the BC Quick Billing interface.
+ * Orchestrates the retrieval of patient context and default billing preferences for the view.
+ */
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
-
 
     private ObjectNode billingEntry;
     private QuickBillingBCHandler quickBillingHandler;
@@ -77,10 +80,11 @@ public class QuickBillingBC2Action extends ActionSupport {
     public QuickBillingBC2Action() {
     }
 
-    
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
+        /* Executes the action, first validating the user's security privileges before preparing the model data for the Quick Billing interface. */
+
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
             return "Logout";

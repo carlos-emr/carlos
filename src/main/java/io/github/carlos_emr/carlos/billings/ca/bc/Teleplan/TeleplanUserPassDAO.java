@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.util.List;
@@ -42,12 +41,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();
     private PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
-
 
     public TeleplanUserPassDAO() {
     }
@@ -65,7 +62,6 @@ public class TeleplanUserPassDAO {
         p.setValue(password);
         propertyDao.persist(p);
     }
-
 
     private void updateUsername(String username) {
         List<Property> ps = propertyDao.findByName("teleplan_username");
@@ -155,6 +151,5 @@ public class TeleplanUserPassDAO {
         }
         return str;
     }
-
 
 }
