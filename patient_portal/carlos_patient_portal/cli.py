@@ -170,10 +170,11 @@ def maintenance(argv: Sequence[str] | None = None) -> None:
                     dry_run=args.dry_run,
                 )
                 action = "dry run completed" if args.dry_run else "cleanup completed"
-                print(
+                print(  # lgtm[py/clear-text-logging-sensitive-data]
                     "transient authentication "
                     f"{action}: sessions={cleanup_result.sessions} "
                     f"mfa_challenges={cleanup_result.mfa_challenges} "
+                    # This is an aggregate row count, never a reset token or hash.
                     f"reset_tokens={cleanup_result.reset_tokens} "
                     f"invites={cleanup_result.invites} total={cleanup_result.total}"
                 )

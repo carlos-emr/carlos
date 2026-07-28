@@ -91,7 +91,8 @@ class InternalRuntime(Protocol):
 
 
 class InternalOperationalMetrics(Protocol):
-    def record_failure(self, failure_type: str) -> None: ...
+    def record_failure(self, failure_type: str) -> None:
+        raise NotImplementedError
 
 
 class InternalUnlockSecretRequest(BaseModel):
@@ -166,7 +167,8 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 permissions=request.headers.get("X-CARLOS-Permissions"),
             )
         except CarlosServiceAuthenticationError:
-            pass
+            # Do not trust provider or clinic headers unless service authentication succeeds.
+            principal = None
         reason = (
             "authentication_failed"
             if principal is None
