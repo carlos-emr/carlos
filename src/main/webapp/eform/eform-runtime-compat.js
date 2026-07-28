@@ -33,6 +33,18 @@
     };
     window.__carlosEformTimerCompat = status;
 
+    function isPdfRenderAutoSubmit(handler) {
+        // This is intentionally an exact allowlist, not source rewriting or a general attempt to
+        // understand stored eForm JavaScript. Across the shared corpus this delayed callback is the
+        // dominant timer (25/50): it clicks the form's submit button after printing. A passive PDF
+        // render neither needs nor may perform that state-changing action, so waiting 1.8 seconds
+        // for it only delays capture. The marker is injected solely by the PDF HTML composer; the
+        // interactive eForm viewer retains the original callback unchanged.
+        return window.__carlosEformPdfRender === true
+                && typeof handler === "string"
+                && /^\s*SubmitButton\s*\.\s*click\s*\(\s*\)\s*;?\s*$/.test(handler);
+    }
+
     /**
      * Programmatic equivalent of the capture-phase submit guard below, for callers that submit via
      * HTMLFormElement.submit(). That API deliberately fires no submit event, so the listener never
@@ -117,6 +129,12 @@
     }
 
     function schedule(nativeTimer, receiver, handler, delay, callbackArguments) {
+        if (nativeTimer === nativeSetTimeout && isPdfRenderAutoSubmit(handler)) {
+            status.suppressedAutoSubmits = (status.suppressedAutoSubmits || 0) + 1;
+            // Preserve the timer-handle shape for form code that clears it, but do not enqueue a
+            // callback that would submit or mutate state on the render-only surface.
+            return nativeSetTimeout.call(window, function suppressedPdfAutoSubmit() {}, 0);
+        }
         // Only one-shot timers are counted. A repeating setInterval would never drain, so waiting on
         // it would stall every render that uses one. Legacy string timers stay tracked at every delay
         // so a late one reports an incomplete render. Function callbacks are tracked only through the

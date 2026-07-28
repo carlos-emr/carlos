@@ -148,6 +148,18 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should suppress only the known delayed auto-submit callback on the PDF render surface")
+    void shouldSuppressOnlyKnownAutoSubmit_whenRenderingPdf() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        assertThat(compat)
+                .contains("function isPdfRenderAutoSubmit(handler)")
+                .contains("window.__carlosEformPdfRender === true")
+                .contains("SubmitButton")
+                .contains("suppressedAutoSubmits");
+    }
+
+    @Test
     @DisplayName("should treat an eval-blocked timer script as a compatibility failure")
     void shouldDetectBlockedTimer_forEvalBlockedUri() throws IOException {
         String compat = read(RUNTIME_COMPAT_JS);

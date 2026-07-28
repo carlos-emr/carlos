@@ -467,6 +467,8 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .isLessThan(html.indexOf("/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         assertThat(html.indexOf("/eform/eform-runtime-compat.js"))
                 .isLessThan(html.indexOf("/clinic.js"));
+        assertThat(html.indexOf("window.__carlosEformPdfRender=true;"))
+                .isLessThan(html.indexOf("/eform/eform-runtime-compat.js"));
     }
 
     @Test

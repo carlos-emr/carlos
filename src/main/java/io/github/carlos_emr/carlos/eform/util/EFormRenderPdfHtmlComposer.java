@@ -580,6 +580,12 @@ public final class EFormRenderPdfHtmlComposer {
             dependencies.add(script(contextPath + "/library/jquery/jquery-ui-1.14.2.min.js"));
             dependencies.add(script(contextPath + "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         }
+        Element rendererMarker = new Element(Tag.valueOf("script"), "");
+        // The compatibility shim is also loaded by the interactive viewer. This marker is set
+        // before it runs so the shim can make the one render-only exception for the legacy delayed
+        // auto-submit callback without changing clinician-facing eForm behaviour.
+        rendererMarker.append("window.__carlosEformPdfRender=true;");
+        dependencies.add(rendererMarker);
         dependencies.add(script(contextPath + "/eform/eform-runtime-compat.js"));
         Element signatureCompatibility = new Element(Tag.valueOf("script"), "");
         signatureCompatibility.append(
