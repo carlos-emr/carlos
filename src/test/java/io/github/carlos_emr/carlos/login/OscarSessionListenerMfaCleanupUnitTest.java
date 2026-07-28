@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.web.OscarSessionListener;
@@ -37,6 +38,7 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
         casemgmtNoteLockDao = mock(CasemgmtNoteLockDao.class);
         registerMock(CasemgmtNoteLockDao.class, casemgmtNoteLockDao);
         registerMock(UserSessionManager.class, mock(UserSessionManager.class));
+        registerMock(EFormRenderApprovalService.class, mock(EFormRenderApprovalService.class));
     }
 
     @Test
