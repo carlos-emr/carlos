@@ -444,7 +444,7 @@
                     %>
                     <c:set var="__enc_1"><carlos:encode value='<%= head != null ? head : dem_no %>' context="uriComponent"/></c:set>
                     <a title="Master Demographic File" href="javascript:void(0)"
-                       onclick="popup(700,1027,'DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= dem_no %>' context="html"/>
+                       onclick="popup(800,1200,'DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= dem_no %>' context="html"/>
                     </a></td>
 
                     <!-- Rights -->
@@ -453,20 +453,20 @@
                         <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(curProvider_no) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_3"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
                         <a class="encounterBtn" title="Encounter" href="javascript:void(0)"
-                           onclick="popupEChart(710,1024,'${carlos:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&appointmentNo=&demographicNo=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&curProviderNo=&reason=<carlos:encode value='<%= URLEncoder.encode(noteReason, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
+                           onclick="popupEChart(800,1200,'${carlos:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&appointmentNo=&demographicNo=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&curProviderNo=&reason=<carlos:encode value='<%= URLEncoder.encode(noteReason, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
                     </security:oscarSec> <!-- Rights --> <security:oscarSec roleName="<%=roleName$%>"
                                                                             objectName="_rx" rights="r">
 			<c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="uriComponent"/></c:set>
 			<c:set var="__enc_5"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
-			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/rx/choosePatient?providerNo=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&demographicNo=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>')">Rx</a>
+			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(800,1200,'${carlos:forJavaScript(ctx)}/rx/choosePatient?providerNo=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&demographicNo=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>')">Rx</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
 			<c:set var="__enc_6"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
-			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/tickler/ViewTicklerMain?demoview=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>')">T</a>
+			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(800,1200,'${carlos:forJavaScript(ctx)}/tickler/ViewTicklerMain?demoview=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>')">T</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
 			<c:set var="__enc_7"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
-			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>')">C</a>
+			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(800,1200,'${carlos:forJavaScript(ctx)}/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>')">C</a>
 			</security:oscarSec>
 		</td>
 

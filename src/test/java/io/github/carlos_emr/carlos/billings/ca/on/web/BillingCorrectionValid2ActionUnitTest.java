@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionReviewPreparationService;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -53,6 +54,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -132,6 +134,20 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReturnError_whenReviewPreparationRejectsInput() throws Exception {
+        when(preparationService.prepareReviewDraft(any()))
+                .thenThrow(new BillingValidationException("Invalid coded field."));
+
+        String result = new BillingCorrectionValid2Action(
+                securityInfoManager, preparationService, reviewViewModelAssembler).execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(request.getAttribute("correctionError")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("correctionErrorMessage")).isEqualTo("Invalid coded field.");
+        verify(reviewViewModelAssembler, never()).assemble(any());
+    }
+
+    @Test
     void shouldDefensivelyCopyBillingItems_whenReviewViewModelIsBuilt() {
         java.util.List<BillingCorrectionReviewViewModel.Item> items =
                 new java.util.ArrayList<>();
@@ -170,6 +186,29 @@ class BillingCorrectionValid2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(captor.getValue().visitDateText()).isEqualTo("2026-04-28");
         assertThat(captor.getValue().billingDateText()).isEqualTo("2026-04-29");
         assertThat(captor.getValue().updateDateText()).isEqualTo("2026-04-30");
+    }
+
+    @Test
+    void shouldCollectOnlyXmlParameters_whenRequestContainsXmlSubstring() throws Exception {
+        request.setParameter("xml_billing_no", "42");
+        request.setParameter("xml_safe", "safe");
+        request.setParameter("prefix_xml_bad", "bad");
+        request.setParameter("not_xml_bad", "bad");
+        request.setParameter("servicecode0", "A001A");
+        request.setParameter("billingunit0", "1");
+
+        when(preparationService.prepareReviewDraft(any())).thenReturn(draft());
+
+        new BillingCorrectionValid2Action(
+                securityInfoManager, preparationService, reviewViewModelAssembler).execute();
+
+        ArgumentCaptor<BillingCorrectionValidationCommand> captor =
+                forClass(BillingCorrectionValidationCommand.class);
+        verify(preparationService).prepareReviewDraft(captor.capture());
+        assertThat(captor.getValue().xmlParameters())
+                .containsEntry("xml_billing_no", "42")
+                .containsEntry("xml_safe", "safe")
+                .doesNotContainKeys("prefix_xml_bad", "not_xml_bad");
     }
 
     @Test

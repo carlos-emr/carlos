@@ -22,6 +22,7 @@ ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
 ARG DB_DOCS="/db-data/documents"
 ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
+ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
 
 WORKDIR /workspace
 
@@ -97,18 +98,21 @@ RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install OpenAI Codex CLI (standalone coding agent)
-RUN npm install -g @openai/codex && \
-    echo "✅ OpenAI Codex CLI installed: $(codex --version)"
+ARG CODEX_CLI_VERSION=0.142.2
+# Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
+RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
-# Install Playwright globally first to ensure it's available
-# Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
-RUN npm install -g playwright@1.56.0 && \
-    echo "✅ Playwright CLI installed: $(npx playwright --version)"
+ARG PLAYWRIGHT_VERSION=1.60.0
+
+# Install Playwright globally first to ensure it's available.
+# Keep this in sync with package.json, .mcp.json, and .devcontainer/PLAYWRIGHT_SETUP.md.
+RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
+    echo "✅ Playwright CLI installed: $(playwright --version)"
 
 # Install Playwright browsers (Chromium, Firefox) with system dependencies
 # Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
-# Version 1.56.0+ correctly uses t64 package names (e.g., libasound2t64) for Ubuntu 24.04
-RUN npx playwright install --with-deps chromium firefox && \
+# Version 1.60.0 uses the current Playwright browser bundles and Ubuntu 24.04 t64 package names.
+RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
 # Install pipx and Aider AI coding assistant
@@ -167,7 +171,6 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/billing/download \
     $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/eform/images \
     $OSCAR_DOCUMENT/oscar/form/records \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
@@ -177,7 +180,9 @@ RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/incomingdocs \
     $OSCAR_DOCUMENT/oscar/export \
     $DB_DOCS \
-    $DOCS_DEST
+    $DOCS_DEST \
+    $EFORM_IMAGES_DIR \
+    && /scripts/bootstrap-property-directories /root/carlos.properties EFORM_IMAGES_DIR
 
 # Set up GPG for PGP encryption (used by demographic export)
 # Create the GNUPGHOME directory and generate a test key for development

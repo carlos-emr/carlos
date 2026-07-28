@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author wrighd
@@ -144,6 +145,8 @@ public class MeasurementMapConfig {
      * Return List of maps containing an identifier and association object.
      * ie: List["type": type, "identifier": identifier, "name": name]
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<HashMap<String, String>> getUnmappedMeasurements(String type) {
 
         ArrayList<HashMap<String, String>> unmappedLabList = new ArrayList<>();

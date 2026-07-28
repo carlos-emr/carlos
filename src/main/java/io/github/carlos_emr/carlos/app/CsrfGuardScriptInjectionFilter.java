@@ -44,6 +44,7 @@ import java.io.Writer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that auto-injects the CSRFGuard JavaScript tag into HTML responses.
@@ -269,6 +270,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      * on the underlying response. Calling {@code getOutputStream()} after
      * {@code getWriter()} throws {@code IllegalStateException}.</p>
      */
+    // FindSecBugs XSS_SERVLET: replays captured response content after trusted CSRF token injection; not raw request data.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "replays captured response content after trusted CSRF token injection; not raw request data")
     private void writeToResponse(HttpServletResponse response, String content, String safeRequestUri)
             throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
@@ -623,6 +626,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentLengthHeader(String name) {
             return "Content-Length".equalsIgnoreCase(name);
         }

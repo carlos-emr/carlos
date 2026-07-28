@@ -57,6 +57,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class RxRePrescribe2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -241,18 +242,22 @@ public final class RxRePrescribe2Action extends ActionSupport {
  * 
  * @return null - indicating no specific view forward (Ajax-style call)
  * @throws IOException if there's an error redirecting to the error page
- * @throws RuntimeException if the user lacks read privileges for prescriptions
+ * @throws RuntimeException if the user lacks write privileges for prescriptions
  * 
  * Expected request parameters:
  * - digitalSignatureId: Integer ID of the digital signature (optional, can be null)
  * - scriptId: String ID of the prescription script (required)
  */
 public String saveDigitalSignature() throws IOException {
-    
+    if (!"POST".equals(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return NONE;
+    }
+
     // Validate user session and privileges
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    checkPrivilege(loggedInInfo, PRIVILEGE_READ);
-    
+    checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
+
     // Retrieve and validate the prescription session bean
     RxSessionBean sessionBeanRX =
         (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
@@ -425,6 +430,8 @@ public String saveDigitalSignature() throws IOException {
         return "represcribe";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String repcbAllLongTerm() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);

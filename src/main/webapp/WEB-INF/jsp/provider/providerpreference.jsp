@@ -54,6 +54,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>
+<%@ page import="java.io.File" %>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
@@ -65,6 +66,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
@@ -198,8 +200,17 @@
     String apptCardFax = props.getOrDefault("appointmentCardFax", "");
 
     // Signature stamp
-    String consultSigValue = props.getOrDefault(UserProperty.PROVIDER_CONSULT_SIGNATURE, "");
-    boolean hasConsultSignature = !consultSigValue.isEmpty();
+    boolean hasConsultSignature = false;
+    if (providerNo != null && !providerNo.trim().isEmpty()) {
+        String expectedSignatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        try {
+            File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+            File consultSigFile = PathValidationUtils.validatePath(expectedSignatureName, imageFolder);
+            hasConsultSignature = consultSigFile.isFile();
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Blocked suspicious consult signature path for provider {}", providerNo, e);
+        }
+    }
 
     // Prevention warning preferences (use "true"/"false" unlike most prefs)
     boolean prevSSO = "true".equalsIgnoreCase(

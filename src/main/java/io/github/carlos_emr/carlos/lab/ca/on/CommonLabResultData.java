@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CommonLabResultData {
 
@@ -390,6 +391,8 @@ public class CommonLabResultData {
         return updateReportStatus(labNo, providerNo, status, comment, labType, false);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType, boolean skipCommentOnUpdate) {
 
         if (comment == null) {

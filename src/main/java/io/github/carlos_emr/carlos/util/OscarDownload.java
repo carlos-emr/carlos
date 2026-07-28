@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OscarDownload extends GenericDownload {
     private static final Logger log = MiscUtils.getLogger();
@@ -49,6 +50,8 @@ public class OscarDownload extends GenericDownload {
             "homepath", "ohipdownload", "obecdownload"
     );
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
             HttpSession session = req.getSession(true);

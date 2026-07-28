@@ -356,6 +356,50 @@ class DroolsHelperUnitTest {
                     .hasMessageContaining("Failed to read DRL from URL");
         }
 
+        @Test
+        @Tag("security")
+        @DisplayName("should reject http URL before opening stream")
+        void shouldRejectHttpUrl_beforeOpeningStream() throws Exception {
+            URL remoteUrl = new URL("http://169.254.169.254/latest/meta-data/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(remoteUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("Unsupported DRL URL protocol");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should reject UNC file URL before opening stream")
+        void shouldRejectUncFileUrl_beforeOpeningStream() throws Exception {
+            URL uncUrl = new URL("file:////server/share/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(uncUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("remote host");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should reject jar URL backed by http before opening stream")
+        void shouldRejectJarHttpUrl_beforeOpeningStream() throws Exception {
+            URL remoteJarUrl = new URL("jar:http://169.254.169.254/rules.jar!/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(remoteJarUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("Unsupported DRL jar URL protocol");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should reject jar URL backed by UNC file before opening stream")
+        void shouldRejectJarUncFileUrl_beforeOpeningStream() throws Exception {
+            URL remoteJarUrl = new URL("jar:file:////server/share/rules.jar!/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(remoteJarUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("remote host");
+        }
+
         /**
          * Integration smoke test: loads the production {@code prevention.drl},
          * compiles it, and verifies a {@link KieSession} can be created from

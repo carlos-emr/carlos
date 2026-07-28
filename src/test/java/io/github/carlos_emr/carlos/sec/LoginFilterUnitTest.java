@@ -230,6 +230,20 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should pass logout post when unauthenticated")
+        void shouldPassLogoutPost_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("POST", CONTEXT_PATH + "/logout");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain chain = new MockFilterChain();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(chain.getRequest()).isSameAs(request);
+            assertThat(response.getRedirectedUrl()).isNull();
+        }
+
+        @Test
         @DisplayName("should audit rejected token authentication")
         void shouldAuditRejectedTokenAuthentication_whenTokenManagerRejects()
                 throws ServletException, IOException {

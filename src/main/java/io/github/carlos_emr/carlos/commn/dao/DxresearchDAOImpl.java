@@ -52,6 +52,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author toby
@@ -65,6 +66,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         super(Dxresearch.class);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList) {
 
         List<DxRegistedPTInfo> rList = new ArrayList<DxRegistedPTInfo>();

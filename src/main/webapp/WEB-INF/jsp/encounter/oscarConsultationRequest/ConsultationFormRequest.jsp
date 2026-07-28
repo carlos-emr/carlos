@@ -48,25 +48,10 @@
         EctViewRequest2Action    - prepares form data (execute + fillFormValues)
         EctConsultationFormRequest2Action - processes submit/update/print/fax
 
-    Security: Requires "_con" write privilege (checked via security taglib).
+    Security: Requires "_con" read privilege for viewing. Write-only controls are gated separately.
 
     @since 2005-01-11
 --%>
-
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%
-    String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="w" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_con");%>
-</security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -111,6 +96,8 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="java.io.File" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
@@ -122,6 +109,8 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SignatureReference" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -136,6 +125,7 @@
 
     <%
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         displayServiceUtil.estSpecialist();
 
@@ -182,13 +172,38 @@
 
         EctConsultationFormRequestUtil consultUtil = new EctConsultationFormRequestUtil();
 
+        String consultSecurityTarget = StringUtils.isNullOrEmpty(demo) ? null : demo;
+        String verifiedConsultSecurityTarget = null;
+        if (requestId != null
+                && consultSecurityTarget != null
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, consultSecurityTarget)) {
+            response.sendRedirect(request.getContextPath() + "/securityError?type=_con");
+            return;
+        }
+        if (requestId != null && consultSecurityTarget != null) {
+            verifiedConsultSecurityTarget = consultSecurityTarget;
+        }
+
         if (requestId != null) {
             consultUtil.estRequestFromId(loggedInInfo, requestId);
+            if (!StringUtils.isNullOrEmpty(consultUtil.demoNo)) {
+                demo = consultUtil.demoNo;
+            }
         }
 
         if (demo == null) {
             demo = consultUtil.demoNo;
         }
+
+        consultSecurityTarget = StringUtils.isNullOrEmpty(demo) ? null : demo;
+        boolean consultReadAlreadyVerified = consultSecurityTarget != null
+                && consultSecurityTarget.equals(verifiedConsultSecurityTarget);
+        if (!consultReadAlreadyVerified
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, consultSecurityTarget)) {
+            response.sendRedirect(request.getContextPath() + "/securityError?type=_con");
+            return;
+        }
+        boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, consultSecurityTarget);
 
         // Check if the selected providers is currently active. If it is not active, add it to the prList, as the list only contains active providers.
         Boolean isProviderActive = false;
@@ -919,7 +934,8 @@
         //-------------------------------------------------------------------
 
         //-----------------disableDateFields() disables date fields if "Patient Will Book" selected
-        var disableFields = false;
+        var readOnlyConsult = <%= canWriteConsult ? "false" : "true" %>;
+        var disableFields = readOnlyConsult;
 
         ////////////////////////////////////////////////////////////////////
         // All-specialists data for autocomplete (loaded once on page ready)
@@ -1116,36 +1132,58 @@
             });
         }
 
+        function appendAutoImportedClinicalSection(target, label, note) {
+            if (!note || note.trim().length === 0) return;
+            var section = "**" + label + ":** " + note.trim();
+            var current = jQuery(target).val();
+            if (current && current.trim().length > 0) {
+                jQuery(target).val(current + "\n" + section);
+            } else {
+                jQuery(target).val(section);
+            }
+        }
+
         /**
-         * Auto-pulls Medical, Social, and Family History into the clinical
+         * Auto-pulls configured CPP history sections into the clinical
          * information textarea for new consultations.
          */
         function autoImportClinicalHistory(demographicNo) {
+            if (readOnlyConsult) {
+                return;
+            }
             var target = "#clinicalInformation";
-            var issueTypes = ["MedHistory", "SocHistory", "FamHistory"];
+            var issueTypes = [];
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "MedHistory", label: "Past Medical History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "SocHistory", label: "Social History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "FamHistory", label: "Family History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "false"))) { %>
+            issueTypes.push({issueType: "Concerns", label: "Ongoing Concerns"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "false"))) { %>
+            issueTypes.push({issueType: "Reminders", label: "Reminders"});
+            <% } %>
             var idx = 0;
 
             function fetchNext() {
                 if (idx >= issueTypes.length) return;
-                var issueType = issueTypes[idx];
+                var section = issueTypes[idx];
                 idx++;
                 jQuery.ajax({
                     method: "POST",
                     url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData",
-                    data: { method: "fetchIssueNote", issueType: issueType, demographicNo: demographicNo },
+                    data: { method: "fetchIssueNote", issueType: section.issueType, demographicNo: demographicNo },
                     dataType: 'JSON',
                     success: function (data) {
-                        if (data.note && data.note.trim().length > 0) {
-                            var current = jQuery(target).val();
-                            if (current && current.trim().length > 0) {
-                                jQuery(target).val(current + "\n" + data.note);
-                            } else {
-                                jQuery(target).val(data.note);
-                            }
-                        }
+                        appendAutoImportedClinicalSection(target, section.label, data.note);
                         fetchNext();
                     },
-                    error: function () { console.warn('Failed to auto-import ' + issueType + ' for consultation'); fetchNext(); }
+                    error: function () { console.warn('Failed to auto-import ' + section.issueType + ' for consultation'); fetchNext(); }
                 });
             }
 
@@ -1157,6 +1195,9 @@
          * the same menu markup for each clinical textarea section.
          */
         function buildImportMenus() {
+            if (readOnlyConsult) {
+                return;
+            }
             var fullImportItems = [
                 {cls: 'clinicalData', prefix: 'SocHistory', label: '<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportSocHistory"/>'},
                 {cls: 'clinicalData', prefix: 'FamHistory', label: '<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportFamHistory"/>'},
@@ -1209,7 +1250,10 @@
             // Attach event listeners for selects that previously used inline onchange
             var providerNoSelect = document.getElementById('providerNoSelect');
             if (providerNoSelect) {
-                providerNoSelect.addEventListener('change', function() { switchProvider(this.value); });
+                providerNoSelect.addEventListener('change', function() {
+                    switchProvider(this.value);
+                    updateSignatureProvider(this.value);
+                });
             }
             var specialistHctSelect = document.getElementById('specialist');
             if (specialistHctSelect && specialistHctSelect.tagName === 'SELECT') {
@@ -1228,6 +1272,9 @@
 
 
             jQuery(document).on('click', '.medicationData', function () {
+                if (readOnlyConsult) {
+                    return;
+                }
                 var data = new Object();
                 var target = "#" + this.id.split("_")[1];
                 data.method = this.id.split("_")[0];
@@ -1236,6 +1283,9 @@
             });
 
             jQuery(document).on('click', '.clinicalData', function () {
+                if (readOnlyConsult) {
+                    return;
+                }
                 var data = new Object();
                 var target = "#" + this.id.split("_")[1];
                 data.method = "fetchIssueNote";
@@ -1244,8 +1294,8 @@
                 getClinicalData(data, target)
             });
 
-            // Auto-import Medical and Social History for new consultations
-            <% if (requestId == null && demo != null) { %>
+            // Auto-import configured CPP history sections for new consultations
+            <% if (canWriteConsult && requestId == null && demo != null && request.getAttribute("validateError") == null) { %>
             var clinical = jQuery("#clinicalInformation").val();
             if (!clinical || clinical.trim().length === 0) {
                 autoImportClinicalHistory(<carlos:encode value='<%= demo %>' context="javaScript"/>);
@@ -1273,7 +1323,7 @@
 
         function disableEditing() {
             if (disableFields) {
-                form = document.forms[0];
+                var form = document.forms[0];
 
                 setDisabledDateFields(form, disableFields);
 
@@ -1283,8 +1333,11 @@
                 form.status[3].disabled = disableFields;
 
                 form.referalDate.disabled = disableFields;
-                form.providerNo.selectedIndex = -1;
+                if (!readOnlyConsult && form.providerNo) {
+                    form.providerNo.selectedIndex = -1;
+                }
                 disableIfExists(form.providerNo, disableFields);
+                disableIfExists(document.getElementById('providerNoSelect'), disableFields);
                 disableIfExists(form.specialist, disableFields);
                 disableIfExists(form.service, disableFields);
                 disableIfExists(document.getElementById('specialistInput'), disableFields);
@@ -1321,7 +1374,16 @@
         }
 
         function disableIfExists(item, disabled) {
-            if (item != null) item.disabled = disabled;
+            if (item == null) return;
+            if (typeof item.disabled === 'undefined' && typeof item.length === 'number') {
+                Array.prototype.forEach.call(item, function (node) {
+                    if (node != null) {
+                        node.disabled = disabled;
+                    }
+                });
+                return;
+            }
+            item.disabled = disabled;
         }
 
         function hideElement(elementId) {
@@ -1881,17 +1943,91 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
 
         function refreshImage() {
             counter = counter + 1;
-            document.getElementById('signatureImgTag').src = '<%=imageUrl%>&rand=' + counter;
-            document.getElementById('signatureImg').value = '<%=signatureRequestId%>';
+            var signatureImgTag = document.getElementById('signatureImgTag');
+            if (signatureImgTag) {
+                signatureImgTag.onload = null;
+                signatureImgTag.onerror = null;
+                signatureImgTag.src = '<%=imageUrl%>&rand=' + counter;
+            }
+            var signatureImg = document.getElementById('signatureImg');
+            if (signatureImg) {
+                signatureImg.value = '<%=signatureRequestId%>';
+            }
+        }
+
+        function isStoredSignatureId(value) {
+            return /^[0-9]{1,9}$/.test((value || '').trim());
+        }
+
+        function hasPendingManualSignature() {
+            var signatureImg = document.getElementById('signatureImg');
+            var newSignature = document.getElementById('newSignature');
+            return signatureImg && newSignature && newSignature.value === 'true'
+                    && signatureImg.value.length > 0 && !isStoredSignatureId(signatureImg.value);
+        }
+
+        function updateSignatureProvider(providerNo) {
+            var signatureProviderNo = document.getElementById('signatureProviderNo');
+            if (signatureProviderNo) {
+                signatureProviderNo.value = providerNo || '';
+            }
+
+            var signatureImg = document.getElementById('signatureImg');
+            if ((signatureImg && isStoredSignatureId(signatureImg.value)) || hasPendingManualSignature()) {
+                return true;
+            }
+
+            var signatureImgTag = document.getElementById('signatureImgTag');
+            var newSignature = document.getElementById('newSignature');
+            var signatureShow = document.getElementById('signatureShow');
+            var signatureFrame = document.getElementById('signatureFrame');
+            if (!signatureImgTag || !newSignature || !signatureShow || !signatureFrame || !providerNo) {
+                return true;
+            }
+
+            signatureImgTag.onload = function() {
+                newSignature.value = 'false';
+                signatureFrame.style.display = 'none';
+                signatureShow.style.display = 'block';
+            };
+            signatureImgTag.onerror = function() {
+                newSignature.value = 'true';
+                signatureShow.style.display = 'none';
+                signatureFrame.style.display = 'block';
+            };
+            counter = counter + 1;
+            signatureImgTag.src = '<%=request.getContextPath()%>' + '/provider/providerSignatureImage?providerNo=' + encodeURIComponent(providerNo) + '&rand=' + counter;
+            return true;
         }
 
         function showSignatureImage() {
-            if (document.getElementById('signatureImg') != null && document.getElementById('signatureImg').value.length > 0) {
-
-                document.getElementById('signatureImgTag').src = "<%=storedImgUrl %>" + encodeURIComponent(document.getElementById('signatureImg').value);
-                document.getElementById('newSignature').value = "false";
-                document.getElementById("signatureFrame").style.display = "none";
-                document.getElementById('signatureShow').style.display = "block";
+            var signatureImg = document.getElementById('signatureImg');
+            if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                var newSignature = document.getElementById('newSignature');
+                var signatureFrame = document.getElementById('signatureFrame');
+                var signatureShow = document.getElementById('signatureShow');
+                if (!signatureImgTag || !newSignature || !signatureFrame || !signatureShow) {
+                    return true;
+                }
+                signatureImgTag.onload = function() {
+                    newSignature.value = "false";
+                    signatureFrame.style.display = "none";
+                    signatureShow.style.display = "block";
+                };
+                signatureImgTag.onerror = function() {
+                    // Stored signature is unrenderable — fall back to manual signing rather than
+                    // leaving a broken image visible while newSignature=false would silently persist it.
+                    newSignature.value = "true";
+                    signatureShow.style.display = "none";
+                    signatureFrame.style.display = "block";
+                };
+                signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
+            } else if (!hasPendingManualSignature()) {
+                var signatureProviderNo = document.getElementById('signatureProviderNo');
+                if (signatureProviderNo) {
+                    updateSignatureProvider(signatureProviderNo.value);
+                }
             }
 
             return true;
@@ -1922,9 +2058,15 @@ if (userAgent != null) {
             <% } %>
             if (e.isSave) {
                 refreshImage();
-                document.getElementById('newSignature').value = "true";
+                var newSignature = document.getElementById('newSignature');
+                if (newSignature) {
+                    newSignature.value = "true";
+                }
             } else {
-                document.getElementById('newSignature').value = "false";
+                var newSignature = document.getElementById('newSignature');
+                if (newSignature) {
+                    newSignature.value = "false";
+                }
             }
         }
 
@@ -2005,7 +2147,7 @@ if (userAgent != null) {
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: form.serialize(),
+                data: jQuery(form).serialize(),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2013,7 +2155,21 @@ if (userAgent != null) {
                         alert(data.errorMessage.replace(/\\n/g, '\n'));
                         return;
                     }
+                    if (data.signatureImg && isStoredSignatureId(data.signatureImg)) {
+                        var signatureImg = document.getElementById('signatureImg');
+                        var newSignature = document.getElementById('newSignature');
+                        if (signatureImg) {
+                            signatureImg.value = data.signatureImg;
+                        }
+                        if (newSignature) {
+                            newSignature.value = 'false';
+                        }
+                        isSignatureSaved = true;
+                    }
                     showPreview(data.consultPDF, data.consultPDFName);
+                    if (data.warningMessage) {
+                        alert(data.warningMessage.replace(/\\n/g, '\n'));
+                    }
                 },
                 error: function (xhr, status, error) {
                     HideSpin();
@@ -2160,7 +2316,7 @@ if (userAgent != null) {
         <%-- Page Header --%>
         <div class="page-header-bar d-flex align-items-center justify-content-between">
             <h4 class="page-header-title mb-0">
-                <i class="fa-solid fa-file-medical me-2"></i>Consultation Request
+                <i class="fa-solid fa-file-medical me-2"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
             </h4>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light text-dark border" style="font-size:0.85rem;">
@@ -2229,6 +2385,8 @@ if (userAgent != null) {
 
                                                                                         <c:set var="__enc_2"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_3"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+                                               
+                                               
                                             <fmt:message var="manageAttachmentsTitle" key="encounter.oscarConsultationRequest.ConsultationFormRequest.titleManageAttachments"/>
     <%
                                                 if (thisForm.iseReferral()) {
@@ -2239,15 +2397,15 @@ if (userAgent != null) {
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
-                                                                                      <c:set var="__enc_4"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
-                                               <c:set var="__enc_5"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+                                                                                      
+                                               
      <input type="hidden" id="isOceanEReferral"
                                                    value="<%=thisForm.iseReferral()%>"/>
                                             <%
-                                            } else { %>
+                                                } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
-                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_4}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_5}' context="htmlAttribute"/>">
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
 
@@ -2382,7 +2540,7 @@ if (userAgent != null) {
                         <%-- Action Buttons: hidden for Ocean eReferrals (managed externally).
                              When editing an existing request (id != null): show Update/Print/Fax buttons.
                              When creating a new request (id == null): show Submit/Print/Fax buttons. --%>
-                        <% if (thisForm.geteReferralId() == null) { %>
+                        <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                 <div class="consult-control-panel consult-control-panel-sticky mb-2">
                                 <% if (request.getAttribute("id") != null) { %>
                                 <input name="update" type="button" class="btn btn-primary btn-sm"
@@ -2391,7 +2549,8 @@ if (userAgent != null) {
                                 <input name="updateAndPrint" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndPrint"/>"
                                        onclick="return checkForm('Update Consultation Request And Print Preview','EctConsultationFormRequest2Form');"/>
-                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" value="Print Preview"
+                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" 
+                                       value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
@@ -2429,8 +2588,8 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <div style="white-space: pre-line;">
-                                                <carlos:encode value='<%= thisForm.getPatientAddress() %>' context="html"/>
+                                                <div>
+                                                <%= SafeEncode.forHtml(thisForm.getPatientAddress()).replace("&lt;br /&gt;","<br>") %>
                                                 </div>
                                             </div>
                                             <div class="col-md-4">
@@ -2972,7 +3131,7 @@ if (userAgent != null) {
                                         <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formClinInf"/>
                                         <i class="fa-solid fa-chevron-down collapse-icon"></i>
                                     </a>
-                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                     <%-- Import dropdown: data-target (not data-bs-target) is required because
                                          buildImportMenus() reads it via jQuery .data('target') to generate
                                          menu item IDs that reference the correct textarea. --%>
@@ -3001,7 +3160,7 @@ if (userAgent != null) {
                                             %>
                                         <i class="fa-solid fa-chevron-down collapse-icon"></i>
                                     </a>
-                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                     <div class="dropdown consult-import-dropdown">
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
@@ -3025,7 +3184,7 @@ if (userAgent != null) {
                                             } else { %><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCurrMedications"/><% } %>
                                         <i class="fa-solid fa-chevron-down collapse-icon"></i>
                                     </a>
-                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                     <div class="dropdown consult-import-dropdown">
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
@@ -3045,7 +3204,7 @@ if (userAgent != null) {
                                         <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formAllergies"/>
                                         <i class="fa-solid fa-chevron-down collapse-icon"></i>
                                     </a>
-                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                     <a class="btn btn-outline-secondary btn-sm medicationData" id="fetchAllergies_allergies" href="javascript:void(0);" style="font-size:0.75rem;">
                                         <i class="fa-solid fa-file-import me-1"></i>Import Allergies
                                     </a>
@@ -3058,13 +3217,29 @@ if (userAgent != null) {
 
                         <%
                             if (props.isConsultationSignatureEnabled()) {
-                                // Check for provider signature stamp
-                                UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
-                                boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());
+                                String signatureProviderNo = providerNo;
+                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                    if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
+                                        signatureProviderNo = consultUtil.providerNo.trim();
+                                    } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {
+                                        signatureProviderNo = referringProviderDefault.trim();
+                                    }
+                                }
+                                boolean hasStampSignature = false;
+                                try {
+                                    File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+                                    File consultSigFile = PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signatureProviderNo + ".png", imageFolder);
+                                    hasStampSignature = consultSigFile.isFile();
+                                } catch (SecurityException e) {
+                                    MiscUtils.getLogger().warn("Blocked unexpected consultation signature stamp path for provider {}", signatureProviderNo, e);
+                                }
                         %>
                         <div class="consult-section-heading"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
+                                <% if (canWriteConsult) { %>
                                 <input type="hidden" name="newSignature" id="newSignature" value="<%= hasStampSignature ? "false" : "true" %>"/>
+                                <input type="hidden" name="signatureProviderNo" id="signatureProviderNo"
+                                       value="<%=SafeEncode.forHtmlAttribute(signatureProviderNo)%>"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
                                        value="<%=(consultUtil.signatureImg != null ? SafeEncode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
@@ -3073,7 +3248,7 @@ if (userAgent != null) {
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureShow" style="display: block;">
-                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
+                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>"
                                          alt="${carlos:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
@@ -3092,6 +3267,19 @@ if (userAgent != null) {
 
                                 <iframe style="width:500px; height:132px;" id="signatureFrame"
 							src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+                                <% } %>
+                                <% } else if (SignatureReference.isStoredId(consultUtil.signatureImg)) { %>
+                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
+                                <div id="signatureReadOnlyShow" style="display: block;">
+                                    <img id="signatureReadOnlyImgTag"
+                                         src="<%=storedImgUrl %><%=SafeEncode.forUriComponent(consultUtil.signatureImg)%>"
+                                         alt="${carlos:forHtmlAttribute(providerSigAlt)}"
+                                         style="max-height:120px;"/>
+                                </div>
+                                <% } else { %>
+                                <div id="signatureUnsignedReadOnly" class="text-muted" style="font-style:italic;">
+                                    <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.signatureUnsignedReadOnly"/>
+                                </div>
                                 <% } %>
                         </div>
                         <% }%>
@@ -3259,7 +3447,11 @@ if (userAgent != null) {
                     text: 'Preview',
                     title: 'Preview'
                 }).click(function () {
-                    getPdf('FORM', formValue, 'method=renderFormPDF&formId=' + formValue + '&formName=' + formName + '&demographicNo=' + demographicNo);
+                    const formPreviewParameters = 'method=renderFormPDF'
+                            + '&formId=' + encodeURIComponent(formValue)
+                            + '&formName=' + encodeURIComponent(formName)
+                            + '&demographicNo=' + encodeURIComponent(demographicNo);
+                    getPdf('FORM', formValue, formPreviewParameters);
                 });
 
                 const newLiFormElement = jQuery('<li>', {
@@ -3381,7 +3573,7 @@ if (userAgent != null) {
                         });
 
                         const isOceanEReferral = document.getElementById('isOceanEReferral');
-                        if (isOceanEReferral !== null && isOceanEReferral.value.toLowerCase() === "true") {
+                        if (<%= canWriteConsult ? "true" : "false" %> && isOceanEReferral !== null && isOceanEReferral.value.toLowerCase() === "true") {
                             attachOceanAttachments();
                         }
                     }

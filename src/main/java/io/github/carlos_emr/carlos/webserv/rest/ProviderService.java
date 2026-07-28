@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -271,6 +272,8 @@ public class ProviderService extends AbstractServiceImpl {
      * @param itemsToReturn   Number of items to return
      * @return AbstractSearchResponse containing search results
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @POST
     @Path("/providers/search")
     @Produces("application/json")

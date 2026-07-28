@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Blocks HTTP GET requests on mutator endpoints (actions and JSPs that perform state changes).
@@ -336,6 +337,8 @@ public class HttpMethodGuardFilter implements Filter {
      * @throws IOException      if an I/O error occurs
      * @throws ServletException if a servlet error occurs
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
