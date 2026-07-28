@@ -30,16 +30,14 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.concurrent.TimeUnit;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -94,8 +92,8 @@ public class PGPEncrypt {
                 Process proc = rt.exec(cmd, env, dir);
                 // Drain stdout AND stderr concurrently: reading them sequentially deadlocks if the
                 // child fills the stderr pipe buffer while the parent is still blocked reading stdout.
-                Thread outDrain = drainAsync(proc.getInputStream(), null);
-                Thread errDrain = drainAsync(proc.getErrorStream(), null);
+                Thread outDrain = drainAsync(proc.getInputStream());
+                Thread errDrain = drainAsync(proc.getErrorStream());
                 if (awaitProcess(proc)) {
                     joinQuietly(outDrain);
                     joinQuietly(errDrain);
@@ -135,43 +133,18 @@ public class PGPEncrypt {
         }
     }
 
-    /** Replaces the operand filename (and its bare basename) wherever the child echoes it back. */
-    private static String redactOperand(String line, String sensitiveOperand) {
-        if (line == null || sensitiveOperand == null || sensitiveOperand.isBlank()) {
-            return line;
-        }
-        String redacted = line.replace(sensitiveOperand, "[redacted]");
-        int separator = Math.max(sensitiveOperand.lastIndexOf('/'), sensitiveOperand.lastIndexOf('\\'));
-        String baseName = separator >= 0 ? sensitiveOperand.substring(separator + 1) : sensitiveOperand;
-        // gpg reports the operand as given, but a wrapper script may echo only the basename.
-        return baseName.isBlank() ? redacted : redacted.replace(baseName, "[redacted]");
-    }
-
     /**
-     * Consumes a subprocess stream on a daemon thread, logging each line, so its pipe never fills.
-     *
-     * <p>The operand filename is redacted before logging. gpg names the file it was given in its
-     * diagnostics ({@code gpg: can't open '<file>'}), and for a single-patient export that filename
-     * is composed as {@code First_Last_demographicNo_DDMMYYYY} — so logging the child's output
-     * verbatim wrote a patient's name and date of birth into the operator log on every failure path.
-     * Redacting the one token this class already knows keeps gpg's actual error text, which is the
-     * diagnostic value, without the identifier.</p>
-     *
-     * <p>{@code LogSafe} alone would not be enough here: it neutralises CRLF injection, it does not
-     * remove PHI. Both are applied — the subprocess output is still untrusted text.</p>
+     * Consumes and discards a subprocess stream on a daemon thread so its pipe never fills.
+     * Child output is intentionally never logged: external tools may emit patient-bearing filenames,
+     * configured paths, key identifiers, or other values this class cannot reliably classify.
      *
      * @param stream the child's stdout or stderr; closed by this thread
-     * @param sensitiveOperand filename to redact from the stream, or null when there is none
      * @return the started daemon thread, so the caller can join it before reaping the process
      */
-    private static Thread drainAsync(InputStream stream, String sensitiveOperand) {
+    private static Thread drainAsync(InputStream stream) {
         Thread t = new Thread(() -> {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    MiscUtils.getLogger().info(
-                            LogSafe.sanitize(redactOperand(line, sensitiveOperand)));
-                }
+            try (InputStream input = stream) {
+                input.transferTo(OutputStream.nullOutputStream());
             } catch (IOException ignored) {
                 // Stream closed as the process ended; nothing actionable.
             }
@@ -215,8 +188,8 @@ public class PGPEncrypt {
             // Drain both streams concurrently and bound the wait — the previous code drained neither
             // stream and used an unbounded waitFor(), so any child output could deadlock the request
             // thread indefinitely.
-            Thread outDrain = drainAsync(proc.getInputStream(), srcFile);
-            Thread errDrain = drainAsync(proc.getErrorStream(), srcFile);
+            Thread outDrain = drainAsync(proc.getInputStream());
+            Thread errDrain = drainAsync(proc.getErrorStream());
             if (awaitProcess(proc)) {
                 joinQuietly(outDrain);
                 joinQuietly(errDrain);

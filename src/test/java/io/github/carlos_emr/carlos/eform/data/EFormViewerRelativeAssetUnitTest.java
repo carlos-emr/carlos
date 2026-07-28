@@ -89,11 +89,12 @@ class EFormViewerRelativeAssetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should collapse multiple parent hops to the webapp context")
-    void shouldCollapseMultipleParentHops_toContextPath() {
-        // Already malformed against the viewer's depth; the clinic's intent is still the webapp root.
+    @DisplayName("should resolve multiple parent hops exactly as the viewer URL does")
+    void shouldResolveMultipleParentHops_likeBrowser() {
         assertThat(EForm.anchorViewerRelativePath("../../../css/x.css", "/carlos"))
-                .isEqualTo("/carlos/css/x.css");
+                .isEqualTo("/css/x.css");
+        assertThat(EForm.anchorViewerRelativePath("../css/x.css?v=2#font", "/carlos"))
+                .isEqualTo("/carlos/css/x.css?v=2#font");
     }
 
     @Test
@@ -103,7 +104,8 @@ class EFormViewerRelativeAssetUnitTest extends CarlosUnitTestBase {
         assertThat(EForm.anchorViewerRelativePath("/carlos/css/x.css", "/carlos")).isNull();
         assertThat(EForm.anchorViewerRelativePath("css/x.css", "/carlos")).isNull();
         assertThat(EForm.anchorViewerRelativePath("data:image/png;base64,AAAA", "/carlos")).isNull();
-        assertThat(EForm.anchorViewerRelativePath("../", "/carlos")).isNull();
+        assertThat(EForm.anchorViewerRelativePath("..\\css\\x.css", "/carlos")).isNull();
+        assertThat(EForm.anchorViewerRelativePath("../", "/carlos")).isEqualTo("/carlos/");
         assertThat(EForm.anchorViewerRelativePath(null, "/carlos")).isNull();
     }
 

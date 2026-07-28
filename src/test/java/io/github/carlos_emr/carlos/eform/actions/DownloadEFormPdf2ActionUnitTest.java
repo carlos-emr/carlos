@@ -32,6 +32,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -72,6 +74,8 @@ class DownloadEFormPdf2ActionUnitTest {
     private LoggedInInfo loggedInInfo;
     @Mock
     private io.github.carlos_emr.carlos.managers.DemographicManager demographicManager;
+    @Mock
+    private EFormDataDao eFormDataDao;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -94,8 +98,12 @@ class DownloadEFormPdf2ActionUnitTest {
         lenient().when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
         lenient().when(demographicManager.getDemographicFormattedName(any(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn("Doe, Jane");
+        EFormData eFormData = new EFormData();
+        eFormData.setDemographicId(123);
+        lenient().when(eFormDataDao.find(42)).thenReturn(eFormData);
         action = new DownloadEFormPdf2Action(
-                securityInfoManager, documentAttachmentManager, renderApprovalService, demographicManager);
+                securityInfoManager, documentAttachmentManager, renderApprovalService,
+                demographicManager, eFormDataDao);
     }
 
     @AfterEach
@@ -146,6 +154,17 @@ class DownloadEFormPdf2ActionUnitTest {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("should reject a patient number that does not match the saved eForm")
+    void shouldRejectMismatchedDemographic_beforePrivilegeOrRendering() {
+        request.setParameter("fdid", "42");
+        request.setParameter("demographicNo", "456");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(documentAttachmentManager, renderApprovalService);
     }
 
     @Test

@@ -10,7 +10,6 @@ import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -19,6 +18,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -69,20 +68,33 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-01-24
  * @see DocumentAttachmentManager
  * @see DocumentType
- * @see PathValidationUtils
  */
 public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
-    private static final String EDOC_PDF_RENDER_FAILURE_MESSAGE = "Failed to render document PDF.";
-    private static final String EFORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render eForm PDF.";
-    private static final String EFORM_PDF_MISSING_CONTENT_MESSAGE =
-            "This eForm could not be fully rendered because required content or behavior is missing. "
-            + "You can render it only after approving the listed issues, but the document may be incomplete.";
-    private static final String HRM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render HRM PDF.";
-    private static final String LAB_PDF_RENDER_FAILURE_MESSAGE = "Failed to render lab PDF.";
-    private static final String FORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render form PDF.";
     private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
     private static final String EFORM_SECURITY_OBJECT = "_eform";
+
+    private enum PreviewError {
+        INVALID_REQUEST("invalid_request", "Invalid preview request."),
+        EDOC_RENDER_FAILED("edoc_render_failed", "Failed to render document PDF."),
+        EFORM_RENDER_FAILED("eform_render_failed", "Failed to render eForm PDF."),
+        EFORM_APPROVAL_INVALID("eform_approval_invalid",
+                "The incomplete-render approval is invalid or expired. Render the preview again."),
+        EFORM_MISSING_CONTENT("eform_missing_content",
+                "This eForm could not be fully rendered because required content or behavior is missing. "
+                        + "You can render it only after approving the listed issues, but the document may be incomplete."),
+        HRM_RENDER_FAILED("hrm_render_failed", "Failed to render HRM PDF."),
+        LAB_RENDER_FAILED("lab_render_failed", "Failed to render lab PDF."),
+        FORM_RENDER_FAILED("form_render_failed", "Failed to render form PDF.");
+
+        private final String code;
+        private final String message;
+
+        PreviewError(String code, String message) {
+            this.code = code;
+            this.message = message;
+        }
+    }
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -92,6 +104,8 @@ public class DocumentPreview2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final EFormRenderApprovalService renderApprovalService = SpringUtils.getBean(EFormRenderApprovalService.class);
+    private final PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final transient EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
     private final transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
@@ -142,7 +156,6 @@ public class DocumentPreview2Action extends ActionSupport {
                 renderFormPDF();
                 return NONE;
             case "renderpdf":
-                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderPDF();
                 return NONE;
             case "fetchconsultdocuments":
@@ -195,7 +208,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eDoc. " + e.getMessage(), e);
-            generateResponse(response, EDOC_PDF_RENDER_FAILURE_MESSAGE);
+            generateResponse(response, PreviewError.EDOC_RENDER_FAILED);
         }
     }
 
@@ -231,7 +244,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 EFormRenderApprovalService.Operation.PREVIEW, approvalToken);
         if (approvalToken != null && approval == null) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            generateResponse(response, "The incomplete-render approval is invalid or expired. Render the preview again.");
+            generateResponse(response, PreviewError.EFORM_APPROVAL_INVALID);
             return;
         }
         try {
@@ -247,10 +260,10 @@ public class DocumentPreview2Action extends ActionSupport {
                     EFormRenderApprovalService.Operation.PREVIEW, e.getReport(),
                     approval, e.getFdid());
             generateMissingContentResponse(
-                    response, EFORM_PDF_MISSING_CONTENT_MESSAGE, token, e.getReport());
+                    response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport());
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
-            generateResponse(response, EFORM_PDF_RENDER_FAILURE_MESSAGE);
+            generateResponse(response, PreviewError.EFORM_RENDER_FAILED);
         }
     }
 
@@ -285,7 +298,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering HRM. " + e.getMessage(), e);
-            generateResponse(response, HRM_PDF_RENDER_FAILURE_MESSAGE);
+            generateResponse(response, PreviewError.HRM_RENDER_FAILED);
         }
     }
 
@@ -319,7 +332,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Lab. " + e.getMessage(), e);
-            generateResponse(response, LAB_PDF_RENDER_FAILURE_MESSAGE);
+            generateResponse(response, PreviewError.LAB_RENDER_FAILED);
         }
     }
 
@@ -358,120 +371,27 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, formPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Form. " + e.getMessage(), e);
-            generateResponse(response, FORM_PDF_RENDER_FAILURE_MESSAGE);
+            generateResponse(response, PreviewError.FORM_RENDER_FAILED);
         }
     }
 
     /**
-     * Renders a PDF file from a validated file path and streams it directly to the HTTP response.
-     *
-     * This method performs comprehensive security validation to prevent path traversal attacks
-     * before serving PDF files. It validates that the requested file path exists within the
-     * document-store directories (DOCUMENT_DIR, eform_image) or the CARLOS-owned application temp
-     * subtree (via PathValidationUtils.isInApplicationTempDirectory). Generic temp roots are
-     * intentionally excluded so unrelated /tmp artifacts cannot be served. Only files that pass
-     * canonical path validation and exist as regular files are served. This method is critical for
-     * maintaining PHI security and preventing unauthorized file access.
-     *
-     * Expected request parameters:
-     * - pdfPath: String the file system path to the PDF file to render
-     *
-     * Security measures:
-     * - Validates path is not empty
-     * - Resolves canonical path to detect traversal attempts
-     * - Validates path is within allowed directories using PathValidationUtils
-     * - Verifies file exists and is a regular file
-     * - Sets appropriate HTTP status codes (400 for bad requests, 403 for forbidden paths,
-     *   404 for missing files, 500 for server errors)
-     *
-     * Response: Streams PDF content directly with "application/pdf" content type, or sets
-     * appropriate HTTP error status code if validation fails.
+     * Streams the generated PDF identified by a short-lived capability. Raw filesystem paths are
+     * never accepted from the browser; the capability is bound to the exact canonical temp file,
+     * authenticated provider, and HTTP session that prepared the email attachment.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void renderPDF() {
-        String pdfPathString = StringUtils.isNullOrEmpty(request.getParameter("pdfPath")) ? "" : request.getParameter("pdfPath");
-        
-        if (pdfPathString.isEmpty()) {
-            logger.error("Empty PDF path provided");
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        Path pdfPath = pdfPreviewCapabilityService.resolve(
+                request, loggedInInfo, request.getParameter("previewToken"));
+        if (pdfPath == null) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
-        
-        // Validate the PDF path to prevent path traversal attacks
-        Path pdfPath;
+
         try {
-            pdfPath = new java.io.File(pdfPathString).toPath();
-        } catch (RuntimeException e) {
-            logger.error("Invalid PDF path provided: {}", LogSafe.sanitize(pdfPathString));
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return;
-        }
-        
-        try {
-            // Canonicalize first so no filesystem check runs on the raw, user-supplied path.
-            // toRealPath resolves symlinks and ".." and throws if the file does not exist;
-            // containment against the allowed roots is validated below before the file is read.
-            Path canonicalPdfPath;
-            try {
-                canonicalPdfPath = pdfPath.toRealPath();
-            } catch (IOException e) {
-                logger.error("PDF file not found: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                return;
-            }
-            
-            // Fast-path: accept CARLOS-owned temp artifacts (the eForm browser renderer writes its
-            // output under <catalina.base>/work/carlos/eform-browser-pdf-temp or
-            // <java.io.tmpdir>/carlos-eform-browser-pdf-temp), which are NOT among the document-store
-            // base paths below. Without this, a freshly-rendered eForm/attachment temp PDF previewed
-            // through this endpoint (e.g. the email-compose attachment <object>) was rejected against
-            // DOCUMENT_DIR and 403'd silently. Mirrors the fax preview path
-            // (FaxManagerImpl.resolveAndValidateFilePath / validateFilePath).
-            boolean isValidPath = PathValidationUtils.isInApplicationTempDirectory(canonicalPdfPath.toFile());
-
-            if (!isValidPath) {
-                // Allowed document-store directories only. The generic temp roots (TMP_DIR /
-                // java.io.tmpdir) are deliberately NOT listed: they would let any _edoc-read user
-                // stream any Tomcat-readable file under /tmp, including other patients' rendered
-                // preview PDFs, defeating demographic scoping. CARLOS-owned renderer temp output is
-                // already accepted by the isInApplicationTempDirectory fast-path above.
-                String[] allowedBasePaths = {
-                    CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
-                    CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/")
-                };
-                for (String basePath : allowedBasePaths) {
-                    if (basePath != null && !basePath.isEmpty()) {
-                        java.io.File baseDir = new java.io.File(basePath);
-                        if (baseDir.exists()) {
-                            try {
-                                canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
-                                isValidPath = true;
-                                break;
-                            } catch (SecurityException e) {
-                                // File not in this directory, try next
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (!isValidPath) {
-                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                return;
-            }
-
-            // Reject non-regular files (directories, devices) now that the path is validated.
-            if (!Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF path is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                return;
-            }
-
-            // Serve the validated PDF file
             response.setContentType("application/pdf");
-            try (InputStream inputStream = Files.newInputStream(canonicalPdfPath);
+            try (InputStream inputStream = Files.newInputStream(pdfPath);
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {
 
@@ -483,7 +403,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 outs.flush();
             }
         } catch (IOException e) {
-            logger.error("Error processing PDF file: {}", LogSafe.sanitize(pdfPathString), e);
+            logger.error("Error processing authorized PDF preview", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
@@ -587,13 +507,7 @@ public class DocumentPreview2Action extends ActionSupport {
     }
 
     /**
-     * Writes the PDF response, attaching any advisory conditions the render reported.
-     *
-     * <p>Advisory conditions do not withhold the document — the reader gets the PDF — but they must
-     * still reach the reader. {@code advisoryIssues} counts uncaught exceptions thrown by the form's
-     * own script; a script that aborted midway through injecting a score, a dose or a letter body
-     * leaves no other trace, because every subresource still returned 200 and the page divs still
-     * measure. A count only: console text can carry PHI and must not cross this boundary.</p>
+     * Writes the PDF response, attaching any non-blocking advisory conditions the render reported.
      */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
@@ -622,13 +536,14 @@ public class DocumentPreview2Action extends ActionSupport {
      * all document rendering methods.
      *
      * @param response HttpServletResponse the HTTP response object to write to
-     * @param errorMessage String the error message describing the PDF generation failure
+     * @param error fixed public error code and message
      */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    private void generateResponse(HttpServletResponse response, String errorMessage) {
+    private void generateResponse(HttpServletResponse response, PreviewError error) {
         ObjectNode json = objectMapper.createObjectNode();
-        json.put("errorMessage", errorMessage);
+        json.put("errorCode", error.code);
+        json.put("errorMessage", error.message);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {
@@ -642,14 +557,15 @@ public class DocumentPreview2Action extends ActionSupport {
      * Generates the sanitized issue report and exact approval token for an incomplete render.
      *
      * @param response HttpServletResponse the HTTP response object to write to
-     * @param message String the clinician-facing explanation (no PHI; no asset names)
+     * @param error fixed clinician-facing error (no PHI; no asset names)
      */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
-    private void generateMissingContentResponse(HttpServletResponse response, String message,
+    private void generateMissingContentResponse(HttpServletResponse response, PreviewError error,
             String approvalToken, EFormRenderCompletenessReport report) {
         ObjectNode json = objectMapper.createObjectNode();
-        json.put("errorMessage", message);
+        json.put("errorCode", error.code);
+        json.put("errorMessage", error.message);
         json.put("missingContent", true);
         json.put("renderApproval", approvalToken);
         json.put("failedContentResources", report.failedContentResources());
@@ -780,7 +696,7 @@ public class DocumentPreview2Action extends ActionSupport {
         if (StringUtils.isNullOrEmpty(value)) {
             logger.warn("Invalid {} received: empty value", parameterName);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            generateResponse(response, "Invalid " + parameterName);
+            generateResponse(response, PreviewError.INVALID_REQUEST);
             return null;
         }
 
@@ -802,7 +718,7 @@ public class DocumentPreview2Action extends ActionSupport {
         } catch (NumberFormatException e) {
             logger.warn("Invalid {} received: {}", parameterName, LogSafe.sanitize(value), e);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            generateResponse(response, "Invalid " + parameterName);
+            generateResponse(response, PreviewError.INVALID_REQUEST);
             return null;
         }
     }

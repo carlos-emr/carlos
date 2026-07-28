@@ -170,11 +170,18 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     public Integer saveEFormWithAttachmentsAsEDoc(LoggedInInfo loggedInInfo, String fdid, String demographicId, Path eFormPDFPath) throws PDFGenerationException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, demographicId)) {
+        EFormData eForm = eFormDataDao.find(Integer.parseInt(fdid));
+        if (eForm == null || eForm.getDemographicId() == null) {
+            throw new PDFGenerationException("Unable to archive an unknown eForm.");
+        }
+        String storedDemographicId = String.valueOf(eForm.getDemographicId());
+        if (!storedDemographicId.equals(demographicId)) {
+            throw new SecurityException("eForm demographic does not match fdid");
+        }
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_eform", SecurityInfoManager.UPDATE, storedDemographicId)) {
             throw new RuntimeException("missing required sec object (_eform)");
         }
-
-        EFormData eForm = eFormDataDao.find(Integer.parseInt(fdid));
         EDoc eDoc = ConvertToEdoc.from(eForm, eFormPDFPath);
         documentManager.moveDocumentToOscarDocuments(loggedInInfo, eDoc.getDocument(), eDoc.getFilePath());
         eDoc.setFilePath(null);

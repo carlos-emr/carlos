@@ -86,22 +86,9 @@ public record EFormRenderCompletenessReport(
     /**
      * Whether any condition present is serious enough to withhold the document pending approval.
      *
-     * <p>Three components are advisory and never withhold the document — {@link #severeConsoleErrors},
-     * {@link #containedInteractions} and {@link #timerCompatibilityFailure}. {@link #advisoryIssueCount()}
-     * is the single authority on that set; keep this list in step with it rather than reasoning from
-     * this sentence. Every other component blocks.</p>
-     *
-     * <p>Taking the first of the three: it counts
-     * uncaught exceptions thrown by the <em>form's own</em> script. Across the shared-eForm corpus
-     * that is the single most common condition — decades-old hand-authored forms routinely throw
-     * once during load (a {@code getElementById(...)} returning null for a field the form no longer
-     * has) while rendering every bit of their clinical content correctly. Blocking on it withheld
-     * complete documents far more often than it caught truncated ones.</p>
-     *
-     * <p>It stays in the report rather than being discarded, because a script that aborted midway
-     * through injecting a score, a dose or a letter body leaves no other observable — every
-     * subresource returned 200 and the page divs still measure. Callers that can show it must; see
-     * {@link #advisoryIssueCount()}.</p>
+     * <p>Only contained interactions and timer compatibility failures are advisory. An uncaught
+     * severe page-script error blocks because it can stop a score, dose, signature, or letter body
+     * after every resource has returned successfully, leaving no other observable omission.</p>
      */
     public boolean hasBlockingOmissions() {
         return blockingIssueCount() > 0;
@@ -115,7 +102,7 @@ public record EFormRenderCompletenessReport(
     /**
      * Count of conditions that are reported to the user but never withhold the document.
      *
-     * <p>{@link #timerCompatibilityFailure} joins {@link #severeConsoleErrors} here. It reports that
+     * <p>{@link #timerCompatibilityFailure} reports that
      * one of the form's own legacy string timers threw. That is worth telling the reader, but it is
      * not sound grounds for withholding the document: measured across the shared-form corpus, the
      * overwhelmingly common such timer is {@code setTimeout("SubmitButton.click()", 1800)} — a form
@@ -134,8 +121,7 @@ public record EFormRenderCompletenessReport(
      * surfaced rather than dropped; the PDF has never recorded a form's dialogs, only its content.</p>
      */
     public int advisoryIssueCount() {
-        int advisory = Math.addExact(severeConsoleErrors, containedInteractions);
-        return Math.addExact(advisory, timerCompatibilityFailure ? 1 : 0);
+        return Math.addExact(containedInteractions, timerCompatibilityFailure ? 1 : 0);
     }
 
     public int issueCount() {
@@ -167,8 +153,8 @@ public record EFormRenderCompletenessReport(
         StringBuilder description = new StringBuilder();
         appendCount(description, "failedContentResources", failedContentResources);
         appendCount(description, "excludedContentElements", excludedContentElements);
+        appendCount(description, "severeConsoleErrors", severeConsoleErrors);
         if (!blockingOnly) {
-            appendCount(description, "severeConsoleErrors", severeConsoleErrors);
             appendCount(description, "containedInteractions", containedInteractions);
             appendFlag(description, "timerCompatibilityFailure", timerCompatibilityFailure);
         }

@@ -1,6 +1,8 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.managers.*;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.metrics.LongCounter;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
@@ -75,6 +77,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private static final org.apache.logging.log4j.Logger logger =
             io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
     private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
+    private static final LongCounter TEMP_CLEANUP_FAILURES = GlobalOpenTelemetry.getMeter(
+                    "io.github.carlos_emr.carlos.documentManager")
+            .counterBuilder("carlos.eform.render.temp_cleanup.failures")
+            .setDescription("Failed deletions of intermediate eForm renderer temp files")
+            .build();
 
     @Autowired
     private ConsultDocsDao consultDocsDao;
@@ -604,14 +611,25 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
         String demographicId = (String) request.getAttribute("demographicId");
-        // fdid is set upstream from a numeric transaction id, but guard the parse so a malformed
-        // value surfaces as a clean PDFGenerationException instead of an uncaught NumberFormatException.
+        if (fdid == null || fdid.isBlank()) {
+            throw new PDFGenerationException("eForm render request did not carry an fdid.");
+        }
         int fdidValue;
         try {
             fdidValue = Integer.parseInt(fdid);
         } catch (NumberFormatException e) {
             throw new PDFGenerationException("eForm render request carried a non-numeric fdid.");
         }
+        EFormData storedEform = eformDataManager.findByFdid(loggedInInfo, fdidValue);
+        if (storedEform == null || storedEform.getDemographicId() == null) {
+            throw new PDFGenerationException("eForm render request referenced an unknown fdid.");
+        }
+        String storedDemographicId = String.valueOf(storedEform.getDemographicId());
+        if (demographicId != null && !storedDemographicId.equals(demographicId)) {
+            throw new SecurityException("eForm demographic does not match fdid");
+        }
+        demographicId = storedDemographicId;
+        request.setAttribute("demographicId", storedDemographicId);
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         try {
             EformDataManager.EformPdfRender primary =
@@ -684,7 +702,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     Files.deleteIfExists(file.toPath());
                 }
             } catch (RuntimeException | java.io.IOException e) {
-                logger.warn("Best-effort cleanup could not remove an intermediate renderer temp input; "
+                TEMP_CLEANUP_FAILURES.add(1);
+                logger.error("event=eform_render_temp_cleanup_failure "
                         + "the scheduled temp purge is the backstop");
             }
         }
@@ -716,8 +735,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             EFormRenderApproval approval) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
-        String demographicId = (String) request.getAttribute("demographicId");
         Path eFormPath = renderEFormWithAttachments(request, response, approval);
+        String demographicId = (String) request.getAttribute("demographicId");
         return eformDataManager.saveEFormWithAttachmentsAsEDoc(loggedInInfo, fdid, demographicId, eFormPath);
     }
 

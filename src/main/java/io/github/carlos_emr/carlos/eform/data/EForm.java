@@ -59,6 +59,8 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -681,8 +683,8 @@ public class EForm extends EFormBase {
      * then reports missing content for an asset that is present and correctly referenced.</p>
      *
      * <p>This generalizes the per-asset {@code ../share/} and {@code ../eform/displayImage} rewrites the
-     * render composer already performs: any leading {@code ../} chain is stripped and the remainder is
-     * anchored to the context path. It runs only on the render/compose path (see
+     * render composer already performs, but uses the viewer URL as the resolution base so every
+     * parent hop has normal browser semantics. It runs only on the render/compose path (see
      * {@link #enableRenderNormalization()}), so clinic-authored HTML is never rewritten in the
      * database — the interactive viewer keeps resolving the original relative reference itself.</p>
      */
@@ -700,9 +702,8 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * Anchors one viewer-relative reference to {@code contextPath}, or returns {@code null} when the
-     * value is not a {@code ../} reference and must be left untouched (absolute URLs, context-rooted
-     * paths, {@code data:}/{@code javascript:} values, and same-directory references).
+     * Resolves one viewer-relative reference exactly as the interactive viewer does, or returns
+     * {@code null} when the value is not a safe {@code ../} reference and must be left untouched.
      *
      * @return the rewritten path, or {@code null} to leave the attribute as authored
      */
@@ -710,19 +711,40 @@ public class EForm extends EFormBase {
         if (value == null) {
             return null;
         }
-        String remainder = value.trim();
-        if (!remainder.startsWith("../")) {
+        String relative = value.trim();
+        if (!relative.startsWith("../") || relative.indexOf('\\') >= 0) {
             return null;
         }
-        // A form authored with more ../ segments than the viewer has depth is already malformed; the
-        // clinic's intent is still "the webapp root", so every leading hop collapses to the context.
-        while (remainder.startsWith("../")) {
-            remainder = remainder.substring(3);
-        }
-        if (remainder.isEmpty()) {
+        String base = contextPath == null ? "" : contextPath.trim();
+        if (!base.isEmpty() && (!base.startsWith("/") || base.indexOf('\\') >= 0)) {
             return null;
         }
-        return contextPath + "/" + remainder;
+        try {
+            URI reference = new URI(relative);
+            if (reference.isAbsolute() || reference.getRawAuthority() != null) {
+                return null;
+            }
+            URI viewer = new URI("https", "renderer.invalid", base + "/eform/efmshowform_data", null);
+            URI resolved = viewer.resolve(reference).normalize();
+            if (!"https".equals(resolved.getScheme())
+                    || !"renderer.invalid".equals(resolved.getHost())) {
+                return null;
+            }
+            // RFC 3986 normalization preserves leading /../ segments, while the browser URL
+            // algorithm clamps traversal above the origin root. Match the actual viewer.
+            String rawPath = resolved.getRawPath();
+            while (rawPath.startsWith("/../")) {
+                rawPath = rawPath.substring(3);
+            }
+            if ("/..".equals(rawPath)) {
+                rawPath = "/";
+            }
+            return rawPath
+                    + (resolved.getRawQuery() == null ? "" : "?" + resolved.getRawQuery())
+                    + (resolved.getRawFragment() == null ? "" : "#" + resolved.getRawFragment());
+        } catch (URISyntaxException e) {
+            return null;
+        }
     }
 
 

@@ -1348,6 +1348,12 @@
             <artifactId>caffeine</artifactId>
             <version>3.2.3</version>
         </dependency>
+        <!-- Direct API dependency for application-owned render-cleanup telemetry. Export remains
+             deployment-configured; without an SDK the API safely behaves as a no-op. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
         <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
              Deliberately NOT selenium-java: chrome-driver + support keeps the tree to the
              Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->

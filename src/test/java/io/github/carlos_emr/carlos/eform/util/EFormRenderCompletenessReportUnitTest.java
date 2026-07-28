@@ -146,19 +146,16 @@ class EFormRenderCompletenessReportUnitTest {
     }
 
     @Test
-    @DisplayName("should not block the document for a page-script error alone")
-    void shouldNotBlockDocument_forPageScriptErrorAlone() {
-        // Advisory, not ignored. Legacy corpus forms routinely throw once during load (a
-        // getElementById(...) returning null for a field the form no longer has) while rendering
-        // every bit of their clinical content, so blocking withheld complete documents far more
-        // often than it caught truncated ones. It stays in the report so the reader is told.
+    @DisplayName("should block the document for a severe page-script error alone")
+    void shouldBlockDocument_forSeverePageScriptErrorAlone() {
+        // A severe entry represents an uncaught script exception and can leave derived clinical
+        // content only partially populated. The clinician must see and approve that exact issue.
         EFormRenderCompletenessReport report =
                 new EFormRenderCompletenessReport(0, 0, 1, 0, false, false, false, false);
 
-        assertThat(report.hasBlockingOmissions()).isFalse();
-        assertThat(report.blockingIssueCount()).isZero();
-        assertThat(report.advisoryIssueCount()).isEqualTo(1);
-        // Still reported: approval binds a digest over the COMPLETE issue set.
+        assertThat(report.hasBlockingOmissions()).isTrue();
+        assertThat(report.blockingIssueCount()).isEqualTo(1);
+        assertThat(report.advisoryIssueCount()).isZero();
         assertThat(report.isComplete()).isFalse();
         assertThat(report.issueCount()).isEqualTo(1);
     }
@@ -170,8 +167,8 @@ class EFormRenderCompletenessReportUnitTest {
                 new EFormRenderCompletenessReport(1, 0, 1, 0, false, false, false, false);
 
         assertThat(report.hasBlockingOmissions()).isTrue();
-        assertThat(report.blockingIssueCount()).isEqualTo(1);
-        assertThat(report.advisoryIssueCount()).isEqualTo(1);
+        assertThat(report.blockingIssueCount()).isEqualTo(2);
+        assertThat(report.advisoryIssueCount()).isZero();
         assertThat(report.issueCount()).isEqualTo(2);
     }
 
@@ -181,9 +178,13 @@ class EFormRenderCompletenessReportUnitTest {
         EFormRenderCompletenessReport report =
                 new EFormRenderCompletenessReport(2, 0, 5, 1, false, true, false, false);
 
-        // blockingOnly omits the advisory console count, so the log names exactly what refused.
-        // blockingOnly lists only what actually refused, so the advisory conditions are absent.
-        assertThat(report.describe(true)).isEqualTo("failedContentResources=2");
+        // blockingOnly lists exactly what refused; suppressed dialogs and timer compatibility stay
+        // advisory while severe uncaught script errors are blocking.
+        assertThat(report.describe(true))
+                .contains("failedContentResources=2")
+                .contains("severeConsoleErrors=5")
+                .doesNotContain("containedInteractions")
+                .doesNotContain("timerCompatibilityFailure");
         assertThat(report.describe(false))
                 .contains("severeConsoleErrors=5")
                 .contains("containedInteractions=1")
@@ -227,13 +228,15 @@ class EFormRenderCompletenessReportUnitTest {
     }
 
     @Test
-    @DisplayName("should report every non-console condition as blocking")
-    void shouldReportEveryNonConsoleCondition_asBlocking() {
+    @DisplayName("should report every clinical-omission condition as blocking")
+    void shouldReportEveryClinicalOmissionCondition_asBlocking() {
         // Guards the split itself: if a new component is added to the record and quietly lands on
         // the advisory side, this fails rather than silently weakening the gate.
         assertThat(new EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 1, 0, 0, false, false, false, false)
+                .hasBlockingOmissions()).isTrue();
+        assertThat(new EFormRenderCompletenessReport(0, 0, 1, 0, false, false, false, false)
                 .hasBlockingOmissions()).isTrue();
         assertThat(new EFormRenderCompletenessReport(0, 0, 0, 0, true, false, false, false)
                 .hasBlockingOmissions()).isTrue();

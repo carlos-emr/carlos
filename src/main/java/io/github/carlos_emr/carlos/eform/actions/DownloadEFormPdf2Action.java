@@ -19,6 +19,8 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
@@ -28,6 +30,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -59,33 +63,39 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class DownloadEFormPdf2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final String APPROVAL_EXPIRED_MESSAGE =
+    private static final String APPROVAL_EXPIRED_MESSAGE_KEY = "eform.download.approvalExpired";
+    private static final String APPROVAL_EXPIRED_MESSAGE_FALLBACK =
             "The incomplete-render approval is no longer valid. Download the eForm again to review "
             + "the listed issues and approve them.";
-    private static final String PDF_DOWNLOAD_FAILURE_MESSAGE =
+    private static final String PDF_DOWNLOAD_FAILURE_MESSAGE_KEY = "eform.download.failure";
+    private static final String PDF_DOWNLOAD_FAILURE_MESSAGE_FALLBACK =
             "This eForm (and attachments, if applicable) could not be downloaded.";
 
     private final SecurityInfoManager securityInfoManager;
     private final DocumentAttachmentManager documentAttachmentManager;
     private final EFormRenderApprovalService renderApprovalService;
     private final DemographicManager demographicManager;
+    private final EFormDataDao eFormDataDao;
 
     /** Struts instantiates this action reflectively, so the dependencies are resolved here. */
     public DownloadEFormPdf2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
                 SpringUtils.getBean(DocumentAttachmentManager.class),
                 SpringUtils.getBean(EFormRenderApprovalService.class),
-                SpringUtils.getBean(DemographicManager.class));
+                SpringUtils.getBean(DemographicManager.class),
+                SpringUtils.getBean(EFormDataDao.class));
     }
 
     DownloadEFormPdf2Action(SecurityInfoManager securityInfoManager,
             DocumentAttachmentManager documentAttachmentManager,
             EFormRenderApprovalService renderApprovalService,
-            DemographicManager demographicManager) {
+            DemographicManager demographicManager,
+            EFormDataDao eFormDataDao) {
         this.securityInfoManager = securityInfoManager;
         this.documentAttachmentManager = documentAttachmentManager;
         this.renderApprovalService = renderApprovalService;
         this.demographicManager = demographicManager;
+        this.eFormDataDao = eFormDataDao;
     }
 
     @Override
@@ -106,17 +116,27 @@ public class DownloadEFormPdf2Action extends ActionSupport {
         String fdid = request.getParameter("fdid");
         String demographicNo = request.getParameter("demographicNo");
         int fdidValue;
-        int demographicValue;
         try {
             fdidValue = Integer.parseInt(fdid);
-            demographicValue = Integer.parseInt(demographicNo);
+            Integer.parseInt(demographicNo);
         } catch (NumberFormatException | NullPointerException e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, demographicNo)) {
+        EFormData eformData = eFormDataDao.find(fdidValue);
+        if (eformData == null || eformData.getDemographicId() == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        String storedDemographicNo = String.valueOf(eformData.getDemographicId());
+        if (!storedDemographicNo.equals(demographicNo)) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_eform", SecurityInfoManager.READ, storedDemographicNo)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
@@ -124,7 +144,7 @@ public class DownloadEFormPdf2Action extends ActionSupport {
         // approval. A null one is not by itself an error — the gate simply refuses again.
         String approvalToken = request.getParameter("renderApproval");
         EFormRenderApproval approval = renderApprovalService.consume(
-                request, loggedInInfo, fdidValue, demographicNo,
+                request, loggedInInfo, fdidValue, storedDemographicNo,
                 EFormRenderApprovalService.Operation.DOWNLOAD, approvalToken);
         if (approvalToken != null && approval == null) {
             // A token WAS presented and did not survive. The two-minute lifetime is the likely
@@ -134,13 +154,14 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             // Fax2Action and DocumentPreview2Action already say this; say it here too.
             logger.info("eForm download approval expired or did not match: fdid={}", fdidValue);
             request.setAttribute("error", "true");
-            request.setAttribute("errorMessage", APPROVAL_EXPIRED_MESSAGE);
+            request.setAttribute("errorMessage", message(
+                    request, APPROVAL_EXPIRED_MESSAGE_KEY, APPROVAL_EXPIRED_MESSAGE_FALLBACK));
             return "error";
         }
 
         // renderEFormWithAttachments reads these as request ATTRIBUTES, not parameters.
         request.setAttribute("fdid", fdid);
-        request.setAttribute("demographicId", demographicNo);
+        request.setAttribute("demographicId", storedDemographicNo);
 
         EformDataManager.EformPdfRender rendered = null;
         try {
@@ -148,7 +169,8 @@ public class DownloadEFormPdf2Action extends ActionSupport {
                     .renderEFormPacketWithCompleteness(request, response, approval);
             request.setAttribute("eFormPDF", documentAttachmentManager.convertPDFToBase64(rendered.path()));
             request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
-            request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, demographicValue));
+            request.setAttribute("eFormPDFName",
+                    generateFileName(loggedInInfo, eformData.getDemographicId()));
             request.setAttribute("isDownload", "true");
             request.setAttribute("fdid", fdid);
             return "download";
@@ -159,12 +181,14 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             logger.warn("Approved eForm download still incomplete: fdid={} issues={}",
                     fdidValue, e.getIssueCount());
             request.setAttribute("error", "true");
-            request.setAttribute("errorMessage", PDF_DOWNLOAD_FAILURE_MESSAGE);
+            request.setAttribute("errorMessage", message(
+                    request, PDF_DOWNLOAD_FAILURE_MESSAGE_KEY, PDF_DOWNLOAD_FAILURE_MESSAGE_FALLBACK));
             return "error";
         } catch (PDFGenerationException e) {
             logger.error("eForm download render failed: fdid={} type={}", fdidValue, e.getClass().getName());
             request.setAttribute("error", "true");
-            request.setAttribute("errorMessage", PDF_DOWNLOAD_FAILURE_MESSAGE);
+            request.setAttribute("errorMessage", message(
+                    request, PDF_DOWNLOAD_FAILURE_MESSAGE_KEY, PDF_DOWNLOAD_FAILURE_MESSAGE_FALLBACK));
             return "error";
         } finally {
             // The rendered packet is the patient's full document, and EformPdfRender's contract puts
@@ -201,5 +225,13 @@ public class DownloadEFormPdf2Action extends ActionSupport {
                 ? "eform"
                 : formattedName.split(", ")[0];
         return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + "_" + lastName + ".pdf";
+    }
+
+    private static String message(HttpServletRequest request, String key, String fallback) {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(key);
+        } catch (MissingResourceException e) {
+            return fallback;
+        }
     }
 }
