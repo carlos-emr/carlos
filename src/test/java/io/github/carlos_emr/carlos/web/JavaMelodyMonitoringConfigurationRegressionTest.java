@@ -28,7 +28,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -49,7 +53,12 @@ import org.xml.sax.SAXException;
 @Tag("regression")
 class JavaMelodyMonitoringConfigurationRegressionTest {
     private static final Path WEB_XML = Path.of("src/main/webapp/WEB-INF/web.xml");
+    private static final Path DEVCONTAINER_DIRECTORY = Path.of(".devcontainer");
     private static final Path DEVCONTAINER_DOCKERFILE = Path.of(".devcontainer/development/Dockerfile");
+    private static final String ENABLED_SYSTEM_ACTIONS_OPTION =
+            "-Djavamelody.system-actions-enabled=true";
+    private static final Pattern SYSTEM_ACTIONS_JVM_OPTION = Pattern.compile(
+            "(?:^|[\\s\"'=])(-Djavamelody\\.system-actions-enabled=[^\\s\"'\\\\]++)");
     private static final String MONITORING_FILTER =
             "/*[local-name()='web-app']/*[local-name()='filter']"
                     + "[*[local-name()='filter-name' and normalize-space()='monitoring']]"
@@ -92,18 +101,51 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
     @Test
     @DisplayName("devcontainer should enable JavaMelody system actions")
     void shouldEnableJavaMelodySystemActions_inDevcontainer() throws IOException {
-        List<String> catalinaOptsDeclarations = Files.readAllLines(
-                        DEVCONTAINER_DOCKERFILE, StandardCharsets.UTF_8)
-                .stream()
-                .map(String::strip)
-                .filter(line -> line.startsWith("ENV CATALINA_OPTS="))
-                .toList();
+        List<JvmOptionDeclaration> declarations = findSystemActionsJvmOptions();
 
-        assertThat(catalinaOptsDeclarations)
-                .as("the development image must declare CATALINA_OPTS exactly once")
+        assertThat(declarations)
+                .as("only the development image may enable the JavaMelody system-actions JVM property")
                 .singleElement()
-                .asString()
-                .contains("-Djavamelody.system-actions-enabled=true");
+                .satisfies(declaration -> {
+                    assertThat(declaration.source()).isEqualTo(DEVCONTAINER_DOCKERFILE);
+                    assertThat(declaration.option()).isEqualTo(ENABLED_SYSTEM_ACTIONS_OPTION);
+                });
+    }
+
+    private static List<JvmOptionDeclaration> findSystemActionsJvmOptions() throws IOException {
+        List<JvmOptionDeclaration> declarations = new ArrayList<>();
+
+        try (Stream<Path> paths = Files.walk(DEVCONTAINER_DIRECTORY)) {
+            for (Path path : paths.filter(Files::isRegularFile)
+                    .filter(JavaMelodyMonitoringConfigurationRegressionTest::isRuntimeConfiguration)
+                    .toList()) {
+                for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
+                    String configuration = line.strip();
+                    if (configuration.startsWith("#")) {
+                        continue;
+                    }
+
+                    Matcher matcher = SYSTEM_ACTIONS_JVM_OPTION.matcher(configuration);
+                    while (matcher.find()) {
+                        declarations.add(new JvmOptionDeclaration(path, matcher.group(1)));
+                    }
+                }
+            }
+        }
+
+        return declarations;
+    }
+
+    private static boolean isRuntimeConfiguration(Path path) {
+        String fileName = path.getFileName().toString();
+        return fileName.startsWith("Dockerfile")
+                || fileName.equals("devcontainer.json")
+                || fileName.equals("make")
+                || fileName.equals("server")
+                || fileName.endsWith(".env")
+                || fileName.endsWith(".sh")
+                || fileName.endsWith(".yaml")
+                || fileName.endsWith(".yml");
     }
 
     private static Document parseWebXml()
@@ -118,4 +160,6 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
         factory.setExpandEntityReferences(false);
         return factory.newDocumentBuilder().parse(WEB_XML.toFile());
     }
+
+    private record JvmOptionDeclaration(Path source, String option) {}
 }

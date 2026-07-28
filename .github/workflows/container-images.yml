@@ -224,6 +224,30 @@ jobs:
           echo "Verifying Tomcat..."
           docker exec test-tomcat ls -la /usr/local/tomcat/
 
+          echo "Verifying JavaMelody development override..."
+          docker exec test-tomcat sh -eu -c '
+            matches=0
+            for option in $CATALINA_OPTS; do
+              case "$option" in
+                -Djavamelody.system-actions-enabled=*)
+                  [ "$option" = "-Djavamelody.system-actions-enabled=true" ]
+                  matches=$((matches + 1))
+                  ;;
+              esac
+            done
+            [ "$matches" -eq 1 ]
+          '
+
+          echo "Verifying Compose does not replace the image JVM options..."
+          compose_catalina_opts="$(
+            docker compose -f .devcontainer/docker-compose.yml config --format json \
+              | jq -r '.services.carlos.environment.CATALINA_OPTS // empty'
+          )"
+          if [ -n "$compose_catalina_opts" ]; then
+            echo "ERROR: carlos Compose configuration must inherit CATALINA_OPTS from the development image"
+            exit 1
+          fi
+
           echo "Verifying Node.js..."
           docker exec test-tomcat node --version
 
