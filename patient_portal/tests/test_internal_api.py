@@ -1,6 +1,9 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
+from carlos_patient_portal import internal_routes
 from carlos_patient_portal.account_settings import update_account_contact
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
 from carlos_patient_portal.credentials import hash_password
@@ -265,6 +268,68 @@ def test_internal_unlock_secret_is_idempotent_scoped_and_target_audited() -> Non
             ("unlock_secret", str(secret.id)),
             ("unlock_secret", str(secret.id)),
         ]
+
+
+@pytest.mark.parametrize("force_integrity_race", [False, True])
+def test_internal_unlock_secret_retry_decryption_failure_is_stable_and_audited(
+    monkeypatch: pytest.MonkeyPatch,
+    force_integrity_race: bool,
+) -> None:
+    app = internal_app()
+    client = TestClient(app)
+    headers = carlos_headers("portal.secret.manage")
+    payload = {
+        "source_reference": "corrupted-idempotent-retry",
+        "secret_type": "email",
+    }
+    created = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=headers,
+        json=payload,
+    )
+    secret_id = created.json()["id"]
+    with app.state.session_factory() as session:
+        secret = session.get(PatientPortalUnlockSecret, secret_id)
+        assert secret is not None
+        secret.encrypted_secret = bytes(len(secret.encrypted_secret))
+        session.commit()
+
+    if force_integrity_race:
+        monkeypatch.setattr(
+            internal_routes,
+            "get_unlock_secret_by_source_reference",
+            lambda *args, **kwargs: None,
+        )
+
+        def raise_integrity_error(*args, **kwargs):
+            raise IntegrityError("insert", {}, RuntimeError("simulated uniqueness race"))
+
+        monkeypatch.setattr(internal_routes, "create_unlock_secret", raise_integrity_error)
+
+    repeated = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=headers,
+        json=payload,
+    )
+
+    assert repeated.status_code == 503
+    assert repeated.json() == {"detail": "unlock secret is temporarily unavailable"}
+    assert app.state.operational_metrics.snapshot()["failures"][
+        "unlock_secret_decryption"
+    ] == 1
+    with app.state.session_factory() as session:
+        failure = session.scalar(
+            select(PatientPortalAuditEvent)
+            .where(
+                PatientPortalAuditEvent.event_type == AUDIT_EVENT_UNLOCK_SECRET_READ,
+                PatientPortalAuditEvent.outcome == "failure",
+                PatientPortalAuditEvent.resource_id == str(secret_id),
+            )
+            .order_by(PatientPortalAuditEvent.id.desc())
+        )
+        assert failure is not None
+        assert failure.actor_id == "provider-42"
+        assert failure.reason == "decryption_failed"
 
 
 def test_internal_unlock_secret_rejects_caller_plaintext_and_pdf_type() -> None:

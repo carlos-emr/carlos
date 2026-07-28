@@ -243,6 +243,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 demographic_no=unlock_secret.demographic_no,
             )
         except UnlockSecretDecryptionError as exc:
+            session.commit()
             runtime.operational_metrics.record_failure("unlock_secret_decryption")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
