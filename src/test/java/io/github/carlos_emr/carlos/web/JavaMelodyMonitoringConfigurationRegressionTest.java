@@ -101,10 +101,10 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
     @Test
     @DisplayName("devcontainer should enable JavaMelody system actions")
     void shouldEnableJavaMelodySystemActions_inDevcontainer() throws IOException {
-        List<JvmOptionDeclaration> declarations = findSystemActionsJvmOptions();
+        List<JvmOptionDeclaration> declarations = findDevcontainerSystemActionsJvmOptions();
 
         assertThat(declarations)
-                .as("only the development image may enable the JavaMelody system-actions JVM property")
+                .as("the devcontainer must declare exactly one JavaMelody system-actions JVM option")
                 .singleElement()
                 .satisfies(declaration -> {
                     assertThat(declaration.source()).isEqualTo(DEVCONTAINER_DOCKERFILE);
@@ -112,7 +112,7 @@ class JavaMelodyMonitoringConfigurationRegressionTest {
                 });
     }
 
-    private static List<JvmOptionDeclaration> findSystemActionsJvmOptions() throws IOException {
+    private static List<JvmOptionDeclaration> findDevcontainerSystemActionsJvmOptions() throws IOException {
         List<JvmOptionDeclaration> declarations = new ArrayList<>();
 
         try (Stream<Path> paths = Files.walk(DEVCONTAINER_DIRECTORY)) {

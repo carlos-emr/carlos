@@ -88,6 +88,18 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify carlos Compose environment
+        run: |
+          echo "Verifying Compose does not replace the image JVM options..."
+          compose_has_catalina_opts="$(
+            docker compose -f .devcontainer/docker-compose.yml config --format json \
+              | jq -r '.services.carlos.environment | has("CATALINA_OPTS")'
+          )"
+          if [ "$compose_has_catalina_opts" != "false" ]; then
+            echo "ERROR: carlos Compose configuration must inherit CATALINA_OPTS from the development image"
+            exit 1
+          fi
+
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
@@ -237,16 +249,6 @@ jobs:
             done
             [ "$matches" -eq 1 ]
           '
-
-          echo "Verifying Compose does not replace the image JVM options..."
-          compose_catalina_opts="$(
-            docker compose -f .devcontainer/docker-compose.yml config --format json \
-              | jq -r '.services.carlos.environment.CATALINA_OPTS // empty'
-          )"
-          if [ -n "$compose_catalina_opts" ]; then
-            echo "ERROR: carlos Compose configuration must inherit CATALINA_OPTS from the development image"
-            exit 1
-          fi
 
           echo "Verifying Node.js..."
           docker exec test-tomcat node --version
