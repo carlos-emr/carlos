@@ -26,18 +26,24 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.FormsManager;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -85,7 +91,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("documentManager")
-class DocumentPreview2ActionTest extends CarlosUnitTestBase {
+class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -98,6 +104,12 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
     @Mock
     private DocumentAttachmentManager mockDocumentAttachmentManager;
+
+    @Mock
+    private EFormRenderApprovalService mockEFormRenderApprovalService;
+
+    @Mock
+    private PdfPreviewCapabilityService mockPdfPreviewCapabilityService;
 
     @Mock
     private FormsManager mockFormsManager;
@@ -136,6 +148,8 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
+        registerMock(EFormRenderApprovalService.class, mockEFormRenderApprovalService);
+        registerMock(PdfPreviewCapabilityService.class, mockPdfPreviewCapabilityService);
         registerMock(FormsManager.class, mockFormsManager);
         registerMock(EFormDataDao.class, mockEFormDataDao);
         registerMock(PatientLabRoutingDao.class, mockPatientLabRoutingDao);
@@ -485,7 +499,9 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getContentAsString()).contains("Invalid eDocId");
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"errorCode\":\"invalid_request\","
+                        + "\"errorMessage\":\"Invalid preview request.\"}");
         verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.DOC), any());
     }
 
@@ -499,7 +515,9 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getContentAsString()).contains("Invalid demographicNo");
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"errorCode\":\"invalid_request\","
+                        + "\"errorMessage\":\"Invalid preview request.\"}");
         verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null);
         verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.DOC), any());
     }
@@ -538,7 +556,7 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123");
         verify(mockEFormDataDao, never()).find(42);
-        verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.EFORM), any());
+        verify(mockDocumentAttachmentManager, never()).renderEform(eq(mockLoggedInInfo), any(), any());
     }
 
     @Test
@@ -585,18 +603,94 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         request.setParameter("demographicNo", "123");
         when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
 
-        when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.EFORM, 42))
+        // No approval token is present, so the manager receives no incomplete-render capability.
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("render failed"));
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentAsString())
-                .contains("errorMessage")
-                .contains("Failed to render eForm PDF.")
-                .doesNotContain("render failed");
+                .isEqualTo("{\"errorCode\":\"eform_render_failed\","
+                        + "\"errorMessage\":\"Failed to render eForm PDF.\"}");
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123");
         verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("should disclose every incomplete eForm issue before issuing approval")
+    void shouldDiscloseEveryIncompleteEformIssue_beforeIssuingApproval() throws Exception {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+        EFormRenderCompletenessReport report =
+                new EFormRenderCompletenessReport(2, 3, 0, 0, true, true, false, false);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
+                .thenThrow(new EformContentUnavailableException("incomplete", 42, report));
+        when(mockEFormRenderApprovalService.issue(
+                request, mockLoggedInInfo, 42, "123",
+                EFormRenderApprovalService.Operation.PREVIEW, report, null, 42))
+                .thenReturn("approval-token");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"missingContent\":true")
+                .contains("\"renderApproval\":\"approval-token\"")
+                .contains("\"failedContentResources\":2")
+                .contains("\"excludedContentElements\":3")
+                .contains("\"signatureMissing\":true")
+                .contains("\"timerCompatibilityFailure\":true")
+                .doesNotContain("\"errorMessage\":\"incomplete\"");
+    }
+
+    @Test
+    @DisplayName("should deliver the eForm PDF and disclose a contained-interaction advisory")
+    void shouldDeliverEformPdf_andDiscloseContainedInteractionAdvisory() throws Exception {
+        // Suppressed dialogs are advisory because they remove no PDF content, but the client still
+        // receives the count. Severe page-script errors are blocking and never reach this success
+        // response without an exact approval.
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+        EFormRenderCompletenessReport advisoryOnly =
+                new EFormRenderCompletenessReport(0, 0, 0, 1, false, false, false, false);
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        java.nio.file.Path.of("eform-browser-render-1.pdf"), advisoryOnly));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("QUJD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"base64Data\":\"QUJD\"")
+                .contains("\"advisoryIssues\":1")
+                .doesNotContain("missingContent");
+    }
+
+    @Test
+    @DisplayName("should omit the advisory field when the eForm rendered cleanly")
+    void shouldOmitAdvisoryField_whenEformRenderedCleanly() throws Exception {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        java.nio.file.Path.of("eform-browser-render-1.pdf"),
+                        EFormRenderCompletenessReport.complete()));
+        when(mockDocumentAttachmentManager.convertPDFToBase64(any())).thenReturn("QUJD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"base64Data\":\"QUJD\"")
+                .doesNotContain("advisoryIssues");
     }
 
     @Test
@@ -718,7 +812,7 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
                 .hasMessageContaining("eForm does not match demographic");
 
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, "123");
-        verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.EFORM), any());
+        verify(mockDocumentAttachmentManager, never()).renderEform(eq(mockLoggedInInfo), any(), any());
     }
 
     @Test
@@ -782,8 +876,52 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getContentAsString()).contains("Invalid formName");
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"errorCode\":\"invalid_request\","
+                        + "\"errorMessage\":\"Invalid preview request.\"}");
         verify(mockDocumentAttachmentManager, never()).renderDocument(request, response, DocumentType.FORM);
+    }
+
+    @Test
+    @DisplayName("should serve pdf bytes only when a preview capability resolves the exact file")
+    void shouldServePdfBytes_whenPreviewCapabilityResolves() throws Exception {
+        java.nio.file.Path tempRoot =
+                java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "carlos-eform-browser-pdf-temp");
+        java.nio.file.Files.createDirectories(tempRoot);
+        java.nio.file.Path pdf = java.nio.file.Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
+        try {
+            byte[] pdfBytes = "%PDF-1.4 unit-test".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+            java.nio.file.Files.write(pdf, pdfBytes);
+            request.setParameter("method", "renderPDF");
+            request.setParameter("previewToken", "opaque-token");
+            when(mockPdfPreviewCapabilityService.resolve(request, mockLoggedInInfo, "opaque-token"))
+                    .thenReturn(pdf.toRealPath());
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(response.getContentAsByteArray())
+                    .startsWith("%PDF".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        } finally {
+            java.nio.file.Files.deleteIfExists(pdf);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a raw server path even when it names an application temp file")
+    void shouldRejectRawPath_withoutPreviewCapability() {
+        request.setParameter("method", "renderPDF");
+        request.setParameter("pdfPath",
+                java.nio.file.Path.of(System.getProperty("java.io.tmpdir"),
+                        "carlos-eform-browser-pdf-temp", "eform-browser-render-existing.pdf").toString());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(403);
+        verify(mockPdfPreviewCapabilityService).resolve(request, mockLoggedInInfo, null);
     }
 
     private void stubEDocDemographic(Integer eDocId, String demographicNo) {

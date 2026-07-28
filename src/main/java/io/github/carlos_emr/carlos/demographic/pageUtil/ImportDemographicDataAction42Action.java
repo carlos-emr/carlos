@@ -4654,7 +4654,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         providerLabRoutingQueue.add(new ProviderLabRoutingModel(reviewer, labNo, status, reviewerComment, reviewDate, "HL7"));
                     }
 
-                    providerLabRoutingDao.batchPersist(providerLabRoutingQueue);
+                    providerLabRoutingDao.batchPersistWithIndependentCommits(providerLabRoutingQueue);
 
                     List<MeasurementsExt> measurementsExtsToSave = new ArrayList<>();
                     for (int x = 0; x < reportResults.length; x++) {
@@ -4721,7 +4721,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         }
                     }
 
-                    measurementsExtDao.batchPersist(measurementsExtsToSave, 50);
+                    measurementsExtDao.batchPersistWithIndependentCommits(measurementsExtsToSave, 50);
 
                     String labInfo = getLabDline(labResult, 0);
                     if (StringUtils.filled(labInfo)) {

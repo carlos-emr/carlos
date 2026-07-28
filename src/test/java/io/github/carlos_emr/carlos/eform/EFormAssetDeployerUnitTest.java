@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import jakarta.servlet.ServletContext;
+import javax.imageio.ImageIO;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
@@ -58,11 +59,14 @@ import static org.mockito.Mockito.*;
 @DisplayName("EFormAssetDeployer Unit Tests")
 @Tag("unit")
 @Tag("eform")
-class EFormAssetDeployerTest extends CarlosUnitTestBase {
+class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
 
     private static final String RESOURCE_EDITCONTROL = "/WEB-INF/eform-assets/editControl2.js";
     private static final String RESOURCE_BLANK = "/WEB-INF/eform-assets/blank.rtl";
     private static final String RESOURCE_HELP = "/WEB-INF/eform-assets/editor_help.html";
+    private static final String RESOURCE_SIGNATURE_PAD = "/share/javascript/signature_pad.min.js";
+    private static final String RESOURCE_JQUERY = "/library/jquery/jquery-3.7.1.min.js";
+    private static final String RESOURCE_JQUERY_COMPAT = "/library/jquery/jquery-compat.js";
 
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
 
@@ -106,6 +110,17 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help content"));
+        when(mockServletContext.getResourceAsStream(RESOURCE_SIGNATURE_PAD)).thenReturn(toStream("signature pad"));
+        // thenAnswer (not thenReturn): the deployer now reads this resource path twice, once per
+        // legacy jQuery alias (3.1.0 and 1.12.0). A real ServletContext hands back an independent
+        // stream per call; thenReturn would instead replay the same already-drained InputStream
+        // instance on the second call, silently deploying an empty second alias file.
+        when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY)).thenAnswer(invocation -> toStream("jquery compat"));
+        // The shim genuinely ships in the WAR (src/main/webapp/library/jquery/jquery-compat.js), and
+        // the deployer now refuses to publish a legacy jQuery alias without it. Same thenAnswer
+        // reasoning as above: read once per alias.
+        when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY_COMPAT))
+                .thenAnswer(invocation -> toStream(";window.__jqueryCompatShim=true;"));
     }
 
     @Nested
@@ -125,6 +140,74 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "editControl2.js")).exists();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+            assertThat(new File(tempDir.toFile(), "signature_pad.min.js")).exists();
+            assertThat(new File(tempDir.toFile(), "BNK.png")).exists();
+            assertThat(new File(tempDir.toFile(), "jquery-3.1.0.min.js")).exists();
+            assertThat(new File(tempDir.toFile(), "jquery-1.12.0.min.js")).exists();
+            assertThat(new File(tempDir.toFile(), "LocationsLab_Nov2020.js")).exists();
+            assertThat(new File(tempDir.toFile(), "LabDecisionSupport3_2024.js")).exists();
+            assertThat(new File(tempDir.toFile(), "LabEngine_2023.js")).exists();
+            assertThat(new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png")).doesNotExist();
+            assertThat(new File(tempDir.toFile(), "CreativeCommonsIcon.png")).doesNotExist();
+        }
+
+        @Test
+        @DisplayName("Should deploy legacy signature compatibility assets for older eForms")
+        void shouldDeployLegacySignatureCompatibilityAssets_forOlderEforms() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            File deployedSignaturePad = new File(tempDir.toFile(), "signature_pad.min.js");
+            File deployedBlankImage = new File(tempDir.toFile(), "BNK.png");
+            assertThat(deployedSignaturePad).exists();
+            assertThat(Files.readString(deployedSignaturePad.toPath())).isEqualTo("signature pad");
+            assertThat(deployedBlankImage).exists();
+            var blankImage = ImageIO.read(deployedBlankImage);
+            assertThat(blankImage).isNotNull();
+            assertThat(blankImage.getWidth()).isEqualTo(1);
+            assertThat(blankImage.getHeight()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("Should leave missing sample lab background assets unresolved instead of synthesizing placeholders")
+        void shouldLeaveMissingSampleLabBackgroundAssetsUnresolved_forSeededLabRequisitionSamples() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            File deployedJquery = new File(tempDir.toFile(), "jquery-3.1.0.min.js");
+            File deployedHelperScript = new File(tempDir.toFile(), "LabEngine_2023.js");
+            File deployedBackground = new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png");
+            File deployedIcon = new File(tempDir.toFile(), "CreativeCommonsIcon.png");
+
+            assertThat(deployedJquery).exists();
+            assertThat(Files.readString(deployedJquery.toPath()))
+                    .startsWith("jquery compat")
+                    .endsWith(";window.__jqueryCompatShim=true;");
+            assertThat(deployedHelperScript).exists();
+            assertThat(Files.readString(deployedHelperScript.toPath())).contains("autoLabReqPop");
+            assertThat(deployedBackground).doesNotExist();
+            assertThat(deployedIcon).doesNotExist();
+        }
+
+        @Test
+        @DisplayName("should deploy the current jQuery bundle under the legacy 1.12.0 filename")
+        void shouldDeployJqueryBundle_underLegacyOneTwelveFilename() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            File deployedLegacyJquery = new File(tempDir.toFile(), "jquery-1.12.0.min.js");
+            assertThat(deployedLegacyJquery).exists();
+            // The alias is the bundle PLUS the compat shim -- that concatenation is the whole point of
+            // the legacy filename, and the shim must come last because its IIFE extends window.jQuery.
+            String legacyContent = Files.readString(deployedLegacyJquery.toPath());
+            assertThat(legacyContent).startsWith("jquery compat");
+            assertThat(legacyContent).endsWith(";window.__jqueryCompatShim=true;");
         }
 
         @Test
@@ -178,24 +261,87 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should skip deployment when target file already exists")
-        void shouldSkipDeployment_whenTargetFileAlreadyExists() throws Exception {
+        @DisplayName("Should preserve a seeded asset when the clinic has customized it")
+        void shouldPreserveSeededAsset_whenClinicCustomizedIt() throws Exception {
             when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
 
-            // Pre-create the file with custom content (simulating clinic customization)
-            File existingFile = new File(tempDir.toFile(), "editControl2.js");
+            // blank.rtl is the clinic's default letter template — customizing it is expected, so
+            // the deployer must never touch an existing copy.
+            File existingFile = new File(tempDir.toFile(), "blank.rtl");
             Files.writeString(existingFile.toPath(), "clinic customized content");
 
-            when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(null);
+            when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(null);
             when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(null);
 
             deployer.afterPropertiesSet();
 
-            // Verify the existing file was NOT overwritten
             assertThat(Files.readString(existingFile.toPath())).isEqualTo("clinic customized content");
+            // Not even read from the WAR: a seeded asset short-circuits before the resource lookup.
+            verify(mockServletContext, never()).getResourceAsStream(RESOURCE_BLANK);
+        }
 
-            // Verify getResourceAsStream was NOT called for the existing file
-            verify(mockServletContext, never()).getResourceAsStream(RESOURCE_EDITCONTROL);
+        @Test
+        @DisplayName("Should replace a managed asset when the deployed copy is stale")
+        void shouldReplaceManagedAsset_whenDeployedCopyIsStale() throws Exception {
+            // editControl2.js is application code. A stale copy is a defect that would otherwise
+            // follow the install forever — it is what made a saved Rich Text Letter fail to load
+            // back into the editor, after which the next save overwrote the stored letter.
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            File deployed = new File(tempDir.toFile(), "editControl2.js");
+            Files.writeString(deployed.toPath(), "stale shipped version");
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
+        }
+
+        @Test
+        @DisplayName("Should leave a managed asset untouched when it already matches the shipped bytes")
+        void shouldLeaveManagedAssetUntouched_whenAlreadyCurrent() throws Exception {
+            // Steady-state startup must perform no writes and emit no update log line.
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            File deployed = new File(tempDir.toFile(), "editControl2.js");
+            Files.writeString(deployed.toPath(), "js content");
+            Files.setLastModifiedTime(deployed.toPath(), java.nio.file.attribute.FileTime.fromMillis(0L));
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
+            assertThat(Files.getLastModifiedTime(deployed.toPath()).toMillis()).isZero();
+        }
+
+        @Test
+        @DisplayName("Should leave no temporary files behind after comparing a current managed asset")
+        void shouldLeaveNoTempFiles_whenManagedAssetIsCurrent() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            Files.writeString(tempDir.resolve("editControl2.js"), "js content");
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            try (java.util.stream.Stream<Path> entries = Files.list(tempDir)) {
+                assertThat(entries.map(path -> path.getFileName().toString()))
+                        .noneMatch(name -> name.endsWith(".tmp"));
+            }
+        }
+
+        @Test
+        @DisplayName("Should not publish a legacy jQuery alias when the compat shim is missing from the WAR")
+        void shouldNotPublishLegacyJqueryAlias_whenCompatShimMissing() {
+            // Publishing bare jQuery 3.7.1 under a 1.x filename costs a pre-3.x form $.browser,
+            // .size(), .live() and .bind(): its build script throws mid-execution, yet the file still
+            // serves 200 so the renderer's network scan sees a healthy page and captures it half-built.
+            // The skip-if-exists check would then make that degraded asset permanent across redeploys.
+            // A 404 is the honest outcome -- the render gate can actually see it.
+            stubAllAssets();
+            when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY_COMPAT)).thenReturn(null);
+
+            deployer.afterPropertiesSet();
+
+            assertThat(tempDir.resolve("jquery-3.1.0.min.js")).doesNotExist();
+            assertThat(tempDir.resolve("jquery-1.12.0.min.js")).doesNotExist();
         }
     }
 
@@ -334,8 +480,11 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
 
-            // No files should have been created
-            assertThat(tempDir.toFile().listFiles()).isEmpty();
+            assertThat(tempDir.toFile().listFiles())
+                .extracting(File::getName)
+                .contains("BNK.png", "LocationsLab_Nov2020.js", "LabDecisionSupport3_2024.js",
+                    "LabEngine_2023.js")
+                .doesNotContain("editControl2.js", "blank.rtl", "editor_help.html", "jquery-3.1.0.min.js");
         }
 
         @Test
