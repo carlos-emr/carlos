@@ -834,13 +834,21 @@ body.append('x', X);
 body.append('y', Y);
 // Inject CSRF token from an existing form (CSRFGuard injects into DOM forms at page load)
 var csrfInput = document.querySelector('input[name="CSRF-TOKEN"]');
-if (csrfInput) { body.append(csrfInput.name, csrfInput.value); }
+if (!csrfInput || !csrfInput.value) {
+    console.error(new Error('CSRF token unavailable'));
+    alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
+    return false;
+}
+body.append(csrfInput.name, csrfInput.value);
 var previousCursor = document.body.style.cursor;
 document.body.style.cursor = 'wait';
 apptStatusUpdateInFlight = true;
 fetch(parts[0], {
     method: 'post',
-    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'CSRF-TOKEN': csrfInput.value
+    },
     body: body,
     credentials: 'same-origin'
 }).then(function(response){

@@ -70,6 +70,9 @@ class SchedulePageStatusUpdateRegressionTest {
     private static final Pattern SENDS_CSRF_TOKEN = Pattern.compile(
             "body\\.append\\s*\\(\\s*csrfInput\\.name\\s*,\\s*csrfInput\\.value\\s*\\)",
             Pattern.DOTALL);
+    private static final Pattern SENDS_CSRF_HEADER = Pattern.compile(
+            "['\"]CSRF-TOKEN['\"]\\s*:\\s*csrfInput\\.value",
+            Pattern.DOTALL);
     private static final Pattern USES_BUSY_CURSOR = Pattern.compile(
             "previousCursor\\s*=\\s*document\\.body\\.style\\.cursor\\s*;.*?"
                     + "document\\.body\\.style\\.cursor\\s*=\\s*['\"]wait['\"]",
@@ -98,6 +101,8 @@ class SchedulePageStatusUpdateRegressionTest {
 
     private static final Pattern DAY_VIEW_USES_HELPER = Pattern.compile(
             "onclick=\"return\\s+updateApptStatus\\('[^\"]*?displaymode=addstatus", Pattern.DOTALL);
+    private static final Pattern DAY_VIEW_SENDS_CURRENT_STATUS = Pattern.compile(
+            "currentstatus=<%=SafeEncode\\.forUriComponent\\(status\\)%>", Pattern.DOTALL);
     private static final Pattern DAY_VIEW_STATUS_NOT_FULL_PAGE_POST = Pattern.compile(
             "onclick=\"postViaForm\\('[^\"]*?displaymode=addstatus", Pattern.DOTALL);
 
@@ -107,6 +112,21 @@ class SchedulePageStatusUpdateRegressionTest {
             "out\\.print\\s*\\(\\s*displaypage\\s*\\)", Pattern.DOTALL);
     private static final Pattern ADD_STATUS_EMPTY_AJAX_FAILURE = Pattern.compile(
             "out\\.clear\\s*\\(\\s*\\)\\s*;\\s*return\\s*;", Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_REJECTS_STALE_STATUS = Pattern.compile(
+            "matchesCurrentStatus\\s*\\(\\s*appt\\.getStatus\\(\\)\\s*,\\s*submittedCurrentStatus\\s*\\)"
+                    + ".*?SC_CONFLICT",
+            Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_VALIDATES_CALCULATED_TRANSITION = Pattern.compile(
+            "apptStatusData\\.getNextStatus\\s*\\(\\s*\\).*?"
+                    + "matchesCalculatedNextStatus\\s*\\(\\s*calculatedNextStatus\\s*,\\s*appointmentStatus\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_VALIDATES_PROVIDER = Pattern.compile(
+            "!appointmentProviderNo\\.equals\\s*\\(\\s*providerNoParam\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_PUBLISHES_AUTHORITATIVE_EVENT = Pattern.compile(
+            "appointmentStatusChanged\\s*\\(\\s*this\\s*,\\s*String\\.valueOf\\(appointmentNo\\)\\s*,"
+                    + "\\s*appointmentProviderNo\\s*,\\s*appointmentStatus\\s*\\)",
+            Pattern.DOTALL);
 
     @Test
     @DisplayName("should update appointment status in place via AJAX helper")
@@ -122,6 +142,7 @@ class SchedulePageStatusUpdateRegressionTest {
         assertThat(matches(updateApptStatusBody, SENDS_AJAX_HEADER)).isTrue();
         assertThat(matches(updateApptStatusBody, SENDS_SCROLL_POSITION)).isTrue();
         assertThat(matches(updateApptStatusBody, SENDS_CSRF_TOKEN)).isTrue();
+        assertThat(matches(updateApptStatusBody, SENDS_CSRF_HEADER)).isTrue();
         assertThat(matches(updateApptStatusBody, USES_BUSY_CURSOR)).isTrue();
         assertThat(matches(updateApptStatusBody, RESTORES_CURSOR_ON_FAILURE)).isTrue();
         assertThat(matches(updateApptStatusBody, FETCH_UNAVAILABLE_FALLBACK)).isTrue();
@@ -139,7 +160,14 @@ class SchedulePageStatusUpdateRegressionTest {
 
         // The day-view status icon must call the in-place helper, not the full-page POST.
         assertThat(matches(dayView, DAY_VIEW_USES_HELPER)).isTrue();
+        assertThat(matches(dayView, DAY_VIEW_SENDS_CURRENT_STATUS)).isTrue();
         assertThat(matches(dayView, DAY_VIEW_STATUS_NOT_FULL_PAGE_POST)).isFalse();
+
+        // The mutation JSP must reject stale/forged transitions and publish authoritative values.
+        assertThat(matches(addStatus, ADD_STATUS_REJECTS_STALE_STATUS)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_VALIDATES_CALCULATED_TRANSITION)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_VALIDATES_PROVIDER)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_PUBLISHES_AUTHORITATIVE_EVENT)).isTrue();
 
         // The mutation JSP must return the refreshed URL on success and an empty body on failure.
         assertThat(matches(addStatus, ADD_STATUS_DETECTS_AJAX)).isTrue();
