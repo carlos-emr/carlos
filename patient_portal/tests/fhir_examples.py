@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -32,7 +32,9 @@ def write_fhir_examples(output_dir: Path) -> None:
     unlock_secret = SimpleNamespace(
         id=1,
         clinic_id="default",
-        created_at=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        # SQLite returns DateTime(timezone=True) values without tzinfo; exercise that path in the
+        # resource set sent to the official validator.
+        created_at=datetime(2026, 7, 23, 12, 0),
         created_by="CarlosDoc",
         label="Specialist message",
         source_reference="message-3135",
