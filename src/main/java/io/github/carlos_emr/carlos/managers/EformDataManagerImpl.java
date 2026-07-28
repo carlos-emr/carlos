@@ -263,7 +263,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new PDFGenerationException("EForm PDF generation produced an unreadable temporary file.");
         }
 
-        return new EformPdfRender(path, completeness);
+        return new EformPdfRender(path, completeness, Map.of(fdid, completeness));
     }
 
 

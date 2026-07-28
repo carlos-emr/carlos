@@ -295,6 +295,10 @@ public interface DocumentAttachmentManager {
             HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval)
             throws PDFGenerationException;
 
+    /** Renders a temporary, non-deliverable fax preview that must be claimed through its approval ticket. */
+    public EformDataManager.EformPdfRender stageEFormPacketForFaxPreview(
+            HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
+
     /**
      * Converts an electronic form (eForm) to an electronic document (eDoc) for permanent archival.
      *

@@ -3,9 +3,10 @@
  *
  * Two adaptations live here:
  *
- *  - String timer callbacks. Modern CSP blocks native setTimeout("code", delay) and
- *    setInterval("code", delay). The browser remains the JavaScript parser: stored source is never
- *    scanned or rewritten on the server.
+ *  - Timer callbacks. Modern CSP blocks native string callbacks such as setTimeout("code", delay),
+ *    so those are executed through an injected script while every one-shot timeout is tracked for the
+ *    PDF renderer. The browser remains the JavaScript parser: stored source is never scanned or
+ *    rewritten on the server.
  *  - Obsolete clinical-data fetches. Some forms XHR a route that has since been renamed and that the
  *    render surface could not use even under its new name; those are answered from data the server
  *    embedded in the page. See installCarlosEformLegacyFetchCompatibility below.
@@ -25,7 +26,7 @@
         // Set by the sentinel appended to each injected string-timer script; see
         // executeStringCallback. Declared here so the shape is visible in one place.
         completed: false,
-        // Scheduled-but-not-yet-run string timeouts. The renderer awaits this reaching zero (see
+        // Scheduled-but-not-yet-run one-shot timeouts. The renderer awaits this reaching zero (see
         // whenIdle) so a capture cannot outrun the form's own deferred work.
         pending: 0,
         errorMessage: null
@@ -116,21 +117,34 @@
     }
 
     function schedule(nativeTimer, receiver, handler, delay, callbackArguments) {
-        if (typeof handler !== "string") {
-            return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
-        }
         // Only one-shot timers are counted. A repeating setInterval would never drain, so waiting on
-        // it would stall every render that uses one.
-        var counted = nativeTimer === nativeSetTimeout;
+        // it would stall every render that uses one. Legacy string timers stay tracked at every delay
+        // so a late one reports an incomplete render. Function callbacks are tracked only through the
+        // existing four-second render budget: pages also schedule long-lived UI/heartbeat callbacks
+        // that cannot affect this capture and would otherwise make every render wait until the cap.
+        var delayMillis = delay == null ? 0 : Number(delay);
+        var counted = nativeTimer === nativeSetTimeout
+                && (typeof handler === "string"
+                        || (typeof handler === "function"
+                                && isFinite(delayMillis) && delayMillis <= 4000));
         if (counted) {
             status.pending += 1;
         }
-        return nativeTimer.call(receiver, function runStoredTimerSource() {
+        if (typeof handler !== "string" && typeof handler !== "function") {
+            if (counted) {
+                status.pending -= 1;
+            }
+            return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
+        }
+        return nativeTimer.call(receiver, function runScheduledTimer() {
             try {
-                executeStringCallback(handler);
+                if (typeof handler === "string") {
+                    return executeStringCallback(handler);
+                }
+                return handler.apply(receiver, callbackArguments);
             } finally {
-                // finally, not after the call: executeStringCallback rethrows a failed timer, and
-                // leaking the count would leave the renderer waiting for a timer that already ran.
+                // finally, not after the call: a failing callback must not leak the count and leave
+                // the renderer waiting for a timer that already ran.
                 if (counted) {
                     status.pending -= 1;
                 }
@@ -139,7 +153,7 @@
     }
 
     /**
-     * Resolves once every scheduled string timer has run, or once maxWaitMillis has elapsed.
+     * Resolves once every scheduled one-shot timer has run, or once maxWaitMillis has elapsed.
      *
      * <p>The PDF renderer awaits this before capturing. Without it the capture raced the form: page
      * stabilization settles after a short quiet window, while stored timers are typically scheduled

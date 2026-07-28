@@ -22,6 +22,7 @@ public final class EFormRenderApproval {
     private final EFormRenderApprovalService.Operation operation;
     private final Map<Integer, String> issueDigests;
     private final Instant expiresAt;
+    private final boolean stagedPreview;
 
     /**
      * @param demographicNo the patient the ticket was consumed for
@@ -37,6 +38,21 @@ public final class EFormRenderApproval {
         this.issueDigests = Map.copyOf(
                 Objects.requireNonNull(issueDigests, "issueDigests must not be null"));
         this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+        this.stagedPreview = false;
+    }
+
+    private EFormRenderApproval() {
+        providerNo = "";
+        demographicNo = "";
+        operation = EFormRenderApprovalService.Operation.FAX;
+        issueDigests = Map.of();
+        expiresAt = Instant.EPOCH;
+        stagedPreview = true;
+    }
+
+    /** Internal capability for generating a non-deliverable, short-lived fax preview artifact. */
+    public static EFormRenderApproval forStagedFaxPreview() {
+        return new EFormRenderApproval();
     }
 
     /**
@@ -44,6 +60,9 @@ public final class EFormRenderApproval {
      */
     public boolean permits(int renderedFdid, String renderedProviderNo,
             EFormRenderCompletenessReport report) {
+        if (stagedPreview) {
+            return true;
+        }
         return providerNo.equals(renderedProviderNo)
                 && Instant.now().isBefore(expiresAt)
                 && report != null

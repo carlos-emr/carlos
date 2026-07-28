@@ -124,7 +124,6 @@ public class EFormBrowserPdfService {
     static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration NETWORK_QUIET_WINDOW = Duration.ofMillis(500);
     private static final Duration NETWORK_QUIET_MAX_WAIT = Duration.ofSeconds(10);
-    private static final long SETTLE_DELAY_MILLIS = 1500;
 
     /**
      * Client-side HTTP read timeout for every WebDriver/CDP command sent to chromedriver
@@ -1331,7 +1330,9 @@ public class EFormBrowserPdfService {
      * @throws PDFGenerationException if the page reported a stabilization error
      */
     boolean settle(ChromeDriver driver, long deadlineNanos, int fdid) throws InterruptedException, PDFGenerationException {
-        Thread.sleep(SETTLE_DELAY_MILLIS);
+        // Deferred one-shot timers are tracked by eform-runtime-compat.js and awaited by
+        // STABILIZE_ASYNC_JS below.  Do not impose a blind grace sleep here: static forms
+        // can proceed after the same measured quiet-window check as dynamic forms.
         checkDeadline(deadlineNanos);
         Object settleResult = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
         boolean capped = false;

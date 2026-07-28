@@ -136,6 +136,18 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should track function timeout callbacks so the renderer can skip only blind waits")
+    void shouldTrackFunctionTimeouts_whenWaitingForDeferredRenderWork() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        assertThat(compat)
+                .contains("typeof handler !== \"function\"")
+                .contains("delayMillis <= 4000")
+                .contains("return handler.apply(receiver, callbackArguments)")
+                .contains("Scheduled-but-not-yet-run one-shot timeouts");
+    }
+
+    @Test
     @DisplayName("should treat an eval-blocked timer script as a compatibility failure")
     void shouldDetectBlockedTimer_forEvalBlockedUri() throws IOException {
         String compat = read(RUNTIME_COMPAT_JS);

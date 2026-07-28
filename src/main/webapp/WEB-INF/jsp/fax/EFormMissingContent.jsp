@@ -80,7 +80,7 @@
             <li><fmt:message key="eform.renderIssue.labDecisionSupportStubbed"/>: <carlos:encode value="${labDecisionSupportStubbed}"/></li>
         </ul>
         <div class="d-flex gap-2 mt-3">
-            <form method="post" action="${pageContext.request.contextPath}/fax/faxAction">
+            <form id="approve-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">
                 <input type="hidden" name="method" value="prepareFax">
                 <input type="hidden" name="transactionType" value="<carlos:encode value="${transactionType}" context="htmlAttribute"/>">
                 <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
@@ -89,8 +89,14 @@
                 <input type="hidden" name="recipientFaxNumber" value="<carlos:encode value="${recipientFaxNumber}" context="htmlAttribute"/>">
                 <input type="hidden" name="letterheadFax" value="<carlos:encode value="${letterheadFax}" context="htmlAttribute"/>">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
-                <button type="submit" class="btn btn-warning"><fmt:message key="fax.eformMissingContent.btnApproveAndFax"/></button>
+                <button type="submit" class="btn btn-warning" data-submitting-label="<fmt:message key="fax.eformMissingContent.btnPreparingFax"/>">
+                    <span class="approval-button-label"><fmt:message key="fax.eformMissingContent.btnApproveAndFax"/></span>
+                    <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                </button>
             </form>
+            <span id="approve-incomplete-eform-fax-status" class="visually-hidden" role="status" aria-live="polite">
+                <fmt:message key="fax.eformMissingContent.btnPreparingFax"/>
+            </span>
             <%-- history.back() is correct HERE, unlike the eForm page: this flow is rendered by
                  Fax2Action against an already-stored document and never calls saveEformData, so
                  going back returns to the fax dialog without risking a duplicate eform_data row. --%>
@@ -98,5 +104,26 @@
         </div>
     </div>
 </div>
+<script>
+    (() => {
+        const form = document.getElementById("approve-incomplete-eform-fax");
+        const status = document.getElementById("approve-incomplete-eform-fax-status");
+        if (!form || !status) {
+            return;
+        }
+        form.addEventListener("submit", (event) => {
+            if (form.dataset.submitting === "true") {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.submitting = "true";
+            const submit = form.querySelector("button[type=\"submit\"]");
+            submit.disabled = true;
+            submit.querySelector(".approval-button-label").textContent = submit.dataset.submittingLabel;
+            submit.querySelector(".spinner-border").classList.remove("d-none");
+            status.classList.remove("visually-hidden");
+        });
+    })();
+</script>
 </body>
 </html>

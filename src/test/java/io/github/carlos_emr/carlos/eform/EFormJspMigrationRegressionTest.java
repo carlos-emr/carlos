@@ -67,6 +67,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
     private static final Path WEB_XML =
             Path.of("src/main/webapp/WEB-INF/web.xml");
+    private static final Path EFORM_FAX_MISSING_CONTENT_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/fax/EFormMissingContent.jsp");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
@@ -85,6 +87,20 @@ class EFormJspMigrationRegressionTest {
         assertThat(webXml).containsSubsequence(
                 "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
                 "<url-pattern>/EFormViewForPdfGenerationServlet</url-pattern>");
+    }
+
+    @Test
+    @DisplayName("incomplete eForm fax approval should show progress and prevent duplicate submission")
+    void shouldPreventDuplicateSubmission_whenApprovingIncompleteEFormFax() throws IOException {
+        String jsp = Files.readString(EFORM_FAX_MISSING_CONTENT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("id=\"approve-incomplete-eform-fax\"")
+                .contains("form.dataset.submitting === \"true\"")
+                .contains("submit.disabled = true")
+                .contains("spinner-border-sm")
+                .contains("fax.eformMissingContent.btnPreparingFax")
+                .contains("aria-live=\"polite\"");
     }
 
     @Test

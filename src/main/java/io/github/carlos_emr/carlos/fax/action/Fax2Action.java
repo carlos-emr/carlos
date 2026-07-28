@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.fax.dto.FaxJobParams;
 import io.github.carlos_emr.carlos.managers.FaxManager;
@@ -49,7 +48,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
@@ -534,18 +532,42 @@ public class Fax2Action extends ActionSupport {
                 EFormRenderApprovalService renderApprovalService =
                         SpringUtils.getBean(EFormRenderApprovalService.class);
                 String approvalToken = request.getParameter("renderApproval");
-                EFormRenderApproval approval = renderApprovalService.consume(
-                        request, loggedInInfo, transactionId, String.valueOf(demographicNo),
-                        EFormRenderApprovalService.Operation.FAX, approvalToken);
-                if (approvalToken != null && approval == null) {
+                EFormRenderApprovalService.StagedFaxPreview stagedPreview =
+                        renderApprovalService.consumeStagedFaxPreview(request, loggedInInfo, transactionId,
+                                String.valueOf(demographicNo), approvalToken);
+                if (approvalToken != null && stagedPreview == null) {
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
                             "The incomplete-render approval is invalid or expired. Prepare the fax again.");
                     return NONE;
                 }
-                try {
+                if (stagedPreview != null) {
+                    pdfPath = stagedPreview.path();
+                    request.setAttribute("advisoryIssues", 0);
+                } else try {
                     io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender rendered =
-                            documentAttachmentManager.renderEFormPacketWithCompleteness(
-                                    request, response, approval);
+                            documentAttachmentManager.stageEFormPacketForFaxPreview(request, response);
+                    if (rendered.completeness().hasBlockingOmissions()) {
+                        String token = renderApprovalService.issueStagedFaxPreview(request, loggedInInfo,
+                                transactionId, String.valueOf(demographicNo), rendered.formCompleteness(), rendered.path());
+                        request.setAttribute("renderApproval", token);
+                        request.setAttribute("missingContentMessage", EFORM_FAX_MISSING_CONTENT_MESSAGE);
+                        request.setAttribute("transactionType", transactionType.name());
+                        request.setAttribute("transactionId", transactionId);
+                        request.setAttribute("demographicNo", demographicNo);
+                        request.setAttribute("recipient", recipient);
+                        request.setAttribute("recipientFaxNumber", recipientFaxNumber);
+                        request.setAttribute("letterheadFax", letterheadFax);
+                        request.setAttribute("failedContentResources", rendered.completeness().failedContentResources());
+                        request.setAttribute("excludedContentElements", rendered.completeness().excludedContentElements());
+                        request.setAttribute("signatureMissing", rendered.completeness().signatureMissing());
+                        request.setAttribute("providerStampMissing", rendered.completeness().providerStampMissing());
+                        request.setAttribute("timerCompatibilityFailure", rendered.completeness().timerCompatibilityFailure());
+                        request.setAttribute("severeConsoleErrors", rendered.completeness().severeConsoleErrors());
+                        request.setAttribute("containedInteractions", rendered.completeness().containedInteractions());
+                        request.setAttribute("stabilizationCapped", rendered.completeness().stabilizationCapped());
+                        request.setAttribute("labDecisionSupportStubbed", rendered.completeness().labDecisionSupportStubbed());
+                        return "eFormMissingContent";
+                    }
                     pdfPath = rendered.path();
                     // Advisory conditions deliver the document rather than blocking it, so the fax
                     // preview must still say the render reported something. Count only: console and
@@ -556,35 +578,6 @@ public class Fax2Action extends ActionSupport {
                                 pdfPath != null && Files.isReadable(pdfPath),
                                 pdfPath != null && Files.exists(pdfPath));
                     }
-                } catch (EformContentUnavailableException e) {
-                    // Show sanitized issue categories before issuing an exact, one-time approval.
-                    logger.warn("prepareFax eForm incomplete: offering exact-issue approval (issues={})",
-                            e.getIssueCount());
-                    String token = renderApprovalService.issue(
-                            request, loggedInInfo, transactionId, String.valueOf(demographicNo),
-                            EFormRenderApprovalService.Operation.FAX, e.getReport(),
-                            approval, e.getFdid());
-                    request.setAttribute("renderApproval", token);
-                    request.setAttribute("missingContentMessage", EFORM_FAX_MISSING_CONTENT_MESSAGE);
-                    request.setAttribute("transactionType", transactionType.name());
-                    request.setAttribute("transactionId", transactionId);
-                    request.setAttribute("demographicNo", demographicNo);
-                    request.setAttribute("recipient", recipient);
-                    request.setAttribute("recipientFaxNumber", recipientFaxNumber);
-                    request.setAttribute("letterheadFax", letterheadFax);
-                    request.setAttribute("failedContentResources", e.getReport().failedContentResources());
-                    request.setAttribute("excludedContentElements", e.getReport().excludedContentElements());
-                    request.setAttribute("signatureMissing", e.getReport().signatureMissing());
-                    request.setAttribute("providerStampMissing", e.getReport().providerStampMissing());
-                    request.setAttribute("timerCompatibilityFailure", e.getReport().timerCompatibilityFailure());
-                    // Every category the report carries must reach the approval page: the approval is
-                    // only informed consent if the clinician sees the complete issue set they are
-                    // signing off on, and the approval digest binds to exactly that set.
-                    request.setAttribute("severeConsoleErrors", e.getReport().severeConsoleErrors());
-                    request.setAttribute("containedInteractions", e.getReport().containedInteractions());
-                    request.setAttribute("stabilizationCapped", e.getReport().stabilizationCapped());
-                    request.setAttribute("labDecisionSupportStubbed", e.getReport().labDecisionSupportStubbed());
-                    return "eFormMissingContent";
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();
