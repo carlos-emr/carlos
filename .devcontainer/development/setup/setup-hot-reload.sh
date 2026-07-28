@@ -46,86 +46,6 @@ check_already_running() {
 # Utility Functions
 # ============================================================================
 
-enable_devcontainer_javamelody_system_actions() {
-  local web_xml="$1"
-
-  if [ ! -f "$web_xml" ]; then
-    echo "[$(date +'%H:%M:%S')] WARN: JavaMelody web.xml not found at $web_xml; system actions not enabled for devcontainer" >> "$LOG_FILE"
-    return 0
-  fi
-
-  local tmp_file="${web_xml}.tmp"
-  if awk '
-    in_xml_comment {
-      print
-      if (/-->/) {
-        in_xml_comment = 0
-      }
-      next
-    }
-    /<!--/ {
-      print
-      if (!/-->/) {
-        in_xml_comment = 1
-      }
-      next
-    }
-    in_init_param && /^[[:space:]]*<[^!?\/][^>]*>/ {
-      block_elements++
-      if (target_block && !(in_system_actions && $0 ~ /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/)) {
-        invalid_structure = 1
-      }
-    }
-    /^[[:space:]]*<init-param>[[:space:]]*$/ {
-      if (in_init_param) {
-        invalid_structure = 1
-      }
-      in_init_param = 1
-      block_elements = 0
-      target_block = 0
-      in_system_actions = 0
-      pending_replacement = 0
-    }
-    in_init_param && /^[[:space:]]*<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>[[:space:]]*$/ {
-      system_actions_params++
-      if (block_elements != 1 || target_block) {
-        invalid_structure = 1
-      }
-      target_block = 1
-      in_system_actions = 1
-    }
-    in_system_actions && /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/ {
-      if (block_elements != 2) {
-        invalid_structure = 1
-      }
-      sub(/<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
-      pending_replacement = 1
-      in_system_actions = 0
-    }
-    /^[[:space:]]*<\/init-param>[[:space:]]*$/ {
-      if (in_init_param && pending_replacement) {
-        replacements++
-      }
-      in_init_param = 0
-      target_block = 0
-      in_system_actions = 0
-      pending_replacement = 0
-    }
-    { print }
-    END {
-      if (invalid_structure || in_init_param || system_actions_params != 1 || replacements != 1) {
-        exit 1
-      }
-    }
-  ' "$web_xml" > "$tmp_file" && mv "$tmp_file" "$web_xml"; then
-    return 0
-  fi
-
-  rm -f "$tmp_file" 2>/dev/null || true
-  echo "[$(date +'%H:%M:%S')] WARN: Could not enable JavaMelody system actions in $web_xml; devcontainer override not applied" >> "$LOG_FILE"
-  return 0
-}
-
 # Rotate log file if it exceeds MAX_LOG_LINES
 rotate_log() {
   if [ -f "$LOG_FILE" ]; then
@@ -217,10 +137,6 @@ process_file_event() {
   elif [ -f "$SOURCE_FILE" ]; then
     mkdir -p "$(dirname "$DEST_FILE")"
     if cp "$SOURCE_FILE" "$DEST_FILE" 2>/dev/null; then
-      if [[ "$RELATIVE_PATH/$filename" == "WEB-INF/web.xml" ]]; then
-        enable_devcontainer_javamelody_system_actions "$DEST_FILE"
-      fi
-
       if [ -z "$RELATIVE_PATH" ]; then
         echo "[$(date +'%H:%M:%S')] Updated: $filename" | tee -a "$LOG_FILE"
       else

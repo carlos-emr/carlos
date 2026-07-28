@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.web;
 
+import static javax.xml.xpath.XPathConstants.NODESET;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
@@ -28,259 +29,93 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 @DisplayName("JavaMelody monitoring configuration regression tests")
 @Tag("unit")
 @Tag("regression")
 class JavaMelodyMonitoringConfigurationRegressionTest {
     private static final Path WEB_XML = Path.of("src/main/webapp/WEB-INF/web.xml");
-    private static final Path DEVCONTAINER_MAKE = Path.of(".devcontainer/development/scripts/make");
-    private static final Path DEVCONTAINER_HOT_RELOAD = Path.of(
-            ".devcontainer/development/setup/setup-hot-reload.sh");
-    private static final Pattern SYSTEM_ACTIONS_PARAM = Pattern.compile(
-            "<param-name>\\s*+system-actions-enabled\\s*+</param-name>\\s*+"
-                    + "<param-value>\\s*+([^<\\s]++)\\s*+</param-value>",
-            Pattern.DOTALL);
-    private static final Pattern INITIAL_DEVCONTAINER_OVERRIDE = Pattern.compile(
-            "(?m)^\\s*enable_devcontainer_javamelody_system_actions\\s+"
-                    + "\"[^\"]*/WEB-INF/web\\.xml\"\\s*$");
-    private static final Pattern HOT_RELOAD_DEVCONTAINER_OVERRIDE = Pattern.compile(
-            "if\\s+\\[\\[\\s+\"\\$RELATIVE_PATH/\\$filename\"\\s+==\\s+\"WEB-INF/web\\.xml\"\\s+\\]\\];"
-                    + "\\s*then\\s*enable_devcontainer_javamelody_system_actions\\s+\"\\$DEST_FILE\"",
-            Pattern.DOTALL);
-    private static final String SYSTEM_ACTIONS_FUNCTION = "enable_devcontainer_javamelody_system_actions";
-    private static final String VALID_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value>false</param-value>
-                </init-param>
-            </web-app>
-            """;
-    private static final String MISSING_PARAM_WEB_XML = """
-            <web-app>
-            </web-app>
-            """;
-    private static final String DUPLICATE_PARAM_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value>false</param-value>
-                </init-param>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value>false</param-value>
-                </init-param>
-            </web-app>
-            """;
-    private static final String MALFORMED_PARAM_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                </init-param>
-            </web-app>
-            """;
-    private static final String COMMENTED_VALUE_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <!-- <param-value>false</param-value> -->
-                </init-param>
-            </web-app>
-            """;
-    private static final String INVALID_VALUE_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value>unexpected</param-value>
-                </init-param>
-            </web-app>
-            """;
-    private static final String EMPTY_VALUE_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value></param-value>
-                </init-param>
-            </web-app>
-            """;
-    private static final String MULTILINE_COMMENT_WEB_XML = """
-            <web-app>
-                <!--
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value>false</param-value>
-                </init-param>
-                -->
-            </web-app>
-            """;
-    private static final String ORPHANED_PARAM_WEB_XML = """
-            <web-app>
-                <param-name>system-actions-enabled</param-name>
-                <param-value>false</param-value>
-            </web-app>
-            """;
-    private static final String UNCLOSED_PARAM_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value>false</param-value>
-            </web-app>
-            """;
-    private static final String DUPLICATE_VALUE_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-value>false</param-value>
-                    <param-value>false</param-value>
-                </init-param>
-            </web-app>
-            """;
-    private static final String DISPLACED_VALUE_WEB_XML = """
-            <web-app>
-                <init-param>
-                    <param-name>system-actions-enabled</param-name>
-                    <param-name>other-param</param-name>
-                    <param-value>false</param-value>
-                </init-param>
-            </web-app>
-            """;
-
-    @TempDir
-    private Path tempDir;
+    private static final Path DEVCONTAINER_DOCKERFILE = Path.of(".devcontainer/development/Dockerfile");
+    private static final String MONITORING_FILTER =
+            "/*[local-name()='web-app']/*[local-name()='filter']"
+                    + "[*[local-name()='filter-name' and normalize-space()='monitoring']]"
+                    + "[*[local-name()='filter-class'"
+                    + " and normalize-space()='net.bull.javamelody.MonitoringFilter']]";
+    private static final String SYSTEM_ACTIONS_PARAM =
+            "./*[local-name()='init-param']"
+                    + "[*[local-name()='param-name'"
+                    + " and normalize-space()='system-actions-enabled']]";
 
     @Test
     @DisplayName("production web.xml should disable JavaMelody system actions")
-    void shouldDisableJavaMelodySystemActions_inProductionWebXml() throws IOException {
-        String webXml = Files.readString(WEB_XML, StandardCharsets.UTF_8);
-        Matcher matcher = SYSTEM_ACTIONS_PARAM.matcher(webXml);
+    void shouldDisableJavaMelodySystemActions_inProductionWebXml()
+            throws IOException, ParserConfigurationException, SAXException, XPathExpressionException {
+        Document webXml = parseWebXml();
+        XPath xpath = XPathFactory.newInstance().newXPath();
+        NodeList monitoringFilters = (NodeList) xpath.evaluate(MONITORING_FILTER, webXml, NODESET);
 
-        assertThat(matcher.find())
-                .as("JavaMelody system-actions-enabled init-param must be present")
-                .isTrue();
-        assertThat(matcher.group(1).trim())
+        assertThat(monitoringFilters.getLength())
+                .as("production web.xml must declare exactly one JavaMelody monitoring filter")
+                .isEqualTo(1);
+
+        NodeList systemActionsParameters =
+                (NodeList) xpath.evaluate(SYSTEM_ACTIONS_PARAM, monitoringFilters.item(0), NODESET);
+        assertThat(systemActionsParameters.getLength())
+                .as("the JavaMelody monitoring filter must declare system-actions-enabled exactly once")
+                .isEqualTo(1);
+
+        Node systemActionsParameter = systemActionsParameters.item(0);
+        NodeList values = (NodeList)
+                xpath.evaluate("./*[local-name()='param-value']", systemActionsParameter, NODESET);
+        assertThat(values.getLength())
+                .as("system-actions-enabled must have exactly one value")
+                .isEqualTo(1);
+        assertThat(values.item(0).getTextContent().trim())
                 .as("production monitoring credentials must not allow heap dumps or other JVM system actions")
                 .isEqualTo("false");
-        assertThat(matcher.find())
-                .as("system-actions-enabled should only be configured once")
-                .isFalse();
     }
 
     @Test
-    @DisplayName("devcontainer deployment should enable JavaMelody system actions")
-    void shouldEnableJavaMelodySystemActions_inDevcontainerDeployment() throws IOException {
-        String makeScript = Files.readString(DEVCONTAINER_MAKE, StandardCharsets.UTF_8);
-        String hotReloadScript = Files.readString(DEVCONTAINER_HOT_RELOAD, StandardCharsets.UTF_8);
+    @DisplayName("devcontainer should enable JavaMelody system actions")
+    void shouldEnableJavaMelodySystemActions_inDevcontainer() throws IOException {
+        List<String> catalinaOptsDeclarations = Files.readAllLines(
+                        DEVCONTAINER_DOCKERFILE, StandardCharsets.UTF_8)
+                .stream()
+                .map(String::strip)
+                .filter(line -> line.startsWith("ENV CATALINA_OPTS="))
+                .toList();
 
-        assertThat(makeScript)
-                .as("initial devcontainer deployment must enable system actions in its deployed web.xml")
-                .containsPattern(INITIAL_DEVCONTAINER_OVERRIDE);
-        assertThat(hotReloadScript)
-                .as("hot reload must restore the devcontainer override after copying web.xml")
-                .containsPattern(HOT_RELOAD_DEVCONTAINER_OVERRIDE);
+        assertThat(catalinaOptsDeclarations)
+                .as("the development image must declare CATALINA_OPTS exactly once")
+                .singleElement()
+                .asString()
+                .contains("-Djavamelody.system-actions-enabled=true");
     }
 
-    @Test
-    @DisplayName("devcontainer helpers should only override a valid JavaMelody configuration")
-    void shouldOverrideJavaMelodySystemActions_onlyForValidDevcontainerConfiguration()
-            throws IOException, InterruptedException {
-        List<ShellHelper> helpers = List.of(
-                new ShellHelper("make", "sh", DEVCONTAINER_MAKE),
-                new ShellHelper("hot-reload", "bash", DEVCONTAINER_HOT_RELOAD));
-        List<OverrideScenario> scenarios = List.of(
-                new OverrideScenario("valid", VALID_WEB_XML, true),
-                new OverrideScenario("missing", MISSING_PARAM_WEB_XML, false),
-                new OverrideScenario("duplicate", DUPLICATE_PARAM_WEB_XML, false),
-                new OverrideScenario("malformed", MALFORMED_PARAM_WEB_XML, false),
-                new OverrideScenario("commented-value", COMMENTED_VALUE_WEB_XML, false),
-                new OverrideScenario("invalid-value", INVALID_VALUE_WEB_XML, false),
-                new OverrideScenario("empty-value", EMPTY_VALUE_WEB_XML, false),
-                new OverrideScenario("multiline-comment", MULTILINE_COMMENT_WEB_XML, false),
-                new OverrideScenario("orphaned-param", ORPHANED_PARAM_WEB_XML, false),
-                new OverrideScenario("unclosed-param", UNCLOSED_PARAM_WEB_XML, false),
-                new OverrideScenario("duplicate-value", DUPLICATE_VALUE_WEB_XML, false),
-                new OverrideScenario("displaced-value", DISPLACED_VALUE_WEB_XML, false));
-
-        for (ShellHelper helper : helpers) {
-            String source = Files.readString(helper.source(), StandardCharsets.UTF_8);
-            String function = extractShellFunction(source);
-
-            for (OverrideScenario scenario : scenarios) {
-                assertOverrideBehavior(helper, function, scenario);
-            }
-        }
+    private static Document parseWebXml()
+            throws ParserConfigurationException, IOException, SAXException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
+        return factory.newDocumentBuilder().parse(WEB_XML.toFile());
     }
-
-    private void assertOverrideBehavior(
-            ShellHelper helper, String function, OverrideScenario scenario)
-            throws IOException, InterruptedException {
-        String testName = helper.name() + "-" + scenario.name();
-        Path webXml = tempDir.resolve(testName + "-web.xml");
-        Path testScript = tempDir.resolve(testName + "-helper.sh");
-        Path logFile = tempDir.resolve(testName + ".log");
-        Files.writeString(webXml, scenario.webXml(), StandardCharsets.UTF_8);
-        Files.writeString(
-                testScript,
-                "set -e\n" + function + "\n" + SYSTEM_ACTIONS_FUNCTION + " \"$1\"\n",
-                StandardCharsets.UTF_8);
-
-        ProcessBuilder processBuilder =
-                new ProcessBuilder(helper.shell(), testScript.toString(), webXml.toString())
-                        .redirectErrorStream(true);
-        processBuilder.environment().put("LOG_FILE", logFile.toString());
-        Process process = processBuilder.start();
-        process.getOutputStream().close();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        int exitCode = process.waitFor();
-        String actualWebXml = Files.readString(webXml, StandardCharsets.UTF_8);
-
-        assertThat(exitCode)
-                .as(
-                        "%s helper should keep the devcontainer workflow nonfatal: %s",
-                        helper.name(),
-                        output)
-                .isZero();
-        assertThat(Files.exists(Path.of(webXml.toString() + ".tmp")))
-                .as("%s helper should clean up its temporary file", helper.name())
-                .isFalse();
-        if (scenario.shouldEnable()) {
-            assertThat(actualWebXml)
-                    .as("%s helper should enable a valid configuration", helper.name())
-                    .contains("<param-value>true</param-value>");
-        } else {
-            assertThat(actualWebXml)
-                    .as("%s helper should not rewrite a %s configuration", helper.name(), scenario.name())
-                    .isEqualTo(scenario.webXml());
-        }
-    }
-
-    private static String extractShellFunction(String script) {
-        StringBuilder function = new StringBuilder();
-        boolean insideFunction = false;
-
-        for (String line : script.lines().toList()) {
-            if (line.equals(SYSTEM_ACTIONS_FUNCTION + "() {")) {
-                insideFunction = true;
-            }
-            if (insideFunction) {
-                function.append(line).append('\n');
-                if (line.equals("}")) {
-                    return function.toString();
-                }
-            }
-        }
-
-        throw new IllegalStateException("Devcontainer JavaMelody override function not found");
-    }
-
-    private record ShellHelper(String name, String shell, Path source) {}
-
-    private record OverrideScenario(String name, String webXml, boolean shouldEnable) {}
 }

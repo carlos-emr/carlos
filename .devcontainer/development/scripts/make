@@ -15,86 +15,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Sets _clean_reason to a human-readable explanation when a clean is needed.
 # Returns 0 if clean is needed, 1 if safe to skip.
 _clean_reason=""
-enable_devcontainer_javamelody_system_actions() {
-  web_xml="$1"
-
-  if [ ! -f "$web_xml" ]; then
-    echo "WARN: JavaMelody web.xml not found at $web_xml; system actions not enabled for devcontainer"
-    return 0
-  fi
-
-  tmp_file="${web_xml}.tmp"
-  if awk '
-    in_xml_comment {
-      print
-      if (/-->/) {
-        in_xml_comment = 0
-      }
-      next
-    }
-    /<!--/ {
-      print
-      if (!/-->/) {
-        in_xml_comment = 1
-      }
-      next
-    }
-    in_init_param && /^[[:space:]]*<[^!?\/][^>]*>/ {
-      block_elements++
-      if (target_block && !(in_system_actions && $0 ~ /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/)) {
-        invalid_structure = 1
-      }
-    }
-    /^[[:space:]]*<init-param>[[:space:]]*$/ {
-      if (in_init_param) {
-        invalid_structure = 1
-      }
-      in_init_param = 1
-      block_elements = 0
-      target_block = 0
-      in_system_actions = 0
-      pending_replacement = 0
-    }
-    in_init_param && /^[[:space:]]*<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>[[:space:]]*$/ {
-      system_actions_params++
-      if (block_elements != 1 || target_block) {
-        invalid_structure = 1
-      }
-      target_block = 1
-      in_system_actions = 1
-    }
-    in_system_actions && /^[[:space:]]*<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>[[:space:]]*$/ {
-      if (block_elements != 2) {
-        invalid_structure = 1
-      }
-      sub(/<param-value>[[:space:]]*(true|false)[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
-      pending_replacement = 1
-      in_system_actions = 0
-    }
-    /^[[:space:]]*<\/init-param>[[:space:]]*$/ {
-      if (in_init_param && pending_replacement) {
-        replacements++
-      }
-      in_init_param = 0
-      target_block = 0
-      in_system_actions = 0
-      pending_replacement = 0
-    }
-    { print }
-    END {
-      if (invalid_structure || in_init_param || system_actions_params != 1 || replacements != 1) {
-        exit 1
-      }
-    }
-  ' "$web_xml" > "$tmp_file" && mv "$tmp_file" "$web_xml"; then
-    return 0
-  fi
-
-  rm -f "$tmp_file" 2>/dev/null || true
-  echo "WARN: Could not enable JavaMelody system actions in $web_xml; devcontainer override not applied"
-  return 0
-}
-
 needs_clean_build() {
   _clean_reason=""
 
@@ -285,7 +205,6 @@ build_and_deploy() {
   if [ -d "target/$snapshot_src_dir" ]; then
     rm -rf "/usr/local/tomcat/webapps/$snapshot_dest_dir"
     cp -a "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
-    enable_devcontainer_javamelody_system_actions "/usr/local/tomcat/webapps/$snapshot_dest_dir/WEB-INF/web.xml"
   fi
 
   # Setup hot reload for fast JSP/HTML/CSS updates when refreshing the browser.
