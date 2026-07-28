@@ -102,7 +102,11 @@ public class Startup implements ServletContextListener {
                 /* if the file not found in the user root, look in the WEB-INF directory */
                 try {
                     logger.info("looking up  /WEB-INF/" + propName);
+                    String exisite = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR); // may be null
                     p.readFromFile("/WEB-INF/" + propName);
+                    if (exisite != null && !exisite.isBlank()) {// make sure if the encryption key exisite before we replace with new one
+                         p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, exisite); // real key wins
+                    }
                     logger.info("loading properties from /WEB-INF/" + propName);
                 } catch (java.io.FileNotFoundException e) {
                     /*
