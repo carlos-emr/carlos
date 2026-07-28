@@ -646,18 +646,37 @@ public class CommonLabResultData {
             if (labs != null && !labs.equals("")) {
                 String[] labArray = labs.split(",");
                 for (int j = 0; j < labArray.length; j++) {
-                    allFiled = updateReportStatus(Integer.parseInt(labArray[j]), provider, 'F', "", labType) && allFiled;
-                    removeFromQueue(Integer.parseInt(labArray[j]));
+                    Integer labNo = parseLabNo(labArray[j]);
+                    if (labNo == null) {
+                        allFiled = false;
+                        continue;
+                    }
+                    allFiled = updateReportStatus(labNo, provider, 'F', "", labType) && allFiled;
+                    removeFromQueue(labNo);
                 }
 
             } else {
-                allFiled = updateReportStatus(Integer.parseInt(lab), provider, 'F', "", labType) && allFiled;
-                removeFromQueue(Integer.parseInt(lab));
+                Integer labNo = parseLabNo(lab);
+                if (labNo == null) {
+                    allFiled = false;
+                    continue;
+                }
+                allFiled = updateReportStatus(labNo, provider, 'F', "", labType) && allFiled;
+                removeFromQueue(labNo);
             }
         }
         return allFiled;
     }
 
+
+    private static Integer parseLabNo(String labNo) {
+        try {
+            return Integer.valueOf(labNo);
+        } catch (NumberFormatException e) {
+            logger.warn("Skipping lab with an invalid numeric identifier");
+            return null;
+        }
+    }
 
     private static void removeFromQueue(Integer lab_no) {
         List<QueueDocumentLink> queues = queueDocumentLinkDao.getQueueFromDocument(lab_no);

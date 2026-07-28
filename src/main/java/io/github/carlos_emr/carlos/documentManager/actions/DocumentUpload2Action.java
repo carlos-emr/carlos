@@ -280,6 +280,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         // opened so an invalid destination cannot leave an open input stream behind.
         File baseDir = new File(documentDir);
         File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
+        File validatedDocFile = PathValidationUtils.validateUpload(docFile);
 
         // try-with-resources, not a finally chain: the previous `if (fis != null) fis.close();
         // if (fos != null) fos.close();` closed the streams in sequence with no protection, so a
@@ -294,12 +295,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         // one path and the second silently overwrote the first — leaving a document row pointing
         // at another patient's bytes. Failing closed here turns that silent cross-patient
         // overwrite into a loud FileAlreadyExistsException the caller surfaces.
-        // Both paths are sanitized cross-method, which CodeQL cannot follow, so each sink carries its
-        // own trailing marker on the reported line — a marker on a preceding line is NOT honoured.
-        // docFile: PathValidationUtils.validateUpload at :104 confines it to the allowed temp dirs.
+        // Both paths are sanitized locally, so each sink carries its own trailing marker on the
+        // reported line — a marker on a preceding line is NOT honoured.
+        // validatedDocFile: validateUpload confines it to the allowed temp dirs.
         // destinationFile: PathValidationUtils.validatePath above sanitizes the name to
         // [a-zA-Z0-9._-], enforces the extension allowlist, and canonically validates containment.
-        try (InputStream fis = Files.newInputStream(docFile.toPath()); // codeql[java/path-injection] -- validateUpload confined docFile to an allowed temp dir at :104
+        try (InputStream fis = Files.newInputStream(validatedDocFile.toPath()); // codeql[java/path-injection] -- validateUpload confined docFile to an allowed temp dir at :104
                 OutputStream fos = Files.newOutputStream(destinationFile.toPath(), // codeql[java/path-injection] -- validatePath canonically confined destinationFile to baseDir
                         StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             byte[] buf = new byte[128 * 1024];
