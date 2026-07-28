@@ -122,8 +122,6 @@ public class EFormBrowserPdfService {
     // timeouts" invariant; production code treats them as private.
     static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(30);
     static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
-    private static final Duration NETWORK_QUIET_WINDOW = Duration.ofMillis(500);
-    private static final Duration NETWORK_QUIET_MAX_WAIT = Duration.ofSeconds(10);
 
     /**
      * Client-side HTTP read timeout for every WebDriver/CDP command sent to chromedriver
@@ -231,7 +229,7 @@ public class EFormBrowserPdfService {
             + "})();";
 
     /**
-     * Async settle: fonts ready, pending images resolved, DOM mutations quiet, two animation frames.
+     * Async settle: fonts ready, pending images resolved, network activity and DOM mutations quiet together, two animation frames.
      *
      * <p>The DOM-quiescence wait is load-bearing for script-built forms. The Rich Text Letter (and
      * other editor-driven corpus forms) construct their visible content asynchronously after
@@ -288,11 +286,15 @@ public class EFormBrowserPdfService {
             + "    const maxWaitMillis = 5000;\n"
             + "    let quietTimer = null;\n"
             + "    let done = false;\n"
+            + "    let resourceObserver = null;\n"
             + "    const observer = new MutationObserver(() => {\n"
             + "      if (done) { return; }\n"
+            + "      resetQuietWindow();\n"
+            + "    });\n"
+            + "    function resetQuietWindow() {\n"
             + "      clearTimeout(quietTimer);\n"
             + "      quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
-            + "    });\n"
+            + "    }\n"
             // finish(true) means the hard cap fired before a quiet window was ever observed — the page
             // kept mutating (a broken/animating editor). Resolve with that flag so the JVM can WARN
             // that the capture is as-is rather than logging it as an ordinary quiet settle.
@@ -300,10 +302,17 @@ public class EFormBrowserPdfService {
             + "      if (done) { return; }\n"
             + "      done = true;\n"
             + "      observer.disconnect();\n"
+            + "      if (resourceObserver) { resourceObserver.disconnect(); }\n"
             + "      resolve(!!wasCapped);\n"
             + "    }\n"
             + "    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });\n"
-            + "    quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
+            + "    try {\n"
+            + "      if (typeof PerformanceObserver === 'function') {\n"
+            + "        resourceObserver = new PerformanceObserver(() => resetQuietWindow());\n"
+            + "        resourceObserver.observe({ type: 'resource', buffered: true });\n"
+            + "      }\n"
+            + "    } catch (ignored) { }\n"
+            + "    resetQuietWindow();\n"
             + "    setTimeout(() => finish(true), maxWaitMillis);\n"
             + "  });\n"
             + "  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n"
@@ -834,7 +843,6 @@ public class EFormBrowserPdfService {
             drainPerformanceLog(driver, performanceEntries);
             Integer latchedMainStatus = scanNetworkEvents(
                     performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
-            awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
             boolean stabilizationCapped = settle(driver, deadlineNanos, fdid);
             long stabilizationFinishedNanos = System.nanoTime();
             if (!isExpectedRendererUrl(driver.getCurrentUrl(), baseUrl + appPath)) {
@@ -1310,28 +1318,9 @@ public class EFormBrowserPdfService {
     // Stabilization and capture
     // ---------------------------------------------------------------------------------------------
 
-    /**
-     * Best-effort network quiescence: poll the performance log until no new events arrive for the
-     * quiet window, capped, never failing the render on its own (a quiet-window timeout is
-     * ignored). Drained entries are retained for the gates; a drain FAULT does fail the render —
-     * see {@link #drainPerformanceLog}.
-     */
-    private void awaitNetworkQuiet(ChromeDriver driver, List<LogEntry> performanceEntries, long deadlineNanos)
-            throws InterruptedException, PDFGenerationException {
-        long quietSinceNanos = System.nanoTime();
-        long waitDeadline = Math.min(deadlineNanos, System.nanoTime() + NETWORK_QUIET_MAX_WAIT.toNanos());
-        while (System.nanoTime() < waitDeadline) {
-            Thread.sleep(250);
-            if (drainPerformanceLog(driver, performanceEntries) > 0) {
-                quietSinceNanos = System.nanoTime();
-            } else if (System.nanoTime() - quietSinceNanos >= NETWORK_QUIET_WINDOW.toNanos()) {
-                return;
-            }
-        }
-    }
-
-    /**
-     * Waits for the page to stop mutating, then reports whether it actually reached a quiet window.
+     /**
+     * Waits for both the page DOM and its resource activity to become quiet, then reports whether it
+     * reached a quiet window.
      *
      * @return {@code true} when the stabilization cap expired with the DOM still changing, meaning the
      *         page was captured mid-assembly. The caller MUST fold this into

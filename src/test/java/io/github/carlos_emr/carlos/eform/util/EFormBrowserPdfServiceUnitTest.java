@@ -218,6 +218,8 @@ class EFormBrowserPdfServiceUnitTest {
                 // onload; without a DOM-quiet window the capture raced the editor and sometimes
                 // printed half-built chrome. Bounded so a perpetual animation cannot stall renders.
                 .contains("MutationObserver")
+                .contains("PerformanceObserver")
+                .contains("resourceObserver.observe({ type: 'resource', buffered: true })")
                 .contains("quietWindowMillis = 500")
                 .contains("maxWaitMillis = 5000")
                 // Cap-exit is signalled distinctly from a quiet settle ('CAPPED' vs null) so the JVM
