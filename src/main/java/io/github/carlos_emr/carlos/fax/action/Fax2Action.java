@@ -503,6 +503,7 @@ public class Fax2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String prepareFax() {
+        long prepareStartedNanos = System.nanoTime();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
@@ -543,6 +544,8 @@ public class Fax2Action extends ActionSupport {
                 if (stagedPreview != null) {
                     pdfPath = stagedPreview.path();
                     request.setAttribute("advisoryIssues", 0);
+                    logger.info("Fax staged eForm preview claimed: fdid={} prepareMs={}", transactionId,
+                            (System.nanoTime() - prepareStartedNanos) / 1_000_000L);
                 } else try {
                     io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender rendered =
                             documentAttachmentManager.stageEFormPacketForFaxPreview(request, response);
@@ -566,6 +569,9 @@ public class Fax2Action extends ActionSupport {
                         request.setAttribute("containedInteractions", rendered.completeness().containedInteractions());
                         request.setAttribute("stabilizationCapped", rendered.completeness().stabilizationCapped());
                         request.setAttribute("labDecisionSupportStubbed", rendered.completeness().labDecisionSupportStubbed());
+                        logger.info("Fax eForm warning prepared: fdid={} prepareMs={} blockingIssues={}",
+                                transactionId, (System.nanoTime() - prepareStartedNanos) / 1_000_000L,
+                                rendered.completeness().blockingIssueCount());
                         return "eFormMissingContent";
                     }
                     pdfPath = rendered.path();

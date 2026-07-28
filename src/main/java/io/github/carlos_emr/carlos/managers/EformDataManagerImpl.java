@@ -294,6 +294,12 @@ public class EformDataManagerImpl implements EformDataManager {
         }
 
         List<String> attachedHRMDocumentIds = documentAttachmentManager.getEFormAttachments(loggedInInfo, Integer.parseInt(fdid), DocumentType.HRM, Integer.parseInt(demographicId));
+        // Do not enumerate the patient's full HRM history merely to filter it down to an empty
+        // attachment set. Fax preparation calls this for every eForm packet, and most packets have
+        // no HRM attachments at all.
+        if (attachedHRMDocumentIds.isEmpty()) {
+            return new ArrayList<>();
+        }
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicId, false);
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocumentIds.size());
         for (String hrmId : attachedHRMDocumentIds) {
@@ -313,6 +319,10 @@ public class EformDataManagerImpl implements EformDataManager {
         }
 
         List<String> attachedForms = documentAttachmentManager.getEFormAttachments(loggedInInfo, Integer.parseInt(fdid), DocumentType.FORM, Integer.parseInt(demographicId));
+        // As with HRMs, avoid loading every encounter form when this eForm has none attached.
+        if (attachedForms.isEmpty()) {
+            return List.of();
+        }
         List<EctFormData.PatientForm> filteredForms = new ArrayList<>(attachedForms.size());
         List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicId), true, true);
         for (String formId : attachedForms) {

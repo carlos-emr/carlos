@@ -637,9 +637,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         demographicId = storedDemographicId;
         request.setAttribute("demographicId", storedDemographicId);
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        long packetStartedNanos = System.nanoTime();
         try {
             EformDataManager.EformPdfRender primary =
                     eformDataManager.createEformPdfWithCompleteness(loggedInInfo, fdidValue, approval);
+            long primaryRenderedNanos = System.nanoTime();
             Path eFormPath = primary.path();
             // Advisory conditions no longer withhold the document, so they would otherwise vanish on
             // this path. Merge every rendered eForm's report and hand it back for the caller to show.
@@ -654,6 +656,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             List<LabResultData> attachedLabs = labResultData.populateLabResultsDataEForm(loggedInInfo, demographicId, fdid, CommonLabResultData.ATTACHED);
             ArrayList<HashMap<String, ? extends Object>> attachedHRMs = eformDataManager.getHRMDocumentsAttachedToEForm(loggedInInfo, fdid, demographicId);
             List<EctFormData.PatientForm> attachedForms = eformDataManager.getFormsAttachedToEForm(loggedInInfo, fdid, demographicId);
+            long attachmentsLocatedNanos = System.nanoTime();
 
             logger.debug("Rendering eForm with attachments: fdid={} eforms={} edocs={} labs={} hrms={} forms={}",
                     LogSafe.sanitize(fdid), attachedEForms.size(), attachedEDocs.size(), attachedLabs.size(),
@@ -667,9 +670,21 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
             attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
             attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+            long attachmentsRenderedNanos = System.nanoTime();
 
             Path result = preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList, demographicId);
             cleanupRenderedTempInputs(pdfDocumentList, result);
+            long packetCompletedNanos = System.nanoTime();
+            logger.info("eForm packet timing: fdid={} primaryRenderMs={} attachmentLookupMs={} "
+                            + "attachmentRenderMs={} mergeMs={} totalMs={} attachments={}",
+                    LogSafe.sanitize(fdid),
+                    (primaryRenderedNanos - packetStartedNanos) / 1_000_000L,
+                    (attachmentsLocatedNanos - primaryRenderedNanos) / 1_000_000L,
+                    (attachmentsRenderedNanos - attachmentsLocatedNanos) / 1_000_000L,
+                    (packetCompletedNanos - attachmentsRenderedNanos) / 1_000_000L,
+                    (packetCompletedNanos - packetStartedNanos) / 1_000_000L,
+                    attachedEForms.size() + attachedEDocs.size() + attachedLabs.size()
+                            + attachedHRMs.size() + attachedForms.size());
             return new EformDataManager.EformPdfRender(result, packetCompleteness,
                     Map.copyOf(formCompleteness));
         } catch (PDFGenerationException | RuntimeException e) {

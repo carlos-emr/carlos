@@ -810,6 +810,7 @@ public class EFormBrowserPdfService {
             RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), unsandboxed, allowedOrigin));
             driver = browser.driver();
             driverService = browser.service();
+            long driverStartedNanos = System.nanoTime();
             logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
                     fdid, unsandboxed ? "disabled" : "enabled");
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
@@ -826,6 +827,7 @@ public class EFormBrowserPdfService {
             // URL: it carries the fdid and the render token; log the origin only.
             logger.debug("Browser eForm renderer navigating to render page: fdid={} origin={}", fdid, allowedOrigin);
             driver.get(baseUrl + appPath);
+            long navigationFinishedNanos = System.nanoTime();
             // Drain immediately after navigation so the main-document response is captured into our
             // non-evicting list before any later request flood can push it out of Selenium's
             // bounded internal buffer, then latch its status as a fallback for the final gate.
@@ -834,6 +836,7 @@ public class EFormBrowserPdfService {
                     performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
             awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
             boolean stabilizationCapped = settle(driver, deadlineNanos, fdid);
+            long stabilizationFinishedNanos = System.nanoTime();
             if (!isExpectedRendererUrl(driver.getCurrentUrl(), baseUrl + appPath)) {
                 throw new PDFGenerationException(
                         "Browser rendering navigated away from the authorized eForm page.");
@@ -897,8 +900,10 @@ public class EFormBrowserPdfService {
                         geometry.excludedCount(), Math.round(geometry.excludedHeight()), fdid);
             }
             logger.debug("Browser eForm renderer measured {} authored page size(s): fdid={}", pageSizes.size(), fdid);
+            long gatesFinishedNanos = System.nanoTime();
 
             printToPdf(driver, outputPdfPath, deadlineNanos);
+            long printedNanos = System.nanoTime();
 
             // Capture the size once, before declaring success: a second Files.size inside the
             // success log could race an external sweep and turn a completed render into a
@@ -912,9 +917,15 @@ public class EFormBrowserPdfService {
             success = true;
             // Success record: fdid, page count, output size and elapsed time give operators an
             // end-to-end render trace. No PHI, no render URL/token — origin/counts/bytes only.
-            logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={}",
+            logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={} "
+                            + "driverStartupMs={} navigationMs={} stabilizationMs={} gatesMs={} printMs={}",
                     fdid, pageSizes.size(), outputPdfBytes,
-                    (System.nanoTime() - startNanos) / 1_000_000L);
+                    (System.nanoTime() - startNanos) / 1_000_000L,
+                    (driverStartedNanos - startNanos) / 1_000_000L,
+                    (navigationFinishedNanos - driverStartedNanos) / 1_000_000L,
+                    (stabilizationFinishedNanos - navigationFinishedNanos) / 1_000_000L,
+                    (gatesFinishedNanos - stabilizationFinishedNanos) / 1_000_000L,
+                    (printedNanos - gatesFinishedNanos) / 1_000_000L);
             // Carry the report out with the file rather than in a field: renders run concurrently
             // under the slot semaphore, so any per-service mutable state would cross-talk.
             return new RenderedEformPdf(outputPdfPath, completeness);
