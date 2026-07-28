@@ -6,11 +6,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.models import (
+    INVITE_STATUS_PENDING,
+    INVITE_STATUS_REVOKED,
+    INVITE_STATUS_SUPERSEDED,
     PatientPortalAuditEvent,
     PatientPortalInvite,
     PatientPortalMfaChallenge,
@@ -34,12 +37,7 @@ class TransientCleanupResult:
 
     @property
     def total(self) -> int:
-        return (
-            self.sessions
-            + self.mfa_challenges
-            + self.reset_records
-            + self.invites
-        )
+        return self.sessions + self.mfa_challenges + self.reset_records + self.invites
 
 
 class MaintenanceError(Exception):
@@ -129,7 +127,19 @@ def cleanup_transient_auth_rows(
         ),
         (PatientPortalMfaChallenge, PatientPortalMfaChallenge.expires_at < before),
         (PatientPortalPasswordResetToken, PatientPortalPasswordResetToken.expires_at < before),
-        (PatientPortalInvite, PatientPortalInvite.expires_at < before),
+        (
+            PatientPortalInvite,
+            and_(
+                PatientPortalInvite.expires_at < before,
+                PatientPortalInvite.status.in_(
+                    (
+                        INVITE_STATUS_PENDING,
+                        INVITE_STATUS_REVOKED,
+                        INVITE_STATUS_SUPERSEDED,
+                    )
+                ),
+            ),
+        ),
     )
     counts: list[int] = []
     for model, predicate in predicates:
@@ -140,7 +150,12 @@ def cleanup_transient_auth_rows(
         )
         counts.append(len(record_ids))
         if record_ids and not dry_run:
-            session.execute(delete(model).where(model.id.in_(record_ids)))
+            session.execute(
+                delete(model).where(
+                    model.id.in_(record_ids),
+                    predicate,
+                )
+            )
     return TransientCleanupResult(*counts)
 
 

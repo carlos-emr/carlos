@@ -31,6 +31,7 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.concurrency import run_in_threadpool
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
@@ -121,6 +122,7 @@ from carlos_patient_portal.invites import (
     InviteNotFoundError,
     PendingInviteExistsError,
     RevokedInviteError,
+    SupersededInviteError,
     create_invite,
     list_invites,
     normalize_staff_actor,
@@ -205,6 +207,7 @@ CONTENT_SECURITY_POLICY = (
 FHIR_JSON_MEDIA_TYPE = "application/fhir+json"
 FHIR_PATH_PREFIX = "/fhir/"
 PORTAL_ROOT_PATH = "/portal"
+MAX_PAGE_OFFSET = 100_000
 SERVICE_UNAVAILABLE_DETAIL = "service temporarily unavailable"
 AUTHENTICATION_REQUIRED_DETAIL = "authentication required"
 NOT_FOUND_DETAIL = "not found"
@@ -389,9 +392,7 @@ class PortalRuntime:
     sms_sender: PortalSmsSender | None
     unlock_secret_encryption_keys: dict[str, str] | None = None
     unlock_secret_active_key_id: str = "primary"
-    operational_metrics: PortalOperationalMetrics = field(
-        default_factory=PortalOperationalMetrics
-    )
+    operational_metrics: PortalOperationalMetrics = field(default_factory=PortalOperationalMetrics)
 
 
 @dataclass(frozen=True)
@@ -517,6 +518,7 @@ def logout_browser_session_cookie_token(
     *,
     session_token: str | None,
     token_secret: str,
+    idle_timeout: timedelta,
 ) -> None:
     if session_token is None:
         return
@@ -525,15 +527,14 @@ def logout_browser_session_cookie_token(
             session,
             session_token=session_token,
             token_secret=token_secret,
+            idle_timeout=idle_timeout,
         )
     except (PortalSessionInvalidError, ValueError):
         return
 
 
 def is_portal_path(path: str) -> bool:
-    return path == PORTAL_SESSION_COOKIE_PATH or path.startswith(
-        f"{PORTAL_SESSION_COOKIE_PATH}/"
-    )
+    return path == PORTAL_SESSION_COOKIE_PATH or path.startswith(f"{PORTAL_SESSION_COOKIE_PATH}/")
 
 
 def is_patient_runtime_path(path: str) -> bool:
@@ -618,6 +619,7 @@ def invite_response_payload(
         ),
         "accepted_at": invite.accepted_at,
         "accepted_account_id": invite.accepted_account_id,
+        "supersedes_invite_id": invite.supersedes_invite_id,
     }
     if invite_token is not None:
         payload["invite_token"] = invite_token
@@ -818,10 +820,9 @@ def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
         max_failed_password_attempts=settings.auth_max_failed_password_attempts,
         mfa_max_failed_attempts=settings.mfa_max_failed_attempts,
         session_ttl=timedelta(seconds=settings.session_ttl_seconds),
+        session_idle_timeout=timedelta(seconds=settings.session_idle_timeout_seconds),
         mfa_code_ttl=timedelta(seconds=settings.mfa_code_ttl_seconds),
-        mfa_email_resend_cooldown=timedelta(
-            seconds=settings.mfa_email_resend_cooldown_seconds
-        ),
+        mfa_email_resend_cooldown=timedelta(seconds=settings.mfa_email_resend_cooldown_seconds),
         mfa_sms_resend_cooldown=timedelta(seconds=settings.mfa_sms_resend_cooldown_seconds),
         password_reset_token_ttl=timedelta(seconds=settings.password_reset_token_ttl_seconds),
         password_reset_request_cooldown=timedelta(
@@ -1102,16 +1103,10 @@ def mfa_template_context(
         "masked_mfa_destination": mask_mfa_destination(delivery),
         "mfa_challenge_token": delivery.challenge_token,
         "mfa_delivery_method": delivery.delivery_method,
-        "mfa_email_available": (
-            MFA_DELIVERY_METHOD_EMAIL in delivery.available_delivery_methods
-        ),
+        "mfa_email_available": (MFA_DELIVERY_METHOD_EMAIL in delivery.available_delivery_methods),
         "mfa_email_selected": is_email,
-        "mfa_rate_limit_message": (
-            text["email_codes_rate"] if is_email else text["mfa_sms_rate"]
-        ),
-        "mfa_sms_available": (
-            MFA_DELIVERY_METHOD_SMS in delivery.available_delivery_methods
-        ),
+        "mfa_rate_limit_message": (text["email_codes_rate"] if is_email else text["mfa_sms_rate"]),
+        "mfa_sms_available": (MFA_DELIVERY_METHOD_SMS in delivery.available_delivery_methods),
         "mfa_sms_selected": not is_email,
         "service_name": settings.service_name,
         "text": text,
@@ -1211,11 +1206,7 @@ def email_password_dashboard_context(
     text = portal_text(DEFAULT_LOCALE)
     normalized_search = normalize_email_password_dashboard_search(search)
     normalized_provider = normalize_email_password_dashboard_provider(provider)
-    invalid_date_range = (
-        date_from is not None
-        and date_to is not None
-        and date_from > date_to
-    )
+    invalid_date_range = date_from is not None and date_to is not None and date_from > date_to
     has_filter_error = filter_error is not None or invalid_date_range
     created_from = (
         datetime.combine(
@@ -1281,9 +1272,7 @@ def email_password_dashboard_context(
         ],
         "search": normalized_search or "",
         "provider": normalized_provider or "",
-        "provider_options": [
-            {"value": value, "label": label} for value, label in provider_options
-        ],
+        "provider_options": [{"value": value, "label": label} for value, label in provider_options],
         "provider_option_values": [value for value, _ in provider_options],
         "date_from": date_from.isoformat() if date_from is not None else "",
         "date_to": date_to.isoformat() if date_to is not None else "",
@@ -1296,8 +1285,7 @@ def email_password_dashboard_context(
             )
         ),
         "filter_error": (
-            filter_error
-            or (text["date_range_error"] if invalid_date_range else None)
+            filter_error or (text["date_range_error"] if invalid_date_range else None)
         ),
         "page": normalized_page,
         "total_pages": total_pages,
@@ -1851,9 +1839,7 @@ def build_portal_runtime(
     if not unlock_secret_encryption_keys:
         unlock_secret_encryption_keys = {"primary": token_urlsafe(32)}
     unlock_secret_active_key_id = settings.unlock_secret_active_key_id
-    unlock_secret_encryption_secret = unlock_secret_encryption_keys[
-        unlock_secret_active_key_id
-    ]
+    unlock_secret_encryption_secret = unlock_secret_encryption_keys[unlock_secret_active_key_id]
     database_engine = create_portal_engine(
         settings.database_url,
         pool_size=settings.database_pool_size,
@@ -1896,15 +1882,9 @@ def build_portal_runtime(
         rate_limiter=rate_limiter,
         auth_rate_limiter=auth_rate_limiter,
         email_sender=(
-            email_sender
-            if email_sender is not None
-            else build_portal_email_sender(settings)
+            email_sender if email_sender is not None else build_portal_email_sender(settings)
         ),
-        sms_sender=(
-            sms_sender
-            if sms_sender is not None
-            else build_portal_sms_sender(settings)
-        ),
+        sms_sender=(sms_sender if sms_sender is not None else build_portal_sms_sender(settings)),
     )
 
 
@@ -1922,9 +1902,15 @@ def build_lifespan(database_engine: Engine) -> Callable[[FastAPI], AsyncGenerato
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
-        _: Request,
+        request: Request,
         exc: RequestValidationError,
     ) -> JSONResponse:
+        if request.url.path.startswith(FHIR_PATH_PREFIX):
+            return fhir_operation_outcome_response(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                code="invalid",
+                diagnostics="request parameters are invalid",
+            )
         return JSONResponse(
             status_code=422,
             content={"detail": sanitized_validation_errors(exc)},
@@ -2152,6 +2138,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 session,
                 session_token=session_token,
                 token_secret=runtime.csrf_secret,
+                idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
             raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL) from exc
@@ -2187,6 +2174,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 session,
                 session_token=supplied_token.strip(),
                 token_secret=runtime.csrf_secret,
+                idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
             record_audit_event(
@@ -2220,6 +2208,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
             session,
             session_token=session_token,
             token_secret=runtime.csrf_secret,
+            idle_timeout=runtime.auth_policy.session_idle_timeout,
         )
 
     def render_portal_page(
@@ -2366,6 +2355,11 @@ def create_app(
     app.state.auth_rate_limiter = runtime.auth_rate_limiter
     app.state.operational_metrics = runtime.operational_metrics
     app.state.unlock_secret_encryption_secret = runtime.unlock_secret_encryption_secret
+    logging.getLogger("uvicorn.access").disabled = not settings.is_development
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=list(settings.allowed_hosts),
+    )
     app.mount(
         "/static",
         StaticFiles(directory=str(PACKAGE_DIR / "static")),
@@ -2487,9 +2481,7 @@ def register_auth_routes(
 ) -> None:
     settings = runtime.settings
     get_app_database_session = route_dependencies.get_app_database_session
-    get_authenticated_portal_session = (
-        route_dependencies.get_authenticated_portal_session
-    )
+    get_authenticated_portal_session = route_dependencies.get_authenticated_portal_session
     render_index_response = route_dependencies.render_index_response
     csrf_secret = runtime.csrf_secret
     audit_hash_secret = runtime.audit_hash_secret
@@ -2589,6 +2581,7 @@ def register_auth_routes(
                 policy=auth_policy,
                 token_secret=csrf_secret,
                 mfa_code_secret=csrf_secret,
+                clinic_id=settings.clinic_id,
                 delivery_method=payload.mfa_delivery_method,
             )
         except InvalidCredentialsError:
@@ -3100,7 +3093,7 @@ def register_fhir_routes(
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
         count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
+        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
     ) -> JSONResponse:
         account = authenticated_session.account
         patient = build_fhir_r4_portal_patient(account)
@@ -3181,7 +3174,7 @@ def register_fhir_routes(
         resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
         subject: Annotated[str | None, Query(max_length=128)] = None,
         count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
+        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
     ) -> JSONResponse:
         account = authenticated_session.account
         patient_reference = fhir_patient_reference(account)
@@ -3326,7 +3319,7 @@ def register_fhir_routes(
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
         count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
+        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
     ) -> JSONResponse:
         account = authenticated_session.account
         organization = build_fhir_r4_organization(
@@ -3413,7 +3406,7 @@ def register_fhir_routes(
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
         resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
         count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0)] = 0,
+        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
     ) -> JSONResponse:
         account = authenticated_session.account
         total = count_unlock_secret_providers(
@@ -3534,7 +3527,7 @@ def register_patient_email_password_routes(
             int,
             Query(ge=1, le=MAX_UNLOCK_SECRET_LIST_LIMIT),
         ] = DEFAULT_UNLOCK_SECRET_LIST_LIMIT,
-        offset: Annotated[int, Query(ge=0)] = 0,
+        offset: Annotated[int, Query(ge=0, le=MAX_PAGE_OFFSET)] = 0,
     ) -> dict[str, object]:
         account = authenticated_session.account
         records = list_unlock_secrets(
@@ -3647,6 +3640,7 @@ def register_logout_route(
                 session,
                 session_token=session_token,
                 token_secret=csrf_secret,
+                idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
             raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL) from exc
@@ -3663,9 +3657,7 @@ def register_portal_routes(
     get_app_database_session = route_dependencies.get_app_database_session
     render_portal_page = route_dependencies.render_portal_page
     get_portal_account_form_values = route_dependencies.get_portal_account_form_values
-    get_portal_cookie_session_or_redirect = (
-        route_dependencies.get_portal_cookie_session_or_redirect
-    )
+    get_portal_cookie_session_or_redirect = route_dependencies.get_portal_cookie_session_or_redirect
     render_account_change_error = route_dependencies.render_account_change_error
     csrf_secret = runtime.csrf_secret
 
@@ -3718,7 +3710,7 @@ def register_portal_routes(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            await run_in_threadpool(
+            replacement_session_token = await run_in_threadpool(
                 change_account_password,
                 session,
                 authenticated_session.account,
@@ -3726,6 +3718,8 @@ def register_portal_routes(
                 current_password=first_form_value_or_empty(form_values, "current_password"),
                 new_password=new_password,
                 max_failed_password_attempts=settings.auth_max_failed_password_attempts,
+                policy=runtime.auth_policy,
+                token_secret=csrf_secret,
             )
         except AccountSettingsStepUpError:
             return render_account_change_error(
@@ -3739,10 +3733,16 @@ def register_portal_routes(
                 session,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
-        return RedirectResponse(
+        response = RedirectResponse(
             "/portal/account?status=password-updated",
             status_code=status.HTTP_303_SEE_OTHER,
         )
+        set_portal_session_cookie(
+            response,
+            replacement_session_token,
+            settings=settings,
+        )
+        return response
 
     @app.post("/portal/account/contact")
     async def portal_account_contact(
@@ -3972,6 +3972,7 @@ def register_portal_routes(
             session,
             session_token=request.cookies.get(PORTAL_SESSION_COOKIE_NAME),
             token_secret=csrf_secret,
+            idle_timeout=runtime.auth_policy.session_idle_timeout,
         )
         clear_portal_session_cookie(response, settings=settings)
         return response
@@ -4039,10 +4040,7 @@ def register_activation_routes(
             "activation_client",
             get_request_client_reference(request, settings),
         )
-        if (
-            payload.mfa_delivery_method == MFA_DELIVERY_METHOD_SMS
-            and runtime.sms_sender is None
-        ):
+        if payload.mfa_delivery_method == MFA_DELIVERY_METHOD_SMS and runtime.sms_sender is None:
             if is_browser_form:
                 return render_public_auth_template(
                     request,
@@ -4202,7 +4200,7 @@ def register_dev_admin_routes(
                 int,
                 Query(ge=1, le=MAX_INVITE_LIST_LIMIT),
             ] = DEFAULT_INVITE_LIST_LIMIT,
-            offset: Annotated[int, Query(ge=0)] = 0,
+            offset: Annotated[int, Query(ge=0, le=MAX_PAGE_OFFSET)] = 0,
         ) -> list[dict[str, object]]:
             invites = list_invites(
                 session,
@@ -4220,10 +4218,7 @@ def register_dev_admin_routes(
                 clinic_id=settings.clinic_id,
                 demographic_no=demographic_no,
             )
-            return [
-                invite_response_payload(invite)
-                for invite in invites
-            ]
+            return [invite_response_payload(invite) for invite in invites]
 
         @app.post(
             "/dev/admin/invites/{invite_id}/resend",
@@ -4254,6 +4249,8 @@ def register_dev_admin_routes(
                     status_code=409,
                     detail="invite has already been accepted",
                 ) from exc
+            except SupersededInviteError as exc:
+                raise HTTPException(status_code=409, detail="invite was superseded") from exc
             return invite_response_payload(invite, invite_token)
 
         @app.post(
@@ -4283,6 +4280,8 @@ def register_dev_admin_routes(
                     status_code=409,
                     detail="invite has already been accepted",
                 ) from exc
+            except SupersededInviteError as exc:
+                raise HTTPException(status_code=409, detail="invite was superseded") from exc
             return invite_response_payload(invite)
 
         @app.post(

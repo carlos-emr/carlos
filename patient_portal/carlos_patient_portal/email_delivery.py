@@ -4,6 +4,12 @@ from email.message import EmailMessage
 from typing import Protocol
 
 from carlos_patient_portal.config import Settings
+from carlos_patient_portal.outbound_messages import (
+    OutboundMessage,
+    contact_change_email_message,
+    mfa_email_message,
+    password_reset_email_message,
+)
 
 
 class PortalEmailDeliveryError(Exception):
@@ -58,21 +64,17 @@ class SmtpPortalEmailSender:
         code: str,
         expires_in_seconds: int,
     ) -> None:
-        message = EmailMessage()
-        message["From"] = self.from_address
-        message["To"] = recipient
-        message["Subject"] = f"Your {self.service_name} verification code"
-        message["Auto-Submitted"] = "auto-generated"
-        expires_in_minutes = max(1, expires_in_seconds // 60)
-        message.set_content(
-            f"Your verification code for {self.service_name} is:\n\n"
-            f"{code}\n\n"
-            f"This code expires in {expires_in_minutes} minutes. "
-            "Do not share this code with anyone.\n\n"
-            f"If you did not try to sign in, contact {self.clinic_name}."
+        self._send_message(
+            self._build_message(
+                recipient,
+                mfa_email_message(
+                    service_name=self.service_name,
+                    clinic_name=self.clinic_name,
+                    code=code,
+                    expires_in_seconds=expires_in_seconds,
+                ),
+            )
         )
-
-        self._send_message(message)
 
     def send_password_reset(
         self,
@@ -81,32 +83,40 @@ class SmtpPortalEmailSender:
         reset_url: str,
         expires_in_seconds: int,
     ) -> None:
-        message = EmailMessage()
-        message["From"] = self.from_address
-        message["To"] = recipient
-        message["Subject"] = f"Reset your {self.service_name} password"
-        message["Auto-Submitted"] = "auto-generated"
-        expires_in_minutes = max(1, expires_in_seconds // 60)
-        message.set_content(
-            f"A password reset was requested for your {self.service_name} account.\n\n"
-            f"Open this link to choose a new password:\n{reset_url}\n\n"
-            f"This link expires in {expires_in_minutes} minutes and can only be used once.\n\n"
-            f"If you did not request this reset, contact {self.clinic_name}."
+        self._send_message(
+            self._build_message(
+                recipient,
+                password_reset_email_message(
+                    service_name=self.service_name,
+                    clinic_name=self.clinic_name,
+                    reset_url=reset_url,
+                    expires_in_seconds=expires_in_seconds,
+                ),
+            )
         )
-        self._send_message(message)
 
     def send_contact_change_notice(self, *, recipient: str) -> None:
-        message = EmailMessage()
-        message["From"] = self.from_address
-        message["To"] = recipient
-        message["Subject"] = f"Contact update requested for {self.service_name}"
-        message["Auto-Submitted"] = "auto-generated"
-        message.set_content(
-            f"A contact-information update was requested for your {self.service_name} "
-            "account. Clinic staff will review it before the new details are used.\n\n"
-            f"If you did not request this change, contact {self.clinic_name} immediately."
+        self._send_message(
+            self._build_message(
+                recipient,
+                contact_change_email_message(
+                    service_name=self.service_name,
+                    clinic_name=self.clinic_name,
+                ),
+            )
         )
-        self._send_message(message)
+
+    def _build_message(self, recipient: str, content: OutboundMessage) -> EmailMessage:
+        try:
+            message = EmailMessage()
+            message["From"] = self.from_address
+            message["To"] = recipient
+            message["Subject"] = content.subject
+            message["Auto-Submitted"] = "auto-generated"
+            message.set_content(content.body)
+            return message
+        except (TypeError, ValueError):
+            raise PortalEmailDeliveryError("portal email delivery failed") from None
 
     def _send_message(self, message: EmailMessage) -> None:
         try:

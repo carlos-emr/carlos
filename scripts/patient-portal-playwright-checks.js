@@ -105,6 +105,7 @@ function screenshotPath(name) {
 (async () => {
   const badResponses = [];
   const browserIssues = [];
+  let expectedRevealFailures = 0;
   const browser = await chromium.launch({
     headless: true,
     ...(chromePath ? { executablePath: chromePath } : {}),
@@ -118,7 +119,15 @@ function screenshotPath(name) {
   page.on('response', (response) => {
     const isExpectedMfaCooldown = response.status() === 429
       && new URL(response.url()).pathname === '/auth/mfa/resend';
-    if (response.status() >= 400 && !isExpectedMfaCooldown) {
+    const responsePath = new URL(response.url()).pathname;
+    const isExpectedRevealFailure = response.status() === 503
+      && expectedRevealFailures > 0
+      && responsePath.startsWith('/portal/email-passwords/')
+      && responsePath.endsWith('/reveal');
+    if (isExpectedRevealFailure) {
+      expectedRevealFailures -= 1;
+    }
+    if (response.status() >= 400 && !isExpectedMfaCooldown && !isExpectedRevealFailure) {
       badResponses.push({ status: response.status(), url: response.url() });
     }
   });
@@ -126,7 +135,14 @@ function screenshotPath(name) {
     const isExpectedMfaCooldownConsoleError = message.text().includes(
       'Failed to load resource: the server responded with a status of 429'
     );
-    if (message.type() === 'error' && !isExpectedMfaCooldownConsoleError) {
+    const isExpectedRevealFailureConsoleError = message.text().includes(
+      'Failed to load resource: the server responded with a status of 503'
+    );
+    if (
+      message.type() === 'error'
+      && !isExpectedMfaCooldownConsoleError
+      && !isExpectedRevealFailureConsoleError
+    ) {
       browserIssues.push(`console: ${message.text()}`);
     }
   });
@@ -147,6 +163,13 @@ function screenshotPath(name) {
     assert(logoLoaded, 'CARLOS logo did not load');
     assert(await page.locator('.language-switch button').count() === 5, 'expected five languages');
 
+    const signInPassword = page.locator('input[name="password"]');
+    assert(await signInPassword.getAttribute('type') === 'password', 'password starts visible');
+    await page.getByRole('button', { name: 'Show password' }).click();
+    assert(await signInPassword.getAttribute('type') === 'text', 'show-password control failed');
+    await page.getByRole('button', { name: 'Hide password' }).click();
+    assert(await signInPassword.getAttribute('type') === 'password', 'hide-password control failed');
+
     const languageTrigger = page.locator('[data-language-code="fr"]');
     await languageTrigger.click();
     const modal = page.locator('#portal-message-modal');
@@ -161,6 +184,10 @@ function screenshotPath(name) {
     await modal.waitFor({ state: 'hidden' });
     assert(await languageTrigger.evaluate((element) => element === document.activeElement),
       'closing the modal did not restore focus to its trigger');
+    await page.getByRole('button', { name: 'Clinic help' }).click();
+    await modal.getByRole('heading', { name: 'Clinic help' }).waitFor();
+    await modal.locator('[data-modal-close]').click();
+    await modal.waitFor({ state: 'hidden' });
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({
@@ -311,6 +338,38 @@ function screenshotPath(name) {
       mfaSettingsForm.getByRole('button', { name: 'Update MFA' }).click(),
     ]);
     await page.getByRole('status').filter({ hasText: 'MFA settings updated.' }).waitFor();
+
+    const contactForm = page.locator('form', {
+      has: page.locator('input[name="email"]'),
+    });
+    await contactForm.locator('input[name="email"]').fill('playwright.patient@example.com');
+    await contactForm.locator('input[name="current_password"]').fill(testPassword);
+    await Promise.all([
+      page.waitForURL((url) => (
+        url.pathname === '/portal/account'
+        && url.searchParams.get('status') === 'contact-updated'
+      )),
+      contactForm.getByRole('button', { name: 'Update contact' }).click(),
+    ]);
+    await page.getByRole('status').filter({
+      hasText: 'Portal contact updated. Staff will review the matching CARLOS demographics.',
+    }).waitFor();
+
+    const changedPassword = ['Carlos', '2027', '!!'].join('');
+    const passwordForm = page.locator('form', {
+      has: page.locator('input[name="new_password"]'),
+    });
+    await passwordForm.locator('input[name="current_password"]').fill(testPassword);
+    await passwordForm.locator('input[name="new_password"]').fill(changedPassword);
+    await passwordForm.locator('input[name="new_password_confirmation"]').fill(changedPassword);
+    await Promise.all([
+      page.waitForURL((url) => (
+        url.pathname === '/portal/account'
+        && url.searchParams.get('status') === 'password-updated'
+      )),
+      passwordForm.getByRole('button', { name: 'Update password' }).click(),
+    ]);
+    await page.getByRole('status').filter({ hasText: 'Password updated.' }).waitFor();
     await page.screenshot({
       path: screenshotPath('patient-portal-account-mobile'),
       fullPage: true,
@@ -344,6 +403,22 @@ function screenshotPath(name) {
       await page.locator('.copy-action:visible').count() === 0,
       'Copy controls must stay hidden before an explicit reveal'
     );
+    await page.setViewportSize({ width: 390, height: 844 });
+    expectedRevealFailures = 1;
+    await page.route('**/portal/email-passwords/*/reveal', (route) => {
+      void route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'email password unavailable' }),
+      });
+    }, { times: 1 });
+    await page.getByRole('button', { name: 'Reveal' }).first().click();
+    await page.getByRole('button', { name: 'Password could not be revealed.' }).waitFor();
+    assert(expectedRevealFailures === 0, 'expected reveal failure response was not observed');
+    await page.waitForTimeout(2600);
+    await page.getByRole('button', { name: 'Reveal' }).first().waitFor();
+    await page.setViewportSize({ width: 1440, height: 1000 });
+
     await page.getByRole('button', { name: 'Reveal' }).first().click();
     await page.getByRole('button', { name: 'Copy' }).first().waitFor();
     const firstPassphrase = (await page.locator('.copyable-password').first().textContent() || '').trim();

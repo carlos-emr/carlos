@@ -76,6 +76,7 @@ MFA_CODE_DIGITS = 6
 MFA_CODE_MODULUS = 10**MFA_CODE_DIGITS
 DUMMY_PASSWORD_HASH = hash_password(token_urlsafe(AUTH_TOKEN_BYTES))
 SESSION_LAST_SEEN_UPDATE_INTERVAL = timedelta(minutes=5)
+SESSION_REVOKED_REASON_IDLE_TIMEOUT = "idle_timeout"
 
 
 class InvalidCredentialsError(Exception):
@@ -129,6 +130,7 @@ class AuthPolicy:
     max_failed_password_attempts: int
     mfa_max_failed_attempts: int
     session_ttl: timedelta
+    session_idle_timeout: timedelta
     mfa_code_ttl: timedelta
     mfa_email_resend_cooldown: timedelta
     mfa_sms_resend_cooldown: timedelta
@@ -392,6 +394,7 @@ def create_patient_session(
         token_hash=hash_auth_token(token_secret, "session", session_token),
         created_at=now,
         expires_at=now + policy.session_ttl,
+        last_seen_at=now,
     )
     session.add(portal_session)
     session.flush()
@@ -431,6 +434,10 @@ def create_mfa_challenge(
         )
         raise MfaRateLimitedError(retry_after_seconds)
 
+    if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL:
+        account.last_mfa_email_sent_at = now
+    else:
+        account.last_mfa_sms_sent_at = now
     cancel_pending_mfa_challenges(session, account.id, now=now)
 
     challenge_token = create_auth_token()
@@ -488,6 +495,7 @@ def start_login(
     policy: AuthPolicy,
     token_secret: str,
     mfa_code_secret: str,
+    clinic_id: str,
     delivery_method: str | None = None,
 ) -> LoginResult:
     now = utc_now()
@@ -507,7 +515,10 @@ def start_login(
 
     account = session.scalar(
         select(PatientPortalAccount)
-        .where(PatientPortalAccount.username == normalized_username)
+        .where(
+            PatientPortalAccount.username == normalized_username,
+            PatientPortalAccount.clinic_id == clinic_id,
+        )
         .with_for_update()
     )
     if account is None or account.status != ACCOUNT_STATUS_ACTIVE:
@@ -535,9 +546,7 @@ def start_login(
             account_id=account.id,
             client_reference_hash=client_reference_hash,
             reason=(
-                AUTH_REASON_ACCOUNT_LOCKED
-                if password_is_valid
-                else AUTH_REASON_INVALID_CREDENTIALS
+                AUTH_REASON_ACCOUNT_LOCKED if password_is_valid else AUTH_REASON_INVALID_CREDENTIALS
             ),
         )
         if password_is_valid:
@@ -587,9 +596,7 @@ def start_login(
         raise PasswordResetRequiredError()
 
     if policy.require_mfa:
-        preferred_delivery_method = normalize_mfa_delivery_method(
-            account.preferred_mfa_method
-        )
+        preferred_delivery_method = normalize_mfa_delivery_method(account.preferred_mfa_method)
         if (
             delivery_method is None
             and preferred_delivery_method not in available_mfa_delivery_methods(account)
@@ -673,12 +680,22 @@ def get_mfa_challenge_for_token(
     token_secret: str,
 ) -> PatientPortalMfaChallenge | None:
     return session.scalar(
-        select(PatientPortalMfaChallenge)
-        .where(
+        select(PatientPortalMfaChallenge).where(
             PatientPortalMfaChallenge.challenge_token_hash
             == hash_auth_token(token_secret, "mfa_challenge", challenge_token)
         )
+    )
+
+
+def lock_mfa_challenge(
+    session: Session,
+    challenge_id: int,
+) -> PatientPortalMfaChallenge | None:
+    return session.scalar(
+        select(PatientPortalMfaChallenge)
+        .where(PatientPortalMfaChallenge.id == challenge_id)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
 
 
@@ -708,9 +725,7 @@ def get_mfa_challenge_delivery_state(
     if challenge is None or challenge.status != MFA_CHALLENGE_STATUS_PENDING:
         return None
     account = session.scalar(
-        select(PatientPortalAccount)
-        .where(PatientPortalAccount.id == challenge.account_id)
-        .with_for_update()
+        select(PatientPortalAccount).where(PatientPortalAccount.id == challenge.account_id)
     )
     if account is None or account.status != ACCOUNT_STATUS_ACTIVE:
         return None
@@ -719,9 +734,7 @@ def get_mfa_challenge_delivery_state(
     delivery_method = challenge.delivery_method
     if preferred_delivery_method is not None:
         try:
-            normalized_preferred_method = normalize_mfa_delivery_method(
-                preferred_delivery_method
-            )
+            normalized_preferred_method = normalize_mfa_delivery_method(preferred_delivery_method)
         except ValueError:
             normalized_preferred_method = delivery_method
         if normalized_preferred_method in available_methods:
@@ -760,14 +773,7 @@ def resend_mfa_challenge(
         challenge_token,
         token_secret=token_secret,
     )
-    if (
-        challenge is None
-        or challenge.status != MFA_CHALLENGE_STATUS_PENDING
-        or is_past(challenge.expires_at, now)
-    ):
-        if challenge is not None and challenge.status == MFA_CHALLENGE_STATUS_PENDING:
-            challenge.status = MFA_CHALLENGE_STATUS_CANCELLED
-            challenge.updated_at = now
+    if challenge is None:
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_MFA_RESEND,
@@ -783,6 +789,23 @@ def resend_mfa_challenge(
         .with_for_update()
     )
     if account is None or account.status != ACCOUNT_STATUS_ACTIVE:
+        raise MfaChallengeNotFoundError()
+    challenge = lock_mfa_challenge(session, challenge.id)
+    if (
+        challenge is None
+        or challenge.status != MFA_CHALLENGE_STATUS_PENDING
+        or is_past(challenge.expires_at, now)
+    ):
+        if challenge is not None and challenge.status == MFA_CHALLENGE_STATUS_PENDING:
+            challenge.status = MFA_CHALLENGE_STATUS_CANCELLED
+            challenge.updated_at = now
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_MFA_RESEND,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            reason=AUTH_REASON_MFA_EXPIRED,
+        )
         raise MfaChallengeNotFoundError()
     if account.locked_at is not None:
         raise AccountLockedError()
@@ -827,6 +850,10 @@ def resend_mfa_challenge(
         )
         raise MfaRateLimitedError(retry_after_seconds)
 
+    if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL:
+        account.last_mfa_email_sent_at = now
+    else:
+        account.last_mfa_sms_sent_at = now
     previous_code_hash = challenge.code_hash
     previous_delivery_method = challenge.delivery_method
     previous_expires_at = challenge.expires_at
@@ -877,19 +904,22 @@ def record_mfa_delivery_outcome(
     if outcome not in {AUDIT_OUTCOME_SUCCESS, AUDIT_OUTCOME_FAILURE}:
         raise ValueError("delivery outcome must be success or failure")
 
-    challenge = session.scalar(
-        select(PatientPortalMfaChallenge)
-        .where(PatientPortalMfaChallenge.id == delivery.challenge_id)
-        .with_for_update()
+    challenge_locator = session.scalar(
+        select(PatientPortalMfaChallenge).where(
+            PatientPortalMfaChallenge.id == delivery.challenge_id
+        )
     )
-    if challenge is None:
+    if challenge_locator is None:
         raise MfaChallengeNotFoundError()
     account = session.scalar(
         select(PatientPortalAccount)
-        .where(PatientPortalAccount.id == challenge.account_id)
+        .where(PatientPortalAccount.id == challenge_locator.account_id)
         .with_for_update()
     )
     if account is None:
+        raise MfaChallengeNotFoundError()
+    challenge = lock_mfa_challenge(session, challenge_locator.id)
+    if challenge is None or challenge.account_id != account.id:
         raise MfaChallengeNotFoundError()
 
     if outcome == AUDIT_OUTCOME_SUCCESS:
@@ -942,14 +972,7 @@ def verify_mfa_challenge(
         challenge_token,
         token_secret=token_secret,
     )
-    if (
-        challenge is None
-        or challenge.status != MFA_CHALLENGE_STATUS_PENDING
-        or is_past(challenge.expires_at, now)
-    ):
-        if challenge is not None and challenge.status == MFA_CHALLENGE_STATUS_PENDING:
-            challenge.status = MFA_CHALLENGE_STATUS_CANCELLED
-            challenge.updated_at = now
+    if challenge is None:
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_MFA_VERIFY,
@@ -965,6 +988,23 @@ def verify_mfa_challenge(
         .with_for_update()
     )
     if account is None or account.status != ACCOUNT_STATUS_ACTIVE:
+        raise MfaChallengeNotFoundError()
+    challenge = lock_mfa_challenge(session, challenge.id)
+    if (
+        challenge is None
+        or challenge.status != MFA_CHALLENGE_STATUS_PENDING
+        or is_past(challenge.expires_at, now)
+    ):
+        if challenge is not None and challenge.status == MFA_CHALLENGE_STATUS_PENDING:
+            challenge.status = MFA_CHALLENGE_STATUS_CANCELLED
+            challenge.updated_at = now
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_MFA_VERIFY,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            reason=AUTH_REASON_MFA_EXPIRED,
+        )
         raise MfaChallengeNotFoundError()
     if account.locked_at is not None:
         raise AccountLockedError()
@@ -1144,12 +1184,17 @@ def record_password_reset_delivery_outcome(
     if result.reset_token_id is None or result.account_id is None:
         raise PasswordResetTokenInvalidError()
 
+    account = session.scalar(
+        select(PatientPortalAccount)
+        .where(PatientPortalAccount.id == result.account_id)
+        .with_for_update()
+    )
     reset_record = session.scalar(
         select(PatientPortalPasswordResetToken)
         .where(PatientPortalPasswordResetToken.id == result.reset_token_id)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
-    account = session.get(PatientPortalAccount, result.account_id)
     if reset_record is None or account is None or reset_record.account_id != account.id:
         raise PasswordResetTokenInvalidError()
     if outcome == AUDIT_OUTCOME_FAILURE:
@@ -1178,10 +1223,36 @@ def complete_password_reset(
     validate_password(new_password)
     now = utc_now()
     token_hash = hash_auth_token(token_secret, "password_reset", reset_token)
+    reset_locator = session.execute(
+        select(
+            PatientPortalPasswordResetToken.id,
+            PatientPortalPasswordResetToken.account_id,
+        ).where(PatientPortalPasswordResetToken.token_hash == token_hash)
+    ).one_or_none()
+    if reset_locator is None:
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_PASSWORD_RESET_COMPLETE,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            reason=AUTH_REASON_INVALID_RESET_TOKEN,
+        )
+        raise PasswordResetTokenInvalidError()
+
+    account = session.scalar(
+        select(PatientPortalAccount)
+        .where(PatientPortalAccount.id == reset_locator.account_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     reset_record = session.scalar(
         select(PatientPortalPasswordResetToken)
-        .where(PatientPortalPasswordResetToken.token_hash == token_hash)
+        .where(
+            PatientPortalPasswordResetToken.id == reset_locator.id,
+            PatientPortalPasswordResetToken.token_hash == token_hash,
+        )
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if (
         reset_record is None
@@ -1199,9 +1270,9 @@ def complete_password_reset(
         )
         raise PasswordResetTokenInvalidError()
 
-    account = session.get(PatientPortalAccount, reset_record.account_id)
     if (
         account is None
+        or reset_record.account_id != account.id
         or account.status != ACCOUNT_STATUS_ACTIVE
         or account.locked_at is not None
     ):
@@ -1251,11 +1322,13 @@ def authenticate_session_token(
     *,
     session_token: str,
     token_secret: str,
+    idle_timeout: timedelta,
 ) -> AuthenticatedPortalSession:
+    if idle_timeout <= timedelta(0):
+        raise ValueError("idle_timeout must be positive")
     now = utc_now()
     portal_session = session.scalar(
-        select(PatientPortalSession)
-        .where(
+        select(PatientPortalSession).where(
             PatientPortalSession.token_hash
             == hash_auth_token(token_secret, "session", session_token)
         )
@@ -1265,6 +1338,11 @@ def authenticate_session_token(
         or portal_session.revoked_at is not None
         or is_past(portal_session.expires_at, now)
     ):
+        raise PortalSessionInvalidError()
+    last_seen_at = portal_session.last_seen_at or portal_session.created_at
+    if is_past(last_seen_at + idle_timeout, now):
+        portal_session.revoked_at = now
+        portal_session.revoked_reason = SESSION_REVOKED_REASON_IDLE_TIMEOUT
         raise PortalSessionInvalidError()
 
     account = session.get(PatientPortalAccount, portal_session.account_id)
@@ -1300,11 +1378,13 @@ def logout_patient_session(
     *,
     session_token: str,
     token_secret: str,
+    idle_timeout: timedelta,
 ) -> None:
     authenticated_session = authenticate_session_token(
         session,
         session_token=session_token,
         token_secret=token_secret,
+        idle_timeout=idle_timeout,
     )
     portal_session = session.scalar(
         select(PatientPortalSession)
@@ -1431,9 +1511,7 @@ def set_patient_account_access(
 
     record_audit_event(
         session,
-        event_type=(
-            AUDIT_EVENT_ACCOUNT_ENABLE if enabled else AUDIT_EVENT_ACCOUNT_DISABLE
-        ),
+        event_type=(AUDIT_EVENT_ACCOUNT_ENABLE if enabled else AUDIT_EVENT_ACCOUNT_DISABLE),
         outcome=AUDIT_OUTCOME_SUCCESS,
         actor_type=AUDIT_ACTOR_TYPE_STAFF,
         actor=normalized_actor,

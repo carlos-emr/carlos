@@ -27,6 +27,8 @@ from carlos_patient_portal.models import PatientPortalAccount, PatientPortalUnlo
 
 FHIR_RELEASE = "R4"
 FHIR_VERSION = "4.0.1"
+FHIR_CAPABILITY_STATEMENT_DATE = "2026-07-28T00:00:00Z"
+PORTAL_SOFTWARE_VERSION = "0.1.0"
 HL7_V2_VERSION = "2.5.1"
 CARLOS_DEMOGRAPHIC_IDENTIFIER_SYSTEM = (
     "https://github.com/carlos-emr/carlos/fhir/NamingSystem/demographic-no"
@@ -52,7 +54,6 @@ MAX_PATIENT_NAME_LENGTH = 128
 MAX_HL7_NAMESPACE_ID_LENGTH = 20
 HL7_SEPARATOR_PATTERN = re.compile(r"[|^~\\&\r\n]")
 HL7_NAMESPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
-FHIR_ID_PATTERN = re.compile(r"^[A-Za-z0-9.-]{1,64}$")
 
 
 @dataclass(frozen=True)
@@ -111,11 +112,11 @@ def normalize_hl7_email(value: str) -> str:
 
 
 def build_fhir_id(*parts: object) -> str:
-    raw_id = "-".join(str(part).strip() for part in parts if str(part).strip())
-    safe_id = re.sub(r"[^A-Za-z0-9.-]+", "-", raw_id).strip("-.")
-    if FHIR_ID_PATTERN.fullmatch(safe_id) is not None:
-        return safe_id
-    return f"portal-{sha256(raw_id.encode('utf-8')).hexdigest()[:56]}"
+    normalized_parts = tuple(str(part).strip() for part in parts)
+    if not normalized_parts or any(not part for part in normalized_parts):
+        raise ValueError("FHIR ID components must not be blank")
+    encoded_tuple = "".join(f"{len(part.encode('utf-8'))}:{part}" for part in normalized_parts)
+    return f"portal-{sha256(encoded_tuple.encode('utf-8')).hexdigest()[:56]}"
 
 
 def normalize_interop_identity(
@@ -147,10 +148,7 @@ def build_fhir_r4_patient(identity: PortalPatientInteroperabilityIdentity) -> di
         "identifier": [
             {
                 "system": CARLOS_DEMOGRAPHIC_IDENTIFIER_SYSTEM,
-                "value": (
-                    f"{normalized_identity.clinic_id}/"
-                    f"{normalized_identity.demographic_no}"
-                ),
+                "value": (f"{normalized_identity.clinic_id}/{normalized_identity.demographic_no}"),
             },
             {
                 "system": CARLOS_HEALTH_CARD_IDENTIFIER_SYSTEM,
@@ -207,14 +205,14 @@ def build_fhir_r4_capability_statement(
         "resourceType": "CapabilityStatement",
         "id": "carlos-patient-portal",
         "status": "draft",
-        "date": datetime.now(UTC).isoformat(),
+        "date": FHIR_CAPABILITY_STATEMENT_DATE,
         "publisher": "CARLOS EMR",
         "kind": "instance",
         "implementation": {
             "description": service_name,
             "url": base_url.rstrip("/"),
         },
-        "software": {"name": service_name},
+        "software": {"name": service_name, "version": PORTAL_SOFTWARE_VERSION},
         "fhirVersion": FHIR_VERSION,
         "format": ["json"],
         "rest": [
@@ -511,9 +509,7 @@ def validate_hl7_v251_patient_registration_profile(
         )
     except HL7apyException as exc:
         raise Hl7ConformanceProfileError(f"HL7 v2.5.1 validation failed: {exc}") from exc
-    profile_payload = (
-        load_hl7_v251_patient_registration_profile() if profile is None else profile
-    )
+    profile_payload = load_hl7_v251_patient_registration_profile() if profile is None else profile
     errors: list[str] = []
 
     if profile_payload.get("id") != HL7_PATIENT_REGISTRATION_PROFILE_ID:

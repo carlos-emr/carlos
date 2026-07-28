@@ -63,6 +63,27 @@ document.addEventListener("click", (event) => {
   if (!(event.target instanceof Element)) {
     return;
   }
+  const toggle = event.target.closest("[data-password-toggle]");
+  if (!(toggle instanceof HTMLButtonElement)) {
+    return;
+  }
+  const input = document.querySelector("[data-password-input]");
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+  const shouldShow = input.type === "password";
+  input.type = shouldShow ? "text" : "password";
+  toggle.textContent = shouldShow
+    ? toggle.dataset.hideLabel || "Hide password"
+    : toggle.dataset.showLabel || "Show password";
+  toggle.setAttribute("aria-pressed", shouldShow ? "true" : "false");
+  input.focus();
+});
+
+document.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
 
   const copyButton = event.target.closest("[data-copy-target]");
   if (!(copyButton instanceof HTMLButtonElement)) {

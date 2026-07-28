@@ -126,6 +126,26 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    connection = op.get_bind()
+    version_two_audit_count = connection.execute(
+        sa.text(
+            "select count(*) from patient_portal_audit_events "
+            "where event_type in ('fhir.read', 'fhir.search') "
+            "or actor_id is not null or resource_type is not null or resource_id is not null"
+        )
+    ).scalar_one()
+    invite_staff_identity_count = connection.execute(
+        sa.text(
+            "select count(*) from patient_portal_invites "
+            "where created_by_id is not null or last_sent_by_id is not null"
+        )
+    ).scalar_one()
+    if version_two_audit_count or invite_staff_identity_count:
+        raise RuntimeError(
+            "downgrade would discard staff identity or FHIR audit metadata; archive or "
+            "remove those records under an approved retention procedure before retrying"
+        )
+
     op.drop_index(
         "ix_patient_portal_audit_events_resource_created",
         table_name="patient_portal_audit_events",

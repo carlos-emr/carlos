@@ -159,6 +159,8 @@ SEEDED_INVITE_HCN = "ABCD 1234-5678"
 STRONG_PASSWORD = "Stronger1!word"
 STRONG_RESET_PASSWORD = "Changed1!word"
 CONCURRENT_WRONG_PASSWORD = "".join(("Wrong", "2026", "!!"))
+TEST_CLINIC_ID = "test-clinic"
+TEST_CLINIC_NAME = "Test Clinic"
 
 
 def development_settings(**overrides: object) -> Settings:
@@ -169,6 +171,8 @@ def development_settings(**overrides: object) -> Settings:
 def production_settings(**overrides: object) -> Settings:
     values = {
         "environment": "production",
+        "clinic_id": TEST_CLINIC_ID,
+        "clinic_name": TEST_CLINIC_NAME,
         "session_secret": NON_DEVELOPMENT_SESSION_SECRET,
         "identity_proof_secret": IDENTITY_PROOF_SECRET,
         "audit_hash_secret": AUDIT_HASH_SECRET,
@@ -503,6 +507,8 @@ def test_health_endpoint_is_minimal() -> None:
     app = main.create_app(
         Settings(
             environment="staging",
+            clinic_id=TEST_CLINIC_ID,
+            clinic_name=TEST_CLINIC_NAME,
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
@@ -549,9 +555,7 @@ def test_operational_metrics_are_protected_and_request_logs_are_phi_safe(
     assert metrics.status_code == 200
     assert metrics.json()["requests"]["2xx"] >= 1
     request_logs = [
-        record.message
-        for record in caplog.records
-        if '"event":"http_request"' in record.message
+        record.message for record in caplog.records if '"event":"http_request"' in record.message
     ]
     assert request_logs
     assert all("?" not in message and "portal-check-123" in message for message in request_logs[:1])
@@ -609,9 +613,7 @@ def test_transient_auth_cleanup_is_batched_and_preserves_current_credentials() -
             old_created_at = datetime.now(UTC) - timedelta(days=50)
             old_expiry = datetime.now(UTC) - timedelta(days=40)
             sessions = list(
-                session.scalars(
-                    select(PatientPortalSession).order_by(PatientPortalSession.id)
-                )
+                session.scalars(select(PatientPortalSession).order_by(PatientPortalSession.id))
             )
             sessions[0].created_at = old_created_at
             sessions[0].expires_at = old_expiry
@@ -620,9 +622,7 @@ def test_transient_auth_cleanup_is_batched_and_preserves_current_credentials() -
             )
             reset = session.scalar(select(PatientPortalPasswordResetToken))
             invite = session.scalar(
-                select(PatientPortalInvite).where(
-                    PatientPortalInvite.demographic_no == 5678
-                )
+                select(PatientPortalInvite).where(PatientPortalInvite.demographic_no == 5678)
             )
             assert challenge is not None
             assert reset is not None
@@ -660,8 +660,8 @@ def test_index_renders_sign_in_shell() -> None:
     assert 'src="http://testserver/static/carlos-logo.png"' in response.text
     assert f'placeholder="{text["username_placeholder"]}"' in response.text
     assert f'placeholder="{text["password_placeholder"]}"' in response.text
-    assert f'>{text["forgot_username_password"]}</a>' in response.text
-    assert f'>{text["activate_account"]}</a>' in response.text
+    assert f">{text['forgot_username_password']}</a>" in response.text
+    assert f">{text['activate_account']}</a>" in response.text
     assert text["language_unavailable_message"] in response.text
     assert 'data-modal-title="' in response.text
     assert 'id="portal-message-modal"' in response.text
@@ -708,9 +708,7 @@ def test_browser_activation_form_creates_account_without_repopulating_proof_valu
     assert invite_response.json()["invite_token"] not in activation_response.text
     with app.state.session_factory() as session:
         account = session.scalar(
-            select(PatientPortalAccount).where(
-                PatientPortalAccount.username == "browser.patient"
-            )
+            select(PatientPortalAccount).where(PatientPortalAccount.username == "browser.patient")
         )
         assert account is not None
 
@@ -771,17 +769,17 @@ def test_jinja_templates_always_autoescape_jinja_files() -> None:
 
 def test_production_responses_include_hsts() -> None:
     app = main.create_app(production_settings())
-    response = TestClient(app).get("/")
+    response = TestClient(app, base_url="https://portal.example.test").get("/")
 
-    assert response.headers["strict-transport-security"] == (
-        "max-age=31536000; includeSubDomains"
-    )
+    assert response.headers["strict-transport-security"] == ("max-age=31536000; includeSubDomains")
 
 
 def test_non_development_csrf_cookie_is_secure() -> None:
     app = main.create_app(
         Settings(
             environment="staging",
+            clinic_id=TEST_CLINIC_ID,
+            clinic_name=TEST_CLINIC_NAME,
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
@@ -803,6 +801,8 @@ def test_non_development_sign_in_shows_generic_field_hints() -> None:
     app = main.create_app(
         Settings(
             environment="staging",
+            clinic_id=TEST_CLINIC_ID,
+            clinic_name=TEST_CLINIC_NAME,
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
@@ -842,14 +842,20 @@ def test_internal_database_health_requires_configured_token() -> None:
     client = TestClient(app)
 
     assert client.get("/internal/health/db").status_code == 404
-    assert client.get(
-        "/internal/health/db",
-        headers={"Authorization": f"Bearer {WRONG_INTERNAL_HEALTH_TOKEN}"},
-    ).status_code == 404
-    assert client.get(
-        "/internal/health/db",
-        headers={"Authorization": f"Bearer {INTERNAL_HEALTH_TOKEN}"},
-    ).status_code == 200
+    assert (
+        client.get(
+            "/internal/health/db",
+            headers={"Authorization": f"Bearer {WRONG_INTERNAL_HEALTH_TOKEN}"},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            "/internal/health/db",
+            headers={"Authorization": f"Bearer {INTERNAL_HEALTH_TOKEN}"},
+        ).status_code
+        == 200
+    )
 
 
 def test_internal_readiness_reports_maintenance_without_hiding_liveness() -> None:
@@ -1514,7 +1520,7 @@ def test_dashboard_shell_navigation_and_cookie_logout() -> None:
     assert 'aria-current="page"' in email_passwords_link
     assert "selected" in email_passwords_link
     assert 'data-active-module="account"' not in email_passwords_response.text
-    assert "<th scope=\"col\">Subject</th>" in email_passwords_response.text
+    assert '<th scope="col">Subject</th>' in email_passwords_response.text
     assert "No email passwords" in email_passwords_response.text
     assert help_response.status_code == 200
     assert 'data-active-module="help"' in help_response.text
@@ -1570,6 +1576,8 @@ def test_account_password_change_requires_step_up_and_revokes_other_sessions() -
     fresh_account_response = client.get("/portal/account")
     fresh_csrf_token_match = CSRF_TOKEN_PATTERN.search(fresh_account_response.text)
     assert fresh_csrf_token_match is not None
+    previous_cookie = client.cookies.get(main.PORTAL_SESSION_COOKIE_NAME)
+    assert previous_cookie is not None
     changed_response = client.post(
         "/portal/account/password",
         data={
@@ -1580,6 +1588,16 @@ def test_account_password_change_requires_step_up_and_revokes_other_sessions() -
         },
         follow_redirects=False,
     )
+    replacement_cookie = client.cookies.get(main.PORTAL_SESSION_COOKIE_NAME)
+    assert replacement_cookie is not None
+    assert replacement_cookie != previous_cookie
+    copied_cookie_client = TestClient(app)
+    copied_cookie_client.cookies.set(
+        main.PORTAL_SESSION_COOKIE_NAME,
+        previous_cookie,
+        path=main.PORTAL_SESSION_COOKIE_PATH,
+    )
+    copied_cookie_response = copied_cookie_client.get("/portal", follow_redirects=False)
     notice_response = client.get("/portal/account?status=password-updated")
     old_password_login_response = client.post(
         "/auth/login",
@@ -1603,6 +1621,7 @@ def test_account_password_change_requires_step_up_and_revokes_other_sessions() -
     assert new_password_login_response.status_code == 200
     assert new_password_login_response.json()["status"] == "mfa_required"
     assert still_signed_in_response.status_code == 200
+    assert copied_cookie_response.status_code == 303
     with app.state.session_factory() as session:
         account = session.get(PatientPortalAccount, account_id)
         portal_sessions = list(
@@ -2817,6 +2836,8 @@ def test_api_docs_are_disabled_outside_development() -> None:
     app = main.create_app(
         Settings(
             environment="staging",
+            clinic_id=TEST_CLINIC_ID,
+            clinic_name=TEST_CLINIC_NAME,
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
             audit_hash_secret=AUDIT_HASH_SECRET,
@@ -2832,10 +2853,11 @@ def test_api_docs_are_disabled_outside_development() -> None:
 
 def test_api_docs_are_disabled_in_production() -> None:
     app = main.create_app(production_settings())
+    client = TestClient(app, base_url="https://portal.example.test")
 
-    assert TestClient(app).get("/api/openapi.json").status_code == 404
-    assert TestClient(app).get("/api/docs").status_code == 404
-    assert TestClient(app).get("/api/redoc").status_code == 404
+    assert client.get("/api/openapi.json").status_code == 404
+    assert client.get("/api/docs").status_code == 404
+    assert client.get("/api/redoc").status_code == 404
 
 
 def test_dev_admin_invite_lifecycle() -> None:
@@ -2901,13 +2923,15 @@ def test_dev_admin_invite_lifecycle() -> None:
     resent_invite = resend_response.json()
     resent_token = resent_invite["invite_token"]
     assert resent_token != invite_token
-    assert resent_invite["issued_count"] == 2
+    assert resent_invite["id"] != invite_id
+    assert resent_invite["issued_count"] == 1
+    assert resent_invite["supersedes_invite_id"] == invite_id
     assert resent_invite["last_issued_by"] == "Admin example"
     assert parse_response_datetime(resent_invite["expires_at"]) >= created_expires_at
     assert resend_response.headers["cache-control"] == "no-store"
 
     revoke_response = client.post(
-        f"/dev/admin/invites/{invite_id}/revoke",
+        f"/dev/admin/invites/{resent_invite['id']}/revoke",
         headers=dev_admin_headers(actor="Admin example"),
     )
 
@@ -2918,7 +2942,7 @@ def test_dev_admin_invite_lifecycle() -> None:
     assert "invite_token" not in revoked_invite
 
     revoked_resend_response = client.post(
-        f"/dev/admin/invites/{invite_id}/resend",
+        f"/dev/admin/invites/{resent_invite['id']}/resend",
         headers=dev_admin_headers(actor="Admin example"),
     )
 
@@ -3047,9 +3071,7 @@ def test_patient_activation_creates_account_from_seeded_invite() -> None:
         assert accepted_invite.accepted_account_id == account.id
         assert accepted_invite.accepted_at is not None
         audit_events = list(
-            session.scalars(
-                select(PatientPortalAuditEvent).order_by(PatientPortalAuditEvent.id)
-            )
+            session.scalars(select(PatientPortalAuditEvent).order_by(PatientPortalAuditEvent.id))
         )
         assert [(event.event_type, event.outcome) for event in audit_events] == [
             (AUDIT_EVENT_INVITE_CREATE, AUDIT_OUTCOME_SUCCESS),
@@ -3441,10 +3463,13 @@ def test_accepted_invites_cannot_be_resent_or_revoked() -> None:
     )
     created_invite = create_response.json()
 
-    assert client.post(
-        "/auth/activate",
-        json=activation_request(created_invite["invite_token"]),
-    ).status_code == 201
+    assert (
+        client.post(
+            "/auth/activate",
+            json=activation_request(created_invite["invite_token"]),
+        ).status_code
+        == 201
+    )
 
     resend_response = client.post(
         f"/dev/admin/invites/{created_invite['id']}/resend",
@@ -3465,6 +3490,8 @@ def test_dev_admin_invites_are_hidden_outside_development() -> None:
     app = main.create_app(
         Settings(
             environment="staging",
+            clinic_id=TEST_CLINIC_ID,
+            clinic_name=TEST_CLINIC_NAME,
             enable_dev_admin=True,
             session_secret=NON_DEVELOPMENT_SESSION_SECRET,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
@@ -3566,18 +3593,21 @@ def test_dev_admin_invite_list_rejects_invalid_bounds() -> None:
     client = TestClient(app)
 
     assert (
-        client.get("/dev/admin/invites", headers=dev_admin_headers(), params={"limit": 0})
-        .status_code
+        client.get(
+            "/dev/admin/invites", headers=dev_admin_headers(), params={"limit": 0}
+        ).status_code
         == 422
     )
     assert (
-        client.get("/dev/admin/invites", headers=dev_admin_headers(), params={"limit": 101})
-        .status_code
+        client.get(
+            "/dev/admin/invites", headers=dev_admin_headers(), params={"limit": 101}
+        ).status_code
         == 422
     )
     assert (
-        client.get("/dev/admin/invites", headers=dev_admin_headers(), params={"offset": -1})
-        .status_code
+        client.get(
+            "/dev/admin/invites", headers=dev_admin_headers(), params={"offset": -1}
+        ).status_code
         == 422
     )
 
@@ -3602,20 +3632,23 @@ def test_invite_lifecycle_writes_audit_events() -> None:
         json=seeded_invite_request(),
     )
     invite_id = create_response.json()["id"]
-    assert client.post(
+    resend_response = client.post(
         f"/dev/admin/invites/{invite_id}/resend",
         headers=dev_admin_headers(actor="Admin example"),
-    ).status_code == 200
-    assert client.post(
-        f"/dev/admin/invites/{invite_id}/revoke",
-        headers=dev_admin_headers(actor="Admin example"),
-    ).status_code == 200
+    )
+    assert resend_response.status_code == 200
+    replacement_invite_id = resend_response.json()["id"]
+    assert (
+        client.post(
+            f"/dev/admin/invites/{replacement_invite_id}/revoke",
+            headers=dev_admin_headers(actor="Admin example"),
+        ).status_code
+        == 200
+    )
 
     with app.state.session_factory() as session:
         audit_events = list(
-            session.scalars(
-                select(PatientPortalAuditEvent).order_by(PatientPortalAuditEvent.id)
-            )
+            session.scalars(select(PatientPortalAuditEvent).order_by(PatientPortalAuditEvent.id))
         )
 
         assert [(event.event_type, event.outcome) for event in audit_events] == [
@@ -3644,9 +3677,7 @@ def test_invite_list_writes_audit_event() -> None:
     assert list_response.status_code == 200
     with app.state.session_factory() as session:
         audit_events = list(
-            session.scalars(
-                select(PatientPortalAuditEvent).order_by(PatientPortalAuditEvent.id)
-            )
+            session.scalars(select(PatientPortalAuditEvent).order_by(PatientPortalAuditEvent.id))
         )
 
         assert [(event.event_type, event.outcome) for event in audit_events] == [
@@ -4243,10 +4274,12 @@ def test_fhir_metadata_returns_capability_statement() -> None:
     assert payload["rest"][0]["security"]["cors"] is False
     assert preflight.status_code == 405
     assert "access-control-allow-origin" not in preflight.headers
-    assert {
-        resource["type"]
-        for resource in payload["rest"][0]["resource"]
-    } == {"DocumentReference", "Organization", "Patient", "Practitioner"}
+    assert {resource["type"] for resource in payload["rest"][0]["resource"]} == {
+        "DocumentReference",
+        "Organization",
+        "Patient",
+        "Practitioner",
+    }
     CapabilityStatement(payload)
 
 
@@ -4279,9 +4312,7 @@ def test_fhir_patient_endpoints_are_bearer_authenticated_and_patient_scoped() ->
         "relation": "self",
         "url": "http://testserver/fhir/Patient?_count=20&_offset=0",
     }
-    assert search_payload["entry"][0]["fullUrl"] == (
-        f"http://testserver/fhir/Patient/{patient_id}"
-    )
+    assert search_payload["entry"][0]["fullUrl"] == (f"http://testserver/fhir/Patient/{patient_id}")
     assert search_payload["entry"][0]["resource"]["id"] == patient_id
     Bundle(search_payload)
 
@@ -4509,14 +4540,12 @@ def test_fhir_practitioner_uses_stable_provider_identity_after_rename() -> None:
         )
 
     assert [row["provider"] for row in dashboard["rows"]] == ["Dr After", "Dr Before"]
-    assert dashboard["provider_options"] == [
-        {"value": "id:provider-42", "label": "Dr After"}
-    ]
+    assert dashboard["provider_options"] == [{"value": "id:provider-42", "label": "Dr After"}]
 
 
 def test_fhir_document_reference_search_pages_all_results_and_uses_canonical_origin() -> None:
     app = migrated_development_app(public_base_url="https://portal.example.test")
-    client = TestClient(app)
+    client = TestClient(app, base_url="https://portal.example.test")
     account_id = activate_seeded_patient_account(app, client)
     token = sign_in_patient_api_session(client)
 
@@ -4539,7 +4568,7 @@ def test_fhir_document_reference_search_pages_all_results_and_uses_canonical_ori
 
     first_page = client.get(
         "/fhir/DocumentReference?_count=100&_offset=0",
-        headers={**bearer_headers(token), "Host": "attacker.example"},
+        headers=bearer_headers(token),
     )
     second_page = client.get(
         "/fhir/DocumentReference?_count=100&_offset=100",
@@ -4552,17 +4581,11 @@ def test_fhir_document_reference_search_pages_all_results_and_uses_canonical_ori
     assert first_page.json()["link"] == [
         {
             "relation": "self",
-            "url": (
-                "https://portal.example.test/fhir/DocumentReference"
-                "?_count=100&_offset=0"
-            ),
+            "url": ("https://portal.example.test/fhir/DocumentReference?_count=100&_offset=0"),
         },
         {
             "relation": "next",
-            "url": (
-                "https://portal.example.test/fhir/DocumentReference"
-                "?_count=100&_offset=100"
-            ),
+            "url": ("https://portal.example.test/fhir/DocumentReference?_count=100&_offset=100"),
         },
     ]
     assert second_page.status_code == 200
@@ -4575,6 +4598,13 @@ def test_fhir_document_reference_search_pages_all_results_and_uses_canonical_ori
     )
     Bundle(first_page.json())
     Bundle(second_page.json())
+    assert (
+        client.get(
+            "/fhir/DocumentReference",
+            headers={**bearer_headers(token), "Host": "attacker.example"},
+        ).status_code
+        == 400
+    )
 
     with app.state.session_factory() as session:
         fhir_events = list(
@@ -5060,9 +5090,7 @@ def test_non_development_sms_webhook_requires_https() -> None:
 
 def test_production_rejects_remote_postgresql_without_verified_tls() -> None:
     with pytest.raises(ValidationError, match="sslmode=verify-full"):
-        production_settings(
-            database_url="postgresql+psycopg://portal@database.example.test/portal"
-        )
+        production_settings(database_url="postgresql+psycopg://portal@database.example.test/portal")
 
 
 def test_production_accepts_remote_postgresql_with_verified_tls() -> None:
@@ -5148,7 +5176,7 @@ def test_hardening_settings_are_bounded() -> None:
     with pytest.raises(ValidationError, match="global_rate_limit_max_requests"):
         development_settings(global_rate_limit_max_requests=0)
     with pytest.raises(ValidationError, match="audit_retention_days"):
-        development_settings(audit_retention_days=364)
+        development_settings(audit_retention_days=25 * 365)
     with pytest.raises(ValidationError, match="maintenance_retry_after_seconds"):
         development_settings(maintenance_retry_after_seconds=59)
 

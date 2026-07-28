@@ -18,6 +18,7 @@ from carlos_patient_portal.models import (
     INVITE_STATUS_ACCEPTED,
     INVITE_STATUS_PENDING,
     INVITE_STATUS_REVOKED,
+    INVITE_STATUS_SUPERSEDED,
     MAX_CLINIC_ID_LENGTH,
     PatientPortalAccount,
     PatientPortalInvite,
@@ -50,6 +51,10 @@ class RevokedInviteError(Exception):
 
 class AcceptedInviteError(Exception):
     """Raised when an accepted invite cannot be reused."""
+
+
+class SupersededInviteError(Exception):
+    """Raised when a superseded invite cannot be issued again."""
 
 
 def create_invite_token() -> str:
@@ -90,8 +95,8 @@ def validate_demographic_no(demographic_no: int) -> None:
 def validate_list_pagination(limit: int, offset: int) -> None:
     if limit < 1 or limit > MAX_INVITE_LIST_LIMIT:
         raise ValueError(f"limit must be between 1 and {MAX_INVITE_LIST_LIMIT}")
-    if offset < 0:
-        raise ValueError("offset must be zero or greater")
+    if offset < 0 or offset > 100_000:
+        raise ValueError("offset must be between 0 and 100000")
 
 
 def hash_invite_token(token: str) -> str:
@@ -289,19 +294,38 @@ def resend_invite(
         raise RevokedInviteError()
     if invite.status == INVITE_STATUS_ACCEPTED:
         raise AcceptedInviteError()
+    if invite.status == INVITE_STATUS_SUPERSEDED:
+        raise SupersededInviteError()
 
     normalized_actor = normalize_staff_actor(actor)
     normalized_actor_id = normalize_staff_actor_id(actor_id, normalized_actor)
     invite_token = create_invite_token()
     now = utc_now()
-    invite.token_hash = hash_invite_token(invite_token)
-    invite.status = INVITE_STATUS_PENDING
-    invite.sent_count += 1
-    invite.last_sent_at = now
-    invite.last_sent_by = normalized_actor
-    invite.last_sent_by_id = normalized_actor_id
-    invite.expires_at = now + DEFAULT_INVITE_TTL
+    invite.status = INVITE_STATUS_SUPERSEDED
     invite.updated_at = now
+    session.flush()
+    replacement = PatientPortalInvite(
+        clinic_id=invite.clinic_id,
+        demographic_no=invite.demographic_no,
+        token_hash=hash_invite_token(invite_token),
+        status=INVITE_STATUS_PENDING,
+        created_by=normalized_actor,
+        created_by_id=normalized_actor_id,
+        created_at=now,
+        updated_at=now,
+        sent_count=1,
+        last_sent_at=now,
+        last_sent_by=normalized_actor,
+        last_sent_by_id=normalized_actor_id,
+        expires_at=now + DEFAULT_INVITE_TTL,
+        proof_email_hash=invite.proof_email_hash,
+        proof_date_of_birth_hash=invite.proof_date_of_birth_hash,
+        proof_health_card_hash=invite.proof_health_card_hash,
+        proof_salt=invite.proof_salt,
+        proof_hash_version=invite.proof_hash_version,
+        supersedes_invite_id=invite.id,
+    )
+    session.add(replacement)
     session.flush()
     record_audit_event(
         session,
@@ -310,11 +334,13 @@ def resend_invite(
         actor_type=AUDIT_ACTOR_TYPE_STAFF,
         actor=normalized_actor,
         actor_id=normalized_actor_id,
-        clinic_id=invite.clinic_id,
-        demographic_no=invite.demographic_no,
-        invite_id=invite.id,
+        clinic_id=replacement.clinic_id,
+        demographic_no=replacement.demographic_no,
+        invite_id=replacement.id,
+        resource_type="superseded_invite",
+        resource_id=str(invite.id),
     )
-    return invite, invite_token
+    return replacement, invite_token
 
 
 def revoke_invite(
@@ -328,6 +354,8 @@ def revoke_invite(
     invite = get_invite(session, invite_id, clinic_id=clinic_id, lock=True)
     if invite.status == INVITE_STATUS_ACCEPTED:
         raise AcceptedInviteError()
+    if invite.status == INVITE_STATUS_SUPERSEDED:
+        raise SupersededInviteError()
     if invite.status != INVITE_STATUS_REVOKED:
         normalized_actor = normalize_staff_actor(actor)
         normalized_actor_id = normalize_staff_actor_id(actor_id, normalized_actor)

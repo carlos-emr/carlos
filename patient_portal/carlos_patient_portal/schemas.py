@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from carlos_patient_portal.auth import normalize_phone_number
 from carlos_patient_portal.credentials import (
@@ -22,6 +22,8 @@ MfaDeliveryMethod = Literal["email", "sms"]
 
 
 class InviteCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     demographic_no: int = Field(gt=0)
     email: str = Field(min_length=1, max_length=MAX_EMAIL_LENGTH)
     date_of_birth: date
@@ -55,6 +57,7 @@ class InviteResponse(BaseModel):
     has_identity_proof: bool
     accepted_at: datetime | None
     accepted_account_id: int | None
+    supersedes_invite_id: int | None
 
 
 class InviteTokenResponse(InviteResponse):

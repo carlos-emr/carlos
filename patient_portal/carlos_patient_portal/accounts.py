@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from math import ceil
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -160,6 +161,27 @@ def enforce_activation_rate_limit(
         raise ActivationThrottledError(max(retry_after_candidates))
 
 
+def lock_activation_rate_limit_keys(
+    session: Session,
+    *,
+    invite_token_hash: str,
+    client_reference_hash: str,
+) -> None:
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    lock_keys = {
+        _activation_advisory_lock_key("invite", invite_token_hash),
+        _activation_advisory_lock_key("client", client_reference_hash),
+    }
+    for lock_key in sorted(lock_keys):
+        session.execute(select(func.pg_advisory_xact_lock(lock_key))).scalar_one()
+
+
+def _activation_advisory_lock_key(purpose: str, value: str) -> int:
+    digest = sha256(f"portal-activation:{purpose}:{value}".encode()).digest()
+    return int.from_bytes(digest[:8], byteorder="big", signed=True)
+
+
 def activate_patient_account(
     session: Session,
     *,
@@ -186,6 +208,11 @@ def activate_patient_account(
         raise ActivationError()
     invite_token_hash = hash_invite_token(normalized_invite_code)
     now = utc_now()
+    lock_activation_rate_limit_keys(
+        session,
+        invite_token_hash=invite_token_hash,
+        client_reference_hash=client_reference_hash,
+    )
     enforce_activation_rate_limit(
         session,
         invite_token_hash=invite_token_hash,

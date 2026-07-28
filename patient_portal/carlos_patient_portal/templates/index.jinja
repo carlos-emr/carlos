@@ -47,6 +47,7 @@
                 name="username"
                 placeholder="{{ text.username_placeholder }}"
                 autocomplete="username"
+                required
               >
             </label>
             <label>
@@ -56,12 +57,28 @@
                 name="password"
                 placeholder="{{ text.password_placeholder }}"
                 autocomplete="current-password"
+                required
+                data-password-input
               >
             </label>
+            <button
+              class="link-action"
+              type="button"
+              data-password-toggle
+              data-show-label="{{ text.show_password }}"
+              data-hide-label="{{ text.hide_password }}"
+              aria-pressed="false"
+            >{{ text.show_password }}</button>
             <button class="primary-action" type="submit">{{ text.sign_in_button }}</button>
             <div class="auth-link-group">
               <a class="link-action" href="{{ url_for('password_reset_request_page') }}">{{ text.forgot_username_password }}</a>
               <a class="link-action" href="{{ url_for('activation_page') }}">{{ text.activate_account }}</a>
+              <button
+                class="link-action modal-trigger"
+                type="button"
+                data-modal-title="{{ text.clinic_help }}"
+                data-modal-message="{{ text.clinic_help_message }}"
+              >{{ text.clinic_help }}</button>
             </div>
           </form>
         </section>

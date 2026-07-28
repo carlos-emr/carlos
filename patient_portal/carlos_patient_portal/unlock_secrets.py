@@ -11,7 +11,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, case, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal.audit import record_audit_event
@@ -55,8 +55,8 @@ MAX_UNLOCK_SECRET_PROVIDER_OPTIONS = 100
 MAX_UNLOCK_SECRET_PLAINTEXT_BYTES = 1024
 PROVIDER_FILTER_ID_PREFIX = "id:"
 PROVIDER_FILTER_NAME_PREFIX = "name:"
-MAX_UNLOCK_SECRET_PROVIDER_FILTER_LENGTH = (
-    MAX_UNLOCK_SECRET_ACTOR_LENGTH + len(PROVIDER_FILTER_NAME_PREFIX)
+MAX_UNLOCK_SECRET_PROVIDER_FILTER_LENGTH = MAX_UNLOCK_SECRET_ACTOR_LENGTH + len(
+    PROVIDER_FILTER_NAME_PREFIX
 )
 UNLOCK_SECRET_WORDLIST_RESOURCE = "wordlists/patient_pdf_passphrase_english.txt"
 UNLOCK_SECRET_WORDLIST_SIZE = 4096
@@ -159,6 +159,13 @@ def decrypt_unlock_secret_payload(
     encryption_secret: str | None = None,
     encryption_keys: Mapping[str, str] | None = None,
 ) -> str:
+    expected_algorithm = (
+        ENCRYPTION_ALGORITHM_V1
+        if unlock_secret.encryption_context is None
+        else ENCRYPTION_ALGORITHM
+    )
+    if unlock_secret.encryption_algorithm != expected_algorithm:
+        raise UnlockSecretDecryptionError("unlock secret encryption metadata is invalid")
     resolved_secret = encryption_secret
     if encryption_keys is not None:
         resolved_secret = encryption_keys.get(unlock_secret.encryption_key_id)
@@ -586,18 +593,12 @@ def _filtered_unlock_secret_statement(
             )
         else:
             # Preserve bookmarked filters created before stable provider values were introduced.
-            statement = statement.where(
-                PatientPortalUnlockSecret.created_by == normalized_provider
-            )
+            statement = statement.where(PatientPortalUnlockSecret.created_by == normalized_provider)
     if created_from is not None:
         statement = statement.where(PatientPortalUnlockSecret.created_at >= created_from)
     if created_before is not None:
         statement = statement.where(PatientPortalUnlockSecret.created_at < created_before)
-    if (
-        created_from is not None
-        and created_before is not None
-        and created_from >= created_before
-    ):
+    if created_from is not None and created_before is not None and created_from >= created_before:
         raise ValueError("created_from must be earlier than created_before")
     return statement
 
@@ -682,56 +683,80 @@ def list_unlock_secret_provider_identities(
     limit: int = MAX_UNLOCK_SECRET_PROVIDER_OPTIONS,
     offset: int = 0,
 ) -> list[tuple[str | None, str]]:
-    identities = _all_unlock_secret_provider_identities(
-        session,
-        clinic_id=clinic_id,
-        account_id=account_id,
-        demographic_no=demographic_no,
-        secret_type=secret_type,
-    )
     normalized_limit = normalize_list_limit(limit)
     normalized_offset = normalize_list_offset(offset)
-    return identities[normalized_offset : normalized_offset + normalized_limit]
+    statement = (
+        _unlock_secret_provider_identity_statement(
+            clinic_id=clinic_id,
+            account_id=account_id,
+            demographic_no=demographic_no,
+            secret_type=secret_type,
+        )
+        .limit(normalized_limit)
+        .offset(normalized_offset)
+    )
+    return [(provider_id, display_name) for provider_id, display_name in session.execute(statement)]
 
 
-def _all_unlock_secret_provider_identities(
-    session: Session,
+def _unlock_secret_provider_identity_subquery(
     *,
     clinic_id: str,
     account_id: int | None = None,
     demographic_no: int | None = None,
     secret_type: str | None = None,
-) -> list[tuple[str | None, str]]:
+):
     scoped_statement = scoped_unlock_secret_statement(
         clinic_id=clinic_id,
         account_id=account_id,
         demographic_no=demographic_no,
         secret_type=secret_type,
     )
-    statement = (
+    provider_identity_key = case(
+        (
+            PatientPortalUnlockSecret.created_by_id.is_not(None),
+            literal("id:") + PatientPortalUnlockSecret.created_by_id,
+        ),
+        else_=literal("name:") + PatientPortalUnlockSecret.created_by,
+    )
+    return (
         scoped_statement.with_only_columns(
             PatientPortalUnlockSecret.created_by_id,
             PatientPortalUnlockSecret.created_by,
-            PatientPortalUnlockSecret.created_at,
-            PatientPortalUnlockSecret.id,
+            func.row_number()
+            .over(
+                partition_by=provider_identity_key,
+                order_by=(
+                    PatientPortalUnlockSecret.created_at.desc(),
+                    PatientPortalUnlockSecret.id.desc(),
+                ),
+            )
+            .label("provider_rank"),
         )
         .where(PatientPortalUnlockSecret.status == UNLOCK_SECRET_STATUS_ACTIVE)
-        .order_by(
-            PatientPortalUnlockSecret.created_at.desc(),
-            PatientPortalUnlockSecret.id.desc(),
-        )
+        .subquery()
     )
-    latest_by_identity: dict[tuple[str, str], tuple[str | None, str]] = {}
-    for provider_id, display_name, _, _ in session.execute(statement):
-        identity_key = (
-            ("id", provider_id)
-            if provider_id is not None
-            else ("legacy", display_name)
+
+
+def _unlock_secret_provider_identity_statement(
+    *,
+    clinic_id: str,
+    account_id: int | None = None,
+    demographic_no: int | None = None,
+    secret_type: str | None = None,
+):
+    providers = _unlock_secret_provider_identity_subquery(
+        clinic_id=clinic_id,
+        account_id=account_id,
+        demographic_no=demographic_no,
+        secret_type=secret_type,
+    )
+    return (
+        select(providers.c.created_by_id, providers.c.created_by)
+        .where(providers.c.provider_rank == 1)
+        .order_by(
+            func.lower(providers.c.created_by),
+            providers.c.created_by_id,
         )
-        latest_by_identity.setdefault(identity_key, (provider_id, display_name))
-    return sorted(
-        latest_by_identity.values(),
-        key=lambda identity: (identity[1].casefold(), identity[0] or ""),
     )
 
 
@@ -745,12 +770,13 @@ def list_unlock_secret_providers(
 ) -> list[str]:
     return [
         display_name
-        for _, display_name in _all_unlock_secret_provider_identities(
-            session,
-            clinic_id=clinic_id,
-            account_id=account_id,
-            demographic_no=demographic_no,
-            secret_type=secret_type,
+        for _, display_name in session.execute(
+            _unlock_secret_provider_identity_statement(
+                clinic_id=clinic_id,
+                account_id=account_id,
+                demographic_no=demographic_no,
+                secret_type=secret_type,
+            )
         )
     ]
 
@@ -763,6 +789,14 @@ def list_unlock_secret_provider_options(
     demographic_no: int | None = None,
     secret_type: str | None = None,
 ) -> list[tuple[str, str]]:
+    identities = session.execute(
+        _unlock_secret_provider_identity_statement(
+            clinic_id=clinic_id,
+            account_id=account_id,
+            demographic_no=demographic_no,
+            secret_type=secret_type,
+        )
+    )
     return [
         (
             (
@@ -772,13 +806,7 @@ def list_unlock_secret_provider_options(
             ),
             display_name,
         )
-        for provider_id, display_name in _all_unlock_secret_provider_identities(
-            session,
-            clinic_id=clinic_id,
-            account_id=account_id,
-            demographic_no=demographic_no,
-            secret_type=secret_type,
-        )
+        for provider_id, display_name in identities
     ]
 
 
@@ -790,14 +818,17 @@ def count_unlock_secret_providers(
     demographic_no: int | None = None,
     secret_type: str | None = None,
 ) -> int:
-    return len(
-        _all_unlock_secret_provider_identities(
-            session,
-            clinic_id=clinic_id,
-            account_id=account_id,
-            demographic_no=demographic_no,
-            secret_type=secret_type,
+    providers = _unlock_secret_provider_identity_subquery(
+        clinic_id=clinic_id,
+        account_id=account_id,
+        demographic_no=demographic_no,
+        secret_type=secret_type,
+    )
+    return int(
+        session.scalar(
+            select(func.count()).select_from(providers).where(providers.c.provider_rank == 1)
         )
+        or 0
     )
 
 
@@ -906,8 +937,7 @@ def derive_unlock_secret_key(encryption_secret: str) -> bytes:
     normalized_secret = encryption_secret.strip()
     if len(normalized_secret) < MIN_PRODUCTION_SECRET_LENGTH:
         raise ValueError(
-            "encryption_secret must be at least "
-            f"{MIN_PRODUCTION_SECRET_LENGTH} characters"
+            f"encryption_secret must be at least {MIN_PRODUCTION_SECRET_LENGTH} characters"
         )
     return HKDF(
         algorithm=hashes.SHA256(),
@@ -955,10 +985,7 @@ def validate_plaintext_secret(secret: str) -> str:
     if not secret or not secret.strip():
         raise ValueError("secret must not be blank")
     if len(secret.encode("utf-8")) > MAX_UNLOCK_SECRET_PLAINTEXT_BYTES:
-        raise ValueError(
-            "secret must be "
-            f"{MAX_UNLOCK_SECRET_PLAINTEXT_BYTES} bytes or fewer"
-        )
+        raise ValueError(f"secret must be {MAX_UNLOCK_SECRET_PLAINTEXT_BYTES} bytes or fewer")
     return secret
 
 
@@ -995,8 +1022,8 @@ def normalize_list_limit(limit: int) -> int:
 
 
 def normalize_list_offset(offset: int) -> int:
-    if offset < 0:
-        raise ValueError("offset must not be negative")
+    if offset < 0 or offset > 100_000:
+        raise ValueError("offset must be between 0 and 100000")
     return offset
 
 

@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import datetime
 from typing import Annotated, Protocol
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request, status
@@ -29,6 +30,7 @@ from carlos_patient_portal.invites import (
     InviteNotFoundError,
     PendingInviteExistsError,
     RevokedInviteError,
+    SupersededInviteError,
     create_invite,
     list_invites,
     resend_invite,
@@ -66,9 +68,23 @@ PERMISSION_ACCOUNT_UNLOCK = "portal.account.unlock"
 PERMISSION_ACCOUNT_MANAGE = "portal.account.manage"
 PERMISSION_SECRET_MANAGE = "portal.secret.manage"
 PERMISSION_CONTACT_REVIEW = "portal.contact.review"
+
+
+class InternalErrorResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    detail: str
+
+
 COMMON_INTERNAL_RESPONSES = {
-    status.HTTP_403_FORBIDDEN: {"description": "Staff permission is required."},
-    status.HTTP_404_NOT_FOUND: {"description": "Resource or service endpoint was not found."},
+    status.HTTP_403_FORBIDDEN: {
+        "description": "Staff permission is required.",
+        "model": InternalErrorResponse,
+    },
+    status.HTTP_404_NOT_FOUND: {
+        "description": "Resource or service endpoint was not found.",
+        "model": InternalErrorResponse,
+    },
 }
 INTERNAL_CONFLICT_RESPONSES = {
     **COMMON_INTERNAL_RESPONSES,
@@ -96,7 +112,7 @@ class InternalOperationalMetrics(Protocol):
 
 
 class InternalUnlockSecretRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     source_reference: str = Field(min_length=1, max_length=128)
     label: str | None = Field(default=None, max_length=128)
@@ -104,17 +120,124 @@ class InternalUnlockSecretRequest(BaseModel):
 
 
 class InternalUnlockSecretRevokeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     reason: str | None = Field(default=None, max_length=64)
 
 
 class InternalContactReviewDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     approve: bool
     revision: str = Field(min_length=1, max_length=64)
 
 
 class InternalAccountAccessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     enabled: bool
     reason: str = Field(default="staff_action", min_length=1, max_length=64)
+
+
+class InternalInviteResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    clinic_id: str
+    demographic_no: int
+    status: str
+    created_by_id: str | None
+    created_by: str
+    issued_count: int
+    last_issued_at: datetime
+    last_issued_by: str
+    expires_at: datetime
+    accepted_account_id: int | None
+    supersedes_invite_id: int | None
+
+
+class InternalInviteTokenResponse(InternalInviteResponse):
+    invite_token: str
+
+
+class InternalAccountUnlockResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    clinic_id: str
+    demographic_no: int
+    locked_at: datetime | None
+    force_password_reset: bool
+
+
+class InternalAccountStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    clinic_id: str
+    demographic_no: int
+    status: str
+    locked: bool
+    force_password_reset: bool
+    disabled_at: datetime | None
+    disabled_reason: str | None
+
+
+class InternalAccountAccessResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    status: str
+    force_password_reset: bool
+
+
+class InternalUnlockSecretCreateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    created: bool
+    secret: str
+    source_reference: str | None
+    status: str
+
+
+class InternalUnlockSecretStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    status: str
+
+
+class InternalContactReviewResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    clinic_id: str
+    demographic_no: int
+    email_before: str
+    email_after: str
+    phone_number_before: str | None
+    phone_number_after: str | None
+    requested_at: datetime
+    revision: str
+
+
+class InternalContactReviewListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[InternalContactReviewResponse]
+    limit: int
+    offset: int
+    total: int
+    next_offset: int | None
+
+
+class InternalContactReviewDecisionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    status: str
+    decision: str | None
 
 
 def require_permission(principal: StaffPrincipal, permission: str) -> None:
@@ -138,6 +261,7 @@ def invite_payload(invite, *, invite_token: str | None = None) -> dict[str, obje
         "last_issued_by": invite.last_sent_by,
         "expires_at": invite.expires_at,
         "accepted_account_id": invite.accepted_account_id,
+        "supersedes_invite_id": invite.supersedes_invite_id,
     }
     if invite_token is not None:
         payload["invite_token"] = invite_token
@@ -151,10 +275,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     @app.middleware("http")
     async def audit_failed_internal_action(request: Request, call_next):
         response = await call_next(request)
-        if (
-            not request.url.path.startswith("/internal/carlos/")
-            or response.status_code < 400
-        ):
+        if not request.url.path.startswith("/internal/carlos/") or response.status_code < 400:
             return response
         principal: StaffPrincipal | None = None
         try:
@@ -255,6 +376,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     @app.post(
         "/internal/carlos/patients/{demographic_no}/invites",
         status_code=201,
+        response_model=InternalInviteTokenResponse,
         responses=INTERNAL_CREATE_INVITE_RESPONSES,
     )
     def internal_create_invite(
@@ -288,6 +410,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.get(
         "/internal/carlos/patients/{demographic_no}/invites",
+        response_model=list[InternalInviteResponse],
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_list_invites(
@@ -308,6 +431,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.post(
         "/internal/carlos/invites/{invite_id}/resend",
+        response_model=InternalInviteTokenResponse,
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_resend_invite(
@@ -326,12 +450,13 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             )
         except InviteNotFoundError as exc:
             raise HTTPException(status_code=404, detail="invite not found") from exc
-        except (RevokedInviteError, AcceptedInviteError) as exc:
+        except (RevokedInviteError, AcceptedInviteError, SupersededInviteError) as exc:
             raise HTTPException(status_code=409, detail="invite cannot be resent") from exc
         return invite_payload(invite, invite_token=invite_token)
 
     @app.post(
         "/internal/carlos/invites/{invite_id}/revoke",
+        response_model=InternalInviteResponse,
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_revoke_invite(
@@ -355,10 +480,16 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 status_code=409,
                 detail="accepted invite cannot be revoked",
             ) from exc
+        except SupersededInviteError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="superseded invite cannot be revoked",
+            ) from exc
         return invite_payload(invite)
 
     @app.post(
         "/internal/carlos/patients/{demographic_no}/unlock",
+        response_model=InternalAccountUnlockResponse,
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_unlock_account(
@@ -394,6 +525,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.get(
         "/internal/carlos/patients/{demographic_no}/portal-account",
+        response_model=InternalAccountStatusResponse,
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_get_account_status(
@@ -423,6 +555,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.post(
         "/internal/carlos/patients/{demographic_no}/portal-account/access",
+        response_model=InternalAccountAccessResponse,
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_set_account_access(
@@ -449,8 +582,10 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 actor_id=principal.provider_id,
                 reason=payload.reason,
             )
-        except (AccountNotFoundError, ValueError) as exc:
+        except AccountNotFoundError as exc:
             raise HTTPException(status_code=404, detail="portal account not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="invalid account access request") from exc
         return {
             "id": account.id,
             "status": account.status,
@@ -460,6 +595,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     @app.post(
         "/internal/carlos/patients/{demographic_no}/unlock-secrets",
         status_code=status.HTTP_201_CREATED,
+        response_model=InternalUnlockSecretCreateResponse,
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_create_unlock_secret(
@@ -543,6 +679,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.post(
         "/internal/carlos/unlock-secrets/{unlock_secret_id}/publish",
+        response_model=InternalUnlockSecretStatusResponse,
         responses=INTERNAL_CONFLICT_RESPONSES,
     )
     def internal_publish_unlock_secret(
@@ -577,6 +714,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.post(
         "/internal/carlos/unlock-secrets/{unlock_secret_id}/revoke",
+        response_model=InternalUnlockSecretStatusResponse,
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_revoke_unlock_secret(
@@ -607,13 +745,14 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.get(
         "/internal/carlos/contact-reviews",
+        response_model=InternalContactReviewListResponse,
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_list_contact_reviews(
         principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
         session: Annotated[Session, session_dependency],
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
-        offset: Annotated[int, Query(ge=0)] = 0,
+        offset: Annotated[int, Query(ge=0, le=100_000)] = 0,
     ) -> dict[str, object]:
         require_permission(principal, PERMISSION_CONTACT_REVIEW)
         reviews = list_pending_contact_reviews(
@@ -646,6 +785,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
 
     @app.post(
         "/internal/carlos/contact-reviews/{review_request_id}/decision",
+        response_model=InternalContactReviewDecisionResponse,
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_review_contact_update(

@@ -13,9 +13,9 @@ The MVP foundation currently includes:
 - Server-rendered responsive sign-in, activation, password-reset, lockout, and MFA screens.
 - Authenticated CARLOS internal API for invites, unlock, contact review, and unlock-secret
   create/revoke operations, plus a development-only staff API for local testing.
-- Seven-day invite expiry metadata, refreshed on resend.
+- Seven-day invite expiry metadata; resend supersedes the old issuance and creates a linked record.
 - Patient invite activation using invite code, email, date of birth, and HCN/HIN proof.
-- Activation attempt throttling backed by portal audit events.
+- Activation attempt throttling backed by portal audit events and PostgreSQL transaction locks.
 - Patient login with Argon2id password verification, MFA challenge/verify, opaque bearer sessions,
   logout, password reset, lockout, staff unlock, and forced reset after unlock.
 - Authenticated dashboard landing page with Account, Email passwords, and Help modules plus disabled
@@ -41,7 +41,9 @@ The MVP foundation currently includes:
 | FHIR R4 and HL7 v2.5.1 | Scoped resources and conformance artifacts are validator-tested | This is a narrow portal profile, not a general-purpose exchange server |
 | Pilot hardening | In-process controls and operator commands are present | External monitoring, audit export, managed backups, and restore drills remain required |
 
-The portal-side API contract is deployable only after the CARLOS Java application is wired to it.
+The current MVP deliberately uses one isolated portal deployment, database, origin, and configured
+clinic identity per clinic. It is not a shared multi-clinic identity service. The portal-side API
+contract is deployable only after the CARLOS Java application is wired to it.
 Green portal CI does not by itself prove that staff can reach these actions from CARLOS.
 
 ## Local Setup
@@ -101,6 +103,13 @@ uvicorn carlos_patient_portal.main:create_app --factory --reload --host 127.0.0.
 
 Open `http://127.0.0.1:8090/`.
 
+Production launchers must disable Uvicorn's raw request-target access log; the application emits
+its own route-template log:
+
+```bash
+uvicorn carlos_patient_portal.main:create_app --factory --no-access-log
+```
+
 ## Configuration
 
 Settings use the `PATIENT_PORTAL_` environment prefix.
@@ -129,6 +138,7 @@ export PATIENT_PORTAL_SMTP_PORT=25
 The default database URL targets local PostgreSQL because PostgreSQL is the intended MVP database.
 Most unit tests use SQLite; CI also runs security-critical concurrency and transaction behavior
 against PostgreSQL 16. File-backed SQLite is supported for local development, not a shared pilot.
+Production startup rejects SQLite and every database driver except `postgresql+psycopg`.
 Database pool, connect, checkout, statement, and lock timeouts have explicit configuration fields.
 Remote production PostgreSQL URLs must use `sslmode=verify-full`; deliver database credentials and
 CA material through the deployment secret manager rather than committed URLs.
@@ -144,6 +154,8 @@ development. SMTP is required in production, and every non-development SMTP conn
 configured together. `PATIENT_PORTAL_SMTP_TIMEOUT_SECONDS` defaults to 10 seconds. MFA email bodies
 contain only the verification code, expiry, service name, and clinic contact direction. They do not
 include patient names or clinical information.
+Outbound email and SMS wording is isolated in `outbound_messages.py`; English is the only enabled
+outbound locale until account locale persistence and reviewed translations are added.
 
 `PATIENT_PORTAL_PUBLIC_BASE_URL` is used to build password-reset email links and is required when
 SMTP is configured outside development. It must use HTTPS outside development. Reset tokens are put
@@ -178,8 +190,9 @@ logs out. Override `PORTAL_BASE_URL`, `PORTAL_TEST_USER`, `PORTAL_TEST_PASSWORD`
 `PORTAL_MAIL_COMMAND`, or `PORTAL_SCREENSHOT_DIR` when the local setup differs from the defaults.
 The test refuses public hosts unless `ALLOW_NON_LOCAL_BASE_URL=true` is deliberately set.
 
-`PATIENT_PORTAL_CLINIC_ID` defaults to `default`; set a stable clinic identifier before using a
-shared or persistent database so CARLOS `demographic_no` values are scoped correctly.
+`PATIENT_PORTAL_CLINIC_ID` and `PATIENT_PORTAL_CLINIC_NAME` have development placeholders.
+Non-development startup rejects those placeholders. The configured clinic is enforced on login
+and on every CARLOS internal request; a request asserting another clinic is rejected.
 `PATIENT_PORTAL_CLINIC_TIMEZONE` defaults to `America/Toronto`. Set the clinic's IANA timezone so
 dashboard timestamps and date filters use the clinic's local calendar day; FHIR instants and
 database storage remain UTC.
@@ -207,7 +220,8 @@ curl -H "Authorization: Bearer $PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN" \
 Expose `/internal/health/db` and `/internal/readiness` only to trusted infrastructure such as a load
 balancer or orchestrator health probe.
 
-Non-development secrets must be set explicitly and be at least 32 characters.
+Non-development secrets must be set explicitly, be at least 32 characters, and use distinct values
+for each authentication, identity-proof, audit, health, internal API, SMS, and encryption domain.
 `PATIENT_PORTAL_ENVIRONMENT` accepts `development`, `staging`, `test`, or `production`; `dev` and
 `prod` are normalized aliases.
 
@@ -231,12 +245,13 @@ Authentication defaults:
 - Email MFA resend is limited to once per minute.
 - SMS MFA is available when the account has a valid phone number and the webhook sender is
   configured; delivery failures are audited and do not silently invalidate another method.
-- Patient sessions expire after 12 hours.
+- Patient sessions have a one-hour absolute lifetime and expire after 10 minutes of inactivity.
 - Password reset tokens expire after one hour and are one-time use.
 
 The deployment can tune these with `PATIENT_PORTAL_REQUIRE_MFA`,
 `PATIENT_PORTAL_AUTH_MAX_FAILED_PASSWORD_ATTEMPTS`, `PATIENT_PORTAL_MFA_MAX_FAILED_ATTEMPTS`,
-`PATIENT_PORTAL_SESSION_TTL_SECONDS`, `PATIENT_PORTAL_MFA_CODE_TTL_SECONDS`,
+`PATIENT_PORTAL_SESSION_TTL_SECONDS`, `PATIENT_PORTAL_SESSION_IDLE_TIMEOUT_SECONDS`,
+`PATIENT_PORTAL_MFA_CODE_TTL_SECONDS`,
 `PATIENT_PORTAL_MFA_EMAIL_RESEND_COOLDOWN_SECONDS`,
 `PATIENT_PORTAL_MFA_SMS_RESEND_COOLDOWN_SECONDS`, and
 `PATIENT_PORTAL_PASSWORD_RESET_TOKEN_TTL_SECONDS`.
@@ -260,11 +275,16 @@ Pilot hardening defaults:
 - `PATIENT_PORTAL_MAINTENANCE_MODE=true` returns `503` and `Retry-After` on patient-facing routes
   while keeping `/health`, `/internal/health/db`, and `/internal/readiness` available. Tune the
   retry hint with `PATIENT_PORTAL_MAINTENANCE_RETRY_AFTER_SECONDS`.
-- `PATIENT_PORTAL_AUDIT_RETENTION_DAYS` defaults to 25 years. Audit pruning is explicit rather than
-  automatic so clinics can align the retention job with their backup and legal-retention process.
+- `PATIENT_PORTAL_AUDIT_RETENTION_DAYS` defaults to a conservative 9,150 days and cannot be
+  configured lower. This guarantees at least 25 complete calendar years, including leap years.
+  Audit pruning is explicit so clinics can align the job with legal-retention processes.
 - Requests emit PHI-safe structured log records containing a generated/canonical request ID,
   route template, method, status, and duration. `/internal/metrics` exposes aggregate status-class
   and delivery-failure counters without patient identifiers.
+- Non-development application startup disables Uvicorn's raw access logger. Production proxies must
+  also avoid raw request targets and patient-bearing paths: log only a normalized route/location,
+  method, status, request ID, and timing. Never log query strings. Keep Uvicorn `--no-access-log`
+  in the production launch command as defense in depth.
 
 Minimum pilot alerts:
 
@@ -300,6 +320,8 @@ Migration `0003_portal_lifecycle_hardening` refuses to downgrade while v3-only e
 pending secrets, disabled accounts, superseded reviews, or v3 audit events exist. This prevents a
 rollback from dropping encryption context or lifecycle evidence. Preserve or transform those rows
 under an approved retention and key-management procedure before retrying a downgrade.
+Migration `0002_staff_identity_audit` preflights FHIR audit events before changing schema, and
+`0004_invite_issuance_history` similarly refuses to discard superseded invite history.
 
 ## Pilot Operations
 
@@ -320,7 +342,8 @@ carlos-patient-portal-maintenance backup-sqlite --output /secure/backups/portal.
 carlos-patient-portal-maintenance restore-sqlite --input /secure/backups/portal.db --overwrite
 ```
 
-Stop every portal process and SQLite client before restore. The restore command rejects an existing
+SQLite backup and restore are development-only. Stop every portal process and SQLite client before
+restore. The restore command rejects an existing
 destination `-wal` or `-shm` sidecar rather than risking a false-success restore over live WAL state;
 checkpoint and close the database cleanly, verify the sidecars are gone, run restore, then restart
 the application and readiness checks.
@@ -376,6 +399,13 @@ retains the stable provider ID, display snapshot, clinic scope, and target resou
 trail. A duplicate unlock-secret `source_reference` returns the original record and plaintext
 through the same audited disclosure path, so a CARLOS retry after a timeout is safe; a revoked
 source reference returns a conflict.
+The generated OpenAPI contract includes explicit request, response, pagination, one-time plaintext,
+and error models for these routes.
+
+Invite retention is state-specific: accepted invite records are retained with the long-term audit
+record; expired pending, revoked, and superseded records are eligible for transient cleanup only
+after the configured cleanup delay. Cleanup rechecks status and expiry in the delete statement so a
+concurrent state transition cannot delete a renewed record.
 
 ## Development Invite API
 

@@ -36,6 +36,8 @@ def internal_app(**overrides: object):
     app = create_app(
         Settings(
             environment="development",
+            clinic_id="clinic-a",
+            clinic_name="Clinic A",
             database_url="sqlite+pysqlite:///:memory:",
             internal_api_token=INTERNAL_API_TOKEN,
             identity_proof_secret=IDENTITY_PROOF_SECRET,
@@ -107,6 +109,40 @@ def test_internal_api_requires_service_authentication_and_permission() -> None:
         ]
 
 
+def test_internal_mutations_reject_unknown_or_blank_fields_and_publish_schemas() -> None:
+    client = TestClient(internal_app())
+    invite_payload = {**invite_request(), "unexpected": "value"}
+
+    extra_field = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_payload,
+    )
+    blank_reason = client.post(
+        "/internal/carlos/patients/1234/portal-account/access",
+        headers=carlos_headers("portal.account.manage"),
+        json={"enabled": False, "reason": "  "},
+    )
+    typo = client.post(
+        "/internal/carlos/patients/1234/portal-account/access",
+        headers=carlos_headers("portal.account.manage"),
+        json={"enabled": False, "reasno": "staff request"},
+    )
+    openapi = client.get("/api/openapi.json").json()
+
+    assert extra_field.status_code == 422
+    assert blank_reason.status_code == 422
+    assert typo.status_code == 422
+    invite_operation = openapi["paths"]["/internal/carlos/patients/{demographic_no}/invites"][
+        "post"
+    ]
+    assert invite_operation["responses"]["201"]["content"]["application/json"]["schema"]
+    access_operation = openapi["paths"][
+        "/internal/carlos/patients/{demographic_no}/portal-account/access"
+    ]["post"]
+    assert access_operation["responses"]["200"]["content"]["application/json"]["schema"]
+
+
 def test_maintenance_mode_blocks_internal_business_mutations() -> None:
     client = TestClient(internal_app(maintenance_mode=True))
 
@@ -167,12 +203,13 @@ def test_internal_invite_list_resend_and_revoke_lifecycle() -> None:
         f"/internal/carlos/invites/{invite_id}/resend",
         headers=headers,
     )
+    resent_id = resent.json()["id"]
     revoked = client.post(
-        f"/internal/carlos/invites/{invite_id}/revoke",
+        f"/internal/carlos/invites/{resent_id}/revoke",
         headers=headers,
     )
     rejected_resend = client.post(
-        f"/internal/carlos/invites/{invite_id}/resend",
+        f"/internal/carlos/invites/{resent_id}/resend",
         headers=headers,
     )
     missing_revoke = client.post(
@@ -183,6 +220,8 @@ def test_internal_invite_list_resend_and_revoke_lifecycle() -> None:
     assert listed.status_code == 200
     assert [item["id"] for item in listed.json()] == [invite_id]
     assert resent.status_code == 200
+    assert resent_id != invite_id
+    assert resent.json()["supersedes_invite_id"] == invite_id
     assert resent.json()["invite_token"] != created.json()["invite_token"]
     assert revoked.status_code == 200
     assert revoked.json()["status"] == "revoked"
@@ -314,9 +353,7 @@ def test_internal_unlock_secret_retry_decryption_failure_is_stable_and_audited(
 
     assert repeated.status_code == 503
     assert repeated.json() == {"detail": "unlock secret is temporarily unavailable"}
-    assert app.state.operational_metrics.snapshot()["failures"][
-        "unlock_secret_decryption"
-    ] == 1
+    assert app.state.operational_metrics.snapshot()["failures"]["unlock_secret_decryption"] == 1
     with app.state.session_factory() as session:
         failure = session.scalar(
             select(PatientPortalAuditEvent)
@@ -411,9 +448,7 @@ def test_internal_unlock_secret_is_hidden_until_carlos_publishes_it() -> None:
 
     assert before_publish.json()["items"] == []
     assert published.json()["status"] == "available"
-    assert [item["id"] for item in after_publish.json()["items"]] == [
-        created.json()["id"]
-    ]
+    assert [item["id"] for item in after_publish.json()["items"]] == [created.json()["id"]]
 
 
 def test_internal_staff_unlock_forces_fresh_password_reset() -> None:
@@ -576,8 +611,7 @@ def test_internal_contact_review_is_clinic_scoped_and_applies_staff_decision() -
         json={"approve": True, "revision": review_revision},
     )
 
-    assert cross_clinic.status_code == 200
-    assert cross_clinic.json()["items"] == []
+    assert cross_clinic.status_code == 404
     assert pending.status_code == 200
     assert [item["id"] for item in pending.json()["items"]] == [review_id]
     assert approved.status_code == 200

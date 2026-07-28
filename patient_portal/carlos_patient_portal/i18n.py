@@ -36,8 +36,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "all_providers": "All providers",
         "activate_account": "Activate account",
         "activation_details": (
-            "Enter the invitation details supplied by your clinic and create your "
-            "portal sign-in."
+            "Enter the invitation details supplied by your clinic and create your portal sign-in."
         ),
         "activation_error": "The activation details could not be verified.",
         "activation_heading": "Activate your account",
@@ -93,6 +92,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "future": "Future",
         "health_card_number": "Health card number (HCN/HIN)",
         "help": "Help",
+        "hide_password": "Hide password",
         "incorrect_mfa_code": "The code was not accepted. Try again or request a new code.",
         "incorrect_username_or_password": "Incorrect Username or Password",
         "invite_code": "Invitation code",
@@ -178,6 +178,7 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "sign_in_aria_label": SIGN_IN_LABEL,
         "sign_in_button": SIGN_IN_LABEL,
         "sign_in_heading": SIGN_IN_LABEL,
+        "show_password": "Show password",
         "subject": "Subject",
         "unavailable": "Unavailable",
         "update_contact": "Update contact",

@@ -30,9 +30,7 @@ class StaffPrincipal:
 
 def normalize_permissions(value: str) -> frozenset[str]:
     permissions = tuple(
-        permission.strip().casefold()
-        for permission in value.split(",")
-        if permission.strip()
+        permission.strip().casefold() for permission in value.split(",") if permission.strip()
     )
     if not permissions or len(permissions) > MAX_PERMISSION_COUNT:
         raise CarlosServiceAuthenticationError()
@@ -68,11 +66,14 @@ def authenticate_carlos_staff(
     ):
         raise CarlosServiceAuthenticationError()
     try:
-        return StaffPrincipal(
+        principal = StaffPrincipal(
             provider_id=normalize_staff_actor(provider_id),
             display_name=normalize_staff_actor(provider_name),
             clinic_id=normalize_clinic_id(clinic_id),
             permissions=normalize_permissions(permissions),
         )
+        if principal.clinic_id != settings.clinic_id:
+            raise CarlosServiceAuthenticationError()
+        return principal
     except ValueError as exc:
         raise CarlosServiceAuthenticationError() from exc

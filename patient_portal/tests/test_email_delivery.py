@@ -91,9 +91,7 @@ def test_smtp_sender_delivers_plain_text_code_with_tls_and_auth(
 def test_smtp_sender_wraps_refused_recipient_without_exposing_code(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    RecordingSmtp.refused_recipients = {
-        "patient@example.test": (550, b"recipient rejected")
-    }
+    RecordingSmtp.refused_recipients = {"patient@example.test": (550, b"recipient rejected")}
     monkeypatch.setattr(smtplib, "SMTP", RecordingSmtp)
     sender = SmtpPortalEmailSender(smtp_settings())
 
@@ -132,6 +130,36 @@ def test_smtp_sender_delivers_password_reset_link(
     assert smtp.message["Auto-Submitted"] == "auto-generated"
 
 
+def test_contact_change_notice_describes_immediate_portal_change(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    RecordingSmtp.refused_recipients = {}
+    monkeypatch.setattr(smtplib, "SMTP", RecordingSmtp)
+    sender = SmtpPortalEmailSender(smtp_settings())
+
+    sender.send_contact_change_notice(recipient="patient@example.test")
+
+    smtp = RecordingSmtp.instance
+    assert smtp is not None
+    assert smtp.message is not None
+    assert smtp.message["Subject"] == ("Contact information changed for CARLOS Patient Portal")
+    content = smtp.message.get_content()
+    assert "in use now" in content
+    assert "separately review the matching CARLOS chart" in content
+    assert "before the new details are used" not in content
+
+
+def test_smtp_sender_wraps_invalid_recipient_header() -> None:
+    sender = SmtpPortalEmailSender(smtp_settings())
+
+    with pytest.raises(PortalEmailDeliveryError):
+        sender.send_code(
+            recipient="patient@example.test\r\nBcc: attacker@example.test",
+            code="123456",
+            expires_in_seconds=600,
+        )
+
+
 def test_smtp_sender_is_only_built_for_complete_configuration() -> None:
     assert build_portal_email_sender(Settings(environment="development")) is None
     assert isinstance(build_portal_email_sender(smtp_settings()), SmtpPortalEmailSender)
@@ -150,10 +178,16 @@ def test_development_smtp_sender_uses_safe_default_from_address() -> None:
     "settings_values",
     [
         {"smtp_from_address": "portal@example.test"},
-        {"smtp_host": "mail.internal", "smtp_from_address": "portal@example.test",
-         "smtp_username": "portal-user"},
-        {"smtp_host": "mail.internal", "smtp_from_address": "portal@example.test",
-         "smtp_password": "smtp-secret"},
+        {
+            "smtp_host": "mail.internal",
+            "smtp_from_address": "portal@example.test",
+            "smtp_username": "portal-user",
+        },
+        {
+            "smtp_host": "mail.internal",
+            "smtp_from_address": "portal@example.test",
+            "smtp_password": "smtp-secret",
+        },
     ],
 )
 def test_smtp_configuration_rejects_incomplete_settings(
@@ -205,6 +239,8 @@ def test_non_development_smtp_requires_https_public_base_url() -> None:
 
     settings = Settings(
         environment="staging",
+        clinic_id="test-clinic",
+        clinic_name="Test Clinic",
         public_base_url="https://portal.example.test/",
         smtp_host="mail.internal",
         smtp_from_address="portal@example.test",

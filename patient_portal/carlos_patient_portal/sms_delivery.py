@@ -5,6 +5,7 @@ from typing import Protocol
 from urllib.parse import urlsplit
 
 from carlos_patient_portal.config import Settings
+from carlos_patient_portal.outbound_messages import mfa_sms_message
 
 MAX_SMS_GATEWAY_RESPONSE_BYTES = 4096
 
@@ -37,9 +38,7 @@ class WebhookPortalSmsSender:
         self.service_name = settings.service_name
         self.clinic_name = settings.clinic_name
         parsed_url = urlsplit(self.url)
-        self.connection_type = (
-            HTTPSConnection if parsed_url.scheme == "https" else HTTPConnection
-        )
+        self.connection_type = HTTPSConnection if parsed_url.scheme == "https" else HTTPConnection
         self.connection_host = parsed_url.hostname
         self.connection_port = parsed_url.port
         self.request_path = parsed_url.path or "/"
@@ -55,10 +54,11 @@ class WebhookPortalSmsSender:
             {
                 "to": recipient,
                 "sender_id": self.sender_id,
-                "message": (
-                    f"Your {self.service_name} verification code is {code}. "
-                    f"It expires in {max(1, expires_in_seconds // 60)} minutes. "
-                    f"Do not share it. Contact {self.clinic_name} if you did not request it."
+                "message": mfa_sms_message(
+                    service_name=self.service_name,
+                    clinic_name=self.clinic_name,
+                    code=code,
+                    expires_in_seconds=expires_in_seconds,
                 ),
             }
         ).encode()

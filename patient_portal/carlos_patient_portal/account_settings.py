@@ -1,4 +1,3 @@
-from datetime import datetime
 from secrets import token_urlsafe
 
 from sqlalchemy import func, select
@@ -7,18 +6,22 @@ from sqlalchemy.orm import Session
 from carlos_patient_portal.audit import record_audit_event
 from carlos_patient_portal.auth import (
     AUTH_REASON_PASSWORD_FAILURES,
+    AuthPolicy,
     MfaDeliveryUnavailableError,
     cancel_pending_mfa_challenges,
+    create_patient_session,
     ensure_mfa_delivery_available,
     lock_account,
     normalize_mfa_delivery_method,
     normalize_phone_number,
     password_matches,
+    revoke_account_sessions,
     revoke_pending_password_reset_tokens,
 )
 from carlos_patient_portal.credentials import hash_password, validate_password
 from carlos_patient_portal.identity import normalize_email
 from carlos_patient_portal.models import (
+    ACCOUNT_STATUS_ACTIVE,
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
@@ -69,8 +72,13 @@ def change_account_password(
     current_password: str,
     new_password: str,
     max_failed_password_attempts: int,
-) -> None:
+    policy: AuthPolicy,
+    token_secret: str,
+) -> str:
     validate_password(new_password)
+    account = lock_account_for_settings(session, account.id)
+    if portal_session.account_id != account.id or portal_session.revoked_at is not None:
+        raise AccountSettingsStepUpError()
     verify_current_password(
         session,
         account,
@@ -84,10 +92,17 @@ def change_account_password(
     account.failed_login_count = 0
     account.failed_mfa_count = 0
     account.updated_at = now
-    revoke_other_account_sessions(
+    revoke_account_sessions(
         session,
         account.id,
-        keep_session_id=portal_session.id,
+        reason=SESSION_REVOKED_REASON_PASSWORD_CHANGE,
+        now=now,
+    )
+    replacement_session_token = create_patient_session(
+        session,
+        account,
+        policy=policy,
+        token_secret=token_secret,
         now=now,
     )
     cancel_pending_mfa_challenges(session, account.id, now=now)
@@ -98,6 +113,7 @@ def change_account_password(
         outcome=AUDIT_OUTCOME_SUCCESS,
         reason=ACCOUNT_SETTINGS_REASON_UPDATED,
     )
+    return replacement_session_token
 
 
 def update_account_contact(
@@ -111,6 +127,7 @@ def update_account_contact(
 ) -> PatientPortalContactReviewRequest | None:
     normalized_email = normalize_email(email)
     normalized_phone_number = normalize_phone_number(phone_number)
+    account = lock_account_for_settings(session, account.id)
     verify_current_password(
         session,
         account,
@@ -139,13 +156,6 @@ def update_account_contact(
         return None
 
     now = utc_now()
-    locked_account_id = session.scalar(
-        select(PatientPortalAccount.id)
-        .where(PatientPortalAccount.id == account.id)
-        .with_for_update()
-    )
-    if locked_account_id is None:
-        raise AccountSettingsValidationError()
     previous_review_request = session.scalar(
         select(PatientPortalContactReviewRequest)
         .where(
@@ -201,6 +211,7 @@ def update_account_mfa_method(
     max_failed_password_attempts: int,
 ) -> None:
     normalized_method = normalize_mfa_delivery_method(preferred_mfa_method)
+    account = lock_account_for_settings(session, account.id)
     verify_current_password(
         session,
         account,
@@ -241,8 +252,8 @@ def list_pending_contact_reviews(
 ) -> list[PatientPortalContactReviewRequest]:
     if limit < 1 or limit > 100:
         raise ValueError("limit must be between 1 and 100")
-    if offset < 0:
-        raise ValueError("offset must be non-negative")
+    if offset < 0 or offset > 100_000:
+        raise ValueError("offset must be between 0 and 100000")
     return list(
         session.scalars(
             select(PatientPortalContactReviewRequest)
@@ -292,9 +303,7 @@ def review_contact_update(
     )
     if review_request is None:
         raise ContactReviewNotFoundError()
-    decision = (
-        CONTACT_REVIEW_DECISION_APPROVED if approve else CONTACT_REVIEW_DECISION_REJECTED
-    )
+    decision = CONTACT_REVIEW_DECISION_APPROVED if approve else CONTACT_REVIEW_DECISION_REJECTED
     if review_request.revision != expected_revision:
         raise ContactReviewConflictError()
     if review_request.status == CONTACT_REVIEW_STATUS_REVIEWED:
@@ -369,27 +378,24 @@ def verify_current_password(
     raise AccountSettingsStepUpError()
 
 
-def revoke_other_account_sessions(
+def lock_account_for_settings(
     session: Session,
     account_id: int,
-    *,
-    keep_session_id: int,
-    now: datetime,
-) -> None:
-    other_sessions = list(
-        session.scalars(
-            select(PatientPortalSession)
-            .where(
-                PatientPortalSession.account_id == account_id,
-                PatientPortalSession.id != keep_session_id,
-                PatientPortalSession.revoked_at.is_(None),
-            )
-            .with_for_update()
-        )
+) -> PatientPortalAccount:
+    account = session.scalar(
+        select(PatientPortalAccount)
+        .where(PatientPortalAccount.id == account_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
-    for other_session in other_sessions:
-        other_session.revoked_at = now
-        other_session.revoked_reason = SESSION_REVOKED_REASON_PASSWORD_CHANGE
+    if (
+        account is None
+        or account.status != ACCOUNT_STATUS_ACTIVE
+        or account.locked_at is not None
+        or account.force_password_reset
+    ):
+        raise AccountSettingsStepUpError()
+    return account
 
 
 def record_account_settings_audit_event(

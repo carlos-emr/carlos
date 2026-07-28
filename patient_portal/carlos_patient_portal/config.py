@@ -1,4 +1,5 @@
 import json
+from email.utils import parseaddr
 from functools import lru_cache
 from ipaddress import ip_address, ip_network
 from typing import Literal
@@ -24,7 +25,11 @@ DEFAULT_DATABASE_URL = "postgresql+psycopg://localhost:5432/carlos_portal"
 DEFAULT_DEVELOPMENT_SMTP_FROM_ADDRESS = "carlos-test@openo-dev.local"
 MIN_PRODUCTION_SECRET_LENGTH = 32
 MAX_CLINIC_ID_LENGTH = 64
-DEFAULT_AUDIT_RETENTION_DAYS = 25 * 365
+# A conservative day count guarantees at least 25 complete calendar years,
+# including every leap-day distribution, before an event becomes eligible.
+DEFAULT_AUDIT_RETENTION_DAYS = 25 * 366
+DEFAULT_CLINIC_ID = "default"
+DEFAULT_CLINIC_NAME = "Maple Creek Medical"
 ENVIRONMENT_ALIASES = {
     "dev": "development",
     "prod": "production",
@@ -61,8 +66,8 @@ class Settings(BaseSettings):
 
     service_name: str = "CARLOS Patient Portal"
     environment: Environment = "production"
-    clinic_id: str = Field(default="default", max_length=MAX_CLINIC_ID_LENGTH)
-    clinic_name: str = "Maple Creek Medical"
+    clinic_id: str = Field(default=DEFAULT_CLINIC_ID, max_length=MAX_CLINIC_ID_LENGTH)
+    clinic_name: str = DEFAULT_CLINIC_NAME
     clinic_timezone: str = Field(default="America/Toronto", min_length=1, max_length=64)
     public_base_url: str | None = Field(default=None, max_length=2048)
     database_url: str = DEFAULT_DATABASE_URL
@@ -122,7 +127,8 @@ class Settings(BaseSettings):
     require_mfa: bool = True
     auth_max_failed_password_attempts: int = Field(default=10, ge=1, le=1000)
     mfa_max_failed_attempts: int = Field(default=10, ge=1, le=100)
-    session_ttl_seconds: int = Field(default=12 * 60 * 60, ge=300, le=30 * 24 * 60 * 60)
+    session_ttl_seconds: int = Field(default=60 * 60, ge=300, le=30 * 24 * 60 * 60)
+    session_idle_timeout_seconds: int = Field(default=10 * 60, ge=60, le=24 * 60 * 60)
     mfa_code_ttl_seconds: int = Field(default=10 * 60, ge=60, le=60 * 60)
     mfa_email_resend_cooldown_seconds: int = Field(default=60, ge=30, le=60 * 60)
     mfa_sms_resend_cooldown_seconds: int = Field(default=5 * 60, ge=60, le=60 * 60)
@@ -137,7 +143,11 @@ class Settings(BaseSettings):
     auth_rate_limit_window_seconds: int = Field(default=60, ge=1, le=60 * 60)
     auth_rate_limit_max_requests: int = Field(default=10, ge=1, le=100)
     rate_limit_max_buckets: int = Field(default=10_000, ge=100, le=1_000_000)
-    audit_retention_days: int = Field(default=DEFAULT_AUDIT_RETENTION_DAYS, ge=365, le=100 * 365)
+    audit_retention_days: int = Field(
+        default=DEFAULT_AUDIT_RETENTION_DAYS,
+        ge=DEFAULT_AUDIT_RETENTION_DAYS,
+        le=100 * 366,
+    )
     maintenance_mode: bool = False
     maintenance_retry_after_seconds: int = Field(default=5 * 60, ge=60, le=24 * 60 * 60)
 
@@ -162,6 +172,15 @@ class Settings(BaseSettings):
     @property
     def is_internal_api_enabled(self) -> bool:
         return self.internal_api_token is not None
+
+    @property
+    def allowed_hosts(self) -> tuple[str, ...]:
+        if self.public_base_url is None:
+            return ("127.0.0.1", "localhost", "testserver")
+        hostname = urlsplit(self.public_base_url).hostname
+        if hostname is None:
+            raise ValueError("PATIENT_PORTAL_PUBLIC_BASE_URL must contain a hostname")
+        return (hostname,)
 
     @property
     def resolved_smtp_from_address(self) -> str | None:
@@ -195,6 +214,8 @@ class Settings(BaseSettings):
         "sms_sender_id",
         "trusted_proxy_cidrs",
         "unlock_secret_active_key_id",
+        "service_name",
+        "clinic_name",
         mode="before",
     )
     @classmethod
@@ -202,6 +223,37 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return value.strip() or None
         return value
+
+    @field_validator("service_name", "clinic_name", "smtp_host", "sms_sender_id")
+    @classmethod
+    def reject_header_control_characters(cls, value: str | None) -> str | None:
+        if value is not None and any(
+            ord(character) < 32 or ord(character) == 127 for character in value
+        ):
+            raise ValueError("configuration text must not contain control characters")
+        return value
+
+    @field_validator("smtp_from_address")
+    @classmethod
+    def validate_smtp_from_address(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        display_name, parsed_address = parseaddr(value)
+        if display_name or parsed_address != value or "@" not in parsed_address:
+            raise ValueError(
+                "PATIENT_PORTAL_SMTP_FROM_ADDRESS must be one mailbox address "
+                "without a display name"
+            )
+        local_part, _, domain = parsed_address.rpartition("@")
+        if (
+            not local_part
+            or not domain
+            or domain.startswith(".")
+            or domain.endswith(".")
+            or "." not in domain
+        ):
+            raise ValueError("PATIENT_PORTAL_SMTP_FROM_ADDRESS must be a valid mailbox address")
+        return parsed_address
 
     @field_validator("public_base_url")
     @classmethod
@@ -313,18 +365,14 @@ class Settings(BaseSettings):
             )
         normalized_keyring = parse_unlock_secret_keyring(encoded_keyring)
         if self.unlock_secret_active_key_id not in normalized_keyring:
-            raise ValueError(
-                "PATIENT_PORTAL_UNLOCK_SECRET_ACTIVE_KEY_ID must exist in the keyring"
-            )
+            raise ValueError("PATIENT_PORTAL_UNLOCK_SECRET_ACTIVE_KEY_ID must exist in the keyring")
         return normalized_keyring
 
     def validate_secret_policy(self) -> None:
         secret_fields = {
             "identity_proof_secret": "PATIENT_PORTAL_IDENTITY_PROOF_SECRET",
             "audit_hash_secret": "PATIENT_PORTAL_AUDIT_HASH_SECRET",
-            "unlock_secret_encryption_secret": (
-                "PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET"
-            ),
+            "unlock_secret_encryption_secret": ("PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_SECRET"),
             "internal_health_token": "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN",
             "internal_api_token": "PATIENT_PORTAL_INTERNAL_API_TOKEN",
             "dev_admin_token": "PATIENT_PORTAL_DEV_ADMIN_TOKEN",
@@ -353,6 +401,31 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_SESSION_SECRET must be a value with at least "
                 f"{MIN_PRODUCTION_SECRET_LENGTH} characters outside development"
             )
+        if not self.is_development:
+            secret_domains: dict[str, str] = {}
+            configured_secrets = {
+                "PATIENT_PORTAL_SESSION_SECRET": session_secret_value,
+                "PATIENT_PORTAL_IDENTITY_PROOF_SECRET": self.secret_value("identity_proof_secret"),
+                "PATIENT_PORTAL_AUDIT_HASH_SECRET": self.secret_value("audit_hash_secret"),
+                "PATIENT_PORTAL_INTERNAL_HEALTH_TOKEN": self.secret_value("internal_health_token"),
+                "PATIENT_PORTAL_INTERNAL_API_TOKEN": self.secret_value("internal_api_token"),
+                "PATIENT_PORTAL_SMS_WEBHOOK_TOKEN": self.secret_value("sms_webhook_token"),
+            }
+            configured_secrets.update(
+                {
+                    f"PATIENT_PORTAL_UNLOCK_SECRET_ENCRYPTION_KEYRING[{key_id}]": value
+                    for key_id, value in self.resolved_unlock_secret_keyring.items()
+                }
+            )
+            for field_name, secret_value in configured_secrets.items():
+                if secret_value is None:
+                    continue
+                reused_by = secret_domains.get(secret_value)
+                if reused_by is not None:
+                    raise ValueError(
+                        f"{field_name} must not reuse the value configured for {reused_by}"
+                    )
+                secret_domains[secret_value] = field_name
 
     def validate_admin_and_mfa_policy(self) -> None:
         if self.is_dev_admin_enabled and self.dev_admin_token is None:
@@ -388,16 +461,13 @@ class Settings(BaseSettings):
                 )
         elif self.resolved_smtp_from_address is None:
             raise ValueError(
-                "PATIENT_PORTAL_SMTP_FROM_ADDRESS is required when "
-                "PATIENT_PORTAL_SMTP_HOST is set"
+                "PATIENT_PORTAL_SMTP_FROM_ADDRESS is required when PATIENT_PORTAL_SMTP_HOST is set"
             )
 
     def validate_smtp_transport(self) -> None:
         if not self.is_development and self.smtp_host is not None:
             if not self.smtp_starttls:
-                raise ValueError(
-                    "PATIENT_PORTAL_SMTP_STARTTLS must be enabled outside development"
-                )
+                raise ValueError("PATIENT_PORTAL_SMTP_STARTTLS must be enabled outside development")
             if self.public_base_url is None:
                 raise ValueError(
                     "PATIENT_PORTAL_PUBLIC_BASE_URL is required when SMTP is configured "
@@ -421,9 +491,7 @@ class Settings(BaseSettings):
             and self.sms_webhook_url is not None
             and not self.sms_webhook_url.startswith("https://")
         ):
-            raise ValueError(
-                "PATIENT_PORTAL_SMS_WEBHOOK_URL must use HTTPS outside development"
-            )
+            raise ValueError("PATIENT_PORTAL_SMS_WEBHOOK_URL must use HTTPS outside development")
         if self.is_production and self.sms_webhook_url is None:
             raise ValueError("PATIENT_PORTAL_SMS_WEBHOOK_URL must be set in production")
 
@@ -446,16 +514,14 @@ class Settings(BaseSettings):
                 "PATIENT_PORTAL_TRUSTED_PROXY_CIDRS must contain valid comma-separated CIDRs"
             ) from exc
         if not parsed_networks:
-            raise ValueError(
-                "PATIENT_PORTAL_TRUSTED_PROXY_CIDRS must contain at least one CIDR"
-            )
+            raise ValueError("PATIENT_PORTAL_TRUSTED_PROXY_CIDRS must contain at least one CIDR")
 
     def validate_database_transport_policy(self) -> None:
         if not self.is_production:
             return
         parsed_url = urlsplit(self.database_url)
-        if not parsed_url.scheme.startswith("postgresql"):
-            return
+        if parsed_url.scheme != "postgresql+psycopg":
+            raise ValueError("production PATIENT_PORTAL_DATABASE_URL must use postgresql+psycopg")
         database_host = parsed_url.hostname
         if database_host is None or database_host.casefold() == "localhost":
             return
@@ -470,6 +536,25 @@ class Settings(BaseSettings):
             raise ValueError(
                 "remote production PostgreSQL connections must set sslmode=verify-full "
                 "in PATIENT_PORTAL_DATABASE_URL"
+            )
+
+    def validate_clinic_policy(self) -> None:
+        if self.is_development:
+            return
+        if self.clinic_id == DEFAULT_CLINIC_ID:
+            raise ValueError(
+                "PATIENT_PORTAL_CLINIC_ID must be explicitly configured outside development"
+            )
+        if self.clinic_name == DEFAULT_CLINIC_NAME:
+            raise ValueError(
+                "PATIENT_PORTAL_CLINIC_NAME must be explicitly configured outside development"
+            )
+
+    def validate_session_policy(self) -> None:
+        if self.session_idle_timeout_seconds > self.session_ttl_seconds:
+            raise ValueError(
+                "PATIENT_PORTAL_SESSION_IDLE_TIMEOUT_SECONDS must not exceed "
+                "PATIENT_PORTAL_SESSION_TTL_SECONDS"
             )
 
     def validate_required_production_services(self) -> None:
@@ -501,6 +586,8 @@ class Settings(BaseSettings):
         self.validate_sms_policy()
         self.validate_proxy_policy()
         self.validate_database_transport_policy()
+        self.validate_clinic_policy()
+        self.validate_session_policy()
         return self
 
 

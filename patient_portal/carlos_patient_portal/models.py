@@ -19,6 +19,7 @@ from carlos_patient_portal.database import Base
 INVITE_STATUS_PENDING = "pending"
 INVITE_STATUS_REVOKED = "revoked"
 INVITE_STATUS_ACCEPTED = "accepted"
+INVITE_STATUS_SUPERSEDED = "superseded"
 ACCOUNT_STATUS_ACTIVE = "active"
 ACCOUNT_STATUS_DISABLED = "disabled"
 AUDIT_ACTOR_TYPE_PATIENT = "patient"
@@ -553,10 +554,7 @@ class PatientPortalInvite(Base):
             name="ck_patient_portal_invites_proof_health_card_hash_length",
         ),
         CheckConstraint(
-            (
-                f"proof_salt is null or length(proof_salt) between 1 and "
-                f"{MAX_PROOF_SALT_LENGTH}"
-            ),
+            (f"proof_salt is null or length(proof_salt) between 1 and {MAX_PROOF_SALT_LENGTH}"),
             name="ck_patient_portal_invites_proof_salt_length",
         ),
         CheckConstraint(
@@ -579,14 +577,11 @@ class PatientPortalInvite(Base):
             name="ck_patient_portal_invites_expires_after_created",
         ),
         CheckConstraint(
-            "status in ('pending', 'revoked', 'accepted')",
+            "status in ('pending', 'revoked', 'accepted', 'superseded')",
             name="ck_patient_portal_invites_status",
         ),
         CheckConstraint(
-            (
-                "status = 'accepted' or "
-                "(accepted_at is null and accepted_account_id is null)"
-            ),
+            ("status = 'accepted' or (accepted_at is null and accepted_account_id is null)"),
             name="ck_patient_portal_invites_nonaccepted_fields_null",
         ),
         CheckConstraint(
@@ -611,6 +606,10 @@ class PatientPortalInvite(Base):
         ),
         Index("ix_patient_portal_invites_clinic_expires_at", "clinic_id", "expires_at"),
         Index("ix_patient_portal_invites_clinic_status", "clinic_id", "status"),
+        Index(
+            "ix_patient_portal_invites_supersedes_invite_id",
+            "supersedes_invite_id",
+        ),
         Index("ux_patient_portal_invites_token_hash", "token_hash", unique=True),
         Index(
             "ux_patient_portal_invites_one_pending_per_patient",
@@ -662,6 +661,10 @@ class PatientPortalInvite(Base):
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     accepted_account_id: Mapped[int | None] = mapped_column(
         ForeignKey(ACCOUNT_FOREIGN_KEY_TARGET),
+        nullable=True,
+    )
+    supersedes_invite_id: Mapped[int | None] = mapped_column(
+        ForeignKey("patient_portal_invites.id", ondelete="SET NULL"),
         nullable=True,
     )
 
