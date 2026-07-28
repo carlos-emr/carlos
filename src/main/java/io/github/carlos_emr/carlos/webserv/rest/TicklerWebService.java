@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerTextSuggestTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 @Path("/tickler")
 @Component("ticklerWebService")
@@ -273,7 +274,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
 
 
-        MiscUtils.getLogger().info(json.toString());
+        MiscUtils.getLogger().debug("completeTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
 
         List<Integer> ticklerIds;
         try {
@@ -299,7 +300,7 @@ public class TicklerWebService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
-        MiscUtils.getLogger().info(json.toString());
+        MiscUtils.getLogger().debug("deleteTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
 
         List<Integer> ticklerIds;
         try {
@@ -356,7 +357,7 @@ public class TicklerWebService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
-        MiscUtils.getLogger().info(json.toString());
+        MiscUtils.getLogger().debug("updateTickler called, id={}", LogSafe.sanitize(json != null && json.has("id") ? json.get("id").asText() : "null"));
 
         Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.get("id") != null ? json.get("id").asInt() : null);
 
