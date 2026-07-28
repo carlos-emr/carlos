@@ -557,6 +557,67 @@ class StartupUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @Tag("create")
+    @DisplayName("should keep the user-home key when the WEB-INF fallback carries a different placeholder key")
+    void shouldKeepUserHomeKey_whenWebInfFallbackHasDifferentPlaceholderKey(@TempDir Path tempDir) throws Exception {
+        // Regression for the issue #2969 review follow-up: when the user-home stub holds a real
+        // generated key and the WEB-INF fallback ALSO defines encryption.util.secret.key (a
+        // default/placeholder), a plain Properties.load() merge would overwrite the real key with the
+        // placeholder, breaking decryption of everything encrypted since the key was generated. The
+        // merge must load DB config from WEB-INF while preserving the user-home key.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+
+        // CarlosProperties is a process-wide singleton; snapshot and clear so this boot starts from a
+        // known-empty set (a fresh JVM). Restored in finally so other tests are unaffected.
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmergekey" -> /WEB-INF/carlosmergekey.properties (DB config + placeholder key).
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmergekey");
+
+        // The user-home stub already holds ONLY a real, valid generated key: the prior-boot state that
+        // #2969 leaves behind. Written directly here so the scenario is deterministic (no reliance on a
+        // preceding boot).
+        String userHomeKey = EncryptionUtils.generateSecretKey();
+        Path userHomeStub = tempDir.resolve("carlosmergekey.properties");
+        Properties stub = new Properties();
+        stub.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, userHomeKey);
+        try (var out = Files.newOutputStream(userHomeStub)) {
+            stub.store(out, "issue #2969 regression stub - key only");
+        }
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            props.clear();
+            keySpecField.set(null, null);
+
+            new Startup().contextInitialized(event);
+
+            // DB config is loaded from WEB-INF...
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // ...but the real user-home key survives the merge - the WEB-INF placeholder must not win.
+            // Before the fix, Properties.load() would replace userHomeKey with the all-zero placeholder.
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(userHomeKey);
+
+            // The preserved key is valid and prepared, so encryption round-trips under the real key.
+            assertThat(keySpecField.get(null)).isNotNull();
+            String encrypted = EncryptionUtils.encrypt("merge-guard-password");
+            assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("merge-guard-password");
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
     /**
      * Drives {@code Startup.contextInitialized} with an invalid existing key and asserts a fail-fast
      * abort. The abort is raised as an {@link IllegalStateException} but re-wrapped by the method's

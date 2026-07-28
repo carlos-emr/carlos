@@ -102,10 +102,14 @@ public class Startup implements ServletContextListener {
                 /* if the file not found in the user root, look in the WEB-INF directory */
                 try {
                     logger.info("looking up  /WEB-INF/" + propName);
-                    String exisite = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR); // may be null
+                    // Preserve an already-generated user-home key across the WEB-INF merge. A key-only
+                    // user-home stub triggers this fallback (see containsOnlyGeneratedEncryptionKey), and
+                    // Properties.load() would otherwise let a placeholder key in /WEB-INF/ overwrite the
+                    // real generated key, breaking decryption of data encrypted since first startup.
+                    String existingKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR); // may be null
                     p.readFromFile("/WEB-INF/" + propName);
-                    if (exisite != null && !exisite.isBlank()) {// make sure if the encryption key exisite before we replace with new one
-                         p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, exisite); // real key wins
+                    if (existingKey != null && !existingKey.isBlank()) {
+                        p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, existingKey); // real key wins
                     }
                     logger.info("loading properties from /WEB-INF/" + propName);
                 } catch (java.io.FileNotFoundException e) {
