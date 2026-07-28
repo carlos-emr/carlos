@@ -63,6 +63,9 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 relative_files = true
+# Alembic scripts are exercised by the dedicated SQLite/PostgreSQL migration
+# jobs; keeping them in unit coverage makes results interpreter-dependent.
+omit = ["carlos_patient_portal/migrations/*"]
 
 [tool.coverage.report]
 fail_under = 85
