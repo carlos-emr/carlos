@@ -5,20 +5,36 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
+import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @DisplayName("EForm renderer APCache servlet")
 @Tag("unit")
@@ -54,6 +70,8 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
             new EFormApCacheForPdfGenerationServlet().doGet(request, response);
 
             assertThat(response.getStatus()).isEqualTo(422);
+            assertThat(response.getErrorMessage())
+                    .isEqualTo("APCache key requires unavailable appointment context");
         }
     }
 
@@ -70,6 +88,20 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         }
+    }
+
+    @Test
+    @DisplayName("should stop cleanly when writing a rejection fails")
+    void shouldNotThrow_whenSendErrorFails() {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "GET", "/carlos/EFormApCacheForPdfGenerationServlet");
+        request.setRemoteAddr("10.0.0.8");
+        MockHttpServletResponse response = new SendErrorFailingResponse();
+
+        assertThatCode(() ->
+                new EFormApCacheForPdfGenerationServlet().doGet(request, response))
+                .doesNotThrowAnyException();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
     }
 
     @Test
@@ -129,7 +161,65 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
             new EFormApCacheForPdfGenerationServlet().doGet(request, response);
 
             assertThat(response.getStatus()).isEqualTo(422);
+            assertThat(response.getErrorMessage())
+                    .isEqualTo("APCache key is not configured");
         }
+    }
+
+    @Test
+    @DisplayName("should report unexpected lookup failures as server errors")
+    void shouldReturnServerError_whenLookupFailsUnexpectedly() throws Exception {
+        String key = addConstantAp();
+        try (RenderFixture fixture = fixture(key)) {
+            MockHttpServletRequest request = fixture.request(key);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormApCacheForPdfGenerationServlet().doGet(request, response);
+
+            // No EFormDataDao is installed, deliberately making EForm construction fail. That is a
+            // server defect, not an unusable AP result or another client-side 422 condition.
+            assertThat(response.getStatus())
+                    .isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Test
+    @DisplayName("should stop cleanly when opening the response writer fails")
+    void shouldNotThrow_whenGetWriterFails() throws Exception {
+        String key = addConstantAp();
+        EFormData data = new EFormData();
+        data.setId(77);
+        data.setDemographicId(123);
+        data.setFormId(456);
+        data.setFormName("Renderer test form");
+        data.setSubject("Renderer test");
+        data.setFormDate(new Date());
+        data.setProviderNo("999998");
+        data.setFormData("<html></html>");
+        EFormDataDao dao = mock(EFormDataDao.class);
+        when(dao.find(77)).thenReturn(data);
+        registerMock(EFormDataDao.class, dao);
+
+        try (MockedStatic<EFormUtil> eFormUtil = mockStatic(EFormUtil.class);
+                RenderFixture fixture = fixture(key)) {
+            eFormUtil.when(() -> EFormUtil.getValuesOrNull(
+                    anyList(), any(ParameterizedSql.class)))
+                    .thenReturn(new ArrayList<>());
+            MockHttpServletRequest request = fixture.request(key);
+            HttpServletResponse response = mock(HttpServletResponse.class);
+            when(response.getWriter()).thenThrow(new IOException("simulated client disconnect"));
+
+            assertThatCode(() ->
+                    new EFormApCacheForPdfGenerationServlet().doGet(request, response))
+                    .doesNotThrowAnyException();
+            verify(response).getWriter();
+        }
+    }
+
+    private static String addConstantAp() {
+        String key = "renderer_constant_ap_" + System.nanoTime();
+        EFormLoader.addDatabaseAP(new DatabaseAP(key, "select 1", "constant"));
+        return key;
     }
 
     private static RenderFixture fixture(String allowedKey) {
@@ -159,4 +249,19 @@ class EFormApCacheForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
             service.invalidate(token);
         }
     }
+
+    private static final class SendErrorFailingResponse extends MockHttpServletResponse {
+        @Override
+        public void sendError(int status) throws IOException {
+            setStatus(status);
+            throw new IOException("simulated response failure");
+        }
+
+        @Override
+        public void sendError(int status, String errorMessage) throws IOException {
+            setStatus(status);
+            throw new IOException("simulated response failure");
+        }
+    }
+
 }

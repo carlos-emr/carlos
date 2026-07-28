@@ -34,79 +34,33 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
     private static final String KEY_PATTERN = "[A-Za-z0-9_$.-]{1,128}";
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        if (!EFormRendererRequestAuthorization.isLoopback(request.getRemoteAddr())) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
-        }
-        EFormRenderTokenService.RenderGrant grant =
-                EFormRendererRequestAuthorization.grantFromCookie(request);
-        if (grant == null) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
-        }
-        String[] requestedKeys = request.getParameterValues("key");
-        if (requestedKeys == null || requestedKeys.length == 0 || requestedKeys.length > MAX_KEYS) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key count");
-            return;
-        }
-        for (String key : requestedKeys) {
-            if (key == null || !key.matches(KEY_PATTERN)) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key");
-                return;
-            }
-            if (!grant.allowsApKey(key)) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return;
-            }
-        }
-
-        String lookupType = request.getParameter("oscarAPCacheLookupType");
-        if (lookupType != null && !lookupType.matches(KEY_PATTERN)) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache lookup type");
-            return;
-        }
-
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) {
         try {
-            // getAP reads a static list that only getInstance() populates (via parseXML). This
-            // servlet resolves keys before it constructs its EForm, so on a JVM whose first eForm
-            // touch is a scheduled render every key would otherwise resolve null and be reported as
-            // "not configured" — misdirecting the operator to apconfig.xml for a load-order bug.
-            EFormLoader.getInstance();
-            List<ApDefinition> definitions = new ArrayList<>(requestedKeys.length);
-            for (String key : requestedKeys) {
-                DatabaseAP ap = EFormLoader.getAP(key);
-                if (ap == null) {
-                    response.sendError(422,
-                            "APCache key is not configured");
-                    return;
-                }
-                if (DatabaseAP.parserGetNames(ap.getApSQL()).contains("appt_no")) {
-                    response.sendError(422,
-                            "APCache key requires unavailable appointment context");
-                    return;
-                }
-                definitions.add(new ApDefinition(key, ap));
-            }
+            handleGet(request, response);
+        } catch (IOException e) {
+            // The client may disconnect while an error page or the APCache response is being
+            // written. There is no useful second response to send once response I/O itself fails.
+            logger.debug("Renderer APCache response I/O failed: cause={}",
+                    RenderLogRedaction.stackSummary(e));
+        }
+    }
 
-            EForm form = new EForm(String.valueOf(grant.fdid()));
-            form.setProviderNo(grant.providerNo());
-            List<ApResult> results = new ArrayList<>(definitions.size());
-            for (ApDefinition definition : definitions) {
-                results.add(new ApResult(
-                        definition.key(), execute(form, definition.ap())));
-            }
+    private static void handleGet(
+            HttpServletRequest request, HttpServletResponse response) throws IOException {
+        RenderRequest renderRequest = validateRequest(request, response);
+        if (renderRequest == null) {
+            return;
+        }
 
-            response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("Cache-Control", "no-store");
-            response.setHeader("Referrer-Policy", "no-referrer");
-            response.setContentType("text/html;charset=UTF-8");
-            try (PrintWriter writer = response.getWriter()) {
-                hidden(writer, "oscarAPCacheLookupType", lookupType);
-                for (ApResult result : results) {
-                    hidden(writer, result.key(), result.value());
-                }
-            }
+        EFormRenderTokenService.RenderGrant grant = renderRequest.grant();
+        try {
+            List<ApDefinition> definitions = loadDefinitions(renderRequest.requestedKeys());
+            List<ApResult> results = executeQueries(grant, definitions);
+            writeResponse(response, renderRequest.lookupType(), results);
+        } catch (ApDefinitionException e) {
+            // Definition failures are expected server-specific incompatibilities. Preserve their
+            // actionable fixed messages without logging them as unexpected lookup failures.
+            sendErrorIfUncommitted(response, 422, e.getMessage());
         } catch (ApLookupException e) {
             // A key that resolved to the wrong shape is a defect, not "no data". Refusing the whole
             // batch makes the browser's XHR a 4xx, which the render network gate counts as a failed
@@ -118,19 +72,110 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             logger.error("Renderer APCache lookup returned an unusable result: fdid={} cause={}",
                     LogSafe.sanitize(String.valueOf(grant.fdid())),
                     RenderLogRedaction.stackSummary(e));
-            if (!response.isCommitted()) {
-                response.sendError(422, "Renderer APCache lookup returned an unusable result");
-            }
+            sendErrorIfUncommitted(
+                    response, 422, "Renderer APCache lookup returned an unusable result");
         } catch (RuntimeException e) {
             // Log the throwable: the stack trace is class names and line numbers only (PHI-free),
             // and without it this line reads "type=java.lang.NullPointerException" and nothing else.
             logger.error("Renderer APCache lookup failed: fdid={} cause={}",
                     LogSafe.sanitize(String.valueOf(grant.fdid())),
                     RenderLogRedaction.stackSummary(e));
-            if (!response.isCommitted()) {
-                response.sendError(422,
-                        "Renderer APCache lookup failed");
+            sendErrorIfUncommitted(
+                    response,
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "Renderer APCache lookup failed");
+        }
+    }
+
+    private static RenderRequest validateRequest(
+            HttpServletRequest request, HttpServletResponse response) throws IOException {
+        if (!EFormRendererRequestAuthorization.isLoopback(request.getRemoteAddr())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
+        EFormRenderTokenService.RenderGrant grant =
+                EFormRendererRequestAuthorization.grantFromCookie(request);
+        if (grant == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }
+        String[] requestedKeys = request.getParameterValues("key");
+        if (requestedKeys == null || requestedKeys.length == 0 || requestedKeys.length > MAX_KEYS) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key count");
+            return null;
+        }
+        for (String key : requestedKeys) {
+            if (key == null || !key.matches(KEY_PATTERN)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache key");
+                return null;
             }
+            if (!grant.allowsApKey(key)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return null;
+            }
+        }
+
+        String lookupType = request.getParameter("oscarAPCacheLookupType");
+        if (lookupType != null && !lookupType.matches(KEY_PATTERN)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid APCache lookup type");
+            return null;
+        }
+        return new RenderRequest(grant, List.of(requestedKeys), lookupType);
+    }
+
+    private static List<ApDefinition> loadDefinitions(List<String> requestedKeys)
+            throws ApDefinitionException {
+        // getAP reads a static list that only getInstance() populates (via parseXML). This servlet
+        // resolves keys before it constructs its EForm, so on a JVM whose first eForm touch is a
+        // scheduled render every key would otherwise resolve null and be reported as "not
+        // configured" — misdirecting the operator to apconfig.xml for a load-order bug.
+        EFormLoader.getInstance();
+        List<ApDefinition> definitions = new ArrayList<>(requestedKeys.size());
+        for (String key : requestedKeys) {
+            DatabaseAP ap = EFormLoader.getAP(key);
+            if (ap == null) {
+                throw new ApDefinitionException("APCache key is not configured");
+            }
+            if (DatabaseAP.parserGetNames(ap.getApSQL()).contains("appt_no")) {
+                throw new ApDefinitionException(
+                        "APCache key requires unavailable appointment context");
+            }
+            definitions.add(new ApDefinition(key, ap));
+        }
+        return definitions;
+    }
+
+    private static List<ApResult> executeQueries(
+            EFormRenderTokenService.RenderGrant grant, List<ApDefinition> definitions)
+            throws ApLookupException {
+        EForm form = new EForm(String.valueOf(grant.fdid()));
+        form.setProviderNo(grant.providerNo());
+        List<ApResult> results = new ArrayList<>(definitions.size());
+        for (ApDefinition definition : definitions) {
+            results.add(new ApResult(definition.key(), execute(form, definition.ap())));
+        }
+        return results;
+    }
+
+    private static void writeResponse(
+            HttpServletResponse response, String lookupType, List<ApResult> results)
+            throws IOException {
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Referrer-Policy", "no-referrer");
+        response.setContentType("text/html;charset=UTF-8");
+        try (PrintWriter writer = response.getWriter()) {
+            hidden(writer, "oscarAPCacheLookupType", lookupType);
+            for (ApResult result : results) {
+                hidden(writer, result.key(), result.value());
+            }
+        }
+    }
+
+    private static void sendErrorIfUncommitted(
+            HttpServletResponse response, int status, String message) throws IOException {
+        if (!response.isCommitted()) {
+            response.sendError(status, message);
         }
     }
 
@@ -139,6 +184,15 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
         private static final long serialVersionUID = 1L;
 
         private ApLookupException(String message) {
+            super(message);
+        }
+    }
+
+    /** Raised when this render request cannot safely execute a configured AP definition. */
+    private static final class ApDefinitionException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        private ApDefinitionException(String message) {
             super(message);
         }
     }
@@ -207,5 +261,11 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
     }
 
     private record ApDefinition(String key, DatabaseAP ap) {
+    }
+
+    private record RenderRequest(
+            EFormRenderTokenService.RenderGrant grant,
+            List<String> requestedKeys,
+            String lookupType) {
     }
 }
