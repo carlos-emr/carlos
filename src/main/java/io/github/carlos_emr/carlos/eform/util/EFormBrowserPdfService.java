@@ -972,8 +972,8 @@ public class EFormBrowserPdfService {
     }
 
     /**
-     * Real readiness probe for the hard startup gate: launches the pinned headless Chromium exactly
-     * as a render would (same binary/sandbox/option resolution), navigates to {@code about:blank},
+     * Real readiness probe for the advisory startup check: launches the pinned headless Chromium
+     * exactly as a render would (same binary/sandbox/option resolution), navigates to {@code about:blank},
      * then tears the browser and its chromedriver back down. A real launch is the only honest
      * readiness signal — a mere binary-exists check cannot detect a sandbox that refuses to start
      * or a chromedriver/browser version mismatch, both of which surface only once a session is
@@ -2302,8 +2302,7 @@ public class EFormBrowserPdfService {
     /**
      * Startup-time format validation of {@code eform_pdf_browser_base_url}. A no-op when the
      * property is unset (request-derived URLs cannot be validated before Tomcat serves). Lets the
-     * required-mode startup gate refuse to deploy on a malformed configured base URL — the
-     * deployment decision for that gate is fail-at-deploy, never fail-at-first-fax.
+     * advisory startup check warn immediately about a malformed configured base URL.
      *
      * @throws PDFGenerationException when the configured value fails
      *         {@link #validateRendererBaseUrl}; the message names the property

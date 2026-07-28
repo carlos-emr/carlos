@@ -95,29 +95,26 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > container with `docker run --init` (or tini/dumb-init as PID 1, or a systemd-managed service) so
 > orphans are reaped.
 
-> **Runbook: provision the browser BEFORE deploying.** Because the startup gate below defaults to
-> `required`, deployment ordering matters: install Chromium and a matching chromedriver (and set
-> `eform_pdf_browser_chromium_path` / `eform_pdf_browser_chromedriver_path`) **before** the webapp
-> deploys, or Tomcat will refuse to deploy CARLOS at all. That refusal is the deliberate
-> deployment decision — an EMR whose eForm fax/archive pipeline is known-broken must not start.
-> Verify a new host by deploying to a staging slot with `eform_pdf_browser_startup_check=required`
-> and confirming `eForm browser renderer startup check passed.` in the log. `warn`/`off` are
-> explicit, logged opt-outs for staged rollouts only — never a steady-state configuration.
+> **Runbook: provision the browser before using eForm PDF workflows.** Install Chromium and a
+> matching chromedriver (and set `eform_pdf_browser_chromium_path` /
+> `eform_pdf_browser_chromedriver_path`) before the webapp deploys. CARLOS probes the renderer at
+> startup and logs a warning if it is unavailable, but continues deploying so other application
+> workflows remain available. Confirm `eForm browser renderer startup check passed.` in the log
+> before relying on eForm print/fax/archive.
 
 > **Upgrade notice: Chromium + a matching chromedriver are now required.** The browser renderer is
-> the **only** path that produces saved-eForm fax/archive PDFs — there is no legacy fallback — and
-> the webapp now **refuses to start** when the renderer cannot launch. `EFormBrowserRendererStartupValidator`
-> probes the renderer from `@PostConstruct` by performing a real headless Chromium launch
-> (`EFormBrowserPdfService.verifyRendererReady()` navigates to `about:blank`, then tears the
-> browser down); in the default mode a failed probe throws `IllegalStateException`, which aborts
-> Spring context initialization so Tomcat refuses to deploy the webapp rather than run it with a
-> silently broken eForm print/fax/archive workflow. The mode is selected by
+> the **only** path that produces saved-eForm fax/archive PDFs — there is no legacy fallback.
+> `EFormBrowserRendererStartupValidator` probes the renderer from `@PostConstruct` by performing a
+> real headless Chromium launch (`EFormBrowserPdfService.verifyRendererReady()` navigates to
+> `about:blank`, then tears the browser down). A failed probe logs a warning and allows application
+> startup to continue; eForm print/fax/archive remains unavailable until the renderer is fixed. The
+> probe is controlled by
 > `eform_pdf_browser_startup_check`:
 >
 > | Value | Behavior |
 > |---|---|
-> | `required` (default) | Probe on startup; abort context init (`IllegalStateException`) on failure. |
-> | `warn` | Probe on startup; log an ERROR and continue — the failure surfaces at first render instead. |
+> | `warn` (default) | Probe on startup; log a WARN and continue when the renderer is unavailable. |
+> | `required` | Legacy compatibility value; behaves like `warn` and no longer aborts startup. |
 > | `off` | Skip the probe entirely. Integration-test Spring contexts set this so the gate never launches Chromium in the test JVM. |
 >
 > Before upgrading, install Chromium/Chrome and a matching `chromedriver` (or confirm the host can
@@ -154,7 +151,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 | `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or from `project_home` when no request is available. Must resolve to a loopback host — anything else is rejected. |
 | `eform_pdf_browser_chromium_path` | unset | Absolute path to the Chromium/Chrome binary. |
 | `eform_pdf_browser_chromedriver_path` | unset | Absolute path to a pinned chromedriver. Set this in production. |
-| `eform_pdf_browser_startup_check` | `required` | Startup readiness gate mode: `required` aborts webapp startup on a failed renderer probe, `warn` logs and defers the failure to first render, `off` skips the probe (test contexts). See the upgrade notice above. |
+| `eform_pdf_browser_startup_check` | `warn` | Startup readiness mode: `warn` probes and logs without aborting startup, legacy `required` behaves the same way, and `off` skips the probe (test contexts). See the upgrade notice above. |
 | `eform_pdf_browser_strict_network_gate` | `false` | When `true`, restores the original fail-closed posture where any observed off-origin HTTP request, failed render-critical subresource, or severe page-script console error aborts the whole render. The default (`false`) treats those three as advisory (logged, render proceeds) so the legacy eForm corpus — which routinely references off-origin assets, 404s optional helper scripts/images, and emits benign JS errors — still produces a PDF of what painted. Physical egress containment is unaffected: the dead proxy still blocks off-origin HTTP, and the WebSocket/WebTransport gate, the same-origin main-document requirement, and the unparseable-network-evidence gate stay hard fail-closed regardless of this switch. |
 | `eform_pdf_browser_saved_view_profile_enabled` | `true` | Enables the saved-view dependency profile and renderer-only APCache bridge. Set `false` only as a temporary compatibility rollback while investigating a clinic form; capability/session isolation and all browser containment remain enabled. |
 
@@ -522,8 +519,8 @@ operational configuration matter:
   the known cases; it would resurface for any clinic script that fetches by relative path.
 
 Two further limitations are operational realities of the later hardening work (proxy-aware
-base-URL derivation, the hard startup gate, and per-command WebDriver timeouts), not carryovers
-from PR #3164:
+base-URL derivation, the advisory startup probe, and per-command WebDriver timeouts), not
+carryovers from PR #3164:
 
 - **A rolling upgrade can strand an already-open fax preview.**
   `FaxManagerImpl.resolveAndValidateFilePath` accepts a preview's temp file path only when
