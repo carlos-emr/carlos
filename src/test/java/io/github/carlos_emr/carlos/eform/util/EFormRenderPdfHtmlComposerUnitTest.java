@@ -460,7 +460,9 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 .doesNotContain("signature.js")
                 .contains("signatureControl.initialize=function initialize(){}")
                 .contains("name=\"fdid\" id=\"fdid\" value=\"77\"")
-                .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"");
+                .contains("name=\"demographicNo\" id=\"demographicNo\" value=\"123\"")
+                .contains("window.__carlosEformPdfRender=true;")
+                .contains("/eform/eform-runtime-compat.js");
         assertThat(html.indexOf("/library/jquery/jquery-3.7.1.min.js"))
                 .isLessThan(html.indexOf("/library/jquery/jquery-ui-1.14.2.min.js"));
         assertThat(html.indexOf("/library/jquery/jquery-ui-1.14.2.min.js"))

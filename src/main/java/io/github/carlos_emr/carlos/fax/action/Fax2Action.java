@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
 import io.github.carlos_emr.carlos.fax.dto.FaxJobParams;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -103,7 +104,7 @@ public class Fax2Action extends ActionSupport {
      * server-side {@code sendRedirect()} to {@code prepareFax} that the browser
      * always follows with a GET -- rejecting GET there would break the eForm fax
      * flow. {@code prepareFax} itself only renders an ephemeral temp PDF for review
-     * (via {@link DocumentAttachmentManager#renderEFormWithAttachments}); it does not
+     * (via {@link DocumentAttachmentManager#stageEFormPacketForFaxPreview}); it does not
      * persist a queued fax job or any permanent record.
      *
      * @return the Struts result name for the dispatched operation, or {@link #NONE}
@@ -547,7 +548,7 @@ public class Fax2Action extends ActionSupport {
                     logger.info("Fax staged eForm preview claimed: fdid={} prepareMs={}", transactionId,
                             (System.nanoTime() - prepareStartedNanos) / 1_000_000L);
                 } else try {
-                    io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender rendered =
+                    EformDataManager.EformPdfRender rendered =
                             documentAttachmentManager.stageEFormPacketForFaxPreview(request, response);
                     if (rendered.completeness().hasBlockingOmissions()) {
                         String token = renderApprovalService.issueStagedFaxPreview(request, loggedInInfo,

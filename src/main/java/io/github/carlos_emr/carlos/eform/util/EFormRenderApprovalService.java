@@ -177,11 +177,15 @@ public class EFormRenderApprovalService {
             return null;
         }
         Path path = pending.stagedPreview().claim();
-        if (path == null || !stagedFaxApprovals.asMap().remove(token, pending)) {
+        if (path == null) {
+            // A concurrent duplicate submission owns the claimed file; it must be left intact.
+            return null;
+        }
+        if (!stagedFaxApprovals.asMap().remove(token, pending)) {
             pending.stagedPreview().deleteClaimed();
             return null;
         }
-        if (path == null || !Files.isReadable(path) || !Files.isRegularFile(path)
+        if (!Files.isReadable(path) || !Files.isRegularFile(path)
                 || !PathValidationUtils.isInApplicationTempDirectory(path.toFile())) {
             pending.stagedPreview().deleteClaimed();
             return null;
@@ -270,11 +274,19 @@ public class EFormRenderApprovalService {
         private Path claim() { return claimed.compareAndSet(false, true) ? path : null; }
         private void deleteUnlessClaimed() {
             if (!claimed.get()) {
-                try { Files.deleteIfExists(path); } catch (Exception ignored) { }
+                try {
+                    Files.deleteIfExists(path);
+                } catch (Exception e) {
+                    logger.warn("Unable to delete unclaimed staged fax preview PDF: {}", path, e);
+                }
             }
         }
         private void deleteClaimed() {
-            try { Files.deleteIfExists(path); } catch (Exception ignored) { }
+            try {
+                Files.deleteIfExists(path);
+            } catch (Exception e) {
+                logger.warn("Unable to delete claimed staged fax preview PDF: {}", path, e);
+            }
         }
     }
 

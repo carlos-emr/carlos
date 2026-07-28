@@ -250,11 +250,15 @@ class EFormRenderApprovalServiceUnitTest {
             assertThat(service.consumeStagedFaxPreview(request, user, 42, "123", claimToken))
                     .describedAs("a staged fax preview has no arbitrary wall-clock expiry")
                     .isNotNull();
+            assertThat(java.nio.file.Files.exists(claimed))
+                    .describedAs("the claimed PDF remains available for the fax pipeline")
+                    .isTrue();
 
             String abandonedToken = service.issueStagedFaxPreview(request, user, 42, "123",
                     java.util.Map.of(42, incompleteReport()), abandoned);
             service.invalidateStagedFaxPreviewsForSession(request.getSession().getId());
 
+            assertThat(java.nio.file.Files.exists(claimed)).isTrue();
             assertThat(java.nio.file.Files.exists(abandoned)).isFalse();
             assertThat(service.consumeStagedFaxPreview(request, user, 42, "123", abandonedToken)).isNull();
         } finally {
