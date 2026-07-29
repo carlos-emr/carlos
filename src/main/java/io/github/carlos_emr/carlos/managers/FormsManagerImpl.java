@@ -33,8 +33,6 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -59,8 +57,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
-import io.github.carlos_emr.carlos.form.data.FrmData;
-import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
+import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -315,8 +312,12 @@ public class FormsManagerImpl implements FormsManager {
                 : form.getFormName();
         String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
                 : form.getDemoNo();
-        assertFormForwardPathResolvable(demographicNo, formName);
-        String formPath = buildFormForwardPath(formName, demographicNo, formId);
+        String formPath;
+        try {
+            formPath = FormShortcutRouteResolver.resolve(demographicNo, formName, formId, null, null);
+        } catch (SQLException | IllegalArgumentException e) {
+            throw new PDFGenerationException("An error occurred while resolving the form render path.", e);
+        }
         FormTransportContainer formTransportContainer = null;
         try {
             formTransportContainer = new FormTransportContainer(response, request, formPath);
@@ -330,35 +331,6 @@ public class FormsManagerImpl implements FormsManager {
                     e);
         }
         return formTransportContainer;
-    }
-
-    static String buildFormForwardPath(String formName, String demographicNo, String formId) {
-        return "/form/forwardshortcutname?method=fetch&formname=" + encodeQueryValue(formName)
-                + "&demographic_no=" + encodeQueryValue(demographicNo)
-                + "&formId=" + encodeQueryValue(formId);
-    }
-
-    private static String encodeQueryValue(String value) {
-        return URLEncoder.encode(String.valueOf(value), StandardCharsets.UTF_8);
-    }
-
-    private void assertFormForwardPathResolvable(String demographicNo, String formName) throws PDFGenerationException {
-        try {
-            String[] formPath = new FrmData().getShortcutFormValue(demographicNo, formName);
-            if (formPath == null || formPath.length == 0 || FormViewRoutes.resolveActionPath(formPath[0]) == null) {
-                throw unrenderableFormException(formName, null);
-            }
-        } catch (SQLException | IllegalArgumentException e) {
-            throw unrenderableFormException(formName, e);
-        }
-    }
-
-    private PDFGenerationException unrenderableFormException(String formName, Exception cause) {
-        String message = "Error Details: Form [" + formName + "] could not be converted into a PDF";
-        if (cause == null) {
-            return new PDFGenerationException(message);
-        }
-        return new PDFGenerationException(message, cause);
     }
 
     /**

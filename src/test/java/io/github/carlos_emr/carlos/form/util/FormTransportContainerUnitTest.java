@@ -88,8 +88,8 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
-    @DisplayName("surfaces the nested form error message in the thrown exception")
-    void shouldSurfaceNestedErrorMessage_whenForwardSendsErrorWithMessage() {
+    @DisplayName("does not expose the nested form error message in the thrown exception")
+    void shouldNotExposeNestedErrorMessage_whenForwardSendsErrorWithMessage() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -98,7 +98,7 @@ class FormTransportContainerUnitTest {
         assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/bad"))
                 .isInstanceOf(ServletException.class)
                 .hasMessageContaining("HTTP status 500")
-                .hasMessageContaining("Failed to query form data");
+                .hasMessageNotContaining("Failed to query form data");
 
         assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(outerResponse.getErrorMessage()).isNull();
