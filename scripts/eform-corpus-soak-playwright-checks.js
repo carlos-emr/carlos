@@ -62,11 +62,12 @@ const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
-// Shared eForm Playwright helpers. gotoApp is the repository's guarded navigation path:
-// validateBaseUrl restricts the host to loopback unless explicitly overridden. Using it instead of
-// raw page.goto() is what keeps this script — which
+// Shared eForm Playwright helpers. gotoApp/appUrl are the repository's guarded navigation path:
+// validateBaseUrl restricts the host to loopback unless explicitly overridden, and appUrl rejects a
+// non-root-relative path. Using them instead of raw page.goto() is what keeps this script — which
 // logs in and performs destructive imports and saves — from being a URL-injection sink.
 const {
+  appUrl,
   getLaunchOptions,
   gotoApp,
   validateBaseUrl,

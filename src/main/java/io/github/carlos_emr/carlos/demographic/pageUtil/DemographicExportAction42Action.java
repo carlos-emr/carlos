@@ -3318,14 +3318,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void addDemographicContacts(LoggedInInfo loggedInInfo, String demoNo, Demographics demo) {
-        final int demographicNo;
-        try {
-            demographicNo = Integer.parseInt(demoNo);
-        } catch (NumberFormatException e) {
-            exportError.add("Error! Invalid demographic number for contact export");
-            return;
-        }
-        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(demographicNo, "personal");
+        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(Integer.valueOf(demoNo), "personal");
         DemographicContact demoContact;
 
         //create a list of contactIds
@@ -3445,17 +3438,9 @@ public class DemographicExportAction42Action extends ActionSupport {
     private String fillContactInfo(LoggedInInfo loggedInInfo, Demographics.Contact contact, String contactId, String demoNo, int index, int type) {
         String remainingEmails = "";
         if (type == DemographicContact.TYPE_DEMOGRAPHIC) {
-            final int relatedDemographicNo;
-            try {
-                relatedDemographicNo = Integer.parseInt(contactId);
-            } catch (NumberFormatException e) {
-                exportError.add("Error! Invalid demographic contact (" + index + ") for Patient " + demoNo);
-                return remainingEmails;
-            }
-            Demographic relDemo = new DemographicData().getDemographic(loggedInInfo,
-                    String.valueOf(relatedDemographicNo));
+            Demographic relDemo = new DemographicData().getDemographic(loggedInInfo, contactId);
             HashMap<String, String> relDemoExt = new HashMap<String, String>();
-            relDemoExt.putAll(demographicExtDao().getAllValuesForDemo(relatedDemographicNo));
+            relDemoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(contactId)));
 
             Util.writeNameSimple(contact.addNewName(), relDemo.getFirstName(), relDemo.getLastName());
             if (StringUtils.empty(relDemo.getFirstName())) {

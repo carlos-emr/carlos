@@ -589,7 +589,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             consultationManager.saveConsultationRequest(mockLoggedInInfo, existingRequest);
 
             // Then - extras should be batch persisted since they are new
-            verify(mockConsultationRequestExtDao).batchPersistAtomically(any());
+            verify(mockConsultationRequestExtDao).batchPersist(any());
         }
     }
 
@@ -1435,7 +1435,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             consultationManager.saveOrUpdateExts(TEST_REQUEST_ID, newExtras);
 
             // Then
-            verify(mockConsultationRequestExtDao).batchPersistAtomically(any());
+            verify(mockConsultationRequestExtDao).batchPersist(any());
         }
 
         @Test
@@ -1473,7 +1473,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
             // Then - no merge needed since value unchanged
             verify(mockConsultationRequestExtDao, never()).merge(any());
-            verify(mockConsultationRequestExtDao, never()).batchPersistAtomically(any());
+            verify(mockConsultationRequestExtDao, never()).batchPersist(any());
         }
 
         @Test
@@ -1493,7 +1493,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
             // Then - existing updated via merge, new persisted via batch
             verify(mockConsultationRequestExtDao).merge(existing);
-            verify(mockConsultationRequestExtDao).batchPersistAtomically(any());
+            verify(mockConsultationRequestExtDao).batchPersist(any());
         }
     }
 
