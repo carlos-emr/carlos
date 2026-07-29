@@ -376,7 +376,8 @@ public final class MiscUtils {
 	/**
 	 * Sanitizes a file name to ensure it is safe for use and complies with naming conventions.
 	 *		<p>- Replace spaces with underscores.
-	 * 		<p>- Remove characters outside {@code [a-zA-Z0-9._]}, including hyphens.
+	 * 		<p>- Remove characters outside {@code [a-zA-Z0-9._-]}. Hyphens are kept: deleting them
+	 * 		silently renamed uploads whose on-disk name is the only record of them.
 	 * 		<p>- Collapse repeated dots.
 	 *
 	 * @param fileName The original file name to be sanitized. It must not be {@code null}.

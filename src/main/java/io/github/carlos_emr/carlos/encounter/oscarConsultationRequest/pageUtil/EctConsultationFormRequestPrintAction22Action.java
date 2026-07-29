@@ -46,8 +46,8 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -160,8 +160,21 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             List<EFormData> eForms = consultationManager.getAttachedEForms(reqId);
 
             for (EFormData eFormItem : eForms) {
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
-                alist.add(Files.newInputStream(attachedForm));
+                Path attachedForm;
+                try {
+                    attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
+                } catch (PDFGenerationException e) {
+                    // The renderer's message says why; only this loop knows which attachment.
+                    throw new PDFGenerationException(
+                            "Attached eForm \"" + eFormItem.getFormName() + "\" could not be rendered: " + e.getMessage(), e);
+                }
+                // Register in streams so the finally block below closes it; previously this
+                // stream was created but never added to the cleanup list, leaking one file
+                // descriptor per attached eForm on every print (see attached-forms site below
+                // for the matching leak).
+                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                streams.add(attachedFormStream);
+                alist.add(attachedFormStream);
             }
 
             //attached docs
@@ -239,16 +252,19 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             for (EctFormData.PatientForm formItem : forms) {
                 InputStream attachedFormStream = renderFormAttachment(
                         loggedInInfo, request, response, faxManager, demoNo, formItem);
-                if (attachedFormStream != null) {
-                    streams.add(attachedFormStream);
-                    alist.add(attachedFormStream);
-                }
+                streams.add(attachedFormStream);
+                alist.add(attachedFormStream);
             }
 
             if (alist.size() > 0) {
 
                 bos = new ByteOutputStream();
-                ConcatPDF.concat(alist, bos);
+                int skipped = ConcatPDF.concat(alist, bos);
+                if (skipped > 0) {
+                    // A document PDFBox could not parse was dropped — do not stream a consultation
+                    // packet silently missing content; surface it via the error path below.
+                    throw new IOException(skipped + " document(s) could not be included in the combined consultation PDF.");
+                }
                 if (response.isCommitted()) {
                     throw new IOException("Consultation print response committed before PDF output");
                 }
@@ -267,22 +283,39 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } catch (IOException ioe) {
             error = "IOException";
             exception = ioe;
+        } catch (PDFGenerationException pge) {
+            // Attachment render failures land here with the failing attachment named in the
+            // message (wrapped at the render call sites above) instead of the pre-fix behavior
+            // of a context-free NullPointerException from Files.newInputStream(null).
+            error = "PDFGenerationException";
+            exception = pge;
         } finally {
-            // Cleaning up InputStreams created for concatenation.
+            // Cleaning up InputStreams created for concatenation. A close failure here is
+            // cleanup-only: the response bytes are already written (or the real failure was
+            // captured above), so it must never flip a successful print to the "error" result —
+            // Struts would forward an error JSP into the committed binary response.
             for (InputStream is : streams) {
                 try {
                     is.close();
                 } catch (IOException e) {
-                    error = "IOException";
+                    logger.warn("Failed to close attachment stream after consultation print", e);
                 }
             }
         }
         if (!error.equals("")) {
             logger.error(error + " occured insided ConsultationPrintAction", exception);
+            if (response.isCommitted()) {
+                // The failure occurred after the PDF response was already committed (e.g. an
+                // IOException mid-write from a client abort). Forwarding the "error" JSP now would
+                // append HTML into the committed binary response; nothing more can be done safely.
+                return NONE;
+            }
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         }
-        return null;
+        // Direct-response contract: the PDF bytes were streamed above; NONE (never a named
+        // result or bare null) stops Struts from resolving a view into the binary response.
+        return NONE;
 
     }
 
@@ -292,10 +325,10 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             HttpServletResponse response,
             FaxManager faxManager,
             String demoNo,
-            EctFormData.PatientForm formItem) {
+            EctFormData.PatientForm formItem) throws PDFGenerationException {
+        String formName = formItem == null ? "unknown" : formItem.getFormName();
         try {
             String formDemoNo = formItem.getDemoNo();
-            String formName = formItem.getFormName();
             String formId = formItem.getFormId();
             String formPath = FormShortcutRouteResolver.resolve(
                     formDemoNo, formName, formId, null, null);
@@ -309,20 +342,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
             return Files.newInputStream(attachedForm);
         } catch (SQLException | IOException | ServletException | RuntimeException e) {
-            logger.warn("Skipped consultation print form attachment id={} while rendering PDF package; errorType={}",
-                    safeFormAttachmentId(formItem), e.getClass().getName());
-            return null;
-        }
-    }
-
-    private static String safeFormAttachmentId(EctFormData.PatientForm formItem) {
-        if (formItem == null) {
-            return "unknown";
-        }
-        try {
-            return LogSafe.sanitize(formItem.getFormId());
-        } catch (RuntimeException e) {
-            return "unknown";
+            throw new PDFGenerationException(
+                    "Attached form \"" + formName + "\" could not be rendered: " + e.getMessage(), e);
+        } catch (PDFGenerationException e) {
+            throw new PDFGenerationException(
+                    "Attached form \"" + formName + "\" could not be rendered: " + e.getMessage(), e);
         }
     }
 }
