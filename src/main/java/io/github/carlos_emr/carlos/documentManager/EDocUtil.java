@@ -1410,11 +1410,16 @@ public final class EDocUtil {
 	/**
 	 * Checks if a document with the given filename has already been refiled in the specified queue.
 	 *
+	 * <p>Refile directories are created lazily by {@link #refileDocument(String, String)}.
+	 * A missing directory therefore means that the document has not been refiled, rather
+	 * than that the incoming-document configuration is invalid. Existing non-directory
+	 * paths and other configuration errors still fail validation.</p>
+	 *
 	 * @see #refileDocument(String, String)
 	 * @param filename The original filename of the document.
 	 * @param queueId  The ID of the queue where the document might have been refiled.
 	 * @return {@code true} if a document with the refiled name exists in the queue's refile directory,
-	 * {@code false} otherwise.
+	 * {@code false} otherwise, including when the queue's refile directory does not exist yet.
 	 */
 	public static boolean isDocumentAlreadyRefiledInQueue(String filename, int queueId) {
 		String destFileName = filename;
@@ -1423,7 +1428,10 @@ public final class EDocUtil {
 		}
 
 		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destDir = PathValidationUtils.validateConfiguredDirectory(destPath, "incoming refile directory");
+		File destDir = PathValidationUtils.resolveConfiguredDirectory(destPath, "incoming refile directory");
+		if (destDir == null || !destDir.isDirectory()) {
+			return false;
+		}
 		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
 		return destFile.exists();
 	}

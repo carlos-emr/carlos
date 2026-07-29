@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -90,5 +91,31 @@ class IncomingDocUtilPathValidationTest {
         assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax_deleted", "report.pdf"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Invalid pdfDir");
+    }
+
+    @Test
+    @DisplayName("should report a document as not refiled when the queue refile directory is absent")
+    void shouldReportDocumentNotRefiled_whenRefileDirectoryDoesNotExist() {
+        assertThat(EDocUtil.isDocumentAlreadyRefiledInQueue("report.pdf", 1)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should find a document in an existing queue refile directory")
+    void shouldFindDocument_whenRefiledCopyExists() throws Exception {
+        Path refileDirectory = Files.createDirectories(incomingRoot.resolve("1").resolve("Refile"));
+        Files.createFile(refileDirectory.resolve("Rreport.pdf"));
+
+        assertThat(EDocUtil.isDocumentAlreadyRefiledInQueue("report.pdf", 1)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should reject a refile path that exists as a regular file")
+    void shouldRejectRefilePath_whenItIsNotADirectory() throws Exception {
+        Files.createDirectories(incomingRoot.resolve("1"));
+        Files.createFile(incomingRoot.resolve("1").resolve("Refile"));
+
+        assertThatThrownBy(() -> EDocUtil.isDocumentAlreadyRefiledInQueue("report.pdf", 1))
+            .isInstanceOf(SecurityException.class)
+            .hasMessageContaining("not a directory");
     }
 }
