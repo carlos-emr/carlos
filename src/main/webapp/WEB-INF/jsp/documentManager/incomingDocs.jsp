@@ -83,6 +83,16 @@
         z-index: 2;
     }
 
+    /* Save & Next stays unmistakably grey until a patient is selected;
+       Bootstrap's default disabled state keeps the primary blue and reads as clickable. */
+    #save:disabled {
+        background-color: #adb5bd;
+        border-color: #adb5bd;
+        color: #495057;
+        opacity: 1;
+        cursor: not-allowed;
+    }
+
     .autocomplete_style ul {
         border: 1px solid #aaa;
         margin: 0px;
@@ -521,6 +531,7 @@
             demogObj.value = thisdemoid;
             autodemoObj.value = thisDemoName;
             saveObj.disabled = false;
+            saveObj.removeAttribute('title');
 
         }
 
@@ -1208,7 +1219,8 @@
                             <tr>
                                 <td colspan="2" align="left"><p>
                                     <p><button type="submit" onclick="return checkDocument();" name="save"
-                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm">Save & Next</button></td>
+                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm"
+                                              title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>">Save & Next</button></td>
                             </tr>
                         </table>
                     </form>
@@ -1266,6 +1278,7 @@
                         selectedDemos.push(document.getElementById('autocompletedemo').value);
 
                         document.getElementById('save').disabled = false;
+                        document.getElementById('save').removeAttribute('title');
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
                             var MRPName = document.getElementById('MRPName').value;
