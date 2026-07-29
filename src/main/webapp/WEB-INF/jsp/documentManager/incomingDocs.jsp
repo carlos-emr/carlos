@@ -83,16 +83,6 @@
         z-index: 2;
     }
 
-    /* Save & Next stays unmistakably grey until a patient is selected;
-       Bootstrap's default disabled state keeps the primary blue and reads as clickable. */
-    #save:disabled {
-        background-color: #adb5bd;
-        border-color: #adb5bd;
-        color: #495057;
-        opacity: 1;
-        cursor: not-allowed;
-    }
-
     .autocomplete_style ul {
         border: 1px solid #aaa;
         margin: 0px;
@@ -103,6 +93,20 @@
     .autocomplete_style ul li.selected {
         background-color: #ffa;
         text-decoration: underline;
+    }
+
+    /* Save & Next stays unmistakably grey until a patient is selected; Bootstrap's
+       default disabled state keeps the primary blue and reads as clickable.
+       pointer-events must come back on: Bootstrap's .btn:disabled removes hit testing,
+       which would silently kill both the tooltip and the not-allowed cursor. The
+       disabled attribute still prevents activation, so the button stays unclickable. */
+    #save:disabled {
+        background-color: #adb5bd;
+        border-color: #adb5bd;
+        color: #495057;
+        opacity: 1;
+        cursor: not-allowed;
+        pointer-events: auto;
     }
 
     /* Constrain the left panel so fields don't extend off-page */
@@ -523,6 +527,19 @@
             }
         }
 
+        // The explanatory tooltip belongs to the disabled state only. checkSave() in
+        // demographicProviderAutocomplete.js can re-disable the button when the typed
+        // value no longer matches a selected patient, so the title is restored from the
+        // data attribute rather than being removed permanently.
+        function syncSaveTooltip() {
+            var saveObj = document.getElementById('save');
+            if (saveObj.disabled) {
+                saveObj.setAttribute('title', saveObj.getAttribute('data-disabled-title'));
+            } else {
+                saveObj.removeAttribute('title');
+            }
+        }
+
         function loadRecentDemo(thisdemoid, thisDemoName) {
             var demogObj = document.getElementById('demofind');
             var autodemoObj = document.getElementById('autocompletedemo');
@@ -531,7 +548,7 @@
             demogObj.value = thisdemoid;
             autodemoObj.value = thisDemoName;
             saveObj.disabled = false;
-            saveObj.removeAttribute('title');
+            syncSaveTooltip();
 
         }
 
@@ -1148,7 +1165,7 @@
                                     <input id="saved" type="hidden" name="saved" value="false"/>
                                     <input type="hidden" name="demog" value="-1" id="demofind"/>
                                     <input tabIndex="<%=tabIndex++%>" type="text" id="autocompletedemo"
-                                           onchange="checkSave('')" name="demographicKeyword" style="width:100%;"/>
+                                           onchange="checkSave('');syncSaveTooltip();" name="demographicKeyword" style="width:100%;"/>
                                     <div id="autocomplete_choices" class="autocomplete"></div>
                                 </td>
                             </tr>
@@ -1220,7 +1237,8 @@
                                 <td colspan="2" align="left"><p>
                                     <p><button type="submit" onclick="return checkDocument();" name="save"
                                               tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm"
-                                              title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>">Save & Next</button></td>
+                                              title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>"
+                                              data-disabled-title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>">Save & Next</button></td>
                             </tr>
                         </table>
                     </form>
@@ -1278,7 +1296,7 @@
                         selectedDemos.push(document.getElementById('autocompletedemo').value);
 
                         document.getElementById('save').disabled = false;
-                        document.getElementById('save').removeAttribute('title');
+                        syncSaveTooltip();
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
                             var MRPName = document.getElementById('MRPName').value;

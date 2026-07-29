@@ -152,6 +152,10 @@ public final class IncomingDocUtil {
      * @param directory String the absolute path to the directory to scan for PDF files
      * @return ArrayList of String PDF filenames found in the directory
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: callers pass paths built by getIncomingDocumentFilePath from
+    // validated components, and the candidate is containment-checked against INCOMINGDOCUMENT_DIR
+    // before any filesystem probe.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "callers pass paths built by getIncomingDocumentFilePath from validated components; candidate is containment-checked against INCOMINGDOCUMENT_DIR before any filesystem probe")
     public ArrayList getDocList(String directory) {
         ArrayList<String> docList = new ArrayList<String>();
 
@@ -170,7 +174,10 @@ public final class IncomingDocUtil {
         // A queue subdirectory is only created by the first upload or fax import, so a
         // never-used queue has no directory yet. That is an empty queue, not a
         // configuration error — validating it as one sent fresh installs to the error page.
-        if (!new File(directory).exists()) {
+        // The candidate is still containment-validated before the existence probe.
+        File incomingBaseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File queueDirCandidate = PathValidationUtils.validateChildPath(new File(directory), incomingBaseDir);
+        if (!queueDirCandidate.exists()) {
             return docList;
         }
 
