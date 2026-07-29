@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,6 +49,9 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -224,6 +228,45 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     }
 
     @Test
+    @DisplayName("rejects an eForm packet when an attached lab segment id is malformed")
+    void shouldRejectEformPacket_whenAttachedLabSegmentIdIsMalformed() throws Exception {
+        LabResultData malformedLab = new LabResultData();
+        malformedLab.setSegmentID("BAD");
+        EFormData storedEform = mock(EFormData.class);
+        when(storedEform.getDemographicId()).thenReturn(1);
+        request.setAttribute("fdid", "7");
+        request.setAttribute("demographicId", "1");
+        when(eformDataManager.findByFdid(loggedInInfo, 7)).thenReturn(storedEform);
+        when(eformDataManager.createEformPdfWithCompleteness(loggedInInfo, 7, null))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        basePdf, EFormRenderCompletenessReport.complete()));
+        when(eformDataManager.getHRMDocumentsAttachedToEForm(loggedInInfo, "7", "1"))
+                .thenReturn(new ArrayList<HashMap<String, ? extends Object>>());
+        when(eformDataManager.getFormsAttachedToEForm(loggedInInfo, "7", "1"))
+                .thenReturn(List.of());
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EFormUtil> eFormUtilMock = mockStatic(EFormUtil.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored =
+                        mockEformCommonLabResultData(List.of(malformedLab))) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eFormUtilMock.when(() -> EFormUtil.listPatientEformsCurrentAttachedToEForm("7"))
+                    .thenReturn(List.of());
+            eDocUtilMock.when(() -> EDocUtil.listDocsAttachedToEForm(
+                            loggedInInfo, "1", "7", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            assertThatThrownBy(() -> manager.renderEFormWithAttachments(request, response))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessage("Attached lab could not be rendered because its segment id is invalid.")
+                    .hasCauseInstanceOf(NumberFormatException.class);
+            verify(labManager, never()).renderLab(any(LoggedInInfo.class), any());
+        }
+    }
+
+    @Test
     @DisplayName("warns for unavailable consultdoc rows filtered before rendering")
     void shouldWarnForUnavailableConsultDocs_whenRowsAreFilteredBeforeRendering() throws Exception {
         request.setAttribute("reqId", "9");
@@ -313,6 +356,13 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     private MockedConstruction<CommonLabResultData> mockCommonLabResultData(List<LabResultData> labs) {
         return mockConstruction(CommonLabResultData.class,
                 (mock, context) -> when(mock.populateLabResultsData(any(LoggedInInfo.class), anyString(), anyString(), eq(true)))
+                        .thenReturn(new ArrayList<>(labs)));
+    }
+
+    private MockedConstruction<CommonLabResultData> mockEformCommonLabResultData(List<LabResultData> labs) {
+        return mockConstruction(CommonLabResultData.class,
+                (mock, context) -> when(mock.populateLabResultsDataEForm(
+                                any(LoggedInInfo.class), anyString(), anyString(), eq(true)))
                         .thenReturn(new ArrayList<>(labs)));
     }
 
