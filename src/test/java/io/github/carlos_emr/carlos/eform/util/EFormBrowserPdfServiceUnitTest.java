@@ -1610,11 +1610,14 @@ class EFormBrowserPdfServiceUnitTest {
         @Test
         @DisplayName("should release a render whose only conditions are advisory")
         void shouldRelease_whenOnlyAdvisoryConditionsPresent() {
-            // A page-script error and a suppressed dialog are reported but never withhold, so an
-            // approval is not required and none is supplied.
+            // Suppressed dialogs and failed legacy timers are reported but never withhold, so an
+            // approval is not required and none is supplied. Severe page-script errors are not part
+            // of this fixture because they are blocking.
             EFormRenderCompletenessReport advisoryOnly =
-                    new EFormRenderCompletenessReport(0, 0, 3, 1, false, true, false, false, false);
+                    new EFormRenderCompletenessReport(0, 0, 0, 1, false, true, false, false, false);
 
+            assertThat(advisoryOnly.hasBlockingOmissions()).isFalse();
+            assertThat(advisoryOnly.advisoryIssueCount()).isEqualTo(2);
             assertThat(EFormBrowserPdfService.withholdsDocument(advisoryOnly, null, FDID, PROVIDER))
                     .isFalse();
         }
