@@ -299,6 +299,17 @@ function ex(command,value){
 
 function editControlContents(editorname) {
 	var value = "";
+	// HARD STOP: the stored letter never made it into the editor (see seteditControlContents'
+	// fallback branch). Every caller of this function feeds its result to a save, so returning the
+	// empty editor here is what overwrites a clinician's stored letter with nothing. Throwing
+	// aborts the inline onclick handler before document.RichTextLetter.submit() runs, so the save
+	// cannot proceed. Detection alone was not enough — the previous version only logged.
+	if (window.__carlosEditorLoadFailed) {
+		alert('Saving is disabled for this letter.\n\nThe saved content never loaded into the editor, '
+			+ 'so saving now would erase it. Your stored letter is still intact — close this form '
+			+ 'without saving and contact your administrator.');
+		throw new Error('editControl: refusing to read contents; the stored letter failed to load');
+	}
 	// this function retrieves the HTML contents of the edit control "editorname"
 	if (document.designMode) {
 		// Explorer reformats HTML during document.write() removing quotes on element ID names
@@ -313,7 +324,10 @@ function editControlContents(editorname) {
 }
 
 // this function sets the HTML contents of the edit control "editorname" to "value"
-function seteditControlContents(editorname, value){
+// isStoredContent: true only when restoring a SAVED letter. The new-form template path
+// (populateTemplate) also writes through here before designMode is enabled, and losing a blank
+// template costs nothing — so only a stored-content write that cannot land is treated as data loss.
+function seteditControlContents(editorname, value, isStoredContent){
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
@@ -338,8 +352,31 @@ function seteditControlContents(editorname, value){
 		}
 		return
 	} else {
-		// play nice and at least set the value to the <textarea> if document.designMode does not exist
-		document.getElementById(cfg_editorname).value = value;
+		// Fallback for a browser without designMode, where createEditControl() built a plain
+		// <textarea> instead of an editable iframe. Guard on the element actually being a form
+		// control: assigning .value to an iframe silently discards the letter, which is exactly
+		// how saved letters used to vanish on reopen. Fail loudly instead of losing content.
+		var fallbackTarget = document.getElementById(editorname);
+		if (fallbackTarget && typeof fallbackTarget.value === 'string'
+				&& fallbackTarget.tagName && fallbackTarget.tagName.toLowerCase() !== 'iframe') {
+			// Sanitize here too: the designMode branch above writes `sanitized`, and this branch
+			// must not be the weaker path just because the target is a textarea.
+			fallbackTarget.value = sanitized !== null ? sanitized : value;
+			return
+		}
+		if (typeof console !== 'undefined' && console.error) {
+			console.error('editControl: cannot set editor contents — the editor document is not in '
+				+ 'designMode and the target is not a text control.');
+		}
+		if (isStoredContent) {
+			// A SAVED letter is not in the editor and there is nowhere safe to put it. A console
+			// message is invisible to the clinician, who sees an empty editor for a letter that has
+			// content and may then save over it. Latch a flag editControlContents() refuses to read
+			// past, and say so where it will actually be seen.
+			window.__carlosEditorLoadFailed = true;
+			alert('This letter could not be loaded into the editor.\n\nDo NOT save — your stored letter '
+				+ 'is still intact. Close this form and contact your administrator.');
+		}
 		return
 	}
 }
@@ -1062,8 +1099,14 @@ function submitFaxButton() {
 				contents = contents.replace(/&lt;/g, "<");
 				contents = contents.replace(/&quot;/g, '"');
 				contents = contents.replace(/&amp;/g, "&");
-				seteditControlContents(cfg_editorname, contents);
+				// designMode MUST be enabled BEFORE the contents are written.
+				// seteditControlContents() only writes into the iframe when its document is
+				// already in designMode, and otherwise falls through to a branch that assigns
+				// .value to the iframe element — a no-op. With the two statements in the other
+				// order, reopening a saved letter showed an empty editor, and the toolbar's
+				// save-and-download then persisted that empty editor over the stored letter.
 				document.getElementById(cfg_editorname).contentWindow.document.designMode = 'on';
+				seteditControlContents(cfg_editorname, contents, true);
 			}
 			maximize();
 			

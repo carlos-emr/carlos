@@ -125,7 +125,7 @@ import static org.mockito.Mockito.when;
 @Tag("security")
 @Tag("contract")
 @DisplayName("Mutator 2Action GET/HEAD rejection contract")
-class MutatorActionGetRejectionContractTest {
+class MutatorActionGetRejectionContractUnitTest {
 
     /**
      * Unconditional POST-only mutator 2Actions. Each entry is
@@ -143,6 +143,9 @@ class MutatorActionGetRejectionContractTest {
             // privilege-tuple fields below are left as empty strings — the contract assertion
             // skips the privilege check when hasPrivilege is never invoked.
             Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
+            // (ProEditPhoneNum2Action moved to CONDITIONAL_MUTATORS: EditPhoneNum is a dual view/mutate
+            // route — GET renders providerPhone.jsp, only a POST or GET-with-faxNumber mutation intent
+            // is gated. Its dedicated GET-rejection coverage lives in ProEditPhoneNum2ActionUnitTest.)
             // --- appointment ---
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action",
                     "_appointment", "w"),
@@ -173,6 +176,11 @@ class MutatorActionGetRejectionContractTest {
             // --- encounter / consultation ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
                     "_con", "w"),
+            // execute() renders the consultation PDF and queues per-recipient FaxJobs; it rejects
+            // GET/HEAD unconditionally after the _con/_fax auth checks (CoverPage.jsp POSTs, cancel is
+            // a method=cancel body param). Registered explicitly — the encounter package is not scanned.
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
+                    "_con", "r"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -210,7 +218,12 @@ class MutatorActionGetRejectionContractTest {
                     "_demographic", "w"),
             // --- eform ---
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
-                    "_admin.eform", "w")
+                    "_admin.eform", "w"),
+            // Creates a document from an approved-but-incomplete render, so a GET must not reach
+            // saveDocument. Registered explicitly for the same reason DelEForm2Action is: the eform
+            // package is not in IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan does not find it.
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
+                    "_eform", "u")
         );
     }
 
@@ -240,6 +253,10 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         // Messenger admin: rejects GET on form-save method invocations.
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
+        // Provider phone editor: EditPhoneNum -> providerPhone.jsp is dual-purpose. A GET/HEAD renders
+        // the editor (view); only a POST — or a GET/HEAD carrying the faxNumber mutation param — is
+        // gated (see ProEditPhoneNum2ActionUnitTest for the focused GET-rejection coverage).
+        "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
         // Provider document descriptions: read methods permit GET; write methods are POST-only.
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // Document manager: read methods permit GET; addIncomingDocument is POST-only.
@@ -256,7 +273,13 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
         // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
-        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
+        // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action",
+        // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
+        // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
+        "io.github.carlos_emr.carlos.security.MfaActions2Action"
     );
 
     /**
@@ -335,8 +358,21 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
-        // eform slice: only DelEForm2Action is registered; broader slice audit tracked in issue #2828.
-        "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action"
+        // eform slice: only these are registered; broader slice audit tracked in issue #2828.
+        "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
+        "io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
+        // Fax slice: only Fax2Action is registered; the fax package is not in
+        // IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
+        "io.github.carlos_emr.carlos.fax.action.Fax2Action",
+        // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
+        // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
+        "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
+        // encounter slice: EctConsultationFormFax2Action queues PHI faxes; the encounter package is
+        // not in IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
+        "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
+        // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
+        // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
+        "io.github.carlos_emr.carlos.security.MfaActions2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -570,7 +606,7 @@ class MutatorActionGetRejectionContractTest {
 
         assertThat(unregistered)
             .as("New *2Action classes in the in-scope slices (%s) contain SC_METHOD_NOT_ALLOWED + POST "
-              + "checks but are not registered in MutatorActionGetRejectionContractTest. "
+              + "checks but are not registered in MutatorActionGetRejectionContractUnitTest. "
               + "Register each class in ONE of:\n"
               + "  - unconditionalMutators() — always rejects GET regardless of params\n"
               + "  - CONDITIONAL_MUTATORS     — rejects GET only for specific mutation-intent params "

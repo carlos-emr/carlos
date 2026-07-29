@@ -45,6 +45,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockServletContext;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,7 +72,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("DisplayImage2Action Unit Tests")
 @Tag("unit")
 @Tag("eform")
-class DisplayImage2ActionTest extends CarlosUnitTestBase {
+class DisplayImage2ActionUnitTest extends CarlosUnitTestBase {
     private static final String VACCINE_BRANDS_JSON = "[{\"name\":\"Tdap\",\"value\":\"Adacel\"}]";
 
     @Mock
@@ -195,6 +196,45 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getContentType()).isEqualTo("application/json");
             assertThat(mockResponse.getContentAsString()).isEqualTo("{\"ok\":true}");
+        }
+
+        @Test
+        @DisplayName("should sandbox stored HTML assets served into the authenticated origin")
+        void shouldSandboxHtmlAsset_whenServedToAuthenticatedSession() throws Exception {
+            mockRequest.setParameter("imagefile", "legacy-help.html");
+            Files.writeString(tempDir.resolve("legacy-help.html"),
+                    "<html><body>help</body></html>", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentType()).startsWith("text/html");
+            // A stored asset served as text/html executes in the authenticated origin; the
+            // sandbox directive (no allow-* tokens) strips scripts/forms/origin while keeping
+            // passive embedding working — closing the stored-XSS channel without dropping
+            // legacy html/rtl assets from the allowlist.
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isEqualTo("sandbox");
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        }
+
+        @Test
+        @DisplayName("should set nosniff without a sandbox policy for passive image assets")
+        void shouldSetNosniffOnly_forPassiveImageAsset() throws Exception {
+            mockRequest.setParameter("imagefile", "bg.png");
+            Files.write(tempDir.resolve("bg.png"), new byte[] {1, 2, 3});
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentType()).isEqualTo("image/png");
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
         }
 
 
@@ -337,4 +377,114 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * The editor-asset split. {@code EFormAssetDeployer} treats {@code editControl2.js} as MANAGED
+     * (replaced on startup when the on-disk bytes differ) but {@code blank.rtl} and
+     * {@code editor_help.html} as SEEDED — written once if absent, then never touched, "because a
+     * clinic is expected to customize them". Serving the WAR copy of a seeded asset therefore
+     * discards clinic letterhead silently, which is what these tests pin.
+     */
+    @Nested
+    @DisplayName("Editor asset resolution")
+    class EditorAssetResolution {
+
+        /** A fake exploded WAR so the tests can tell WHICH copy of an asset was served. */
+        private void withBundledAsset(String fileName, String contents) throws Exception {
+            Path warRoot = Files.createTempDirectory("display-image-war-");
+            Path assets = warRoot.resolve("WEB-INF/eform-assets");
+            Files.createDirectories(assets);
+            Files.writeString(assets.resolve(fileName), contents, StandardCharsets.UTF_8);
+            // "file:" prefix is required: MockServletContext resolves its base through a
+            // DefaultResourceLoader, which treats a bare path as CLASSPATH-relative and would silently
+            // resolve every getResourceAsStream to null — making these tests pass vacuously on an
+            // empty response body rather than proving which copy was served.
+            MockHttpServletRequest requestWithWar =
+                    new MockHttpServletRequest(new MockServletContext("file:" + warRoot));
+            requestWithWar.setParameter("imagefile", fileName);
+            mockRequest = requestWithWar;
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+            action = new DisplayImage2Action();
+        }
+
+        @Test
+        @DisplayName("should serve the clinic's customized blank.rtl instead of the bundled copy")
+        void shouldServeClinicTemplate_whenBlankRtlExistsOnDisk() throws Exception {
+            withBundledAsset("blank.rtl", "<html><body>SHIPPED BLANK</body></html>");
+            // The clinic's letterhead, preserved on disk by the deployer's seed-once contract.
+            Files.writeString(tempDir.resolve("blank.rtl"),
+                    "<html><body>CLINIC LETTERHEAD</body></html>", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentAsString())
+                    .as("the on-disk clinic template must win over the WAR copy")
+                    .contains("CLINIC LETTERHEAD")
+                    .doesNotContain("SHIPPED BLANK");
+            // Not sandboxed: the editor loads this into a frame and runs scripts in it. Writing this
+            // directory needs _eform write, which already permits same-origin script via stored form
+            // HTML, so the sandbox would break letterhead without denying anything.
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
+            assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        }
+
+        @Test
+        @DisplayName("should fall back to the bundled template when the clinic has none on disk")
+        void shouldFallBackToBundledTemplate_whenBlankRtlAbsent() throws Exception {
+            withBundledAsset("blank.rtl", "<html><body>SHIPPED BLANK</body></html>");
+            // Deliberately no file in tempDir: a fresh install before the deployer has seeded it.
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentAsString()).contains("SHIPPED BLANK");
+        }
+
+        @Test
+        @DisplayName("should serve the clinic's customized editor_help.html instead of the bundled copy")
+        void shouldServeClinicHelp_whenEditorHelpExistsOnDisk() throws Exception {
+            // SEEDED_EDITOR_ASSETS holds TWO files and only blank.rtl was covered. Verified by
+            // mutation: moving editor_help.html back to BUNDLED_EDITOR_ASSETS — reintroducing this
+            // commit's exact regression for the second file — left the whole class green.
+            withBundledAsset("editor_help.html", "<html><body>SHIPPED HELP</body></html>");
+            Files.writeString(tempDir.resolve("editor_help.html"),
+                    "<html><body>CLINIC HELP</body></html>", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentAsString())
+                    .contains("CLINIC HELP")
+                    .doesNotContain("SHIPPED HELP");
+            assertThat(mockResponse.getHeader("Content-Security-Policy")).isNull();
+        }
+
+        @Test
+        @DisplayName("should keep serving the bundled editControl2.js even when a local copy exists")
+        void shouldServeBundledEditor_whenLocalEditControlExists() throws Exception {
+            withBundledAsset("editControl2.js", "// SHIPPED EDITOR");
+            // A local edit to a MANAGED asset is unsupported and reverted by the deployer on startup,
+            // so the WAR copy must still win — this is the half of the split that must NOT change.
+            Files.writeString(tempDir.resolve("editControl2.js"), "// LOCAL EDIT", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getContentAsString())
+                    .contains("SHIPPED EDITOR")
+                    .doesNotContain("LOCAL EDIT");
+        }
+    }
 }

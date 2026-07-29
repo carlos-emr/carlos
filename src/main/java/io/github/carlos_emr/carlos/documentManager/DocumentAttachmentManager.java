@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.documentManager;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -226,6 +228,25 @@ public interface DocumentAttachmentManager {
     public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId) throws PDFGenerationException;
 
     /**
+     * eForm-aware overload of {@link #renderDocument(LoggedInInfo, DocumentType, Integer)} that
+     * accepts a server-issued approval for an exact incomplete eForm render.
+     *
+     * @param approval exact, short-lived approval capability; ignored for non-eForm documents
+     */
+    public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
+     * Renders an eForm and returns the observed completeness with the PDF, for callers that can
+     * show the reader what the render reported.
+     *
+     * <p>eForm-only by design: completeness reporting is a property of the browser render surface,
+     * and the other document types have no equivalent. Kept separate from the {@code renderDocument}
+     * overloads so their many call sites are unaffected.</p>
+     */
+    public EformDataManager.EformPdfRender renderEform(
+            LoggedInInfo loggedInInfo, Integer eFormId, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
      * Renders a consultation form along with all its associated attachments as a single PDF.
      *
      * <p>This method generates a comprehensive PDF document that includes the consultation request
@@ -256,6 +277,25 @@ public interface DocumentAttachmentManager {
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 
     /**
+     * Overload of {@link #renderEFormWithAttachments(HttpServletRequest, HttpServletResponse)} that
+     * accepts exact approvals collected for incomplete eForms in the composite document.
+     *
+     * @param approval short-lived capability bound to the approved eForm issue digests
+     */
+    public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
+     * Renders the eForm packet and returns the merged completeness with it.
+     *
+     * <p>Advisory conditions no longer withhold a document, so without this the reader would receive
+     * a possibly-truncated PDF with no indication anything was reported. Merged across the primary
+     * form and every attached eForm, so an attachment's advisory is not silently dropped.</p>
+     */
+    public EformDataManager.EformPdfRender renderEFormPacketWithCompleteness(
+            HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval)
+            throws PDFGenerationException;
+
+    /**
      * Converts an electronic form (eForm) to an electronic document (eDoc) for permanent archival.
      *
      * <p>This method renders an eForm as a PDF and saves it as an electronic document in the
@@ -272,6 +312,12 @@ public interface DocumentAttachmentManager {
      * @throws PDFGenerationException if an error occurs during the PDF rendering or document saving process
      */
     public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
+
+    /**
+     * Archives the eForm packet as an eDoc using an exact approval for a refused render.
+     */
+    public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response,
+            EFormRenderApproval approval) throws PDFGenerationException;
 
     /**
      * Converts a PDF document to Base64-encoded string representation.
