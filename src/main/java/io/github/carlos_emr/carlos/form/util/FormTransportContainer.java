@@ -44,15 +44,15 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.struts2.ActionContext;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc.DocumentType;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * @author denniswarren
@@ -64,7 +64,6 @@ public class FormTransportContainer {
 
     private CapturingResponseWrapper responseWrapper;
 
-    private HttpServletRequestWrapper requestWrapper;
     private final static DocumentType documentType = DocumentType.form;
     private final String HTML;
     private final String contextPath;
@@ -79,6 +78,21 @@ public class FormTransportContainer {
 //	private final Map<String, String[]> modifiableParameters;
 //	private Map<String, String[]> allParameters = new TreeMap<>();
 
+    /**
+     * Forwards to a form route and captures the rendered HTML without allowing nested response
+     * operations to modify the caller's servlet response.
+     *
+     * <p>The Struts response context is temporarily replaced with a capturing wrapper while the
+     * forward runs, then restored before this constructor returns or throws. Nested redirects,
+     * errors, headers, cookies, and content length changes are captured locally and do not leak to
+     * the caller response.</p>
+     *
+     * @param response caller response that must remain uncommitted during nested form rendering
+     * @param request caller request used to dispatch the internal form route
+     * @param formPath application-relative form route to forward to, or {@code null} for the legacy shortcut route
+     * @throws ServletException when the nested form route cannot render successfully
+     * @throws IOException when the servlet container fails during forwarding
+     */
     public FormTransportContainer(HttpServletResponse response,
                                   HttpServletRequest request, final String formPath) throws ServletException, IOException {
 
@@ -98,12 +112,7 @@ public class FormTransportContainer {
             }
         }
         if (responseWrapper.isUnrenderableStatus()) {
-            String failureMessage = "Form rendering failed with HTTP status " + responseWrapper.getStatus();
-            String nestedError = responseWrapper.getErrorMessage();
-            if (nestedError != null && !nestedError.isBlank()) {
-                failureMessage += ": " + nestedError;
-            }
-            throw new ServletException(failureMessage);
+            throw new ServletException("Form rendering failed with HTTP status " + responseWrapper.getStatus());
         }
 
         this.HTML = responseWrapper.toString();
@@ -178,6 +187,7 @@ public class FormTransportContainer {
     }
 
     private static final class CapturingResponseWrapper extends HttpServletResponseWrapper {
+        private static final String CHARSET_PARAMETER_PREFIX = "charset=";
         private final StringWriter stringWriter = new StringWriter();
         private final PrintWriter writer = new PrintWriter(stringWriter);
         private final ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
@@ -216,7 +226,7 @@ public class FormTransportContainer {
         private Locale locale;
         private int bufferSize;
         private Supplier<Map<String, String>> trailerFields;
-        private String errorMessage;
+        private boolean committed;
         private boolean writerAccessed;
         private boolean outputStreamAccessed;
 
@@ -250,37 +260,43 @@ public class FormTransportContainer {
         @Override
         public void sendError(int statusCode) {
             this.status = statusCode;
-            this.errorMessage = null;
+            this.committed = true;
         }
 
         @Override
         public void sendError(int statusCode, String message) {
             this.status = statusCode;
-            this.errorMessage = message;
-        }
-
-        String getErrorMessage() {
-            return errorMessage;
+            this.committed = true;
         }
 
         @Override
         public void sendRedirect(String location) {
             this.status = HttpServletResponse.SC_FOUND;
+            this.committed = true;
         }
 
         @Override
         public void sendRedirect(String location, boolean clearBuffer) {
+            if (clearBuffer) {
+                resetBuffer();
+            }
             this.status = HttpServletResponse.SC_FOUND;
+            this.committed = true;
         }
 
         @Override
         public void sendRedirect(String location, int statusCode) {
             this.status = statusCode;
+            this.committed = true;
         }
 
         @Override
         public void sendRedirect(String location, int statusCode, boolean clearBuffer) {
+            if (clearBuffer) {
+                resetBuffer();
+            }
             this.status = statusCode;
+            this.committed = true;
         }
 
         @Override
@@ -296,19 +312,25 @@ public class FormTransportContainer {
         @Override
         public void flushBuffer() {
             writer.flush();
+            committed = true;
         }
 
         @Override
         public void resetBuffer() {
+            if (committed) {
+                throw new IllegalStateException("Cannot reset buffer after response has been committed");
+            }
             stringWriter.getBuffer().setLength(0);
             outputBytes.reset();
         }
 
         @Override
         public void reset() {
+            if (committed) {
+                throw new IllegalStateException("Cannot reset response after it has been committed");
+            }
             resetBuffer();
             status = HttpServletResponse.SC_OK;
-            errorMessage = null;
             writerAccessed = false;
             outputStreamAccessed = false;
             resetMetadata();
@@ -316,7 +338,7 @@ public class FormTransportContainer {
 
         @Override
         public boolean isCommitted() {
-            return false;
+            return committed;
         }
 
         @Override
@@ -367,9 +389,6 @@ public class FormTransportContainer {
         @Override
         public void setContentType(String contentType) {
             this.contentType = contentType;
-            // A content type may carry the response charset (e.g. "text/html; charset=UTF-8").
-            // Honour it locally so captured output-stream bytes decode with the form's charset
-            // instead of the inherited caller encoding.
             String charsetFromContentType = extractCharset(contentType);
             if (charsetFromContentType != null) {
                 this.characterEncoding = charsetFromContentType;
@@ -423,7 +442,10 @@ public class FormTransportContainer {
         }
 
         boolean isUnrenderableStatus() {
-            return status >= HttpServletResponse.SC_MULTIPLE_CHOICES;
+            return status < HttpServletResponse.SC_OK
+                    || status == HttpServletResponse.SC_NO_CONTENT
+                    || status == HttpServletResponse.SC_RESET_CONTENT
+                    || status >= HttpServletResponse.SC_MULTIPLE_CHOICES;
         }
 
         @Override
@@ -457,10 +479,9 @@ public class FormTransportContainer {
             }
             for (String parameter : contentType.split(";")) {
                 String trimmed = parameter.trim();
-                // Case-insensitive prefix match on the "charset=" parameter name (HTTP tokens are
-                // case-insensitive); regionMatches avoids locale-sensitive case folding.
-                if (trimmed.regionMatches(true, 0, "charset=", 0, "charset=".length())) {
-                    String charset = trimmed.substring("charset=".length()).trim();
+                if (trimmed.regionMatches(true, 0, CHARSET_PARAMETER_PREFIX, 0,
+                        CHARSET_PARAMETER_PREFIX.length())) {
+                    String charset = trimmed.substring(CHARSET_PARAMETER_PREFIX.length()).trim();
                     if (charset.length() >= 2 && charset.charAt(0) == '"'
                             && charset.charAt(charset.length() - 1) == '"') {
                         charset = charset.substring(1, charset.length() - 1).trim();

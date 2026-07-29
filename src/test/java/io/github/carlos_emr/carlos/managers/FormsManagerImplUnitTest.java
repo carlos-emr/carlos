@@ -47,12 +47,13 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(NioFileManager.class, org.mockito.Mockito.mock(NioFileManager.class));
-        registerMock(EncounterFormDao.class, encounterFormDao);
         EncounterForm encounterForm = new EncounterForm();
         encounterForm.setFormName("Annual");
-        encounterForm.setFormValue("form/formannual.jsp");
         encounterForm.setFormTable("");
-        when(encounterFormDao.findByFormName("Annual")).thenReturn(Collections.singletonList(encounterForm));
+        encounterForm.setFormValue("../form/formannual.jsp?demographic_no=");
+        org.mockito.Mockito.lenient().when(encounterFormDao.findByFormName(any()))
+                .thenReturn(Collections.singletonList(encounterForm));
+        registerMock(EncounterFormDao.class, encounterFormDao);
         manager = new FormsManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "encounterFormDao", encounterFormDao);

@@ -45,11 +45,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -131,6 +133,13 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        EncounterFormDao encounterFormDao = mock(EncounterFormDao.class);
+        EncounterForm encounterForm = new EncounterForm();
+        encounterForm.setFormName("Rourke Growth Chart");
+        encounterForm.setFormTable("");
+        encounterForm.setFormValue("../form/formrourke.jsp?demographic_no=");
+        org.mockito.Mockito.lenient().when(encounterFormDao.findByFormName(any())).thenReturn(List.of(encounterForm));
+        registerMock(EncounterFormDao.class, encounterFormDao);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
