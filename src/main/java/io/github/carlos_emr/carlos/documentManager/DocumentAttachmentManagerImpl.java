@@ -675,16 +675,18 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             Path result = preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList, demographicId);
             cleanupRenderedTempInputs(pdfDocumentList, result);
             long packetCompletedNanos = System.nanoTime();
-            logger.info("eForm packet timing: fdid={} primaryRenderMs={} attachmentLookupMs={} "
-                            + "attachmentRenderMs={} mergeMs={} totalMs={} attachments={}",
-                    LogSafe.sanitize(fdid),
-                    (primaryRenderedNanos - packetStartedNanos) / 1_000_000L,
-                    (attachmentsLocatedNanos - primaryRenderedNanos) / 1_000_000L,
-                    (attachmentsRenderedNanos - attachmentsLocatedNanos) / 1_000_000L,
-                    (packetCompletedNanos - attachmentsRenderedNanos) / 1_000_000L,
-                    (packetCompletedNanos - packetStartedNanos) / 1_000_000L,
-                    attachedEForms.size() + attachedEDocs.size() + attachedLabs.size()
-                            + attachedHRMs.size() + attachedForms.size());
+            if (logger.isInfoEnabled()) {
+                logger.info("eForm packet timing: fdid={} primaryRenderMs={} attachmentLookupMs={} "
+                                + "attachmentRenderMs={} mergeMs={} totalMs={} attachments={}",
+                        LogSafe.sanitize(fdid),
+                        (primaryRenderedNanos - packetStartedNanos) / 1_000_000L,
+                        (attachmentsLocatedNanos - primaryRenderedNanos) / 1_000_000L,
+                        (attachmentsRenderedNanos - attachmentsLocatedNanos) / 1_000_000L,
+                        (packetCompletedNanos - attachmentsRenderedNanos) / 1_000_000L,
+                        (packetCompletedNanos - packetStartedNanos) / 1_000_000L,
+                        attachedEForms.size() + attachedEDocs.size() + attachedLabs.size()
+                                + attachedHRMs.size() + attachedForms.size());
+            }
             return new EformDataManager.EformPdfRender(result, packetCompleteness,
                     Map.copyOf(formCompleteness));
         } catch (PDFGenerationException | RuntimeException e) {

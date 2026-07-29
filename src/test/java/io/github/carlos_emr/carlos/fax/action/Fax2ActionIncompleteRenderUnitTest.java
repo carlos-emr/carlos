@@ -60,12 +60,12 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         when(faxManager.getFaxGatewayAccounts(loggedInInfo))
                 .thenReturn(List.of(mock(FaxConfig.class)));
-        when(documentAttachmentManager.stageEFormPacketForFaxPreview(eq(request), eq(response)))
+        when(documentAttachmentManager.stageEFormPacketForFaxPreview(request, response))
                 .thenReturn(new io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender(
                         Path.of("staged-eform.pdf"), report, Map.of(42, report)));
         when(approvalService.issueStagedFaxPreview(
-                eq(request), eq(loggedInInfo), eq(42), eq("123"), eq(Map.of(42, report)),
-                eq(Path.of("staged-eform.pdf"))))
+                request, loggedInInfo, 42, "123", Map.of(42, report),
+                Path.of("staged-eform.pdf")))
                 .thenReturn("exact-approval-token");
 
         registerMock(FaxManager.class, faxManager);

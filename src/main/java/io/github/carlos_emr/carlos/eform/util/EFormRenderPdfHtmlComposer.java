@@ -95,6 +95,7 @@ public final class EFormRenderPdfHtmlComposer {
             "imagecontrol.js", "signaturecontrol.js", "signaturecontrol.jsp", "signaturecontrol",
             "eform_floating_toolbar.js", "eform_floating_toolbar");
     private static final String EDITOR_BOOTSTRAP_CALL = "insertEditControl()";
+    private static final String SCRIPT_TAG = "script";
     /**
      * Case-insensitive matchers for {@link #hardenLetterHtml}, deliberately ASCII-only.
      *
@@ -580,14 +581,14 @@ public final class EFormRenderPdfHtmlComposer {
             dependencies.add(script(contextPath + "/library/jquery/jquery-ui-1.14.2.min.js"));
             dependencies.add(script(contextPath + "/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"));
         }
-        Element rendererMarker = new Element(Tag.valueOf("script"), "");
+        Element rendererMarker = new Element(Tag.valueOf(SCRIPT_TAG), "");
         // The compatibility shim is also loaded by the interactive viewer. This marker is set
         // before it runs so the shim can make the one render-only exception for the legacy delayed
         // auto-submit callback without changing clinician-facing eForm behaviour.
         rendererMarker.append("window.__carlosEformPdfRender=true;");
         dependencies.add(rendererMarker);
         dependencies.add(script(contextPath + "/eform/eform-runtime-compat.js"));
-        Element signatureCompatibility = new Element(Tag.valueOf("script"), "");
+        Element signatureCompatibility = new Element(Tag.valueOf(SCRIPT_TAG), "");
         signatureCompatibility.append(
                 "window.signatureControl=window.signatureControl||{};"
                 + "window.signatureControl.initialize=function initialize(){};");
@@ -684,7 +685,7 @@ public final class EFormRenderPdfHtmlComposer {
      * ships its own implementation keeps it.</p>
      */
     private static void installStrippedEditorShim(Document document) {
-        Element shim = new Element(Tag.valueOf("script"), "");
+        Element shim = new Element(Tag.valueOf(SCRIPT_TAG), "");
         shim.append(
                 "(function(){\n"
                 + "  var w = window;\n"
@@ -736,7 +737,7 @@ public final class EFormRenderPdfHtmlComposer {
     }
 
     private static Element script(String source) {
-        Element element = new Element(Tag.valueOf("script"), "");
+        Element element = new Element(Tag.valueOf(SCRIPT_TAG), "");
         element.attr("type", "text/javascript");
         element.attr("src", source);
         return element;

@@ -950,9 +950,6 @@ public class EFormBrowserPdfService {
             logger.error("Browser eForm renderer I/O failure: fdid={} baseUrl={} type={} error={}",
                     fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException("Unable to prepare files for the browser PDF renderer.", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new PDFGenerationException("Browser rendering was interrupted while generating the eForm PDF.", e);
         } catch (RuntimeException e) {
             // Deliberately no catch (IllegalArgumentException e) here: that would re-widen this
             // handler back over the whole render body and risk mislabeling an unrelated IAE (e.g.
@@ -1329,7 +1326,7 @@ public class EFormBrowserPdfService {
      *         exactly the ones that print half-assembled.
      * @throws PDFGenerationException if the page reported a stabilization error
      */
-    boolean settle(ChromeDriver driver, long deadlineNanos, int fdid) throws InterruptedException, PDFGenerationException {
+    boolean settle(ChromeDriver driver, long deadlineNanos, int fdid) throws PDFGenerationException {
         // Deferred one-shot timers are tracked by eform-runtime-compat.js and awaited by
         // STABILIZE_ASYNC_JS below.  Do not impose a blind grace sleep here: static forms
         // can proceed after the same measured quiet-window check as dynamic forms.

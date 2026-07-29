@@ -99,6 +99,7 @@ class EFormJspMigrationRegressionTest {
                 .contains("form.dataset.submitting === \"true\"")
                 .contains("submit.disabled = true")
                 .contains("spinner-border-sm")
+                .contains("<output id=\"approve-incomplete-eform-fax-status\"")
                 .contains("fax.eformMissingContent.btnPreparingFax")
                 .contains("aria-live=\"polite\"");
     }

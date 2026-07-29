@@ -95,9 +95,9 @@
                     <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                 </button>
             </form>
-            <span id="approve-incomplete-eform-fax-status" class="visually-hidden" role="status" aria-live="polite">
+            <output id="approve-incomplete-eform-fax-status" class="visually-hidden" aria-live="polite" form="approve-incomplete-eform-fax">
                 <fmt:message key="fax.eformMissingContent.btnPreparingFax"/>
-            </span>
+            </output>
             <%-- history.back() is correct HERE, unlike the eForm page: this flow is rendered by
                  Fax2Action against an already-stored document and never calls saveEformData, so
                  going back returns to the fax dialog without risking a duplicate eform_data row. --%>

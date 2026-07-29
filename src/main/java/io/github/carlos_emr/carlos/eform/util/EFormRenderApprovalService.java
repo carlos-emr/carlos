@@ -169,11 +169,14 @@ public class EFormRenderApprovalService {
         if (token == null || token.isBlank() || request.getSession(false) == null) return null;
         String providerNo = requireProvider(loggedInInfo);
         PendingApproval pending = stagedFaxApprovals.asMap().get(token);
-        if (pending == null || pending.stagedPreview() == null
+        if (pending == null) {
+            return null;
+        }
+        if (pending.stagedPreview() == null
                 || !pending.sessionId().equals(request.getSession(false).getId())
                 || !pending.providerNo().equals(providerNo) || pending.fdid() != fdid
                 || !pending.demographicNo().equals(demographicNo) || pending.operation() != Operation.FAX) {
-            if (pending != null) stagedFaxApprovals.invalidate(token);
+            stagedFaxApprovals.invalidate(token);
             return null;
         }
         Path path = pending.stagedPreview().claim();
