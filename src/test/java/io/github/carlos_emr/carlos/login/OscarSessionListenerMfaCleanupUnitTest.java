@@ -22,6 +22,7 @@ import java.util.Collections;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -32,13 +33,15 @@ import static org.mockito.Mockito.when;
 @DisplayName("OscarSessionListener pending MFA cleanup")
 class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
     private CasemgmtNoteLockDao casemgmtNoteLockDao;
+    private EFormRenderApprovalService eFormRenderApprovalService;
 
     @BeforeEach
     void setUp() {
         casemgmtNoteLockDao = mock(CasemgmtNoteLockDao.class);
         registerMock(CasemgmtNoteLockDao.class, casemgmtNoteLockDao);
         registerMock(UserSessionManager.class, mock(UserSessionManager.class));
-        registerMock(EFormRenderApprovalService.class, mock(EFormRenderApprovalService.class));
+        eFormRenderApprovalService = mock(EFormRenderApprovalService.class);
+        registerMock(EFormRenderApprovalService.class, eFormRenderApprovalService);
     }
 
     @Test
@@ -55,6 +58,7 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
             new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
 
             assertThat(PendingMfaChallengeCache.getInstance().peek(token)).isNull();
+            verify(eFormRenderApprovalService).invalidateStagedFaxPreviewsForSession(session.getId());
         } finally {
             PendingMfaChallengeCache.getInstance().invalidate(token);
         }

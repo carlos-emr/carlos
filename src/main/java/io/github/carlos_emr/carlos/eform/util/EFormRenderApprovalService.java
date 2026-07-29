@@ -130,7 +130,7 @@ public class EFormRenderApprovalService {
                 requestFdid,
                 Objects.requireNonNull(demographicNo, "demographicNo must not be null"),
                 Objects.requireNonNull(operation, "operation must not be null"),
-                Map.copyOf(issueDigests),
+                Map.copyOf(issueDigests), 0,
                 clock.instant().plus(TTL), null));
         logger.info(
                 "Incomplete eForm render approval requested: fdid={} provider={} operation={} issues={} approvedForms={}",
@@ -140,8 +140,10 @@ public class EFormRenderApprovalService {
 
     /** Stores a completed, non-deliverable fax preview beside its exact one-time approval. */
     public String issueStagedFaxPreview(HttpServletRequest request, LoggedInInfo loggedInInfo, int fdid,
-            String demographicNo, Map<Integer, EFormRenderCompletenessReport> formReports, Path path) {
+            String demographicNo, Map<Integer, EFormRenderCompletenessReport> formReports,
+            int advisoryIssueCount, Path path) {
         if (formReports == null || formReports.values().stream().noneMatch(EFormRenderCompletenessReport::hasBlockingOmissions)
+                || advisoryIssueCount < 0
                 || path == null || !Files.isRegularFile(path)
                 || !PathValidationUtils.isInApplicationTempDirectory(path.toFile())) {
             throw new IllegalArgumentException("A staged fax preview requires an incomplete application-temporary PDF");
@@ -157,7 +159,7 @@ public class EFormRenderApprovalService {
         String token = generateToken();
         stagedFaxApprovals.put(token, new PendingApproval(session.getId(), providerNo, fdid,
                 Objects.requireNonNull(demographicNo, "demographicNo must not be null"), Operation.FAX,
-                Map.copyOf(digests), Instant.MAX, new StagedFaxPreview(path)));
+                Map.copyOf(digests), advisoryIssueCount, Instant.MAX, new StagedFaxPreview(path)));
         logger.info("Incomplete eForm fax preview staged: fdid={} provider={} approvedForms={}",
                 fdid, providerNo, digests.size());
         return token;
@@ -184,17 +186,17 @@ public class EFormRenderApprovalService {
             // A concurrent duplicate submission owns the claimed file; it must be left intact.
             return null;
         }
-        if (!stagedFaxApprovals.asMap().remove(token, pending)) {
-            pending.stagedPreview().deleteClaimed();
-            return null;
-        }
+        // Claim transfers ownership to this invocation. Cache invalidation may race this removal,
+        // but the removal listener deliberately leaves claimed files alone; do not destroy the
+        // legitimate fax input merely because its bookkeeping entry was already removed.
+        stagedFaxApprovals.asMap().remove(token, pending);
         if (!Files.isReadable(path) || !Files.isRegularFile(path)
                 || !PathValidationUtils.isInApplicationTempDirectory(path.toFile())) {
             pending.stagedPreview().deleteClaimed();
             return null;
         }
         return new StagedFaxPreview(path, new EFormRenderApproval(pending.providerNo(), pending.demographicNo(),
-                pending.operation(), pending.issueDigests(), Instant.MAX));
+                pending.operation(), pending.issueDigests(), Instant.MAX), pending.advisoryIssueCount());
     }
 
     /**
@@ -266,15 +268,18 @@ public class EFormRenderApprovalService {
     public static final class StagedFaxPreview {
         private final Path path;
         private final EFormRenderApproval approval;
+        private final int advisoryIssueCount;
         private final AtomicBoolean claimed = new AtomicBoolean();
 
-        private StagedFaxPreview(Path path) { this(path, null); }
-        private StagedFaxPreview(Path path, EFormRenderApproval approval) {
+        private StagedFaxPreview(Path path) { this(path, null, 0); }
+        private StagedFaxPreview(Path path, EFormRenderApproval approval, int advisoryIssueCount) {
             this.path = path;
             this.approval = approval;
+            this.advisoryIssueCount = advisoryIssueCount;
         }
         public Path path() { return path; }
         public EFormRenderApproval approval() { return approval; }
+        public int advisoryIssueCount() { return advisoryIssueCount; }
         private Path claim() { return claimed.compareAndSet(false, true) ? path : null; }
         private void deleteUnlessClaimed() {
             if (!claimed.get()) {
@@ -301,6 +306,7 @@ public class EFormRenderApprovalService {
             String demographicNo,
             Operation operation,
             Map<Integer, String> issueDigests,
+            int advisoryIssueCount,
             Instant expiresAt,
             StagedFaxPreview stagedPreview) {
     }

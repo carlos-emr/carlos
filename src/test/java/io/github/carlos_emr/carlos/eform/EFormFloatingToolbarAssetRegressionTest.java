@@ -148,6 +148,17 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should stop tracking a counted timeout when form code cancels it")
+    void shouldReleaseCountedTimeout_whenClearedBeforeRunning() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        assertThat(compat)
+                .contains("var countedTimeouts = new Set()")
+                .contains("window.clearTimeout = function clearTimeoutCompatible(handle)")
+                .contains("countedTimeouts.delete(handle)");
+    }
+
+    @Test
     @DisplayName("should suppress only the known delayed auto-submit callback on the PDF render surface")
     void shouldSuppressOnlyKnownAutoSubmit_whenRenderingPdf() throws IOException {
         String compat = read(RUNTIME_COMPAT_JS);

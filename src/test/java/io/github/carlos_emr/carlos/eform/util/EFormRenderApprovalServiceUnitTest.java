@@ -241,21 +241,25 @@ class EFormRenderApprovalServiceUnitTest {
         java.nio.file.Path root = java.nio.file.Path.of(
                 System.getProperty("java.io.tmpdir"), "carlos-temp");
         java.nio.file.Files.createDirectories(root);
-        java.nio.file.Path claimed = java.nio.file.Files.createTempFile(root, "staged-fax-", ".pdf");
-        java.nio.file.Path abandoned = java.nio.file.Files.createTempFile(root, "staged-fax-", ".pdf");
+        java.nio.file.Path testRoot = java.nio.file.Files.createTempDirectory(root, "staged-fax-test-");
+        java.nio.file.Path claimed = java.nio.file.Files.createTempFile(testRoot, "claimed-", ".pdf");
+        java.nio.file.Path abandoned = java.nio.file.Files.createTempFile(testRoot, "abandoned-", ".pdf");
         try {
             String claimToken = service.issueStagedFaxPreview(request, user, 42, "123",
-                    java.util.Map.of(42, incompleteReport()), claimed);
+                    java.util.Map.of(42, incompleteReport()), 1, claimed);
             now.set(start.plus(java.time.Duration.ofHours(3)));
-            assertThat(service.consumeStagedFaxPreview(request, user, 42, "123", claimToken))
+            EFormRenderApprovalService.StagedFaxPreview staged =
+                    service.consumeStagedFaxPreview(request, user, 42, "123", claimToken);
+            assertThat(staged)
                     .describedAs("a staged fax preview has no arbitrary wall-clock expiry")
                     .isNotNull();
+            assertThat(staged.advisoryIssueCount()).isEqualTo(1);
             assertThat(java.nio.file.Files.exists(claimed))
                     .describedAs("the claimed PDF remains available for the fax pipeline")
                     .isTrue();
 
             String abandonedToken = service.issueStagedFaxPreview(request, user, 42, "123",
-                    java.util.Map.of(42, incompleteReport()), abandoned);
+                    java.util.Map.of(42, incompleteReport()), 0, abandoned);
             service.invalidateStagedFaxPreviewsForSession(request.getSession().getId());
 
             assertThat(java.nio.file.Files.exists(claimed)).isTrue();
@@ -264,6 +268,7 @@ class EFormRenderApprovalServiceUnitTest {
         } finally {
             java.nio.file.Files.deleteIfExists(claimed);
             java.nio.file.Files.deleteIfExists(abandoned);
+            java.nio.file.Files.deleteIfExists(testRoot);
         }
     }
 

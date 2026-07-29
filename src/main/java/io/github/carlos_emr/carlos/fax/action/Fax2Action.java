@@ -544,7 +544,7 @@ public class Fax2Action extends ActionSupport {
                 }
                 if (stagedPreview != null) {
                     pdfPath = stagedPreview.path();
-                    request.setAttribute("advisoryIssues", 0);
+                    request.setAttribute("advisoryIssues", stagedPreview.advisoryIssueCount());
                     logger.info("Fax staged eForm preview claimed: fdid={} prepareMs={}", transactionId,
                             (System.nanoTime() - prepareStartedNanos) / 1_000_000L);
                 } else try {
@@ -552,7 +552,8 @@ public class Fax2Action extends ActionSupport {
                             documentAttachmentManager.stageEFormPacketForFaxPreview(request, response);
                     if (rendered.completeness().hasBlockingOmissions()) {
                         String token = renderApprovalService.issueStagedFaxPreview(request, loggedInInfo,
-                                transactionId, String.valueOf(demographicNo), rendered.formCompleteness(), rendered.path());
+                                transactionId, String.valueOf(demographicNo), rendered.formCompleteness(),
+                                rendered.completeness().advisoryIssueCount(), rendered.path());
                         request.setAttribute("renderApproval", token);
                         request.setAttribute("missingContentMessage", EFORM_FAX_MISSING_CONTENT_MESSAGE);
                         request.setAttribute("transactionType", transactionType.name());

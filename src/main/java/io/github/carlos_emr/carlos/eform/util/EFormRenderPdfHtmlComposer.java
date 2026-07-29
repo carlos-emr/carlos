@@ -40,8 +40,9 @@ import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
-import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -145,9 +146,7 @@ public final class EFormRenderPdfHtmlComposer {
         try {
             return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, renderToken);
         } catch (IllegalStateException e) {
-            // fdid is a PHI-correlating identifier (joins back to the patient's saved eForm data);
-            // sanitize it before logging alongside the (already PHI-free) failure reason.
-            logger.error("eForm PDF composition failed: fdid={} reason={}", LogSafe.sanitize(String.valueOf(formDataId)), e.getMessage());
+            logger.error("EFORM_PDF_COMPOSITION_FAILED");
             throw e;
         }
     }
@@ -360,8 +359,14 @@ public final class EFormRenderPdfHtmlComposer {
             for (String parameter : query.split("&")) {
                 int separator = parameter.indexOf('=');
                 if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
-                    files.add(URLDecoder.decode(
-                            parameter.substring(separator + 1), StandardCharsets.UTF_8));
+                    try {
+                        String decoded = URLDecoder.decode(
+                                parameter.substring(separator + 1), StandardCharsets.UTF_8);
+                        files.add(PathValidationUtils.validatePathComponent(decoded, "imagefile"));
+                    } catch (IllegalArgumentException | FileValidationException ignored) {
+                        // Stored forms can outlive malformed asset references. Do not abort the
+                        // document, and never grant a render capability for an unsafe value.
+                    }
                 }
             }
         }

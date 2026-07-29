@@ -926,7 +926,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             }
             flattenedTemp = null;
         } catch (IOException e) {
-            throw new PDFGenerationException("Error while flattening the " + pdfPath.getFileName() + " file. " + e.getMessage(), e);
+            logger.warn("PDF form flattening failed: type={}", e.getClass().getName());
+            throw new PDFGenerationException("Unable to flatten PDF form fields.");
         } finally {
             if (flattenedTemp != null) {
                 try {

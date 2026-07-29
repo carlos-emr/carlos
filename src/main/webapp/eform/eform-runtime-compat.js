@@ -19,7 +19,9 @@
     }
 
     var nativeSetTimeout = window.setTimeout;
+    var nativeClearTimeout = window.clearTimeout;
     var nativeSetInterval = window.setInterval;
+    var countedTimeouts = new Set();
     var status = {
         installed: false,
         failed: false,
@@ -154,20 +156,32 @@
             }
             return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
         }
-        return nativeTimer.call(receiver, function runScheduledTimer() {
-            try {
-                if (typeof handler === "string") {
-                    return executeStringCallback(handler);
+        var handle;
+        try {
+            handle = nativeTimer.call(receiver, function runScheduledTimer() {
+                try {
+                    if (typeof handler === "string") {
+                        return executeStringCallback(handler);
+                    }
+                    return handler.apply(receiver, callbackArguments);
+                } finally {
+                    // delete() makes completion and cancellation mutually exclusive: whichever
+                    // happens first owns the one matching decrement.
+                    if (counted && countedTimeouts.delete(handle)) {
+                        status.pending -= 1;
+                    }
                 }
-                return handler.apply(receiver, callbackArguments);
-            } finally {
-                // finally, not after the call: a failing callback must not leak the count and leave
-                // the renderer waiting for a timer that already ran.
-                if (counted) {
-                    status.pending -= 1;
-                }
+            }, delay);
+        } catch (error) {
+            if (counted) {
+                status.pending -= 1;
             }
-        }, delay);
+            throw error;
+        }
+        if (counted) {
+            countedTimeouts.add(handle);
+        }
+        return handle;
     }
 
     /**
@@ -207,6 +221,12 @@
                 handler,
                 delay,
                 Array.prototype.slice.call(arguments, 2));
+    };
+    window.clearTimeout = function clearTimeoutCompatible(handle) {
+        if (countedTimeouts.delete(handle)) {
+            status.pending -= 1;
+        }
+        return nativeClearTimeout.call(window, handle);
     };
     window.setInterval = function setIntervalCompatible(handler, delay) {
         return schedule(

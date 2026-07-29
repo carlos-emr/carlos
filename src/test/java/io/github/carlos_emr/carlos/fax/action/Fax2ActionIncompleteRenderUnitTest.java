@@ -64,7 +64,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
                 .thenReturn(new io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender(
                         Path.of("staged-eform.pdf"), report, Map.of(42, report)));
         when(approvalService.issueStagedFaxPreview(
-                request, loggedInInfo, 42, "123", Map.of(42, report),
+                request, loggedInInfo, 42, "123", Map.of(42, report), 1,
                 Path.of("staged-eform.pdf")))
                 .thenReturn("exact-approval-token");
 
@@ -90,7 +90,8 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("timerCompatibilityFailure")).isEqualTo(true);
         assertThat(response.isCommitted()).isFalse();
         verify(approvalService).issueStagedFaxPreview(
-                request, loggedInInfo, 42, "123", Map.of(42, report), Path.of("staged-eform.pdf"));
+                request, loggedInInfo, 42, "123", Map.of(42, report), 1,
+                Path.of("staged-eform.pdf"));
     }
 
     @Test

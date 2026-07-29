@@ -421,6 +421,8 @@ class EFormRenderPdfHtmlComposerUnitTest {
                 + "imagefile=background%20one.png&amp;v=1\">"
                 + "<link href=\"/carlos/EFormImageViewForPdfGenerationServlet?"
                 + "v=1&imagefile=form.css\">"
+                + "<img src=\"/carlos/EFormImageViewForPdfGenerationServlet?imagefile=..%2Fsecret.png\">"
+                + "<img src=\"/carlos/EFormImageViewForPdfGenerationServlet?imagefile=%ZZ\">"
                 + "<img src=\"/other?imagefile=not-authorized.png\">";
 
         assertThat(EFormRenderPdfHtmlComposer.referencedImageFiles(html))
