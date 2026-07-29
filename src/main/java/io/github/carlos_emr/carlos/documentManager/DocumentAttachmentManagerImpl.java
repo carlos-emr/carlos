@@ -940,8 +940,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs,
             ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
         for (LabResultData lab : attachedLabs) {
-            Path path = renderDocument(
-                    loggedInInfo, DocumentType.LAB, Integer.parseInt(lab.getSegmentID()));
+            int labId;
+            try {
+                labId = Integer.parseInt(lab == null ? null : lab.getSegmentID());
+            } catch (NumberFormatException e) {
+                throw new PDFGenerationException(
+                        "Attached lab could not be rendered because its segment id is invalid.", e);
+            }
+            Path path = renderDocument(loggedInInfo, DocumentType.LAB, labId);
             pdfDocumentList.add(path.toString());
         }
     }
