@@ -167,6 +167,13 @@ public final class IncomingDocUtil {
             }
         };
 
+        // A queue subdirectory is only created by the first upload or fax import, so a
+        // never-used queue has no directory yet. That is an empty queue, not a
+        // configuration error — validating it as one sent fresh installs to the error page.
+        if (!new File(directory).exists()) {
+            return docList;
+        }
+
         File dir = PathValidationUtils.validateConfiguredDirectory(directory, "incoming document directory");
         File[] listOfFiles = dir.listFiles(pdfFilter);
         if (listOfFiles != null) {
@@ -224,8 +231,11 @@ public final class IncomingDocUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String getIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
-        // Validate pdfName to prevent path traversal
-        pdfName = PathValidationUtils.validateStrictFileName(pdfName);
+        // Validate pdfName without normalizing it: this resolves an EXISTING queued file,
+        // so the on-disk name must be preserved exactly. Normalizing here rewrote names
+        // containing spaces or parentheses (e.g. "scan (1).pdf" -> "scan_1.pdf") and made
+        // every such uploaded document unresolvable — viewer, page count, rotate, delete.
+        pdfName = validatePathComponent(pdfName, "pdfName");
         
         String filePathName = getIncomingDocumentFilePath(queueId, pdfDir);
         
