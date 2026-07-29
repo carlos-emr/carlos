@@ -78,11 +78,12 @@ public interface EformDataManager {
      * Renders an eForm and returns the observed completeness alongside the PDF.
      *
      * <p>Use this where the caller can show the result to a clinician. A render that raises only
-     * advisory conditions — an uncaught exception from the form's own script — produces a PDF and
-     * never blocks, but the reader still needs to know the page reported an error, because a script
-     * that aborted midway leaves no other visible trace. Callers that stream bytes with no room for
-     * a notice (fax, direct download) can keep using {@link #createEformPDF(LoggedInInfo, int,
-     * EFormRenderApproval)}; the condition is recorded in the render log either way.</p>
+     * advisory conditions — suppressed browser interactions or failed legacy timers — produces a
+     * PDF and never blocks, but the reader still needs to know those conditions occurred. A severe
+     * page-script error is blocking because it can leave derived content incomplete, and proceeds
+     * only with an exact approval. Callers that stream bytes with no room for a notice (fax, direct
+     * download) can keep using {@link #createEformPDF(LoggedInInfo, int, EFormRenderApproval)}; the
+     * condition is recorded in the render log either way.</p>
      */
     public EformPdfRender createEformPdfWithCompleteness(
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException;
