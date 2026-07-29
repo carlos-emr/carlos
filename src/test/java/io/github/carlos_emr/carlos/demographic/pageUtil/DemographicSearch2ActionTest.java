@@ -177,4 +177,73 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
             assertThat(result).isNotEqualTo("apptResults");
         }
     }
+
+    @Nested
+    @DisplayName("Patient List Mode")
+    class PatientListMode {
+
+        @BeforeEach
+        void allowAccess() {
+            allowPrivilege("_demographic", "r");
+        }
+
+        @Test
+        @DisplayName("should show recent patients for a blank active search")
+        void shouldShowRecentPatients_forBlankActiveSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "active");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should preserve recent patients for a blank search with default status")
+        void shouldShowRecentPatients_forBlankSearchWithDefaultStatus() throws Exception {
+            addRequestParameter("keyword", "");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should search all patients for a blank all-status search")
+        void shouldSearchAllPatients_forBlankAllStatusSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should search inactive patients for a blank inactive search")
+        void shouldSearchInactivePatients_forBlankInactiveSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "inactive");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should search matching patients for a populated active search")
+        void shouldSearchMatchingPatients_forPopulatedActiveSearch() throws Exception {
+            addRequestParameter("keyword", "fake");
+            addRequestParameter("ptstatus", "active");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+    }
 }
