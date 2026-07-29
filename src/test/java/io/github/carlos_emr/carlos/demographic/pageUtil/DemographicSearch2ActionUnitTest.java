@@ -51,7 +51,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class DemographicSearch2ActionTest extends CarlosWebTestBase {
+class DemographicSearch2ActionUnitTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
     private static final File WEBAPP_ROOT = PathValidationUtils.resolveTrustedPath(
