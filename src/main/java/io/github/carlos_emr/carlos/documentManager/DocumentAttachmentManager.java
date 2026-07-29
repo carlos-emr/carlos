@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.documentManager;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -59,6 +61,7 @@ public interface DocumentAttachmentManager {
      * @param documentType DocumentType the type of documents to retrieve
      * @param demographicNo Integer the patient's unique demographic identifier
      * @return List&lt;String&gt; list of document identifiers attached to the consultation
+     * @throws SecurityException if the user lacks the required "_con" read privilege
      */
     public List<String> getConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, DocumentType documentType, Integer demographicNo);
 
@@ -118,6 +121,7 @@ public interface DocumentAttachmentManager {
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo);
 
@@ -146,6 +150,7 @@ public interface DocumentAttachmentManager {
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's unique demographic identifier
      * @param editOnOcean Boolean true if the consultation was created by OceanMD and requires automatic synchronization, false for standard attach/detach operations
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean);
 
@@ -226,6 +231,25 @@ public interface DocumentAttachmentManager {
     public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId) throws PDFGenerationException;
 
     /**
+     * eForm-aware overload of {@link #renderDocument(LoggedInInfo, DocumentType, Integer)} that
+     * accepts a server-issued approval for an exact incomplete eForm render.
+     *
+     * @param approval exact, short-lived approval capability; ignored for non-eForm documents
+     */
+    public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
+     * Renders an eForm and returns the observed completeness with the PDF, for callers that can
+     * show the reader what the render reported.
+     *
+     * <p>eForm-only by design: completeness reporting is a property of the browser render surface,
+     * and the other document types have no equivalent. Kept separate from the {@code renderDocument}
+     * overloads so their many call sites are unaffected.</p>
+     */
+    public EformDataManager.EformPdfRender renderEform(
+            LoggedInInfo loggedInInfo, Integer eFormId, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
      * Renders a consultation form along with all its associated attachments as a single PDF.
      *
      * <p>This method generates a comprehensive PDF document that includes the consultation request
@@ -256,6 +280,25 @@ public interface DocumentAttachmentManager {
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
 
     /**
+     * Overload of {@link #renderEFormWithAttachments(HttpServletRequest, HttpServletResponse)} that
+     * accepts exact approvals collected for incomplete eForms in the composite document.
+     *
+     * @param approval short-lived capability bound to the approved eForm issue digests
+     */
+    public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException;
+
+    /**
+     * Renders the eForm packet and returns the merged completeness with it.
+     *
+     * <p>Advisory conditions no longer withhold a document, so without this the reader would receive
+     * a possibly-truncated PDF with no indication anything was reported. Merged across the primary
+     * form and every attached eForm, so an attachment's advisory is not silently dropped.</p>
+     */
+    public EformDataManager.EformPdfRender renderEFormPacketWithCompleteness(
+            HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval)
+            throws PDFGenerationException;
+
+    /**
      * Converts an electronic form (eForm) to an electronic document (eDoc) for permanent archival.
      *
      * <p>This method renders an eForm as a PDF and saves it as an electronic document in the
@@ -272,6 +315,12 @@ public interface DocumentAttachmentManager {
      * @throws PDFGenerationException if an error occurs during the PDF rendering or document saving process
      */
     public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
+
+    /**
+     * Archives the eForm packet as an eDoc using an exact approval for a refused render.
+     */
+    public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response,
+            EFormRenderApproval approval) throws PDFGenerationException;
 
     /**
      * Converts a PDF document to Base64-encoded string representation.

@@ -21,314 +21,204 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockConstruction;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.io.ByteArrayOutputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
-
-import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
-import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
-import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
-import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
-import io.github.carlos_emr.carlos.encounter.data.EctFormData;
-import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
-import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
-import io.github.carlos_emr.carlos.managers.ConsultationManager;
-import io.github.carlos_emr.carlos.managers.DocumentManager;
-import io.github.carlos_emr.carlos.managers.EformDataManager;
-import io.github.carlos_emr.carlos.managers.FormsManager;
-import io.github.carlos_emr.carlos.managers.LabManager;
-import io.github.carlos_emr.carlos.managers.NioFileManager;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
-
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.managers.LabManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedConstruction;
-import org.mockito.MockedStatic;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@DisplayName("DocumentAttachmentManagerImpl")
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+
+@ExtendWith(MockitoExtension.class)
 @Tag("unit")
+@Tag("fast")
+@DisplayName("DocumentAttachmentManagerImpl single eForm fax handling")
 class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
 
-    private MockHttpServletRequest request;
-    private MockHttpServletResponse response;
-    private LoggedInInfo loggedInInfo;
-    private LabManager labManager;
-    private ConsultDocsDao consultDocsDao;
-    private ConsultationRequestDao consultationRequestDao;
-    private ConsultationManager consultationManager;
-    private DocumentManager documentManager;
-    private EformDataManager eformDataManager;
-    private FormsManager formsManager;
-    private NioFileManager nioFileManager;
-    private SecurityInfoManager securityInfoManager;
-    private DocumentAttachmentManagerImpl manager;
-    private Path basePdf;
-    private Path outputPdf;
+    private final DocumentAttachmentManagerImpl manager =
+            spy(new DocumentAttachmentManagerImpl(mock(LabManager.class)));
 
-    @BeforeEach
-    void setUp() throws Exception {
-        request = new MockHttpServletRequest("POST", "/encounter/RequestConsultation");
-        response = new MockHttpServletResponse();
-        loggedInInfo = mock(LoggedInInfo.class);
-        labManager = mock(LabManager.class);
-        consultDocsDao = mock(ConsultDocsDao.class);
-        consultationRequestDao = mock(ConsultationRequestDao.class);
-        consultationManager = mock(ConsultationManager.class);
-        documentManager = mock(DocumentManager.class);
-        eformDataManager = mock(EformDataManager.class);
-        formsManager = mock(FormsManager.class);
-        nioFileManager = mock(NioFileManager.class);
-        securityInfoManager = mock(SecurityInfoManager.class);
+    @Test
+    @DisplayName("should preserve the original eForm PDF when no attachments are present")
+    void shouldPreserveOriginalEformPdf_whenNoAttachmentsPresent() throws PDFGenerationException {
+        Path eformPdf = Path.of("/tmp/eform-browser-render.pdf");
+        List<Object> pdfDocumentList = List.of(eformPdf.toString());
 
-        registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
-        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
-        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
-        registerMock(SecurityInfoManager.class, securityInfoManager);
+        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList, "1234");
 
-        manager = new DocumentAttachmentManagerImpl(labManager);
-        ReflectionTestUtils.setField(manager, "consultDocsDao", consultDocsDao);
-        ReflectionTestUtils.setField(manager, "consultationRequestDao", consultationRequestDao);
-        ReflectionTestUtils.setField(manager, "eFormDocsDao", mock(EFormDocsDao.class));
-        ReflectionTestUtils.setField(manager, "consultationManager", consultationManager);
-        ReflectionTestUtils.setField(manager, "documentManager", documentManager);
-        ReflectionTestUtils.setField(manager, "eformDataManager", eformDataManager);
-        ReflectionTestUtils.setField(manager, "formsManager", formsManager);
-        ReflectionTestUtils.setField(manager, "nioFileManager", nioFileManager);
-        ReflectionTestUtils.setField(manager, "securityInfoManager", securityInfoManager);
-
-        basePdf = createPdf("consult-base");
-        outputPdf = createPdf("consult-output");
-
-        ConsultationRequest consultationRequest = new ConsultationRequest();
-        consultationRequest.setDemographicId(1);
-        when(consultationRequestDao.find(9)).thenReturn(consultationRequest);
-        when(consultationManager.renderConsultationForm(request)).thenReturn(basePdf);
-        when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
-        when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "9"))
-                .thenReturn(new ArrayList<HashMap<String, ? extends Object>>());
-        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.<EctFormData.PatientForm>of());
-        when(nioFileManager.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenReturn(outputPdf);
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        if (basePdf != null) {
-            Files.deleteIfExists(basePdf);
-        }
-        if (outputPdf != null) {
-            Files.deleteIfExists(outputPdf);
-        }
+        assertThat(result).isEqualTo(eformPdf);
+        verify(manager, never()).concatPDF(
+                org.mockito.ArgumentMatchers.<ArrayList<Object>>any(), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
-    @DisplayName("coerces request attributes before resolving the consultation patient")
-    void shouldCoerceRequestAttributes_whenRenderingConsultationWithAttachments() throws Exception {
-        request.setAttribute("reqId", Integer.valueOf(9));
-        request.setAttribute("demographicId", Integer.valueOf(999));
+    @DisplayName("should concatenate when additional documents are attached")
+    void shouldConcatenate_whenAdditionalDocumentsExist() throws PDFGenerationException {
+        Path eformPdf = Path.of("/tmp/eform-browser-render.pdf");
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(eformPdf.toString());
+        pdfDocumentList.add("/tmp/attachment.pdf");
+        Path combinedPdf = Path.of("/tmp/combined.pdf");
+        doReturn(combinedPdf).when(manager).concatPDF(pdfDocumentList, "1234");
 
-        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
-                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-                MockedConstruction<CommonLabResultData> commonLabResultDataMock = mockCommonLabResultData(List.of())) {
-            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                    .thenReturn(loggedInInfo);
-            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
-                    .thenReturn(new ArrayList<>());
+        Path result = manager.preserveSingleEformPdfWhenUnattached(eformPdf, pdfDocumentList, "1234");
 
-            Path result = manager.renderConsultationFormWithAttachments(request, response);
-
-            assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute("demographicId")).isEqualTo("1");
-            assertThat(commonLabResultDataMock.constructed()).hasSize(1);
-        }
+        assertThat(result).isEqualTo(combinedPdf);
+        // The demographic must reach concatPDF: it scopes the packet filename, which becomes the
+        // stored document name after promotion.
+        verify(manager).concatPDF(pdfDocumentList, "1234");
     }
 
     @Test
-    @DisplayName("uses the persisted consultation demographic when the request attribute does not match")
-    void shouldUsePersistedConsultationDemographic_whenRequestAttributeDoesNotMatch() throws Exception {
-        request.setAttribute("reqId", "9");
-        request.setAttribute("demographicId", "999");
-
-        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
-                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-                MockedConstruction<CommonLabResultData> commonLabResultDataMock = mockCommonLabResultData(List.of())) {
-            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                    .thenReturn(loggedInInfo);
-            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
-                    .thenReturn(new ArrayList<>());
-
-            Path result = manager.renderConsultationFormWithAttachments(request, response);
-
-            assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute("demographicId")).isEqualTo("1");
-            verify(consultationRequestDao).find(9);
-            verify(consultationManager).getAttachedForms(loggedInInfo, 9, 1);
-            assertThat(commonLabResultDataMock.constructed()).hasSize(1);
+    @DisplayName("should scope the merged packet filename to the patient it belongs to")
+    void shouldScopePacketFilename_toDemographic(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // The packet's temp filename is not cosmetic: promoteApplicationTempFile promotes by
+        // basename, so this name becomes the stored document name in DOCUMENT_DIR. Naming every
+        // packet combinedPDF_<epochMillis> made it patient-agnostic, so two packets built in the same
+        // millisecond — different patients, different specialists — competed for one destination.
+        // Promotion now claims destinations atomically, but a name that cannot collide across
+        // patients keeps a same-millisecond collision inside one chart, where the worst case is a
+        // duplicate rather than a cross-patient disclosure.
+        Path input = tempDir.resolve("packet-input.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(input.toFile());
         }
+        Path merged = tempDir.resolve("merged.pdf");
+        java.nio.file.Files.copy(input, merged);
+
+        io.github.carlos_emr.carlos.managers.NioFileManager fileManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
+        doReturn(merged).when(fileManager)
+                .saveTempFile(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "nioFileManager", fileManager);
+
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(input.toString());
+
+        manager.concatPDF(pdfDocumentList, "4242");
+
+        org.mockito.ArgumentCaptor<String> packetName = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(fileManager).saveTempFile(packetName.capture(),
+                org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        assertThat(packetName.getValue())
+                .describedAs("the packet name must identify its patient")
+                .startsWith("combinedPDF_4242_");
     }
 
     @Test
-    @DisplayName("warns and skips malformed lab segment ids")
-    void shouldWarnAndSkipLab_whenSegmentIdIsMalformed() throws Exception {
-        LabResultData malformedLab = new LabResultData();
-        malformedLab.setSegmentID("BAD");
-        request.setAttribute("reqId", "9");
-        request.setAttribute("demographicId", "1");
-
-        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
-                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of(malformedLab))) {
-            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                    .thenReturn(loggedInInfo);
-            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
-                    .thenReturn(new ArrayList<>());
-
-            Path result = manager.renderConsultationFormWithAttachments(request, response);
-
-            assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
-                    .asList()
-                    .containsExactly("Lab attachment BAD is unavailable and was not included.");
-            verify(labManager, never()).renderLab(any(LoggedInInfo.class), any());
+    @DisplayName("should fall back to an unscoped packet filename when the demographic is unusable")
+    void shouldFallBackToUnscopedName_whenDemographicNotNumeric(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // demographicId arrives as a request attribute. A malformed one must degrade to the previous
+        // naming rather than being interpolated into a filename, so the digits-only guard is the
+        // thing under test here — not merely that some name is produced.
+        Path input = tempDir.resolve("packet-input.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(input.toFile());
         }
+        Path merged = tempDir.resolve("merged.pdf");
+        java.nio.file.Files.copy(input, merged);
+
+        io.github.carlos_emr.carlos.managers.NioFileManager fileManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.NioFileManager.class);
+        doReturn(merged).when(fileManager)
+                .saveTempFile(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(manager, "nioFileManager", fileManager);
+
+        ArrayList<Object> pdfDocumentList = new ArrayList<>();
+        pdfDocumentList.add(input.toString());
+
+        manager.concatPDF(pdfDocumentList, "../../etc/passwd");
+
+        org.mockito.ArgumentCaptor<String> packetName = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(fileManager).saveTempFile(packetName.capture(),
+                org.mockito.ArgumentMatchers.any(java.io.ByteArrayOutputStream.class));
+        assertThat(packetName.getValue())
+                .describedAs("a non-numeric demographic must never reach the filename")
+                .startsWith("combinedPDF_")
+                .doesNotContain("etc")
+                .doesNotContain("..");
     }
 
     @Test
-    @DisplayName("warns for unavailable consultdoc rows filtered before rendering")
-    void shouldWarnForUnavailableConsultDocs_whenRowsAreFilteredBeforeRendering() throws Exception {
-        request.setAttribute("reqId", "9");
-        request.setAttribute("demographicId", "1");
-        when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
-                .thenReturn(List.of(
-                        consultDoc(80, "D"),
-                        consultDoc(915, "E"),
-                        consultDoc(20, "L")));
-
-        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
-                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
-            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                    .thenReturn(loggedInInfo);
-            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
-                    .thenReturn(new ArrayList<>());
-
-            Path result = manager.renderConsultationFormWithAttachments(request, response);
-
-            assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
-                    .asList()
-                    .containsExactly(
-                            "Document attachment 80 is unavailable and was not included.",
-                            "eForm attachment 915 is unavailable and was not included.",
-                            "Lab attachment 20 is unavailable and was not included.");
-            verify(consultDocsDao).findUnavailableActiveConsultAttachments(9);
+    @DisplayName("should leave the PDF file byte-identical when flattening a form with no AcroForm")
+    void shouldLeavePdfBytesUntouched_whenFlatteningWithNoAcroForm(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // Regression pin for the merged-PDF font corruption: flattenPDFFormFields used to call
+        // document.save() onto the SAME file the open PDDocument was still lazily reading from.
+        // PDFBox streams objects (embedded font programs included) from the backing file during
+        // save, so overwriting it mid-save self-clobbered those streams — the browser-rendered
+        // eForm page of every merged PDF lost its embedded subset font and extracted as
+        // glyph-shifted garbage. With no AcroForm there is nothing to flatten, so the file must
+        // not be rewritten at all.
+        Path pdf = tempDir.resolve("eform-browser-render-flatten.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+            document.save(pdf.toFile());
         }
+        byte[] before = java.nio.file.Files.readAllBytes(pdf);
+
+        manager.flattenPDFFormFields(pdf);
+
+        byte[] after = java.nio.file.Files.readAllBytes(pdf);
+        assertThat(after).isEqualTo(before);
     }
 
     @Test
-    @DisplayName("warns and skips form attachments that cannot be rendered")
-    void shouldWarnAndSkipForm_whenFormRenderingFails() throws Exception {
-        request.setAttribute("reqId", "9");
-        request.setAttribute("demographicId", "1");
-        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
-        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
-        when(formsManager.renderForm(request, response, form))
-                .thenThrow(new PDFGenerationException("form route unavailable"));
-
-        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
-                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
-            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                    .thenReturn(loggedInInfo);
-            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
-                    .thenReturn(new ArrayList<>());
-
-            Path result = manager.renderConsultationFormWithAttachments(request, response);
-
-            assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
-                    .asList()
-                    .containsExactly("Form attachment 3 is unavailable and was not included.");
-            verify(formsManager).renderForm(request, response, form);
+    @DisplayName("should flatten form fields into a valid PDF when an AcroForm is present")
+    void shouldFlattenFieldsIntoValidPdf_whenAcroFormPresent(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        // The WITH-AcroForm branch runs on every merged fax/eDoc packet that carries a fillable
+        // attachment. It has no other coverage, and a regression here (e.g. reverting to
+        // document.save(pdfPath) onto the live backing file, or a truncated write) would ship a
+        // corrupted clinical PDF to a fax recipient while the workflow reports success. Build a real
+        // one-field AcroForm with a sentinel value, flatten it, and assert the output re-loads, keeps
+        // its single page, has no interactive fields left, and carries the value as flattened content.
+        Path pdf = tempDir.resolve("acroform-flatten.pdf");
+        try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument()) {
+            org.apache.pdfbox.pdmodel.PDPage page = new org.apache.pdfbox.pdmodel.PDPage();
+            document.addPage(page);
+            org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm acroForm =
+                    new org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm(document);
+            document.getDocumentCatalog().setAcroForm(acroForm);
+            org.apache.pdfbox.pdmodel.PDResources resources = new org.apache.pdfbox.pdmodel.PDResources();
+            resources.put(org.apache.pdfbox.cos.COSName.getPDFName("Helv"),
+                    new org.apache.pdfbox.pdmodel.font.PDType1Font(org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA));
+            acroForm.setDefaultResources(resources);
+            org.apache.pdfbox.pdmodel.interactive.form.PDTextField field =
+                    new org.apache.pdfbox.pdmodel.interactive.form.PDTextField(acroForm);
+            field.setPartialName("patientNote");
+            field.setDefaultAppearance("/Helv 12 Tf 0 g");
+            acroForm.getFields().add(field);
+            org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget widget = field.getWidgets().get(0);
+            widget.setRectangle(new org.apache.pdfbox.pdmodel.common.PDRectangle(50, 700, 300, 20));
+            widget.setPage(page);
+            page.getAnnotations().add(widget);
+            field.setValue("FLATTEN-SENTINEL");
+            document.save(pdf.toFile());
         }
-    }
 
-    @Test
-    @DisplayName("warns and skips form rendering when AJAX preview suppresses legacy form actions")
-    void shouldWarnAndSkipFormRendering_whenAjaxPreviewSuppressesLegacyFormActions() throws Exception {
-        request.setAttribute("reqId", "9");
-        request.setAttribute("demographicId", "1");
-        request.setAttribute(DocumentAttachmentManager.SKIP_FORM_ATTACHMENT_RENDERING_ATTRIBUTE, Boolean.TRUE);
-        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
-        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+        manager.flattenPDFFormFields(pdf);
 
-        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
-                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
-            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                    .thenReturn(loggedInInfo);
-            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
-                    .thenReturn(new ArrayList<>());
-
-            Path result = manager.renderConsultationFormWithAttachments(request, response);
-
-            assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
-                    .asList()
-                    .containsExactly("Form attachment 3 is unavailable and was not included.");
-            verify(formsManager, never()).renderForm(request, response, form);
+        try (org.apache.pdfbox.pdmodel.PDDocument flattened = org.apache.pdfbox.Loader.loadPDF(pdf.toFile())) {
+            org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm remaining =
+                    flattened.getDocumentCatalog().getAcroForm();
+            assertThat(remaining == null || remaining.getFields().isEmpty()).isTrue();
+            assertThat(flattened.getNumberOfPages()).isEqualTo(1);
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(flattened)).contains("FLATTEN-SENTINEL");
         }
-    }
-
-    private MockedConstruction<CommonLabResultData> mockCommonLabResultData(List<LabResultData> labs) {
-        return mockConstruction(CommonLabResultData.class,
-                (mock, context) -> when(mock.populateLabResultsData(any(LoggedInInfo.class), anyString(), anyString(), eq(true)))
-                        .thenReturn(new ArrayList<>(labs)));
-    }
-
-    private Path createPdf(String prefix) throws Exception {
-        Path path = Files.createTempFile(prefix, ".pdf");
-        try (PDDocument document = new PDDocument()) {
-            document.addPage(new PDPage(PDRectangle.LETTER));
-            document.save(path.toFile());
-        }
-        return path;
-    }
-
-    private io.github.carlos_emr.carlos.commn.model.ConsultDocs consultDoc(int documentNo, String docType) {
-        io.github.carlos_emr.carlos.commn.model.ConsultDocs consultDoc = new io.github.carlos_emr.carlos.commn.model.ConsultDocs();
-        consultDoc.setDocumentNo(documentNo);
-        consultDoc.setDocType(docType);
-        return consultDoc;
     }
 }

@@ -1655,12 +1655,17 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     public float getTakeMinFloat() {
-        float i = -1;
         try {
-            i = Float.parseFloat(this.takeMin);
-        } catch (Exception e) {
+            return Float.parseFloat(this.takeMin);
+        } catch (NumberFormatException | NullPointerException e) {
+            // -1 is the legacy "unspecified" sentinel. Absent/empty input maps to it as intended; a
+            // non-empty value that fails to parse is a data-quality problem, so surface it (previously
+            // swallowed silently) rather than corrupting the dose to -1 with no signal.
+            if (this.takeMin != null && !this.takeMin.trim().isEmpty()) {
+                logger.warn("Unparseable takeMin dose value; defaulting to the -1 unspecified sentinel");
+            }
+            return -1;
         }
-        return i;
     }
 
     public String getTakeMax() {
@@ -1673,12 +1678,14 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     public float getTakeMaxFloat() {
-        float i = -1;
         try {
-            i = Float.parseFloat(this.takeMax);
-        } catch (Exception e) {
+            return Float.parseFloat(this.takeMax);
+        } catch (NumberFormatException | NullPointerException e) {
+            if (this.takeMax != null && !this.takeMax.trim().isEmpty()) {
+                logger.warn("Unparseable takeMax dose value; defaulting to the -1 unspecified sentinel");
+            }
+            return -1;
         }
-        return i;
     }
 
     public String getFrequencyCode() {
