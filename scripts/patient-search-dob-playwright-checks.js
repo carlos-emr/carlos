@@ -81,7 +81,18 @@ function isSevereConsoleMessage(message) {
   return /(ReferenceError|TypeError|SyntaxError|redeclaration|Cannot read|Cannot set)/i.test(text);
 }
 
+function isExpectedMissingAsset(status, responseUrl) {
+  return status === 404 && (/\/imageRenderingServlet\?/.test(responseUrl) || /\/favicon\.ico$/.test(responseUrl));
+}
+
 function wirePage(page, label) {
+  page.on('response', (response) => {
+    const responseUrl = response.url();
+    const status = response.status();
+    if (status >= 400 && !isExpectedMissingAsset(status, responseUrl)) {
+      findings.push({ label, type: 'http', status, url: responseUrl });
+    }
+  });
   page.on('console', (message) => {
     if (isSevereConsoleMessage(message)) {
       findings.push({ label, type: `console:${message.type()}`, text: message.text(), location: message.location() });
@@ -91,6 +102,8 @@ function wirePage(page, label) {
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
   });
   page.on('dialog', async (dialog) => {
+    // Unlike sibling scripts, dialogs are blocking findings here: the DOB
+    // format alert firing on a full date is the regression this script guards.
     findings.push({ label, type: 'dialog', text: dialog.message() });
     await dialog.accept();
   });
@@ -142,6 +155,8 @@ async function clearKeyword(page) {
 
 async function typeDob(page, text) {
   await page.locator('#keyword').click();
+  // Pin the caret to the end: a center click can land inside existing text.
+  await page.locator('#keyword').press('End');
   await page.locator('#keyword').pressSequentially(text, { delay: 25 });
   return page.locator('#keyword').inputValue();
 }
@@ -183,12 +198,10 @@ async function typeDob(page, text) {
     // A full DOB submits without the format alert and renders results.
     await Promise.all([
       page.waitForURL(/DemographicSearch/, { timeout: 30000 }),
-      page.locator('form[name="titlesearch"] input[type="SUBMIT"], form[name="titlesearch"] input[type="submit"]').first().click(),
+      page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
     ]);
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNoErrorPage(page, 'dob-search-results');
-
-    console.log(JSON.stringify({ checks, findings }, null, 2));
 
     if (findings.length) {
       throw new Error(`patient search DOB browser check found ${findings.length} issue(s)`);
@@ -196,6 +209,9 @@ async function typeDob(page, text) {
 
     console.log('PASS patient search DOB entry accepts full YYYY-MM-DD input');
   } finally {
+    // Dump collected evidence on success and failure alike so a mid-flow
+    // timeout (e.g. the DOB alert blocking submit) still reports the checks.
+    console.log(JSON.stringify({ checks, findings }, null, 2));
     await browser.close();
   }
 })().catch((error) => {
