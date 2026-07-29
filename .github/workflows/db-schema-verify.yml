@@ -178,6 +178,45 @@ jobs:
               echo "::error::BC professionalSpecialists reference data missing"
               exit 1
             fi
+
+            # formBCNewBorn2008 is a 649-column legacy form. Its free-text fields must stay
+            # off-row-capable under utf8mb4 or MariaDB rejects the definition with error 1118.
+            BC_TABLE_OPTIONS=$($MYSQL -N -e "SELECT LOWER(CONCAT(engine, '|', row_format, '|', table_collation)) FROM information_schema.tables WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008'")
+            if [ "${BC_TABLE_OPTIONS}" != "innodb|dynamic|utf8mb4_general_ci" ]; then
+              echo "::error::formBCNewBorn2008 has unexpected table options: ${BC_TABLE_OPTIONS}"
+              exit 1
+            fi
+
+            # Use the exact approved narrative families. A broad 'note' match would incorrectly
+            # include 18 DATE columns and the three ProblemListSeeNotes TINYINT flags.
+            BC_NARRATIVE_COLUMNS=$($MYSQL -N -e "SELECT COUNT(DISTINCT column_name) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND (LOWER(column_name) LIKE '%comment%' OR LOWER(column_name) LIKE '%text%' OR LOWER(column_name) REGEXP '^section13note(2|3)?(pg2|pg3)?$' OR LOWER(column_name) REGEXP '^section14progressnotes[1-8](pg2|pg3)?$' OR LOWER(column_name) REGEXP '^problemsrequiringfollowup(pg2|pg3)?$')")
+            BC_NARRATIVE_TEXT=$($MYSQL -N -e "SELECT COUNT(DISTINCT column_name) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND data_type='text' AND is_nullable='YES' AND (column_default IS NULL OR UPPER(column_default)='NULL') AND (LOWER(column_name) LIKE '%comment%' OR LOWER(column_name) LIKE '%text%' OR LOWER(column_name) REGEXP '^section13note(2|3)?(pg2|pg3)?$' OR LOWER(column_name) REGEXP '^section14progressnotes[1-8](pg2|pg3)?$' OR LOWER(column_name) REGEXP '^problemsrequiringfollowup(pg2|pg3)?$')")
+            if [ "${BC_NARRATIVE_COLUMNS}" != "111" ] || [ "${BC_NARRATIVE_TEXT}" != "111" ]; then
+              echo "::error::formBCNewBorn2008 narrative columns are not the expected 111 nullable TEXT fields (matched=${BC_NARRATIVE_COLUMNS}, text=${BC_NARRATIVE_TEXT})"
+              exit 1
+            fi
+
+            BC_NOTE_STRUCTURED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND ((data_type='tinyint' AND LOWER(column_name) REGEXP '^problemlistseenotes(pg2|pg3)?$') OR (data_type='date' AND LOWER(column_name) REGEXP '^section13note[1-3]date(resolved)?(pg2|pg3)?$'))")
+            BC_STRUCTURED_FIELDS=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='carlos_bc' AND table_name='formBCNewBorn2008' AND ((column_name='demographic_no' AND data_type='int') OR (column_name IN ('MothersName','Section9Date','SIGNATURE') AND data_type='varchar' AND character_maximum_length=70) OR (column_name='pg1_formDate' AND data_type='varchar' AND character_maximum_length=12))")
+            if [ "${BC_NOTE_STRUCTURED}" != "21" ] || [ "${BC_STRUCTURED_FIELDS}" != "5" ]; then
+              echo "::error::formBCNewBorn2008 structured field types changed unexpectedly (note exceptions=${BC_NOTE_STRUCTURED}/21, representatives=${BC_STRUCTURED_FIELDS}/5)"
+              exit 1
+            fi
+
+            # Prove long four-byte Unicode narrative content survives insert, read, and update.
+            BC_FORM_ID=$($MYSQL -N carlos_bc -e "SET NAMES utf8mb4; INSERT INTO formBCNewBorn2008 (demographic_no, Section15GeneralComment, Section14ProgressNotes1Pg2, Section16TextPg3, ProblemsrequiringFollowup) VALUES (-2008, CONCAT('comment-', CONVERT(0xF09F9880 USING utf8mb4)), CONCAT(REPEAT('N', 300), '\\nprogress'), CONCAT(REPEAT('T', 300), CONVERT(0xF09F9880 USING utf8mb4)), CONCAT('follow-up-', CONVERT(0xF09F9880 USING utf8mb4))); SELECT LAST_INSERT_ID();")
+            if ! [[ "${BC_FORM_ID}" =~ ^[0-9]+$ ]]; then
+              echo "::error::failed to insert formBCNewBorn2008 utf8mb4 regression row"
+              exit 1
+            fi
+            BC_ROUNDTRIP=$($MYSQL -N carlos_bc -e "SET NAMES utf8mb4; SELECT COUNT(*) FROM formBCNewBorn2008 WHERE ID=${BC_FORM_ID} AND SHA2(Section15GeneralComment,256)=SHA2(CONCAT('comment-', CONVERT(0xF09F9880 USING utf8mb4)),256) AND SHA2(Section14ProgressNotes1Pg2,256)=SHA2(CONCAT(REPEAT('N',300), '\\nprogress'),256) AND CHAR_LENGTH(Section16TextPg3)=301 AND OCTET_LENGTH(Section16TextPg3)=304 AND SHA2(ProblemsrequiringFollowup,256)=SHA2(CONCAT('follow-up-', CONVERT(0xF09F9880 USING utf8mb4)),256)")
+            $MYSQL carlos_bc -e "SET NAMES utf8mb4; UPDATE formBCNewBorn2008 SET Section14ProgressNotes1Pg2=CONCAT(REPEAT('U',320), CONVERT(0xF09F9880 USING utf8mb4)) WHERE ID=${BC_FORM_ID}"
+            BC_UPDATE_ROUNDTRIP=$($MYSQL -N carlos_bc -e "SET NAMES utf8mb4; SELECT COUNT(*) FROM formBCNewBorn2008 WHERE ID=${BC_FORM_ID} AND CHAR_LENGTH(Section14ProgressNotes1Pg2)=321 AND OCTET_LENGTH(Section14ProgressNotes1Pg2)=324")
+            $MYSQL carlos_bc -e "DELETE FROM formBCNewBorn2008 WHERE ID=${BC_FORM_ID}"
+            if [ "${BC_ROUNDTRIP}" != "1" ] || [ "${BC_UPDATE_ROUNDTRIP}" != "1" ]; then
+              echo "::error::formBCNewBorn2008 long utf8mb4 narrative round-trip failed"
+              exit 1
+            fi
           fi
 
           # Existing install adoption path: load the genesis schema/data without Flyway history,
@@ -193,6 +232,12 @@ jobs:
                 "migration/${PROV}/V1.0.2__${PROV}_data.sql"
             echo "SET FOREIGN_KEY_CHECKS=1;"
           } | $MYSQL "${ADOPT_DB}"
+
+          # Real BC installs can already have this live legacy form even though the consolidated
+          # V1.0.1 fixture does not. Verify V1.0.6's IF NOT EXISTS contract preserves it verbatim.
+          if [ "${PROV}" = "bc" ]; then
+            $MYSQL "${ADOPT_DB}" -e "CREATE TABLE formBCNewBorn2008 (ID int NOT NULL AUTO_INCREMENT, demographic_no int NOT NULL DEFAULT 0, Section16Text varchar(255) DEFAULT NULL, PRIMARY KEY (ID)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; INSERT INTO formBCNewBorn2008 (demographic_no, Section16Text) VALUES (-2008, 'legacy-sentinel');"
+          fi
 
           timeout 10m flyway -url="$ADOPT_JDBC" -user=root \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
@@ -223,6 +268,15 @@ jobs:
           if [ "${ADOPT_TABLES}" -lt 300 ]; then
             echo "::error::Only ${ADOPT_TABLES} tables after adopted migrate for ${PROV}"
             exit 1
+          fi
+
+          if [ "${PROV}" = "bc" ]; then
+            ADOPT_BC_TYPE=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='formBCNewBorn2008' AND column_name='Section16Text' AND data_type='varchar' AND character_maximum_length=255")
+            ADOPT_BC_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM formBCNewBorn2008 WHERE demographic_no=-2008 AND Section16Text='legacy-sentinel'")
+            if [ "${ADOPT_BC_TYPE}" != "1" ] || [ "${ADOPT_BC_SENTINEL}" != "1" ]; then
+              echo "::error::BC adopted formBCNewBorn2008 was altered or its sentinel data was lost"
+              exit 1
+            fi
           fi
 
           echo "Flyway baseline verified for province ${PROV}: ${TABLES} fresh tables, ${ADOPT_TABLES} adopted tables, reference data present"
