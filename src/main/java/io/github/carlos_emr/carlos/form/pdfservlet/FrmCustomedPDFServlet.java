@@ -32,8 +32,11 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 
 import java.io.*;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.List;
 
@@ -148,36 +151,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     String pdfFile = "prescription_" + pdfid + ".pdf";
                     String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                     
-                    // Use PathValidationUtils for proper path validation
-                    File baseDirFile = new File(document_dir);
-                    File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
-                    Path filepath = validatedPdfFile.toPath();
-
-                    if (!Files.exists(filepath)) {
-                        try (java.io.OutputStream fileOut = Files.newOutputStream(filepath)) {
-                            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
-                        }
-                    }
-
-                    // write to temporary file
-                    String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
-                    File tempDirFile = new File(tempPath);
-                    File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
-                    Path tempPdf = validatedTempPdf.toPath();
-
-                    // Copying the fax pdf.
-                    if (Files.exists(filepath) && !Files.exists(tempPdf)) {
-                        FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
-                    }
-
-                    // tracking file
-                    File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
-                    String txtFile = validatedTxtFile.toString();
-                    try (FileWriter fstream = new FileWriter(txtFile);
-                         BufferedWriter out = new BufferedWriter(fstream)) {
-                        if (faxNo != null) {
-                            out.write(faxNo);
-                        }
+                    Path filepath = prepareValidatedFaxFilesOrReportFailure(document_dir, pdfid, pdfFile, faxNo,
+                            baosPDF, res, writer);
+                    if (filepath == null) {
+                        return;
                     }
 
                     List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
@@ -277,6 +254,63 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             writer.println("<script>alert('Signature not found. Please sign the prescription.');</script>");
         }
 
+    }
+
+    private Path prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
+            String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
+        try {
+            return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
+        } catch (SecurityException | IOException e) {
+            logger.warn("Prescription fax file preparation failed: type={}, message={}",
+                    e.getClass().getSimpleName(), LogSafe.sanitize(e.getMessage(), 1024), e);
+            res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
+            writer.flush();
+            return null;
+        }
+    }
+
+    private Path prepareValidatedFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
+            ByteArrayOutputStream baosPDF) throws IOException {
+        // Use PathValidationUtils for proper path validation
+        File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(documentDir, "DOCUMENT_DIR");
+        File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
+        Path filepath = validatedPdfFile.toPath();
+
+        writePdfFileIfMissing(filepath, baosPDF);
+
+        // write to temporary file
+        String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
+        File tempDirFile = PathValidationUtils.resolveConfiguredDirectory(tempPath, "fax_file_location");
+        File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
+        Path tempPdf = validatedTempPdf.toPath();
+
+        // Copying the fax pdf.
+        if (Files.exists(filepath) && !Files.exists(tempPdf)) {
+            FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
+        }
+
+        File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
+        writeFaxTrackingFile(validatedTxtFile, faxNo);
+        return filepath;
+    }
+
+    private void writePdfFileIfMissing(Path filepath, ByteArrayOutputStream baosPDF) throws IOException {
+        try (java.io.OutputStream fileOut = Files.newOutputStream(filepath,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
+        } catch (FileAlreadyExistsException e) {
+            // Preserve the existing PDF if another request created it first.
+        }
+    }
+
+    private void writeFaxTrackingFile(File trackingFile, String faxNo) throws IOException {
+        try (BufferedWriter out = Files.newBufferedWriter(trackingFile.toPath(), StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+            if (faxNo != null) {
+                out.write(faxNo);
+            }
+        }
     }
 
 

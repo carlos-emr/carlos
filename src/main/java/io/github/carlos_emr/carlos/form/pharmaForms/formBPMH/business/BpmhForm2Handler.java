@@ -401,7 +401,8 @@ public class BpmhForm2Handler {
                     parseMe = (demographicCustList.get(0)).getNotes();
                 }
 
-                logger.debug("Family Dr. may be in the demographic note field: " + parseMe);
+                // Do NOT log parseMe: it is the free-text demographic notes field (PHI).
+                logger.debug("Scanning demographic note field for a family physician reference");
 
                 if (!parseMe.isEmpty()) {
                     familyDrName = CaseNoteParser.getFamilyDr(parseMe);

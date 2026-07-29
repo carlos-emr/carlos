@@ -440,12 +440,31 @@ public class CommonLabResultData {
         }
 
         if (!"0".equals(providerNo)) {
-            List<ProviderLabRoutingModel> modelRecords = providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
-            ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
-            adr.recordRowsToBeDeleted(modelRecords, "" + providerNo, "providerLabRouting");
-
-            for (ProviderLabRoutingModel plr : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0")) {
-                providerLabRoutingDao.remove(plr.getId());
+            // The unassigned ("0") placeholder rows are now obsolete because the lab has been assigned
+            // to a real provider, so they are deleted. Archive the EXACT rows being deleted (not the
+            // provider-specific rows, which are kept) and fail closed if the archive fails: never
+            // destroy a routing row without a successful audit copy. recordRowsToBeDeleted returns -1
+            // on failure, >= 0 on success.
+            List<ProviderLabRoutingModel> rowsToDelete =
+                    providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0");
+            if (rowsToDelete != null && !rowsToDelete.isEmpty()) {
+                ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
+                int archived = adr.recordRowsToBeDeleted(rowsToDelete, "0", "providerLabRouting");
+                if (archived < 0) {
+                    // Fail closed on the CLEANUP only: leave the obsolete unassigned ("0") rows in
+                    // place rather than delete them without an audit copy. The acknowledgement/status
+                    // write above already persisted, so this is NOT an acknowledgement failure — the
+                    // stale placeholder lingering is an operational residue, logged here for an
+                    // operator, and must not be surfaced to the clinician as a failed filing (a real
+                    // acknowledgement failure throws and is handled by the caller's catch).
+                    logger.error("Provider-lab routing cleanup incomplete for lab {}: archival of the "
+                            + "unassigned (provider-0) rows failed, so they are left in place to "
+                            + "preserve the audit trail; the acknowledgement itself succeeded", labNo);
+                    return Boolean.TRUE;
+                }
+                for (ProviderLabRoutingModel plr : rowsToDelete) {
+                    providerLabRoutingDao.remove(plr.getId());
+                }
             }
         }
         return Boolean.TRUE;
@@ -610,7 +629,13 @@ public class CommonLabResultData {
     public static boolean fileLabs(ArrayList<String[]> flaggedLabs, String provider) {
 
         CommonLabResultData data = new CommonLabResultData();
-        boolean success = Boolean.FALSE;
+        // Accumulate the real per-lab outcome and return it, instead of overwriting a single flag each
+        // iteration and returning an unconditional TRUE. Do NOT remove entries from flaggedLabs
+        // mid-iteration: the previous `if(!success) flaggedLabs.remove(i)` shifted the next lab into
+        // the current index and the `i++` then skipped it — filing N labs silently processed only
+        // some. A real acknowledgement failure now throws out of updateReportStatus (see it), so
+        // allFiled reflects genuine per-lab success.
+        boolean allFiled = true;
         for (int i = 0; i < flaggedLabs.size(); i++) {
 
             String[] strarr = flaggedLabs.get(i);
@@ -621,20 +646,16 @@ public class CommonLabResultData {
             if (labs != null && !labs.equals("")) {
                 String[] labArray = labs.split(",");
                 for (int j = 0; j < labArray.length; j++) {
-                    success = updateReportStatus(Integer.parseInt(labArray[j]), provider, 'F', "", labType);
+                    allFiled = updateReportStatus(Integer.parseInt(labArray[j]), provider, 'F', "", labType) && allFiled;
                     removeFromQueue(Integer.parseInt(labArray[j]));
                 }
 
             } else {
-                success = updateReportStatus(Integer.parseInt(lab), provider, 'F', "", labType);
+                allFiled = updateReportStatus(Integer.parseInt(lab), provider, 'F', "", labType) && allFiled;
                 removeFromQueue(Integer.parseInt(lab));
             }
-
-            if (!success) {
-                flaggedLabs.remove(i);
-            }
         }
-        return Boolean.TRUE;
+        return allFiled;
     }
 
 

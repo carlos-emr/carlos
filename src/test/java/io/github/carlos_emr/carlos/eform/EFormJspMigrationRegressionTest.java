@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,8 +65,27 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
             Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
+    private static final Path WEB_XML =
+            Path.of("src/main/webapp/WEB-INF/web.xml");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
+
+    @Test
+    @DisplayName("should keep the legacy render URL mapped to the renamed browser render page servlet")
+    void shouldKeepLegacyRenderUrl_mappedToBrowserRenderPageServlet() throws IOException {
+        // The retained /EFormViewForPdfGenerationServlet URL is what the loopback render
+        // navigation, the LoginFilter/CSRF exclusions, and the Struts exclude pattern all key on;
+        // each of those is tested individually, but only this pin closes the loop on the
+        // servlet-name -> renamed-class mapping itself.
+        String webXml = Files.readString(WEB_XML, StandardCharsets.UTF_8);
+
+        assertThat(webXml).containsSubsequence(
+                "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
+                "<servlet-class>io.github.carlos_emr.carlos.eform.util.EFormBrowserRenderPageServlet</servlet-class>");
+        assertThat(webXml).containsSubsequence(
+                "<servlet-name>EFormViewForPdfGenerationServlet</servlet-name>",
+                "<url-pattern>/EFormViewForPdfGenerationServlet</url-pattern>");
+    }
 
     @Test
     @DisplayName("patient eForm list should not reference the missing PHR action and should keep live view/delete actions")
@@ -200,6 +220,13 @@ class EFormJspMigrationRegressionTest {
         assertThat(excludePattern.matcher("/carlos/EFormSignatureViewForPdfGenerationServlet").matches()).isTrue();
         assertThat(excludePattern.matcher("/contentRenderingServlet/document/1").matches()).isTrue();
         assertThat(excludePattern.matcher("/carlos/contentRenderingServlet/document/1").matches()).isTrue();
+
+        // The signature-control library page must reach Struts (its compatibility-alias action),
+        // not be excluded as a static .jsp — otherwise legacy eForms 404 loading the signature pad.
+        assertThat(excludePattern.matcher("/library/eforms/signatureControl.jsp").matches()).isFalse();
+        assertThat(excludePattern.matcher("/carlos/library/eforms/signatureControl.jsp").matches()).isFalse();
+        // A different library .jsp stays excluded.
+        assertThat(excludePattern.matcher("/library/eforms/other.jsp").matches()).isTrue();
     }
 
     @Test
@@ -305,7 +332,7 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("eForm editor should navigate current window to eForm library after save, not the opener window")
-    void shouldNavigateCurrentWindow_notOpener_afterSave() throws IOException {
+    void shouldNavigateCurrentWindow_afterSave() throws IOException {
         String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
 
         // window.opener.location navigates the main CARLOS window (opener of the admin popup),
@@ -347,5 +374,31 @@ class EFormJspMigrationRegressionTest {
             .contains("<fmt:message key=\"eform.uploadimages.processing\" var=")
             .containsPattern("alert\\(\"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"\\)")
             .containsPattern("\\.subm\\.value = \"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"");
+    }
+
+    @Test
+    @DisplayName("eForm host pages should load DOMPurify ahead of jQuery so the editor's sanitize gate works")
+    void shouldLoadDomPurifyBeforeJquery_onEformHostPages() throws IOException {
+        // editControl2.js routes every innerHTML write through sanitizeHtml(), which returns null
+        // when DOMPurify is absent and falls back to textContent. The clinician then sees their
+        // saved letter as escaped markup, and the NEXT save stores it double-encoded — silent
+        // corruption of stored clinical content.
+        //
+        // Position is load-bearing and counter-intuitive: addHeadJavascript PREPENDS ("For
+        // Javascript: First is last"), so the call listed AFTER jQuery is emitted BEFORE it.
+        // Sorting this block alphabetically would reintroduce the corruption, so pin the order.
+        for (Path hostPage : List.of(
+                Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"),
+                Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformadd_data.jsp"))) {
+            String jsp = Files.readString(hostPage, StandardCharsets.UTF_8);
+
+            assertThat(jsp)
+                    .as("%s must load DOMPurify", hostPage)
+                    .contains("/library/dompurify/purify.min.js");
+            assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
+                    .as("%s: DOMPurify must be registered after jQuery, so it is emitted before it",
+                            hostPage)
+                    .isLessThan(jsp.indexOf("/library/dompurify/purify.min.js"));
+        }
     }
 }

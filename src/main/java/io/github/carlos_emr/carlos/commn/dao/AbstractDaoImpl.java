@@ -44,8 +44,12 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
@@ -69,6 +73,8 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
  */
 @Transactional
 public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements AbstractDao<T> {
+
+    private static final Logger BATCH_LOGGER = MiscUtils.getLogger();
 
     protected Class<T> modelClass;
 
@@ -105,9 +111,16 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         entityManager.persist(o);
     }
 
+    // SUPPORTS (not the class-default REQUIRED): batchPersist manages its OWN EntityManager and
+    // per-chunk resource-local transactions, so it must not open a Spring transaction of its own.
+    // With SUPPORTS the batch runs non-transactionally when the caller has no transaction (the
+    // standalone-import case), and only joins — and so warnIfInSpringManagedTransaction only warns
+    // about — a genuinely pre-existing caller transaction whose rollback the per-chunk commits escape.
     @Override
+    @Deprecated
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchPersist(List<T> oList) {
-        batchPersist(oList, 25);
+        batchPersistWithIndependentCommits(oList, 25);
     }
 
     /**
@@ -121,7 +134,49 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      * {@code @CacheEvict} annotations.</p>
      */
     @Override
+    @Deprecated
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchPersist(List<T> oList, int batchSize) {
+        warnIfInSpringManagedTransaction("batchPersist");
+        batchPersistWithIndependentCommitsInternal(oList, batchSize);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void batchPersistAtomically(List<T> oList) {
+        batchPersistAtomically(oList, 25);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void batchPersistAtomically(List<T> oList, int batchSize) {
+        requirePositiveBatchSize(batchSize);
+        int i = 0;
+        for (T entity : oList) {
+            entityManager.persist(entity);
+            i++;
+            if (i % batchSize == 0) {
+                entityManager.flush();
+                entityManager.clear();
+            }
+        }
+        entityManager.flush();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public void batchPersistWithIndependentCommits(List<T> oList) {
+        batchPersistWithIndependentCommitsInternal(oList, 25);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public void batchPersistWithIndependentCommits(List<T> oList, int batchSize) {
+        batchPersistWithIndependentCommitsInternal(oList, batchSize);
+    }
+
+    private void batchPersistWithIndependentCommitsInternal(List<T> oList, int batchSize) {
+        requirePositiveBatchSize(batchSize);
         EntityManager batchEntityManager = null;
         EntityTransaction transaction = null;
         try {
@@ -153,6 +208,32 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     /**
+     * Warns when a batch method runs inside an active Spring-managed transaction.
+     *
+     * <p>{@link #batchPersist} / {@link #batchRemove} open their OWN {@link EntityManager} and commit
+     * each chunk in its own resource-local transaction, so they do NOT participate in — and cannot be
+     * rolled back by — a surrounding {@code @Transactional} boundary: a committed chunk survives a
+     * caller-side rollback. That per-chunk-commit behaviour is deliberately relied on by large
+     * standalone imports (which run with no ambient transaction). Calling these methods from within a
+     * transactional service is almost always a mistake, so it is surfaced here rather than silently
+     * escaping the transaction. (Reworking the semantics to join the ambient transaction would collapse
+     * large imports into a single long transaction and is tracked as separate work.)</p>
+     *
+     * <p>The batch methods declare {@link Propagation#SUPPORTS} precisely so this check is meaningful:
+     * they never start a Spring transaction of their own, so an active transaction here can only be a
+     * <em>pre-existing caller</em> transaction (the risky case). Under the class-default
+     * {@code REQUIRED} this warning fired on every call — including standalone imports — because the
+     * batch call itself would have started one.</p>
+     */
+    private static void warnIfInSpringManagedTransaction(String method) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            BATCH_LOGGER.warn("{} was called inside an active Spring transaction, but it commits each "
+                    + "chunk in its own transaction and does not participate in the caller's rollback; "
+                    + "committed chunks will survive a surrounding rollback.", method);
+        }
+    }
+
+    /**
      * You can only remove attached instances.
      */
     @Override
@@ -160,9 +241,14 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         entityManager.remove(o);
     }
 
+    // SUPPORTS for the same reason as batchPersist: batchRemove owns its EntityManager and per-chunk
+    // transactions, so it must not start a Spring transaction — that is what made the warning fire on
+    // every call. See batchPersist(List) above.
     @Override
+    @Deprecated
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchRemove(List<T> oList) {
-        batchRemove(oList, 25);
+        batchRemoveWithIndependentCommits(oList, 25);
     }
 
     /**
@@ -176,7 +262,50 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
      * {@code @CacheEvict} annotations.</p>
      */
     @Override
+    @Deprecated
+    @Transactional(propagation = Propagation.SUPPORTS)
     public void batchRemove(List<T> oList, int batchSize) {
+        warnIfInSpringManagedTransaction("batchRemove");
+        batchRemoveWithIndependentCommitsInternal(oList, batchSize);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void batchRemoveAtomically(List<T> oList) {
+        batchRemoveAtomically(oList, 25);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void batchRemoveAtomically(List<T> oList, int batchSize) {
+        requirePositiveBatchSize(batchSize);
+        int i = 0;
+        for (T entity : oList) {
+            Object attached = entityManager.getReference(entity.getClass(), entity.getId());
+            entityManager.remove(attached);
+            i++;
+            if (i % batchSize == 0) {
+                entityManager.flush();
+                entityManager.clear();
+            }
+        }
+        entityManager.flush();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public void batchRemoveWithIndependentCommits(List<T> oList) {
+        batchRemoveWithIndependentCommitsInternal(oList, 25);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NEVER)
+    public void batchRemoveWithIndependentCommits(List<T> oList, int batchSize) {
+        batchRemoveWithIndependentCommitsInternal(oList, batchSize);
+    }
+
+    private void batchRemoveWithIndependentCommitsInternal(List<T> oList, int batchSize) {
+        requirePositiveBatchSize(batchSize);
         EntityManager batchEntityManager = null;
         EntityTransaction transaction = null;
         try {
@@ -208,6 +337,12 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
             if (batchEntityManager != null) {
                 batchEntityManager.close();
             }
+        }
+    }
+
+    private static void requirePositiveBatchSize(int batchSize) {
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException("batchSize must be positive");
         }
     }
 

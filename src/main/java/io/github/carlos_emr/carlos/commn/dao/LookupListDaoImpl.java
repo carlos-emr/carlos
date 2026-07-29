@@ -119,4 +119,21 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
     @Override
     public void batchRemove(List<LookupList> oList, int batchSize) { super.batchRemove(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override public void batchPersistAtomically(List<LookupList> list) { super.batchPersistAtomically(list); }
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override public void batchPersistAtomically(List<LookupList> list, int size) { super.batchPersistAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override public void batchRemoveAtomically(List<LookupList> list) { super.batchRemoveAtomically(list); }
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override public void batchRemoveAtomically(List<LookupList> list, int size) { super.batchRemoveAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<LookupList> list) { super.batchPersistWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<LookupList> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<LookupList> list) { super.batchRemoveWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<LookupList> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
 }
