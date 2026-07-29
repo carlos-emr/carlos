@@ -141,9 +141,12 @@ class EFormFloatingToolbarAssetRegressionTest {
         String compat = read(RUNTIME_COMPAT_JS);
 
         assertThat(compat)
+                .contains("status.pending += 1;")
                 .contains("typeof handler !== \"function\"")
                 .contains("delayMillis <= 4000")
                 .contains("return handler.apply(receiver, callbackArguments)")
+                .contains("if (counted && countedTimeouts.delete(handle))")
+                .contains("status.pending -= 1;")
                 .contains("Scheduled-but-not-yet-run one-shot timeouts");
     }
 
@@ -153,9 +156,11 @@ class EFormFloatingToolbarAssetRegressionTest {
         String compat = read(RUNTIME_COMPAT_JS);
 
         assertThat(compat)
+                .contains("status.pending += 1;")
                 .contains("var countedTimeouts = new Set()")
                 .contains("window.clearTimeout = function clearTimeoutCompatible(handle)")
-                .contains("countedTimeouts.delete(handle)");
+                .contains("countedTimeouts.delete(handle)")
+                .contains("status.pending -= 1;");
     }
 
     @Test
@@ -166,7 +171,8 @@ class EFormFloatingToolbarAssetRegressionTest {
         assertThat(compat)
                 .contains("function isPdfRenderAutoSubmit(handler)")
                 .contains("window.__carlosEformPdfRender === true")
-                .contains("SubmitButton")
+                .contains("typeof handler === \"string\"")
+                .contains("/^\\s*SubmitButton\\s*\\.\\s*click\\s*\\(\\s*\\)\\s*;?\\s*$/")
                 .contains("suppressedAutoSubmits");
     }
 

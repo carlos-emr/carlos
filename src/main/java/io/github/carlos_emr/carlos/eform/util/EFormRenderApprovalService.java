@@ -142,7 +142,8 @@ public class EFormRenderApprovalService {
     public String issueStagedFaxPreview(HttpServletRequest request, LoggedInInfo loggedInInfo, int fdid,
             String demographicNo, Map<Integer, EFormRenderCompletenessReport> formReports,
             int advisoryIssueCount, Path path) {
-        if (formReports == null || formReports.values().stream().noneMatch(EFormRenderCompletenessReport::hasBlockingOmissions)
+        if (formReports == null || formReports.values().stream()
+                .noneMatch(report -> report != null && report.hasBlockingOmissions())
                 || advisoryIssueCount < 0
                 || path == null || !Files.isRegularFile(path)
                 || !PathValidationUtils.isInApplicationTempDirectory(path.toFile())) {
@@ -266,6 +267,18 @@ public class EFormRenderApprovalService {
         return loggedInInfo.getLoggedInProviderNo();
     }
 
+    /**
+     * A one-time staged fax packet claimed from an authenticated approval ticket.
+     *
+     * <p>Once {@link EFormRenderApprovalService#consumeStagedFaxPreview} returns this value,
+     * ownership of {@link #path()} is transferred to the fax pipeline, which must delete the
+     * temporary PDF after use. Unclaimed paths remain service-owned and are deleted when their
+     * ticket is invalidated, evicted, or its servlet session ends. {@link #approval()} contains the
+     * exact blocking-issue approval for the staged packet. {@link #advisoryIssueCount()} preserves
+     * the sanitized count that should be shown with the fax preview.</p>
+     *
+     * @since 2026-07-28
+     */
     public static final class StagedFaxPreview {
         private final Path path;
         private final EFormRenderApproval approval;
@@ -278,8 +291,13 @@ public class EFormRenderApprovalService {
             this.approval = approval;
             this.advisoryIssueCount = advisoryIssueCount;
         }
+        /** Returns the caller-owned temporary PDF path. */
         public Path path() { return path; }
+
+        /** Returns the exact approval metadata bound to this staged packet. */
         public EFormRenderApproval approval() { return approval; }
+
+        /** Returns the number of non-blocking render conditions reported for the packet. */
         public int advisoryIssueCount() { return advisoryIssueCount; }
         private Path claim() { return claimed.compareAndSet(false, true) ? path : null; }
         private void deleteUnlessClaimed() {

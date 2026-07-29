@@ -72,6 +72,7 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
 
         assertThatCode(() -> new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session)))
                 .doesNotThrowAnyException();
+        verify(eFormRenderApprovalService).invalidateStagedFaxPreviewsForSession(session.getId());
     }
 
     private static PendingMfaChallengeCache.PendingMfaChallenge challenge() {

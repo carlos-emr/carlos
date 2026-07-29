@@ -606,6 +606,19 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return renderEFormPacket(request, response, approval);
     }
 
+    /**
+     * Renders an eForm packet to a temporary PDF for the fax confirmation workflow.
+     *
+     * <p>The caller owns the returned path and must either register an incomplete packet with
+     * EFormRenderApprovalService.issueStagedFaxPreview(...) for session-bound cleanup, or delete
+     * the file after the fax pipeline finishes with it.</p>
+     *
+     * @param request authenticated fax request carrying the eForm and demographic identifiers
+     * @param response current response used while rendering supported packet attachments
+     * @return temporary PDF path together with packet and per-form completeness metadata
+     * @throws PDFGenerationException when the packet cannot be rendered or assembled
+     * @since 2026-07-28
+     */
     @Override
     public EformDataManager.EformPdfRender stageEFormPacketForFaxPreview(
             HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {

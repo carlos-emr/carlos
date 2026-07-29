@@ -245,8 +245,11 @@ class EFormRenderApprovalServiceUnitTest {
         java.nio.file.Path claimed = java.nio.file.Files.createTempFile(testRoot, "claimed-", ".pdf");
         java.nio.file.Path abandoned = java.nio.file.Files.createTempFile(testRoot, "abandoned-", ".pdf");
         try {
+            java.util.Map<Integer, EFormRenderCompletenessReport> reports = new java.util.HashMap<>();
+            reports.put(42, incompleteReport());
+            reports.put(43, null);
             String claimToken = service.issueStagedFaxPreview(request, user, 42, "123",
-                    java.util.Map.of(42, incompleteReport()), 1, claimed);
+                    reports, 1, claimed);
             now.set(start.plus(java.time.Duration.ofHours(3)));
             EFormRenderApprovalService.StagedFaxPreview staged =
                     service.consumeStagedFaxPreview(request, user, 42, "123", claimToken);
