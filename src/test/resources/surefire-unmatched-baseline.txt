@@ -118,6 +118,7 @@ io.github.carlos_emr.carlos.report.ClinicalReports.DroolsNumeratorLifecycleTest
 io.github.carlos_emr.carlos.report.data.ParameterizedSqlTest
 io.github.carlos_emr.carlos.report.data.RptReportCreatorJoinPredicatesTest
 io.github.carlos_emr.carlos.report.data.RptReportCreatorParameterizedTest
+io.github.carlos_emr.carlos.report.data.RptReportCreatorTest
 io.github.carlos_emr.carlos.report.pageUtil.RptDownloadCSVServletTest
 io.github.carlos_emr.carlos.report.pageUtil.RptFormQueryTest
 io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2ActionTest
