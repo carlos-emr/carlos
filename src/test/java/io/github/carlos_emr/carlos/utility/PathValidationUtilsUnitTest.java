@@ -147,7 +147,18 @@ class PathValidationUtilsUnitTest {
         void shouldNormalizeFilename_usingLegacyRules() {
             String result = PathValidationUtils.validateFileName("my report..<script>-final.pdf");
 
-            assertThat(result).isEqualTo("my_report.scriptfinal.pdf");
+            assertThat(result).isEqualTo("my_report.script-final.pdf");
+        }
+
+        @Test
+        @DisplayName("should preserve hyphens so eForm image references keep resolving")
+        void shouldPreserveHyphens_whenNormalizingFilename() {
+            // There is no database record of eForm image names (EFormUtil.listImages() is a
+            // directory scan), so the on-disk name is the contract. Deleting hyphens renamed
+            // uploads like Req-Form-Ultrasound-2026-1.png and permanently broke the form that
+            // referenced them, while the same file kept its name when imported via ZIP.
+            assertThat(PathValidationUtils.validateFileName("Req-Form-Ultrasound-2026-1.png"))
+                    .isEqualTo("Req-Form-Ultrasound-2026-1.png");
         }
 
         @Test
@@ -296,7 +307,11 @@ class PathValidationUtilsUnitTest {
 
         @ParameterizedTest
         @DisplayName("should reject missing or empty filename")
-        @ValueSource(strings = {"", "   ", "---"})
+        // "<<<>>>" stands in for the former "---" case: hyphens are now kept (they are part of real
+        // eForm image names), so a hyphen-only name normalizes to itself rather than to empty. The
+        // behaviour under test is "nothing survives normalization", which needs characters that are
+        // still stripped.
+        @ValueSource(strings = {"", "   ", "<<<>>>"})
         void shouldRejectFilename_whenMissingOrEmpty(String filename) {
             assertThatThrownBy(() -> PathValidationUtils.validateFileName(filename))
                 .isInstanceOf(FileValidationException.class)
@@ -654,6 +669,92 @@ class PathValidationUtilsUnitTest {
                     "Test requires /etc/hostname to exist (Linux-specific)");
 
             assertThat(PathValidationUtils.isInAllowedTempDirectory(outsideFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should report null file as not in an application temp directory")
+        void shouldReturnFalse_whenApplicationTempFileIsNull() {
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should report a file under the CARLOS-owned temp root as an application temp file")
+        void shouldReturnTrue_whenFileIsUnderCarlosOwnedTempRoot() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path appRoot = Files.createDirectories(
+                    Path.of(systemTempDir, PathValidationUtils.APPLICATION_TEMP_ROOT_NAME, "app-temp-positive-"));
+            File appFile = Files.createTempFile(appRoot, "generated-", ".pdf").toFile();
+            appFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(appFile)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should report a file under the renderer temp root as an application temp file")
+        void shouldReturnTrue_whenFileIsUnderRendererTempRoot() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path rendererRoot = Files.createDirectories(
+                    Path.of(systemTempDir, "carlos-eform-browser-pdf-temp"));
+            File rendererFile = Files.createTempFile(rendererRoot, "eform-browser-render-", ".pdf").toFile();
+            rendererFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(rendererFile)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not report a bare system temp file as an application temp file")
+        void shouldReturnFalse_whenFileIsInSharedTempButNotCarlosOwned() throws IOException {
+            File tempFile = Files.createTempFile("shared-not-carlos-", ".tmp").toFile();
+            tempFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInAllowedTempDirectory(tempFile)).isTrue();
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(tempFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not report a tmpdir 'carlos' subtree as application temp (that segment is work-only)")
+        void shouldReturnFalse_whenTmpdirFirstSegmentIsWorkOnly() throws IOException {
+            // 'carlos' is a CARLOS-owned first segment only under a Tomcat work/ root, never under
+            // java.io.tmpdir. A file under <java.io.tmpdir>/carlos must NOT pass the application temp
+            // boundary — the segment set is keyed per-root so it cannot be smuggled past fax
+            // promotion / eForm preview from the wrong root.
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path strayRoot = Files.createDirectories(Path.of(systemTempDir, "carlos", "app-temp-cross-root-"));
+            File strayFile = Files.createTempFile(strayRoot, "stray-", ".pdf").toFile();
+            strayFile.deleteOnExit();
+
+            assertThat(PathValidationUtils.isInApplicationTempDirectory(strayFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should reject a CARLOS temp symlink whose target escapes outside every CARLOS-owned temp subtree")
+        void shouldRejectSymlinkEscape_whenApplicationTempLinkTargetsOutside() throws IOException {
+            String systemTempDir = System.getProperty("java.io.tmpdir");
+            Path appRoot = Files.createDirectories(
+                    Path.of(systemTempDir, PathValidationUtils.APPLICATION_TEMP_ROOT_NAME, "app-temp-symlink-escape-"));
+            // The link LIVES inside carlos-temp but its target is outside every CARLOS-owned temp
+            // subtree. validateApplicationTempPath canonicalizes (resolving the symlink) before the
+            // boundary check, so it must reject the escape rather than trust the in-boundary link path
+            // — closing the check-vs-use gap a local attacker could open by pre-seeding the link.
+            Path outsideDir = Files.createTempDirectory("outside-carlos-temp-");
+            Path outsideTarget = outsideDir.resolve("secret.pdf");
+            Files.write(outsideTarget, "outside bytes".getBytes());
+            Path escapingLink = appRoot.resolve("escape-link.pdf");
+            try {
+                Files.createSymbolicLink(escapingLink, outsideTarget);
+            } catch (IOException | UnsupportedOperationException symlinkUnsupported) {
+                Assumptions.assumeTrue(false, "Symlinks not supported on this system");
+                return;
+            }
+            try {
+                assertThatThrownBy(() -> PathValidationUtils.validateApplicationTempPath(escapingLink.toFile()))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessageContaining("outside every CARLOS-owned temp subtree");
+            } finally {
+                Files.deleteIfExists(escapingLink);
+                Files.deleteIfExists(outsideTarget);
+                Files.deleteIfExists(outsideDir);
+            }
         }
     }
 

@@ -42,6 +42,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
@@ -361,8 +362,13 @@ public class NotesService extends AbstractServiceImpl {
         try {
             caseManagementMgr.deleteTmpSave(providerNo, "" + demographicNo, programId);
             caseManagementMgr.tmpSave(providerNo, "" + demographicNo, programId, noteId, noteStr);
-        } catch (Throwable e) {
-            logger.error("AutoSave Error: ", e);
+        } catch (Exception e) {
+            // Autosave failed. Do NOT echo the note back with HTTP 200 as if it saved: deleteTmpSave may
+            // already have removed the previous draft and the new draft was not persisted, so the client
+            // must learn the save failed and keep its dirty in-memory copy to retry. (Narrowed from
+            // Throwable so JVM Errors are not swallowed.)
+            logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy", e);
+            throw new WebApplicationException("Autosave failed", Response.Status.INTERNAL_SERVER_ERROR);
         }
 
         return note;

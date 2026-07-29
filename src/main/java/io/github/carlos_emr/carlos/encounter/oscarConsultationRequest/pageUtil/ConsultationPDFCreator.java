@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -75,6 +77,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class ConsultationPDFCreator extends PdfPageEventHelper {
 
+    private static final float SIGNATURE_IMAGE_SCALE_PERCENT = 40f;
+    private static final float SIGNATURE_IMAGE_MAX_WIDTH = 200f;
+    private static final float SIGNATURE_IMAGE_MAX_HEIGHT = 60f;
+    private static final float[] SIGNATURE_ROW_WIDTHS = new float[]{1.55f, 1.0f};
+    private static final float SIGNATURE_TOP_PADDING = 10f;
+    private static final float SIGNATURE_LABEL_BOTTOM_PADDING = 2f;
+
     private static Logger logger = MiscUtils.getLogger();
     private OutputStream os;
     private Document document;
@@ -84,6 +93,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     private Font heading;
     private EctConsultationFormRequestUtil reqFrm;
     private byte[] signatureImageOverride;
+    private boolean suppressSignature;
     private CarlosProperties props;
     private ClinicData clinic;
     private ResourceBundle oscarR;
@@ -118,6 +128,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         if (signatureOverride instanceof byte[] byteArray) {
             signatureImageOverride = byteArray;
         }
+        suppressSignature = Boolean.TRUE.equals(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE));
         props = CarlosProperties.getInstance();
         clinic = new ClinicData();
         oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -228,7 +239,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         addTable(border, createConsultDetailTable());
 
         // Add the provider's signature.
-        if ((signatureImageOverride != null && signatureImageOverride.length > 0) || getlen(reqFrm.signatureImg) > 0) {
+        if (shouldRenderSignature(suppressSignature, signatureImageOverride, reqFrm.signatureImg)) {
             addSignature(border);
         }
 
@@ -755,33 +766,65 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
 
         if (signatureImage != null && signatureImage.length > 0) {
-            float[] tableWidths = new float[]{0.55f, 2.75f};
-            PdfPTable table = new PdfPTable(tableWidths);
-            PdfPCell cell = new PdfPCell();
-
-            cell.setPhrase(new Phrase(getResource("msgSignature")));
-            cell.setBorder(0);
-            cell.setPadding(0);
-            cell.setPaddingTop(10f);
-            cell.setHorizontalAlignment(PdfPCell.ALIGN_BOTTOM);
-            cell.setVerticalAlignment(PdfPCell.ALIGN_LEFT);
-            table.addCell(cell);
-
             try {
-                Image image = Image.getInstance(signatureImage);
-                image.scalePercent(80f);
-                image.setBorder(0);
-                cell = new PdfPCell(image);
-                cell.setBorder(0);
-                cell.setPadding(0);
-                cell.setPaddingTop(10f);
-                table.addCell(cell);
+                Image image = createScaledSignatureImage(signatureImage);
+                addTable(pdfPTable, createRightAlignedSignatureTable(getResource("msgSignature"), image, font));
             } catch (BadElementException | IOException e) {
                 logger.error("An error occurred while trying to create an image from the signature", e);
             }
-
-            addTable(pdfPTable, table);
         }
+    }
+
+    static Image createScaledSignatureImage(byte[] signatureImage) throws BadElementException, IOException {
+        Image image = Image.getInstance(signatureImage);
+        image.scalePercent(Math.min(SIGNATURE_IMAGE_SCALE_PERCENT, Math.min(
+                scalePercentToFit(image.getPlainWidth(), SIGNATURE_IMAGE_MAX_WIDTH),
+                scalePercentToFit(image.getPlainHeight(), SIGNATURE_IMAGE_MAX_HEIGHT))));
+        image.setBorder(0);
+        return image;
+    }
+
+    private static float scalePercentToFit(float sourceSize, float maxSize) {
+        if (sourceSize <= 0f) {
+            return SIGNATURE_IMAGE_SCALE_PERCENT;
+        }
+        return maxSize * 100f / sourceSize;
+    }
+
+    private static PdfPTable createRightAlignedSignatureTable(String signatureLabel, Image image, Font signatureFont) {
+        PdfPTable signatureBlock = new PdfPTable(1);
+        signatureBlock.setWidthPercentage(100f);
+
+        PdfPCell labelCell = new PdfPCell(new Phrase(signatureLabel, signatureFont));
+        labelCell.setBorder(0);
+        labelCell.setPadding(0);
+        labelCell.setPaddingBottom(SIGNATURE_LABEL_BOTTOM_PADDING);
+        signatureBlock.addCell(labelCell);
+
+        PdfPCell imageCell = new PdfPCell(image);
+        imageCell.setBorder(0);
+        imageCell.setPadding(0);
+        //imageCell.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
+        signatureBlock.addCell(imageCell);
+
+        PdfPTable table = new PdfPTable(SIGNATURE_ROW_WIDTHS);
+        table.setWidthPercentage(100f);
+        table.addCell(createSignatureSpacerCell());
+
+        PdfPCell signatureCell = new PdfPCell(signatureBlock);
+        signatureCell.setBorder(0);
+        signatureCell.setPadding(0);
+        signatureCell.setPaddingTop(SIGNATURE_TOP_PADDING);
+        table.addCell(signatureCell);
+        return table;
+    }
+
+    private static PdfPCell createSignatureSpacerCell() {
+        PdfPCell spacerCell = new PdfPCell(new Phrase(""));
+        spacerCell.setBorder(0);
+        spacerCell.setPadding(0);
+        spacerCell.setPaddingTop(SIGNATURE_TOP_PADDING);
+        return spacerCell;
     }
 
     /**
@@ -831,6 +874,21 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             logger.error("Error loading consultation digital signature {}", parsedId, e);
             return null;
         }
+    }
+
+    /**
+     * Determines whether the consultation PDF should render a signature image.
+     *
+     * <p>The explicit suppression flag wins over both freshly supplied signature bytes and stored
+     * signature identifiers. Otherwise, either non-empty override bytes or a non-blank stored id is
+     * enough to request signature rendering.
+     */
+    static boolean shouldRenderSignature(boolean suppressSignature, byte[] signatureImageOverride, String signatureImageId) {
+        if (suppressSignature) {
+            return false;
+        }
+        return (signatureImageOverride != null && signatureImageOverride.length > 0)
+                || StringUtils.isNotBlank(signatureImageId);
     }
 
     /**

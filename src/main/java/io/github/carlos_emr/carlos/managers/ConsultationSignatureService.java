@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
@@ -50,14 +52,18 @@ import java.nio.file.Path;
 public class ConsultationSignatureService {
 
     public static final String SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE = "consultationSignatureImageOverride";
+    public static final String SUPPRESS_SIGNATURE_ATTRIBUTE = "consultationSuppressSignature";
 
     private final DigitalSignatureManager digitalSignatureManager;
     private final SecurityInfoManager securityInfoManager;
+    private final ConsultationRequestDao consultationRequestDao;
 
     @Autowired
-    public ConsultationSignatureService(DigitalSignatureManager digitalSignatureManager, SecurityInfoManager securityInfoManager) {
+    public ConsultationSignatureService(DigitalSignatureManager digitalSignatureManager, SecurityInfoManager securityInfoManager,
+                                        ConsultationRequestDao consultationRequestDao) {
         this.digitalSignatureManager = digitalSignatureManager;
         this.securityInfoManager = securityInfoManager;
+        this.consultationRequestDao = consultationRequestDao;
     }
 
     /**
@@ -149,6 +155,53 @@ public class ConsultationSignatureService {
             MiscUtils.getLogger().error("Error persisting consultation stamp signature for provider {}", LogSafe.sanitize(providerNo), e);
             return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.ERROR);
         }
+    }
+
+    /**
+     * Persists a freshly captured manual signature for an existing consultation before rendering the
+     * preview PDF. The consultation row is loaded and checked against the posted demographic before the
+     * temp signature is promoted to {@code DigitalSignature}, so rejected previews do not leave orphaned
+     * signature rows.
+     */
+    public ConsultationPreviewSignatureOutcome saveManualSignatureForPreview(LoggedInInfo loggedInInfo,
+                                                                            int consultationRequestId,
+                                                                            int demographicId,
+                                                                            String submittedSignatureImg,
+                                                                            String manualSignatureRequestId,
+                                                                            String signatureProviderNo) {
+        ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
+        if (consult == null) {
+            MiscUtils.getLogger().error("Consultation request not found while applying print preview signature: {}", consultationRequestId);
+            return ConsultationPreviewSignatureOutcome.of(ConsultationPreviewSignatureOutcome.Status.REQUEST_NOT_FOUND);
+        }
+        Integer consultDemographicId = consult.getDemographicId();
+        if (consultDemographicId == null || consultDemographicId != demographicId) {
+            MiscUtils.getLogger().error("Rejected print preview signature update for requestId={} due to demographic mismatch",
+                    consultationRequestId);
+            return ConsultationPreviewSignatureOutcome.of(ConsultationPreviewSignatureOutcome.Status.DEMOGRAPHIC_MISMATCH);
+        }
+
+        boolean manualCaptured = wasManualSignatureCaptured(manualSignatureRequestId);
+        boolean manualSignatureSubmitted = StringUtils.isNotBlank(submittedSignatureImg)
+                && !SignatureReference.isStoredId(submittedSignatureImg);
+        DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(
+                loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
+
+        if (signature == null) {
+            if (manualCaptured || manualSignatureSubmitted) {
+                MiscUtils.getLogger().error("Captured manual signature could not be persisted for provider {} on consultation print preview (requestId={})",
+                        LogSafe.sanitize(signatureProviderNo), consultationRequestId);
+                return ConsultationPreviewSignatureOutcome.of(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED);
+            }
+            MiscUtils.getLogger().debug("No manual signature captured for consultation print preview (requestId={}); rendering unsigned",
+                    consultationRequestId);
+            return ConsultationPreviewSignatureOutcome.of(ConsultationPreviewSignatureOutcome.Status.NOT_CAPTURED);
+        }
+
+        String signatureId = String.valueOf(signature.getId());
+        consult.setSignatureImg(signatureId);
+        consultationRequestDao.merge(consult);
+        return ConsultationPreviewSignatureOutcome.saved(signatureId);
     }
 
     /**
