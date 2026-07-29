@@ -58,7 +58,7 @@ public class DemographicSearch2Action extends ActionSupport {
 
     /**
      * Validates session and demographic read privileges, identifies whether the
-     * general view should load recent patients, then routes to the appropriate
+     * target view should load recent patients, then routes to the appropriate
      * search results JSP based on the {@code displaymode} parameter.
      *
      * @return {@link #SUCCESS} for general search results, or {@code "apptResults"}

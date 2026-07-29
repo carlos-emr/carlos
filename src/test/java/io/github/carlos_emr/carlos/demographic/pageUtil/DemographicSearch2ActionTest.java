@@ -25,6 +25,10 @@ import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
 import org.mockito.MockitoAnnotations;
@@ -48,6 +52,10 @@ import static org.mockito.Mockito.*;
 class DemographicSearch2ActionTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
+    private static final Path GENERAL_RESULTS_JSP = Path.of(
+            "src/main/webapp/WEB-INF/jsp/demographic/demographicsearchresults.jsp");
+    private static final Path APPOINTMENT_RESULTS_JSP = Path.of(
+            "src/main/webapp/WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp");
     private DemographicSearch2Action action;
 
     @BeforeEach
@@ -244,6 +252,20 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
 
             assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
                     .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should use the controller patient-list mode in every results view")
+        void shouldUseControllerPatientListMode_inEveryResultsView() throws Exception {
+            String attributeLookup = "request.getAttribute(\""
+                    + DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE + "\")";
+
+            assertThat(Files.readString(GENERAL_RESULTS_JSP, StandardCharsets.UTF_8))
+                    .contains(attributeLookup)
+                    .doesNotContain("request.getParameter(\"keyword\").length() == 0");
+            assertThat(Files.readString(APPOINTMENT_RESULTS_JSP, StandardCharsets.UTF_8))
+                    .contains(attributeLookup)
+                    .doesNotContain("request.getParameter(\"keyword\").length() == 0");
         }
     }
 }
