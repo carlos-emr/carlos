@@ -38,6 +38,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -234,6 +235,27 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             }
         } finally {
             Files.deleteIfExists(attachedForm);
+        }
+    }
+
+    @Test
+    @DisplayName("should return error when an attached form has no metadata")
+    void shouldReturnError_whenAttachedFormMetadataIsMissing() throws Exception {
+        when(consultationManager.getAttachedForms(loggedInInfo, 42, 1))
+                .thenReturn(Collections.singletonList(null));
+
+        try (LogCapture logCapture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(logCapture.events())
+                    .anySatisfy(event -> {
+                        assertThat(event.getThrown()).isInstanceOf(PDFGenerationException.class);
+                        assertThat(event.getThrown().getMessage())
+                                .contains("Attached form \"unknown\"")
+                                .contains("form metadata is missing");
+                    });
         }
     }
 
