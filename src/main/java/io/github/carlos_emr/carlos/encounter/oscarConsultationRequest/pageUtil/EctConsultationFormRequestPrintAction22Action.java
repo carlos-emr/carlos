@@ -543,7 +543,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             FaxManager faxManager,
             String demoNo,
             EctFormData.PatientForm formItem) throws PDFGenerationException {
-        String formName = formItem == null ? "unknown" : formItem.getFormName();
+        if (formItem == null) {
+            throw new PDFGenerationException(
+                    "Attached form \"unknown\" could not be rendered: form metadata is missing");
+        }
+        String formName = formItem.getFormName();
         try {
             String formDemoNo = formItem.getDemoNo();
             String formId = formItem.getFormId();
