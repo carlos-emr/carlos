@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("FormShortcutRouteResolver")
 @Tag("unit")
 @Tag("form")
-class FormShortcutRouteResolverTest {
+class FormShortcutRouteResolverUnitTest {
 
     @Test
     void shouldResolveDirectFormRoute_whenShortcutHasTrailingDemographicParameter() {
