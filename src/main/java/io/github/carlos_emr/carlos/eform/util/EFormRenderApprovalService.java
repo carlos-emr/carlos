@@ -168,7 +168,7 @@ public class EFormRenderApprovalService {
             int fdid, String demographicNo, String token) {
         if (token == null || token.isBlank() || request.getSession(false) == null) return null;
         String providerNo = requireProvider(loggedInInfo);
-        PendingApproval pending = stagedFaxApprovals.asMap().get(token);
+        PendingApproval pending = stagedFaxApprovals.getIfPresent(token);
         if (pending == null) {
             return null;
         }
