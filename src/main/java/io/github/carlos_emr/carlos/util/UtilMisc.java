@@ -37,6 +37,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 
 import io.github.carlos_emr.Misc;
+import java.util.Locale;
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -171,7 +172,7 @@ public class UtilMisc {
         if (S == null) {
             return S;
         }
-        S = S.trim().toLowerCase();
+        S = S.trim().toLowerCase(Locale.ROOT);
         int N = S.length();
         boolean bUpper = false;
         StringBuilder sb = new StringBuilder(N);

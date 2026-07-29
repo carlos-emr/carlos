@@ -25,6 +25,7 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Locale;
 
 /**
  * Null-safe OWASP-backed encoder tag. Registered as {@code <carlos:encode>} via
@@ -115,7 +116,7 @@ public class CarlosEncodeTag extends TagSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void encode(JspWriter out, String ctx, String val) throws IOException, JspException {
         // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
-        switch (ctx.toLowerCase()) {
+        switch (ctx.toLowerCase(Locale.ROOT)) {
             case "html":
             case "htmlcontent":
                 SafeEncode.forHtmlContent(out, val);
