@@ -191,6 +191,23 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      */
     private void insertFieldFull(String tableId, String fieldName, int fieldIndex, int genericIdx,
                                   String fieldType, boolean autoIncrement, String lookupTable) {
+        insertFieldFull(tableId, fieldName, fieldName, fieldIndex, genericIdx, fieldType, autoIncrement, lookupTable);
+    }
+
+    /**
+     * Inserts a field definition whose stored SQL expression differs from its display field name.
+     *
+     * @param tableId       String the parent table identifier
+     * @param fieldName     String the display name used in result metadata (for example, {@code code})
+     * @param fieldSql      String the query expression stored in {@code fieldsql} (for example, {@code s.code})
+     * @param fieldIndex    int the display order index
+     * @param genericIdx    int the generic index for column mapping
+     * @param fieldType     String the field data type ("S"=String, "D"=Date, "I"=Integer)
+     * @param autoIncrement boolean whether the field auto-increments
+     * @param lookupTable   String the reference lookup table name, or empty string if none
+     */
+    private void insertFieldFull(String tableId, String fieldName, String fieldSql, int fieldIndex, int genericIdx,
+                                  String fieldType, boolean autoIncrement, String lookupTable) {
         hibernateTemplate.execute(session -> {
             session.createNativeQuery(INSERT_FIELD)
                 .setParameter("tid", tableId)
@@ -199,7 +216,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 .setParameter("ftype", fieldType)
                 .setParameter("edit", true)
                 .setParameter("lt", lookupTable)
-                .setParameter("fsql", fieldName)
+                .setParameter("fsql", fieldSql)
                 .setParameter("fidx", fieldIndex)
                 .setParameter("auto", autoIncrement)
                 .setParameter("uniq", false)
@@ -629,6 +646,144 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 .as("NULL orderByIndex column should coerce to 0 (not NFE)")
                 .isZero();
         }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should load rows when field SQL is qualified with the lookup table alias")
+        void shouldLoadRows_whenFieldSqlUsesLookupTableAlias() {
+            // Given - legacy lookup field metadata may already qualify columns with
+            // the LoadCodeList table alias. The SQL builder must not validate that
+            // qualified column as an output alias or prefix it a second time.
+            String tableId = nextTableId("QF");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "s.code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            LookupCodeValue row = result.get(0);
+            assertThat(row.getCode()).isEqualTo("Q1");
+            assertThat(row.getDescription()).isEqualTo("Qualified");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should load rows when field SQL has surrounding whitespace")
+        void shouldLoadRows_whenFieldSqlHasSurroundingWhitespace() {
+            // Given - legacy field metadata may carry stray leading/trailing whitespace.
+            // The validator tolerates it, so the SQL builder must too rather than throwing.
+            String tableId = nextTableId("QW");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "  code  ", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            LookupCodeValue row = result.get(0);
+            assertThat(row.getCode()).isEqualTo("Q1");
+            assertThat(row.getDescription()).isEqualTo("Qualified");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should load rows when table name has surrounding whitespace")
+        void shouldLoadRows_whenTableNameHasSurroundingWhitespace() {
+            // Given - legacy lookup table metadata may carry stray whitespace around
+            // the backing table name; validateSqlIdentifier trims it before building SQL.
+            String tableId = nextTableId("QT");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, "  " + QUALIFIED_FIELD_TABLE_NAME + "  ");
+            insertFieldFull(tableId, "code", "code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getCode()).isEqualTo("Q1");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should reject qualified field SQL when qualifier is not lookup table alias")
+        void shouldRejectQualifiedFieldSql_whenQualifierIsNotLookupTableAlias() {
+            // Given
+            String tableId = nextTableId("QX");
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "t.code", 1, 1, "S", false, "");
+            hibernateTemplate.flush();
+
+            // When / Then
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only s qualifier allowed in lookup field SQL");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should reject qualified field SQL when nested path is configured")
+        void shouldRejectQualifiedFieldSql_whenNestedPathIsConfigured() {
+            // Given
+            String tableId = nextTableId("QN");
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "s.lookup.code", 1, 1, "S", false, "");
+            hibernateTemplate.flush();
+
+            // When / Then
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Nested path not allowed in lookup field SQL");
+        }
     }
 
     /** Literal backing-table name for the NULL-row regression fixture. */
@@ -647,6 +802,23 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     private static final String INSERT_NULL_ROW = """
             INSERT INTO nr_null_row_test (code, description, active_col, orderby_col)
             VALUES ('A', 'Alpha', NULL, NULL)""";
+
+    /** Literal backing-table name for qualified lookup field SQL regression coverage. */
+    private static final String QUALIFIED_FIELD_TABLE_NAME = "qualified_field_lookup_test";
+
+    /** Literal DDL for qualified lookup field SQL regression coverage. */
+    private static final String CREATE_QUALIFIED_FIELD_TABLE = """
+            CREATE TABLE IF NOT EXISTS qualified_field_lookup_test (
+                code VARCHAR(10),
+                description VARCHAR(100),
+                active_col INT,
+                orderby_col INT
+            )""";
+
+    /** Literal INSERT for qualified lookup field SQL regression coverage. */
+    private static final String INSERT_QUALIFIED_FIELD_ROW = """
+            INSERT INTO qualified_field_lookup_test (code, description, active_col, orderby_col)
+            VALUES ('Q1', 'Qualified', 1, 7)""";
 
     /** Literal backing-table name for the all-codes distinct-row regression fixture. */
     private static final String ALL_CODES_TABLE_NAME = "cfv_all_codes_test";

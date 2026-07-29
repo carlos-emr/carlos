@@ -276,7 +276,7 @@ Any `*2Action` that performs a mutation MUST reject `GET`/`HEAD` before any
 side-effect fires (DAO persist, manager call, event publish, file write).
 The aggregated contract test that pins this for the in-scope slices is:
 
-`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractTest.java`
+`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractUnitTest.java`
 
 **When you add a new mutator 2Action**, the contract test's discovery scan
 will fail the build until you register the class in one of three lists at

@@ -1,6 +1,12 @@
 services:
   carlos:
     container_name: carlos-tomcat-dev
+    # Run tini as PID 1 so orphaned subprocesses are reaped. The eForm browser renderer
+    # launches a Chromium process tree per render; on an abnormal teardown (watchdog kill,
+    # redeploy mid-render) orphaned helpers reparent to PID 1 and — without an init — become
+    # permanent zombies that exhaust the container's pids cgroup over a long dev session
+    # ("unable to create native thread"). See docs/eform-browser-pdf-renderer.md.
+    init: true
     build:
       context: ./development
       dockerfile: Dockerfile

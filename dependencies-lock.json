@@ -312,6 +312,14 @@
     "optional" : false,
     "integrity" : "sha512:dysG29MQqKBqDC02Oa0tFsVKeLy4RSdLMD0UBpnrsVxkHU4HjyinVGf8BbWz01vCwF9/xEMk3LHJb3b5A3iCLg=="
   }, {
+    "groupId" : "com.google.auto.service",
+    "artifactId" : "auto-service-annotations",
+    "version" : "1.1.1",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:nUnPlCadtiMA1f14JWEweH2f0ITxRZ1ju7Ns8al/DSvmElX/zE3JCEzDeY3W9XfQ/2tx/a6PyrolS/6YRe29fg=="
+  }, {
     "groupId" : "com.google.code.findbugs",
     "artifactId" : "jsr305",
     "version" : "3.0.2",
@@ -875,6 +883,70 @@
     "optional" : false,
     "integrity" : "sha512:51Vr7YMwmzpOPtd6Dpihu4xd5sXKS1CH3zPDsQqmJ5F8MHe1NJh1ZEfGPnBVpT4l5suux76oWuEcQMNpV/WNrg=="
   }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-exporter-logging",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:RqCCXqSy/2uR7hjXhVue4FBIzOZaXde2hnHaUoUQ3YoY1zwe1Rd3VyJFZPB6500/wMSN5ekern9jsPZ9slsylw=="
+  }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-sdk-common",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:/IEOhvSg5uqaMoC9f/ZK2OhaFK55NNzDt3LyJAwhZSQKtMNHKa8d0RKuKGSoQStJLEWRhahZWCZlczTOB6VwCw=="
+  }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-sdk-extension-autoconfigure-spi",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:ey14CFBSZx3FBxNQa1peVEFjHilFN+E89jT5SwOHQrB6ebbLGDYNn1v52GDI74LfqsHUznW9cfBz0dCc6XOO1A=="
+  }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-sdk-extension-autoconfigure",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:RJV7kRAKF5JcvN7lgQhU0BpjYDPiieQ+PCBOePy9MGKiBR1vURiGSxmWjiRohM4Bj6Gx4tpI5JKB41GeT1p80w=="
+  }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-sdk-logs",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:tDX8o1eaiIaoniHOrURbPTiSAYHV9Eq542+Wb56uG5guRdZBz7rSo6um00XP6TyQwBgtNI9420LqhC/FkMw9GQ=="
+  }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-sdk-metrics",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:728d1O9XJr+LOJ5d1Jq+j1fat0VtvsgCMuMVEheT+HsVD+iX6kDCK/II9/6cjX84jnexYjamY7Wv1gjXFxThVg=="
+  }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-sdk-trace",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:sreI0HGq6/apl1ik4Lqt+4ooLwfeNWg5cOHqxNxHLOTPpX4onkraJVtneSABpjVyhGrKIa06fnAcGFYnItowsg=="
+  }, {
+    "groupId" : "io.opentelemetry",
+    "artifactId" : "opentelemetry-sdk",
+    "version" : "1.64.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:J3m6k6XN/CN4CfL9GW5wZrqW9B39ksKyBhFtoxK+8mZDoyDe0pg8t0TBPEJ4wSzqkyjw50s7fho0WSNvhfPCfg=="
+  }, {
     "groupId" : "io.undertow",
     "artifactId" : "undertow-servlet",
     "version" : "2.3.23.Final",
@@ -1054,7 +1126,7 @@
     "groupId" : "net.bytebuddy",
     "artifactId" : "byte-buddy",
     "version" : "1.18.7",
-    "scope" : "runtime",
+    "scope" : "compile",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:IzM2Rak6+00CRqIMEzz6wbAp5RybP9ZVisdcRVaJ9E3mPk/uP8akZzEs/MVqopp2ortt6y/c96gDPr7xjtvIiA=="
@@ -2093,43 +2165,43 @@
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-coyote",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:VXkvKGqXdH2q3uAtqiWVjylPrbKBD9PxrdGGB0h1Yg4Z+hjzhqfMOLn+6BnilqChWEQrF1k3YZ6OprrP5TdUXg=="
+    "integrity" : "sha512:WDxXeJM9ivbw5RKIpmc5LrYfDJWHsMo9Vk7Oa6tqTHq+UXfG0RPjz8NxahkA9Nx3ixF4lxKVk1mU4sy9THHsHg=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-jni",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:f+ATVZB9At0D2E6ZWEp0cVf6RoUVrXad6kO6SwwNLRU7eUvrCt4VSVuu4x5CvHdnu753OtO0nMz8i9+x44KZ5A=="
+    "integrity" : "sha512:iiHESlZXs1khIQ2191/hyDqvhCij9D+o6Ff9Gs1oB0Ao6b/TSGrqY+fDGq8QZsmHhxgjJZrBw3QLnMLTvp3mPg=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-juli",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:1gBk/la6rtHDNr1kYMKonitui/BKgH9NRp1r/mPT70lPLc4IvScjhACPxTdHVMitg6xVgRipk1LLPB61pXXLNg=="
+    "integrity" : "sha512:cI/DCV5JvTpys2c3AiasUDtoXIrTZUyBScYI+UIfVKOI0f3XyCFSOoM9hEHc4sc7Bf8awsfn3eISS3W/c/Hd0g=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-servlet-api",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:YqvxXeGeAnYYucWgLvoodo5lix8EL7jC1cPWqsEw2KfADyRNxlqFQlXpb0YB4V/OcF1a6nD+Vc7I7eTkVaGhVQ=="
+    "integrity" : "sha512:aBTWrPRqgm+5oDMB1h+BwoV8OIn0IsyaoWCGK1Mx9fE4hf2TxygBMsUAaUIePTyedEjBvWknReKkKJh+vjZ/ug=="
   }, {
     "groupId" : "org.apache.tomcat",
     "artifactId" : "tomcat-util",
-    "version" : "11.0.20",
+    "version" : "11.0.24",
     "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:pOq2xKd31Is1omfJ1ESPTdyCUk9EmSgn06gUgwCwG/rGE/CZj3yuSpuQSWpczqPqeLcw5shZUm7ukd/y4hknmA=="
+    "integrity" : "sha512:QUEHB6hQowI0p22lAoXzAEVk291u0zrSQqiOPYjJWbyS3tHjHv4NMuuLUuUqcAsjwNvnGYfVGkp51vKhJNOvGw=="
   }, {
     "groupId" : "org.apache.velocity.tools",
     "artifactId" : "velocity-tools-generic",
@@ -3275,6 +3347,78 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:zatr0VbzkQbNa7/UffH0sKidxKooxowx7xKkYxk8aIiX5BXwG41/DUh7Dmtb0vGQRL+GBXBLAk8m1qofT5okcQ=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-api",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:yitmKvKCsxzsoSqG0jJL/m11Hz04U0oTJSeaSklBzT568LRrrSXkIZmsdh7WK6a8EXvfpjhTXXRqf8tYA/n9+g=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-chrome-driver",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:tDXPVo7E3BRg9zY/mtuX0oH9jpyihr8fG6mkkDVgol7rmrPxXweLM3iBqBBEgtGeVL55QwnKk0Qcx08d4MuDHw=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-chromium-driver",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:CXtLLzFIOcbxl9UNIc0gHAIo3O4CK/hxuGdsmY6ETL5Tv/ov3V4kwr69oxIry8N9MPNEAJBvuWZNgjhuS0Xj/w=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-http",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:MZJyTBMRtPSsL3XpRzXIqedOlfvIRK9+76uHl9Ej89Vth1Hf0wRVaPr8LtPD0JmWANDF1TbLUL+lxuKTGhocAQ=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-json",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:orHyqEzHUasxeZKdFI4FijL6RkZyKET8CEngbZI8zOMIREBTbqwGWaH8TjH+qkAgYI1E237i2zAPJxgEHKTHMQ=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-manager",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:38cpcdAjYP34QivNhInB231zKcp4PW8W0vHmKcaSZfd9UdK99sSDnE1HLn31C9VUpTL/IRUZnXJUvAypAgoAtQ=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-os",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:rJfyTEOZwt2k8R8t7cSOz9FdiZSc8U/8+R1yYh4fLcTCM+218VjHnNZlYyTmQi8mIm4pHgHgdagRs0SQWSZagQ=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-remote-driver",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:xfsNZo5Jmw2eZhwUMmjcUkjmR7SvBsFxeLsKnaieezipyZq4CJJpEbl7m01Ay57OH5kXE2kwFFuZWUslrjtFqg=="
+  }, {
+    "groupId" : "org.seleniumhq.selenium",
+    "artifactId" : "selenium-support",
+    "version" : "4.46.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:7mFxae8aUON9CKjyTM0pTFtUZtrR0BikGrgDVCmYIXismOuVtzX+rsm5V4bPRz0IyNpCv0TctCLFgXFMuuc88A=="
   }, {
     "groupId" : "org.slf4j",
     "artifactId" : "jcl-over-slf4j",
