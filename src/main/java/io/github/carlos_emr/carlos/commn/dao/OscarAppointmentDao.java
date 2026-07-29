@@ -44,6 +44,16 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public boolean checkForConflict(Appointment appt);
 
+    /**
+     * Loads an appointment while acquiring a database write lock. Callers must
+     * invoke this method inside the transaction that performs the corresponding
+     * mutation so the lock remains held through validation and commit.
+     *
+     * @param appointmentNo appointment primary key
+     * @return the locked appointment, or {@code null} when it does not exist
+     */
+    Appointment findForUpdate(Integer appointmentNo);
+
     public List<Appointment> getAppointmentHistory(Integer demographicNo, Integer offset, Integer limit);
 
     public List<Appointment> getAllAppointmentHistory(Integer demographicNo, Integer offset, Integer limit);

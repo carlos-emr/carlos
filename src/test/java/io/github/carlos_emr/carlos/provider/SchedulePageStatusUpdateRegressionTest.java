@@ -54,6 +54,8 @@ class SchedulePageStatusUpdateRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "appointmentprovideradminday.jsp");
     private static final Path ADD_STATUS =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "provideraddstatus.jsp");
+    private static final Path PROVIDER_CONTROL =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providercontrol.jsp");
 
     private static final Pattern UPDATE_APPT_STATUS_FUNCTION = Pattern.compile(
             "function\\s+updateApptStatus\\s*\\(\\s*url\\s*\\)\\s*\\{", Pattern.DOTALL);
@@ -98,6 +100,9 @@ class SchedulePageStatusUpdateRegressionTest {
             "window\\.location\\.replace\\s*\\(", Pattern.DOTALL);
     private static final Pattern HAS_ERROR_HANDLER = Pattern.compile(
             "\\.catch\\s*\\(.*?apptStatusUpdateErrorMessage", Pattern.DOTALL);
+    private static final Pattern SKIPS_EMPTY_QUERY_SEGMENTS = Pattern.compile(
+            "if\\s*\\(\\s*!pairs\\[i\\]\\s*\\)\\s*\\{\\s*continue\\s*;\\s*\\}",
+            Pattern.DOTALL);
 
     private static final Pattern DAY_VIEW_USES_HELPER = Pattern.compile(
             "onclick=\"return\\s+updateApptStatus\\('[^\"]*?displaymode=addstatus", Pattern.DOTALL);
@@ -105,27 +110,53 @@ class SchedulePageStatusUpdateRegressionTest {
             "currentstatus=<%=SafeEncode\\.forUriComponent\\(status\\)%>", Pattern.DOTALL);
     private static final Pattern DAY_VIEW_STATUS_NOT_FULL_PAGE_POST = Pattern.compile(
             "onclick=\"postViaForm\\('[^\"]*?displaymode=addstatus", Pattern.DOTALL);
+    private static final Pattern DAY_VIEW_STATUS_HAS_DOUBLE_DELIMITER = Pattern.compile(
+            "day=<%=day%>&amp;<%=viewString%>");
 
     private static final Pattern ADD_STATUS_DETECTS_AJAX = Pattern.compile(
             "\"XMLHttpRequest\"\\.equals\\(request\\.getHeader\\(\"X-Requested-With\"\\)\\)", Pattern.DOTALL);
     private static final Pattern ADD_STATUS_RETURNS_URL_FOR_AJAX = Pattern.compile(
             "out\\.print\\s*\\(\\s*displaypage\\s*\\)", Pattern.DOTALL);
-    private static final Pattern ADD_STATUS_EMPTY_AJAX_FAILURE = Pattern.compile(
-            "out\\.clear\\s*\\(\\s*\\)\\s*;\\s*return\\s*;", Pattern.DOTALL);
-    private static final Pattern ADD_STATUS_REJECTS_STALE_STATUS = Pattern.compile(
-            "matchesCurrentStatus\\s*\\(\\s*appt\\.getStatus\\(\\)\\s*,\\s*submittedCurrentStatus\\s*\\)"
-                    + ".*?SC_CONFLICT",
+    private static final Pattern ADD_STATUS_DELEGATES_ATOMIC_TRANSITION = Pattern.compile(
+            "appointmentStatusTransitionService\\.transition\\s*\\(\\s*appointmentNo\\s*,"
+                    + "\\s*providerNoParam\\s*,\\s*submittedCurrentStatus\\s*,"
+                    + "\\s*appointmentStatus\\s*,\\s*curUser_no\\s*\\)",
             Pattern.DOTALL);
-    private static final Pattern ADD_STATUS_VALIDATES_CALCULATED_TRANSITION = Pattern.compile(
-            "apptStatusData\\.getNextStatus\\s*\\(\\s*\\).*?"
-                    + "matchesCalculatedNextStatus\\s*\\(\\s*calculatedNextStatus\\s*,\\s*appointmentStatus\\s*\\)",
+    private static final Pattern ADD_STATUS_MAPS_STALE_STATUS_TO_CONFLICT = Pattern.compile(
+            "Reason\\.STALE_STATUS\\s*\\).*?sendStatusError\\s*\\([^;]*SC_CONFLICT",
             Pattern.DOTALL);
-    private static final Pattern ADD_STATUS_VALIDATES_PROVIDER = Pattern.compile(
-            "!appointmentProviderNo\\.equals\\s*\\(\\s*providerNoParam\\s*\\)",
+    private static final Pattern ADD_STATUS_MAPS_MISSING_APPOINTMENT_TO_NOT_FOUND = Pattern.compile(
+            "Reason\\.APPOINTMENT_NOT_FOUND\\s*\\).*?sendStatusError\\s*\\([^;]*SC_NOT_FOUND",
             Pattern.DOTALL);
-    private static final Pattern ADD_STATUS_PUBLISHES_AUTHORITATIVE_EVENT = Pattern.compile(
-            "appointmentStatusChanged\\s*\\(\\s*this\\s*,\\s*String\\.valueOf\\(appointmentNo\\)\\s*,"
-                    + "\\s*appointmentProviderNo\\s*,\\s*appointmentStatus\\s*\\)",
+    private static final Pattern ADD_STATUS_HAS_DIRECT_PERSISTENCE_OR_EVENT = Pattern.compile(
+            "appointmentArchiveDao|appointmentDao\\.merge|appointmentStatusChanged");
+    private static final Pattern ADD_STATUS_AJAX_ERROR_SETS_STATUS = Pattern.compile(
+            "if\\s*\\(\\s*ajaxRequest\\s*\\).*?response\\.setStatus\\s*\\(\\s*status\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_EXPOSES_INCLUDED_ERROR_STATUS = Pattern.compile(
+            "request\\.setAttribute\\s*\\(\\s*\"providerAddStatusHttpStatus\"\\s*,\\s*status\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_EXPOSES_INCLUDED_REDIRECT = Pattern.compile(
+            "request\\.setAttribute\\s*\\(\\s*\"providerAddStatusRedirectTarget\"\\s*,"
+                    + "\\s*displaypage\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_AJAX_USES_PLAIN_TEXT = Pattern.compile(
+            "if\\s*\\(\\s*ajaxRequest\\s*\\).*?"
+                    + "response\\.setContentType\\s*\\(\\s*\"text/plain;charset=UTF-8\"\\s*\\)",
+            Pattern.DOTALL);
+    private static final Pattern PROVIDER_CONTROL_APPLIES_AJAX_STATUS = Pattern.compile(
+            "ajaxStatusRequest.*?request\\.getRequestDispatcher\\(includeTarget\\)\\.include"
+                    + ".*?request\\.getAttribute\\(\"providerAddStatusHttpStatus\"\\)"
+                    + ".*?response\\.sendError",
+            Pattern.DOTALL);
+    private static final Pattern PROVIDER_CONTROL_APPLIES_PLAIN_TEXT = Pattern.compile(
+            "ajaxStatusRequest.*?response\\.setContentType"
+                    + "\\(\"text/plain;charset=UTF-8\"\\)",
+            Pattern.DOTALL);
+    private static final Pattern PROVIDER_CONTROL_APPLIES_INCLUDED_REDIRECT = Pattern.compile(
+            "statusRequest.*?request\\.getRequestDispatcher\\(includeTarget\\)\\.include"
+                    + ".*?request\\.getAttribute\\(\"providerAddStatusRedirectTarget\"\\)"
+                    + ".*?response\\.sendRedirect",
             Pattern.DOTALL);
 
     @Test
@@ -134,6 +165,7 @@ class SchedulePageStatusUpdateRegressionTest {
         String script = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
         String dayView = Files.readString(DAY_VIEW, StandardCharsets.UTF_8);
         String addStatus = Files.readString(ADD_STATUS, StandardCharsets.UTF_8);
+        String providerControl = Files.readString(PROVIDER_CONTROL, StandardCharsets.UTF_8);
         String updateApptStatusBody = extractFunctionBody(script, UPDATE_APPT_STATUS_FUNCTION);
         List<String> ajaxResponseBranches = extractBlockBodies(addStatus, AJAX_RESPONSE_BRANCH);
 
@@ -157,24 +189,36 @@ class SchedulePageStatusUpdateRegressionTest {
         assertThat(matches(updateApptStatusBody, HISTORY_REPLACING_NAVIGATION)).isTrue();
         // Failures must surface a localized error rather than silently failing.
         assertThat(matches(updateApptStatusBody, HAS_ERROR_HANDLER)).isTrue();
+        // Malformed or legacy URLs with duplicate delimiters must not emit an
+        // empty form field, which Tomcat 11 rejects before the action runs.
+        assertThat(matches(updateApptStatusBody, SKIPS_EMPTY_QUERY_SEGMENTS)).isTrue();
+        assertThat(script.split("if \\(!pairs\\[i\\]\\)", -1)).hasSize(3);
 
         // The day-view status icon must call the in-place helper, not the full-page POST.
         assertThat(matches(dayView, DAY_VIEW_USES_HELPER)).isTrue();
         assertThat(matches(dayView, DAY_VIEW_SENDS_CURRENT_STATUS)).isTrue();
         assertThat(matches(dayView, DAY_VIEW_STATUS_NOT_FULL_PAGE_POST)).isFalse();
+        assertThat(matches(dayView, DAY_VIEW_STATUS_HAS_DOUBLE_DELIMITER)).isFalse();
 
-        // The mutation JSP must reject stale/forged transitions and publish authoritative values.
-        assertThat(matches(addStatus, ADD_STATUS_REJECTS_STALE_STATUS)).isTrue();
-        assertThat(matches(addStatus, ADD_STATUS_VALIDATES_CALCULATED_TRANSITION)).isTrue();
-        assertThat(matches(addStatus, ADD_STATUS_VALIDATES_PROVIDER)).isTrue();
-        assertThat(matches(addStatus, ADD_STATUS_PUBLISHES_AUTHORITATIVE_EVENT)).isTrue();
+        // The JSP must delegate the mutation to the atomic service instead of
+        // coordinating persistence or event publication itself.
+        assertThat(matches(addStatus, ADD_STATUS_DELEGATES_ATOMIC_TRANSITION)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_MAPS_STALE_STATUS_TO_CONFLICT)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_MAPS_MISSING_APPOINTMENT_TO_NOT_FOUND)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_HAS_DIRECT_PERSISTENCE_OR_EVENT)).isFalse();
 
-        // The mutation JSP must return the refreshed URL on success and an empty body on failure.
+        // The mutation JSP must return the refreshed URL on success. Failures
+        // are explicit HTTP errors mapped from the service exception above.
         assertThat(matches(addStatus, ADD_STATUS_DETECTS_AJAX)).isTrue();
-        assertThat(ajaxResponseBranches).hasSize(2);
-        assertThat(matches(ajaxResponseBranches.get(0), ADD_STATUS_RETURNS_URL_FOR_AJAX)).isTrue();
-        assertThat(matches(ajaxResponseBranches.get(1), ADD_STATUS_EMPTY_AJAX_FAILURE)).isTrue();
-        assertThat(matches(ajaxResponseBranches.get(1), ADD_STATUS_RETURNS_URL_FOR_AJAX)).isFalse();
+        assertThat(ajaxResponseBranches)
+                .anyMatch(branch -> matches(branch, ADD_STATUS_RETURNS_URL_FOR_AJAX));
+        assertThat(matches(addStatus, ADD_STATUS_AJAX_ERROR_SETS_STATUS)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_EXPOSES_INCLUDED_ERROR_STATUS)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_EXPOSES_INCLUDED_REDIRECT)).isTrue();
+        assertThat(matches(addStatus, ADD_STATUS_AJAX_USES_PLAIN_TEXT)).isTrue();
+        assertThat(matches(providerControl, PROVIDER_CONTROL_APPLIES_AJAX_STATUS)).isTrue();
+        assertThat(matches(providerControl, PROVIDER_CONTROL_APPLIES_PLAIN_TEXT)).isTrue();
+        assertThat(matches(providerControl, PROVIDER_CONTROL_APPLIES_INCLUDED_REDIRECT)).isTrue();
     }
 
     private static boolean matches(String source, Pattern pattern) {

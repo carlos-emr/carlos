@@ -767,6 +767,7 @@ if (targetWindow) { form.target = targetWindow; }
 if (parts.length > 1) {
     var pairs = parts[1].split('&');
     for (var i = 0; i < pairs.length; i++) {
+        if (!pairs[i]) { continue; }
         var kv = pairs[i].split('=');
         var input = document.createElement('input');
         input.type = 'hidden';
@@ -822,6 +823,7 @@ var body = new URLSearchParams();
 if (parts.length > 1) {
     var pairs = parts[1].split('&');
     for (var i = 0; i < pairs.length; i++) {
+        if (!pairs[i]) { continue; }
         var kv = pairs[i].split('=');
         var name = decodeURIComponent(kv[0]);
         var value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
