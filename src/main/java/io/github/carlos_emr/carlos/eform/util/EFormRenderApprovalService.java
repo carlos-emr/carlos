@@ -168,14 +168,15 @@ public class EFormRenderApprovalService {
     /** Claims the staged PDF atomically; a ticket can never be used to render or deliver twice. */
     public StagedFaxPreview consumeStagedFaxPreview(HttpServletRequest request, LoggedInInfo loggedInInfo,
             int fdid, String demographicNo, String token) {
-        if (token == null || token.isBlank() || request.getSession(false) == null) return null;
+        HttpSession session = request.getSession(false);
+        if (token == null || token.isBlank() || session == null) return null;
         String providerNo = requireProvider(loggedInInfo);
         PendingApproval pending = stagedFaxApprovals.getIfPresent(token);
         if (pending == null) {
             return null;
         }
         if (pending.stagedPreview() == null
-                || !pending.sessionId().equals(request.getSession(false).getId())
+                || !pending.sessionId().equals(session.getId())
                 || !pending.providerNo().equals(providerNo) || pending.fdid() != fdid
                 || !pending.demographicNo().equals(demographicNo) || pending.operation() != Operation.FAX) {
             stagedFaxApprovals.invalidate(token);
