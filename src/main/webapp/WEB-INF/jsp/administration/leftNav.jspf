@@ -52,7 +52,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 	<div class="accordion" id="adminNav">
 
 		<div class="p-2" style="margin-bottom:0px;color:#000">
-		<a href="${ctx}/administration"><i class="fa-solid fa-gear"></i> <fmt:message key="admin.admin.page.title"/></a>
+		<a href="${ctx}/administration${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"><i class="fa-solid fa-gear"></i> <fmt:message key="admin.admin.page.title"/></a>
 		</div>
 
 <!-- #USER MANAGEMENT -->

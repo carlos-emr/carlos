@@ -110,6 +110,16 @@ class AdministrationNavigationRegressionTest {
                 .contains("admin.admin.unlockAcct");
     }
 
+    @Test
+    @DisplayName("Administration home link should preserve focused schedule navigation")
+    void shouldPreserveScheduleNavigation_forAdministrationHomeLink() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"));
+
+        assertThat(jsp)
+                .contains("href=\"${ctx}/administration${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}\"")
+                .doesNotContain("href=\"${ctx}/administration?scheduleNav=1\"");
+    }
+
     private static void assertLinkGuardedBy(String jsp, String link, String objectName, String rights) {
         int linkIndex = jsp.indexOf(link);
         assertThat(linkIndex).as(link + " should be present in the Administration navigation").isNotNegative();
