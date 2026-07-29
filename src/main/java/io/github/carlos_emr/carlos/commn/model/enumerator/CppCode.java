@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Enumerates valid CPP (Cumulative Patient Profile) codes to categorize patient record data.
+ */
 
 public enum CppCode {
     OMEDS("OMeds"),

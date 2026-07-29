@@ -5,6 +5,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite key mapping for EReferAttachmentData to uniquely identify attachment records.
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

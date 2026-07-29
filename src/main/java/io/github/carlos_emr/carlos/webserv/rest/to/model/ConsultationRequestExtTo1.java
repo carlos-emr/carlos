@@ -1,6 +1,9 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
+/**
+ * Transfer object structure for version 1 of consultation request extended attributes via REST.
+ */
 
 public class ConsultationRequestExtTo1 {
     private Integer id;

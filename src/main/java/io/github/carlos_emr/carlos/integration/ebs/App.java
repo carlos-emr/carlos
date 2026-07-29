@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.integration.ebs;
+/**
+ * Entry point for launching the integration with the External Billing System (EBS).
+ */
 
 public class App
 {

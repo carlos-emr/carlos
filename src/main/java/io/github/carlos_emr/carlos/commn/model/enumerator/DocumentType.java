@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Defines the various standard document categories within the CARLOS system.
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),

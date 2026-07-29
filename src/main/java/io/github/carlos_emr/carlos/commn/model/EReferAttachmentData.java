@@ -7,6 +7,9 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * Entity holding the content and metadata of eReferral attachments.
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)

@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import jakarta.persistence.Converter;
+/**
+ * JPA converter translating EmailLogTransactionType enums for persistent storage.
+ */
 
 @Converter
 public class EmailLogTransactionTypeConverter extends NullSafeEnumConverter<TransactionType> {

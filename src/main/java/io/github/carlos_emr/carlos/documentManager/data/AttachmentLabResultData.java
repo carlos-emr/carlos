@@ -5,6 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
+/**
+ * Represents the data binding laboratory results to an attached document record.
+ */
 
 public class AttachmentLabResultData {
     private String segmentID;

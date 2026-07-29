@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.HnrDataValidation.Type;
 import jakarta.persistence.Converter;
+/**
+ * JPA converter for storing HnrDataValidationType in the entity tables.
+ */
 
 @Converter
 public class HnrDataValidationTypeConverter extends NullSafeEnumConverter<Type> {

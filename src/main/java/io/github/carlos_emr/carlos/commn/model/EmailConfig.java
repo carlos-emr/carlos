@@ -4,6 +4,9 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * Represents the configuration properties required for sending emails, such as host, port, and credentials.
+ */
 
 @Entity
 @Table(name = "emailConfig")

@@ -17,6 +17,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Provides core functionality for handling GST report logic in the administration module.
+ */
 
 public class GstReport {
 

@@ -6,6 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
+/**
+ * Spring configuration defining Servlet Context customizations and web application initialization properties.
+ */
 
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
