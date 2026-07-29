@@ -157,6 +157,23 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
     @Override
     public void batchRemove(List<AppointmentStatus> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override public void batchPersistAtomically(List<AppointmentStatus> list) { super.batchPersistAtomically(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override public void batchPersistAtomically(List<AppointmentStatus> list, int size) { super.batchPersistAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<AppointmentStatus> list) { super.batchRemoveAtomically(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<AppointmentStatus> list, int size) { super.batchRemoveAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<AppointmentStatus> list) { super.batchPersistWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<AppointmentStatus> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<AppointmentStatus> list) { super.batchRemoveWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<AppointmentStatus> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
+
     /**
      * I don't know about this one...but i'm just converting it to a JPA entity for
      * now.

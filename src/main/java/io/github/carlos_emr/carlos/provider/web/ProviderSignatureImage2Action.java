@@ -155,7 +155,15 @@ public class ProviderSignatureImage2Action extends ActionSupport {
     }
 
     private File getValidatedSignatureFile(String signatureName, HttpServletResponse response) {
-        File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+        File imageFolder;
+        try {
+            imageFolder = PathValidationUtils.resolveConfiguredDirectory(
+                    CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR");
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Invalid eForm image directory for signature image", e);
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return null;
+        }
         if (!imageFolder.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return null;

@@ -19,6 +19,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -62,6 +63,10 @@
     // into DatabaseAP SQL.
     form.setAppointmentNo(appointmentParam);
 //form.setApptProvider(request.getParameter("apptProvider"));
+    // Keys that could not be resolved, as opposed to keys that legitimately resolved to nothing.
+    // Only the former are reported to the page: a patient with no recorded allergies is data, and
+    // flagging that would fire the notice on almost every form and train clinicians to ignore it.
+    java.util.List<String> unresolvedKeys = new java.util.ArrayList<String>();
     for (String key : keys) {
         ap = EFormLoader.getAP(key);
         if (ap != null) {
@@ -73,8 +78,29 @@
                     ParameterizedSql query = form.parameterizeAllFields(sql);
 
                     ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
-                    ArrayList<String> values = EFormUtil.getValues(names, query);
-                    if (values.size() != names.size()) {
+                    // getValuesOrNull, not getValues: the latter reports a failed or blocked query
+                    // as an empty list, indistinguishable from a healthy query over a patient with
+                    // no matching data. Read as "no data" it blanked the field silently, which is
+                    // exactly the case this notice exists to surface.
+                    ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
+                    if (values == null) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                                "AP config lookup query failed for key=" + LogSafe.sanitize(key) + " fid=" + fid);
+                        unresolvedKeys.add(key);
+                        output = "";
+                    } else if (names.isEmpty()) {
+                        // Constant output: nothing to substitute and no row required, so `output`
+                        // already holds the final literal and is deliberately left untouched.
+                        // Ordered before the empty test below, which would otherwise blank it.
+                    } else if (values.isEmpty()) {
+                        // Genuinely no rows. An empty field is the correct rendering of that.
+                        output = "";
+                    } else if (values.size() != names.size()) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                                "AP config lookup returned an unusable result for key=" + LogSafe.sanitize(key)
+                                        + " fid=" + fid + ": output declares " + names.size()
+                                        + " names but the query returned " + values.size() + " values");
+                        unresolvedKeys.add(key);
                         output = "";
                     } else {
                         for (int i = 0; i < names.size(); i++) {
@@ -84,11 +110,21 @@
                 }
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= output %>' context="htmlAttribute"/>"/><%
 } catch (Exception e) {
-    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + key + " fid=" + fid, e);
+    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + LogSafe.sanitize(key) + " fid=" + fid, e);
+    unresolvedKeys.add(key);
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
     }
 } else {
+    // A key the form asks for that apconfig.xml does not define. Previously the only branch here
+    // with no log at all, so a misconfigured form blanked a clinical field with no trace anywhere.
+    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+            "AP config lookup requested an unconfigured key=" + LogSafe.sanitize(key) + " fid=" + fid);
+    unresolvedKeys.add(key);
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
         }
+    }
+    // Reserved name, read and skipped by APCache.js the same way oscarAPCacheLookupType is.
+    if (!unresolvedKeys.isEmpty()) {
+%><input type="hidden" name="oscarAPCacheLookupFailures" value="<carlos:encode value='<%= String.join(",", unresolvedKeys) %>' context="htmlAttribute"/>"/><%
     }
 %>

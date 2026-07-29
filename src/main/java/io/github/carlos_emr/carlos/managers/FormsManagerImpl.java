@@ -75,6 +75,9 @@ import jakarta.servlet.http.HttpServletResponse;
  */
 @Service
 public class FormsManagerImpl implements FormsManager {
+    private static final String FORM_SECURITY_OBJECT = "_form";
+    private static final String MISSING_REQUIRED_FORM_SECURITY_OBJECT = "missing required sec object (_form)";
+
     private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -169,9 +172,7 @@ public class FormsManagerImpl implements FormsManager {
     @Override
     public List<PatientForm> getEncounterFormsbyDemographicNumber(LoggedInInfo loggedInInfo, Integer demographicId,
                                                                   boolean getAllVersions, boolean getOnlyPDFReadyForms) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(demographicId));
 
         return processEncounterForms(loggedInInfo, demographicId, getAllVersions, getOnlyPDFReadyForms);
     }
@@ -265,9 +266,7 @@ public class FormsManagerImpl implements FormsManager {
 
     @Override
     public Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(formTransportContainer));
 
         LogAction.addLogSynchronous(loggedInInfo, "FormsManager.saveFormAsTempPdf", "");
 
@@ -287,9 +286,7 @@ public class FormsManagerImpl implements FormsManager {
         if (loggedInInfo != null && loggedInInfo.getLoggedInProvider() == null) {
             loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(form, request));
 
         FormTransportContainer formTransportContainer = getFormTransportContainer(request, response, form);
         Path path = null;
@@ -297,6 +294,15 @@ public class FormsManagerImpl implements FormsManager {
             path = ConvertToEdoc.saveAsTempPDF(formTransportContainer);
         } catch (Exception e) {
             throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF", e);
+        }
+        if (path == null) {
+            // ConvertToEdoc.saveAsTempPDF returns null (it does NOT throw) when the internal HTML->PDF
+            // conversion fails (iText DocumentException / IO error is swallowed there). Without this
+            // guard the null escapes to callers such as DocumentAttachmentManagerImpl.attachFormPDFs,
+            // which dereferences it as path.toString() -> a context-free NPE / unmapped 500 on the
+            // eForm-with-attachments fax/print path. Fail with a named exception instead, mirroring
+            // FaxDocumentManagerImpl.getFormFaxDocument.
+            throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF");
         }
         return path;
     }
@@ -360,9 +366,7 @@ public class FormsManagerImpl implements FormsManager {
      * Fetch a specific form by providing both the form ID and name, as they collectively ensure accurate identification.
      */
     public PatientForm getFormById(LoggedInInfo loggedInInfo, Integer formId, Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_form)");
-        }
+        requireFormReadPrivilege(loggedInInfo, securityTarget(demographicNo));
 
         PatientForm patientForm = null;
         List<EncounterForm> encounterFormList = getAllEncounterForms();
@@ -381,6 +385,33 @@ public class FormsManagerImpl implements FormsManager {
         }
 
         return patientForm;
+    }
+
+    private void requireFormReadPrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, FORM_SECURITY_OBJECT, SecurityInfoManager.READ,
+                demographicNo)) {
+            throw new SecurityException(MISSING_REQUIRED_FORM_SECURITY_OBJECT);
+        }
+    }
+
+    private String securityTarget(Integer demographicNo) {
+        return demographicNo == null ? null : String.valueOf(demographicNo);
+    }
+
+    private String securityTarget(String demographicNo) {
+        return demographicNo == null || demographicNo.trim().isEmpty() ? null : demographicNo;
+    }
+
+    private String securityTarget(FormTransportContainer formTransportContainer) {
+        return formTransportContainer == null ? null : securityTarget(formTransportContainer.getDemographicNo());
+    }
+
+    private String securityTarget(EctFormData.PatientForm form, HttpServletRequest request) {
+        String requestedDemographicNo = request == null ? null : securityTarget(request.getParameter("demographicNo"));
+        if (requestedDemographicNo != null) {
+            return requestedDemographicNo;
+        }
+        return form == null ? null : securityTarget(form.demographicId);
     }
 
 }

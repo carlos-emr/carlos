@@ -418,6 +418,12 @@ function assertDisplayImageFetchesSucceeded(imageName) {
 
     const fatalBadResponses = badResponses.filter((response) => !(response.label === 'eform-popup' && response.url.includes('/oscar/eform/displayImage?imagefile=')));
     const fatalConsoleIssues = consoleIssues.filter((issue) => issue.type !== 'dialog' &&
+      // Chromium requests the ORIGIN-ROOT /favicon.ico for any page with no <link rel="icon">, and
+      // eForm pages are raw stored HTML that never declares one. The 404 comes from the Tomcat ROOT
+      // context, not the application. Already whitelisted for HTTP responses in
+      // isExpectedMissingAsset(); the console leg was missed, which failed this check on a run whose
+      // every substantive assertion — including a real PDF download — had passed.
+      !/\/favicon\.ico$/.test(issue.location && issue.location.url ? issue.location.url : '') &&
       !(issue.label && issue.label.startsWith('image:') && /\$ is not defined/.test(issue.text)) &&
       !(issue.label === 'eform-upload' && /checkFormAndDisable is not defined/.test(issue.text)) &&
       !(issue.label === 'eform-popup' && /Failed to load resource/.test(issue.text) && /\/oscar\/eform\/displayImage\?imagefile=/.test(issue.location && issue.location.url ? issue.location.url : '')));

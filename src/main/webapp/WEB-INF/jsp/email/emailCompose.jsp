@@ -557,7 +557,7 @@
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
                                                     <object id="emailAttachmentPDF${loop.count}"
-                                                            data="${ctx}/previewDocs?method=renderPDF&pdfPath=${emailAttachment.filePath}"
+                                                            data="${ctx}/previewDocs?method=renderPDF&amp;previewToken=${emailAttachment.previewToken}"
                                                             type="application/pdf" width="100%" height="500">
                                                         <%-- Accessible fallback shown when the browser cannot render the inline PDF preview. --%>
                                                         <p class="text-muted mb-0">${carlos:forHtml(emailAttachment.fileName)}</p>
