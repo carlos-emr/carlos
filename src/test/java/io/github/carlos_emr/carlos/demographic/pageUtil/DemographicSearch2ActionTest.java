@@ -24,10 +24,12 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
@@ -52,11 +54,24 @@ import static org.mockito.Mockito.*;
 class DemographicSearch2ActionTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
-    private static final Path GENERAL_RESULTS_JSP = Path.of(
-            "src/main/webapp/WEB-INF/jsp/demographic/demographicsearchresults.jsp");
-    private static final Path APPOINTMENT_RESULTS_JSP = Path.of(
-            "src/main/webapp/WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp");
+    private static final File WEBAPP_ROOT = PathValidationUtils.resolveTrustedPath(
+            new File("src/main/webapp"), "test webapp root");
+    private static final File GENERAL_RESULTS_JSP =
+            validatedTemplate("WEB-INF/jsp/demographic/demographicsearchresults.jsp");
+    private static final File APPOINTMENT_RESULTS_JSP =
+            validatedTemplate("WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp");
     private DemographicSearch2Action action;
+
+    private static File validatedTemplate(String relativePath) {
+        return PathValidationUtils.validateExistingPath(
+                new File(WEBAPP_ROOT, relativePath), WEBAPP_ROOT);
+    }
+
+    private static String readTemplate(File template) throws IOException {
+        File validatedTemplate =
+                PathValidationUtils.validateExistingPath(template, WEBAPP_ROOT);
+        return Files.readString(validatedTemplate.toPath(), StandardCharsets.UTF_8);
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -260,10 +275,10 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
             String attributeLookup = "request.getAttribute(\""
                     + DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE + "\")";
 
-            assertThat(Files.readString(GENERAL_RESULTS_JSP, StandardCharsets.UTF_8))
+            assertThat(readTemplate(GENERAL_RESULTS_JSP))
                     .contains(attributeLookup)
                     .doesNotContain("request.getParameter(\"keyword\").length() == 0");
-            assertThat(Files.readString(APPOINTMENT_RESULTS_JSP, StandardCharsets.UTF_8))
+            assertThat(readTemplate(APPOINTMENT_RESULTS_JSP))
                     .contains(attributeLookup)
                     .doesNotContain("request.getParameter(\"keyword\").length() == 0");
         }
