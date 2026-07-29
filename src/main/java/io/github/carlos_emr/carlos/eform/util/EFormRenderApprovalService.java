@@ -267,7 +267,8 @@ public class EFormRenderApprovalService {
 
         private StagedFaxPreview(Path path) { this(path, null); }
         private StagedFaxPreview(Path path, EFormRenderApproval approval) {
-            this.path = path; this.approval = approval;
+            this.path = path;
+            this.approval = approval;
         }
         public Path path() { return path; }
         public EFormRenderApproval approval() { return approval; }
