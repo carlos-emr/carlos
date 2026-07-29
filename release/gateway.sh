@@ -33,7 +33,8 @@ TMP="${TMP:-/tmp/${TOMCAT}-${TOMCAT}-tmp}"
 
 if test -n "$(find ${TMP} -maxdepth 1 -name '*.txt' -print -quit 2>/dev/null)"; then
 	echo "Faxes found to be sent"
-	for f in $(ls "${TMP}"*.txt); do
+	for f in "${TMP}"/*.txt; do
+		[ -e "$f" ] || continue
 		t=$(echo "$f" | sed -e s"/${TMP}\////" -e s"/[._][0-9]*.txt//" -e s"/prescription_/Rx-/")
 #		mutt -s "Oscar Fax $t" 1$(sed s"/ *//g" "$f"|tr -d "\n")@srfax.com -a "$(echo "$f" | sed s"/txt/pdf/")" < /dev/null
 #		mutt -s "Oscar Fax" 1$(sed s"/ *//g" "$f"|tr -d "\n")@metrofax.com -a "$(echo "$f" | sed s"/txt/pdf/")" < /dev/null
