@@ -417,9 +417,15 @@
                     }
                 }
                 if (saveTemp === 2) {
-                    return calculateEndTime();
-                } else
-                    return true;
+                    if (!calculateEndTime()) {
+                        document.EDITAPPT.printReceipt.value = '';
+                        return false;
+                    }
+                    if (document.EDITAPPT.printReceipt.value === '1') {
+                        popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt');
+                    }
+                }
+                return true;
             }
 
             function calculateEndTime() {
@@ -1383,7 +1389,7 @@
                     <% }%>
                     <input type="submit" id="printReceiptButton" class="btn btn-secondary"
                            formaction="<%=request.getContextPath() %>/appointment/UpdateRecord"
-                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt');"
+                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';onButUpdate();"
                            value="<fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
                     <input type="hidden" name="printReceipt" value="">
                     <input type="submit" class="btn btn-danger" id="deleteButton"

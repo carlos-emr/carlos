@@ -25,9 +25,6 @@ class AppointmentJspRoutingTest {
 
     private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
             "(?:(?:var|let|const)\\s+)?(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
-    private static final Pattern PRINT_RECEIPT_BUTTON_PATTERN = Pattern.compile(
-            "id=\"printReceiptButton\"[\\s\\S]*?onclick=\"(?<handler>[^\"]*)\"\\s*"
-                    + "value=\"<fmt:message key='appointment\\.editappointment\\.btnPrintReceipt'/>\"");
 
     @Test
     void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {
@@ -55,15 +52,18 @@ class AppointmentJspRoutingTest {
         assertThat(editAppointment).doesNotContain("/appointment/appointmentcontrol");
         assertThat(editAppointment).contains("/appointment/appointmenteditrepeatbooking");
         assertThat(editAppointment).doesNotContain("appointmenteditrepeatbooking.jsp");
-        Matcher printReceiptButtonMatcher = PRINT_RECEIPT_BUTTON_PATTERN.matcher(editAppointment);
-        assertThat(printReceiptButtonMatcher.find())
-                .as("the edit appointment page should contain the print receipt button")
-                .isTrue();
-        assertThat(printReceiptButtonMatcher.group("handler"))
-                .as("the receipt window must be reserved during the click so popup blockers allow it")
+        String printReceiptButton = extractInputElement(editAppointment, "printReceiptButton");
+        assertThat(printReceiptButton)
+                .as("the receipt update must use the same validated submit path as a normal update")
                 .contains(
+                        "onclick=\"",
                         "displaymode.value='Update Appt'",
                         "printReceipt.value='1'",
+                        "onButUpdate()");
+        assertThat(editAppointment)
+                .as("the validated submit path must reserve the dedicated receipt window before navigation")
+                .contains(
+                        "if (document.EDITAPPT.printReceipt.value === '1')",
                         "popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt')");
 
         assertThat(addAppointment).contains("/appointment/AddRecord");
@@ -164,5 +164,19 @@ class AppointmentJspRoutingTest {
 
     private String readJspContent(String path) throws IOException {
         return Files.readString(Path.of(path), StandardCharsets.UTF_8);
+    }
+
+    private String extractInputElement(String pageSource, String id) {
+        String idAttribute = "id=\"" + id + "\"";
+        int idIndex = pageSource.indexOf(idAttribute);
+        assertThat(idIndex)
+                .as("the page should contain input %s", id)
+                .isNotNegative();
+
+        int inputStart = pageSource.lastIndexOf("<input", idIndex);
+        int nextInput = pageSource.indexOf("<input", idIndex + idAttribute.length());
+        assertThat(inputStart).isNotNegative();
+        assertThat(nextInput).isGreaterThan(inputStart);
+        return pageSource.substring(inputStart, nextInput);
     }
 }
