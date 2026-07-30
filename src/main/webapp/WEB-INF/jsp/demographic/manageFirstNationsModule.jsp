@@ -136,7 +136,7 @@
 <%--<tr><td colspan="2">First Nations (INAC)</td></tr>--%>
 <tr>
 
-    <td align="right" class="label"><strong>Status Number:</strong></td>
+    <td align="right" class="label"><strong><fmt:message key="demographic.manageFirstNationsModule.statusNumber"/>:</strong></td>
 
     <td align="left">
         <%--
@@ -148,7 +148,7 @@
     </td>
     <% if (!CarlosProperties.getInstance().isPropertyActive("showBandNumberOnly")) { %>
     <td align="right" class="label disableStyle">
-        <strong>First Nation Community:</strong>
+        <strong><fmt:message key="demographic.manageFirstNationsModule.community"/>:</strong>
     </td>
     <td align="left">
         <select id="fNationCom" name="fNationCom">
@@ -165,7 +165,7 @@
 </tr>
 <tr>
     <td align="right" class="label disableStyle">
-        <strong>Family Number:</strong>
+        <strong><fmt:message key="demographic.manageFirstNationsModule.familyNumber"/>:</strong>
     </td>
     <td align="left">
         <input type="text" id="fNationFamilyNumber" name="fNationFamilyNumber"
@@ -173,7 +173,7 @@
         <%--	    	<input type="hidden" name="fNationFamilyNumberOrig" value="${ demoExt["fNationFamilyNumber"] }">--%>
     </td>
     <td align="right" class="label disableStyle">
-        <strong>Family Position:</strong>
+        <strong><fmt:message key="demographic.manageFirstNationsModule.familyPosition"/>:</strong>
     </td>
     <td align="left">
         <input type="text" id="fNationFamilyPosition" name="fNationFamilyPosition"
@@ -183,20 +183,20 @@
 </tr>
 
 <tr>
-    <td align="right" class="label"><strong>First Nation Status:</strong></td>
+    <td align="right" class="label"><strong><fmt:message key="demographic.manageFirstNationsModule.status"/>:</strong></td>
     <td align="left">
 
         <select name="ethnicity">
-            <option value="-1" ${ demoExt['ethnicity'] eq -1 ? 'selected' : '' } >Not Set</option>
-            <option value="1" ${ demoExt['ethnicity'] eq 1 ? 'selected' : '' } >On-reserve</option>
-            <option value="2" ${ demoExt['ethnicity'] eq 2 ? 'selected' : '' } >Off-reserve</option>
-            <option value="3" ${ demoExt['ethnicity'] eq 3 ? 'selected' : '' } >Non-status On-reserve</option>
-            <option value="4" ${ demoExt['ethnicity'] eq 4 ? 'selected' : '' } >Non-status Off-reserve</option>
-            <option value="5" ${ demoExt['ethnicity'] eq 5 ? 'selected' : '' } >Metis</option>
-            <option value="6" ${ demoExt['ethnicity'] eq 6 ? 'selected' : '' } >Inuit</option>
-            <option value="11" ${ demoExt['ethnicity'] eq 11 ? 'selected' : '' } >Homeless</option>
-            <option value="12" ${ demoExt['ethnicity'] eq 12 ? 'selected' : '' } >Out of Country Residents</option>
-            <option value="13" ${ demoExt['ethnicity'] eq 13 ? 'selected' : '' } >Other</option>
+            <option value="-1" ${ demoExt['ethnicity'] eq -1 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.notSet"/></option>
+            <option value="1" ${ demoExt['ethnicity'] eq 1 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.onReserve"/></option>
+            <option value="2" ${ demoExt['ethnicity'] eq 2 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.offReserve"/></option>
+            <option value="3" ${ demoExt['ethnicity'] eq 3 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.nonStatusOnReserve"/></option>
+            <option value="4" ${ demoExt['ethnicity'] eq 4 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.nonStatusOffReserve"/></option>
+            <option value="5" ${ demoExt['ethnicity'] eq 5 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.metis"/></option>
+            <option value="6" ${ demoExt['ethnicity'] eq 6 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.inuit"/></option>
+            <option value="11" ${ demoExt['ethnicity'] eq 11 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.homeless"/></option>
+            <option value="12" ${ demoExt['ethnicity'] eq 12 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.outOfCountryResidents"/></option>
+            <option value="13" ${ demoExt['ethnicity'] eq 13 ? 'selected' : '' } ><fmt:message key="demographic.manageFirstNationsModule.other"/></option>
         </select>
         <input type="hidden" name="ethnicityOrig" value="${ demoExt["ethnicity"] }"/>
     </td>

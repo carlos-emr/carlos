@@ -24,6 +24,7 @@
 
 --%>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FormsManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -130,12 +131,13 @@
         }
     }
 %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
-    <title>Attach Files to Letter</title>
+    <title><fmt:message key="eform.attachEform.title"/></title>
     <style>
         body { font-family: Helvetica, Arial, sans-serif; font-size: 12px; margin: 10px; }
         h3 { margin: 0 0 8px; }
@@ -154,8 +156,8 @@
     </style>
 </head>
 <body>
-    <h3>Attach Files to Letter</h3>
-    <p>Patient Demographic: <carlos:encode value='<%= demoNo %>' context="html"/></p>
+    <h3><fmt:message key="eform.attachEform.title"/></h3>
+    <p><fmt:message key="eform.attachEform.patientDemographic"/>: <carlos:encode value='<%= demoNo %>' context="html"/></p>
 
     <form method="post" action="../eform/attachDoc">
         <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>">
@@ -164,10 +166,10 @@
         <% } %>
 
         <div class="section">
-            <h4 class="doc">Documents</h4>
+            <h4 class="doc"><fmt:message key="eform.attachEform.documents"/></h4>
             <div class="list">
                 <% if (allDocuments.isEmpty()) { %>
-                <em class="muted">No documents available</em>
+                <em class="muted"><fmt:message key="eform.attachEform.noDocuments"/></em>
                 <% } else { for (EDoc document : allDocuments) { String documentId = String.valueOf(document.getDocId()); String documentCheckboxId = buildDomId("docNo", documentId); %>
                 <div class="item">
                     <label for="<%= SafeEncode.forHtmlAttribute(documentCheckboxId) %>">
@@ -183,10 +185,10 @@
         </div>
 
         <div class="section">
-            <h4 class="lab">Labs</h4>
+            <h4 class="lab"><fmt:message key="eform.attachEform.labs"/></h4>
             <div class="list">
                 <% if (allLabsSortedByVersions.isEmpty()) { %>
-                <em class="muted">No labs available</em>
+                <em class="muted"><fmt:message key="eform.attachEform.noLabs"/></em>
                 <% } else { for (AttachmentLabResultData lab : allLabsSortedByVersions) { String labSegmentId = lab.getSegmentID(); String labCheckboxId = buildDomId("labNo", labSegmentId); String labLabelId = buildDomId("labLabel", labSegmentId); String labDateId = buildDomId("labDate", labSegmentId); %>
                 <div class="item">
                     <label for="<%= SafeEncode.forHtmlAttribute(labCheckboxId) %>">
@@ -199,7 +201,7 @@
                 <div class="item" style="padding-left: 18px;">
                     <label for="<%= SafeEncode.forHtmlAttribute(labVersionCheckboxId) %>">
                         <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(labVersionCheckboxId) %>" name="labNo" value="<%= SafeEncode.forHtmlAttribute(labVersionId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(labVersionLabelId + " " + labVersionDateId) %>" <%= attachedLabIds.contains(labVersionId) ? "checked" : "" %>>
-                        <span id="<%= SafeEncode.forHtmlAttribute(labVersionDateId) %>" class="muted">Earlier version</span>
+                        <span id="<%= SafeEncode.forHtmlAttribute(labVersionDateId) %>" class="muted"><fmt:message key="eform.attachEform.earlierVersion"/></span>
                         <span id="<%= SafeEncode.forHtmlAttribute(labVersionLabelId) %>"><%= SafeEncode.forHtml(version.getValue()) %></span>
                     </label>
                 </div>
@@ -208,10 +210,10 @@
         </div>
 
         <div class="section">
-            <h4 class="hrm">HRM</h4>
+            <h4 class="hrm"><fmt:message key="eform.attachEform.hrm"/></h4>
             <div class="list">
                 <% if (allHRMDocuments.isEmpty()) { %>
-                <em class="muted">No HRM documents available</em>
+                <em class="muted"><fmt:message key="eform.attachEform.noHrmDocuments"/></em>
                 <% } else { for (HashMap<String, ? extends Object> hrm : allHRMDocuments) { String id = String.valueOf(hrm.get("id")); String hrmCheckboxId = buildDomId("hrmNo", id); String hrmLabelId = buildDomId(hrmCheckboxId, "label"); String hrmDateId = buildDomId(hrmCheckboxId, "date"); %>
                 <div class="item">
                     <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(hrmCheckboxId) %>" name="hrmNo" value="<%= SafeEncode.forHtmlAttribute(id) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(hrmLabelId + " " + hrmDateId) %>" <%= attachedHrmIds.contains(id) ? "checked" : "" %>>
@@ -225,10 +227,10 @@
         </div>
 
         <div class="section">
-            <h4 class="eform">eForms</h4>
+            <h4 class="eform"><fmt:message key="eform.attachEform.eforms"/></h4>
             <div class="list">
                 <% if (allEForms.isEmpty()) { %>
-                <em class="muted">No eForms available</em>
+                <em class="muted"><fmt:message key="eform.attachEform.noEforms"/></em>
                 <% } else { for (EFormData eForm : allEForms) { String eformId = String.valueOf(eForm.getId()); String eformCheckboxId = buildDomId("eFormNo", eformId); String eformLabelId = buildDomId(eformCheckboxId, "label"); String displayName = eForm.getSubject() == null || eForm.getSubject().isEmpty() ? eForm.getFormName() : eForm.getSubject(); %>
                 <div class="item">
                     <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(eformCheckboxId) %>" name="eFormNo" value="<%= SafeEncode.forHtmlAttribute(eformId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(eformLabelId) %>" <%= attachedEFormIds.contains(eformId) ? "checked" : "" %>>
@@ -241,10 +243,10 @@
         </div>
 
         <div class="section">
-            <h4 class="form">Forms Current Only</h4>
+            <h4 class="form"><fmt:message key="eform.attachEform.formsCurrentOnly"/></h4>
             <div class="list">
                 <% if (allForms.isEmpty() && attachedOlderForms.isEmpty()) { %>
-                <em class="muted">No encounter forms available</em>
+                <em class="muted"><fmt:message key="eform.attachEform.noEncounterForms"/></em>
                 <% } else { for (EctFormData.PatientForm form : allForms) { String formId = form.getFormId(); String formCheckboxId = buildDomId("formNo", formId); String formLabelId = buildDomId(formCheckboxId, "label"); String formDateId = buildDomId(formCheckboxId, "date"); %>
                 <div class="item">
                     <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(formCheckboxId) %>" name="formNo" value="<%= SafeEncode.forHtmlAttribute(formId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(formLabelId + " " + formDateId) %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
@@ -257,7 +259,7 @@
                    for (EctFormData.PatientForm form : attachedOlderForms) { String formId = form.getFormId(); String formCheckboxId = buildDomId("formNo", formId); String formLabelId = buildDomId(formCheckboxId, "label"); String formDateId = buildDomId(formCheckboxId, "date"); %>
                 <div class="item">
                     <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(formCheckboxId) %>" name="formNo" value="<%= SafeEncode.forHtmlAttribute(formId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(formLabelId + " " + formDateId) %>" checked>
-                    <span class="muted">Earlier version</span>
+                    <span class="muted"><fmt:message key="eform.attachEform.earlierVersion"/></span>
                     <span id="<%= SafeEncode.forHtmlAttribute(formLabelId) %>">
                         <carlos:encode value='<%= form.getFormName() %>' context="html"/>
                     </span>
@@ -268,8 +270,8 @@
         </div>
 
         <div class="actions">
-            <input type="submit" class="btn" value="Attach Selected">
-            <input type="button" class="btn" value="Close" onclick="window.close();">
+            <input type="submit" class="btn" value="<fmt:message key=\"eform.attachEform.btnAttachSelected\"/>">
+            <input type="button" class="btn" value="<fmt:message key=\"global.btnClose\"/>" onclick="window.close();">
         </div>
     </form>
 </body>

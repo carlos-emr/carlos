@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
@@ -68,13 +69,12 @@
     String retCode = (String) loginCreds.get("returnCode");
     if ("-1".equals(retCode)) {  //Invalid Username/Password
 %>
-Username or Password incorrect. <a href="<%= request.getContextPath() %>/setProviderStaleDate?method=viewOntarioMDId">Click here to enter you
-    username and password</a>
+<fmt:message key="common.OntarioMDRedirect.invalidCredentials"/> <a href="<%= request.getContextPath() %>/setProviderStaleDate?method=viewOntarioMDId"><fmt:message key="common.OntarioMDRedirect.clickToEnterCredentials"/></a>
 <%
     return;
 } else if ("-2".equals(retCode)) { //Invalid requestor
 %>
-Invalid Requestor Value. - Please contact your support vendor for configuration
+<fmt:message key="common.OntarioMDRedirect.invalidRequestor"/>
 <%
         return;
     }
@@ -85,23 +85,24 @@ Invalid Requestor Value. - Please contact your support vendor for configuration
     }
 
 %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <body>
 <form id="loginFormID" name="loginForm" action="https://www.ontariomd.ca/AutoAuthentication/redirect.jsp" method="post">
-    <p>JSESSIONID:</p>
+    <p><fmt:message key="common.OntarioMDRedirect.jsessionId"/>:</p>
     <input type="text" size="70" id="jsessionID" name="jsessionID" value="<carlos:encode value='<%= Objects.toString(loginCreds.get("jsessionID"), "") %>' context="htmlAttribute"/>"/>
-    <p>PT login Token:</p>
+    <p><fmt:message key="common.OntarioMDRedirect.ptLoginToken"/>:</p>
     <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<carlos:encode value='<%= Objects.toString(loginCreds.get("ptLoginToken"), "") %>' context="htmlAttribute"/>"/>
-    <p>Keyword:</p>
+    <p><fmt:message key="common.OntarioMDRedirect.keyword"/>:</p>
     <input type="text" size="100" id="keyword" name="keyword" value="<carlos:encode value='<%= Objects.toString(keyword, "") %>' context="htmlAttribute"/>"/>
-    <p>Params:</p>
+    <p><fmt:message key="common.OntarioMDRedirect.params"/>:</p>
     <input type="text" size="200" id="params" name="params" value="<carlos:encode value='<%= Objects.toString(params, "") %>' context="htmlAttribute"/>"/>
-    <p>Requestor:</p>
+    <p><fmt:message key="common.OntarioMDRedirect.requestor"/>:</p>
     <input type="text" size="50" id="requestor" name="requestor" value="<carlos:encode value='<%= Objects.toString(requestor, "") %>' context="htmlAttribute"/>"/>
-    <p>Username:</p>
+    <p><fmt:message key="common.OntarioMDRedirect.username"/>:</p>
     <input type="text" size="50" id="username" name="username" value="<carlos:encode value='<%= uname %>' context="htmlAttribute"/>"/>
     <p></p>
-    <input type="submit" value="Submit"/>
+    <input type="submit" value="<fmt:message key=\"global.btnSubmit\"/>"/>
 </form>
 <SCRIPT language="JavaScript">
     //function submitform(){

@@ -37,7 +37,7 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Access</th>
+		<th title="Programs"><fmt:message key="pmmodule.admin.program.access"/></th>
 	</tr>
 </table>
 </div>

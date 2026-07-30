@@ -70,9 +70,8 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
         <th align=CENTER NOWRAP bgcolor="#CCCCFF"><font face="Helvetica"
-                                                        color="#000000">Service Code Search </font><font
-                face="Arial, Helvetica, sans-serif" color="#FF0000">(Maximum 3
-            selections)</font></th>
+                                                        color="#000000"><fmt:message key="billing.on.billingCodeSearch.title"/> </font><font
+                face="Arial, Helvetica, sans-serif" color="#FF0000"><fmt:message key="billing.on.billingCodeSearch.max3"/></font></th>
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
@@ -80,9 +79,9 @@
     <table width="600" border="1">
         <tr bgcolor="#CCCCFF">
             <td width="12%"><b><font face="Arial, Helvetica, sans-serif"
-                                     size="2">Code</font></b></td>
+                                     size="2"><fmt:message key="billing.on.billingCodeSearch.code"/></font></b></td>
             <td width="88%"><b><font face="Arial, Helvetica, sans-serif"
-                                     size="2">Description</font></b></td>
+                                     size="2"><fmt:message key="billing.on.billingCodeSearch.description"/></font></b></td>
         </tr>
 
         <c:forEach var="__row" items="${codeSearchModel.rows}" varStatus="__rowStatus">
@@ -104,7 +103,7 @@
         <c:if test="${codeSearchModel.noMatch}">
         <tr>
             <td colspan="2"><font face="Arial, Helvetica, sans-serif"
-                                  size="2">No match found.</font></td>
+                                  size="2"><fmt:message key="billing.on.billingCodeSearch.noMatchFound"/></font></td>
         </tr>
         </c:if>
 
@@ -116,8 +115,8 @@
         </script>
         </c:if>
     </table>
-    <input type="submit" name="update" value="Confirm"><input
-        type="button" name="cancel" value="Cancel"
+    <input type="submit" name="update" value="<fmt:message key=\"global.btnConfirm\"/>"><input
+        type="button" name="cancel" value="<fmt:message key=\"global.btnCancel\"/>"
         onclick="javascript:window.close()"> <c:if test="${codeSearchModel.hasNameFRaw}"><input type="hidden" name="nameF" value="<carlos:encode value='${codeSearchModel.nameFRaw}' context='htmlAttribute'/>"/></c:if>
 </form>
 </body>

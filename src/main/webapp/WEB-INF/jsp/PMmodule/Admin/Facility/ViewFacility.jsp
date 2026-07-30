@@ -116,7 +116,7 @@ while still admitted in this facility.
 
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr>
-        <th>Name</th>
+        <th><fmt:message key="pmmodule.admin.facility.name"/></th>
         <th>Client DOB</th>
         <th>Bed Program</th>
         <th>Discharge Date/Time</th>

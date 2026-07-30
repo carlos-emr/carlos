@@ -128,8 +128,8 @@
         }
         if (Count == 0) {
 %>
-<p>No input selected</p>
-<input type="button" name="back" value="back"
+<p><fmt:message key="billing.bc.billingCodeNewUpdate.noInputSelected"/></p>
+<input type="button" name="back" value="<fmt:message key=\"global.btnBack\"/>"
        onClick="javascript:history.go(-1);return false;">
 <%
 } else {
@@ -165,7 +165,7 @@
 %>
 
 <p>
-<h1>Successful Addition of a billing Record.</h1>
+<h1><fmt:message key="billing.bc.billingCodeNewUpdate.successAdd"/></h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);

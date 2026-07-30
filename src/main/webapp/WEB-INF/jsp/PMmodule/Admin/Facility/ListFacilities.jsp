@@ -42,7 +42,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facilities">Facilities management</th>
+            <th title="Facilities"><fmt:message key="pmmodule.admin.facility.listFacilities"/></th>
         </tr>
     </table>
 </div>

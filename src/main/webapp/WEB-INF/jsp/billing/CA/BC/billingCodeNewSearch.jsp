@@ -110,7 +110,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Service Code Search</title>
+    <title><fmt:message key="billing.bc.billingCodeNewSearch.title"/></title>
     <script LANGUAGE="JavaScript">
         <!--
         function CodeAttach(File0, dx1, dx2, dx3) {
@@ -131,9 +131,8 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
         <th align=CENTER NOWRAP bgcolor="#CCCCFF"><font face="Helvetica"
-                                                        color="#000000">Service Code Search</font> <font
-                face="Arial, Helvetica, sans-serif" color="#FF0000">(Maximum 3
-            selections)</font></th>
+                                                        color="#000000"><fmt:message key="billing.bc.billingCodeNewSearch.title"/></font> <font
+                face="Arial, Helvetica, sans-serif" color="#FF0000"><fmt:message key="billing.bc.billingCodeNewSearch.max3"/></font></th>
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
@@ -144,9 +143,9 @@
     <div style="height: 600; overflow: auto">
         <table width="800" border="1">
             <tr bgcolor="#CCCCFF">
-                <td><b> <font face="Arial, Helvetica, sans-serif" size="2">Code</font>
+                <td><b> <font face="Arial, Helvetica, sans-serif" size="2"><fmt:message key="billing.bc.billingCodeNewSearch.code"/></font>
                 </b></td>
-                <td><b> <font face="Arial, Helvetica, sans-serif" size="2">Description</font>
+                <td><b> <font face="Arial, Helvetica, sans-serif" size="2"><fmt:message key="billing.bc.billingCodeNewSearch.description"/></font>
                 </b></td>
             </tr>
             <%
@@ -204,7 +203,7 @@
             <%if (intCount == 0) { %>
             <tr bgcolor="<%=color%>">
                 <td colspan="2"><font face="Arial, Helvetica, sans-serif"
-                                      size="2"> No match found. <%// =i        %></font></td>
+                                      size="2"> <fmt:message key="billing.bc.billingCodeNewSearch.noMatchFound"/> <%// =i        %></font></td>
             </tr>
             <%}%>
             <%if (intCount == 1) {%>
@@ -218,8 +217,8 @@
             <%} %>
         </table>
     </div>
-    <input type="submit" name="update" value="Confirm"> <input
-            type="button" name="cancel" value="Cancel"
+    <input type="submit" name="update" value="<fmt:message key=\"global.btnConfirm\"/>"> <input
+            type="button" name="cancel" value="<fmt:message key=\"global.btnCancel\"/>"
             onclick="javascript:window.close()"></form>
 </body>
 </html>

@@ -39,17 +39,17 @@
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 <table width="100%">
     <tr class="SectionHead">
-        <td colspan="8" class="bCellData">Bill Transaction History</td>
+        <td colspan="8" class="bCellData"><fmt:message key="billing.bc.billTransactions.title"/></td>
     </tr>
     <tr class="ColHead">
-        <td>STAT</td>
-        <td>SEQ #</td>
-        <td>INS</td>
-        <td>PRACT</td>
-        <td>BILL AMT</td>
-        <td>TYPE</td>
-        <td>AMT ADJ.</td>
-        <td>UPDATED</td>
+        <td><fmt:message key="billing.bc.billTransactions.stat"/></td>
+        <td><fmt:message key="billing.bc.billTransactions.seq"/></td>
+        <td><fmt:message key="billing.bc.billTransactions.ins"/></td>
+        <td><fmt:message key="billing.bc.billTransactions.pract"/></td>
+        <td><fmt:message key="billing.bc.billTransactions.billAmt"/></td>
+        <td><fmt:message key="billing.bc.billTransactions.type"/></td>
+        <td><fmt:message key="billing.bc.billTransactions.amtAdj"/></td>
+        <td><fmt:message key="billing.bc.billTransactions.updated"/></td>
     </tr>
     <%
         for (Iterator iter = billingTransactions.iterator(); iter.hasNext(); ) {
