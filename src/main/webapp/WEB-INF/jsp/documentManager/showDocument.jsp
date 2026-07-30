@@ -505,7 +505,7 @@
                                                             for (Hashtable ht : queues) {
                                                                 int id = (Integer) ht.get("id");
 
-                                                                if (EDocUtil.isDocumentAlreadyRefiledInQueue(curdoc.getDescription(), id)) {
+                                                                if (EDocUtil.isDocumentAlreadyRefiledInQueue(curdoc.getFileName(), id)) {
                                                                     docCurrentFiledQueue = id;
                                                                     if (id == queueId) {
                                                                         refileBtnVisibility = "disabled";

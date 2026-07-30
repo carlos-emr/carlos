@@ -80,6 +80,7 @@ import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -1408,24 +1409,56 @@ public final class EDocUtil {
     }
 
 	/**
-	 * Checks if a document with the given filename has already been refiled in the specified queue.
+	 * Checks whether the given document has already been refiled into the specified queue.
+	 *
+	 * <p>Pass the document's stored filename ({@code docfilename}), not its description:
+	 * {@link #refileDocument(String, String)} derives the refiled name from the filename, so
+	 * anything else compares two unrelated strings and reports every document as not refiled.</p>
+	 *
+	 * <p>This is a read-only predicate evaluated for every queue while document views render,
+	 * so it answers {@code false} instead of throwing when the queue has no refile directory
+	 * yet or the name cannot be resolved. A real refile still validates and fails loudly.</p>
 	 *
 	 * @see #refileDocument(String, String)
-	 * @param filename The original filename of the document.
+	 * @param documentFileName The document's stored filename.
 	 * @param queueId  The ID of the queue where the document might have been refiled.
 	 * @return {@code true} if a document with the refiled name exists in the queue's refile directory,
-	 * {@code false} otherwise.
+	 * {@code false} otherwise, including when the queue has no refile directory yet.
 	 */
-	public static boolean isDocumentAlreadyRefiledInQueue(String filename, int queueId) {
-		String destFileName = filename;
-		if (destFileName.length() > 18) {
-			destFileName = destFileName.substring(14, filename.length());
+	public static boolean isDocumentAlreadyRefiledInQueue(String documentFileName, int queueId) {
+		if (documentFileName == null || documentFileName.trim().isEmpty()) {
+			// HTML documents carry no filename, so there is nothing that could have been refiled.
+			return false;
 		}
 
-		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destDir = PathValidationUtils.validateConfiguredDirectory(destPath, "incoming refile directory");
-		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
-		return destFile.exists();
+		String destFileName = documentFileName;
+		if (destFileName.length() > 18) {
+			destFileName = destFileName.substring(14, destFileName.length());
+		}
+
+		try {
+			String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
+			File destDir = new File(destPath);
+			if (!destDir.isDirectory()) {
+				// Nothing has ever been refiled into this queue. Validating the missing directory
+				// as a misconfiguration threw out of showDocument.jsp, which calls this in a loop
+				// over every queue, so a single never-used queue broke viewing any document.
+				return false;
+			}
+
+			// Resolve the refiled name exactly the way refileDocument writes it. Normalizing here
+			// (spaces to underscores, parentheses dropped) looked for a name that was never
+			// written, so documents refiled under such names were reported as not refiled.
+			File destFile = PathValidationUtils.validatePath("R" + destFileName, destDir);
+			return destFile.exists();
+		} catch (FileValidationException | IllegalStateException e) {
+			// A name the validator rejects (a blocked final extension, say) or an unconfigured
+			// incoming-document root must not take down every document view from inside this
+			// predicate. Containment failures are deliberately NOT caught here: those are
+			// genuine security signals and stay loud.
+			logger.warn("Refile lookup could not resolve a queued name, reporting not refiled", e);
+			return false;
+		}
 	}
 
 }
