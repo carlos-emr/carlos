@@ -53,10 +53,20 @@ services:
       - ./drugref/drugref2.xml:/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml:ro
     environment:
       TZ: America/Toronto
-      # Pass-through for site-specific Tomcat tuning unrelated to the allow list
-      # (e.g. heap sizing, GC flags). The allow list itself is NOT configurable
+      # `-Dhibernate.dialect` is mandatory here and must stay ahead of the pass-through below.
+      # drugref2's WEB-INF/classes/spring_config.xml declares no `hibernate.dialect`, so Hibernate
+      # falls back to detecting it from JDBC metadata. Detection runs Connector/J's
+      # `SELECT WORD FROM INFORMATION_SCHEMA.KEYWORDS WHERE RESERVED=1` probe; `RESERVED` is a
+      # MySQL-only column that MariaDB's KEYWORDS table does not have (true on 10.5 and 11.8
+      # alike), so the probe throws, metadata comes back empty, and the EntityManagerFactory dies
+      # with "Unable to determine Dialect" — taking the whole /drugref2 context down with a 404.
+      # Naming the dialect makes the failed probe harmless. This mirrors CARLOS itself, which
+      # runs the same Connector/J against MariaDB and pins OscarMySQL5Dialect explicitly.
+      #
+      # DRUGREF_CATALINA_OPTS is appended, not substituted, so site-specific tuning (heap, GC)
+      # cannot accidentally drop the dialect. The drugref2.xml allow list is NOT configurable
       # through this env var — see the comment on drugref2.xml.
-      CATALINA_OPTS: ${DRUGREF_CATALINA_OPTS:-}
+      CATALINA_OPTS: -Dhibernate.dialect=org.hibernate.dialect.MariaDBDialect ${DRUGREF_CATALINA_OPTS:-}
     networks:
       - carlos-network
     depends_on:
