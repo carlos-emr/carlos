@@ -211,6 +211,11 @@
             if (checkTypeIn()) document.forms[0].submit()
         }
 
+        function searchActive() {
+            document.titlesearch.ptstatus.value = "active"
+            if (checkTypeIn()) document.forms[0].submit()
+        }
+
 
     </script>
 </head>
@@ -315,6 +320,10 @@
                 <input type="SUBMIT" class="btn btn-primary" name="displaymode"
                        value='<fmt:message key="global.search"/>'
                        title='<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>'>
+                <INPUT TYPE="button" id="activeButton" class="btn btn-secondary"
+                       onclick="searchActive();"
+                       TITLE="<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>"
+                       VALUE="<fmt:message key="demographic.search.Active"/>">
                 <INPUT TYPE="button" id="inactiveButton" class="btn btn-secondary"
                        onclick="searchInactive();"
                        TITLE="<fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchInactive"/>"
