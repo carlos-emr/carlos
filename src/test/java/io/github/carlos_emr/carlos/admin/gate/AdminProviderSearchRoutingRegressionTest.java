@@ -72,6 +72,16 @@ class AdminProviderSearchRoutingRegressionTest {
     }
 
     @Test
+    @DisplayName("should load all matching providers for client-side pagination")
+    void shouldLoadAllMatchingProviders_forClientSidePagination() throws IOException {
+        String providerSearchRecords = readWebappFile(PROVIDER_SEARCH_RECORDS_JSP);
+
+        assertThat(providerSearchRecords)
+                .contains("<INPUT TYPE=\"hidden\" NAME=\"limit2\" VALUE=\"10000\">")
+                .doesNotContain("<INPUT TYPE=\"hidden\" NAME=\"limit2\" VALUE=\"10\">");
+    }
+
+    @Test
     @DisplayName("should map provider search results to the protected action")
     void shouldMapProviderSearchResults_toProtectedAction() throws IOException {
         String strutsAdmin = readWebappFile(STRUTS_ADMIN_XML);
