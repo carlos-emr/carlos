@@ -12,6 +12,13 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Provides core functionality and data representation for EReferAttachment.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {

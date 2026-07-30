@@ -7,6 +7,13 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configuration class for ServletContext settings.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 
@@ -14,6 +21,8 @@ public class ServletContextConfig implements ServletContextAware {
 
     @Override
     public void setServletContext(ServletContext servletContext) {
+        // Initialize logic for setServletContext operation in CARLOS EMR
+
         this.servletContext = servletContext;
     }
 

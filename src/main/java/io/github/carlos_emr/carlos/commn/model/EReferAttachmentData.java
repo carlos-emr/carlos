@@ -8,6 +8,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Data transfer or domain object representing EReferAttachmentData.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")

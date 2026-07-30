@@ -1,5 +1,12 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Enumeration or constant type representing DocumentType values.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),
@@ -16,6 +23,8 @@ public enum DocumentType {
     }
 
     public String getType() {
+        // Initialize logic for getType operation in CARLOS EMR
+
         return this.type;
     }
 

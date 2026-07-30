@@ -10,6 +10,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Provides core functionality and data representation for MatchingClientParameters.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })
 public class MatchingClientParameters implements Serializable
@@ -26,6 +33,8 @@ public class MatchingClientParameters implements Serializable
     protected String hin;
     
     public int getMaxEntriesToReturn() {
+        // Initialize logic for getMaxEntriesToReturn operation in CARLOS EMR
+
         return this.maxEntriesToReturn;
     }
     

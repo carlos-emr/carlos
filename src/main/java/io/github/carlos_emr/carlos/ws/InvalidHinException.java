@@ -5,6 +5,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Exception thrown for InvalidHin errors.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "InvalidHinException")
 public class InvalidHinException implements Serializable

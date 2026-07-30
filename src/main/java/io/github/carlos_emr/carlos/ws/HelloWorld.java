@@ -5,6 +5,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Provides core functionality and data representation for HelloWorld.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld")
 public class HelloWorld implements Serializable

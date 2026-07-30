@@ -5,6 +5,13 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Provides core functionality and data representation for MatchingClientScore.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientScore", propOrder = { "client", "score" })
 public class MatchingClientScore implements Serializable
@@ -14,6 +21,8 @@ public class MatchingClientScore implements Serializable
     protected int score;
     
     public Client getClient() {
+        // Initialize logic for getClient operation in CARLOS EMR
+
         return this.client;
     }
     

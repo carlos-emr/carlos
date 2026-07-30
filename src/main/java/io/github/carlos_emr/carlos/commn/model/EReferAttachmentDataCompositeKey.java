@@ -6,6 +6,13 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Data transfer or domain object representing EReferAttachmentDataCompositeKey.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
@@ -27,6 +34,8 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
     }
 
     public EReferAttachment getEReferAttachment() {
+        // Initialize logic for getEReferAttachment operation in CARLOS EMR
+
         return eReferAttachment;
     }
 

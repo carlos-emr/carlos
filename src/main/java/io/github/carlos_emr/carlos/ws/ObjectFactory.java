@@ -5,6 +5,13 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * Factory class responsible for creating Object objects.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @XmlRegistry
 public class ObjectFactory
 {
@@ -16,6 +23,8 @@ public class ObjectFactory
     private static final QName _DuplicateHinException_QNAME;
     
     public HelloWorld createHelloWorld() {
+        // Initialize logic for createHelloWorld operation in CARLOS EMR
+
         return new HelloWorld();
     }
     

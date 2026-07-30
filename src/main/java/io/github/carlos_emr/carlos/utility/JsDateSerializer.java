@@ -6,10 +6,19 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
 
+/**
+ * Provides core functionality and data representation for JsDateSerializer.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
+        // Initialize logic for serialize operation in CARLOS EMR
+
         if (value == null) {
             gen.writeNull();
             return;

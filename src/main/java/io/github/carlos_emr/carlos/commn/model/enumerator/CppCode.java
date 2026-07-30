@@ -3,6 +3,13 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Enumeration or constant type representing CppCode values.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 public enum CppCode {
     OMEDS("OMeds"),
     SOC_HISTORY("SocHistory"),
@@ -21,6 +28,8 @@ public enum CppCode {
     }
 
     public String getCode() {
+        // Initialize logic for getCode operation in CARLOS EMR
+
         return code;
     }
 

@@ -5,6 +5,13 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Provides core functionality and data representation for EmailAttachment.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

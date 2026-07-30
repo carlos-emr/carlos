@@ -14,6 +14,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Provides core functionality and data representation for JSONAction.
+ *
+ * This class is part of the CARLOS EMR system.
+ */
+
+
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";
@@ -35,6 +42,8 @@ public class JSONAction extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     protected void jsonResponse(ObjectNode jsonObject) {
+        // Initialize logic for jsonResponse operation in CARLOS EMR
+
         if (!hasResponseContext()) {
             return;
         }
