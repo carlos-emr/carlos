@@ -224,6 +224,31 @@ docker volume ls --format '{{.Name}}' | grep -E 'mariadb-11-flyway-files$' | whi
 docker-compose up db -d
 ```
 
+**Symptom: the app fails to start with `Access denied for user 'root'@'...'` while
+`docker ps` still shows the database as `(healthy)`.**
+
+The MariaDB entrypoint runs `/docker-entrypoint-initdb.d` only on an *empty* datadir, so the root
+password is baked into the volume the first time it initializes. If the container ever started with
+a wrong `MARIADB_ROOT_PASSWORD`, every later start reuses that stored password and the app can never
+connect — restarting the stack or rebuilding the image does **not** fix it. Remove the volume so it
+re-initializes:
+
+```bash
+docker compose stop db
+docker volume ls --format '{{.Name}}' | grep -E 'mariadb-11-flyway-files$' | while read -r vol; do docker volume rm "$vol"; done
+docker compose up db -d
+```
+
+Then confirm the credential the app actually uses (`root`/`password`, per `carlos.properties`):
+
+```bash
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root -h 127.0.0.1 -e 'SELECT 1'
+```
+
+Note that `mariadb-admin ping` is useless for diagnosing this: it exits 0 even on "Access denied",
+because the server answered. The container healthcheck therefore runs a real authenticated query
+instead of a ping.
+
 ### **Database Volume Management:**
 Database volumes persist data between container restarts. This means that even after rebuilding containers, your database may contain old data unless the volume is explicitly removed.
 
