@@ -133,8 +133,8 @@ b<%--
 
         if (Count == 0) {
 %>
-<p><fmt:message key="billing.bc.billingDigNewUpdate.noInputSelected"/></p>
-<input type="button" name="back" value="<fmt:message key=\"global.btnBack\"/>"
+<p><fmt:message key='billing.bc.billingDigNewUpdate.noInputSelected'/></p>
+<input type="button" name="back" value="<fmt:message key='global.btnBack'/>"
        onClick="javascript:history.go(-1);return false;">
 <%
 } else {
@@ -167,7 +167,7 @@ b<%--
 
 %>
 <p>
-<h1><fmt:message key="billing.bc.billingDigNewUpdate.successAdd"/></h1>
+<h1><fmt:message key='billing.bc.billingDigNewUpdate.successAdd'/></h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);

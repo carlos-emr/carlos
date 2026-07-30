@@ -44,7 +44,7 @@
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <title><fmt:message key="billing.on.billingONHistorySpec.title"/></title>
+    <title><fmt:message key='billing.on.billingONHistorySpec.title'/></title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
     <script language="JavaScript">
@@ -57,14 +57,14 @@
 
 <c:if test="${historySpecModel.partial}">
     <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
-        <strong><fmt:message key="billing.on.billingONHistorySpec.incompleteHistory"/></strong>
+        <strong><fmt:message key='billing.on.billingONHistorySpec.incompleteHistory'/></strong>
         A loader error truncated this list — please refresh or contact admin.
     </div>
 </c:if>
 
 <table style="width:100%">
     <tr class="myDarkGreen">
-        <th><fmt:message key="billing.on.billingONHistorySpec.title"/></th>
+        <th><fmt:message key='billing.on.billingONHistorySpec.title'/></th>
     </tr>
 </table>
 
@@ -75,7 +75,7 @@
                 (<carlos:encode value="${historySpecModel.demographicNo}" context="html"/>)
                 <carlos:encode value="${historySpecModel.todayStr} - ${historySpecModel.startDayStr}" context="html"/>
             </td>
-            <td style="text-align:right"><fmt:message key="billing.on.billingONHistorySpec.serviceCode"/> <input type="text"
+            <td style="text-align:right"><fmt:message key='billing.on.billingONHistorySpec.serviceCode'/> <input type="text"
                                                              name="serviceCode"
                                                              value="<carlos:encode value='${historySpecModel.serviceCodeFilter}' context='htmlAttribute'/>" maxlength="5"
                                                              onBlur="upCaseCtrl(this)"/> <input type="hidden" name="day"
@@ -84,7 +84,7 @@
                        value="<carlos:encode value='${historySpecModel.demoName}' context='htmlAttribute'/>"/> <input
                         type="hidden" name="demographic_no"
                         value="<carlos:encode value='${historySpecModel.demographicNo}' context='htmlAttribute'/>"/> <input
-                        type="submit" name="submit" value="<fmt:message key=\"global.btnSearch\"/>"/></td>
+                        type="submit" name="submit" value="<fmt:message key='global.btnSearch'/>"/></td>
         </tr>
     </table>
 </form>
@@ -92,12 +92,12 @@
 <table style="width:95%; margin:auto;" class="table table-striped table-sm">
     <thead>
     <tr class="myYellow">
-        <th style="text-align:center; white-space:nowrap;"><b><fmt:message key="billing.on.billingONHistorySpec.invoiceNo"/></b></th>
-        <th style="text-align:center"><b><fmt:message key="billing.on.billingONHistorySpec.apptDate"/></b></th>
-        <th style="text-align:center"><b><fmt:message key="billing.on.billingONHistorySpec.billType"/></b></th>
-        <th style="text-align:center"><b><fmt:message key="billing.on.billingONHistorySpec.serviceCodeHeader"/></b></th>
-        <th style="text-align:center"><b><fmt:message key="billing.on.billingONHistorySpec.dx"/></b></th>
-        <th style="text-align:center"><b><fmt:message key="billing.on.billingONHistorySpec.fee"/></b></th>
+        <th style="text-align:center; white-space:nowrap;"><b><fmt:message key='billing.on.billingONHistorySpec.invoiceNo'/></b></th>
+        <th style="text-align:center"><b><fmt:message key='billing.on.billingONHistorySpec.apptDate'/></b></th>
+        <th style="text-align:center"><b><fmt:message key='billing.on.billingONHistorySpec.billType'/></b></th>
+        <th style="text-align:center"><b><fmt:message key='billing.on.billingONHistorySpec.serviceCodeHeader'/></b></th>
+        <th style="text-align:center"><b><fmt:message key='billing.on.billingONHistorySpec.dx'/></b></th>
+        <th style="text-align:center"><b><fmt:message key='billing.on.billingONHistorySpec.fee'/></b></th>
     </tr>
     </thead>
     <tbody>
@@ -119,12 +119,12 @@
     </tbody>
 
 </table>
-<br> &nbsp;<carlos:encode value="${historySpecModel.itemCount}" context="html"/> <fmt:message key="billing.on.billingONHistorySpec.items"/>
+<br> &nbsp;<carlos:encode value="${historySpecModel.itemCount}" context="html"/> <fmt:message key='billing.on.billingONHistorySpec.items'/>
 <p>
 
 <table style="width:100%">
     <tr>
-        <td style="text-align:right"><a href="" onClick="self.close();"><fmt:message key="global.btnClose"/></a></td>
+        <td style="text-align:right"><a href="" onClick="self.close();"><fmt:message key='global.btnClose'/></a></td>
     </tr>
 </table>
 

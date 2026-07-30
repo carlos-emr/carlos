@@ -254,8 +254,8 @@
         </script>
         <% } %>
     </table>
-    <input type="submit" name="update" value="<fmt:message key=\"global.btnConfirm\"/>"><input
-            type="button" name="cancel" value="<fmt:message key=\"global.btnCancel\"/>"
+    <input type="submit" name="update" value="<fmt:message key='global.btnConfirm'/>"><input
+            type="button" name="cancel" value="<fmt:message key='global.btnCancel'/>"
             onclick="javascript:window.close()"></form>
 </body>
 </html>

@@ -97,7 +97,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title><fmt:message key="billing.bc.billingDigNewSearch.title"/></title>
+    <title><fmt:message key='billing.bc.billingDigNewSearch.title'/></title>
     <script LANGUAGE="JavaScript">
 
 
@@ -118,7 +118,7 @@
     <tr bgcolor="#486ebd">
         <th align=CENTER NOWRAP bgcolor="#CCCCFF"><font face="Helvetica"
                                                         color="#000000">Diagnostic Code Search ICD9</font> <font
-                face="Arial, Helvetica, sans-serif" color="#FF0000"><fmt:message key="billing.bc.billingDigNewSearch.max3"/></font></th>
+                face="Arial, Helvetica, sans-serif" color="#FF0000"><fmt:message key='billing.bc.billingDigNewSearch.max3'/></font></th>
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
@@ -129,9 +129,9 @@
     <div style="height: 600; overflow: auto">
         <table width="800" border="1">
             <tr bgcolor="#CCCCFF">
-                <td><b> <font face="Arial, Helvetica, sans-serif" size="2"><fmt:message key="billing.bc.billingDigNewSearch.code"/></font>
+                <td><b> <span style="font-family: Arial, Helvetica, sans-serif; font-size: small;"><fmt:message key='billing.bc.billingDigNewSearch.code'/></span>
                 </b></td>
-                <td><b> <font face="Arial, Helvetica, sans-serif" size="2"><fmt:message key="billing.bc.billingDigNewSearch.description"/></font>
+                <td><b> <span style="font-family: Arial, Helvetica, sans-serif; font-size: small;"><fmt:message key='billing.bc.billingDigNewSearch.description'/></span>
                 </b></td>
             </tr>
             <%
@@ -176,7 +176,7 @@
             <%if (intCount == 0) {%>
             <tr bgcolor="<%=color%>">
                 <td colspan="2"><font face="Arial, Helvetica, sans-serif"
-                                      size="2"> <fmt:message key="billing.bc.billingDigNewSearch.noMatchFound"/> <%// =i      %></font></td>
+                                      size="2"> <fmt:message key='billing.bc.billingDigNewSearch.noMatchFound'/> <%// =i      %></font></td>
             </tr>
             <%}%>
             <%if (intCount == 1) {%>
@@ -190,8 +190,8 @@
             <%}%>
         </table>
     </div>
-    <input type="submit" name="update" value="<fmt:message key=\"global.btnConfirm\"/>"> <input
-            type="button" name="cancel" value="<fmt:message key=\"global.btnCancel\"/>"
+    <input type="submit" name="update" value="<fmt:message key='global.btnConfirm'/>"> <input
+            type="button" name="cancel" value="<fmt:message key='global.btnCancel'/>"
             onclick="javascript:window.close()"></form>
 </body>
 </html>

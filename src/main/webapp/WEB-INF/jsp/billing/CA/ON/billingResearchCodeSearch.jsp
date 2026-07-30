@@ -41,7 +41,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-    <title><fmt:message key="billing.on.billingResearchCodeSearch.title"/></title>
+    <title><fmt:message key='billing.on.billingResearchCodeSearch.title'/></title>
     <script LANGUAGE="JavaScript">
         <!--
         function CodeAttach(File0) {
@@ -68,9 +68,9 @@
 
         <tr bgcolor="#FFBC9B">
             <td width="12%"><b><font face="Arial, Helvetica, sans-serif"
-                                     size="2"><fmt:message key="billing.on.billingResearchCodeSearch.code"/></font></b></td>
+                                     size="2"><fmt:message key='billing.on.billingResearchCodeSearch.code'/></font></b></td>
             <td width="88%"><b><font face="Arial, Helvetica, sans-serif"
-                                     size="2"><fmt:message key="billing.on.billingResearchCodeSearch.description"/></font></b></td>
+                                     size="2"><fmt:message key='billing.on.billingResearchCodeSearch.description'/></font></b></td>
         </tr>
 
         <c:forEach var="__row" items="${codeSearchModel.rows}" varStatus="__rowStatus">
@@ -89,7 +89,7 @@
         <c:if test="${codeSearchModel.noMatch}">
         <tr>
             <td colspan="2"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><fmt:message key="billing.on.billingResearchCodeSearch.noMatchFound"/></font></td>
+                                  size="2"><fmt:message key='billing.on.billingResearchCodeSearch.noMatchFound'/></font></td>
         </tr>
         </c:if>
 
@@ -101,8 +101,8 @@
         </script>
         </c:if>
     </table>
-    <input type="submit" name="submit" value="<fmt:message key=\"global.btnConfirm\"/>"><input
-        type="button" name="cancel" value="<fmt:message key=\"global.btnCancel\"/>"
+    <input type="submit" name="submit" value="<fmt:message key='global.btnConfirm'/>"><input
+        type="button" name="cancel" value="<fmt:message key='global.btnCancel'/>"
         onclick="javascript:window.close()">
     <p></p>
 </form>

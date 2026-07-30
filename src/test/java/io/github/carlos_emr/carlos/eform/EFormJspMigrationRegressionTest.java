@@ -280,7 +280,7 @@ class EFormJspMigrationRegressionTest {
                 .contains("List<EctFormData.PatientForm> attachedOlderForms = new ArrayList<>()")
                 .contains("!currentFormIds.contains(attachedFormId)")
                 .contains("allForms.isEmpty() && attachedOlderForms.isEmpty()")
-                .contains("Earlier version");
+                .contains("<fmt:message key='eform.attachEform.earlierVersion'/>");
     }
 
     @Test

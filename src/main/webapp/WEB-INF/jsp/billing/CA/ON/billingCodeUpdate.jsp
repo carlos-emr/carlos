@@ -71,8 +71,8 @@
     <c:when test="${codeUpdateModel.confirmMode}">
         <c:choose>
             <c:when test="${codeUpdateModel.noSelection}">
-<p><fmt:message key="billing.on.billingCodeUpdate.noInputSelected"/></p>
-<input type="button" name="back" value="<fmt:message key=\"global.btnBack\"/>"
+<p><fmt:message key='billing.on.billingCodeUpdate.noInputSelected'/></p>
+<input type="button" name="back" value="<fmt:message key='global.btnBack'/>"
        onClick="javascript:history.go(-1);return false;">
             </c:when>
             <c:otherwise>
@@ -88,7 +88,7 @@
     <c:otherwise>
 <%-- Update mode: assembler already persisted; emit popup-close JS. --%>
 <p>
-<h1><fmt:message key="billing.on.billingCodeUpdate.successAdd"/></h1>
+<h1><fmt:message key='billing.on.billingCodeUpdate.successAdd'/></h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);

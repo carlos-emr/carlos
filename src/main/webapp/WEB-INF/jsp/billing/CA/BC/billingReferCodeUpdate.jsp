@@ -129,8 +129,8 @@
 
         if (Count == 0) {
 %>
-<p><fmt:message key="billing.bc.billingReferCodeUpdate.noInputSelected"/></p>
-<input type="button" name="back" value="<fmt:message key=\"global.btnBack\"/>"
+<p><fmt:message key='billing.bc.billingReferCodeUpdate.noInputSelected'/></p>
+<input type="button" name="back" value="<fmt:message key='global.btnBack'/>"
        onClick="javascript:history.go(-1);return false;">
 <%
 } else {
@@ -162,7 +162,7 @@
 <%
 %>
 <p>
-<h1><fmt:message key="billing.bc.billingReferCodeUpdate.successAdd"/></h1>
+<h1><fmt:message key='billing.bc.billingReferCodeUpdate.successAdd'/></h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);

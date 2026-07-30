@@ -62,8 +62,8 @@
 <body>
 <c:choose>
     <c:when test="${researchCodeCount == 0}">
-        <p><fmt:message key="billing.on.billingResearchCodeUpdate.noInputSelected"/></p>
-        <input type="button" name="back" value="<fmt:message key=\"global.btnBack\"/>"
+        <p><fmt:message key='billing.on.billingResearchCodeUpdate.noInputSelected'/></p>
+        <input type="button" name="back" value="<fmt:message key='global.btnBack'/>"
                onClick="javascript:history.go(-1);return false;">
     </c:when>
     <c:otherwise>

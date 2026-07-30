@@ -65,7 +65,7 @@
 <body topmargin="0" onLoad="setfocus()" leftmargin="0" rightmargin="0">
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
-        <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="demographic.addnewdemographicswipe.patientDetailRecord"/></font></th>
+        <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key='demographic.addnewdemographicswipe.patientDetailRecord'/></font></th>
     </tr>
 </table>
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
@@ -99,9 +99,9 @@
         }
 
     %>
-    <td><fmt:message key="demographic.addnewdemographicswipe.hin"/>: <carlos:encode value='<%= hin %>' context="html"/> <fmt:message key="demographic.addnewdemographicswipe.fname"/>: <carlos:encode value='<%= firstname %>' context="html"/> <fmt:message key="demographic.addnewdemographicswipe.lname"/>: <carlos:encode value='<%= lastname %>' context="html"/>
-        <fmt:message key="demographic.addnewdemographicswipe.dobyear"/>: <carlos:encode value='<%= dobyear %>' context="html"/>-<carlos:encode value='<%= dobmonth %>' context="html"/>-<carlos:encode value='<%= dobdate %>' context="html"/> <fmt:message key="demographic.addnewdemographicswipe.endDate"/>: <carlos:encode value='<%= endyear %>' context="html"/>-<carlos:encode value='<%= endmonth %>' context="html"/>-<carlos:encode value='<%= enddate %>' context="html"/>
-        <fmt:message key="demographic.addnewdemographicswipe.effDate"/>: <carlos:encode value='<%= effyear %>' context="html"/>-<carlos:encode value='<%= effmonth %>' context="html"/>-<carlos:encode value='<%= effdate %>' context="html"/>
+    <td><fmt:message key='demographic.addnewdemographicswipe.hin'/>: <carlos:encode value='<%= hin %>' context="html"/> <fmt:message key='demographic.addnewdemographicswipe.fname'/>: <carlos:encode value='<%= firstname %>' context="html"/> <fmt:message key='demographic.addnewdemographicswipe.lname'/>: <carlos:encode value='<%= lastname %>' context="html"/>
+        <fmt:message key='demographic.addnewdemographicswipe.dobyear'/>: <carlos:encode value='<%= dobyear %>' context="html"/>-<carlos:encode value='<%= dobmonth %>' context="html"/>-<carlos:encode value='<%= dobdate %>' context="html"/> <fmt:message key='demographic.addnewdemographicswipe.endDate'/>: <carlos:encode value='<%= endyear %>' context="html"/>-<carlos:encode value='<%= endmonth %>' context="html"/>-<carlos:encode value='<%= enddate %>' context="html"/>
+        <fmt:message key='demographic.addnewdemographicswipe.effDate'/>: <carlos:encode value='<%= effyear %>' context="html"/>-<carlos:encode value='<%= effmonth %>' context="html"/>-<carlos:encode value='<%= effdate %>' context="html"/>
     </td>
     <script LANGUAGE="JavaScript">
         <!--
@@ -114,7 +114,7 @@
 
 <br>
 <br>
-<form><input type="button" name="Button" value="<fmt:message key=\"global.btnCancel\"/>"
+<form><input type="button" name="Button" value="<fmt:message key='global.btnCancel'/>"
              onclick=self.close();></form>
 </body>
 </html>

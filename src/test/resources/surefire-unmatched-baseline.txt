@@ -134,3 +134,4 @@ io.github.carlos_emr.carlos.waitinglist.pageUtil.WLMutation2ActionsTest
 io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2ActionTest
 io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceSecurityTest
 io.github.carlos_emr.carlos.www.SystemMessage2ActionTest
+io.github.carlos_emr.carlos.report.data.RptReportCreatorTest
