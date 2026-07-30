@@ -26,7 +26,8 @@ class AppointmentJspRoutingTest {
     private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
             "(?:(?:var|let|const)\\s+)?(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
     private static final Pattern PRINT_RECEIPT_BUTTON_PATTERN = Pattern.compile(
-            "id=\"printReceiptButton\"[\\s\\S]*?value=\"<fmt:message key='appointment\\.editappointment\\.btnPrintReceipt'/>\"");
+            "id=\"printReceiptButton\"[\\s\\S]*?onclick=\"(?<handler>[^\"]*)\"\\s*"
+                    + "value=\"<fmt:message key='appointment\\.editappointment\\.btnPrintReceipt'/>\"");
 
     @Test
     void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {
@@ -58,9 +59,12 @@ class AppointmentJspRoutingTest {
         assertThat(printReceiptButtonMatcher.find())
                 .as("the edit appointment page should contain the print receipt button")
                 .isTrue();
-        assertThat(printReceiptButtonMatcher.group())
+        assertThat(printReceiptButtonMatcher.group("handler"))
                 .as("the receipt window must be reserved during the click so popup blockers allow it")
-                .contains("popupPage(350, 750, 'about:blank')");
+                .contains(
+                        "displaymode.value='Update Appt'",
+                        "printReceipt.value='1'",
+                        "popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt')");
 
         assertThat(addAppointment).contains("/appointment/AddRecord");
         assertThat(addAppointment).contains("/appointment/appointmentgrouprecords");
@@ -89,6 +93,9 @@ class AppointmentJspRoutingTest {
         assertThat(updateRecord).containsAnyOf("request.getContextPath()", "pageContext.request.contextPath");
         assertThat(updateRecord).contains("pageContext.request.contextPath");
         assertThat(updateRecord).contains("carlos:forJavaScript(carlos:forUriComponent(appointmentNo))");
+        assertThat(updateRecord)
+                .as("the update result must reuse the dedicated receipt window, not its own attachment window")
+                .contains("popupFocusPage(350, 750,", "'appointmentReceipt'");
         assertThat(updateRecord).doesNotContain("printappointment.jsp?appointment_no=");
 
         assertThat(providerDay).contains("/appointment/addappointment?");
