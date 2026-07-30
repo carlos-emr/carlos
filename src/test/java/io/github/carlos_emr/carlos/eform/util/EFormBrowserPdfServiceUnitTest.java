@@ -1613,7 +1613,7 @@ class EFormBrowserPdfServiceUnitTest {
             // A page-script error and a suppressed dialog are reported but never withhold, so an
             // approval is not required and none is supplied.
             EFormRenderCompletenessReport advisoryOnly =
-                    new EFormRenderCompletenessReport(0, 0, 3, 1, false, true, false, false, false);
+                    new EFormRenderCompletenessReport(0, 0, 0, 1, false, true, false, false, false);
 
             assertThat(EFormBrowserPdfService.withholdsDocument(advisoryOnly, null, FDID, PROVIDER))
                     .isFalse();
