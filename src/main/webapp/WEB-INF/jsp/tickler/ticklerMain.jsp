@@ -550,13 +550,26 @@
                     async: false,
                     dataType: 'json',
                     success: function (data) {
+                        // ticklerGetNote returns {} (not null) when the tickler has no note yet;
+                        // only assign fields that are actually present, otherwise DOM .value/.textContent
+                        // assignment stringifies `undefined` into the literal text "undefined".
                         if (data != null) {
-                            document.getElementById('tickler_note_noteId').value = data.noteId;
-                            document.getElementById('tickler_note').value = data.note;
-                            document.getElementById('tickler_note_revision').textContent = data.revision;
-                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
-                            document.getElementById('tickler_note_editor').textContent = data.editor;
-                            document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
+                            if (data.noteId != null) {
+                                document.getElementById('tickler_note_noteId').value = data.noteId;
+                                document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
+                            }
+                            if (data.note != null) {
+                                document.getElementById('tickler_note').value = data.note;
+                            }
+                            if (data.revision != null) {
+                                document.getElementById('tickler_note_revision').textContent = data.revision;
+                            }
+                            if (data.editor != null) {
+                                document.getElementById('tickler_note_editor').textContent = data.editor;
+                            }
+                            if (data.obsDate != null) {
+                                document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
+                            }
                         }
                         jQuery("#note-form").dialog("open");
                     },

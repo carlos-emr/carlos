@@ -332,6 +332,29 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         }
     }
 
+    // ------------------------------------------------------------------
+    // parseExistingNoteId
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("parseExistingNoteId")
+    class ParseExistingNoteId {
+
+        @Test
+        @DisplayName("should return the parsed id when noteId is a positive number")
+        void shouldReturnParsedId_whenNoteIdIsPositiveNumber() {
+            assertThat(CaseManagementEntry2Action.parseExistingNoteId("42")).isEqualTo(42L);
+        }
+
+        @ParameterizedTest(name = "no existing note for noteId: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {"0", "undefined", "null", "NaN", "-1abc"})
+        @DisplayName("should return null when noteId does not identify an existing note")
+        void shouldReturnNull_whenNoteIdDoesNotIdentifyExistingNote(String noteId) {
+            assertThat(CaseManagementEntry2Action.parseExistingNoteId(noteId)).isNull();
+        }
+    }
+
     @Nested
     @DisplayName("resolveReporterProgramTeamId")
     class ResolveReporterProgramTeamId {
