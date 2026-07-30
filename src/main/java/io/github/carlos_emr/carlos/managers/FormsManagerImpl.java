@@ -271,11 +271,11 @@ public class FormsManagerImpl implements FormsManager {
     }
 
     /**
-     * This method processes a PatientForm, which can be null, and retrieves data using the 'formId', 'formName',
-     * and 'demographicNo' parameters from the HttpServletRequest request.
+     * Renders the supplied patient form. When no patient form is supplied, the form metadata is read from the
+     * request for the standalone preview flow.
      *
-     * @param form    The PatientForm to process (can be null).
-     * @param request The HttpServletRequest containing the parameters.
+     * @param form    trusted patient form metadata, or null for a standalone preview
+     * @param request the current request
      */
     @Override
     public Path renderForm(HttpServletRequest request, HttpServletResponse response, EctFormData.PatientForm form) throws PDFGenerationException {
@@ -307,11 +307,9 @@ public class FormsManagerImpl implements FormsManager {
     private FormTransportContainer getFormTransportContainer(HttpServletRequest request, HttpServletResponse response,
                                                              EctFormData.PatientForm form) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String formId = request.getParameter("formId") != null ? request.getParameter("formId") : form.getFormId();
-        String formName = request.getParameter("formName") != null ? request.getParameter("formName")
-                : form.getFormName();
-        String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
-                : form.getDemoNo();
+        String formId = form == null ? request.getParameter("formId") : form.getFormId();
+        String formName = form == null ? request.getParameter("formName") : form.getFormName();
+        String demographicNo = form == null ? request.getParameter("demographicNo") : form.getDemoNo();
         String formPath;
         try {
             formPath = FormShortcutRouteResolver.resolve(demographicNo, formName, formId, null, null);
@@ -379,11 +377,10 @@ public class FormsManagerImpl implements FormsManager {
     }
 
     private String securityTarget(EctFormData.PatientForm form, HttpServletRequest request) {
-        String requestedDemographicNo = request == null ? null : securityTarget(request.getParameter("demographicNo"));
-        if (requestedDemographicNo != null) {
-            return requestedDemographicNo;
+        if (form != null) {
+            return securityTarget(form.demographicId);
         }
-        return form == null ? null : securityTarget(form.demographicId);
+        return request == null ? null : securityTarget(request.getParameter("demographicNo"));
     }
 
 }

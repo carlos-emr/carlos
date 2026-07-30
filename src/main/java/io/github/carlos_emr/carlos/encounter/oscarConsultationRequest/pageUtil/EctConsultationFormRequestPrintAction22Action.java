@@ -251,7 +251,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
             for (EctFormData.PatientForm formItem : forms) {
                 InputStream attachedFormStream = renderFormAttachment(
-                        loggedInInfo, request, response, faxManager, demoNo, formItem);
+                        loggedInInfo, request, response, faxManager, formItem);
                 streams.add(attachedFormStream);
                 alist.add(attachedFormStream);
             }
@@ -324,7 +324,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             HttpServletRequest request,
             HttpServletResponse response,
             FaxManager faxManager,
-            String demoNo,
             EctFormData.PatientForm formItem) throws PDFGenerationException {
         if (formItem == null) {
             throw new PDFGenerationException(
@@ -337,7 +336,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             String formPath = FormShortcutRouteResolver.resolve(
                     formDemoNo, formName, formId, null, null);
             FormTransportContainer formTransportContainer = new FormTransportContainer(response, request, formPath);
-            formTransportContainer.setDemographicNo(demoNo);
+            formTransportContainer.setDemographicNo(formDemoNo);
             formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
             formTransportContainer.setSubject(formName + " Form ID " + formId);
             formTransportContainer.setFormName(formName);

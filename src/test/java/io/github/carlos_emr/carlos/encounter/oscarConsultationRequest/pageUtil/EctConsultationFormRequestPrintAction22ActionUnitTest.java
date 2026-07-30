@@ -30,6 +30,7 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -266,18 +267,22 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 .thenReturn(new org.springframework.mock.web.MockServletContext());
         EctFormData.PatientForm form = mock(EctFormData.PatientForm.class);
         when(form.getFormName()).thenReturn("Rourke Growth Chart");
-        when(form.getDemoNo()).thenReturn("1");
+        when(form.getDemoNo()).thenReturn("2");
         when(form.getFormId()).thenReturn("55");
         when(consultationManager.getAttachedForms(loggedInInfo, 42, 1)).thenReturn(List.of(form));
         when(faxManager.renderFaxDocument(eq(loggedInInfo), eq(FaxManager.TransactionType.FORM),
                 any(FormTransportContainer.class)))
                 .thenThrow(new PDFGenerationException("renderer unavailable"));
 
-        try (LogCapture logCapture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+        try (MockedConstruction<FormTransportContainer> transportConstruction =
+                     mockConstruction(FormTransportContainer.class);
+             LogCapture logCapture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
             String result = action.execute();
 
             assertThat(result).isEqualTo("error");
             assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(transportConstruction.constructed()).hasSize(1);
+            verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
             // The FORM leg wraps identically to the EFORM leg: attachment named, reason preserved.
             assertThat(logCapture.events())
                     .anySatisfy(event -> {
