@@ -37,6 +37,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
@@ -54,6 +55,7 @@ import org.springframework.stereotype.Component;
 @Path("/demographics/merge")
 @Component("demographicMergeService")
 @Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
 public class DemographicMergeService extends AbstractServiceImpl {
 
 

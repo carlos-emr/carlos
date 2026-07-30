@@ -118,10 +118,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 List<Object[]> rs = q.getResultList();
 
                 logger.debug(sql);
-                if (!rs.isEmpty()) {
-                    return true;
-                } else
-                    return false;
+                return !rs.isEmpty();
             } catch (Exception e) {
                 logger.error(e.toString());
                 return false;

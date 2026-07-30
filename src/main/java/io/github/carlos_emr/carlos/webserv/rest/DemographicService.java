@@ -111,6 +111,7 @@ import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 @Path("/demographics")
 @Component("demographicService")
 @Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
 public class DemographicService extends AbstractServiceImpl {
 
     private enum IncludeType {
