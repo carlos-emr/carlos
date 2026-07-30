@@ -30886,13 +30886,22 @@ INSERT IGNORE INTO `professionalSpecialists` (specId,fName,lName,proLetters,addr
 (14284, 'Charles Vincent', 'Zwirewich', 'MD', 'Vancouver General Hospital Rm.G786 Dept. of Radiology 899 12 Ave W , Vancouver, BC, V5Z 1M9, Canada', '604-875-4111 ext. 63705', '604-875-4806', NULL, NULL, 'Diagnostic Radiology', NULL, NULL, NULL, NULL, '2023-10-02 21:33:40', NULL, '07175', NULL, NULL, NULL, NULL, 0, 0, NULL, 0, 0, 'BC'),
 (14285, 'Leslie Nicole', 'Zypchen', 'MD', 'Vancouver General Hospital Division of Hematology 10 Floor-2775 Laurel St , Vancouver, BC, V5Z 1M9, Canada', '604-875-4863', '(604) 675-3883', NULL, NULL, 'Internal Medicine, Hematology', NULL, NULL, NULL, NULL, '2023-10-02 21:33:40', NULL, '27320', NULL, NULL, NULL, NULL, 0, 0, NULL, 0, 0, 'BC');
 
+-- serviceSpecialists is the join table behind ConsultationServices' @JoinTable: it pairs
+-- consultationServices.serviceId with professionalSpecialists.specId, and BOTH columns are int(10).
+-- professionalSpecialists.specType holds the specialty *name* ('Psychiatry', 'Neurosurgery', ...),
+-- so it has to be resolved to a serviceId through consultationServices.serviceDesc rather than
+-- inserted directly. Selecting ps.specType straight into serviceId fails under the strict sql_mode
+-- the Flyway JDBC driver enables (Error 1366) and -- worse -- silently stores serviceId = 0 for
+-- every row under the sql_mode="" that the CARLOS my.cnf sets for the mariadb CLI. The two seeds
+-- share one vocabulary exactly: 257 distinct specType values, 257 matching serviceDesc values.
 INSERT INTO serviceSpecialists (`serviceId`, `specId`)
-SELECT DISTINCT ps.specType, ps.specId
+SELECT DISTINCT cs.serviceId, ps.specId
 FROM professionalSpecialists ps
+JOIN consultationServices cs ON cs.serviceDesc = ps.specType
 WHERE ps.specType IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM serviceSpecialists ss
-    WHERE ss.serviceId <=> ps.specType AND ss.specId <=> ps.specId
+    WHERE ss.serviceId <=> cs.serviceId AND ss.specId <=> ps.specId
   )
   AND ps.specType <> "";
 
