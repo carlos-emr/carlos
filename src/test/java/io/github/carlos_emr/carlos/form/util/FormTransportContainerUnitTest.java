@@ -43,7 +43,7 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
-    void shouldCaptureForwardedFormHtml_whenNestedRenderUsesStrutsResponse() throws Exception {
+    void shouldCaptureIncludedFormHtml_whenNestedRenderUsesStrutsResponse() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         ActionContext.of().withServletResponse(outerResponse).bind();
         MockHttpServletRequest request = requestForwardingTo(servletResponse -> {
@@ -121,12 +121,12 @@ class FormTransportContainerUnitTest {
                 return new RequestDispatcher() {
                     @Override
                     public void forward(ServletRequest request, ServletResponse response) throws ServletException, IOException {
-                        forwardHandler.forward(response);
+                        throw new AssertionError("Nested form capture must use include, not forward");
                     }
 
                     @Override
-                    public void include(ServletRequest request, ServletResponse response) {
-                        throw new UnsupportedOperationException("Test dispatcher does not support include");
+                    public void include(ServletRequest request, ServletResponse response) throws ServletException, IOException {
+                        forwardHandler.forward(response);
                     }
                 };
             }
