@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import org.openpdf.text.Document;
 import org.openpdf.text.pdf.PdfCopy;
 import org.openpdf.text.pdf.PdfName;
@@ -193,6 +194,9 @@ public final class IncomingDocUtil {
         File incomingBaseDir = new File(incomingRootPath);
         File queueDirCandidate = PathValidationUtils.validateChildPath(new File(directory), incomingBaseDir);
         if (incomingBaseDir.isDirectory() && !queueDirCandidate.exists()) {
+            // Logged so an operator can tell "never used" apart from "the queue volume
+            // vanished" without having to reason from an empty screen.
+            logger.debug("Incoming queue directory not created yet, reporting empty queue");
             return docList;
         }
 
@@ -258,7 +262,15 @@ public final class IncomingDocUtil {
         // containing spaces or parentheses (e.g. "scan (1).pdf" -> "scan_1.pdf") and made
         // every such uploaded document unresolvable — viewer, page count, rotate, delete.
         pdfName = validatePathComponent(pdfName, "pdfName");
-        
+
+        // Component validation preserves the name but, unlike the normalizing validator this
+        // replaced, carries no extension allowlist. Queue contents are PDFs only (the listing
+        // filter and the upload action both enforce that), so keep the dangerous-extension
+        // door shut here rather than letting request-supplied names name anything else.
+        if (!pdfName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            throw new FileValidationException("Incoming document names must end in .pdf");
+        }
+
         String filePathName = getIncomingDocumentFilePath(queueId, pdfDir);
         
         // Use File constructor to safely combine paths

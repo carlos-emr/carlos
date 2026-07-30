@@ -178,4 +178,23 @@ class IncomingDocUtilUnitTest {
         assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "sub/escape.pdf"))
                 .isInstanceOf(FileValidationException.class);
     }
+
+    @Test
+    @DisplayName("should reject a queued document name that is not a pdf")
+    void shouldRejectPdfName_withNonPdfExtension() {
+        // Preserving the exact name costs the normalizing validator's extension allowlist,
+        // so the queue keeps its own: request-supplied names cannot address a .jsp or any
+        // other non-PDF sitting in the queue directory.
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "shell.jsp"))
+                .isInstanceOf(FileValidationException.class);
+    }
+
+    @Test
+    @DisplayName("should accept an uppercase pdf extension as a queued document name")
+    void shouldAcceptPdfName_withUppercaseExtension() {
+        // getDocList lists names case-insensitively, so resolution must agree with it.
+        String path = IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "SCAN.PDF");
+
+        assertThat(path).isEqualTo(incomingRoot.resolve("1").resolve("Fax").resolve("SCAN.PDF").toString());
+    }
 }
