@@ -1383,7 +1383,7 @@
                     <% }%>
                     <input type="submit" id="printReceiptButton" class="btn btn-secondary"
                            formaction="<%=request.getContextPath() %>/appointment/UpdateRecord"
-                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';"
+                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';popupPage(350, 750, 'about:blank');"
                            value="<fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
                     <input type="hidden" name="printReceipt" value="">
                     <input type="submit" class="btn btn-danger" id="deleteButton"
