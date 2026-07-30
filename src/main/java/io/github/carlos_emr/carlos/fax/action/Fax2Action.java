@@ -36,6 +36,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
@@ -88,6 +90,7 @@ public class Fax2Action extends ActionSupport {
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
 
 
     /**
@@ -128,6 +131,8 @@ public class Fax2Action extends ActionSupport {
         }
         if ("queue".equals(method)) {
             return queue();
+        } else if ("cancelStagedEFormFax".equals(method)) {
+            return cancelStagedEFormFax();
         } else if ("prepareFax".equals(method)) {
             return prepareFax();
         } else if ("getPreview".equals(method)) {
@@ -186,6 +191,34 @@ public class Fax2Action extends ActionSupport {
         }
 
         return faxForward;
+    }
+
+    /** Revokes the one-time incomplete-render approval without releasing its staged PDF. */
+    private String cancelStagedEFormFax() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+            return NONE;
+        }
+        if (transactionId == null || demographicNo == null) {
+            sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid eForm fax approval");
+            return NONE;
+        }
+        EFormRenderApprovalService renderApprovalService =
+                SpringUtils.getBean(EFormRenderApprovalService.class);
+        renderApprovalService.cancelStagedFaxPreview(
+                request, loggedInInfo, transactionId, String.valueOf(demographicNo),
+                request.getParameter("renderApproval"));
+        // The same redirect is returned for an already-consumed, expired, or mismatched token so
+        // this cleanup endpoint does not become a token-validity oracle.
+        try {
+            response.sendRedirect(request.getContextPath()
+                    + "/eform/efmshowform_data?fdid=" + transactionId + "&parentAjaxId=eforms");
+            return NONE;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -528,15 +561,43 @@ public class Fax2Action extends ActionSupport {
          */
         if (!accounts.isEmpty()) {
             if (transactionType.equals(TransactionType.EFORM)) {
+                if (transactionId == null || demographicNo == null) {
+                    sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid eForm fax request");
+                    return NONE;
+                }
                 request.setAttribute("fdid", String.valueOf(transactionId));
                 request.setAttribute("demographicId", String.valueOf(demographicNo));
 
                 EFormRenderApprovalService renderApprovalService =
                         SpringUtils.getBean(EFormRenderApprovalService.class);
                 String approvalToken = request.getParameter("renderApproval");
+                EFormData currentEForm = eFormDataDao.find(transactionId.intValue());
+                if (currentEForm == null || currentEForm.getDemographicId() == null) {
+                    renderApprovalService.cancelStagedFaxPreview(request, loggedInInfo, transactionId,
+                            String.valueOf(demographicNo), approvalToken);
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "The eForm is no longer available");
+                    return NONE;
+                }
+                String storedDemographicNo = String.valueOf(currentEForm.getDemographicId());
+                if (!storedDemographicNo.equals(String.valueOf(demographicNo))) {
+                    // The saved eForm moved to another patient after staging. Revoke the old tuple
+                    // before returning so neither its token nor its PHI-bearing PDF survives.
+                    renderApprovalService.cancelStagedFaxPreview(request, loggedInInfo, transactionId,
+                            String.valueOf(demographicNo), approvalToken);
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
+                            "The eForm no longer belongs to this patient");
+                    return NONE;
+                }
+                if (!securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_eform", SecurityInfoManager.READ, storedDemographicNo)) {
+                    renderApprovalService.cancelStagedFaxPreview(request, loggedInInfo, transactionId,
+                            storedDemographicNo, approvalToken);
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return NONE;
+                }
                 EFormRenderApprovalService.StagedFaxPreview stagedPreview =
                         renderApprovalService.consumeStagedFaxPreview(request, loggedInInfo, transactionId,
-                                String.valueOf(demographicNo), approvalToken);
+                                storedDemographicNo, approvalToken);
                 if (approvalToken != null && stagedPreview == null) {
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
                             "The incomplete-render approval is no longer available. Prepare the fax again.");
@@ -551,9 +612,16 @@ public class Fax2Action extends ActionSupport {
                     EformDataManager.EformPdfRender rendered =
                             documentAttachmentManager.stageEFormPacketForFaxPreview(request, response);
                     if (rendered.completeness().hasBlockingOmissions()) {
-                        String token = renderApprovalService.issueStagedFaxPreview(request, loggedInInfo,
-                                transactionId, String.valueOf(demographicNo), rendered.formCompleteness(),
-                                rendered.completeness().advisoryIssueCount(), rendered.path());
+                        String token;
+                        boolean ownershipTransferred = false;
+                        try {
+                            token = renderApprovalService.issueStagedFaxPreview(request, loggedInInfo,
+                                    transactionId, storedDemographicNo, rendered.formCompleteness(),
+                                    rendered.completeness().advisoryIssueCount(), rendered.path());
+                            ownershipTransferred = true;
+                        } finally {
+                            if (!ownershipTransferred) deleteUnownedStagedFaxPreview(rendered.path());
+                        }
                         request.setAttribute("renderApproval", token);
                         request.setAttribute("missingContentMessage", EFORM_FAX_MISSING_CONTENT_MESSAGE);
                         request.setAttribute("transactionType", transactionType.name());
@@ -703,6 +771,18 @@ public class Fax2Action extends ActionSupport {
             response.sendError(statusCode, message);
         } catch (IOException ex) {
             logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
+        }
+    }
+
+    private static void deleteUnownedStagedFaxPreview(Path path) {
+        if (path == null || !PathValidationUtils.isInApplicationTempDirectory(path.toFile())) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            logger.warn("Unable to delete staged fax preview after approval issuance failed: {}",
+                    path, e);
         }
     }
 

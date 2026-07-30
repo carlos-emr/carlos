@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 public class EFormRenderApprovalService {
 
     private static final Duration TTL = Duration.ofMinutes(2);
+    private static final Duration STAGED_FAX_TTL = Duration.ofMinutes(10);
     private static final int TOKEN_BYTES = 32;
     private static final long MAX_PENDING_APPROVALS = 1_000L;
     private static final Logger logger = MiscUtils.getLogger();
@@ -71,10 +72,11 @@ public class EFormRenderApprovalService {
                 .ticker(() -> clock.instant().toEpochMilli() * 1_000_000L)
                 .build();
         this.stagedFaxApprovals = Caffeine.newBuilder()
-                // A staged fax preview is bound to the authenticated servlet session rather than an
-                // arbitrary wall-clock interval. It is removed on use, explicit invalidation, session
-                // destruction, or bounded-cache eviction; the removal listener deletes unclaimed PHI.
+                // Session cleanup is the primary lifecycle boundary, but a short independent expiry
+                // limits how long an abandoned PHI-bearing preview can survive a still-live session.
+                .expireAfterWrite(STAGED_FAX_TTL)
                 .maximumSize(MAX_PENDING_APPROVALS)
+                .ticker(() -> clock.instant().toEpochMilli() * 1_000_000L)
                 .executor(Runnable::run)
                 .removalListener((String token, PendingApproval pending, com.github.benmanes.caffeine.cache.RemovalCause cause) -> {
                     if (pending != null && pending.stagedPreview() != null) {
@@ -160,7 +162,8 @@ public class EFormRenderApprovalService {
         String token = generateToken();
         stagedFaxApprovals.put(token, new PendingApproval(session.getId(), providerNo, fdid,
                 Objects.requireNonNull(demographicNo, "demographicNo must not be null"), Operation.FAX,
-                Map.copyOf(digests), advisoryIssueCount, Instant.MAX, new StagedFaxPreview(path)));
+                Map.copyOf(digests), advisoryIssueCount, clock.instant().plus(STAGED_FAX_TTL),
+                new StagedFaxPreview(path)));
         logger.info("Incomplete eForm fax preview staged: fdid={} provider={} approvedForms={}",
                 fdid, providerNo, digests.size());
         return token;
@@ -176,10 +179,8 @@ public class EFormRenderApprovalService {
         if (pending == null) {
             return null;
         }
-        if (pending.stagedPreview() == null
-                || !pending.sessionId().equals(session.getId())
-                || !pending.providerNo().equals(providerNo) || pending.fdid() != fdid
-                || !pending.demographicNo().equals(demographicNo) || pending.operation() != Operation.FAX) {
+        if (clock.instant().isAfter(pending.expiresAt())
+                || !matchesStagedFaxScope(pending, session, providerNo, fdid, demographicNo)) {
             stagedFaxApprovals.invalidate(token);
             return null;
         }
@@ -198,7 +199,35 @@ public class EFormRenderApprovalService {
             return null;
         }
         return new StagedFaxPreview(path, new EFormRenderApproval(pending.providerNo(), pending.demographicNo(),
-                pending.operation(), pending.issueDigests(), Instant.MAX), pending.advisoryIssueCount());
+                pending.operation(), pending.issueDigests(), pending.expiresAt()),
+                pending.advisoryIssueCount());
+    }
+
+    /**
+     * Revokes an unclaimed staged fax preview after the clinician cancels the approval prompt.
+     *
+     * <p>The full cached scope must match so possession of a token outside its authenticated
+     * session cannot be used to delete another clinician's in-progress preview.</p>
+     */
+    public boolean cancelStagedFaxPreview(HttpServletRequest request, LoggedInInfo loggedInInfo,
+            int fdid, String demographicNo, String token) {
+        HttpSession session = request.getSession(false);
+        if (token == null || token.isBlank() || session == null) {
+            return false;
+        }
+        String providerNo = requireProvider(loggedInInfo);
+        PendingApproval pending = stagedFaxApprovals.getIfPresent(token);
+        if (pending == null
+                || !matchesStagedFaxScope(pending, session, providerNo, fdid, demographicNo)) {
+            return false;
+        }
+        boolean removed = stagedFaxApprovals.asMap().remove(token, pending);
+        stagedFaxApprovals.cleanUp();
+        if (removed) {
+            logger.info("Incomplete eForm fax preview cancelled: fdid={} provider={}",
+                    fdid, providerNo);
+        }
+        return removed;
     }
 
     /**
@@ -267,15 +296,25 @@ public class EFormRenderApprovalService {
         return loggedInInfo.getLoggedInProviderNo();
     }
 
+    private static boolean matchesStagedFaxScope(PendingApproval pending, HttpSession session,
+            String providerNo, int fdid, String demographicNo) {
+        return pending.stagedPreview() != null
+                && pending.sessionId().equals(session.getId())
+                && pending.providerNo().equals(providerNo)
+                && pending.fdid() == fdid
+                && pending.demographicNo().equals(demographicNo)
+                && pending.operation() == Operation.FAX;
+    }
+
     /**
      * A one-time staged fax packet claimed from an authenticated approval ticket.
      *
      * <p>Once {@link EFormRenderApprovalService#consumeStagedFaxPreview} returns this value,
      * ownership of {@link #path()} is transferred to the fax pipeline, which must delete the
      * temporary PDF after use. Unclaimed paths remain service-owned and are deleted when their
-     * ticket is invalidated, evicted, or its servlet session ends. {@link #approval()} contains the
-     * exact blocking-issue approval for the staged packet. {@link #advisoryIssueCount()} preserves
-     * the sanitized count that should be shown with the fax preview.</p>
+     * ticket expires, is invalidated or evicted, or its servlet session ends. {@link #approval()}
+     * contains the exact blocking-issue approval for the staged packet.
+     * {@link #advisoryIssueCount()} preserves the sanitized fax-preview count.</p>
      *
      * @since 2026-07-28
      */

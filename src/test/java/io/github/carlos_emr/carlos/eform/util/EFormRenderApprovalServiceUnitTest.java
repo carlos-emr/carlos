@@ -230,8 +230,8 @@ class EFormRenderApprovalServiceUnitTest {
 
 
     @Test
-    @DisplayName("should keep a staged fax preview until it is claimed or its session is destroyed")
-    void shouldKeepStagedFaxPreview_untilClaimOrSessionDestruction() throws java.io.IOException {
+    @DisplayName("should claim, cancel, and expire staged fax previews without leaking files")
+    void shouldManageStagedFaxPreviewLifecycle_withoutLeakingFiles() throws java.io.IOException {
         java.time.Instant start = java.time.Instant.parse("2026-07-28T10:00:00Z");
         java.util.concurrent.atomic.AtomicReference<java.time.Instant> now =
                 new java.util.concurrent.atomic.AtomicReference<>(start);
@@ -243,6 +243,8 @@ class EFormRenderApprovalServiceUnitTest {
         java.nio.file.Files.createDirectories(root);
         java.nio.file.Path testRoot = java.nio.file.Files.createTempDirectory(root, "staged-fax-test-");
         java.nio.file.Path claimed = java.nio.file.Files.createTempFile(testRoot, "claimed-", ".pdf");
+        java.nio.file.Path cancelled = java.nio.file.Files.createTempFile(testRoot, "cancelled-", ".pdf");
+        java.nio.file.Path expired = java.nio.file.Files.createTempFile(testRoot, "expired-", ".pdf");
         java.nio.file.Path abandoned = java.nio.file.Files.createTempFile(testRoot, "abandoned-", ".pdf");
         try {
             java.util.Map<Integer, EFormRenderCompletenessReport> reports = new java.util.HashMap<>();
@@ -250,28 +252,42 @@ class EFormRenderApprovalServiceUnitTest {
             reports.put(43, null);
             String claimToken = service.issueStagedFaxPreview(request, user, 42, "123",
                     reports, 1, claimed);
-            now.set(start.plus(java.time.Duration.ofHours(3)));
+            now.set(start.plus(java.time.Duration.ofMinutes(9)));
             EFormRenderApprovalService.StagedFaxPreview staged =
                     service.consumeStagedFaxPreview(request, user, 42, "123", claimToken);
-            assertThat(staged)
-                    .describedAs("a staged fax preview has no arbitrary wall-clock expiry")
-                    .isNotNull();
+            assertThat(staged).isNotNull();
             assertThat(staged.advisoryIssueCount()).isEqualTo(1);
             assertThat(java.nio.file.Files.exists(claimed))
                     .describedAs("the claimed PDF remains available for the fax pipeline")
                     .isTrue();
 
+            String cancelledToken = service.issueStagedFaxPreview(request, user, 42, "123",
+                    java.util.Map.of(42, incompleteReport()), 0, cancelled);
+            assertThat(service.cancelStagedFaxPreview(
+                    request, user, 42, "123", cancelledToken)).isTrue();
+            assertThat(java.nio.file.Files.exists(cancelled)).isFalse();
+            assertThat(service.consumeStagedFaxPreview(
+                    request, user, 42, "123", cancelledToken)).isNull();
+
+            String expiredToken = service.issueStagedFaxPreview(request, user, 42, "123",
+                    java.util.Map.of(42, incompleteReport()), 0, expired);
+            now.set(start.plus(java.time.Duration.ofMinutes(20)));
+            assertThat(service.consumeStagedFaxPreview(
+                    request, user, 42, "123", expiredToken)).isNull();
+            assertThat(java.nio.file.Files.exists(expired)).isFalse();
+
             String abandonedToken = service.issueStagedFaxPreview(request, user, 42, "123",
                     java.util.Map.of(42, incompleteReport()), 0, abandoned);
             service.invalidateStagedFaxPreviewsForSession(request.getSession().getId());
-
-            assertThat(java.nio.file.Files.exists(claimed)).isTrue();
             assertThat(java.nio.file.Files.exists(abandoned)).isFalse();
-            assertThat(service.consumeStagedFaxPreview(request, user, 42, "123", abandonedToken)).isNull();
+            assertThat(service.consumeStagedFaxPreview(
+                    request, user, 42, "123", abandonedToken)).isNull();
         } finally {
             java.nio.file.Files.deleteIfExists(claimed);
-            java.nio.file.Files.deleteIfExists(abandoned);
+            java.nio.file.Files.deleteIfExists(cancelled);
+            java.nio.file.Files.deleteIfExists(expired);
             java.nio.file.Files.deleteIfExists(testRoot);
+            java.nio.file.Files.deleteIfExists(abandoned);
         }
     }
 

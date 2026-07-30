@@ -98,10 +98,13 @@
             <output id="approve-incomplete-eform-fax-status" class="visually-hidden" aria-live="polite" form="approve-incomplete-eform-fax">
                 <fmt:message key="fax.eformMissingContent.btnPreparingFax"/>
             </output>
-            <%-- history.back() is correct HERE, unlike the eForm page: this flow is rendered by
-                 Fax2Action against an already-stored document and never calls saveEformData, so
-                 going back returns to the fax dialog without risking a duplicate eform_data row. --%>
-            <button type="button" class="btn btn-secondary" onclick="history.back();"><fmt:message key="fax.eformMissingContent.btnCancel"/></button>
+            <form id="cancel-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">
+                <input type="hidden" name="method" value="cancelStagedEFormFax">
+                <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
+                <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
+                <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <button type="submit" class="btn btn-secondary"><fmt:message key="fax.eformMissingContent.btnCancel"/></button>
+            </form>
         </div>
     </div>
 </div>

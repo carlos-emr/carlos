@@ -101,7 +101,10 @@ class EFormJspMigrationRegressionTest {
                 .contains("spinner-border-sm")
                 .contains("<output id=\"approve-incomplete-eform-fax-status\"")
                 .contains("fax.eformMissingContent.btnPreparingFax")
-                .contains("aria-live=\"polite\"");
+                .contains("aria-live=\"polite\"")
+                .contains("id=\"cancel-incomplete-eform-fax\"")
+                .contains("name=\"method\" value=\"cancelStagedEFormFax\"")
+                .doesNotContain("onclick=\"history.back();\"");
     }
 
     @Test
