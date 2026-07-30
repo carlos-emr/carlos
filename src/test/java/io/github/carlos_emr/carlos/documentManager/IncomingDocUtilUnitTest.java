@@ -87,6 +87,40 @@ class IncomingDocUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a doc list directory that resolves outside the incoming root")
+    void shouldRejectDocListDirectory_whenOutsideIncomingRoot(@TempDir Path outsideRoot) {
+        // The containment check must run before any filesystem probe; without it the
+        // empty-queue early return would happily probe arbitrary paths.
+        assertThatThrownBy(() -> new IncomingDocUtil().getDocList(outsideRoot.toString()))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should fail loudly when the incoming root itself is missing")
+    void shouldFailLoudly_whenIncomingRootMissing() {
+        // Only a missing queue SUBDIRECTORY is an empty queue. A missing base directory
+        // (config typo, unmounted volume) rendering every queue as empty would hide
+        // accumulating incoming documents from intake staff.
+        Path missingBase = incomingRoot.resolve("missing-base");
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", missingBase.toString());
+
+        assertThatThrownBy(() -> new IncomingDocUtil()
+                .getDocList(missingBase.resolve("1").resolve("Fax").toString()))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should throw an illegal state when the incoming root is not configured")
+    void shouldThrowIllegalState_whenIncomingRootUnconfigured() {
+        CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+
+        assertThatThrownBy(() -> new IncomingDocUtil()
+                .getDocList(incomingRoot.resolve("1").resolve("Fax").toString()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("INCOMINGDOCUMENT_DIR");
+    }
+
+    @Test
     @DisplayName("should list queued PDF files when the queue directory exists")
     void shouldListQueuedPdfFiles_whenQueueDirectoryExists() throws Exception {
         File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();

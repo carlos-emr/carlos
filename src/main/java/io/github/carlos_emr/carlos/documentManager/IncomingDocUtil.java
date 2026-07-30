@@ -147,10 +147,17 @@ public final class IncomingDocUtil {
     /**
      * Lists all PDF files in the specified directory, sorted by last-modified date ascending.
      * Also populates the internal {@link #pdfListModifiedDate} list with corresponding
-     * formatted timestamps.
+     * formatted timestamps. A queue subdirectory that has not been created yet is treated
+     * as an empty queue; a missing or misconfigured INCOMINGDOCUMENT_DIR base still fails
+     * loudly so incoming documents cannot silently disappear from the intake screens.
      *
-     * @param directory String the absolute path to the directory to scan for PDF files
-     * @return ArrayList of String PDF filenames found in the directory
+     * @param directory String the absolute path to the directory to scan for PDF files;
+     * must resolve inside INCOMINGDOCUMENT_DIR
+     * @return ArrayList of String PDF filenames found in the directory, empty when the
+     * queue subdirectory has not been created yet
+     * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
+     * @throws SecurityException if the directory resolves outside INCOMINGDOCUMENT_DIR or
+     * the configured base directory itself is missing
      */
     // FindSecBugs PATH_TRAVERSAL_IN: callers pass paths built by getIncomingDocumentFilePath from
     // validated components, and the candidate is containment-checked against INCOMINGDOCUMENT_DIR
@@ -171,13 +178,21 @@ public final class IncomingDocUtil {
             }
         };
 
+        String incomingRootPath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        if (incomingRootPath == null || incomingRootPath.isEmpty()) {
+            throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
+        }
+
         // A queue subdirectory is only created by the first upload or fax import, so a
         // never-used queue has no directory yet. That is an empty queue, not a
         // configuration error — validating it as one sent fresh installs to the error page.
-        // The candidate is still containment-validated before the existence probe.
-        File incomingBaseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        // Only the missing CHILD is an empty queue: when the base directory itself is
+        // absent (config typo, unmounted volume), rendering every queue as empty would
+        // hide accumulating incoming documents from intake staff, so that still fails
+        // loudly below. The candidate is containment-validated before any probe.
+        File incomingBaseDir = new File(incomingRootPath);
         File queueDirCandidate = PathValidationUtils.validateChildPath(new File(directory), incomingBaseDir);
-        if (!queueDirCandidate.exists()) {
+        if (incomingBaseDir.isDirectory() && !queueDirCandidate.exists()) {
             return docList;
         }
 
