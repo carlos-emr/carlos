@@ -127,6 +127,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>
+        <script src="<%=request.getContextPath()%>/js/ticklerNoteDialog.js"></script>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/cupertino/jquery-ui-1.8.18.custom.css">
 
         <script>
@@ -147,12 +148,7 @@
             function openNoteDialog(demographicNo, ticklerNo) {
                 document.getElementById('tickler_note_demographicNo').value = demographicNo;
                 document.getElementById('tickler_note_ticklerNo').value = ticklerNo;
-                document.getElementById('tickler_note_noteId').value = '';
-                document.getElementById('tickler_note').value = '';
-                document.getElementById('tickler_note_revision').textContent = '';
-                document.getElementById('tickler_note_revision_url').setAttribute('onclick', '');
-                document.getElementById('tickler_note_editor').textContent = '';
-                document.getElementById('tickler_note_obsDate').textContent = '';
+                resetTicklerNoteFields();
 
                 //is there an existing note?
                 jQuery.ajax({
@@ -161,27 +157,7 @@
                     async: false,
                     dataType: 'json',
                     success: function (data) {
-                        // ticklerGetNote returns {} (not null) when the tickler has no note yet;
-                        // only assign fields that are actually present, otherwise DOM .value/.textContent
-                        // assignment stringifies `undefined` into the literal text "undefined".
-                        if (data != null) {
-                            if (data.noteId != null) {
-                                document.getElementById('tickler_note_noteId').value = data.noteId;
-                                document.getElementById('tickler_note_revision_url').setAttribute('onclick', 'window.open(\'<%=request.getContextPath()%>/CaseManagementEntry?method=notehistory&noteId=' + data.noteId + '\');return false;');
-                            }
-                            if (data.note != null) {
-                                document.getElementById('tickler_note').value = data.note;
-                            }
-                            if (data.revision != null) {
-                                document.getElementById('tickler_note_revision').textContent = data.revision;
-                            }
-                            if (data.editor != null) {
-                                document.getElementById('tickler_note_editor').textContent = data.editor;
-                            }
-                            if (data.obsDate != null) {
-                                document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
-                            }
-                        }
+                        applyTicklerNoteFields(data, '<%=request.getContextPath()%>');
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         alert(errorThrown);

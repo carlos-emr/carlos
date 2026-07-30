@@ -348,7 +348,7 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
 
         @ParameterizedTest(name = "no existing note for noteId: [{0}]")
         @NullAndEmptySource
-        @ValueSource(strings = {"0", "undefined", "null", "NaN", "-1abc"})
+        @ValueSource(strings = {"0", "undefined", "null", "NaN", "-1abc", "-1", "1.5", "1abc"})
         @DisplayName("should return null when noteId does not identify an existing note")
         void shouldReturnNull_whenNoteIdDoesNotIdentifyExistingNote(String noteId) {
             assertThat(CaseManagementEntry2Action.parseExistingNoteId(noteId)).isNull();
