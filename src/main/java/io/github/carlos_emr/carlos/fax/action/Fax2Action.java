@@ -195,6 +195,8 @@ public class Fax2Action extends ActionSupport {
     }
 
     /** Revokes the one-time incomplete-render approval without releasing its staged PDF. */
+    // FindSecBugs UNVALIDATED_REDIRECT: the servlet context plus a fixed application route is same-origin; transactionId is an integer, not a redirect target.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is the same-origin servlet context plus a fixed application route; transactionId is an integer, not attacker-controlled URL input")
     private void cancelStagedEFormFax() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(
