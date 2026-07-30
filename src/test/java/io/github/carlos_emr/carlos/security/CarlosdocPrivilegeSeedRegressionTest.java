@@ -39,6 +39,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CarlosdocPrivilegeSeedRegressionTest {
 
     private static final Path OSCARDATA = Path.of("database", "mysql", "oscardata.sql");
+    private static final Path DEVELOPMENT_SEED =
+            Path.of(".devcontainer", "db", "scripts", "development.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
     private static final String ADMIN_GROUP_CREATE_GRANT =
@@ -56,6 +58,16 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "insert into `secObjPrivilege` values('admin', '_admin', 'x', 0, '999998');",
                 "insert into `secObjPrivilege` values('admin','_admin.schedule','x',0,'999998');",
                 "insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');");
+    }
+
+    @Test
+    @DisplayName("should grant carlosdoc admin billing access in development seed")
+    void shouldGrantCarlosdocAdminBillingAccess_whenDevelopmentSeeded() throws IOException {
+        String seedSql = Files.readString(DEVELOPMENT_SEED, StandardCharsets.UTF_8);
+
+        assertThat(seedSql).contains(
+                "INSERT INTO `secObjPrivilege` VALUES ('admin','_admin.billing','x',0,'999998');",
+                "(2,'999998','admin','R0000001',1,");
     }
 
     @Test
