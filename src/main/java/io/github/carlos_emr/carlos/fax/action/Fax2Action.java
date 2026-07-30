@@ -90,7 +90,7 @@ public class Fax2Action extends ActionSupport {
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
+    private transient EFormDataDao eFormDataDao;
 
 
     /**
@@ -132,7 +132,8 @@ public class Fax2Action extends ActionSupport {
         if ("queue".equals(method)) {
             return queue();
         } else if ("cancelStagedEFormFax".equals(method)) {
-            return cancelStagedEFormFax();
+            cancelStagedEFormFax();
+            return NONE;
         } else if ("prepareFax".equals(method)) {
             return prepareFax();
         } else if ("getPreview".equals(method)) {
@@ -194,16 +195,16 @@ public class Fax2Action extends ActionSupport {
     }
 
     /** Revokes the one-time incomplete-render approval without releasing its staged PDF. */
-    private String cancelStagedEFormFax() {
+    private void cancelStagedEFormFax() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(
                 loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
             sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
-            return NONE;
+            return;
         }
         if (transactionId == null || demographicNo == null) {
             sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid eForm fax approval");
-            return NONE;
+            return;
         }
         EFormRenderApprovalService renderApprovalService =
                 SpringUtils.getBean(EFormRenderApprovalService.class);
@@ -215,7 +216,6 @@ public class Fax2Action extends ActionSupport {
         try {
             response.sendRedirect(request.getContextPath()
                     + "/eform/efmshowform_data?fdid=" + transactionId + "&parentAjaxId=eforms");
-            return NONE;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -571,7 +571,7 @@ public class Fax2Action extends ActionSupport {
                 EFormRenderApprovalService renderApprovalService =
                         SpringUtils.getBean(EFormRenderApprovalService.class);
                 String approvalToken = request.getParameter("renderApproval");
-                EFormData currentEForm = eFormDataDao.find(transactionId.intValue());
+                EFormData currentEForm = eFormDataDao().find(transactionId.intValue());
                 if (currentEForm == null || currentEForm.getDemographicId() == null) {
                     renderApprovalService.cancelStagedFaxPreview(request, loggedInInfo, transactionId,
                             String.valueOf(demographicNo), approvalToken);
@@ -699,6 +699,13 @@ public class Fax2Action extends ActionSupport {
         logger.debug("prepareFax end: transactionId={} actionForward={} responseCommitted={}",
                 transactionId, actionForward, response.isCommitted());
         return actionForward;
+    }
+
+    private EFormDataDao eFormDataDao() {
+        if (eFormDataDao == null) {
+            eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
+        }
+        return eFormDataDao;
     }
 
     /**

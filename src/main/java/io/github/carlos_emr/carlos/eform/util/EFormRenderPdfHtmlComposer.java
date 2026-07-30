@@ -71,6 +71,7 @@ public final class EFormRenderPdfHtmlComposer {
     private static final String SIGNATURE_VIEW_SERVLET_NAME = "EFormSignatureViewForPdfGenerationServlet";
     private static final String PDF_SIGNATURE_SERVLET_PATH = "/" + SIGNATURE_VIEW_SERVLET_NAME;
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
+    private static final String IMAGE_FILE_PARAM = "imagefile";
     private static final String IMAGE_VIEW_SERVLET_NAME = "EFormImageViewForPdfGenerationServlet";
     private static final Pattern IMAGE_ASSET_URL_PATTERN = Pattern.compile(
             Pattern.quote(IMAGE_VIEW_SERVLET_NAME) + "\\?([^\\s\\\"'<>)]*)");
@@ -358,11 +359,11 @@ public final class EFormRenderPdfHtmlComposer {
             String query = matcher.group(1).replace("&amp;", "&");
             for (String parameter : query.split("&")) {
                 int separator = parameter.indexOf('=');
-                if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
+                if (separator > 0 && IMAGE_FILE_PARAM.equals(parameter.substring(0, separator))) {
                     try {
                         String decoded = URLDecoder.decode(
                                 parameter.substring(separator + 1), StandardCharsets.UTF_8);
-                        files.add(PathValidationUtils.validatePathComponent(decoded, "imagefile"));
+                        files.add(PathValidationUtils.validatePathComponent(decoded, IMAGE_FILE_PARAM));
                     } catch (IllegalArgumentException | FileValidationException ignored) {
                         // Stored forms can outlive malformed asset references. Do not abort the
                         // document, and never grant a render capability for an unsafe value.
@@ -471,7 +472,7 @@ public final class EFormRenderPdfHtmlComposer {
             }
             for (String parameter : query.split("&")) {
                 String[] parts = parameter.split("=", 2);
-                if (parts.length == 2 && "imagefile".equals(parts[0])) {
+                if (parts.length == 2 && IMAGE_FILE_PARAM.equals(parts[0])) {
                     return URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
                 }
             }

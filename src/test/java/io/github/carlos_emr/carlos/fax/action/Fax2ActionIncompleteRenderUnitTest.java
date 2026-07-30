@@ -159,7 +159,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should revoke a staged approval when the saved eForm moves to another patient")
-    void shouldRevalidateCurrentPatientBinding_beforeClaimingStagedPreview() throws Exception {
+    void shouldRevalidateCurrentPatientBinding_beforeClaimingStagedPreview() {
         FaxManager faxManager = mock(FaxManager.class);
         DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
@@ -202,7 +202,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should revoke the staged approval on the server when the clinician cancels")
-    void shouldRevokeStagedPreview_onCancel() throws Exception {
+    void shouldRevokeStagedPreview_onCancel() {
         FaxManager faxManager = mock(FaxManager.class);
         DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
@@ -289,7 +289,8 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
                 servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
                 servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
 
-                assertThatThrownBy(() -> eFormAction().prepareFax())
+                Fax2Action action = eFormAction();
+                assertThatThrownBy(action::prepareFax)
                         .isInstanceOf(IllegalStateException.class)
                         .hasMessage("cache unavailable");
             }
