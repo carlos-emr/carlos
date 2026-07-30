@@ -59,7 +59,7 @@
     //      attribute "exception". This is the path most BillingValidationException
     //      flows take, so check it first.
     //   2. JSP errorPage forward — page-context "exception" implicit, populated
-    //      when one JSP forwards to another via <%@ page errorPage="..." %>.
+    //      when one JSP forwards to another via its error-page directive.
     //   3. Container error dispatcher — "jakarta.servlet.error.exception" is
     //      set when reached via <error-page> in web.xml.
     // Cast through instanceof at every step (never assume non-null).
@@ -110,7 +110,7 @@
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-secondary" href="javascript:history.back()" role="button">Back</a>
-        <a class="btn btn-secondary" href="${pageContext.request.contextPath}/provider/providercontrol" role="button">Schedule</a>
+        <a class="btn btn-secondary" href="${pageContext.request.contextPath}/provider/providercontrol" target="_top" role="button">Schedule</a>
     </div>
 </div>
 </body>

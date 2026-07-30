@@ -197,7 +197,7 @@
             <a class="btn btn-secondary float-start" title="${carlos:forHtmlAttribute(btnBackTitle)}"
                href="#" onclick="window.history.back();" role="button"><fmt:message key="global.btnBack"/></a>
             <a class="btn btn-secondary float-end" title="${carlos:forHtmlAttribute(btnExitTitle)}"
-               href="${carlos:forUri(pageContext.request.contextPath)}/provider/providercontrol" role="button"><fmt:message key="global.btnExit"/></a>
+               href="${carlos:forUri(pageContext.request.contextPath)}/provider/providercontrol" target="_top" role="button"><fmt:message key="global.btnExit"/></a>
         </div>
     </div>
 
