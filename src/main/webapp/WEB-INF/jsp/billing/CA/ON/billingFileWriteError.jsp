@@ -127,7 +127,6 @@
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-secondary" href="javascript:history.back()" role="button">Back</a>
-        <a class="btn btn-secondary" href="${pageContext.request.contextPath}/provider/providercontrol" target="_top" role="button">Schedule</a>
     </div>
 </div>
 </body>

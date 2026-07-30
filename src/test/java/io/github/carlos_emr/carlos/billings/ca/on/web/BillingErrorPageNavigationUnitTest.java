@@ -39,19 +39,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
 @Tag("billing")
-@DisplayName("Billing error-page schedule navigation")
+@DisplayName("Billing error-page navigation")
 class BillingErrorPageNavigationUnitTest {
 
     private static final Path JSP_ROOT = Path.of("src/main/webapp/WEB-INF/jsp");
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("errorPagesWithScheduleNavigation")
-    @DisplayName("should navigate the top-level window from framed error pages")
-    void shouldNavigateTopLevelWindow_whenScheduleLinkClicked(Path jspPath) throws Exception {
+    @MethodSource("billingErrorPages")
+    @DisplayName("should not offer Schedule navigation from billing error pages")
+    void shouldNotOfferScheduleNavigation_whenBillingErrorPageRendered(Path jspPath)
+            throws Exception {
         String jsp = readJsp(jspPath);
 
-        assertThat(Jsoup.parse(jsp).select("a[target=_top]"))
-                .anyMatch(link -> link.attr("href").endsWith("/provider/providercontrol"));
+        assertThat(Jsoup.parse(jsp).select("a"))
+                .noneMatch(link -> link.attr("href").endsWith("/provider/providercontrol"));
     }
 
     @Test
@@ -63,7 +64,7 @@ class BillingErrorPageNavigationUnitTest {
         assertThat(jsp).doesNotContain("<%@ page errorPage=");
     }
 
-    private static Stream<Path> errorPagesWithScheduleNavigation() {
+    private static Stream<Path> billingErrorPages() {
         return Stream.of(
                 JSP_ROOT.resolve("billing/CA/ON/billingFileWriteError.jsp"),
                 JSP_ROOT.resolve("billing/CA/ON/billingValidationError.jsp"));
