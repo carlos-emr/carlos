@@ -3182,6 +3182,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
     }
 
+    /**
+     * Computes the next revision number for {@link #ticklerSaveNote()} from the prior note's
+     * stored revision. A non-numeric {@code priorRevision} must not throw an uncaught
+     * {@link NumberFormatException} and abort the save; it is treated as if this were the first
+     * revision instead.
+     */
+    static String nextRevision(String priorRevision) {
+        try {
+            return String.valueOf(Integer.parseInt(priorRevision) + 1);
+        } catch (NumberFormatException e) {
+            return "1";
+        }
+    }
+
     /*
      * 1) load existing note if possible
      * 1) update/save the note
@@ -3204,7 +3218,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CaseManagementNote existingNote = this.caseManagementNoteDao.getNote(existingNoteId);
 
             if (existingNote != null) {
-                revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
+                revision = nextRevision(existingNote.getRevision());
                 history = strNote + "\n" + existingNote.getHistory();
                 uuid = existingNote.getUuid();
             }

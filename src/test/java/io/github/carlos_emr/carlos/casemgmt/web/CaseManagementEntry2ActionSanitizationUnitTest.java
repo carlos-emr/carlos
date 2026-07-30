@@ -355,6 +355,29 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         }
     }
 
+    // ------------------------------------------------------------------
+    // nextRevision
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("nextRevision")
+    class NextRevision {
+
+        @Test
+        @DisplayName("should increment a numeric prior revision")
+        void shouldIncrementPriorRevision_whenNumeric() {
+            assertThat(CaseManagementEntry2Action.nextRevision("3")).isEqualTo("4");
+        }
+
+        @ParameterizedTest(name = "falls back to first revision for prior revision: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {"undefined", "null", "NaN", "1.5", "1abc"})
+        @DisplayName("should fall back to the first revision when the prior revision is not numeric")
+        void shouldFallBackToFirstRevision_whenPriorRevisionNotNumeric(String priorRevision) {
+            assertThat(CaseManagementEntry2Action.nextRevision(priorRevision)).isEqualTo("1");
+        }
+    }
+
     @Nested
     @DisplayName("resolveReporterProgramTeamId")
     class ResolveReporterProgramTeamId {
