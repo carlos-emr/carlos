@@ -286,7 +286,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('public login entry route rejects POST and allows GET', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: true });
       const post = await api.post(appUrl('/index'), { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
@@ -312,7 +312,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('unauthenticated structured and download routes return 401', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: true });
       const ajax = await api.get(appUrl('/billing/CA/ON/ViewSearchRefDocAjax'), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
@@ -485,7 +485,7 @@ async function expectSchedulePage(page, label) {
 
     await record('legacy /login forced-reset POST cannot change password without reset cache token', async () => {
       setForcedResetBaseline(1);
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: true });
       const res = await api.post(appUrl('/login'), {
         form: {
           forcedpasswordchange: 'true',
