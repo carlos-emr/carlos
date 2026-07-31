@@ -71,6 +71,7 @@ class ScheduleAvailabilityViewJspRegressionTest {
         String css = Files.readString(AVAILABILITY_CSS, StandardCharsets.UTF_8);
 
         assertThat(jsp)
+                .contains("<!DOCTYPE html>")
                 .contains("<html lang=\"<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>\">")
                 .contains("/library/bootstrap/5.3.8/css/bootstrap.min.css")
                 .contains("/css/scheduleavailability.css")
@@ -82,12 +83,18 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("<tbody>")
                 .contains("scope=\"col\"")
                 .contains("scope=\"row\"")
+                .contains("<nav class=\"btn-group\"")
+                .contains("<button type=\"button\" class=\"availability-slot\"")
+                .doesNotContain("role=\"group\"")
+                .doesNotContain("<a class=\"availability-slot\" href=\"#\"")
                 .contains("schedule.scheduleflipview.instructions");
 
         assertThat(css)
                 .contains("#availabilityGrid thead th")
                 .contains("#availabilityGrid .availability-date")
                 .contains("overflow: auto")
+                .contains(".availability-slot {")
+                .contains("cursor: pointer")
                 .contains("position: sticky");
     }
 
@@ -98,6 +105,8 @@ class ScheduleAvailabilityViewJspRegressionTest {
 
         assertThat(jsp)
                 .contains("Provider currentProvider = providerDao.getProvider(curProvider_no)")
+                .contains("SAFE_CSS_COLOR_PATTERN.matcher(color).matches()")
+                .contains("getSafeCssColor(ApptUtil.getColorFromLocation(sites, _loc))")
                 .contains("currentProvider.getProviderNo()")
                 .contains("currentProvider.getFormattedName()")
                 .contains("if (mg.getId().getProviderNo().equals(curProvider_no))")

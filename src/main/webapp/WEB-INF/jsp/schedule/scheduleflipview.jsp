@@ -63,18 +63,21 @@
     private String getSiteHTML(String scDate, String provider_no, List<Site> sites) {
         if (!bMultisites) return "";
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
-        String color = ApptUtil.getColorFromLocation(sites, _loc);
-        // Validate color against safe CSS characters to prevent CSS injection via style attribute
-        if (!color.matches("[a-zA-Z0-9#]+")) { color = "white"; }
+        String color = getSafeCssColor(ApptUtil.getColorFromLocation(sites, _loc));
+        if (color == null) { color = "white"; }
         return "<span style='background-color:" + color + "'>" + SafeEncode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
+
+    private static final java.util.regex.Pattern SAFE_CSS_COLOR_PATTERN =
+            java.util.regex.Pattern.compile("(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]+)");
 
     private String getSafeCssColor(Object configuredColor) {
         if (configuredColor == null) {
             return null;
         }
         String color = configuredColor.toString().trim();
-        return color.matches("(?:#[0-9a-fA-F]{3,8}|[a-zA-Z]+)") ? color : null;
+        // Restrict values before interpolation into style attributes to prevent CSS injection.
+        return SAFE_CSS_COLOR_PATTERN.matcher(color).matches() ? color : null;
     }
 %>
 <% if (bMultisites) {
@@ -127,6 +130,7 @@
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<!DOCTYPE html>
 <html lang="<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>">
     <head>
         <meta charset="UTF-8">
@@ -225,7 +229,7 @@
                 <h1><fmt:message key="schedule.scheduleflipview.title"/></h1>
                 <p class="text-body-secondary mb-0"><fmt:message key="schedule.scheduleflipview.instructions"/></p>
             </div>
-            <div class="btn-group" role="group" aria-label="<fmt:message key="schedule.scheduleflipview.navigation"/>">
+            <nav class="btn-group" aria-label="<fmt:message key="schedule.scheduleflipview.navigation"/>">
                 <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
                     <span class="fa-solid fa-arrow-left" aria-hidden="true"></span>
                     <fmt:message key="schedule.scheduleflipview.btnGoBack"/>
@@ -235,7 +239,7 @@
                     <span class="fa-solid fa-calendar-day" aria-hidden="true"></span>
                     <fmt:message key="schedule.scheduleflipview.btnDayPage"/>
                 </a>
-            </div>
+            </nav>
         </header>
 
         <section class="card shadow-sm mb-3" aria-label="<fmt:message key="schedule.scheduleflipview.filters"/>">
@@ -280,7 +284,7 @@
                         <%=SafeEncode.forHtml(outform.format(rangeEnd.getTime()))%>
                     </div>
                 </div>
-                <div class="btn-group" role="group" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
+                <nav class="btn-group" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
                     <a class="btn btn-outline-primary"
                        href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
                        title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>">
@@ -293,7 +297,7 @@
                         <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
                         <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
                     </a>
-                </div>
+                </nav>
             </div>
         </section>
 
@@ -482,8 +486,8 @@
                     ? ("style=\"background-color:" + SafeEncode.forHtmlAttribute(slotColor) + "\"")
                     : ""%>
                 title="<%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%>">
-                <a class="availability-slot" href="#"
-                   onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');return false;">
+                <button type="button" class="availability-slot"
+                        onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');">
                     <span class="availability-slot-code">
                         <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtml(temp.toString()) %>
                     </span>
@@ -491,7 +495,7 @@
                         <span title="<fmt:message key="schedule.scheduleflipview.msgbookings"/>"><%=strNumOfAppts%></span>
                         <span title="<fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>"><carlos:encode value='<%= bookinglimit %>' context="html"/></span>
                     </span>
-                </a>
+                </button>
             </td>
             <%
                 }
