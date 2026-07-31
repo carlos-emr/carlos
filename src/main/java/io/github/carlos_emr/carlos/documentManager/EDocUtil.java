@@ -1438,7 +1438,11 @@ public final class EDocUtil {
 
 		try {
 			String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-			File destDir = new File(destPath);
+			// Canonicalize through the trusted-directory helper instead of reconstructing the
+			// already validated path at the filesystem probe. This preserves lazy-directory
+			// behavior while making the containment boundary explicit to static analysis.
+			File destDir = PathValidationUtils.resolveConfiguredDirectory(
+					destPath, "incoming refile directory");
 			if (!destDir.isDirectory()) {
 				// Nothing has ever been refiled into this queue. Validating the missing directory
 				// as a misconfiguration threw out of showDocument.jsp, which calls this in a loop

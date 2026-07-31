@@ -80,6 +80,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2013-05-12
  */
 public final class IncomingDocUtil {
+    private static final String INCOMING_DOCUMENT_DIR_PROPERTY = "INCOMINGDOCUMENT_DIR";
     private static final Logger logger = MiscUtils.getLogger();
     
     /**
@@ -175,11 +176,11 @@ public final class IncomingDocUtil {
         pdfFilter = new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {
-                return (name.toLowerCase().endsWith(".pdf"));
+                return name.toLowerCase(Locale.ROOT).endsWith(".pdf");
             }
         };
 
-        String incomingRootPath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingRootPath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
         if (incomingRootPath == null || incomingRootPath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -235,9 +236,10 @@ public final class IncomingDocUtil {
         try (PdfReader reader = new PdfReader(filePath)) {
             numOfPages = reader.getNumberOfPages();
         } catch (org.openpdf.text.exceptions.BadPasswordException e) {
-            MiscUtils.getLogger().error("Cannot read page count - PDF is password-protected: {}", filePath, e);
+            MiscUtils.getLogger().error("Cannot read page count - PDF is password-protected: {}",
+                    LogSafe.sanitize(filePath), e);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Cannot read page count for PDF file: {}", filePath, e);
+            MiscUtils.getLogger().error("Cannot read page count for PDF file: {}", LogSafe.sanitize(filePath), e);
         }
         return numOfPages;
     }
@@ -277,7 +279,7 @@ public final class IncomingDocUtil {
         File file = new File(filePathName, pdfName);
         
         // Validate the final path is within bounds
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(file, baseDir).getPath();
     }
 
@@ -304,7 +306,7 @@ public final class IncomingDocUtil {
         File file = new File(filePathName, pdfName);
         
         // Validate the final path is within bounds
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(file, baseDir).getPath();
     }
 
@@ -325,7 +327,7 @@ public final class IncomingDocUtil {
     public static String getIncomingDocumentDeletedFilePath(String queueId, String pdfDir) {
         String filePath;
 
-        filePath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        filePath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -343,7 +345,7 @@ public final class IncomingDocUtil {
         if (pdfDir != null && !pdfDir.isEmpty()) {
             pdfDir = validateIncomingDocumentDir(pdfDir);
             try {
-                File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+                File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
                 File deletedPathDir = new File(filePath, pdfDir + "_deleted");
 
                 // Validate path is within bounds using PathValidationUtils
@@ -361,7 +363,7 @@ public final class IncomingDocUtil {
             }
         }
         
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(new File(filePath), baseDir).getPath();
     }
 
@@ -380,7 +382,7 @@ public final class IncomingDocUtil {
     public static String getIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath;
 
-        filePath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        filePath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
 
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
@@ -400,7 +402,7 @@ public final class IncomingDocUtil {
             filePath = filePath + validateIncomingDocumentDir(pdfDir);
         }
 
-        File baseDir = new File(CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"));
+        File baseDir = new File(CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY));
         return PathValidationUtils.validateExistingPath(new File(filePath), baseDir).getPath();
     }
 
@@ -420,7 +422,7 @@ public final class IncomingDocUtil {
         String filePath = getIncomingDocumentFilePath(queueId, pdfDir);
         
         // Get the base directory for validation
-        String baseDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String baseDir = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
         if (baseDir == null || baseDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -601,7 +603,10 @@ public final class IncomingDocUtil {
 
         File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
-        int index = myPdfName.indexOf(".pdf");
+        // getIncomingDocumentFilePathName has already verified the final extension
+        // case-insensitively, so split from that final four-character suffix. The former
+        // case-sensitive indexOf(".pdf") crashed for valid queued names such as SCAN.PDF.
+        int index = myPdfName.length() - 4;
 
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
@@ -693,7 +698,7 @@ public final class IncomingDocUtil {
         f.setReadOnly();
 
         File extractBaseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
-        int index = myPdfName.toLowerCase().indexOf(".pdf");
+        int index = myPdfName.length() - 4;
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
 

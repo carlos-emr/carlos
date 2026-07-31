@@ -91,7 +91,10 @@ class IncomingDocUtilUnitTest {
     void shouldRejectDocListDirectory_whenOutsideIncomingRoot(@TempDir Path outsideRoot) {
         // The containment check must run before any filesystem probe; without it the
         // empty-queue early return would happily probe arbitrary paths.
-        assertThatThrownBy(() -> new IncomingDocUtil().getDocList(outsideRoot.toString()))
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        String outsideDirectory = outsideRoot.toString();
+
+        assertThatThrownBy(() -> incomingDocUtil.getDocList(outsideDirectory))
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -103,9 +106,10 @@ class IncomingDocUtilUnitTest {
         // accumulating incoming documents from intake staff.
         Path missingBase = incomingRoot.resolve("missing-base");
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", missingBase.toString());
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        String missingQueueDirectory = missingBase.resolve("1").resolve("Fax").toString();
 
-        assertThatThrownBy(() -> new IncomingDocUtil()
-                .getDocList(missingBase.resolve("1").resolve("Fax").toString()))
+        assertThatThrownBy(() -> incomingDocUtil.getDocList(missingQueueDirectory))
                 .isInstanceOf(SecurityException.class);
     }
 
@@ -113,9 +117,10 @@ class IncomingDocUtilUnitTest {
     @DisplayName("should throw an illegal state when the incoming root is not configured")
     void shouldThrowIllegalState_whenIncomingRootUnconfigured() {
         CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        String queueDirectory = incomingRoot.resolve("1").resolve("Fax").toString();
 
-        assertThatThrownBy(() -> new IncomingDocUtil()
-                .getDocList(incomingRoot.resolve("1").resolve("Fax").toString()))
+        assertThatThrownBy(() -> incomingDocUtil.getDocList(queueDirectory))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("INCOMINGDOCUMENT_DIR");
     }
@@ -196,5 +201,22 @@ class IncomingDocUtilUnitTest {
         String path = IncomingDocUtil.getIncomingDocumentFilePathName("1", "Fax", "SCAN.PDF");
 
         assertThat(path).isEqualTo(incomingRoot.resolve("1").resolve("Fax").resolve("SCAN.PDF").toString());
+    }
+
+    @Test
+    @DisplayName("should delete one page from a queued document with an uppercase pdf extension")
+    void shouldDeletePage_fromPdfNameWithUppercaseExtension() throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        File pdf = new File(faxDir, "SCAN.PDF");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.addPage(new PDPage());
+            document.save(pdf);
+        }
+
+        IncomingDocUtil.deletePage("1", "Fax", pdf.getName(), "1");
+
+        assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", pdf.getName())).isEqualTo(1);
     }
 }
