@@ -42,6 +42,7 @@
     if (!authed) {
         return;
     }
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -163,21 +164,35 @@
     </head>
 
     <body>
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <div class="container">
     <div class="searchBox">
 
-        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
             <h4 style="margin:0; font-size:18px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
                 </svg>
                 &nbsp;Demographic Report Tool
             </h4>
+            <%-- Popup-window entry (default nav mode) has no browser chrome to get back with;
+                 fall back to the opener, then history, then close the window as a last resort.
+                 Matches the established back-button pattern in tickler/ticklerMain.jsp. --%>
+            <input type="button" name="button" class="btn btn-sm btn-secondary"
+                   value="<fmt:message key="global.btnBack"/>"
+                   onclick="try{if(window.opener&&!window.opener.closed){window.opener.location.reload();window.close();}else if(window.history.length>1){window.history.back();}else{window.close();}}catch(e){window.history.back();}"
+                   />
         </div>
 
         <form action="${pageContext.request.contextPath}/report/DemographicReport" method="post" onsubmit="return checkQuery();">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : SafeEncode.forHtmlAttribute(studyId)%>'/>
+            <% if (showScheduleNav) { %>
+            <%-- Query submits rebuild the page; keep scheduleNav so the included top bar does not vanish. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
 
             <div style="margin-bottom:10px; padding:5px 10px; background:#fafafa; border:1px solid #eee; border-radius:3px;">
                 <select name="savedQuery" id="savedQuery" class="form-select form-select-sm" style="width:auto;display:inline-block">
