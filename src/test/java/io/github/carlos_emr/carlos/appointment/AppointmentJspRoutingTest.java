@@ -56,6 +56,7 @@ class AppointmentJspRoutingTest {
         assertThat(printReceiptButton)
                 .as("the receipt update must use the same validated submit path as a normal update")
                 .contains(
+                        "formaction=\"<%=request.getContextPath() %>/appointment/UpdateRecord\"",
                         "onclick=\"",
                         "displaymode.value='Update Appt'",
                         "printReceipt.value='1'",

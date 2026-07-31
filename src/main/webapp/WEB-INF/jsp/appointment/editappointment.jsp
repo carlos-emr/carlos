@@ -20,6 +20,17 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+    Edits an existing appointment, including scheduling details, status, notes,
+    recurring/group actions, and receipt generation.
+
+    Request parameters include appointment_no and the appointment's editable
+    demographic, provider, date, time, status, and scheduling fields. Update &
+    Receipt validates the form, reserves the named receipt window during the
+    user gesture, and reuses that window after the update succeeds.
+
+    @since 2026-07-30
+--%>
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
