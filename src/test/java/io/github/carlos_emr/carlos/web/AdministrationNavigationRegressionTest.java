@@ -120,6 +120,20 @@ class AdministrationNavigationRegressionTest {
                 .doesNotContain("href=\"${ctx}/administration?scheduleNav=1\"");
     }
 
+    @Test
+    @DisplayName("Manage eForms links should preserve focused schedule navigation")
+    void shouldPreserveScheduleNavigation_forManageEFormsLinks() throws IOException {
+        for (Path jspPath : List.of(
+                Path.of("src/main/webapp/WEB-INF/jsp/administration/index.jsp"),
+                Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"))) {
+            String jsp = Files.readString(jspPath);
+
+            assertThat(jsp)
+                    .contains("/eform/efmformmanager${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}")
+                    .doesNotContain("/eform/efmformmanager?scheduleNav=1\"");
+        }
+    }
+
     private static void assertLinkGuardedBy(String jsp, String link, String objectName, String rights) {
         int linkIndex = jsp.indexOf(link);
         assertThat(linkIndex).as(link + " should be present in the Administration navigation").isNotNegative();

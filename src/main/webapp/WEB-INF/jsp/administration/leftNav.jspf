@@ -296,7 +296,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<li><a href="${ctx}/form/formXmlUpload" class="contentLink"><fmt:message key="admin.admin.btnImportFormData"/></a></li>
 						</security:oscarSec>
 					
-					<li><a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms">
+					<li><a href="${ctx}/eform/efmformmanager${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}" class="contentLink defaultForms">
 						<fmt:message key="eform.showmyform.msgManageEFrm"/>
 					</a></li>
 
