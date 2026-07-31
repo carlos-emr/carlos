@@ -199,6 +199,13 @@ async function deleteEform(page, fid, formName) {
     navigationPromise,
     page.locator(`#${formId}`).evaluate((form) => form.submit()),
   ]);
+  // DelEForm2Action enforces CARLOS's POST-only mutator contract (see CLAUDE.md's
+  // "GET/HEAD Rejection Contract") and answers a rejected request with 405 rather than
+  // failing the delete. This script exists to verify schedule-navigation preservation
+  // through Upload/Import, not eform deletion, so a rejected cleanup request is
+  // tolerated here (and in the badResponses/consoleIssues filters below) instead of
+  // failing the whole check. A delete that is rejected simply leaves the temporary
+  // eForm behind; the next run's Date.now()-suffixed fixture name will not collide.
   assert(
     response.status() < 400 || response.status() === 405,
     `Temporary eForm delete failed with HTTP ${response.status()}`,
@@ -280,6 +287,8 @@ async function importZip(page, zipPath) {
     importedFid = imported.fid;
     importedExists = true;
 
+    // Same rationale as the deleteEform() tolerance above: a rejected best-effort
+    // cleanup delete is not a navigation-preservation regression.
     const unexpectedBadResponses = recorder.badResponses.filter((issue) => !(
       issue.status === 405 && issue.url.includes('/eform/delEForm')
     ));
