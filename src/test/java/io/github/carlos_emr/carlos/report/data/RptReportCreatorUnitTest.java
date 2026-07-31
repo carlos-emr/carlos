@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 @Tag("unit")
 @Tag("report")
 @Tag("security")
-class RptReportCreatorTest {
+class RptReportCreatorUnitTest {
 
     @Test
     @DisplayName("should accept report SQL identifiers when identifier is valid")

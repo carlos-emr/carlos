@@ -133,6 +133,8 @@
         <jna.version>5.19.0</jna.version>
         <!-- HAPI HL7 v2 -->
         <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
+        <flyway.version>11.14.0</flyway.version>
         <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
         <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
@@ -606,6 +608,18 @@
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <version>9.6.0</version>
+        </dependency>
+        <!-- Flyway schema migrations: flyway-core is the engine; flyway-mysql adds the
+             MariaDB/MySQL database module required since Flyway 9. Both are Community edition. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+            <version>${flyway.version}</version>
         </dependency>
         <dependency>
             <groupId>org.hibernate.orm</groupId>
@@ -1394,9 +1408,40 @@
                 <directory>${basedir}/src/main/resources</directory>
                 <filtering>true</filtering>
             </resource>
+            <!-- Ship the Flyway migration set on the WAR classpath at db/migration so the
+                 boot-time FlywaySchemaValidator (carlos.flyway.onBoot=validate|migrate) can read
+                 it. The canonical source stays in database/mysql/migration/ (next to the rest of
+                 the DB tree); this copies it into the classpath at build time. Not filtered — SQL
+                 must not be run through the property interpolator. -->
+            <resource>
+                <directory>${basedir}/database/mysql/migration</directory>
+                <targetPath>db/migration</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
 
         <plugins>
+            <!-- Flyway CLI for local/CI schema work: `mvn flyway:info|validate|migrate|baseline`.
+                 Not bound to any lifecycle phase — the WAR build never migrates. Credentials are
+                 passed at invocation (-Dflyway.url/-Dflyway.user/-Dflyway.password or env), never
+                 committed. Locations default to the common+Ontario set; override with
+                 -Dflyway.locations for BC or test databases. -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>${flyway.version}</version>
+                <configuration>
+                    <locations>
+                        <location>filesystem:database/mysql/migration/common</location>
+                        <location>filesystem:database/mysql/migration/on</location>
+                    </locations>
+                    <!-- Conversion default: stamp at the FULL genesis (V1 + province
+                         V1.0.1/V1.0.2). Never 1 — that would replay the province files on the
+                         next migrate (data loss). -->
+                    <baselineVersion>1.0.2</baselineVersion>
+                    <baselineDescription>CARLOS full genesis (V1 + province V1.0.1/V1.0.2)</baselineDescription>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
