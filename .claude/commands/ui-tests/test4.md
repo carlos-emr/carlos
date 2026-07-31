@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mysql -h db -uroot -ppassword oscar *)
-  - Bash(mysql -h db -uroot -ppassword oscar -e *)
-  - Bash(mysql * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword oscar *)
+  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb * oscar * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -65,10 +65,10 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
+2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no FROM demographic WHERE demographic_no = 1;"`
    - Expected: Patient ID 1 exists
 
-3. **Drug Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT COUNT(*) FROM drugs;"`
+3. **Drug Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT COUNT(*) FROM drugs;"`
    - Expected: Returns count (database has drug data)
 
 **If checks fail**: Run `server start` to start Tomcat, or check `server log` for errors.
@@ -163,7 +163,7 @@ After completing all 18 steps:
 2. **Verify Count**: Confirm exactly 18 screenshots captured
 3. **Database Verification**:
    ```bash
-   mysql -h db -uroot -ppassword oscar -e "
+   mariadb -h db -uroot -ppassword oscar -e "
    SELECT description FROM allergies WHERE demographic_no = 1 ORDER BY id DESC LIMIT 1;"
    ```
    Expected: Shows Penicillin allergy

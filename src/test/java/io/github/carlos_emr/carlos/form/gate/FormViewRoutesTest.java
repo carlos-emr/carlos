@@ -26,7 +26,7 @@ class FormViewRoutesTest {
     @Test
     void shouldResolveActionRoutes_forEncounterFormDbValues() {
         // Regression: these strings are stored in the encounterForm.form_value column
-        // (seeded in database/mysql/oscarinit.sql and database/mysql/oscardata.sql).
+        // (seeded in the Flyway baseline, database/mysql/migration/**).
         // EctDisplayForm2Action concatenates them with the demographic number to
         // build the "add new form" popup URL, so they must resolve to a valid
         // extensionless Struts action route (not the moved /form/*.jsp path which
