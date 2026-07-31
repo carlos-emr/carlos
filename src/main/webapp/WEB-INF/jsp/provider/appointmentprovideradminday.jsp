@@ -553,10 +553,6 @@
                 popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
             }
 
-            function goFilpView(s) {
-                self.location.href = "<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/provider/providercontrol&startDate=<%=year+"-"+month+"-"+day%>" + "&provider_no=" + s;
-            }
-
             function goWeekView(s) {
                 self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&provider_no=" + s;
             }
@@ -1742,14 +1738,17 @@
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
-                                            <input type='radio' name='flipview' class="noprint"
-                                                   onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
-                                               onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
+                                            </a>
+                                            <a class="provider-availability-link noprint"
+                                               href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<%=year + "-" + month + "-" + day%>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                               title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                               aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                                <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                                <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
                                             </a>
                                                 <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
                                                     <a href="#"
