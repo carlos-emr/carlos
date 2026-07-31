@@ -162,7 +162,7 @@ async function deleteEform(page, fid, formName) {
   const token = await readCsrfToken(page);
   const action = appUrl(config.baseUrl, '/eform/delEForm');
   const formId = `schedule_navigation_delete_${fid}`;
-  await page.evaluate(({ deleteAction, submittedFid, csrfToken, deleteFormId }) => {
+  await page.evaluate(({ deleteAction, submittedFid, csrfToken, deleteFormId }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- all four values are passed as Playwright arguments, not interpolated into code; deleteAction is loopback-restricted by validateBaseUrl, submittedFid is regex-validated as digits-only above, and csrfToken/deleteFormId are derived from the app's own trusted session
     const form = document.createElement('form');
     form.id = deleteFormId;
     form.method = 'post';
