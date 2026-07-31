@@ -249,19 +249,22 @@
                 <%
 
 
-                    if (bMultisites) {
-                        Provider p = providerDao.getProvider(curProvider_no);
-                        if (p != null) {
+                    Provider currentProvider = providerDao.getProvider(curProvider_no);
+                    if (currentProvider != null) {
                 %>
-                <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=p.getProviderNo().equals(curProvider_no) ? "selected" : ""%>><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
+                <option value="<carlos:encode value='<%= currentProvider.getProviderNo() %>' context="htmlAttribute"/>" selected><carlos:encode value='<%= currentProvider.getFormattedName() %>' context="html"/>
                 </option>
                 <%
                     }
-                } else {
-                    List<MyGroup> mgs = myGroupDao.getGroupByGroupNo(mygroupno);
-                    for (MyGroup mg : mgs) {
+
+                    if (!bMultisites) {
+                        List<MyGroup> mgs = myGroupDao.getGroupByGroupNo(mygroupno);
+                        for (MyGroup mg : mgs) {
+                            if (mg.getId().getProviderNo().equals(curProvider_no)) {
+                                continue;
+                            }
                 %>
-                <option value="<carlos:encode value='<%= mg.getId().getProviderNo() %>' context="htmlAttribute"/>" <%=mg.getId().getProviderNo().equals(curProvider_no) ? "selected" : ""%>><carlos:encode value='<%= mg.getLastName() + ", " + mg.getFirstName() %>' context="html"/>
+                <option value="<carlos:encode value='<%= mg.getId().getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= mg.getLastName() + ", " + mg.getFirstName() %>' context="html"/>
                 </option>
                 <%
                         }

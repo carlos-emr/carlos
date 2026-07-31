@@ -91,6 +91,19 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("position: sticky");
     }
 
+    @Test
+    @DisplayName("provider selector should retain the current provider when its group is empty")
+    void shouldRetainCurrentProvider_whenProviderGroupIsEmpty() throws IOException {
+        String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("Provider currentProvider = providerDao.getProvider(curProvider_no)")
+                .contains("currentProvider.getProviderNo()")
+                .contains("currentProvider.getFormattedName()")
+                .contains("if (mg.getId().getProviderNo().equals(curProvider_no))")
+                .contains("continue;");
+    }
+
     private static Path projectRoot() {
         return Path.of(System.getProperty(
                 "maven.multiModuleProjectDirectory",
