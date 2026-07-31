@@ -190,7 +190,7 @@ function wirePage(page, label) {
 }
 
 async function login(page) {
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   await page.locator('#pin').fill(testPin);
@@ -256,7 +256,7 @@ process.once('SIGTERM', () => handleSignal('SIGTERM'));
     hideRefileDirectory();
     targetUrl = appUrl('/documentManager/ViewShowDocument?'
       + new URLSearchParams({ segmentID: String(documentNo), inWindow: 'true', inQueue: 'true' }));
-    const response = await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    const response = await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- targetUrl is built by appUrl(), which rejects non-root-relative paths, over a validateBaseUrl-restricted local/private host, with documentNo regex-validated to digits only
 
     assert(response && response.ok(), `Pending Docs view returned ${response ? response.status() : 'no response'}`);
     const body = await page.locator('body').innerText();
