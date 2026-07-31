@@ -31,8 +31,11 @@ let browser;
 let context;
 let originalDirectoryState = 'unknown';
 let backupDirectory;
+let refileDirectoryRestored = false;
 let documentNo;
 let targetUrl;
+let detachPageListeners;
+let handlingSignal = false;
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -109,7 +112,7 @@ function hideRefileDirectory() {
 }
 
 function restoreRefileDirectory() {
-  if (originalDirectoryState !== 'present') {
+  if (originalDirectoryState !== 'present' || refileDirectoryRestored) {
     return;
   }
   if (!backupDirectory || !fs.existsSync(backupDirectory)) {
@@ -119,6 +122,7 @@ function restoreRefileDirectory() {
     throw new Error(`Refile directory unexpectedly exists; refusing to overwrite it while restoring ${backupDirectory}`);
   }
   fs.renameSync(backupDirectory, refileDirectory);
+  refileDirectoryRestored = true;
 }
 
 function isIgnorableMissingAsset(status, responseUrl) {
@@ -137,37 +141,52 @@ function isIgnorableConsoleMessage(message, missingAssets) {
 
 function wirePage(page, label) {
   const pendingRequests = new Map();
-  page.on("request", (request) => {
+  const onRequest = (request) => {
     pendingRequests.set(request, { method: request.method(), url: request.url() });
-  });
-  page.on("requestfailed", (request) => {
+  };
+  const onRequestFailed = (request) => {
     const diagnostic = pendingRequests.get(request) || { method: request.method(), url: request.url() };
     pendingRequests.delete(request);
     findings.push({
       label,
-      type: "requestfailed",
+      type: 'requestfailed',
       ...diagnostic,
-      error: request.failure() ? request.failure().errorText : "unknown request failure",
+      error: request.failure() ? request.failure().errorText : 'unknown request failure',
     });
-  });
-  page.on('response', (response) => {
+  };
+  const onResponse = (response) => {
     const status = response.status();
     const responseUrl = response.url();
     pendingRequests.delete(response.request());
     if (isIgnorableMissingAsset(status, responseUrl)) {
       missingAssetUrls.add(responseUrl);
     } else if (status >= 400) {
-      findings.push({ label, type: "http", status, method: response.request().method(), url: responseUrl });
+      findings.push({ label, type: 'http', status, method: response.request().method(), url: responseUrl });
     }
-  });
-  page.on('pageerror', (error) => {
+  };
+  const onPageError = (error) => {
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
-  });
-  page.on('console', (message) => {
+  };
+  const onConsole = (message) => {
     if (message.type() === 'error' && !isIgnorableConsoleMessage(message, missingAssetUrls)) {
       findings.push({ label, type: 'console:error', text: message.text(), location: message.location() });
     }
-  });
+  };
+
+  page.on('request', onRequest);
+  page.on('requestfailed', onRequestFailed);
+  page.on('response', onResponse);
+  page.on('pageerror', onPageError);
+  page.on('console', onConsole);
+
+  return () => {
+    page.off('request', onRequest);
+    page.off('requestfailed', onRequestFailed);
+    page.off('response', onResponse);
+    page.off('pageerror', onPageError);
+    page.off('console', onConsole);
+    pendingRequests.clear();
+  };
 }
 
 async function login(page) {
@@ -192,10 +211,37 @@ function printDiagnostics(error) {
     refileDirectory,
     originalDirectoryState,
     restoredDirectoryState: fs.existsSync(refileDirectory) ? 'present' : 'absent',
+    backupDirectory: backupDirectory || null,
     findings,
     error: error ? (error.stack || error.message) : null,
   }, null, 2));
 }
+
+function handleSignal(signal) {
+  if (handlingSignal) {
+    return;
+  }
+  handlingSignal = true;
+
+  let signalFailure;
+  try {
+    restoreRefileDirectory();
+  } catch (error) {
+    signalFailure = error;
+  }
+  const interruption = new Error(`Interrupted by ${signal}`);
+  if (signalFailure) {
+    interruption.cause = signalFailure;
+  }
+  printDiagnostics(signalFailure || interruption);
+  if (signalFailure) {
+    console.error(signalFailure.stack || signalFailure.message);
+  }
+  process.exit(signal === 'SIGINT' ? 130 : 143);
+}
+
+process.once('SIGINT', () => handleSignal('SIGINT'));
+process.once('SIGTERM', () => handleSignal('SIGTERM'));
 
 (async () => {
   let failure;
@@ -204,13 +250,13 @@ function printDiagnostics(error) {
     browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     context = await browser.newContext({ ignoreHTTPSErrors: true });
     const page = await context.newPage();
-    wirePage(page, 'pending-docs');
+    detachPageListeners = wirePage(page, 'pending-docs');
     await login(page);
 
     hideRefileDirectory();
     targetUrl = appUrl('/documentManager/ViewShowDocument?'
       + new URLSearchParams({ segmentID: String(documentNo), inWindow: 'true', inQueue: 'true' }));
-    const response = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const response = await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 30000 });
 
     assert(response && response.ok(), `Pending Docs view returned ${response ? response.status() : 'no response'}`);
     const body = await page.locator('body').innerText();
@@ -223,6 +269,14 @@ function printDiagnostics(error) {
     failure = error;
   } finally {
     try {
+      restoreRefileDirectory();
+    } catch (restoreError) {
+      failure = failure || restoreError;
+    }
+    if (detachPageListeners) {
+      detachPageListeners();
+    }
+    try {
       if (context) {
         await context.close();
       }
@@ -231,11 +285,6 @@ function printDiagnostics(error) {
       }
     } catch (closeError) {
       failure = failure || closeError;
-    }
-    try {
-      restoreRefileDirectory();
-    } catch (restoreError) {
-      failure = failure || restoreError;
     }
     printDiagnostics(failure);
   }
