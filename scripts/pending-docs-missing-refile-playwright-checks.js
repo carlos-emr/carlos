@@ -26,6 +26,7 @@ const incomingDocumentDir = process.env.INCOMING_DOCUMENT_DIR || '/var/lib/Oscar
 const refileDirectory = path.join(incomingDocumentDir, '1', 'Refile');
 
 const findings = [];
+const missingAssetUrls = new Set();
 let browser;
 let context;
 let originalDirectoryState = 'unknown';
@@ -124,26 +125,46 @@ function isIgnorableMissingAsset(status, responseUrl) {
   return status === 404 && (/\/favicon\.ico(?:$|\?)/.test(responseUrl) || /\/imageRenderingServlet(?:\?|$)/.test(responseUrl));
 }
 
-function isIgnorableConsoleMessage(message) {
+function isIgnorableConsoleMessage(message, missingAssets) {
   const text = message.text();
   const location = message.location();
-  return /Content Security Policy.*report-only/i.test(text)
-    || /favicon\.ico|imageRenderingServlet/i.test(`${text} ${location.url || ''}`);
+  if (/Content Security Policy.*report-only/i.test(text)) {
+    return true;
+  }
+  const source = text + " " + (location.url || "");
+  return [...missingAssets].some((assetUrl) => source.includes(assetUrl));
 }
 
 function wirePage(page, label) {
+  const pendingRequests = new Map();
+  page.on("request", (request) => {
+    pendingRequests.set(request, { method: request.method(), url: request.url() });
+  });
+  page.on("requestfailed", (request) => {
+    const diagnostic = pendingRequests.get(request) || { method: request.method(), url: request.url() };
+    pendingRequests.delete(request);
+    findings.push({
+      label,
+      type: "requestfailed",
+      ...diagnostic,
+      error: request.failure() ? request.failure().errorText : "unknown request failure",
+    });
+  });
   page.on('response', (response) => {
     const status = response.status();
     const responseUrl = response.url();
-    if (status >= 400 && !isIgnorableMissingAsset(status, responseUrl)) {
-      findings.push({ label, type: 'http', status, method: response.request().method(), url: responseUrl });
+    pendingRequests.delete(response.request());
+    if (isIgnorableMissingAsset(status, responseUrl)) {
+      missingAssetUrls.add(responseUrl);
+    } else if (status >= 400) {
+      findings.push({ label, type: "http", status, method: response.request().method(), url: responseUrl });
     }
   });
   page.on('pageerror', (error) => {
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
   });
   page.on('console', (message) => {
-    if (message.type() === 'error' && !isIgnorableConsoleMessage(message)) {
+    if (message.type() === 'error' && !isIgnorableConsoleMessage(message, missingAssetUrls)) {
       findings.push({ label, type: 'console:error', text: message.text(), location: message.location() });
     }
   });
