@@ -655,10 +655,10 @@
                  silently blocked <object>-based PDF previews. Iframes are governed by frame-src,
                  which those pages open to 'self' and blob: for exactly this preview. --%>
             <%-- Advisory banner: shown when a render completed but reported a non-blocking
-                 condition (currently a page-script error in the form itself). The PDF is still
-                 delivered — this must never gate the preview — but the reader has to be told,
-                 because a script that aborted midway can omit content while every other check
-                 passes. --%>
+                 condition, such as a suppressed browser interaction or failed legacy timer. The
+                 PDF is still delivered — this must never gate the preview — but the reader has to
+                 be told. Severe page-script errors are blocking and reach this preview only after
+                 an exact approval. --%>
             <div id="preview-advisory" class="preview-advisory d-none" role="status"></div>
             <iframe id="pdfObject" class="d-none" title="Attachment preview"></iframe>
             <div id="preview-filler" class="preview-filler">
