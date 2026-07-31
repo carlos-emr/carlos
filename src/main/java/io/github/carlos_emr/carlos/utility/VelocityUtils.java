@@ -37,6 +37,9 @@ import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.tools.generic.DateTool;
 import org.apache.velocity.tools.generic.EscapeTool;
 import org.apache.velocity.tools.generic.NumberTool;
+/**
+ * Utility class managing the Apache Velocity template engine integration for dynamic document generation and email formatting.
+ */
 
 public class VelocityUtils {
     private static Logger logger = MiscUtils.getLogger();

@@ -41,6 +41,9 @@ import java.util.ResourceBundle;
 import java.util.TreeMap;
 import java.util.Map.Entry;
 import jakarta.servlet.ServletRequest;
+/**
+ * Provides internationalization utilities, helping resolve the correct user locale and manage translation resources for the CARLOS interface.
+ */
 
 public final class LocaleUtils {
     private static Logger logger = MiscUtils.getLogger();

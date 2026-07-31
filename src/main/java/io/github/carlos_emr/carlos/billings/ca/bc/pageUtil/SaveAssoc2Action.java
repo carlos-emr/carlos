@@ -47,6 +47,9 @@ public class SaveAssoc2Action
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    /**
+     * Validates and saves the submitted service code association data, updating the BC billing rule sets.
+     */
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

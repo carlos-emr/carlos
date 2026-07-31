@@ -41,6 +41,9 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
+/**
+ * Utility for parsing and validating XML configuration files used within the CARLOS framework, ensuring structural integrity.
+ */
 
 public final class ConfigXmlUtils {
     private static Logger logger = MiscUtils.getLogger();

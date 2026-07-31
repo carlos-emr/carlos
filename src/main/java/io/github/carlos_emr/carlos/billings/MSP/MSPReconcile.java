@@ -50,6 +50,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Core reconciliation engine for Medical Services Plan (MSP) billing, matching returned payment reports against submitted claims.
+ */
 
 public class MSPReconcile {
 

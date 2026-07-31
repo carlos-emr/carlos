@@ -54,6 +54,9 @@ public class Parameter {
     public void setName(String name) {
         this.name = name;
     }
+    /**
+     * Retrieves the current value assigned to this query parameter instance.
+     */
 
     public String[] getValue() {
         return value;

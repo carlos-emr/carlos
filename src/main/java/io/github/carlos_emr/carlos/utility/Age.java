@@ -27,6 +27,9 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.utility;
+/**
+ * Utility class providing standardized age calculation logic, converting birthdates into various age representations (years, months, days) for clinical rules.
+ */
 
 public class Age {
     private int days;

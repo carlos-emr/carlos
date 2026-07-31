@@ -31,6 +31,9 @@ package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+/**
+ * Centralized auditing utility responsible for logging security-relevant events, data access, and modifications in the CARLOS EMR system.
+ */
 
 public class OscarAuditLogger {
 

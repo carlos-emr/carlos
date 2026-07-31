@@ -35,6 +35,9 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Data access object managing the linkage between internal billing records and Teleplan submission batches for BC MSP.
+ */
 
 public class TeleplanSubmissionLinkDAO {
 

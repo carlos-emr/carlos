@@ -52,6 +52,9 @@ public class DemographicNameAgeTag extends TagSupport {
     public String getDemographicNo() {
         return demoNo;
     }
+    /**
+     * Calculates the age based on the provided demographic ID and renders the formatted string to the JSP output.
+     */
 
     public int doStartTag() throws JspException {
         DemographicNameAgeString demoNameAge = DemographicNameAgeString.getInstance();

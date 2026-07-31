@@ -17,6 +17,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Generates Goods and Services Tax (GST) summary reports for British Columbia billing data, parsing invoice records to compute taxable amounts.
+ */
 
 public class GstReport {
 

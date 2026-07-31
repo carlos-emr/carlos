@@ -69,6 +69,9 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
     public ServiceCodeAssociation getServiceCodeAssociation() {
         return serviceCodeAssociation;
     }
+    /**
+     * Loads the selected service code association details and forwards to the edit JSP.
+     */
 
     @Override
     public String execute() {

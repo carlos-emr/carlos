@@ -66,6 +66,9 @@ import io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtil;
 import io.github.carlos_emr.carlos.prevention.reports.ReportItem;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Factory and builder utility for constructing complex reporting objects, assembling parameters and queries for the preventative care module.
+ */
 public class ReportBuilder {
     private static Logger logger = MiscUtils.getLogger();
 

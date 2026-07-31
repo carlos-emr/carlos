@@ -51,6 +51,9 @@ public final class dxSetupResearch2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    /**
+     * Loads necessary reference data and configuration for the diagnostic research setup interface.
+     */
 
     public String execute()
             throws Exception {

@@ -48,6 +48,9 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.stream.ImageOutputStream;
+/**
+ * Provides secure and efficient image processing utilities, including format conversion, scaling, and safe loading of clinical imagery.
+ */
 
 
 public class ImageIoUtils {

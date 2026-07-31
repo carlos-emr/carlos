@@ -62,6 +62,9 @@ public final class BillingView2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger log = MiscUtils.getLogger();
+    /**
+     * Initializes the primary BC billing interface by fetching required demographic and claim information.
+     */
 
     public String execute() throws IOException,
             ServletException {

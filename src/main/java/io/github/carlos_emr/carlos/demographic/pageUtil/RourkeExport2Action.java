@@ -118,6 +118,9 @@ public class RourkeExport2Action extends ActionSupport {
         return null;
 
     }
+    /**
+     * Compiles the patient's Rourke record entries and streams the export file to the user.
+     */
 
     @SuppressWarnings("rawtypes")
     @Override

@@ -50,6 +50,9 @@ import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Handles multipart file uploads for BC Teleplan reports, securely saving the parsed response files for billing reconciliation.
+ */
 
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 

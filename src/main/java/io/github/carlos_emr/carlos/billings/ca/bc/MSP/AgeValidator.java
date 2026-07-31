@@ -28,6 +28,9 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Provides age-based validation rules for British Columbia Medical Services Plan (MSP) billing claims, ensuring patient demographics match service code restrictions.
+ */
 
 
 public class AgeValidator

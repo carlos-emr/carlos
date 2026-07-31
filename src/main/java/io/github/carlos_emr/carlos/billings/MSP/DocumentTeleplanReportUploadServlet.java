@@ -51,6 +51,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.DocumentBean;
+/**
+ * Legacy servlet for handling generic Teleplan report uploads, parsing the incoming file stream for MSP processing.
+ */
 
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
     final static int BUFFER = 2048;

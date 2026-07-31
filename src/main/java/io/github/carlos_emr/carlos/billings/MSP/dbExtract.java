@@ -37,6 +37,9 @@ import java.sql.SQLException;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+/**
+ * Utility class dedicated to extracting and transforming database records into the specific flat-file formats required by MSP.
+ */
 
 public class dbExtract implements AutoCloseable {
     private Connection con = null;

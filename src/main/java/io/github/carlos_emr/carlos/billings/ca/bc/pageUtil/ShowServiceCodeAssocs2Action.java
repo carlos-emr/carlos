@@ -46,6 +46,9 @@ public class ShowServiceCodeAssocs2Action
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    /**
+     * Queries the current service code associations and prepares the data for presentation in the Struts view.
+     */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {

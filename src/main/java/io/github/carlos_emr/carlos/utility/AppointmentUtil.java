@@ -36,6 +36,9 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Helper class offering common functions for scheduling, formatting, and manipulating appointment data across the clinical calendar.
+ */
 
 public class AppointmentUtil {
 

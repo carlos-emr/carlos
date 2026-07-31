@@ -43,6 +43,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Date: November 2014
  * For: UBC Pharmacy Clinic and McMaster Department of Family Medicine
  */
+/**
+ * Centralized JSON serialization and deserialization utility, configuring standard ObjectMapper settings for consistent API behavior.
+ */
 public class JsonUtil {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();

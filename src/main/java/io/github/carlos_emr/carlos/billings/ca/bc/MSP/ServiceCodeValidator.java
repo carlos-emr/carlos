@@ -44,6 +44,9 @@ public class ServiceCodeValidator {
     public void setDescription(String description) {
         this.description = description;
     }
+    /**
+     * Determines if the provided service code and diagnostic combination is acceptable under BC MSP rules.
+     */
 
     public boolean isValid() {
         return valid;

@@ -40,6 +40,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Central manager component for the billing module, coordinating operations between view actions and data access objects.
+ */
 
 public class BillingBillingManager {
 

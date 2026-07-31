@@ -41,6 +41,9 @@ import java.util.TreeSet;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+/**
+ * Provides access to the standardized list of reasons for patient de-rostering, used in administrative and billing workflows.
+ */
 
 public class RosterTermReasonProperties extends Properties {
     private static RosterTermReasonProperties rosterTermReasonProperties = new RosterTermReasonProperties();

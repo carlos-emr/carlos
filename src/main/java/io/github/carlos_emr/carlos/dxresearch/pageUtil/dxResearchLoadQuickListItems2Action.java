@@ -53,6 +53,9 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    /**
+     * Loads the detailed items for a given quick list ID to populate the research UI.
+     */
 
     public String execute()
             throws ServletException, IOException {

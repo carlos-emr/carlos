@@ -50,6 +50,9 @@ public class ViewReceivePayment2Action
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    /**
+     * Fetches the necessary billing payment data and returns the Struts forward for the payment receipt view.
+     */
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

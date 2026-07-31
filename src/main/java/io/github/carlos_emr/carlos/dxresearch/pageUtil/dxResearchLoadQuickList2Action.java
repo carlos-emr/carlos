@@ -52,6 +52,9 @@ public class dxResearchLoadQuickList2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    /**
+     * Fetches the saved quick list definitions for the current provider and forwards to the view.
+     */
 
     public String execute()
             throws ServletException, IOException {

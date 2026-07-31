@@ -30,6 +30,9 @@
 package io.github.carlos_emr.carlos.dashboard.query;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+/**
+ * Represents the lower boundary condition for numeric range queries utilized within the clinical dashboard reporting engine.
+ */
 
 public class RangeLowerLimit implements RangeInterface {
 

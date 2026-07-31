@@ -45,6 +45,9 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
+/**
+ * Manages configuration and properties related to supported spoken languages, aiding in demographic data entry and interpretation services.
+ */
 
 public class SpokenLangProperties extends Properties {
     private static SpokenLangProperties spokenLangProperties = new SpokenLangProperties();

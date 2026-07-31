@@ -52,6 +52,9 @@ import io.github.carlos_emr.CarlosProperties;
 public class ContextStartupListener implements jakarta.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
+    /**
+     * Executes application bootstrapping logic, including cache initialization and background thread startup.
+     */
 
     @Override
     public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
