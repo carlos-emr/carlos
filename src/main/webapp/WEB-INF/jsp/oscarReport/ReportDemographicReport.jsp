@@ -111,6 +111,24 @@
                     updateSetBox();
                 });
                 updateSetBox();
+
+                var backButton = document.getElementById('demographicReportBackButton');
+                if (backButton) {
+                    backButton.addEventListener('click', function () {
+                        try {
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.location.reload();
+                                window.close();
+                            } else if (window.history.length > 1) {
+                                window.history.back();
+                            } else {
+                                window.close();
+                            }
+                        } catch (e) {
+                            window.history.back();
+                        }
+                    });
+                }
             });
 
             function updateSetBox() {
@@ -177,13 +195,16 @@
                 </svg>
                 &nbsp;Demographic Report Tool
             </h4>
+            <% if (!showScheduleNav) { %>
             <%-- Popup-window entry (default nav mode) has no browser chrome to get back with;
-                 fall back to the opener, then history, then close the window as a last resort.
-                 Matches the established back-button pattern in tickler/ticklerMain.jsp. --%>
-            <input type="button" name="button" class="btn btn-sm btn-secondary"
+                 the schedule-shell case already gets a way back from the included mainMenu.jsp
+                 top nav above, so this button only needs to render outside that mode. Its click
+                 handler falls back from opener, to history, to closing the window as a last
+                 resort, matching the established back-button pattern in tickler/ticklerMain.jsp. --%>
+            <input type="button" name="button" id="demographicReportBackButton" class="btn btn-sm btn-secondary"
                    value="<fmt:message key="global.btnBack"/>"
-                   onclick="try{if(window.opener&&!window.opener.closed){window.opener.location.reload();window.close();}else if(window.history.length>1){window.history.back();}else{window.close();}}catch(e){window.history.back();}"
                    />
+            <% } %>
         </div>
 
         <form action="${pageContext.request.contextPath}/report/DemographicReport" method="post" onsubmit="return checkQuery();">

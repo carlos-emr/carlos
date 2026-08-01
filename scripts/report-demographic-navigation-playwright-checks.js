@@ -115,14 +115,30 @@ function wirePage(page, label) {
   });
 }
 
+const ERROR_PAGE_PATTERN = /CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report/i;
+
+// Only the matched phrase plus a little surrounding context is captured (never
+// the full page body), so CI logs never risk surfacing patient-like content
+// that could be rendered on an error page.
+function extractErrorSignature(bodyText) {
+  const match = ERROR_PAGE_PATTERN.exec(bodyText);
+  if (!match) {
+    return null;
+  }
+  const start = Math.max(0, match.index - 40);
+  const end = Math.min(bodyText.length, match.index + match[0].length + 80);
+  return bodyText.slice(start, end).replace(/\s+/g, ' ').trim();
+}
+
 async function assertNoErrorPage(page, label) {
   const bodyText = await page.locator('body').innerText().catch(() => '');
-  if (/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report/i.test(bodyText)) {
+  const signature = extractErrorSignature(bodyText);
+  if (signature) {
     findings.push({
       label,
       type: 'error-page',
       url: page.url(),
-      body: bodyText.replace(/\s+/g, ' ').slice(0, 500),
+      signature,
     });
   }
 }
