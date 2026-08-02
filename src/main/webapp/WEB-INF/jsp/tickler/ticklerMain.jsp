@@ -498,7 +498,7 @@
              * checkmark so the user has a visual cue that this tickler has been opened.
              */
             function openTicklerEdit(link, ticklerNo) {
-                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
+                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=1200, height=800');
                 var icon = link.querySelector('span');
                 if (icon) {
                     icon.classList.remove('fa-pencil-alt');
