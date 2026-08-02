@@ -49,6 +49,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * <p>
  * This class is used to deal with MSP N01 correspondence notes.
  */
+/**
+ * Entity for attaching supplemental clinical notes to a BC MSP claim.
+ *
+ * <p>Used to provide mandatory justification for complex procedures, time-based
+ * billing, or overriding standard fee schedule limits as required by Teleplan.</p>
+ */
 public class MSPBillingNote {
 
     private BillingNoteDao billingNoteDao = SpringUtils.getBean(BillingNoteDao.class);

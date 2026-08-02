@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Entity defining a specific type of laboratory investigation.
+ *
+ * <p>Maps local test codes to standard LOINC equivalents, ensuring consistent
+ * interpretation of lab results received from external diagnostic facilities.</p>
+ */
 
 //
 public class LabTest

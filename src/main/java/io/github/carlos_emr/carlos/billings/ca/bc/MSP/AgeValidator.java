@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Utility for verifying patient age constraints against specific BC MSP fee items.
+ *
+ * <p>Ensures billing compliance by preventing the submission of age-restricted
+ * codes (e.g., pediatric or geriatric premiums) for ineligible patients.</p>
+ */
 
 
 public class AgeValidator

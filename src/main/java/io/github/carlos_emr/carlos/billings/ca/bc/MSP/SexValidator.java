@@ -37,6 +37,12 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * @author not attributable
  * @version 1.0
  */
+/**
+ * Utility for validating sex-specific billing codes in the BC MSP fee schedule.
+ *
+ * <p>Prevents billing rejection by ensuring procedures (e.g., maternity, specific
+ * screenings) align with the patient's registered administrative sex.</p>
+ */
 public class SexValidator
         extends ServiceCodeValidator {
     private String gender = "DEFAULT"; //Not all service codes will have a rule

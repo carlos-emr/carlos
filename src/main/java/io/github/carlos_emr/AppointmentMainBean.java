@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr;
 
 import java.sql.ResultSet;
@@ -55,6 +54,13 @@ import io.github.carlos_emr.carlos.util.UtilDict;
  * 
  * @see LegacyJdbcQuery
  * @see UtilDict
+
+ *
+ *
+ * Core data transfer object representing a scheduled clinical encounter.
+ *
+ * <p>Aggregates provider, patient, and timing details for the scheduling module.
+ * Serves as the primary data structure for rendering the daily provider schedule.</p>
  */
 public class AppointmentMainBean {
     private static final DBPreparedHandlerParam[] EMPTY_DB_PARAMS = new DBPreparedHandlerParam[0];

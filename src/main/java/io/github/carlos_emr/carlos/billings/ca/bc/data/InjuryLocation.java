@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
+/**
+ * Represents structured anatomical locations for WorkSafeBC/ICBC injury claims.
+ *
+ * <p>Provides standard codes required by BC payers to precisely document
+ * the nature and location of workplace or motor vehicle accidents.</p>
+ */
 
 public class InjuryLocation {
     private String sidetype;

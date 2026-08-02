@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Core entity representing a registered patient within the EMR.
+ *
+ * <p>Centralizes demographic information, provincial health numbers, and contact
+ * details. Serves as the primary key reference for all clinical and billing data.</p>
+ */
 
 public class Patient {
     private String firstName;

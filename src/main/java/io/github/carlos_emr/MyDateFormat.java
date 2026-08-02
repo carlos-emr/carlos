@@ -65,6 +65,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p><strong>Thread Safety:</strong> This class is not thread-safe when using SimpleDateFormat.
  * Consider using java.time package (Java 8+) for thread-safe date/time operations.</p>
  */
+/**
+ * Standardized date formatting utility for cross-provincial billing compliance.
+ *
+ * <p>Provides strict parsing and formatting for legacy date strings to ensure
+ * consistency when submitting claims to provincial authorities or rendering
+ * historic patient data.</p>
+ */
 public class MyDateFormat {
     
     /**

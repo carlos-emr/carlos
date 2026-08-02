@@ -40,6 +40,12 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts Action for initiating the compilation of the BC MSP billing export.
+ *
+ * <p>Triggers the batch process that selects unsubmitted, validated claims
+ * and writes them to the Teleplan fixed-width transmission format.</p>
+ */
 
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

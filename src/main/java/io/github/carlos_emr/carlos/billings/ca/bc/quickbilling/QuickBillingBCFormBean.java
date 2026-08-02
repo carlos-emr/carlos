@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Form bean optimized for rapid entry of BC MSP billing claims.
+ *
+ * <p>Supports streamlined UI workflows by validating standard BC service codes
+ * and automatically applying default diagnostic codes for routine encounters.</p>
+ */
 
 
 public class QuickBillingBCFormBean {

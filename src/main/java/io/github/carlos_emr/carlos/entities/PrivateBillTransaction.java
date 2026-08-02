@@ -31,6 +31,12 @@ package io.github.carlos_emr.carlos.entities;
 
 import java.math.BigDecimal;
 import java.util.Date;
+/**
+ * Entity tracking payments and charges for non-provincially insured services.
+ *
+ * <p>Maintains a financial ledger for uninsured services, supporting invoice
+ * generation, payment tracking, and outstanding balance calculations.</p>
+ */
 
 public class PrivateBillTransaction {
     private int id;

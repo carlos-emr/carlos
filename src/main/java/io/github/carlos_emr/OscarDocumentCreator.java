@@ -70,6 +70,12 @@ import java.util.Map;
  * creator.fillDocumentStream(params, outputStream, OscarDocumentCreator.PDF, template, dataList);
  * </pre>
  */
+/**
+ * Factory class for generating and managing PDF documents within the CARLOS EMR system.
+ *
+ * <p>Handles the extraction of clinical data, mapping to document templates,
+ * and standardizing output formats for patient records and billing attachments.</p>
+ */
 public class OscarDocumentCreator {
     /** PDF document format constant */
     public static final String PDF = "pdf";

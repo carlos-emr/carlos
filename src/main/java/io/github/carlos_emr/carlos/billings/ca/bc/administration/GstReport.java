@@ -17,6 +17,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Reporting utility for calculating GST collected on private billing services.
+ *
+ * <p>Aggregates taxable transactions to support clinic tax remittance and financial
+ * auditing required for BC private billing.</p>
+ */
 
 public class GstReport {
 

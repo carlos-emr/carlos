@@ -32,6 +32,12 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * JSP Tag for conditional rendering based on CAISI module availability.
+ *
+ * <p>Ensures that CAISI-specific UI elements are only displayed when the
+ * module is explicitly enabled in the clinic's global configuration.</p>
+ */
 
 public class IsModuleLoadTag extends TagSupport {
 

@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Identifies the target payer for a third-party or private billing claim.
+ *
+ * <p>Used in BC billing to differentiate between direct-to-patient billing,
+ * legal firms, insurance companies, or other institutional payers.</p>
+ */
 
 public class BillRecipient {
 

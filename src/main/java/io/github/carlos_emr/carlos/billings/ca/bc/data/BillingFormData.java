@@ -43,6 +43,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * BC-specific data structure for populating billing data entry screens.
+ *
+ * <p>Includes BC MSP unique constraints, such as explanatory codes, referring
+ * practitioner fields, and rural retention premiums.</p>
+ */
 
 public class BillingFormData {
 

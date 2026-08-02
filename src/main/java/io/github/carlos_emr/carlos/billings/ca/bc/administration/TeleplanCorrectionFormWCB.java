@@ -42,6 +42,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Form bean binding data for WCB claim correction screens.
+ *
+ * <p>Captures user input for amending WorkSafeBC claims, including revised
+ * accident details, diagnostic codes, and service dates.</p>
+ */
 
 public class TeleplanCorrectionFormWCB {
 

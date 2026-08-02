@@ -41,6 +41,12 @@ package io.github.carlos_emr.carlos.entities;
  * @author not attributable
  * @version 1.0
  */
+/**
+ * Entity representing a pharmaceutical prescription issued to a patient.
+ *
+ * <p>Records medication details, dosage instructions, and dispensing history.
+ * Interfaces with drug interaction checkers and provincial drug registries.</p>
+ */
 public class Prescription {
     private String scriptNo;
     private String providerNo;

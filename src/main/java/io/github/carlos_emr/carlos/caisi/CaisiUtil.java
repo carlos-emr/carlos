@@ -26,6 +26,12 @@
  */
 
 package io.github.carlos_emr.carlos.caisi;
+/**
+ * Utility functions for supporting integration with the CAISI module.
+ *
+ * <p>Provides helper methods for cross-agency information sharing and specific
+ * program enrollment workflows required by allied health services.</p>
+ */
 
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {

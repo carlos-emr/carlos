@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Generic entity for recording discrete clinical measurements.
+ *
+ * <p>Used for capturing vital signs and other simple numeric or categorical
+ * observations during a clinical encounter.</p>
+ */
 
 public class Test {
     private String id;

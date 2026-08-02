@@ -60,6 +60,13 @@ package io.github.carlos_emr;
  * }
  * </pre>
  */
+/**
+ * Utility for parsing and tokenizing legacy fixed-width and delimiter-separated strings.
+ *
+ * <p>Ensures robust handling of malformed input data commonly found in older
+ * HL7 messages and provincial billing extracts. Provides specific tokenization
+ * logic required for historical data compatibility.</p>
+ */
 public class StringSplitter {
     
     /** The string being split into tokens */

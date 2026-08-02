@@ -53,6 +53,12 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Manages the generation of batched billing extracts for Ontario (OHIP).
+ *
+ * <p>Compiles eligible, unsubmitted claims into the strict fixed-width file format
+ * required by the Ontario Ministry of Health for overnight processing.</p>
+ */
 
 public class ExtractBean extends Object implements Serializable {
 

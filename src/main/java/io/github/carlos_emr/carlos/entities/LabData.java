@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Entity representing discrete laboratory test results for a patient.
+ *
+ * <p>Normalizes results for common tests (e.g., A1C, LDL) into structured fields
+ * to support chronic disease management flowsheets and clinical decision support.</p>
+ */
 
 public class LabData {
     private String a1c;

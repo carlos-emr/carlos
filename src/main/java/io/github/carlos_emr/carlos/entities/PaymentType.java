@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Entity categorizing accepted forms of payment for private billing.
+ *
+ * <p>Provides standardized reference data for classifying financial transactions
+ * (e.g., Cash, Credit, Cheque) within the clinic's accounting subsystem.</p>
+ */
 
 public class PaymentType {
     private String id;

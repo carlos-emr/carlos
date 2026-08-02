@@ -48,6 +48,12 @@ import java.io.Serializable;
  * 
  * <p>This bean is thread-safe through synchronized setter methods.</p>
  */
+/**
+ * Represents a single line item within a provincial or private billing claim.
+ *
+ * <p>Encapsulates the service code, diagnostic code, and associated fee for a
+ * specific clinical service rendered. Used heavily in billing reconciliation.</p>
+ */
 public class BillingItemBean extends Object implements Serializable {
     private String service_code;
     private String desc;

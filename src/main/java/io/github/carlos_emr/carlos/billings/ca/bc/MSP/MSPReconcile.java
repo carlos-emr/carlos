@@ -59,6 +59,12 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Core business logic for reconciling local BC billing records with Teleplan remittance.
+ *
+ * <p>Matches payment amounts, applies explanatory codes for refusals, and
+ * updates the financial state of claims based on Ministry responses.</p>
+ */
 
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();

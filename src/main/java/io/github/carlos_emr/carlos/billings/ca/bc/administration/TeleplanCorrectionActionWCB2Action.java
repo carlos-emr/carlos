@@ -73,6 +73,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Struts Action for managing WCB (WorkSafeBC) claim corrections via Teleplan.
+ *
+ * <p>Provides the workflow for reviewing rejected WCB claims, updating error fields,
+ * and staging the corrected claims for resubmission.</p>
+ */
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

@@ -57,6 +57,12 @@ import javax.net.ssl.SSLSocketFactory;
  * <p><strong>Security Note:</strong> Ensure SSL parameters are configured according to
  * current security best practices. Avoid deprecated protocols and weak cipher suites.</p>
  */
+/**
+ * Wrapper for SSLSocketFactory to enforce secure connections for external integrations.
+ *
+ * <p>Ensures that outbound connections to provincial billing services and external
+ * lab gateways use configured TLS protocols, satisfying PHI data-in-transit requirements.</p>
+ */
 public class SSLSocketFactoryWrapper extends SSLSocketFactory {
 
     private final SSLSocketFactory wrappedFactory;

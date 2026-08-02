@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Entity representing a diagnosed medical condition or clinical issue.
+ *
+ * <p>Tracks ongoing patient health issues, integrating with cumulative patient
+ * profiles and alerting mechanisms for chronic disease management.</p>
+ */
 
 // Class Condition
 //

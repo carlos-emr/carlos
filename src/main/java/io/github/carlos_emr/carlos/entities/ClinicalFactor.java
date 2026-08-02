@@ -28,6 +28,12 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Base abstract entity for significant health-related variables.
+ *
+ * <p>Provides common tracking for risks, social determinants, and historic
+ * events that influence patient health trajectories but may not be discrete diagnoses.</p>
+ */
 
 public class ClinicalFactor {
     // Fields

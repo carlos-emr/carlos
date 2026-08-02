@@ -50,6 +50,12 @@ import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Servlet handling the inbound upload of remittance files from BC Teleplan.
+ *
+ * <p>Processes the encrypted file streams returned by the provincial gateway,
+ * staging the data for automated reconciliation against local claims.</p>
+ */
 
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 

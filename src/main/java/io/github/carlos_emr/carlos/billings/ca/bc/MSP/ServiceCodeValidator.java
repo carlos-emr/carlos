@@ -23,6 +23,12 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Comprehensive validation engine for BC MSP service codes.
+ *
+ * <p>Checks code combinations, daily maximums, and specialty restrictions
+ * against the current provincial fee schedule prior to claim submission.</p>
+ */
 
 public class ServiceCodeValidator {
     protected boolean valid = true;

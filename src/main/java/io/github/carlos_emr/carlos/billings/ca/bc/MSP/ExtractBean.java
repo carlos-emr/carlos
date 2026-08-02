@@ -57,6 +57,12 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+/**
+ * Manages the generation of the Teleplan transmission file for BC MSP billing.
+ *
+ * <p>Assembles claim segments, applies strict formatting rules, and handles
+ * sequencing required by the provincial dial-up and network gateways.</p>
+ */
 
 
 public class ExtractBean extends Object implements Serializable {

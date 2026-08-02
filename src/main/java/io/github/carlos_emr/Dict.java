@@ -49,6 +49,12 @@ import jakarta.servlet.http.HttpServletRequest;
  * String name = dict.getDef("NAME"); // Returns "John Doe"
  * </pre>
  */
+/**
+ * Central dictionary mapping for clinical coding standards and standard abbreviations.
+ *
+ * <p>Used across the EMR to translate short codes into full medical terminology
+ * ensuring consistent terminology in reports and UI displays.</p>
+ */
 public class Dict extends Properties {
     
     /**

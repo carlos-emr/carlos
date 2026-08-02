@@ -54,6 +54,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see io.github.carlos_emr.carlos.commn.model.Provider
  * @since 2026-01-23
  */
+/**
+ * MVC Controller managing private billing workflows for BC clinics.
+ *
+ * <p>Handles the creation of uninsured invoices, processing of patient payments,
+ * and generation of receipts for non-MSP covered services.</p>
+ */
 public class PrivateBillingController extends HttpServlet {
     private static final Logger log = MiscUtils.getLogger();
 

@@ -50,6 +50,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
  * @author not attributable
  * @version 1.0
  */
+/**
+ * Summary DTO for displaying Teleplan payment reconciliation details.
+ *
+ * <p>Aggregates paid, refused, and adjusted amounts returned from BC MSP
+ * to provide a high-level view of a specific remittance cycle.</p>
+ */
 public class PayRefSummary {
     private double cash = 0.0;
     private double cheque = 0.0;

@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr;
 
 import java.io.Serializable;
@@ -46,6 +45,13 @@ import java.util.GregorianCalendar;
  * 
  * <p>This bean is thread-safe for adding/removing billing items through
  * synchronized methods.</p>
+
+ *
+ *
+ * Aggregates all necessary data for submitting a complete billing claim.
+ *
+ * <p>Combines patient demographics, provider information, and multiple
+ * billing line items into a cohesive unit for submission to provincial gateways.</p>
  */
 public class BillingBean extends Object implements Serializable {
     private ArrayList<BillingItemBean> billingItems;
