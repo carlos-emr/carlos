@@ -400,7 +400,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         logger.debug("=============Start listPreviousInstructions RxWriteScript2Action.java===============");
         String randomId = request.getParameter("randomId");
-        randomId = randomId.trim();
         // get prescript from randomId.
         // if prescript is normal drug, if din is not null, use din to find it
         // if din is null, use BN to find it
@@ -411,8 +410,29 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
+        randomId = randomId != null ? randomId.trim() : null;
+        if (randomId == null || !randomId.matches("\\d+")) {
+            logger.warn("listPreviousInstructions: invalid randomId");
+            bean.setListMedHistory(new ArrayList<>());
+            return null;
+        }
+
+        final int randomIdInt;
+        try {
+            randomIdInt = Integer.parseInt(randomId);
+        } catch (NumberFormatException e) {
+            logger.warn("listPreviousInstructions: randomId is out of range");
+            bean.setListMedHistory(new ArrayList<>());
+            return null;
+        }
+
         // create Prescription
-        RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+        RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
+        if (rx == null) {
+            logger.warn("listPreviousInstructions: no stash item found");
+            bean.setListMedHistory(new ArrayList<>());
+            return null;
+        }
         List<HashMap<String, String>> retList = new ArrayList();
         retList = RxUtil.getPreviousInstructions(rx);
 
