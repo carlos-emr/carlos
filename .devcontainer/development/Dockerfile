@@ -102,14 +102,14 @@ RUN npm install -g @openai/codex && \
 
 # Install Playwright globally first to ensure it's available
 # Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
-# RUN npm install -g playwright@1.56.0 && \
-#    echo "✅ Playwright CLI installed: $(npx playwright --version)"
+RUN npm install -g playwright@1.56.0 && \
+    echo "✅ Playwright CLI installed: $(npx playwright --version)"
 
 # Install Playwright browsers (Chromium, Firefox) with system dependencies
 # Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
 # Version 1.56.0+ correctly uses t64 package names (e.g., libasound2t64) for Ubuntu 24.04
-# RUN npx playwright install --with-deps chromium firefox && \
-#    echo "✅ Playwright browsers installed (Chromium, Firefox)"
+RUN npx playwright install --with-deps chromium firefox && \
+    echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
 # Install pipx and Aider AI coding assistant
 RUN /usr/local/bin/apt-install pipx && \
