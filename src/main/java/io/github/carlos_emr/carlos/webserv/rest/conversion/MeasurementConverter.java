@@ -3,6 +3,10 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MeasurementTo1;
+/**
+ * Utility class used in REST endpoints to standardize varying measurement
+ * units (e.g., metric vs imperial) into the clinic's preferred internal format.
+ */
 
 public class MeasurementConverter extends AbstractConverter<Measurement, MeasurementTo1> {
     @Override

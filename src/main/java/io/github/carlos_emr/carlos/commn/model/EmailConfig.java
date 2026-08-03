@@ -4,6 +4,10 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * Domain model storing the SMTP configuration and authentication details for
+ * a specific email sending profile or provider within the clinic.
+ */
 
 @Entity
 @Table(name = "emailConfig")

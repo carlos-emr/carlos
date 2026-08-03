@@ -14,6 +14,10 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Implementation of the email sender interface utilizing a local SMTP server.
+ * Primarily used for on-premise deployments managing their own mail routing.
+ */
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 

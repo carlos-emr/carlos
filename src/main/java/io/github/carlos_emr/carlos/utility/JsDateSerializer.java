@@ -5,11 +5,16 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * Custom Jackson serializer that converts a standard {@link java.sql.Date}
+ * into a JavaScript-friendly JSON object format (with minutes, seconds, hours, etc.).
+ */
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
+        // Calendar months are 0-based in Java, but the frontend expects 1-12 range.
         if (value == null) {
             gen.writeNull();
             return;

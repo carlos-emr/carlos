@@ -7,6 +7,9 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * JPA entity representing the binary data payload of an electronic referral attachment.
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)

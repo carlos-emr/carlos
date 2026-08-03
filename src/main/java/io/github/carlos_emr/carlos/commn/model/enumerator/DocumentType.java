@@ -1,4 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration defining the various distinct classifications of documents
+ * stored within the EMR (e.g., Lab, Consult, Image).
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),

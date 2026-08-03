@@ -13,6 +13,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Base action class to facilitate returning JSON-formatted responses from Struts actions.
+ */
 
 public class JSONAction extends ActionSupport {
 

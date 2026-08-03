@@ -11,6 +11,10 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Entity representing the metadata (such as filename, content type, and size)
+ * of an electronic referral attachment.
+ */
 
 @Entity
 @Table(name = "erefer_attachment")

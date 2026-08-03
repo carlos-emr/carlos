@@ -5,6 +5,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
+/**
+ * Represents parsed clinical data extracted from laboratory result attachments
+ * to allow for structured queries against imported labs.
+ */
 
 public class AttachmentLabResultData {
     private String segmentID;

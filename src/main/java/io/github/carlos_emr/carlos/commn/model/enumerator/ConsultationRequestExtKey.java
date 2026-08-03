@@ -1,4 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Composite key identifier for external consultation request records,
+ * joining external provider identifiers with internal referral IDs.
+ */
 
 public enum ConsultationRequestExtKey {
     EREFERRAL_REF("ereferral_ref"),

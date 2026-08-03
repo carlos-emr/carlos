@@ -11,6 +11,10 @@ import org.apache.commons.io.IOUtils;
 import io.woo.htmltopdf.HtmlToPdf;
 import io.woo.htmltopdf.HtmlToPdfObject;
 import io.woo.htmltopdf.PdfPageSize;
+/**
+ * Internal service implementation handling the conversion and transformation of
+ * electronic documents between supported EMR formats.
+ */
 
 public class InternalEDocConverter implements EDocConverterInterface {
     /**

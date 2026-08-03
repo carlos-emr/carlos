@@ -5,6 +5,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite primary key identifier for the e-Referral attachment data entity,
+ * combining the base attachment ID and internal sequencing logic.
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

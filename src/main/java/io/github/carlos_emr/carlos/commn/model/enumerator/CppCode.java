@@ -2,6 +2,10 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Enumeration representing the valid Clinical Patient Profile (CPP) sections
+ * such as social history, medical history, and risk factors.
+ */
 
 public enum CppCode {
     OMEDS("OMeds"),
@@ -23,6 +27,12 @@ public enum CppCode {
     public String getCode() {
         return code;
     }
+/**
+     * Converts the enum values into a simple String array for legacy compatibility
+     * with older Struts UI components that require array iteration.
+     *
+     * @return An array of string codes.
+     */
 
     public static String[] toArray() {
         CppCode[] values = CppCode.values();
@@ -32,8 +42,14 @@ public enum CppCode {
         }
         return array;
     }
+/**
+     * Returns all CPP code string values as a List to facilitate standard Java Collections usage.
+     *
+     * @return A list of the string codes.
+     */
 
     public static List<String> toStringList() {
+        // Maps the enum instances to their underlying code string representation.
         List<String> list = new ArrayList<>();
         for (CppCode cppCode : values()) {
             list.add(cppCode.getCode());

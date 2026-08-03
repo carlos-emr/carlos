@@ -17,6 +17,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Represents the structure for the Goods and Services Tax (GST) report used in BC billing.
+ * Handles data aggregation for GST-applicable services and items.
+ */
 
 public class GstReport {
 

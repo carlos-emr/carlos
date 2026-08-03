@@ -2,6 +2,10 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.EmailConfig.EmailType;
 import jakarta.persistence.Converter;
+/**
+ * JPA attribute converter handling the persistence mapping for the {@link EmailType} enum
+ * to correctly identify SMTP versus API mail providers.
+ */
 
 @Converter
 public class EmailConfigTypeConverter extends NullSafeEnumConverter<EmailType> {

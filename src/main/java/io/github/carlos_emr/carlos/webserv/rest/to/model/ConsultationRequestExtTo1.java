@@ -1,6 +1,10 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
+/**
+ * REST API Transfer Object used for external consultation requests, version 1.
+ * Facilitates payload mapping for the legacy integration endpoint.
+ */
 
 public class ConsultationRequestExtTo1 {
     private Integer id;
