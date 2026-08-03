@@ -12,7 +12,11 @@ Improvements over the original version:
 - Recognizes query-builder variable concatenation as safe (with param evidence)
 - Recognizes entity/class name insertion (getSimpleName()) as safe
 - Masks all Java comments (// and /* */) before scanning, so SQL in comments
-  is ignored AND comment text can never serve as allowlisting evidence
+  is ignored AND comment text can never serve as allowlisting evidence;
+  text blocks (\"\"\"...\"\"\") are skipped so their content is never mistaken
+  for a comment start
+- Detects raw operands passed through calls with arguments (e.g.
+  String.valueOf(userId)) and parenthesized operands (e.g. + (userId))
 - Safety evidence (placeholders, class metadata) is scoped to the Java
   statement containing the match — evidence in another statement, on the
   same line, or elsewhere in the file never allowlists a raw-value concat
@@ -83,14 +87,27 @@ SAFE_COUNTER_VARS = re.compile(
     re.IGNORECASE
 )
 
-# Concatenation operands: an identifier chain (possibly with empty-arg calls)
-# directly before or after a '+' that is not '++' or '+='.
-_OPERAND_BEFORE = re.compile(
-    r'([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*(?:\(\s*\))?)*)\s*\+(?![+=])'
+# Concatenation operands: an identifier chain whose segments may be method
+# calls *with or without* arguments (so `String.valueOf(userId)` and
+# `Objects.toString(userId)` are captured as raw operands), directly before or
+# after a '+' that is not '++' or '+='.
+_OPERAND_CHAIN = (
+    r'[A-Za-z_$][\w$]*(?:\s*\([^()]*\))?'
+    r'(?:\s*\.\s*[A-Za-z_$][\w$]*(?:\s*\([^()]*\))?)*'
 )
-_OPERAND_AFTER = re.compile(
-    r'(?<!\+)\+(?![+=])\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*(?:\(\s*\))?)*)'
-)
+_OPERAND_BEFORE = re.compile(r'(' + _OPERAND_CHAIN + r')\s*\+(?![+=])')
+_OPERAND_AFTER = re.compile(r'(?<!\+)\+(?![+=])\s*(' + _OPERAND_CHAIN + r')')
+
+# Parenthesized operands next to a '+', e.g. `+ (paramIndex++)` or `+ (userId)`.
+_PAREN_BEFORE = re.compile(r'\(([^()]*)\)\s*\+(?![+=])')
+_PAREN_AFTER = re.compile(r'(?<!\+)\+(?![+=])\s*\(([^()]*)\)')
+
+# Java keywords / cast tokens that carry no user data inside a parenthesized
+# operand and therefore must not be treated as concatenated values.
+PAREN_IGNORED_TOKENS = frozenset({
+    'int', 'long', 'short', 'byte', 'char', 'float', 'double', 'boolean',
+    'new', 'true', 'false', 'null', 'instanceof',
+})
 
 
 def strip_line_comment(line: str) -> str:
@@ -136,13 +153,21 @@ def find_concat_operands(statement: str) -> list[str]:
 
     String literals are masked first so identifiers inside them are ignored.
     Numeric literals are never captured (the operand regexes require an
-    identifier start character).
+    identifier start character). Method calls with arguments are captured as
+    whole operands, and parenthesized operands contribute their identifier
+    tokens, so raw values such as `String.valueOf(userId)` or `(userId)` are
+    reliably detected.
     """
     masked = _mask_string_literals(statement)
     operands = []
     for pattern in (_OPERAND_BEFORE, _OPERAND_AFTER):
         for m in pattern.finditer(masked):
-            operands.append(m.group(1))
+            operands.append(m.group(1).strip())
+    for pattern in (_PAREN_BEFORE, _PAREN_AFTER):
+        for m in pattern.finditer(masked):
+            for token in re.findall(r'[A-Za-z_$][\w$]*', m.group(1)):
+                if token not in PAREN_IGNORED_TOKENS:
+                    operands.append(token)
     return operands
 
 
@@ -151,9 +176,17 @@ def is_safe_operand(operand: str) -> bool:
 
     Safe operands are: query-builder variables (query fragments), loop /
     parameter counters used to build "?N" placeholders, and entity/class
-    metadata expressions (getSimpleName() etc.).
+    metadata expressions (getSimpleName() etc.). An operand that passes a
+    non-counter value as a call argument (e.g. `String.valueOf(userId)`, or
+    `query.append(userId)`) is never safe — the argument is the raw value.
     """
-    base = operand.split('.')[0]
+    for args in re.findall(r'\(([^()]*)\)', operand):
+        for token in re.findall(r'[A-Za-z_$][\w$]*', args):
+            if token in PAREN_IGNORED_TOKENS:
+                continue
+            if not SAFE_COUNTER_VARS.match(token):
+                return False
+    base = re.split(r'[.(]', operand, maxsplit=1)[0].strip()
     if QUERY_BUILDER_VARS.match(base):
         return True
     if SAFE_COUNTER_VARS.match(base):
@@ -177,12 +210,12 @@ def has_raw_concat_operand(statement: str) -> bool:
 def mask_java_comments(content: str) -> str:
     """Replace Java comment spans with spaces, preserving offsets and newlines.
 
-    Masks // line comments and /* ... */ block comments while respecting string
-    and char literals, so that (a) SQL inside comments is never flagged and
-    (b) comment text (e.g. a trailing "// :id") can never be used as safety
-    evidence to allowlist executable code on the same line. Unlike a
-    line-level comment check, this correctly handles executable code that
-    follows a closed block comment on the same line.
+    Masks // line comments and /* ... */ block comments while respecting string,
+    text-block (\"\"\"...\"\"\") and char literals, so that (a) SQL inside comments is
+    never flagged and (b) comment text (e.g. a trailing "// :id") can never be
+    used as safety evidence to allowlist executable code on the same line.
+    Unlike a line-level comment check, this correctly handles executable code
+    that follows a closed block comment on the same line.
     """
     out = list(content)
     i = 0
@@ -206,6 +239,12 @@ def mask_java_comments(content: str) -> str:
             if c == "'":
                 in_char = False
             i += 1
+            continue
+        if content.startswith('"""', i):
+            # Java text block: content is literal, so '//' and '/*' inside it
+            # must not be treated as comment starts.
+            end = content.find('"""', i + 3)
+            i = n if end == -1 else end + 3
             continue
         if c == '"':
             in_string = True

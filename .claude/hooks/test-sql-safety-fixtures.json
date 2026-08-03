@@ -156,6 +156,18 @@
     }
   },
   {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-14: Text block query with named parameters",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/ExampleDao.java",
+        "new_string": "String hql = \"\"\"\n    select d from Demographic d\n    where d.providerNo = :providerNo\n    \"\"\";\nQuery q = em.createQuery(hql);\nq.setParameter(\"providerNo\", providerNo);"
+      }
+    }
+  },
+  {
     "section": "True Positives (should be BLOCKED, exit 2)",
     "description": "TP-1: Direct value injection (userId)",
     "expected_exit": 2,
@@ -308,6 +320,30 @@
       "tool_input": {
         "file_path": "/path/to/UnsafeDao.java",
         "new_string": "String sql = \"SELECT * FROM users WHERE id = \" + userId; // was :id\nquery.setParameter(1, val);\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-14: Parenthesized raw operand must not be excused by placeholders",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/ExampleDao.java",
+        "new_string": "String hql = \"from Demographic d where d.id = :id and d.name = \" + (userName);\nQuery q = em.createQuery(hql);\nq.setParameter(\"id\", id);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-15: Text block content must not start a comment mask",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/ExampleDao.java",
+        "new_string": "String doc = \"\"\"\n    height 6\" and /* pending note\n    \"\"\";\nString sql = \"select * from patient where id = '\" + userId + \"'\";\nstmt.executeQuery(sql);"
       }
     }
   },
