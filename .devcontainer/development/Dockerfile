@@ -95,15 +95,24 @@ RUN /usr/local/bin/apt-install \
 # the top of this file means a failed download can no longer be masked by a later command in a pipe.
 #
 # Pinned deliberately: an unpinned "latest" reintroduces the moving target that broke this twice.
-# Bumping it is a one-line change plus the matching checksum from
+# Bumping it is a one-line change plus the matching per-arch checksums from
 # https://nodejs.org/dist/v<version>/SHASUMS256.txt.
 # .tar.gz, not .tar.xz: extracting xz needs the `xz` binary, which is not in this base image's
 # default package set. A dry run of these exact commands failed on "xz: Cannot exec" — gzip is
 # always present, so the gz tarball removes a dependency rather than adding one to apt.
+# The archive is selected from the Docker build target architecture so native ARM64 builds
+# (e.g. Apple Silicon) get arm64 binaries instead of failing on x64 executables.
 ENV NODE_VERSION=22.11.0
-ENV NODE_SHA256=4f862bab52039835efbe613b532238b6e4dde98d139a34e6923193e073438b13
-RUN curl -fsSLo /tmp/node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz" \
-    && echo "${NODE_SHA256}  /tmp/node.tar.gz" | sha256sum -c - \
+ENV NODE_SHA256_X64=4f862bab52039835efbe613b532238b6e4dde98d139a34e6923193e073438b13
+ENV NODE_SHA256_ARM64=27453f7a0dd6b9e6738f1f6ea6a09b102ec7aa484de1e39d6a1c3608ad47aa6a
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+         amd64) node_arch=x64; node_sha256="${NODE_SHA256_X64}" ;; \
+         arm64) node_arch=arm64; node_sha256="${NODE_SHA256_ARM64}" ;; \
+         *) echo "ERROR: unsupported architecture for Node.js install: $arch" >&2; exit 1 ;; \
+       esac \
+    && curl -fsSLo /tmp/node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz" \
+    && echo "${node_sha256}  /tmp/node.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1 --no-same-owner \
     && rm /tmp/node.tar.gz \
     && node --version && npm --version \

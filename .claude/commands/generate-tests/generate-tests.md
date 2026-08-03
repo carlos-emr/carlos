@@ -26,10 +26,10 @@ Before writing ANY test code:
 Read: src/main/java/io/github/carlos_emr/carlos/commn/dao/<Name>Dao.java
 
 # 2. Check if entity is in persistence.xml
-Grep: "<Name>" in src/test-modern/resources/META-INF/persistence.xml
+Grep: "<Name>" in src/test/resources/META-INF/persistence.xml
 
 # 3. Check if DAO bean exists in test context
-Grep: "<Name>" in src/test-modern/resources/test-context-full.xml
+Grep: "<Name>" in src/test/resources/test-context-full.xml
 
 # 4. Determine DAO type
 Grep: "extends AbstractDaoImpl\|extends HibernateDaoSupport" in <DaoImpl>.java
@@ -57,8 +57,8 @@ Glob: **/<ModelName>.hbm.xml
 
 | Base Class | Use When | Provides |
 |------------|----------|----------|
-| `OpenOTestBase` | Integration tests with Spring + DB | SpringUtils, EntityManager, transactions |
-| `OpenOUnitTestBase` | Unit tests with mocked SpringUtils | `registerMock()`, `springUtilsMock` |
+| `CarlosTestBase` | Integration tests with Spring + DB | SpringUtils, EntityManager, transactions |
+| `CarlosUnitTestBase` | Unit tests with mocked SpringUtils | `registerMock()`, `springUtilsMock` |
 | Domain-specific (e.g., `DemographicUnitTestBase`) | Domain unit tests | Test data builders + mocks |
 
 ### Single vs Multi-File
@@ -89,16 +89,16 @@ Record: method name, parameters, return type, any JavaDoc hints about behavior.
 
 Check if the entity and its dependencies are already registered:
 
-**File: `src/test-modern/resources/META-INF/persistence.xml`**
+**File: `src/test/resources/META-INF/persistence.xml`**
 - `<class>` entries for `@Entity` annotated classes
 - `<mapping-file>` entries for `.hbm.xml` mapped classes
 
-**File: `src/test-modern/resources/test-context-full.xml`**
+**File: `src/test/resources/test-context-full.xml`**
 - DAO bean definition (`<bean id="myDao" class="...Impl" autowire="byName" />`)
 - `annotatedClasses` in sessionFactory bean (for `@Entity` classes used by HibernateDaoSupport DAOs)
 - `mappingResources` in both entityManagerFactory and sessionFactory (for `.hbm.xml` entities)
 
-**File: `src/test-modern/resources/test-lookup-tables.sql`**
+**File: `src/test/resources/test-lookup-tables.sql`**
 - Lookup tables referenced by HBM formulas or entity relationships
 
 If the entity is NOT registered, proceed to **Section 5: Infrastructure Expansion** before writing tests.
@@ -110,7 +110,7 @@ If the entity is NOT registered, proceed to **Section 5: Infrastructure Expansio
 ```java
 package io.github.carlos_emr.carlos.<domain>.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.<Entity>;
 import io.github.carlos_emr.carlos.commn.dao.<Entity>Dao;
 
@@ -138,7 +138,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("<domain>")
 @Transactional
-public class <Entity>DaoIntegrationTest extends OpenOTestBase {
+public class <Entity>DaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private <Entity>Dao dao;
@@ -167,7 +167,7 @@ public class <Entity>DaoIntegrationTest extends OpenOTestBase {
 ```java
 package io.github.carlos_emr.carlos.managers;
 
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.commn.dao.<Entity>Dao;
 import io.github.carlos_emr.carlos.managers.<Entity>Manager;
 import io.github.carlos_emr.carlos.managers.<Entity>ManagerImpl;
@@ -194,7 +194,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("fast")
 @Tag("manager")
-public class <Entity>ManagerUnitTest extends OpenOUnitTestBase {
+public class <Entity>ManagerUnitTest extends CarlosUnitTestBase {
 
     @Mock private <Entity>Dao mockDao;
     private MockedStatic<LogAction> logActionMock;
@@ -330,7 +330,7 @@ When testing an entity for the FIRST TIME, you must register it in the test infr
 
 ### 5a. Add Entity to persistence.xml
 
-**File**: `src/test-modern/resources/META-INF/persistence.xml`
+**File**: `src/test/resources/META-INF/persistence.xml`
 
 For `@Entity` annotated classes:
 ```xml
@@ -344,7 +344,7 @@ For `.hbm.xml` mapped classes:
 
 ### 5b. Add DAO Bean to test-context-full.xml
 
-**File**: `src/test-modern/resources/test-context-full.xml`
+**File**: `src/test/resources/test-context-full.xml`
 
 For Type A (AbstractDaoImpl) DAOs:
 ```xml
@@ -383,7 +383,7 @@ For `.hbm.xml` entities, add the mapping to BOTH:
 
 If the entity has HBM `<formula>` elements or foreign keys to lookup tables that don't have entity classes, add CREATE TABLE + seed data to:
 
-**File**: `src/test-modern/resources/test-lookup-tables.sql`
+**File**: `src/test/resources/test-lookup-tables.sql`
 
 ```sql
 CREATE TABLE IF NOT EXISTS my_lookup_table (
@@ -470,10 +470,10 @@ For deep dives beyond this workflow:
 - **BDD naming & tagging**: `docs/test/test-writing-best-practices.md`
 - **Auto-injected context**: `docs/test/claude-test-context.md`
 - **Test infrastructure files**:
-  - `src/test-modern/resources/META-INF/persistence.xml`
-  - `src/test-modern/resources/test-context-full.xml`
-  - `src/test-modern/resources/test-lookup-tables.sql`
-  - `src/test-modern/resources/schema.sql`
+  - `src/test/resources/META-INF/persistence.xml`
+  - `src/test/resources/test-context-full.xml`
+  - `src/test/resources/test-lookup-tables.sql`
+  - `src/test/resources/schema.sql`
 - **Test base classes**:
-  - `src/test-modern/java/io/github/carlos_emr/carlos/test/base/OpenOTestBase.java`
-  - `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/OpenOUnitTestBase.java`
+  - `src/test/java/io/github/carlos_emr/carlos/test/base/CarlosTestBase.java`
+  - `src/test/java/io/github/carlos_emr/carlos/test/unit/CarlosUnitTestBase.java`

@@ -252,6 +252,66 @@
     }
   },
   {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-9: Placeholder in same literal must not excuse raw concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM users WHERE a = :a AND b = \" + userId;\nquery.setParameter(\"a\", val);\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-10: Placeholder in different statement on same line must not excuse raw concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String safe = \"x = ?\" + paramIndex; String sql = \"SELECT * FROM users WHERE id = \" + userId;\nquery.setParameter(paramIndex, val);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-11: Class metadata elsewhere in statement must not excuse raw concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM \" + Foo.class.getSimpleName() + \" WHERE name = \" + userName;\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-12: Closed block comment before code must not exempt the line",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "/* legacy */ String sql = \"SELECT * FROM users WHERE id = \" + userId;\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-13: Trailing comment placeholder must not serve as safety evidence",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM users WHERE id = \" + userId; // was :id\nquery.setParameter(1, val);\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
     "section": "Edge Cases",
     "description": "EC-1: Non-Java file (XML) passes",
     "expected_exit": 0,

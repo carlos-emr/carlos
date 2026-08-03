@@ -11,10 +11,15 @@ Improvements over the original version:
 - Recognizes parameter placeholder concatenation (?N, :paramName) as safe
 - Recognizes query-builder variable concatenation as safe (with param evidence)
 - Recognizes entity/class name insertion (getSimpleName()) as safe
-- Skips matches inside Java comments
-- Strips trailing // comments before analysis to prevent comment-based bypasses
-- Detects quote-sandwich SQL injection (value embedded between SQL quotes)
-- is_query_builder_variable requires combined parameter placeholder evidence
+- Masks all Java comments (// and /* */) before scanning, so SQL in comments
+  is ignored AND comment text can never serve as allowlisting evidence
+- Safety evidence (placeholders, class metadata) is scoped to the Java
+  statement containing the match — evidence in another statement, on the
+  same line, or elsewhere in the file never allowlists a raw-value concat
+- Quote-sandwich SQL injection (value embedded between SQL quotes) is never
+  allowlistable
+- Any raw concatenated operand (not a builder var, counter, or class
+  metadata) vetoes all allowlisting for its statement
 - No file-wide bypass: setParameter usage elsewhere never whitelists other matches
 - For Edit/MultiEdit, reconstructs the full post-edit file before scanning
 
@@ -72,6 +77,21 @@ CLASS_NAME_PATTERNS = [
     re.compile(r'\w+\.class\.getSimpleName'),
 ]
 
+# Loop/parameter counter variable names used when building "?N" placeholders
+SAFE_COUNTER_VARS = re.compile(
+    r'^(?:[ijknx]|idx|index|pos|position|paramIndex|paramCount|counter|count)$',
+    re.IGNORECASE
+)
+
+# Concatenation operands: an identifier chain (possibly with empty-arg calls)
+# directly before or after a '+' that is not '++' or '+='.
+_OPERAND_BEFORE = re.compile(
+    r'([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*(?:\(\s*\))?)*)\s*\+(?![+=])'
+)
+_OPERAND_AFTER = re.compile(
+    r'(?<!\+)\+(?![+=])\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*(?:\(\s*\))?)*)'
+)
+
 
 def strip_line_comment(line: str) -> str:
     """Strip trailing // single-line comment from a Java line."""
@@ -85,23 +105,136 @@ def strip_line_comment(line: str) -> str:
     return line
 
 
-def get_line_containing(content: str, position: int) -> str:
-    """Extract the full line containing the given character position."""
-    line_start = content.rfind('\n', 0, position) + 1
-    line_end = content.find('\n', position)
-    if line_end == -1:
-        line_end = len(content)
-    return content[line_start:line_end]
+
+def get_statement_containing(content: str, start: int, end: int) -> str:
+    """Extract the full Java statement containing the given match span.
+
+    Expands backward to the previous statement boundary (';', '{' or '}')
+    and forward to the next ';'. This is the correct scope for safety
+    evidence: placeholders or class metadata in a *different* statement on
+    the same line must never allowlist this one, while evidence in the same
+    statement that a truncated regex match missed still counts.
+    """
+    begin = max(
+        content.rfind(';', 0, start),
+        content.rfind('{', 0, start),
+        content.rfind('}', 0, start),
+    ) + 1
+    term = content.find(';', end)
+    if term == -1:
+        term = len(content)
+    return content[begin:term + 1]
 
 
-def is_comment_line(line: str) -> bool:
-    """Check if a line is a Java comment (single-line, block, or Javadoc)."""
-    stripped = line.strip()
-    return (
-        stripped.startswith('//')
-        or stripped.startswith('*')
-        or stripped.startswith('/*')
-    )
+def _mask_string_literals(text: str) -> str:
+    """Replace double-quoted string literal contents with empty literals."""
+    return re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)
+
+
+def find_concat_operands(statement: str) -> list[str]:
+    """Return the non-literal operand expressions concatenated with '+'.
+
+    String literals are masked first so identifiers inside them are ignored.
+    Numeric literals are never captured (the operand regexes require an
+    identifier start character).
+    """
+    masked = _mask_string_literals(statement)
+    operands = []
+    for pattern in (_OPERAND_BEFORE, _OPERAND_AFTER):
+        for m in pattern.finditer(masked):
+            operands.append(m.group(1))
+    return operands
+
+
+def is_safe_operand(operand: str) -> bool:
+    """True if a concatenated operand is structurally safe (not user data).
+
+    Safe operands are: query-builder variables (query fragments), loop /
+    parameter counters used to build "?N" placeholders, and entity/class
+    metadata expressions (getSimpleName() etc.).
+    """
+    base = operand.split('.')[0]
+    if QUERY_BUILDER_VARS.match(base):
+        return True
+    if SAFE_COUNTER_VARS.match(base):
+        return True
+    for pattern in CLASS_NAME_PATTERNS:
+        if pattern.search(operand):
+            return True
+    return False
+
+
+def has_raw_concat_operand(statement: str) -> bool:
+    """True if the statement concatenates any operand that is not safe.
+
+    A single raw operand (e.g. `+ userId`) vetoes every allowlist check:
+    placeholders or metadata elsewhere in the statement must not excuse a
+    raw value being spliced into SQL.
+    """
+    return any(not is_safe_operand(op) for op in find_concat_operands(statement))
+
+
+def mask_java_comments(content: str) -> str:
+    """Replace Java comment spans with spaces, preserving offsets and newlines.
+
+    Masks // line comments and /* ... */ block comments while respecting string
+    and char literals, so that (a) SQL inside comments is never flagged and
+    (b) comment text (e.g. a trailing "// :id") can never be used as safety
+    evidence to allowlist executable code on the same line. Unlike a
+    line-level comment check, this correctly handles executable code that
+    follows a closed block comment on the same line.
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    in_string = False
+    in_char = False
+    while i < n:
+        c = content[i]
+        if in_string:
+            if c == '\\':
+                i += 2
+                continue
+            if c == '"':
+                in_string = False
+            i += 1
+            continue
+        if in_char:
+            if c == '\\':
+                i += 2
+                continue
+            if c == "'":
+                in_char = False
+            i += 1
+            continue
+        if c == '"':
+            in_string = True
+            i += 1
+            continue
+        if c == "'":
+            in_char = True
+            i += 1
+            continue
+        if c == '/' and i + 1 < n:
+            nxt = content[i + 1]
+            if nxt == '/':
+                j = content.find('\n', i)
+                if j == -1:
+                    j = n
+                for k in range(i, j):
+                    out[k] = ' '
+                i = j
+                continue
+            if nxt == '*':
+                j = content.find('*/', i + 2)
+                end = n if j == -1 else j + 2
+                for k in range(i, end):
+                    if out[k] != '\n':
+                        out[k] = ' '
+                i = end
+                continue
+        i += 1
+    return ''.join(out)
 
 
 def is_in_string_literal_context(line: str) -> bool:
@@ -125,20 +258,27 @@ def is_in_string_literal_context(line: str) -> bool:
     return False
 
 
-def has_param_placeholder_in_context(match_text: str, line: str) -> bool:
-    """Check for parameter placeholder patterns in the given match and line."""
-    combined = match_text + " " + line
+def has_param_placeholder_in_context(statement: str) -> bool:
+    """Check for parameter placeholder patterns within the statement.
+
+    Only the statement containing the match is inspected — placeholder
+    evidence in a different statement (even on the same line) must not
+    allowlist an unrelated raw-value concat.
+    """
     for pattern in PARAM_PLACEHOLDER_PATTERNS:
-        if pattern.search(combined):
+        if pattern.search(statement):
             return True
     return False
 
 
-def has_class_name_insertion(match_text: str, line: str) -> bool:
-    """Check if the match involves entity/class name insertion."""
-    combined = match_text + " " + line
+def has_class_name_insertion(statement: str) -> bool:
+    """Check if the statement involves entity/class name insertion.
+
+    Scoped to the statement so class metadata elsewhere in the file or in
+    another statement cannot suppress an unrelated user-value concatenation.
+    """
     for pattern in CLASS_NAME_PATTERNS:
-        if pattern.search(combined):
+        if pattern.search(statement):
             return True
     return False
 
@@ -166,22 +306,6 @@ def is_stringbuilder_entity_name_query(line: str, content: str) -> bool:
     return bool(has_entity_metadata_append and has_query_creation and has_parameterized_usage(content))
 
 
-def is_query_builder_variable(match_text: str) -> bool:
-    """Check if the concatenated variable is a known query-builder variable name.
-    
-    This function uses a regular expression to find variable names in the  provided
-    `match_text` that are concatenated with strings. It checks  each found variable
-    name against a predefined set of known query-builder  variable names defined by
-    QUERY_BUILDER_VARS. If a match is found,  the function returns True; otherwise,
-    it returns False.
-    """
-    var_matches = re.findall(r'(\w+)\s*\+\s*["\']|["\']\s*\+\s*(\w+)', match_text)
-    for groups in var_matches:
-        for var_name in groups:
-            if var_name and QUERY_BUILDER_VARS.match(var_name):
-                return True
-    return False
-
 
 def has_parameterized_usage(content: str) -> bool:
     """Check for parameterized query usage patterns in the content."""
@@ -200,63 +324,57 @@ def has_parameterized_usage(content: str) -> bool:
     return False
 
 
-def is_safe_pattern(match_text: str, line: str, content: str) -> bool:
-    # 1. Check if in a comment
+def is_safe_pattern(match_text: str, statement: str, content: str) -> bool:
     """Determine if a flagged match is actually a safe pattern.
-    
-    This function evaluates whether a given match represents safe dynamic query
-    building,  indicating it is not susceptible to SQL injection. It performs
-    several checks, including  verifying if the match is within a comment,
-    assessing for parameter placeholder concatenation,  and ensuring that any
-    query-builder variables are used in a safe context. The function also
-    considers the presence of parameterized queries in the overall content to make
-    a determination.
-    
+
+    Evidence is evaluated against the Java statement containing the match
+    (not the whole line or file). Any raw concatenated operand in the
+    statement — a variable that is not a query-builder fragment, a
+    placeholder counter, or class metadata — vetoes every allowlist check,
+    so placeholders or metadata elsewhere in the statement can never excuse
+    splicing a raw value into SQL.
+
     Args:
-        match_text (str): The text to be evaluated for safety.
-        line (str): The line of code containing the match.
-        content (str): The full content being analyzed for parameterized usage.
-    
+        match_text (str): The matched text (kept for reporting context).
+        statement (str): The full statement containing the match.
+        content (str): The full content, used for content-level evidence.
+
     Returns:
         bool: True if the match is considered safe, False otherwise.
     """
-    if is_comment_line(line):
+    # Note: comments are masked out of the content before scanning
+    # (mask_java_comments), so matches can never originate from comment text
+    # and comment text can never serve as safety evidence.
+
+    # Veto: a raw operand concatenated anywhere in this statement makes it
+    # unsafe regardless of any other evidence (e.g. `"... a = :a AND b = "
+    # + userId` is still injectable through userId).
+    if has_raw_concat_operand(statement):
+        return False
+
+    # 1. Parameter placeholder building within the statement
+    if has_param_placeholder_in_context(statement):
         return True
 
-    # 2. Check for parameter placeholder concatenation
-    if has_param_placeholder_in_context(match_text, line):
+    # 2. Entity/class name insertion within the statement
+    if has_class_name_insertion(statement):
         return True
 
-    # 3. Check for entity/class name insertion
-    if has_class_name_insertion(match_text, line):
-        return True
-
-    # 4. Check for StringBuilder query construction where the only dynamic FROM
+    # 3. StringBuilder query construction where the only dynamic FROM
     # target is model metadata and parameterized usage is present elsewhere.
-    if is_stringbuilder_entity_name_query(line, content):
+    if is_stringbuilder_entity_name_query(statement, content):
         return True
 
-    # 5. Check if concatenated variable is a query-builder variable AND the line
-    # also has parameter placeholder evidence (prevents variable-name-only bypasses).
-    # A variable named 'sql' or 'providerQuery' is only considered safe when the
-    # same line also contains a named or positional parameter placeholder.
-    if is_query_builder_variable(match_text) and is_in_string_literal_context(line):
+    # 4. Statement has parameter placeholders inside string literals AND the
+    # overall content uses parameterized queries. The raw-operand veto above
+    # guarantees no unsafe variable rides along with the placeholders.
+    if is_in_string_literal_context(statement) and has_parameterized_usage(content):
         return True
 
-    # 6. Check if the line has parameter placeholders inside string literals AND
-    # the overall content uses parameterized queries.
-    # Note: is_in_string_literal_context strips comments first, so a trailing
-    # // :id comment cannot bypass this check.
-    if is_in_string_literal_context(line) and has_parameterized_usage(content):
+    # 5. Pure string literal + string literal concatenation (no variable
+    # operands at all): splitting a long string across lines is safe.
+    if re.search(r'["\']\s*\+\s*["\']', statement) and not find_concat_operands(statement):
         return True
-
-    # 7. Check for string literal + string literal concatenation (no variables)
-    # "SELECT ..." + " WHERE ..." is just splitting a long string, which is safe.
-    if re.search(r'["\']\s*\+\s*["\']', match_text):
-        # Pure string-to-string concat with no variable in between
-        var_in_between = re.search(r'["\']\s*\+\s*\w+\s*\+\s*["\']', match_text)
-        if not var_in_between:
-            return True
 
     return False
 
@@ -324,6 +442,11 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     """
     issues = []
 
+    # Mask comments up front so (a) SQL inside comments is never flagged and
+    # (b) comment text can never provide allowlisting evidence. Offsets are
+    # preserved, so reported positions remain valid.
+    content = mask_java_comments(content)
+
     # SQL keywords to look for
     sql_keywords = r'(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)'
 
@@ -359,33 +482,36 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     quote_sandwich = r"""'"\s*\+\s*\w+\s*\+\s*"'"""
 
     patterns_to_check = [
-        (concat_pattern, "String concatenation in SQL query"),
-        (concat_pattern2, "String concatenation in SQL query"),
-        (concat_pattern3, "Multiple string concatenation in SQL query"),
-        (format_pattern, "String.format() with SQL query"),
-        (builder_pattern, "StringBuilder with SQL query"),
-        (append_pattern, "StringBuilder.append() with SQL fragment"),
-        (execute_concat, "executeQuery() with string concatenation"),
-        (execute_concat2, "executeQuery() with string concatenation"),
-        (create_query_concat, "createQuery() with string concatenation"),
-        (create_query_concat2, "createQuery() with string concatenation"),
-        (table_concat, "Table name concatenation in SQL"),
-        (where_concat, "WHERE clause concatenation in SQL"),
-        (quote_sandwich, "Value embedded between SQL quotes (injection)"),
+        (concat_pattern, "String concatenation in SQL query", False),
+        (concat_pattern2, "String concatenation in SQL query", False),
+        (concat_pattern3, "Multiple string concatenation in SQL query", False),
+        (format_pattern, "String.format() with SQL query", False),
+        (builder_pattern, "StringBuilder with SQL query", False),
+        (append_pattern, "StringBuilder.append() with SQL fragment", False),
+        (execute_concat, "executeQuery() with string concatenation", False),
+        (execute_concat2, "executeQuery() with string concatenation", False),
+        (create_query_concat, "createQuery() with string concatenation", False),
+        (create_query_concat2, "createQuery() with string concatenation", False),
+        (table_concat, "Table name concatenation in SQL", False),
+        (where_concat, "WHERE clause concatenation in SQL", False),
+        # Quote-sandwich is never allowlistable: a raw variable embedded
+        # between SQL quotes is injectable regardless of any parameter
+        # placeholders or class metadata elsewhere in the statement.
+        (quote_sandwich, "Value embedded between SQL quotes (injection)", True),
     ]
 
     found_patterns = set()  # Avoid duplicate messages
 
-    for pattern, description in patterns_to_check:
+    for pattern, description, always_unsafe in patterns_to_check:
         matches = re.finditer(pattern, content, re.IGNORECASE)
         for match in matches:
             match_text = match.group(0)
 
-            # Get the full line containing this match
-            line = get_line_containing(content, match.start())
+            # Get the full statement containing this match
+            statement = get_statement_containing(content, match.start(), match.end())
 
-            # Skip if match is a safe pattern
-            if is_safe_pattern(match_text, line, content):
+            # Skip if match is a safe pattern (never for always-unsafe patterns)
+            if not always_unsafe and is_safe_pattern(match_text, statement, content):
                 continue
 
             # Still flagged: report as issue
@@ -405,20 +531,21 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # Additional check: Look for dangerous patterns in query construction
     raw_query_patterns = [
         # "SELECT ... WHERE id = '" + id + "'"
+        # Never allowlistable: quote-embedded raw value is injectable.
         (rf'["\'][^"\']*{sql_keywords}[^"\']*=\s*(["\'])\s*\+\s*\w+\s*\+\s*\1',  # nosemgrep: skills.code-injection.skill-sql-string-formatting.skill-sql-string-formatting -- detector regex for SQL safety hook, not SQL execution
-         "String concatenation with quotes in SQL"),
+         "String concatenation with quotes in SQL", True),
         # query = "SELECT ... " + variable;
         (rf'\w+\s*=\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+',
-         "SQL query built with string concatenation"),
+         "SQL query built with string concatenation", False),
     ]
 
-    for pattern, description in raw_query_patterns:
+    for pattern, description, always_unsafe in raw_query_patterns:
         matches = re.finditer(pattern, content, re.IGNORECASE)
         for match in matches:
             match_text = match.group(0)
-            line = get_line_containing(content, match.start())
+            statement = get_statement_containing(content, match.start(), match.end())
 
-            if is_safe_pattern(match_text, line, content):
+            if not always_unsafe and is_safe_pattern(match_text, statement, content):
                 continue
 
             start = max(0, match.start() - 10)
