@@ -715,11 +715,11 @@
   }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-commons",
-    "version" : "1.16.5",
+    "version" : "1.16.6",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:sJR+FRTvg378z+uO2TA9eak+KVnilwRv+k3TlfWoeI6/YuLWK8PHsunahD2Ar/zCh56UIdLutyWRkwpf9OvGeA=="
+    "integrity" : "sha512:OzHOZ61/Nu9dU9UUDFo4Vt/2b4ny7Ng6wl3RTW9dvG02JdruhroUxiMTWLT7e7aZ054tNMDO9ROZ1R6rsIJ9Vw=="
   }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-core",
@@ -731,11 +731,11 @@
   }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-observation",
-    "version" : "1.16.5",
+    "version" : "1.16.6",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:fZu5+VGiQ0Z09uFbsU9Thzhnm090vyRZ7guUimbTdENSzjIzDyxQiYZlMU3Fmqzhk3YWVPclPzM7ZjF5u2DfRw=="
+    "integrity" : "sha512:iTrsrE1VGABOpfFMNSiWYlGKaml6Ie1mVvwvnPYfwydBhobxPQfbxV9MK63btJaL165E0waXRR18ffUrnL0ifw=="
   }, {
     "groupId" : "io.netty",
     "artifactId" : "netty-buffer",
