@@ -79,9 +79,39 @@ class DocumentManagerImplFilenameValidationTest extends CarlosUnitTestBase {
             Document result = manager.createDocument(loggedInInfo, document, null, null,
                     "document body".getBytes(StandardCharsets.UTF_8));
 
-            assertThat(result.getDocfilename()).matches("\\d{14}_my_report\\.txt");
+            // Server-generated collision-resistant name: yyyyMMddHHmmss_NNNNN_<validatedName>
+            assertThat(result.getDocfilename()).matches("\\d{14}_\\d{5}_my_report\\.txt");
             assertThat(Files.readString(tempDir.resolve(result.getDocfilename()))).isEqualTo("document body");
             assertThat(Files.exists(tempDir.resolve("my_report.txt"))).isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("should write distinct files when two same-name documents are created back-to-back")
+    void shouldWriteDistinctFiles_whenTwoSameNameDocumentsCreatedBackToBack() throws Exception {
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            CarlosProperties properties = mock(CarlosProperties.class);
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            when(properties.getProperty("DOCUMENT_DIR")).thenReturn(tempDir.toString());
+
+            DocumentManagerImpl manager = newDocumentManager();
+
+            Document first = new Document();
+            first.setDocfilename("scan.pdf");
+            Document second = new Document();
+            second.setDocfilename("scan.pdf");
+
+            // Two uploads of the same original name in immediate succession (worst case: same second).
+            Document firstResult = manager.createDocument(loggedInInfo, first, null, null,
+                    "patient-A".getBytes(StandardCharsets.UTF_8));
+            Document secondResult = manager.createDocument(loggedInInfo, second, null, null,
+                    "patient-B".getBytes(StandardCharsets.UTF_8));
+
+            // Distinct stored filenames — the atomic sequence prevents the collision...
+            assertThat(firstResult.getDocfilename()).isNotEqualTo(secondResult.getDocfilename());
+            // ...and neither file was overwritten: each still holds its own patient's bytes.
+            assertThat(Files.readString(tempDir.resolve(firstResult.getDocfilename()))).isEqualTo("patient-A");
+            assertThat(Files.readString(tempDir.resolve(secondResult.getDocfilename()))).isEqualTo("patient-B");
         }
     }
 

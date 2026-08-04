@@ -16,6 +16,7 @@ Improvements over the original version:
 - Detects quote-sandwich SQL injection (value embedded between SQL quotes)
 - is_query_builder_variable requires combined parameter placeholder evidence
 - No file-wide bypass: setParameter usage elsewhere never whitelists other matches
+- For Edit/MultiEdit, reconstructs the full post-edit file before scanning
 
 Exit codes:
 - 0: Safe patterns detected or non-applicable file
@@ -25,6 +26,7 @@ Exit codes:
 import json
 import re
 import sys
+from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
@@ -263,16 +265,48 @@ def is_safe_pattern(match_text: str, line: str, content: str) -> bool:
 # Core detection logic
 # ---------------------------------------------------------------------------
 
-def get_file_content_from_input(tool_input: dict) -> tuple[str, str]:
-    """Extracts file path and content from tool input."""
+def _read_existing_file(file_path: str) -> str:
+    try:
+        return Path(file_path).read_text(errors="replace")
+    except OSError:
+        return ""
+
+
+def _apply_edit(content: str, old_string: str, new_string: str, replace_all: bool = False) -> str:
+    if old_string == "":
+        return content + new_string
+    if old_string not in content:
+        # Do not let a stale/mismatched edit become a hook bypass: scan the existing file plus the
+        # proposed replacement text so newly introduced SQL still gets inspected.
+        return content + "\n" + new_string
+    return content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
+
+
+def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, str]:
+    """Extract file path and reconstruct the full post-edit content when possible."""
     file_path = tool_input.get("file_path", "")
 
-    # For Write tool, content is in 'content' field
-    # For Edit tool, new content is in 'new_string' field
-    content = tool_input.get("content", "") or tool_input.get("new_string", "")
+    if tool_name == "Write":
+        return file_path, tool_input.get("content", "")
+
+    content = _read_existing_file(file_path)
+    if tool_name == "Edit":
+        content = _apply_edit(
+            content,
+            tool_input.get("old_string", ""),
+            tool_input.get("new_string", ""),
+            bool(tool_input.get("replace_all", False)),
+        )
+    elif tool_name == "MultiEdit":
+        for edit in tool_input.get("edits", []):
+            content = _apply_edit(
+                content,
+                edit.get("old_string", ""),
+                edit.get("new_string", ""),
+                bool(edit.get("replace_all", False)),
+            )
 
     return file_path, content
-
 
 def check_sql_injection_patterns(content: str) -> list[str]:
     """def check_sql_injection_patterns(content: str) -> list[str]:
@@ -435,12 +469,12 @@ def main():
         tool_input = input_data.get("tool_input", {})
         tool_name = input_data.get("tool_name", "")
 
-        # Only process Edit and Write tools
-        if tool_name not in ("Edit", "Write"):
+        # Only process Edit, Write, and MultiEdit tools
+        if tool_name not in ("Edit", "Write", "MultiEdit"):
             sys.exit(0)
 
         # Get file path and content
-        file_path, content = get_file_content_from_input(tool_input)
+        file_path, content = get_file_content_from_input(tool_input, tool_name)
 
         # Only check Java files
         if not file_path.endswith('.java'):

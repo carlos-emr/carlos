@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -37,9 +38,12 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,6 +81,12 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        // Bootstrap mock in case this is the first time RxPatientData.Patient is
+        // initialized in this JVM/fork: its <clinit> resolves AllergyDao via
+        // SpringUtils.getBean, and an unmocked failure here permanently poisons
+        // the class (NoClassDefFoundError) for every other test in the same fork.
+        registerMock(AllergyDao.class, mock(AllergyDao.class));
+
         mocks = MockitoAnnotations.openMocks(this);
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -169,5 +179,21 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
                 any(String.class),
                 eq("123"),
                 eq("audit")));
+    }
+
+    @Test
+    @DisplayName("should return forbidden when allergy does not belong to the session patient")
+    void shouldReturn403Forbidden_whenAllergyBelongsToDifferentPatient() throws Exception {
+        mockRequest.setParameter("ID", "42");
+        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
+        when(mockRxPatient.getAllergy(42)).thenReturn(null);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        verify(mockRxPatient, never()).activateAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
     }
 }

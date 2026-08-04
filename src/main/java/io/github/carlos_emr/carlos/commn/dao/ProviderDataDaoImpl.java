@@ -134,6 +134,47 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     @Override
     public void batchRemove(List<ProviderData> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchPersistAtomically(List<ProviderData> list) { super.batchPersistAtomically(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchPersistAtomically(List<ProviderData> list, int size) { super.batchPersistAtomically(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchRemoveAtomically(List<ProviderData> list) { super.batchRemoveAtomically(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchRemoveAtomically(List<ProviderData> list, int size) { super.batchRemoveAtomically(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchPersistWithIndependentCommits(List<ProviderData> list) { super.batchPersistWithIndependentCommits(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchPersistWithIndependentCommits(List<ProviderData> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchRemoveWithIndependentCommits(List<ProviderData> list) { super.batchRemoveWithIndependentCommits(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchRemoveWithIndependentCommits(List<ProviderData> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
+
     @SuppressWarnings("unchecked")
     @Override
     public ProviderData findByOhipNumber(String ohipNumber) {

@@ -1501,7 +1501,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            (new HL7A04Generator()).generateHL7A04(demographic);
+            if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
+                log.warn("HL7 A04 generation did not complete for a saved demographic");
+            }
         }
 
         // the new way
@@ -2084,8 +2086,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             entityManager().persist(client);
         }
 
-        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
-            (new HL7A04Generator()).generateHL7A04(client);
+        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
+            if (!(new HL7A04Generator()).generateHL7A04(client)) {
+                log.warn("HL7 A04 generation did not complete for a saved demographic");
+            }
+        }
 
         // the new way
         if (objExists == false) {

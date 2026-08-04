@@ -107,12 +107,13 @@ import org.springframework.stereotype.Service;
 public class FaxImporter {
 
     /**
-     * Static initialization is intentional: CarlosProperties is a read-once singleton with no
-     * reload mechanism — property changes require a Tomcat restart. This matches the pattern
-     * used by ManageDocument2Action and NioFileManager. The {@link #initialize()} PostConstruct
-     * guard validates this value at Spring startup, failing fast if misconfigured.
+     * Resolved once per instance rather than once per class. CarlosProperties remains a read-once
+     * singleton (property changes still require a Tomcat restart), so behaviour is unchanged in
+     * production — but an instance field is settable from a test, which a {@code static final}
+     * initialized at class load is not. That was the sole reason the import-failure test coverage in
+     * {@code FaxImporterCriticalGapsTest} sat {@code @Disabled}.
      */
-    private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
+    private final String documentDir;
 
     /** Atomic counter for collision-free filename sequencing */
     private static final AtomicLong fileCounter = new AtomicLong(0);
@@ -145,11 +146,20 @@ public class FaxImporter {
     @Autowired
     public FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
             ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory) {
+        this(faxConfigDao, faxJobDao, queueDocumentLinkDao, providerLabRoutingDao, faxProviderClientFactory,
+                CarlosProperties.getInstance().getDocumentDirectory());
+    }
+
+    /** Test seam: lets a test point the importer at a scratch document directory. */
+    FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
+            ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory,
+            String documentDir) {
         this.faxConfigDao = faxConfigDao;
         this.faxJobDao = faxJobDao;
         this.queueDocumentLinkDao = queueDocumentLinkDao;
         this.providerLabRoutingDao = providerLabRoutingDao;
         this.faxProviderClientFactory = faxProviderClientFactory;
+        this.documentDir = documentDir;
     }
 
     /**
@@ -168,7 +178,7 @@ public class FaxImporter {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     @PostConstruct
     public void initialize() {
-        if (DOCUMENT_DIR == null || DOCUMENT_DIR.trim().isEmpty()) {
+        if (documentDir == null || documentDir.trim().isEmpty()) {
             log.warn("FaxImporter: DOCUMENT_DIR is not configured. Fax import is disabled. "
                     + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in carlos.properties.");
             return;
@@ -462,7 +472,7 @@ public class FaxImporter {
             int numberOfPages = validateAndCountPages(incomingFile.toFile());
 
             // Validate and resolve final path in DOCUMENT_DIR
-            File finalFile = PathValidationUtils.validatePath(uniqueFilename, new File(DOCUMENT_DIR));
+            File finalFile = PathValidationUtils.validatePath(uniqueFilename, new File(documentDir));
 
             // Move from incoming to DOCUMENT_DIR
             moveFile(incomingFile, finalFile.toPath());
@@ -508,8 +518,24 @@ public class FaxImporter {
                 return null;
             }
 
-            queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
-            log.info("Added fax to document queue: queue_id={}, doc_id={}", queueId, docNum);
+            try {
+                queueDocumentLinkDao.addActiveQueueDocumentLink(queueId, docNum);
+                log.info("Added fax to document queue: queue_id={}, doc_id={}", queueId, docNum);
+            } catch (RuntimeException e) {
+                // The DAO now propagates persist failures instead of swallowing them (a swallowed
+                // failure left the fax outside its work queue, looking successful). By this point the
+                // file has already been moved out of the incoming directory and the document row is
+                // committed, so there is nothing left to retry and no compensation to run: rethrowing
+                // would escape every handler below, skip the move-back, and abort the whole sweep for
+                // the remaining faxes. Record the partial import instead, and keep the document — an
+                // imported-but-unqueued fax is recoverable by an operator; a lost one is not.
+                log.error("Fax document {} was imported but could not be linked to queue {}; "
+                        + "it will not appear in the queue until linked manually",
+                        docNum, queueId, e);
+                receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                receivedFax.setStatusString("IMPORTED BUT NOT QUEUED - link document " + docNum
+                        + " to queue " + queueId + " manually");
+            }
 
             newDoc.setDocId(doc_no);
             return newDoc;
@@ -581,35 +607,45 @@ public class FaxImporter {
 
                         log.info("Retrying import of pending fax: {}/{}", configId, pdfFile.getFileName());
 
-                        FaxJob retryFax = new FaxJob();
-                        retryFax.setFile_name(pdfFile.getFileName().toString());
-                        retryFax.setDirection(FaxJob.Direction.IN);
+                        // Per-file isolation: an unchecked failure on one pending fax must not abort
+                        // the sweep for every fax behind it in the directory. The enclosing catch only
+                        // handles IOException, so before this guard a single RuntimeException escaping
+                        // importFromIncoming stranded the rest of the backlog until the next cycle --
+                        // and if it recurred, indefinitely.
                         try {
-                            retryFax.setStamp(new Date(Files.getLastModifiedTime(pdfFile).toMillis()));
-                        } catch (IOException e) {
-                            retryFax.setStamp(new Date());
-                        }
-
-                        EDoc edoc = importFromIncoming(pdfFile, faxConfig, retryFax);
-                        if (edoc != null) {
+                            FaxJob retryFax = new FaxJob();
+                            retryFax.setFile_name(pdfFile.getFileName().toString());
+                            retryFax.setDirection(FaxJob.Direction.IN);
                             try {
-                                providerRouting(Integer.parseInt(edoc.getDocId()));
-                            } catch (RuntimeException e) {
-                                log.error("Routing failed for retried fax import doc_no={}: {}",
-                                        edoc.getDocId(), e.getMessage(), e);
-                                retryFax.setStatus(FaxJob.STATUS.ERROR);
-                                retryFax.setStatusString("IMPORTED ON RETRY BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
+                                retryFax.setStamp(new Date(Files.getLastModifiedTime(pdfFile).toMillis()));
+                            } catch (IOException e) {
+                                retryFax.setStamp(new Date());
                             }
 
-                            if (retryFax.getStatus() == null) {
-                                retryFax.setStatus(FaxJob.STATUS.RECEIVED);
+                            EDoc edoc = importFromIncoming(pdfFile, faxConfig, retryFax);
+                            if (edoc != null) {
+                                try {
+                                    providerRouting(Integer.parseInt(edoc.getDocId()));
+                                } catch (RuntimeException e) {
+                                    log.error("Routing failed for retried fax import doc_no={}: {}",
+                                            edoc.getDocId(), e.getMessage(), e);
+                                    retryFax.setStatus(FaxJob.STATUS.ERROR);
+                                    retryFax.setStatusString("IMPORTED ON RETRY BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
+                                }
+
+                                if (retryFax.getStatus() == null) {
+                                    retryFax.setStatus(FaxJob.STATUS.RECEIVED);
+                                }
+                                retryFax.setFile_name(edoc.getFileName());
+                                saveFaxJob(retryFax);
+                                log.info("Successfully imported pending fax on retry: {}", pdfFile.getFileName());
+                            } else {
+                                // Still failing - leave for next cycle, don't create duplicate FaxJob records
+                                log.warn("Retry import still failing for: {}/{}", configId, pdfFile.getFileName());
                             }
-                            retryFax.setFile_name(edoc.getFileName());
-                            saveFaxJob(retryFax);
-                            log.info("Successfully imported pending fax on retry: {}", pdfFile.getFileName());
-                        } else {
-                            // Still failing - leave for next cycle, don't create duplicate FaxJob records
-                            log.warn("Retry import still failing for: {}/{}", configId, pdfFile.getFileName());
+                        } catch (RuntimeException e) {
+                            log.error("Unexpected failure retrying pending fax {}/{}; continuing with the "
+                                    + "remaining pending faxes", configId, pdfFile.getFileName(), e);
                         }
                     }
                 }

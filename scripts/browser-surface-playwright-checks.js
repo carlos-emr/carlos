@@ -22,7 +22,7 @@
  */
 
 const { chromium } = require('playwright');
-const path = require('path');
+const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -229,7 +229,7 @@ async function checkPatientPopups(context, patientPage) {
   );
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(tickler, 'tickler');
-  await tickler.screenshot({ path: path.join(screenshotDir, 'surface-tickler.png'), fullPage: true });
+  await tickler.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-tickler'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
   await tickler.close();
   await patientPage.bringToFront();
 
@@ -241,7 +241,7 @@ async function checkPatientPopups(context, patientPage) {
   );
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });
   await assertDataTablesAvailable(consultation, 'consultation');
-  await consultation.screenshot({ path: path.join(screenshotDir, 'surface-consultation.png'), fullPage: true });
+  await consultation.screenshot({ path: buildArtifactPath(screenshotDir, 'surface-consultation'), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 }
 
 async function checkAdminPage(context, appPath, label, requiredText) {
@@ -253,7 +253,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
   if (requiredText) {
     await page.locator('body').filter({ hasText: requiredText }).waitFor({ state: 'visible', timeout: 15000 });
   }
-  await page.screenshot({ path: path.join(screenshotDir, `surface-${label}.png`), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- local Playwright helper writes screenshots under caller-selected local artifact dir
+  await page.screenshot({ path: buildArtifactPath(screenshotDir, `surface-${label}`), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
   await page.close();
 }
 

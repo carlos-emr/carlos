@@ -52,6 +52,10 @@ db_password=""
 DOCS=${SRC}/OscarDocument/
 
 LOG_FILE=${SRC}Oscar${VERSION}install.log
+DB_CLIENT=
+if command -v mariadb >/dev/null 2>&1 ; then
+    DB_CLIENT=mariadb
+fi
 
 countdown()
 (                IFS=:
@@ -87,16 +91,40 @@ case "$1" in
         # delete patient data!!
         # SANITY CHECK FOR PRODUCTION PURGE
         if [ -n "${db_password}" ]; then
-            patientCount=$( MYSQL_PWD="${db_password}" mysql -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;" 2>/dev/null)
-            if [ "${patientCount}" -gt "3" ]; then
-                    # the demo sql installs 2 patients purging that is not an issue
+            patientCount=""
+            prompt_for_purge=false
+            if [ -n "${DB_CLIENT}" ]; then
+                patientCount=$( MYSQL_PWD="${db_password}" ${DB_CLIENT} -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;" 2>/dev/null) || patientCount=""
+            else
+                echo "mariadb client not available; assuming production data may exist for purge confirmation" >>$LOG_FILE
+                prompt_for_purge=true
+            fi
+            case "${patientCount}" in
+                ''|*[!0-9]*)
+                    if [ -n "${DB_CLIENT}" ]; then
+                        echo "patient count unavailable; assuming production data may exist for purge confirmation" >>$LOG_FILE
+                    fi
+                    prompt_for_purge=true
+                    ;;
+                *)
+                    if [ "${patientCount}" -gt "3" ]; then
+                        prompt_for_purge=true
+                    fi
+                    ;;
+            esac
+            if [ "${prompt_for_purge}" = "true" ]; then
+                    # the demo sql installs 2 patients; purging that is not an issue when count is known.
                     echo "Purging will delete YOUR data and settings"
-                    echo "Do you REALLY want to delete ALL the data on ${patientCount} patients? "
+                    echo "Do you REALLY want to delete ALL the data on ${patientCount:-an unknown number of} patients? "
                     echo "*** LAST CHANCE TO HIT [CTRL] + [C] to abort ***"
                     countdown "00:00:20"
             fi
         else
-            echo "db_password not available; skipping patient count check" >>$LOG_FILE
+            echo "db_password not available; assuming production data may exist for purge confirmation" >>$LOG_FILE
+            echo "Purging will delete YOUR data and settings"
+            echo "Do you REALLY want to delete ALL the data on an unknown number of patients? "
+            echo "*** LAST CHANCE TO HIT [CTRL] + [C] to abort ***"
+            countdown "00:00:20"
         fi
         # drugref already removed by prerm
    fi
@@ -186,7 +214,7 @@ case "$1" in
         systemctl daemon-reload
     fi
     # Remove ReadWritePaths entries added by the config script to fallback service files
-    # (only applies when /etc/systemd/system/tomcat9.service.d/ did not exist at install time)
+    # (only applies when /etc/systemd/system/${TOMCAT}.service.d/ did not exist at install time)
     if [ -f /lib/systemd/system/tomcat10.service ] ; then
         sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat10.service 2>>$LOG_FILE || true
         sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat10.service 2>>$LOG_FILE || true
@@ -210,7 +238,11 @@ case "$1" in
     # remove property files and the oscar schema
     echo "Dropping ${db_name}"
     if [ -n "${db_password}" ]; then
-        MYSQL_PWD="${db_password}" mysql -u root --execute="drop database if exists oscar_15;" 2>>$LOG_FILE
+        if [ -n "${DB_CLIENT}" ]; then
+            MYSQL_PWD="${db_password}" ${DB_CLIENT} -u root --execute="drop database if exists oscar_15;" 2>>$LOG_FILE
+        else
+            echo "mariadb client not available; skipping database drop — remove ${db_name} manually if needed" | tee -a $LOG_FILE
+        fi
     else
         echo "db_password not available; skipping database drop — remove ${db_name} manually if needed" | tee -a $LOG_FILE
     fi
@@ -239,7 +271,7 @@ case "$1" in
     fi 
 
     # clearing these debconf settings is not possible while running the deb as it locks the database
-    echo "*** To clear the stored mysql password run ***"
+    echo "*** To clear the stored database password run ***"
     echo "echo PURGE | sudo debconf-communicate carlos-emr"
 
     ;;
