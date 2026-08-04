@@ -195,7 +195,12 @@ async function typeDob(page, text) {
   const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1024, height: 700 } });
-    await login(context);
+    const landingPage = await login(context);
+    // Close the landing page once the session cookie is established. It stays
+    // wired to the finding collectors, so leaving it open lets a late console
+    // error or 404 there fail the run under the 'login' label — a failure with
+    // nothing to do with the DOB field this script exists to check.
+    await landingPage.close();
 
     const page = await context.newPage();
     wirePage(page, 'patient-search');
