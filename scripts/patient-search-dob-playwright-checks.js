@@ -225,13 +225,25 @@ async function typeDob(page, text) {
     await clearKeyword(page);
     expectValue('dob-space-separators', await typeDob(page, '1980 01 01'), '1980-01-01');
 
-    // A full DOB submits without the format alert and renders results.
+    // A full DOB submits without the format alert and renders the results page.
     await Promise.all([
       page.waitForURL(/DemographicSearch/, { timeout: 30000 }),
       page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
     ]);
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNoErrorPage(page, 'dob-search-results');
+
+    // Reaching the results URL only proves the format alert did not block submit;
+    // it does not prove the whole date was submitted. The form is a GET, so the
+    // query string is the server's view of the field: a regressed formatter that
+    // truncated at the year would land here with keyword=1980 and still look fine.
+    // Assert on the echoed keyword rather than on result rows — the results table
+    // renders whether or not the local database happens to hold a 1980-01-01
+    // patient, so a row assertion would only pin the seed data, not the fix.
+    expectValue('dob-search-submitted-keyword',
+      new URL(page.url()).searchParams.get('keyword'), '1980-01-01');
+    expectValue('dob-search-results-table',
+      await page.locator('#patientResults').count() > 0, true);
 
     if (findings.length) {
       throw new Error(`patient search DOB browser check found ${findings.length} issue(s)`);
