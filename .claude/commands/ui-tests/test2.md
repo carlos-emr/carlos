@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mysql -h db -uroot -ppassword oscar *)
-  - Bash(mysql -h db -uroot -ppassword oscar -e *)
-  - Bash(mysql * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword oscar *)
+  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb * oscar * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -63,12 +63,12 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc' LIMIT 1;"`
+2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc' LIMIT 1;"`
    - Expected: Shows `carlosdoc` user exists
 
 3. **Pre-Test Cleanup** (REQUIRED for re-runs):
    ```bash
-   mysql -h db -uroot -ppassword oscar -e "DELETE FROM demographic WHERE last_name = 'TEST-UITEST2';"
+   mariadb -h db -uroot -ppassword oscar -e "DELETE FROM demographic WHERE last_name = 'TEST-UITEST2';"
    ```
 
 **If checks fail**: Run `server start` to start Tomcat, or check `server log` for errors.
@@ -175,7 +175,7 @@ Follow the 30-step workflow defined in `docs/ui-tests/test-2/test-2-EXECUTION.md
 2. Check browser_console_messages for errors
 3. Verify in database if record was created despite timeout:
    ```bash
-   mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE last_name='TEST-UITEST2' ORDER BY demographic_no DESC LIMIT 1;"
+   mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE last_name='TEST-UITEST2' ORDER BY demographic_no DESC LIMIT 1;"
    ```
 4. If record exists, continue to next step
 5. If record doesn't exist, refresh page and retry
@@ -213,7 +213,7 @@ After completing all 30 steps:
 
 3. **Database Verification**:
    ```bash
-   mysql -h db -uroot -ppassword oscar -e "
+   mariadb -h db -uroot -ppassword oscar -e "
    SELECT demographic_no, last_name, patient_status, phone, email, address, city
    FROM demographic WHERE last_name = 'TEST-UITEST2';"
    ```
