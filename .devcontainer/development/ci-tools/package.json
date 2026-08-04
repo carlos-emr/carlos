@@ -1,0 +1,9 @@
+{
+  "name": "carlos-ci-container-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Locked Node.js tools required by the CARLOS CI container",
+  "dependencies": {
+    "playwright": "1.60.0"
+  }
+}

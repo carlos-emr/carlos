@@ -1,4 +1,4 @@
-FROM mariadb:11.8.8
+FROM mariadb:11.8.8@sha256:d9f7eb2637296652f24b484afd5d246f759f49f5babcadc6a9e344c9acb75fbf
 
 # Labels
 LABEL author="OpenOSP"

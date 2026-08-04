@@ -43,6 +43,7 @@ permissions:
   contents: read
   pull-requests: write
   packages: read
+  attestations: read
 
 jobs:
   build:
@@ -70,8 +71,9 @@ jobs:
           fi
 
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          persist-credentials: false
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
       - name: Set up Docker Buildx
@@ -84,36 +86,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Try to pull pre-built image from ghcr.io
+      - name: Resolve and verify pre-built CI image
         id: pull-image
-        continue-on-error: true
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-ci
+          TRUSTED_SOURCE_REF: refs/heads/${{ github.base_ref || github.ref_name }}
         run: |
-          echo "Attempting to pull pre-built image from $IMAGE..."
-          if docker pull "$IMAGE" 2>pull-image-error.log; then
-            docker tag "$IMAGE" carlos-tomcat-dev
-            echo "pulled=true" >> "$GITHUB_OUTPUT"
-            echo "reason=success" >> "$GITHUB_OUTPUT"
-            echo "Successfully pulled pre-built image!"
-          else
-            echo "pulled=false" >> "$GITHUB_OUTPUT"
-            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
-              echo "reason=not-found" >> "$GITHUB_OUTPUT"
-              echo "Pre-built image not available (not found in registry), will build locally"
-            else
-              echo "reason=error" >> "$GITHUB_OUTPUT"
-              echo "Image pull failed due to an unexpected error:"
-              cat pull-image-error.log
-            fi
-          fi
-          rm -f pull-image-error.log
-
-      - name: Fail on unexpected image pull error
-        if: steps.pull-image.outputs.reason == 'error'
-        run: |
-          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
-          exit 1
+          bash .github/scripts/prepare-ci-image.sh \
+            "$IMAGE" carlos-tomcat-ci .devcontainer/development "$TRUSTED_SOURCE_REF"
 
       - name: Cache Docker layers
         if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
@@ -143,7 +124,7 @@ jobs:
           mkdir -p .m2-cache
           mkdir -p .sonar-cache
 
-      - name: Build dev container (fallback)
+      - name: Build CI container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
         run: |
           echo "Building container locally..."
@@ -151,23 +132,24 @@ jobs:
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --load \
-            -t carlos-tomcat-dev \
+            --target ci \
+            -t carlos-tomcat-ci \
             .devcontainer/development
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Start container
         run: |
-          docker run -d --name carlos-tomcat-dev \
+          docker run -d --name carlos-tomcat-ci \
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
             -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache \
             -w /workspace \
-            carlos-tomcat-dev tail -f /dev/null
+            carlos-tomcat-ci tail -f /dev/null
 
       - name: Configure git safe directory
         run: |
-          docker exec carlos-tomcat-dev bash -c "
+          docker exec carlos-tomcat-ci bash -c "
             git config --global --add safe.directory /workspace
           "
 
@@ -180,7 +162,7 @@ jobs:
           docker exec \
             -e GITHUB_TOKEN="$GITHUB_TOKEN" \
             -e SONAR_TOKEN="$SONAR_TOKEN" \
-            carlos-tomcat-dev bash -c "
+            carlos-tomcat-ci bash -c "
               echo '========================================='
               echo 'Running SonarCloud Analysis (Branch)'
               echo '========================================='
@@ -206,7 +188,7 @@ jobs:
             -e PR_NUMBER="$PR_NUMBER" \
             -e PR_BRANCH="$PR_BRANCH" \
             -e PR_BASE="$PR_BASE" \
-            carlos-tomcat-dev bash -c "
+            carlos-tomcat-ci bash -c "
               echo '========================================='
               echo 'Running SonarCloud Analysis (Pull Request)'
               echo '========================================='

@@ -10,7 +10,8 @@
 # up both CI/CD pipelines and developer onboarding.
 #
 # Containers Managed:
-# - carlos-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
+# - carlos-tomcat-ci: Minimal trusted CI container with Java 21, Tomcat, Maven, Node.js
+# - carlos-tomcat-dev: Development container extending carlos-tomcat-ci with interactive tools
 # - carlos-mariadb-dev: MariaDB database container with schema initialization scripts
 # - carlos-drugref: DrugRef2 service container with Java 11
 #
@@ -75,6 +76,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      attestations: read
     outputs:
       tomcat_needs_build: ${{ steps.check.outputs.tomcat_needs_build }}
       tomcat_hash: ${{ steps.check.outputs.tomcat_hash }}
@@ -84,7 +86,7 @@ jobs:
       drugref_hash: ${{ steps.check.outputs.drugref_hash }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
@@ -98,22 +100,11 @@ jobs:
       - name: Check container freshness
         id: check
         env:
-          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           FORCE_REBUILD: ${{ inputs.force_rebuild }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
         run: |
-          cache_tag() {
-            local ref_name=$1
-            local safe_ref
-
-            safe_ref=$(printf '%s' "$ref_name" \
-              | tr '[:upper:]/' '[:lower:]-' \
-              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
-              | cut -c1-120)
-            printf '%s-latest' "$safe_ref"
-          }
-
           check_container() {
             local name=$1
             local output_name=$2
@@ -148,32 +139,42 @@ jobs:
               return
             fi
 
-            # Try to get the existing image's hash label
-            IMAGE="${REGISTRY}/${IMAGE_PREFIX}/carlos-${name}:$(cache_tag "$CACHE_REF_NAME")"
+            # A mutable branch tag and a matching label are not sufficient evidence. Resolve the
+            # content-addressed tag, bind verification to the exact pulled digest, and accept it
+            # only when it was produced by this repository's container publishing workflow.
+            IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_PREFIX}/carlos-${name}"
+            IMAGE="${IMAGE_REPOSITORY}:content-${HASH}"
             echo "Checking image: $IMAGE"
 
-            # Pull image and check labels
             EXISTING_HASH=""
             if docker pull "$IMAGE" 2>/dev/null; then
               if ! EXISTING_HASH=$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.openosp.content-hash" }}' 2>/dev/null); then
                 echo "Warning: failed to inspect existing image labels for $IMAGE; will treat as missing hash and rebuild if needed" >&2
                 EXISTING_HASH=""
               fi
+
+              IMAGE_DIGEST=$(docker inspect "$IMAGE" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)
+              if [[ "$IMAGE_DIGEST" =~ @sha256:[0-9a-f]{64}$ ]] && \
+                 [ "${IMAGE_DIGEST%@*}" = "$IMAGE_REPOSITORY" ] && \
+                 [ "$HASH" = "$EXISTING_HASH" ] && \
+                 gh attestation verify "oci://${IMAGE_DIGEST}" \
+                   --repo "${{ github.repository }}" \
+                   --signer-workflow "${{ github.repository }}/.github/workflows/container-images.yml"; then
+                echo "Verified attested content image; skipping build"
+                echo "${output_name}_needs_build=false" >> "$GITHUB_OUTPUT"
+                return
+              fi
+
+              echo "Existing image did not pass content and provenance verification" >&2
             fi
 
             echo "Existing hash: ${EXISTING_HASH:-<none>}"
-
-            if [ "$HASH" == "$EXISTING_HASH" ]; then
-              echo "Container is up-to-date, skipping build"
-              echo "${output_name}_needs_build=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "Container needs rebuild"
-              echo "${output_name}_needs_build=true" >> "$GITHUB_OUTPUT"
-            fi
+            echo "Container needs rebuild"
+            echo "${output_name}_needs_build=true" >> "$GITHUB_OUTPUT"
           }
 
           # Check each container (name, output_name, context_path, extra_context)
-          check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
+          check_container "tomcat-ci" "tomcat" ".devcontainer/development" ""
           check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
           check_container "drugref" "drugref" ".devcontainer/drugref" ""
 
@@ -188,61 +189,71 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
-      - name: Build tomcat-dev container
+      - name: Build tomcat CI and development containers
         env:
           CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
         run: |
-          echo "Building carlos-tomcat-dev container..."
+          echo "Building minimal carlos-tomcat-ci container..."
           docker buildx build \
             --load \
+            --target ci \
+            -t carlos-tomcat-ci:test \
+            --label "org.openosp.content-hash=$CONTENT_HASH" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            .devcontainer/development
+
+          echo "Building developer-tool extension..."
+          docker buildx build \
+            --load \
+            --target development \
             -t carlos-tomcat-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             .devcontainer/development
 
-      - name: Test tomcat-dev container
+      - name: Test tomcat CI and development containers
         run: |
-          echo "Testing container starts correctly..."
-          docker run -d --name test-tomcat carlos-tomcat-dev:test tail -f /dev/null
+          echo "Testing CI container starts correctly..."
+          docker run -d --name test-tomcat-ci carlos-tomcat-ci:test tail -f /dev/null
           sleep 5
 
-          # Verify key components are present
-          echo "Verifying Maven..."
-          docker exec test-tomcat mvn --version
+          docker exec test-tomcat-ci mvn --version
+          docker exec test-tomcat-ci java --version
+          docker exec test-tomcat-ci node --version
+          docker exec test-tomcat-ci test -d /usr/local/tomcat
+          if docker exec test-tomcat-ci sh -c 'command -v gh || command -v javadoc2md || command -v docusaurus || command -v claude || command -v gemini || command -v copilot || command -v codex || command -v aider'; then
+            echo "Developer-only tooling leaked into the CI image" >&2
+            exit 1
+          fi
+          docker stop test-tomcat-ci && docker rm test-tomcat-ci
 
-          echo "Verifying Java..."
-          docker exec test-tomcat java --version
+          echo "Testing developer extension..."
+          docker run --rm carlos-tomcat-dev:test sh -c \
+            'gh --version && javadoc2md --help && docusaurus --version && claude --version && gemini --version && copilot --version && codex --version && aider --version'
 
-          echo "Verifying Tomcat..."
-          docker exec test-tomcat ls -la /usr/local/tomcat/
-
-          echo "Verifying Node.js..."
-          docker exec test-tomcat node --version
-
-          echo "All tests passed!"
-          docker stop test-tomcat && docker rm test-tomcat
-
-      - name: Save tested tomcat-dev image
+      - name: Save tested tomcat images
         run: |
           echo "Reclaiming Docker Buildx cache before exporting tested image..."
           docker buildx prune -af || true
           docker system df || true
           mkdir -p "$RUNNER_TEMP/container-images"
+          docker save carlos-tomcat-ci:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-ci.tar"
           docker save carlos-tomcat-dev:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
 
-      - name: Upload tested tomcat-dev image
+      - name: Upload tested tomcat images
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: carlos-tomcat-dev-image
-          path: ${{ runner.temp }}/container-images/carlos-tomcat-dev.tar
+          name: carlos-tomcat-images
+          path: ${{ runner.temp }}/container-images/carlos-tomcat-*.tar
           retention-days: 1
 
   publish-tomcat:
@@ -252,11 +263,13 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
-      - name: Download tested tomcat-dev image
+      - name: Download tested tomcat images
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: carlos-tomcat-dev-image
+          name: carlos-tomcat-images
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
@@ -266,9 +279,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push tested tomcat-dev container
+      - name: Push tested tomcat containers
+        id: push-tomcat
         env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
+          CI_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-ci
+          DEV_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
+          CONTENT_HASH: ${{ needs.check-containers.outputs.tomcat_hash }}
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -283,19 +299,57 @@ jobs:
             printf '%s-latest' "$safe_ref"
           }
 
+          push_image() {
+            local local_image=$1
+            local image=$2
+            local output_name=$3
+            local cache_tag_value=$4
+            local content_tag="content-${CONTENT_HASH}"
+
+            docker tag "$local_image" "$image:${{ github.sha }}"
+            docker tag "$local_image" "$image:$cache_tag_value"
+            docker tag "$local_image" "$image:$content_tag"
+
+            docker push "$image:$cache_tag_value"
+            docker push "$image:${{ github.sha }}"
+            push_output=$(docker push "$image:$content_tag")
+            printf '%s\n' "$push_output"
+            digest=$(printf '%s\n' "$push_output" \
+              | sed -nE 's/^.*digest: (sha256:[0-9a-f]{64}).*$/\1/p' \
+              | tail -1)
+            if [ -z "$digest" ]; then
+              echo "Unable to resolve pushed digest for $image:$content_tag" >&2
+              exit 1
+            fi
+
+            if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
+              docker tag "$local_image" "$image:latest"
+              docker push "$image:latest"
+            fi
+
+            echo "${output_name}_name=$image" >> "$GITHUB_OUTPUT"
+            echo "${output_name}_digest=$digest" >> "$GITHUB_OUTPUT"
+          }
+
+          docker load -i "$RUNNER_TEMP/container-images/carlos-tomcat-ci.tar"
           docker load -i "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
-          docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
-          docker tag carlos-tomcat-dev:test "$IMAGE:$CACHE_TAG"
-          docker push "$IMAGE:$CACHE_TAG"
-          echo "Pushed $IMAGE:$CACHE_TAG"
-          if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
-            docker tag carlos-tomcat-dev:test "$IMAGE:latest"
-            docker push "$IMAGE:latest"
-            echo "Pushed $IMAGE:latest"
-          fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          push_image carlos-tomcat-ci:test "$CI_IMAGE" ci "$CACHE_TAG"
+          push_image carlos-tomcat-dev:test "$DEV_IMAGE" dev "$CACHE_TAG"
+
+      - name: Attest tomcat CI image provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ steps.push-tomcat.outputs.ci_name }}
+          subject-digest: ${{ steps.push-tomcat.outputs.ci_digest }}
+          push-to-registry: true
+
+      - name: Attest tomcat development image provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ steps.push-tomcat.outputs.dev_name }}
+          subject-digest: ${{ steps.push-tomcat.outputs.dev_digest }}
+          push-to-registry: true
 
   # ===========================================================================
   # Build and push mariadb-dev container
@@ -308,7 +362,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
@@ -414,6 +468,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download tested mariadb-dev image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -429,8 +485,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push tested mariadb-dev container
+        id: push-mariadb
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
+          CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -449,15 +507,31 @@ jobs:
           docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
           docker tag carlos-mariadb-dev:test "$IMAGE:$CACHE_TAG"
+          docker tag carlos-mariadb-dev:test "$IMAGE:content-$CONTENT_HASH"
           docker push "$IMAGE:$CACHE_TAG"
-          echo "Pushed $IMAGE:$CACHE_TAG"
+          docker push "$IMAGE:${{ github.sha }}"
+          push_output=$(docker push "$IMAGE:content-$CONTENT_HASH")
+          printf '%s\n' "$push_output"
+          digest=$(printf '%s\n' "$push_output" \
+            | sed -nE 's/^.*digest: (sha256:[0-9a-f]{64}).*$/\1/p' \
+            | tail -1)
+          if [ -z "$digest" ]; then
+            echo "Unable to resolve pushed MariaDB image digest" >&2
+            exit 1
+          fi
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
             docker tag carlos-mariadb-dev:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
-            echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          echo "image_name=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "image_digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest MariaDB image provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ steps.push-mariadb.outputs.image_name }}
+          subject-digest: ${{ steps.push-mariadb.outputs.image_digest }}
+          push-to-registry: true
 
   # ===========================================================================
   # Build and push drugref container
@@ -470,7 +544,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
@@ -551,6 +625,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Download tested drugref image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -566,8 +642,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push tested drugref container
+        id: push-drugref
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
+          CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -586,15 +664,31 @@ jobs:
           docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
           docker tag carlos-drugref:test "$IMAGE:$CACHE_TAG"
+          docker tag carlos-drugref:test "$IMAGE:content-$CONTENT_HASH"
           docker push "$IMAGE:$CACHE_TAG"
-          echo "Pushed $IMAGE:$CACHE_TAG"
+          docker push "$IMAGE:${{ github.sha }}"
+          push_output=$(docker push "$IMAGE:content-$CONTENT_HASH")
+          printf '%s\n' "$push_output"
+          digest=$(printf '%s\n' "$push_output" \
+            | sed -nE 's/^.*digest: (sha256:[0-9a-f]{64}).*$/\1/p' \
+            | tail -1)
+          if [ -z "$digest" ]; then
+            echo "Unable to resolve pushed DrugRef image digest" >&2
+            exit 1
+          fi
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
             docker tag carlos-drugref:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
-            echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          echo "image_name=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "image_digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest DrugRef image provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-name: ${{ steps.push-drugref.outputs.image_name }}
+          subject-digest: ${{ steps.push-drugref.outputs.image_digest }}
+          push-to-registry: true
 
   # ===========================================================================
   # Summary job - reports what happened

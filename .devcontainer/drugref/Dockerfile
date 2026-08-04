@@ -3,16 +3,19 @@
 # =============================================================================
 FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 AS builder
 
-# Note: DRUGREF_BRANCH accepts branch names or tags, but not commit SHAs
-# (shallow clone with --depth 1 doesn't support checking out by SHA)
 ARG DRUGREF_REPO=https://github.com/carlos-emr/drugref2026.git
-ARG DRUGREF_BRANCH=master
+ARG DRUGREF_COMMIT=101063bbd13d3c767cc3c3daf5f64ac673d8d327
 
 RUN apt-get update && apt-get install -y --no-install-recommends git maven \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-RUN git clone --depth 1 --branch $DRUGREF_BRANCH $DRUGREF_REPO drugref
+RUN git init drugref \
+    && cd drugref \
+    && git remote add origin "$DRUGREF_REPO" \
+    && git fetch --depth 1 origin "$DRUGREF_COMMIT" \
+    && git checkout --detach FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "$DRUGREF_COMMIT"
 
 WORKDIR /build/drugref
 RUN mvn -DskipTests clean package

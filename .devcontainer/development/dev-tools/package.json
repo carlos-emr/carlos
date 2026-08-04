@@ -1,0 +1,18 @@
+{
+  "name": "carlos-development-container-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Locked interactive tools for the CARLOS development container",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.221",
+    "@docusaurus/core": "3.10.2",
+    "@docusaurus/preset-classic": "3.10.2",
+    "@github/copilot": "1.0.78",
+    "@google/gemini-cli": "0.53.1",
+    "@openai/codex": "0.142.2"
+  },
+  "overrides": {
+    "serialize-javascript": "7.0.5",
+    "uuid": "11.1.1"
+  }
+}
