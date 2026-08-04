@@ -114,7 +114,10 @@ jobs:
           fi
           echo "dco_truncated=false" >> "$GITHUB_OUTPUT"
 
-          bot_authors_regex='^(google-labs-jules\[bot\]|copilot-swe-agent\[bot\]|claude\[bot\]|coderabbitai\[bot\]|github-actions\[bot\]|dependabot\[bot\]) <'
+          # Bot exemption is keyed to the GitHub-verified account behind the
+          # commit (.author.login / .author.type from the API), NOT the
+          # spoofable git author name/email a human can set locally.
+          bot_logins_regex='^(google-labs-jules\[bot\]|copilot-swe-agent\[bot\]|claude\[bot\]|coderabbitai\[bot\]|github-actions\[bot\]|dependabot\[bot\])$'
 
           is_github_base_update_merge() {
             local subject=$1
@@ -152,18 +155,17 @@ jobs:
             while IFS= read -r commit; do
               sha=$(jq -r '.sha' <<< "$commit")
               message=$(jq -r '.message' <<< "$commit")
-              author_name=$(jq -r '.author_name // ""' <<< "$commit")
-              author_email=$(jq -r '.author_email // ""' <<< "$commit")
+              author_login=$(jq -r '.author_login // ""' <<< "$commit")
+              author_type=$(jq -r '.author_type // ""' <<< "$commit")
               committer_login=$(jq -r '.committer_login // ""' <<< "$commit")
               parent_count=$(jq -r '.parent_count // 0' <<< "$commit")
               short="${sha:0:7}"
               subject=$(printf '%s\n' "$message" | sed -n '1p')
-              author="$author_name <$author_email>"
 
               total=$((total + 1))
               if printf '%s\n' "$message" | grep -qE '^Signed-off-by: .+ <.+>'; then
                 passed=$((passed + 1))
-              elif printf '%s' "$author" | grep -qE "$bot_authors_regex"; then
+              elif [ "$author_type" = "Bot" ] && printf '%s' "$author_login" | grep -qE "$bot_logins_regex"; then
                 passed=$((passed + 1))
                 bot_exempt+=("$short - $subject")
               elif is_github_base_update_merge "$subject" "$committer_login" "$parent_count" "$base_ref"; then
@@ -175,8 +177,8 @@ jobs:
             done < <(jq -c '.[] | {
               sha: .sha,
               message: .commit.message,
-              author_name: .commit.author.name,
-              author_email: .commit.author.email,
+              author_login: (.author.login // ""),
+              author_type: (.author.type // ""),
               committer_login: (.committer.login // ""),
               parent_count: (.parents | length)
             }' <<< "$commits")
