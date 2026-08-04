@@ -59,7 +59,6 @@ permissions:
   security-events: write
   pull-requests: write
   packages: read
-  attestations: read
 
 env:
   REGISTRY: ghcr.io
@@ -84,15 +83,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve and verify pre-built CI image
+      - name: Try to pull pre-built image from ghcr.io
         id: pull-image
+        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-ci
-          TRUSTED_SOURCE_REF: refs/heads/${{ github.base_ref || github.ref_name }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
-          bash .github/scripts/prepare-ci-image.sh \
-            "$IMAGE" carlos-tomcat-ci .devcontainer/development "$TRUSTED_SOURCE_REF"
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          if docker pull "$IMAGE" 2>pull-image-error.log; then
+            docker tag "$IMAGE" carlos-tomcat-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "Image pull failed due to an unexpected error:"
+              cat pull-image-error.log
+            fi
+          fi
+          rm -f pull-image-error.log
+
+      - name: Fail on unexpected image pull error
+        if: steps.pull-image.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
 
       - name: Cache Docker layers
         if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
@@ -115,7 +135,7 @@ jobs:
         run: |
           rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
 
-      - name: Build CI container (fallback)
+      - name: Build dev container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
         run: |
           echo "Building container locally..."
@@ -123,30 +143,29 @@ jobs:
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
             --load \
-            --target ci \
-            -t carlos-tomcat-ci \
+            -t carlos-tomcat-dev \
             .devcontainer/development
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Start container
         run: |
-          docker run -d --name carlos-tomcat-ci \
+          docker run -d --name carlos-tomcat-dev \
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
             -w /workspace \
-            carlos-tomcat-ci tail -f /dev/null
+            carlos-tomcat-dev tail -f /dev/null
 
       - name: Configure git safe directory
         run: |
-          docker exec carlos-tomcat-ci bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             git config --global --add safe.directory /workspace
           "
 
       - name: Build and run SpotBugs
         id: run_spotbugs
         run: |
-          docker exec carlos-tomcat-ci bash -c "
+          docker exec carlos-tomcat-dev bash -c "
             echo '========================================='
             echo 'Compiling and running SpotBugs analysis'
             echo '========================================='

@@ -1,4 +1,4 @@
-FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 AS ci
+FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
 
 # bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
 #
@@ -121,19 +121,57 @@ RUN arch="$(dpkg --print-architecture)" \
          *) echo "ERROR: expected Node v${NODE_VERSION}, got $(node --version)." >&2; exit 1 ;; \
        esac
 
-# Install the exact Playwright dependency graph recorded by npm. `npm ci` verifies every package
-# against the integrity values in package-lock.json and refuses manifest/lockfile drift.
-COPY ./ci-tools/package.json ./ci-tools/package-lock.json /opt/carlos-ci-tools/
-RUN cd /opt/carlos-ci-tools \
-    && npm ci --ignore-scripts \
-    && /opt/carlos-ci-tools/node_modules/.bin/playwright --version
-ENV PATH="/opt/carlos-ci-tools/node_modules/.bin:${PATH}"
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && /usr/local/bin/apt-install gh
+
+# Install Go
+RUN /usr/local/bin/apt-install golang-go
+
+# Install javadoc2md utility for converting Javadoc to Markdown
+RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
+
+# Install Claude Code CLI (native binary) and Docusaurus
+ENV PATH="${PATH}:/root/.local/bin"
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && which npm && npm install -g @docusaurus/core @docusaurus/preset-classic
+
+# Install Gemini CLI.
+# The gemini-browser script intercepts xdg-open so OAuth URLs from any CLI
+# (Gemini, Claude Code, etc.) display cleanly in the terminal for copy-paste
+# (containers can't open desktop browsers). See the script header for
+# details on OAuth handling and callback port forwarding.
+RUN npm install -g @google/gemini-cli \
+    && ln -sf /scripts/gemini-browser /usr/local/bin/xdg-open
+
+# Install GitHub Copilot CLI (standalone coding agent with model selection)
+RUN npm install -g @github/copilot && \
+    echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
+
+# Install OpenAI Codex CLI (standalone coding agent)
+ARG CODEX_CLI_VERSION=0.142.2
+# Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
+RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
+
+ARG PLAYWRIGHT_VERSION=1.60.0
+
+# Install Playwright globally first to ensure it's available.
+# Keep this in sync with package.json, .mcp.json, and .devcontainer/PLAYWRIGHT_SETUP.md.
+RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
+    echo "✅ Playwright CLI installed: $(playwright --version)"
 
 # Install Playwright browsers (Chromium, Firefox) with system dependencies
 # Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
 # Version 1.60.0 uses the current Playwright browser bundles and Ubuntu 24.04 t64 package names.
 RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
+
+# Install pipx and Aider AI coding assistant
+RUN /usr/local/bin/apt-install pipx && \
+    pipx install aider-chat && \
+    pipx ensurepath
 
 # Install Postfix for mail testing with default values
 RUN /usr/local/bin/apt-install postfix
@@ -230,36 +268,5 @@ RUN mkdir -p /root/.m2 \
     && chown -R root:root /root/.m2 \
     && chmod -R 777 /root/.m2
 
-# CI CMD
-CMD ["tail", "-f", "/dev/null"]
-
-# Developer-only tools live in a separate final stage. CI workflows explicitly build and run the
-# `ci` target above, keeping interactive AI clients and their transitive package trees outside the
-# trusted build environment. Versions and direct-download checksums are pinned so rebuilding this
-# development stage cannot silently select a different tool release.
-FROM ci AS development
-
-ENV PATH="${PATH}:/root/.local/bin"
-
-ARG GH_CLI_VERSION=2.97.0
-ARG GH_CLI_SHA256=a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112
-RUN curl -fsSLo /tmp/gh.tar.gz \
-        "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz" \
-    && echo "${GH_CLI_SHA256}  /tmp/gh.tar.gz" | sha256sum -c - \
-    && tar -xzf /tmp/gh.tar.gz -C /tmp \
-    && install -m 0755 "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh \
-    && rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_CLI_VERSION}_linux_amd64"
-
-RUN /usr/local/bin/apt-install golang-go
-
-ARG JAVADOC2MD_COMMIT=d480f3c9d5b2f335ab90178bdd7d10311cfa5db2
-RUN go install "github.com/dburkart/javadoc2md/cmd/javadoc2md@${JAVADOC2MD_COMMIT}" \
-    && install -m 0755 /root/go/bin/javadoc2md /usr/local/bin/javadoc2md
-
-COPY ./dev-tools/package.json ./dev-tools/package-lock.json /opt/carlos-dev-tools/
-RUN cd /opt/carlos-dev-tools \
-    && npm ci \
-    && ln -sf /scripts/gemini-browser /usr/local/bin/xdg-open
-ENV PATH="/opt/carlos-dev-tools/node_modules/.bin:${PATH}:/root/.local/bin"
-
+# Development CMD
 CMD ["tail", "-f", "/dev/null"]

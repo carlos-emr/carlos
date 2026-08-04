@@ -4,7 +4,7 @@
 SCRIPTS_DIR="/scripts"
 
 # Make the script executable
-chmod +x "$SCRIPTS_DIR"/*
+chmod +x "$SCRIPTS_DIR/*"
 
 # Add the scripts directory to the PATH if it's not already included
 SHELL_CONFIG="$HOME/.bashrc"
