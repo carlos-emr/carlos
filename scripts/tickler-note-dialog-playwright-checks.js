@@ -276,9 +276,6 @@ async function waitForTicklerListReady(page) {
 
 async function findRowInList(page, message) {
   await page.locator('#ticklerResults_filter input[type="search"]').fill(message);
-  await page.evaluate((needle) => {
-    window.jQuery('#ticklerResults').DataTable().search(needle).draw();
-  }, message);
   await page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first().waitFor({
     state: 'visible',
     timeout: 30000,
