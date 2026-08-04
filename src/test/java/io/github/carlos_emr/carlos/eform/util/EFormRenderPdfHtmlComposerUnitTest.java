@@ -18,8 +18,6 @@
 
 package io.github.carlos_emr.carlos.eform.util;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -29,6 +27,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EFormRenderPdfHtmlComposer unit tests")
@@ -714,7 +715,7 @@ class EFormRenderPdfHtmlComposerUnitTest {
 
     @Test
     @DisplayName("should treat an unreadable image directory as unable to prove a stamp absent")
-    void shouldTreatUnreadableImageDirectory_asUnableToProveAbsent() throws Exception {
+    void shouldTreatUnreadableImageDirectory_asUnableToProveAbsent() {
         // Same guard removeAbsentOptionalStamps uses: a lookup failure is not evidence of absence,
         // so the name stays granted and the render fails the ordinary way rather than on a guess.
         //
@@ -723,25 +724,20 @@ class EFormRenderPdfHtmlComposerUnitTest {
         // `return Set.of();`, for `return fileNames;`, and for the loop with the catch deleted.
         // Verified by mutation: inverting the catch to fail-closed left the whole class green.
         //
-        // DisplayImage2Action.getImageFile throws when the configured EFORM_IMAGES_DIR does not
-        // exist, which is the lookup failure being modelled. Relying on the ambient default
-        // resolving to something absent was flaky: CarlosProperties is a JVM-wide singleton several
-        // other test classes (e.g. ConsultationSignatureServiceUnitTest, ConvertToEdocUnitTest)
-        // legitimately point at a real, existing temp directory for the duration of their own
-        // tests, and Surefire reuses forks across test classes. This test now pins EFORM_IMAGES_DIR
-        // to a non-existent child of a real temp parent directory, so the directory is
-        // deterministically absent without depending on delete timing/permissions on any platform.
-        CarlosProperties properties = CarlosProperties.getInstance();
-        boolean hadEformImagesDir = properties.containsKey("EFORM_IMAGES_DIR");
-        Object originalEformImagesDir = properties.get("EFORM_IMAGES_DIR");
-        Path tempParentDirectory = Files.createTempDirectory("eform-images-parent-");
-        Path guaranteedAbsentDirectory = tempParentDirectory.resolve("absent");
-        properties.setProperty("EFORM_IMAGES_DIR", guaranteedAbsentDirectory.toString());
-        try {
-            // Asserting the name is RETAINED is what makes the fail-open behaviour falsifiable: were
-            // the catch removed or inverted, the result would be empty and this fails. Inverting it
-            // in production would make every provider stamp look absent, stripping #StampSignature
-            // from every rendered document and flagging every render.
+        // Force the lookup failure deterministically: point the eForm image directory at a path
+        // that cannot exist so DisplayImage2Action.getImageFile throws. Relying on the bare-JVM
+        // default was suite-order dependent — once an earlier test populated the CarlosProperties
+        // singleton the directory resolved, getImageFile stopped throwing, and this test asserted
+        // against the wrong branch. Asserting the name is RETAINED is what makes the fail-open
+        // behaviour falsifiable: were the catch removed or inverted, the result would be empty and
+        // this fails. Inverting it in production would make every provider stamp look absent,
+        // stripping #StampSignature from every rendered document and flagging every render.
+        CarlosProperties mockProperties = mock(CarlosProperties.class);
+        when(mockProperties.getEformImageDirectory())
+                .thenReturn("/nonexistent-eform-image-dir-for-unit-test");
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
             assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(
                     java.util.Set.of("consult_sig_999999.png")))
                     .describedAs("a lookup failure must not be read as proof the stamp is absent")
@@ -750,13 +746,6 @@ class EFormRenderPdfHtmlComposerUnitTest {
             assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(java.util.Set.of()))
                     .describedAs("no names in, no names out")
                     .isEmpty();
-        } finally {
-            if (hadEformImagesDir) {
-                properties.put("EFORM_IMAGES_DIR", originalEformImagesDir);
-            } else {
-                properties.remove("EFORM_IMAGES_DIR");
-            }
-            Files.deleteIfExists(tempParentDirectory);
         }
     }
 
