@@ -47,8 +47,11 @@ public class FaxRecipient {
     }
 
     public FaxRecipient(ObjectNode json) {
-        this.name = json.get("name").asText();
-        this.setFax(json.get("fax").asText());
+        // path() (not get()) so an absent field yields null instead of an NPE — the manager's
+        // fail-fast recipient parse decides whether missing fields are acceptable, not this
+        // carrier, and that decision must land before any destructive file promotion.
+        this.name = json.path("name").asText(null);
+        this.setFax(json.path("fax").asText(null));
     }
 
     public FaxRecipient(String name, String fax) {
@@ -70,9 +73,17 @@ public class FaxRecipient {
     }
 
     public void setFax(String fax) {
-        if (fax != null && !fax.trim().isEmpty()) {
-            this.fax = fax.replaceAll("\\D", "").trim();
-        }
+        // Normalize then assign consistently. Previously a blank/null input was a silent no-op (it kept
+        // a stale previous value) while a non-blank input with no digits stored "" — two trap states on
+        // a mutable, reusable bean that could send a fax to a stale or empty destination. Now: strip to
+        // digits; an absent or digit-less input clears the field to null.
+        String digits = (fax == null) ? null : fax.replaceAll("\\D", "");
+        this.fax = (digits == null || digits.isEmpty()) ? null : digits;
+    }
+
+    /** True when this recipient carries a usable (non-empty, digits-only) fax destination. */
+    public boolean hasUsableFax() {
+        return fax != null && !fax.isEmpty();
     }
 
     public Date getSent() {

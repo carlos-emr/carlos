@@ -72,13 +72,20 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Override
     public List<Allergy> getActiveAllergies(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        // Patient-scoped authorization: this REST-reachable read previously had NO privilege check at
+        // all, so any authenticated caller could enumerate any patient's active allergies by supplying
+        // an arbitrary demographicNo. Require _allergy read for the requested demographic, mirroring the
+        // gate on getAllergyDTOs (scoped to the patient here rather than role-level).
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r",
+                demographicNo == null ? null : String.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
+
         List<Allergy> results = allergyDao.findActiveAllergiesOrderByDescription(demographicNo);
 
-        // --- log action ---
-        if (results != null && results.size() > 0) {
-            LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getActiveAllergies",
-                    "demographicNo=" + demographicNo);
-        }
+        // Audit every authorized attempt, including empty results, so cross-patient probing is visible.
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getActiveAllergies",
+                "demographicNo=" + demographicNo);
 
         return (results);
     }

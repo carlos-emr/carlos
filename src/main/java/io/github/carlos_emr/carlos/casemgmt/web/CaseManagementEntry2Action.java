@@ -3330,7 +3330,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else if (!demono.matches("\\d+")) {
             // Reject tainted value but fall back to request attribute to avoid crashing callers
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSafe.sanitize(demono));
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSafe.sanitize(demono)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else {
             request.setAttribute("casemgmt_DemoNo", demono);

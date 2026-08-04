@@ -170,5 +170,22 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
     @Override
     public void batchRemove(List<AppointmentType> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override public void batchPersistAtomically(List<AppointmentType> list) { super.batchPersistAtomically(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override public void batchPersistAtomically(List<AppointmentType> list, int size) { super.batchPersistAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<AppointmentType> list) { super.batchRemoveAtomically(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<AppointmentType> list, int size) { super.batchRemoveAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<AppointmentType> list) { super.batchPersistWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<AppointmentType> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<AppointmentType> list) { super.batchRemoveWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.APPOINTMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<AppointmentType> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
+
 }
  
