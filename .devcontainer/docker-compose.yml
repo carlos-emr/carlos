@@ -39,7 +39,7 @@ services:
       dockerfile: Dockerfile
       args:
         DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/carlos-emr/drugref2026.git}
-        DRUGREF_COMMIT: ${DRUGREF_COMMIT:-101063bbd13d3c767cc3c3daf5f64ac673d8d327}
+        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-master}
     ports:
       - "8180:8080"
     volumes:

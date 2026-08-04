@@ -86,7 +86,7 @@ jobs:
       drugref_hash: ${{ steps.check.outputs.drugref_hash }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
@@ -100,16 +100,29 @@ jobs:
       - name: Check container freshness
         id: check
         env:
+          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           FORCE_REBUILD: ${{ inputs.force_rebuild }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
         run: |
+          cache_tag() {
+            local ref_name=$1
+            local safe_ref
+
+            safe_ref=$(printf '%s' "$ref_name" \
+              | tr '[:upper:]/' '[:lower:]-' \
+              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
+              | cut -c1-120)
+            printf '%s-latest' "$safe_ref"
+          }
+
           check_container() {
             local name=$1
             local output_name=$2
             local context_path=$3
             local extra_context=$4
+            local require_attestation=${5:-false}
 
             echo "========================================="
             echo "Checking container: $name"
@@ -139,11 +152,16 @@ jobs:
               return
             fi
 
-            # A mutable branch tag and a matching label are not sufficient evidence. Resolve the
-            # content-addressed tag, bind verification to the exact pulled digest, and accept it
-            # only when it was produced by this repository's container publishing workflow.
             IMAGE_REPOSITORY="${REGISTRY}/${IMAGE_PREFIX}/carlos-${name}"
-            IMAGE="${IMAGE_REPOSITORY}:content-${HASH}"
+            if [ "$require_attestation" = "true" ]; then
+              # CI executes this image, so a mutable branch tag and a matching label are not enough.
+              # Bind verification to the exact pulled digest and its publishing-workflow provenance.
+              IMAGE="${IMAGE_REPOSITORY}:content-${HASH}"
+            else
+              # The other development-service images retain their existing branch cache behavior;
+              # hardening them is intentionally outside the scope of this PR.
+              IMAGE="${IMAGE_REPOSITORY}:$(cache_tag "$CACHE_REF_NAME")"
+            fi
             echo "Checking image: $IMAGE"
 
             EXISTING_HASH=""
@@ -153,19 +171,25 @@ jobs:
                 EXISTING_HASH=""
               fi
 
-              IMAGE_DIGEST=$(docker inspect "$IMAGE" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)
-              if [[ "$IMAGE_DIGEST" =~ @sha256:[0-9a-f]{64}$ ]] && \
-                 [ "${IMAGE_DIGEST%@*}" = "$IMAGE_REPOSITORY" ] && \
-                 [ "$HASH" = "$EXISTING_HASH" ] && \
-                 gh attestation verify "oci://${IMAGE_DIGEST}" \
-                   --repo "${{ github.repository }}" \
-                   --signer-workflow "${{ github.repository }}/.github/workflows/container-images.yml"; then
-                echo "Verified attested content image; skipping build"
+              if [ "$require_attestation" = "true" ]; then
+                IMAGE_DIGEST=$(docker inspect "$IMAGE" --format '{{ index .RepoDigests 0 }}' 2>/dev/null || true)
+                if [[ "$IMAGE_DIGEST" =~ @sha256:[0-9a-f]{64}$ ]] && \
+                   [ "${IMAGE_DIGEST%@*}" = "$IMAGE_REPOSITORY" ] && \
+                   [ "$HASH" = "$EXISTING_HASH" ] && \
+                   gh attestation verify "oci://${IMAGE_DIGEST}" \
+                     --repo "${{ github.repository }}" \
+                     --signer-workflow "${{ github.repository }}/.github/workflows/container-images.yml"; then
+                  echo "Verified attested content image; skipping build"
+                  echo "${output_name}_needs_build=false" >> "$GITHUB_OUTPUT"
+                  return
+                fi
+
+                echo "Existing image did not pass content and provenance verification" >&2
+              elif [ "$HASH" = "$EXISTING_HASH" ]; then
+                echo "Container is up-to-date, skipping build"
                 echo "${output_name}_needs_build=false" >> "$GITHUB_OUTPUT"
                 return
               fi
-
-              echo "Existing image did not pass content and provenance verification" >&2
             fi
 
             echo "Existing hash: ${EXISTING_HASH:-<none>}"
@@ -174,7 +198,7 @@ jobs:
           }
 
           # Check each container (name, output_name, context_path, extra_context)
-          check_container "tomcat-ci" "tomcat" ".devcontainer/development" ""
+          check_container "tomcat-ci" "tomcat" ".devcontainer/development" "" true
           check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
           check_container "drugref" "drugref" ".devcontainer/drugref" ""
 
@@ -189,7 +213,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
@@ -362,7 +386,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
@@ -468,8 +492,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
-      attestations: write
     steps:
       - name: Download tested mariadb-dev image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -485,10 +507,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push tested mariadb-dev container
-        id: push-mariadb
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
-          CONTENT_HASH: ${{ needs.check-containers.outputs.mariadb_hash }}
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -507,31 +527,15 @@ jobs:
           docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
           docker tag carlos-mariadb-dev:test "$IMAGE:$CACHE_TAG"
-          docker tag carlos-mariadb-dev:test "$IMAGE:content-$CONTENT_HASH"
           docker push "$IMAGE:$CACHE_TAG"
-          docker push "$IMAGE:${{ github.sha }}"
-          push_output=$(docker push "$IMAGE:content-$CONTENT_HASH")
-          printf '%s\n' "$push_output"
-          digest=$(printf '%s\n' "$push_output" \
-            | sed -nE 's/^.*digest: (sha256:[0-9a-f]{64}).*$/\1/p' \
-            | tail -1)
-          if [ -z "$digest" ]; then
-            echo "Unable to resolve pushed MariaDB image digest" >&2
-            exit 1
-          fi
+          echo "Pushed $IMAGE:$CACHE_TAG"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
             docker tag carlos-mariadb-dev:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
+            echo "Pushed $IMAGE:latest"
           fi
-          echo "image_name=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "image_digest=$digest" >> "$GITHUB_OUTPUT"
-
-      - name: Attest MariaDB image provenance
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
-        with:
-          subject-name: ${{ steps.push-mariadb.outputs.image_name }}
-          subject-digest: ${{ steps.push-mariadb.outputs.image_digest }}
-          push-to-registry: true
+          docker push "$IMAGE:${{ github.sha }}"
+          echo "Pushed $IMAGE:${{ github.sha }}"
 
   # ===========================================================================
   # Build and push drugref container
@@ -544,7 +548,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
@@ -625,8 +629,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
-      attestations: write
     steps:
       - name: Download tested drugref image
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -642,10 +644,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push tested drugref container
-        id: push-drugref
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref
-          CONTENT_HASH: ${{ needs.check-containers.outputs.drugref_hash }}
           CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
@@ -664,31 +664,15 @@ jobs:
           docker tag carlos-drugref:test "$IMAGE:${{ github.sha }}"
           CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
           docker tag carlos-drugref:test "$IMAGE:$CACHE_TAG"
-          docker tag carlos-drugref:test "$IMAGE:content-$CONTENT_HASH"
           docker push "$IMAGE:$CACHE_TAG"
-          docker push "$IMAGE:${{ github.sha }}"
-          push_output=$(docker push "$IMAGE:content-$CONTENT_HASH")
-          printf '%s\n' "$push_output"
-          digest=$(printf '%s\n' "$push_output" \
-            | sed -nE 's/^.*digest: (sha256:[0-9a-f]{64}).*$/\1/p' \
-            | tail -1)
-          if [ -z "$digest" ]; then
-            echo "Unable to resolve pushed DrugRef image digest" >&2
-            exit 1
-          fi
+          echo "Pushed $IMAGE:$CACHE_TAG"
           if [ "$SHOULD_PUSH_LATEST" = "true" ]; then
             docker tag carlos-drugref:test "$IMAGE:latest"
             docker push "$IMAGE:latest"
+            echo "Pushed $IMAGE:latest"
           fi
-          echo "image_name=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "image_digest=$digest" >> "$GITHUB_OUTPUT"
-
-      - name: Attest DrugRef image provenance
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
-        with:
-          subject-name: ${{ steps.push-drugref.outputs.image_name }}
-          subject-digest: ${{ steps.push-drugref.outputs.image_digest }}
-          push-to-registry: true
+          docker push "$IMAGE:${{ github.sha }}"
+          echo "Pushed $IMAGE:${{ github.sha }}"
 
   # ===========================================================================
   # Summary job - reports what happened

@@ -244,7 +244,8 @@ RUN curl -fsSLo /tmp/gh.tar.gz \
 RUN /usr/local/bin/apt-install golang-go
 
 ARG JAVADOC2MD_COMMIT=d480f3c9d5b2f335ab90178bdd7d10311cfa5db2
-RUN go install "github.com/dburkart/javadoc2md/cmd/javadoc2md@${JAVADOC2MD_COMMIT}"
+RUN go install "github.com/dburkart/javadoc2md/cmd/javadoc2md@${JAVADOC2MD_COMMIT}" \
+    && install -m 0755 /root/go/bin/javadoc2md /usr/local/bin/javadoc2md
 
 COPY ./dev-tools/package.json ./dev-tools/package-lock.json /opt/carlos-dev-tools/
 RUN cd /opt/carlos-dev-tools \
