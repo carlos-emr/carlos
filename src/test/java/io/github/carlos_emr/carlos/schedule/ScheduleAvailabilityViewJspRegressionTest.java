@@ -77,6 +77,8 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("/css/scheduleavailability.css")
                 .contains("private String getSafeCssColor(Object configuredColor)")
                 .contains("inform.setLenient(false)")
+                .contains("String requestedStartDate = request.getParameter(\"startDate\")")
+                .contains("response.sendError(HttpServletResponse.SC_BAD_REQUEST, \"Invalid startDate\")")
                 .contains("class=\"availability-grid-wrapper\"")
                 .contains("id=\"availabilityGrid\"")
                 .contains("<thead>")
@@ -88,6 +90,11 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .doesNotContain("role=\"group\"")
                 .doesNotContain("<a class=\"availability-slot\" href=\"#\"")
                 .contains("schedule.scheduleflipview.instructions");
+
+        assertThat(jsp.indexOf("String requestedStartDate = request.getParameter(\"startDate\")"))
+                .isLessThan(jsp.indexOf("<!DOCTYPE html>"));
+        assertThat(jsp.indexOf("response.sendError(HttpServletResponse.SC_BAD_REQUEST, \"Invalid startDate\")"))
+                .isLessThan(jsp.indexOf("<!DOCTYPE html>"));
 
         assertThat(css)
                 .contains("#availabilityGrid thead th")

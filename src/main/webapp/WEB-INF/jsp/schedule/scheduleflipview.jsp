@@ -110,6 +110,32 @@
     if (originalPage.equals("waitingList")) {
         originalPagePath = request.getContextPath() + "/waitinglist/SetupDisplayWaitingList";
     }
+
+    int colscode = (nEndTime - nStartTime) * 60 / nStep;
+    SimpleDateFormat inform = new SimpleDateFormat("yyyy-MM-dd", request.getLocale());
+    SimpleDateFormat outform = new SimpleDateFormat("EEE, yyyy/MM/dd", request.getLocale());
+    inform.setLenient(false);
+    GregorianCalendar now = new GregorianCalendar();
+    String requestedStartDate = request.getParameter("startDate");
+
+    // Validate before rendering any response content so the 400 status cannot be lost to a committed buffer.
+    if (requestedStartDate != null && !requestedStartDate.isBlank() && !"today".equals(requestedStartDate)) {
+        ParsePosition parsePosition = new ParsePosition(0);
+        java.util.Date parsedStartDate = inform.parse(requestedStartDate, parsePosition);
+        if (parsedStartDate == null || parsePosition.getIndex() != requestedStartDate.length()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid startDate");
+            return;
+        }
+        now.setTime(parsedStartDate);
+    }
+    String startDate = inform.format(now.getTime());
+    GregorianCalendar cal = (GregorianCalendar) now.clone();
+    GregorianCalendar lastMonth = (GregorianCalendar) now.clone();
+    GregorianCalendar nextMonth = (GregorianCalendar) now.clone();
+    GregorianCalendar rangeEnd = (GregorianCalendar) now.clone();
+    lastMonth.add(Calendar.MONTH, -1);
+    nextMonth.add(Calendar.MONTH, 1);
+    rangeEnd.add(Calendar.DATE, 30);
 %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
@@ -189,39 +215,7 @@
                 }
             }
         </script>
-
     </head>
-    <%
-
-
-        //int nStartTime=9, nEndTime=17, nStep = 15;
-        int colscode = (nEndTime - nStartTime) * 60 / nStep;
-        SimpleDateFormat inform = new SimpleDateFormat("yyyy-MM-dd", request.getLocale());
-        SimpleDateFormat outform = new SimpleDateFormat("EEE, yyyy/MM/dd", request.getLocale());
-        inform.setLenient(false);
-        GregorianCalendar now = new GregorianCalendar();
-        String requestedStartDate = request.getParameter("startDate");
-
-        if (requestedStartDate != null && !requestedStartDate.isBlank() && !"today".equals(requestedStartDate)) {
-            ParsePosition parsePosition = new ParsePosition(0);
-            java.util.Date parsedStartDate = inform.parse(requestedStartDate, parsePosition);
-            if (parsedStartDate == null || parsePosition.getIndex() != requestedStartDate.length()) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid startDate");
-                return;
-            }
-            now.setTime(parsedStartDate);
-        }
-        String startDate = inform.format(now.getTime());
-        GregorianCalendar cal = (GregorianCalendar) now.clone();
-        GregorianCalendar lastMonth = (GregorianCalendar) now.clone();
-        GregorianCalendar nextMonth = (GregorianCalendar) now.clone();
-        GregorianCalendar rangeEnd = (GregorianCalendar) now.clone();
-        lastMonth.add(Calendar.MONTH, -1);
-        nextMonth.add(Calendar.MONTH, 1);
-        rangeEnd.add(Calendar.DATE, 30);
-        // note: brain-dead calendar numbers months from 0, thus all the +1s in the expressions below
-//  String dateString1 = outform.format(inform.parse(cal.get(Calendar.YEAR)+"-"+(cal.get(Calendar.MONTH)+1)+"-"+cal.get(Calendar.DATE)) );
-    %>
     <body class="availability-page">
     <main class="container-fluid availability-shell py-3">
         <header class="availability-page-header mb-3">
