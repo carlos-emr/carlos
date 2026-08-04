@@ -1,4 +1,26 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 /*
  * Browser regression checks for DOB search in the patient search pop-up.
  *
@@ -191,9 +213,17 @@ async function typeDob(page, text) {
     await clearKeyword(page);
     expectValue('dob-digits-only', await typeDob(page, '19800101'), '1980-01-01');
 
-    // Alternate separators are normalized to hyphens.
+    // Alternate separators are normalized to hyphens. The formatter strips every
+    // non-digit and its trailing-separator guard matches /[-/. ]$/, so slash, dot
+    // and space all have to survive the same keystroke-by-keystroke path.
     await clearKeyword(page);
     expectValue('dob-slash-separators', await typeDob(page, '1980/01/01'), '1980-01-01');
+
+    await clearKeyword(page);
+    expectValue('dob-dot-separators', await typeDob(page, '1980.01.01'), '1980-01-01');
+
+    await clearKeyword(page);
+    expectValue('dob-space-separators', await typeDob(page, '1980 01 01'), '1980-01-01');
 
     // A full DOB submits without the format alert and renders results.
     await Promise.all([
