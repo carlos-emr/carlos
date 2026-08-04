@@ -28,6 +28,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import org.mockito.MockedStatic;
+
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 
@@ -37,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EFormRenderPdfHtmlComposer unit tests")
@@ -720,19 +724,29 @@ class EFormRenderPdfHtmlComposerUnitTest {
         // `return Set.of();`, for `return fileNames;`, and for the loop with the catch deleted.
         // Verified by mutation: inverting the catch to fail-closed left the whole class green.
         //
-        // In a unit JVM DisplayImage2Action.getImageFile throws (no eForm image directory exists),
-        // which is the lookup failure being modelled. Asserting the name is RETAINED is what makes
-        // the fail-open behaviour falsifiable: were the catch removed or inverted, the result would
-        // be empty and this fails. Inverting it in production would make every provider stamp look
-        // absent, stripping #StampSignature from every rendered document and flagging every render.
-        assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(
-                java.util.Set.of("consult_sig_999999.png")))
-                .describedAs("a lookup failure must not be read as proof the stamp is absent")
-                .containsExactly("consult_sig_999999.png");
+        // Force the lookup failure deterministically: point the eForm image directory at a path
+        // that cannot exist so DisplayImage2Action.getImageFile throws. Relying on the bare-JVM
+        // default was suite-order dependent — once an earlier test populated the CarlosProperties
+        // singleton the directory resolved, getImageFile stopped throwing, and this test asserted
+        // against the wrong branch. Asserting the name is RETAINED is what makes the fail-open
+        // behaviour falsifiable: were the catch removed or inverted, the result would be empty and
+        // this fails. Inverting it in production would make every provider stamp look absent,
+        // stripping #StampSignature from every rendered document and flagging every render.
+        CarlosProperties mockProperties = mock(CarlosProperties.class);
+        when(mockProperties.getEformImageDirectory())
+                .thenReturn("/nonexistent-eform-image-dir-for-unit-test");
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
 
-        assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(java.util.Set.of()))
-                .describedAs("no names in, no names out")
-                .isEmpty();
+            assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(
+                    java.util.Set.of("consult_sig_999999.png")))
+                    .describedAs("a lookup failure must not be read as proof the stamp is absent")
+                    .containsExactly("consult_sig_999999.png");
+
+            assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(java.util.Set.of()))
+                    .describedAs("no names in, no names out")
+                    .isEmpty();
+        }
     }
 
 }
