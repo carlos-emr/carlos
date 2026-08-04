@@ -29,11 +29,17 @@
  * other than closing the tab. This script asserts that:
  *   1. Following the link never opens a second browser tab/window.
  *   2. When reached through the schedule-shell (scheduleNav=1), the
- *      destination page keeps the app top-nav bar visible, including across
- *      a "Run Query" form submit.
- *   3. When reached outside the schedule-shell (the default popup-window
- *      navigation mode), the destination page offers a working "Back"
- *      control instead of leaving the user with only "close the tab".
+ *      destination page keeps the app top-nav bar visible across each of the
+ *      Run Query, Save Query, and Load Query form submits.
+ *   3. When reached outside the schedule-shell, the destination page offers a
+ *      working "Back" control, tested across the three fallback branches the
+ *      Back button can take: preferring in-popup history over an available
+ *      window.opener (the exact shape of the #3275 regression - reportindex.jsp
+ *      is opened via window.open, then the report tool is reached by
+ *      same-window navigation inside that popup), falling back to reloading
+ *      window.opener and closing the popup when there is no in-popup history,
+ *      and falling back to a direct Report-index redirect for a bookmarked/
+ *      typed-URL entry with neither history nor an opener.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/report-demographic-navigation-playwright-checks.js
@@ -44,19 +50,15 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
 const { chromium } = require('playwright');
-
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
-const chromePath = process.env.CHROME_PATH || '';
-const testUser = process.env.TEST_USER || 'carlosdoc';
-const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
-const testPin = process.env.TEST_PIN || '2026';
-
-const findings = [];
-const visited = [];
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
 
@@ -95,6 +97,80 @@ function validateBaseUrl(rawBaseUrl) {
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const chromePath = process.env.CHROME_PATH || '';
+const testUser = process.env.TEST_USER || 'carlosdoc';
+const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
+const testPin = process.env.TEST_PIN || '2026';
+const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlUser = process.env.MYSQL_USER || 'root';
+const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const savedQueryStamp = `PW_DEMOREPORT_${Date.now()}`;
+
+const findings = [];
+const visited = [];
+
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence and an unquoted '#' starts a comment that truncates the rest
+// of the line, so writing the password verbatim can silently corrupt it (see
+// the fix for the same issue in login-playwright-checks.js, #3308). Double-quoting
+// neutralizes '#' and surrounding whitespace; '\' and '"' still need escaping.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function createMysqlDefaultsFile() {
+  if (/[\r\n]/.test(mysqlPassword)) {
+    throw new Error('MYSQL_PASSWORD must not contain newline characters');
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-demoreport-mysql-'));
+  const file = path.join(dir, 'client.cnf');
+  fs.writeFileSync(file, `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`, { mode: 0o600 });
+  return { dir, file };
+}
+
+let mysqlDefaults = null;
+
+function sql(query) {
+  if (!mysqlDefaults) {
+    mysqlDefaults = createMysqlDefaultsFile();
+  }
+  return execFileSync('mysql', [
+    `--defaults-extra-file=${mysqlDefaults.file}`,
+    '-h', mysqlHost,
+    '-u', mysqlUser,
+    mysqlDatabase,
+    '-N',
+    '-B',
+    '-e',
+    query,
+  ], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function escapeSql(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
+}
+
+// Deletes the query-favourite row this script's Save Query check creates.
+// Best-effort: a cleanup failure is logged, not thrown, so it never masks a
+// real navigation-regression finding from the checks that ran before it.
+function cleanupSavedQueryRow() {
+  try {
+    sql(`DELETE FROM demographicQueryFavourites WHERE queryName = '${escapeSql(savedQueryStamp)}'`);
+  } catch (error) {
+    console.error(`WARN: failed to clean up demographicQueryFavourites row for ${savedQueryStamp}: ${error.message}`);
+  } finally {
+    if (mysqlDefaults) {
+      fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
+      mysqlDefaults = null;
+    }
+  }
 }
 
 function appUrl(appPath) {
@@ -251,6 +327,23 @@ async function clickDemographicReportLink(context, reportIndexPage, label) {
   return reportIndexPage;
 }
 
+// Clicks a query-form submit control and confirms both that the page comes
+// back clean and that the schedule-shell top-nav (#logoutButton) survived the
+// POST/forward. Shared by the Run/Save/Load Query checks below, which all
+// round-trip through the same RptDemographicReport2Action forward and must
+// all preserve the scheduleNav=1 hidden field the same way.
+async function submitQueryFormAndAssertNavBarSurvives(reportPage, submitLabel, buttonName) {
+  await Promise.all([
+    reportPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {}),
+    reportPage.getByRole('button', { name: buttonName, exact: true }).click(),
+  ]);
+  await assertNoErrorPage(reportPage, submitLabel);
+  const navBarAfterSubmit = await reportPage.locator('#logoutButton').isVisible().catch(() => false);
+  if (!navBarAfterSubmit) {
+    findings.push({ label: submitLabel, type: 'nav-bar-missing-after-submit', url: reportPage.url() });
+  }
+}
+
 async function checkScheduleShellMode(context) {
   const label = 'demographic-report-schedule-nav';
   const reportIndexPage = await context.newPage();
@@ -272,54 +365,198 @@ async function checkScheduleShellMode(context) {
     findings.push({ label, type: 'nav-bar-missing', url: reportPage.url() });
   }
 
-  // Run a query and confirm the top-nav bar survives the form POST/forward.
+  // Run Query, Save Query, and Load Query all round-trip through the same
+  // form/action and must each preserve scheduleNav the same way; testing
+  // only Run Query would miss a regression specific to the other two submits.
   const demographicNoCheckbox = reportPage.locator('#select_demographic_no');
   if (!await demographicNoCheckbox.count()) {
     findings.push({ label, type: 'missing-run-query-precondition', selector: '#select_demographic_no' });
   } else {
     await demographicNoCheckbox.check();
-    await Promise.all([
-      reportPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {}),
-      reportPage.getByRole('button', { name: 'Run Query', exact: true }).click(),
-    ]);
-    await assertNoErrorPage(reportPage, `${label}-run-query`);
-    const navBarAfterQuery = await reportPage.locator('#logoutButton').isVisible().catch(() => false);
-    if (!navBarAfterQuery) {
-      findings.push({ label: `${label}-run-query`, type: 'nav-bar-missing-after-submit', url: reportPage.url() });
+    await submitQueryFormAndAssertNavBarSurvives(reportPage, `${label}-run-query`, 'Run Query');
+  }
+
+  const queryNameField = reportPage.locator('#queryName');
+  if (!await queryNameField.count()) {
+    findings.push({ label, type: 'missing-save-query-precondition', selector: '#queryName' });
+  } else {
+    // Uniquely stamped so this run's row is identifiable and safely deletable
+    // afterward (see cleanupSavedQueryRow) without touching real saved queries.
+    await queryNameField.fill(savedQueryStamp);
+    await submitQueryFormAndAssertNavBarSurvives(reportPage, `${label}-save-query`, 'Save Query');
+  }
+
+  const savedQuerySelect = reportPage.locator('#savedQuery');
+  if (!await savedQuerySelect.count()) {
+    findings.push({ label, type: 'missing-load-query-precondition', selector: '#savedQuery' });
+  } else {
+    // Select the query this run just saved when it shows up in the refreshed
+    // dropdown; otherwise fall back to whatever is selected, since the point
+    // of this check is scheduleNav survival, not query-loading correctness.
+    const stampOption = savedQuerySelect.locator(`option:text-is("${savedQueryStamp}")`);
+    if (await stampOption.count()) {
+      await savedQuerySelect.selectOption({ label: savedQueryStamp });
     }
+    await submitQueryFormAndAssertNavBarSurvives(reportPage, `${label}-load-query`, 'Load Query');
   }
 
   await reportPage.close();
 }
 
-async function checkPopupWindowMode(context) {
-  const label = 'demographic-report-popup-mode';
-  const reportIndexPage = await context.newPage();
-  wirePage(reportIndexPage, `${label}-index`);
-  await safeGoto(reportIndexPage, '/report/ViewReportindex', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await reportIndexPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+// Opens `targetPath` in a new browser window via window.open() from `openerPage`,
+// so the resulting page has a real window.opener (unlike context.newPage(),
+// which never sets one). Used to reproduce the popup relationship reportindex.jsp
+// is actually reached through in production (popupOscarRx -> window.open).
+async function openPopup(context, openerPage, targetPath, label) {
+  const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
+  await openerPage.evaluate((url) => { window.open(url, '_blank'); }, appUrl(targetPath));
+  const popupPage = await popupPromise;
+  if (!popupPage) {
+    findings.push({ label, type: 'popup-open-failed', detail: `window.open for ${targetPath} did not produce a new page` });
+    return null;
+  }
+  wirePage(popupPage, `${label}-popup`);
+  await popupPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  await popupPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  return popupPage;
+}
 
-  const reportPage = await clickDemographicReportLink(context, reportIndexPage, label);
-  if (!reportPage) {
+function getBackButton(page) {
+  // Selects by id rather than the localized "Back" label (fmt:message key
+  // global.btnBack) so this check doesn't depend on locale/label content.
+  const backButton = page.locator('#demographicReportBackButton');
+  return backButton;
+}
+
+// Reproduces the actual production shape: reportindex.jsp is opened via
+// popupOscarRx (window.open), so window.opener is set on the popup from
+// creation; the Demographic Report link is then followed by same-window
+// navigation inside that popup (target="_blank" was removed), pushing a
+// second history entry. This is the exact scenario the P1 opener-vs-history
+// bug reproduced: Back must prefer that in-popup history over window.opener,
+// i.e. it must navigate back within the popup, not close it.
+async function checkBackButtonPrefersHistoryOverOpener(context) {
+  const label = 'demographic-report-back-history-over-opener';
+  const schedulePage = await context.newPage();
+  wirePage(schedulePage, `${label}-schedule-stand-in`);
+  await safeGoto(schedulePage, '/provider/providercontrol', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  const reportIndexPage = await openPopup(context, schedulePage, '/report/ViewReportindex', label);
+  if (!reportIndexPage) {
+    await schedulePage.close();
     return;
   }
 
-  // Selects by id rather than the localized "Back" label (fmt:message key
-  // global.btnBack) so this check doesn't depend on locale/label content.
-  const backButton = reportPage.locator('#demographicReportBackButton');
+  const reportPage = await clickDemographicReportLink(context, reportIndexPage, label);
+  if (!reportPage) {
+    await schedulePage.close();
+    return;
+  }
+
+  const backButton = getBackButton(reportPage);
   if (!await backButton.count()) {
     findings.push({ label, type: 'back-control-missing', url: reportPage.url() });
   } else {
+    const scheduleReloaded = schedulePage.waitForEvent('load', { timeout: 3000 }).catch(() => null);
     await Promise.all([
       reportPage.waitForURL(/ViewReportindex/, { timeout: 10000 }).catch(() => {}),
       backButton.click(),
     ]);
-    if (!/ViewReportindex/.test(reportPage.url())) {
+    if (reportPage.isClosed()) {
+      findings.push({ label, type: 'back-control-closed-popup-instead-of-history-back', detail: 'popup closed even though in-popup history was available' });
+    } else if (!/ViewReportindex/.test(reportPage.url())) {
       findings.push({ label, type: 'back-control-did-not-navigate', url: reportPage.url() });
+    }
+    if (await scheduleReloaded) {
+      findings.push({ label, type: 'back-control-reloaded-opener-instead-of-history-back', detail: 'opener page reloaded even though in-popup history was available' });
     }
   }
 
-  await reportPage.close();
+  if (!reportPage.isClosed()) {
+    await reportPage.close();
+  }
+  await schedulePage.close();
+}
+
+// A popup opened directly at the report tool (no prior in-popup navigation,
+// so history.length is 1) with an opener present. Back must fall back to
+// reloading the opener and closing the popup - the branch that only applies
+// once the in-popup-history branch above does not.
+async function checkBackButtonOpenerOnlyFallback(context) {
+  const label = 'demographic-report-back-opener-only-fallback';
+  const openerPage = await context.newPage();
+  wirePage(openerPage, `${label}-opener-stand-in`);
+  await safeGoto(openerPage, '/provider/providercontrol', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await openerPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  const popupPage = await openPopup(context, openerPage, '/oscarReport/ViewReportDemographicReport', label);
+  if (!popupPage) {
+    await openerPage.close();
+    return;
+  }
+  await assertNoErrorPage(popupPage, label);
+
+  const backButton = getBackButton(popupPage);
+  if (!await backButton.count()) {
+    findings.push({ label, type: 'back-control-missing', url: popupPage.url() });
+  } else {
+    const openerReloaded = openerPage.waitForEvent('load', { timeout: 10000 }).catch(() => null);
+    const popupClosed = popupPage.waitForEvent('close', { timeout: 10000 }).catch(() => null);
+    await backButton.click();
+    const [reloaded, closed] = await Promise.all([openerReloaded, popupClosed]);
+    if (!closed) {
+      findings.push({ label, type: 'back-control-did-not-close-popup', detail: 'popup stayed open even though it had an opener and no in-popup history' });
+    }
+    if (!reloaded) {
+      findings.push({ label, type: 'back-control-did-not-reload-opener', detail: 'opener page did not reload' });
+    }
+  }
+
+  if (!popupPage.isClosed()) {
+    await popupPage.close().catch(() => {});
+  }
+  await openerPage.close();
+}
+
+// A brand-new tab navigated straight to the report tool (e.g. a bookmark or
+// typed URL): no window.opener, and no *meaningful* history - a real fresh
+// browser tab's New Tab Page is not a counted history entry the way
+// Playwright's context.newPage() "about:blank" document is, so window.history.length
+// stubbed to 1 here is what a genuine fresh tab reports, not an artifact of the
+// test harness. Stubbing it directly (rather than trying to contrive a real
+// navigation sequence that produces length===1, which Playwright's own initial
+// document makes effectively unreachable) tests the exact branch condition the
+// Back handler evaluates without depending on that harness quirk. Back must
+// land on the Report index directly rather than a no-op window.close() browsers
+// would block.
+async function checkBackButtonDirectEntryFallback(context) {
+  const label = 'demographic-report-back-direct-entry-fallback';
+  const page = await context.newPage();
+  wirePage(page, label);
+  await safeGoto(page, '/oscarReport/ViewReportDemographicReport', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await assertNoErrorPage(page, label);
+
+  await page.evaluate(() => {
+    Object.defineProperty(window.history, 'length', { get: () => 1, configurable: true });
+    Object.defineProperty(window, 'opener', { value: null, configurable: true });
+  });
+
+  const backButton = getBackButton(page);
+  if (!await backButton.count()) {
+    findings.push({ label, type: 'back-control-missing', url: page.url() });
+  } else {
+    await Promise.all([
+      page.waitForURL(/ViewReportindex/, { timeout: 10000 }).catch(() => {}),
+      backButton.click(),
+    ]);
+    if (!/ViewReportindex/.test(page.url())) {
+      findings.push({ label, type: 'back-control-did-not-navigate-to-index', url: page.url() });
+    }
+  }
+
+  await page.close();
 }
 
 (async () => {
@@ -344,7 +581,9 @@ async function checkPopupWindowMode(context) {
     await login(context);
 
     await checkScheduleShellMode(context);
-    await checkPopupWindowMode(context);
+    await checkBackButtonPrefersHistoryOverOpener(context);
+    await checkBackButtonOpenerOnlyFallback(context);
+    await checkBackButtonDirectEntryFallback(context);
 
     console.log(JSON.stringify({ visited, findings }, null, 2));
 
@@ -355,6 +594,7 @@ async function checkPopupWindowMode(context) {
 
     console.log('PASS demographic report navigation stays in-tab and offers a way back');
   } finally {
+    cleanupSavedQueryRow();
     await browser.close();
   }
 })().catch((error) => {
