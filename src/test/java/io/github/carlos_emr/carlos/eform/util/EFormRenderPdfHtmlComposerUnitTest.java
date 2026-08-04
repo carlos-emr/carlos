@@ -18,9 +18,7 @@
 
 package io.github.carlos_emr.carlos.eform.util;
 
-import java.nio.file.Path;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -29,6 +27,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EFormRenderPdfHtmlComposer unit tests")
@@ -723,25 +724,20 @@ class EFormRenderPdfHtmlComposerUnitTest {
         // `return Set.of();`, for `return fileNames;`, and for the loop with the catch deleted.
         // Verified by mutation: inverting the catch to fail-closed left the whole class green.
         //
-        // DisplayImage2Action.getImageFile throws when the configured eForm image directory does
-        // not exist, which is the lookup failure being modelled here. That directory is resolved
-        // through the CarlosProperties singleton shared process-wide, so pointing EFORM_IMAGES_DIR
-        // at a path guaranteed not to exist makes the "lookup failure" branch deterministic instead
-        // of depending on whatever the ambient default directory happens to be on disk when this
-        // test runs — the deployed webapp (EFormAssetDeployer) creates that default directory for
-        // real on startup, and a full test-suite run shares its filesystem with it.
-        //
-        // Asserting the name is RETAINED is what makes the fail-open behaviour falsifiable: were
-        // the catch removed or inverted, the result would be empty and this fails. Inverting it in
-        // production would make every provider stamp look absent, stripping #StampSignature from
-        // every rendered document and flagging every render.
-        CarlosProperties properties = CarlosProperties.getInstance();
-        boolean hadOverride = properties.containsKey("EFORM_IMAGES_DIR");
-        Object originalOverride = properties.get("EFORM_IMAGES_DIR");
-        Path missingDirectory = Path.of(System.getProperty("java.io.tmpdir"),
-                "carlos-eform-images-missing-" + UUID.randomUUID());
-        properties.setProperty("EFORM_IMAGES_DIR", missingDirectory.toString());
-        try {
+        // Force the lookup failure deterministically: point the eForm image directory at a path
+        // that cannot exist so DisplayImage2Action.getImageFile throws. Relying on the bare-JVM
+        // default was suite-order dependent — once an earlier test populated the CarlosProperties
+        // singleton the directory resolved, getImageFile stopped throwing, and this test asserted
+        // against the wrong branch. Asserting the name is RETAINED is what makes the fail-open
+        // behaviour falsifiable: were the catch removed or inverted, the result would be empty and
+        // this fails. Inverting it in production would make every provider stamp look absent,
+        // stripping #StampSignature from every rendered document and flagging every render.
+        CarlosProperties mockProperties = mock(CarlosProperties.class);
+        when(mockProperties.getEformImageDirectory())
+                .thenReturn("/nonexistent-eform-image-dir-for-unit-test");
+        try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
             assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(
                     java.util.Set.of("consult_sig_999999.png")))
                     .describedAs("a lookup failure must not be read as proof the stamp is absent")
@@ -750,12 +746,6 @@ class EFormRenderPdfHtmlComposerUnitTest {
             assertThat(EFormRenderPdfHtmlComposer.existingImageFiles(java.util.Set.of()))
                     .describedAs("no names in, no names out")
                     .isEmpty();
-        } finally {
-            if (hadOverride) {
-                properties.put("EFORM_IMAGES_DIR", originalOverride);
-            } else {
-                properties.remove("EFORM_IMAGES_DIR");
-            }
         }
     }
 
