@@ -37,6 +37,7 @@ const {
   validateBaseUrl,
   wirePage,
 } = require('./eform-local-playwright-utils');
+const { shouldVerifyDeletedEformRow } = require('./eform-admin-schedule-navigation-cleanup');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
@@ -210,6 +211,10 @@ async function deleteEform(page, fid, formName) {
     response.status() < 400 || response.status() === 405,
     `Temporary eForm delete failed with HTTP ${response.status()}`,
   );
+
+  if (!shouldVerifyDeletedEformRow(response.status())) {
+    return;
+  }
 
   await gotoApp(page, config.baseUrl, '/eform/efmformmanager');
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
