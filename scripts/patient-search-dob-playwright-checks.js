@@ -44,17 +44,9 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
-const { chromium } = require('playwright');
 const net = require('node:net');
+const { chromium } = require('playwright');
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
-const chromePath = process.env.CHROME_PATH || '';
-const testUser = process.env.TEST_USER || 'carlosdoc';
-const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
-const testPin = process.env.TEST_PIN || '2026';
-
-const findings = [];
-const checks = [];
 const EXACT_LOCAL_HOSTS = new Set([
   'localhost',
   '127.0.0.1',
@@ -64,6 +56,15 @@ const EXACT_LOCAL_HOSTS = new Set([
   'host.docker.internal',
   'carlos',
 ]);
+
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const chromePath = process.env.CHROME_PATH || '';
+const testUser = process.env.TEST_USER || 'carlosdoc';
+const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
+const testPin = process.env.TEST_PIN || '2026';
+
+const findings = [];
+const checks = [];
 
 function normalizedHostname(url) {
   const host = url.hostname.toLowerCase();
