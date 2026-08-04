@@ -731,7 +731,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                                 request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                             }
                         }
-                        request.setAttribute(DocumentAttachmentManager.SKIP_FORM_ATTACHMENT_RENDERING_ATTRIBUTE, Boolean.TRUE);
                         HttpServletResponse renderResponse = createRenderOnlyResponse(response);
                         HttpServletResponse previousResponse = ServletActionContext.getResponse();
                         ServletActionContext.setResponse(renderResponse);
