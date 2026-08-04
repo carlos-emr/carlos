@@ -155,4 +155,21 @@ public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements Facili
     @Override
     public void batchRemove(List<Facility> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override public void batchPersistAtomically(List<Facility> list) { super.batchPersistAtomically(list); }
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override public void batchPersistAtomically(List<Facility> list, int size) { super.batchPersistAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<Facility> list) { super.batchRemoveAtomically(list); }
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<Facility> list, int size) { super.batchRemoveAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<Facility> list) { super.batchPersistWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<Facility> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<Facility> list) { super.batchRemoveWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.FACILITIES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<Facility> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
+
 }
