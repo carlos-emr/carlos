@@ -49,6 +49,17 @@ class IncomingDocumentAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should not file the source document when refile fails")
+    void shouldRequireSuccessfulRefileResponseBeforeFilingSource() throws IOException {
+        String javascript = read(DOCUMENT_JS);
+
+        assertThat(javascript)
+                .contains("if (!response.ok)")
+                .contains("Unable to refile document (HTTP ")
+                .containsSubsequence("if (!response.ok)", "return response.text()", "fileDoc(id)");
+    }
+
+    @Test
     @DisplayName("should expose the disabled Save explanation beyond pointer hover")
     void shouldExposeDisabledSaveExplanationAccessibly() throws IOException {
         String jsp = read(INCOMING_DOCS_JSP);

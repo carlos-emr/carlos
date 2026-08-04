@@ -454,12 +454,43 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!isPositiveInteger(documentId) || !isPositiveInteger(queueId)) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid documentId or queueId");
+            } catch (IOException e) {
+                log.error("Unable to send invalid refile request response", e);
+            }
+            return NONE;
+        }
+
         try {
             EDocUtil.refileDocument(documentId, queueId);
+        } catch (SecurityException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to refile document {} to queue {}", LogSafe.sanitize(documentId), LogSafe.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "Unable to refile document");
+                } catch (IOException ioe) {
+                    log.error("Unable to send refile failure response", ioe);
+                }
+            }
         }
         return NONE;
+    }
+
+    private static boolean isPositiveInteger(String value) {
+        if (value == null || !value.matches("[1-9][0-9]*")) {
+            return false;
+        }
+        try {
+            Integer.parseInt(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     /**

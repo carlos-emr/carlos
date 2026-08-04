@@ -42,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 
 import java.util.Date;
@@ -50,7 +51,6 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
-import org.apache.commons.io.FileUtils;
 import org.owasp.encoder.Encode;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -938,15 +938,21 @@ public final class EDocUtil {
                 getRefiledDocumentFileName(sourceFile.getName()), destBaseDir);
 
         try {
-            if (destFile.exists()) {
-                throw new IOException("Cannot refile document #" + documentNo + " " + d.getDocdesc() + ". Destination File " + destFile.getAbsolutePath() + " already exists");
-            } else {
-                FileUtils.copyFile(sourceFile, destFile);
-            }
+            copyRefiledDocument(sourceFile, destFile);
         } catch (IOException e) {
             logger.error("Error", e);
             throw new Exception(e);
         }
+    }
+
+    /**
+     * Copies a refiled document without an exists-then-copy race. The default
+     * {@link Files#copy(Path, Path, java.nio.file.CopyOption...)} behavior fails
+     * when the destination already exists, including when another request creates
+     * it between path validation and the copy.
+     */
+    static void copyRefiledDocument(File sourceFile, File destFile) throws IOException {
+        Files.copy(sourceFile.toPath(), destFile.toPath(), StandardCopyOption.COPY_ATTRIBUTES);
     }
 
     public static String getDmsDateTime() {

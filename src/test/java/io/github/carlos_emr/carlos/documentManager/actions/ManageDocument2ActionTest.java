@@ -212,6 +212,41 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() throws Exception {
+        authorizeEdocWrite();
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            edocUtil.when(() -> EDocUtil.refileDocument("42", "7"))
+                    .thenThrow(new IOException("destination exists"));
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            edocUtil.verify(() -> EDocUtil.refileDocument("42", "7"));
+        }
+    }
+
+    @Test
+    void shouldRejectInvalidIdentifiers_whenRefilingDocument() {
+        authorizeEdocWrite();
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "../other");
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @Test
     void shouldReturnNoneAndSendForbidden_whenShowPageDeniesAuthorization() {
         request.setParameter("method", "showPage");
         request.setParameter("page", "1");
@@ -518,6 +553,15 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         when(programManager.getCurrentProgramInDomain(any(), anyString())).thenReturn(null);
         when(patientLabRoutingDao.findByLabNoAndLabType(anyInt(), anyString())).thenReturn(Collections.emptyList());
         when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(nonDemographicCtlDocument());
+    }
+
+    private void authorizeEdocWrite() {
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("w"), isNull())).thenReturn(true);
     }
 
     private String runAddIncomingDocumentWithEdocMock() throws Exception {

@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import java.io.File;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -35,6 +36,7 @@ import io.github.carlos_emr.CarlosProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Regression tests for the refile-queue lookup behind issue #3239: a queue whose refile
@@ -144,6 +146,30 @@ class EDocUtilRefileQueueUnitTest {
         Files.createFile(refileDir.toPath().resolve("Rscan_1.pdf"));
 
         assertThat(EDocUtil.isDocumentAlreadyRefiledInQueue(STORED_FILENAME, 1)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should never overwrite an existing refile destination")
+    void shouldNotOverwriteExistingRefileDestination() throws Exception {
+        Path source = Files.writeString(incomingRoot.resolve("source.pdf"), "new content");
+        Path destination = Files.writeString(incomingRoot.resolve("destination.pdf"), "existing content");
+
+        assertThatThrownBy(() -> EDocUtil.copyRefiledDocument(source.toFile(), destination.toFile()))
+                .isInstanceOf(FileAlreadyExistsException.class);
+        assertThat(Files.readString(destination)).isEqualTo("existing content");
+    }
+
+    @Test
+    @DisplayName("should preserve the source timestamp when refiling")
+    void shouldPreserveSourceTimestamp_whenRefiling() throws Exception {
+        Path source = Files.writeString(incomingRoot.resolve("source.pdf"), "content");
+        Path destination = incomingRoot.resolve("destination.pdf");
+        long sourceTimestamp = 1_700_000_000_000L;
+        source.toFile().setLastModified(sourceTimestamp);
+
+        EDocUtil.copyRefiledDocument(source.toFile(), destination.toFile());
+
+        assertThat(destination.toFile().lastModified()).isEqualTo(sourceTimestamp);
     }
 
     private File refileDir() {

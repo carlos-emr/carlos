@@ -2175,7 +2175,12 @@ function refileDoc(id) {
     const data = 'method=refileDocumentAjax&documentId=' + id + "&queueId=" + queueId;
 
     postForm(url, data)
-        .then(response => response.text())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Unable to refile document (HTTP ' + response.status + ')');
+            }
+            return response.text();
+        })
         .then(responseText => {
             fileDoc(id);
         })
