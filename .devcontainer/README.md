@@ -180,10 +180,10 @@ docker-compose down -v
 # Remove all unused Docker resources
 docker system prune -f
 
-# Remove specific volumes if they persist (scoped by Compose volume labels so
+# Remove specific volumes if they persist (scoped by Compose project+volume labels so
 # volumes belonging to unrelated projects are never touched)
 for key in mariadb-11-flyway-files m2-volume; do
-  docker volume ls -q --filter "label=com.docker.compose.volume=${key}" | while read -r vol; do docker volume rm "$vol"; done
+  docker volume ls -q --filter "label=com.docker.compose.project=carlos-emr" --filter "label=com.docker.compose.volume=${key}" | while read -r vol; do docker volume rm "$vol"; done
 done
 ```
 
