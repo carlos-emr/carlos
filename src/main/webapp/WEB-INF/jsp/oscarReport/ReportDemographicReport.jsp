@@ -104,6 +104,12 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+        <% if (showScheduleNav) { %>
+        <%-- mainMenu.jsp is included below when reached via the schedule shell; every other
+             page that includes it also links topnav.css directly (it is not pulled in by
+             global-head.jspf), so without this the top nav renders with browser defaults. --%>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/topnav.css">
+        <% } %>
 
         <script type="text/javascript">
             document.addEventListener('DOMContentLoaded', function () {
@@ -116,13 +122,22 @@
                 if (backButton) {
                     backButton.addEventListener('click', function () {
                         try {
-                            if (window.opener && !window.opener.closed) {
+                            // This page is reached by same-window navigation from the Report
+                            // index (target="_blank" was removed), so history.back() is what
+                            // returns to the Report index. window.opener, when set, points at
+                            // whatever page originally opened the popup window (e.g. the
+                            // schedule shell several steps back) and is only the right target
+                            // when there is no same-window history to unwind.
+                            if (window.history.length > 1) {
+                                window.history.back();
+                            } else if (window.opener && !window.opener.closed) {
                                 window.opener.location.reload();
                                 window.close();
-                            } else if (window.history.length > 1) {
-                                window.history.back();
                             } else {
-                                window.close();
+                                // Direct/bookmarked entry: no history, no opener. window.close()
+                                // is a no-op here since browsers block scripted close on tabs
+                                // they didn't open, so navigate to the Report index instead.
+                                window.location.href = '${pageContext.request.contextPath}/report/ViewReportindex';
                             }
                         } catch (e) {
                             window.history.back();
@@ -199,8 +214,8 @@
             <%-- Popup-window entry (default nav mode) has no browser chrome to get back with;
                  the schedule-shell case already gets a way back from the included mainMenu.jsp
                  top nav above, so this button only needs to render outside that mode. Its click
-                 handler falls back from opener, to history, to closing the window as a last
-                 resort, matching the established back-button pattern in tickler/ticklerMain.jsp. --%>
+                 handler falls back from history, to opener, to a direct Report-index redirect;
+                 see the ordering rationale in the DOMContentLoaded handler above. --%>
             <input type="button" name="button" id="demographicReportBackButton" class="btn btn-sm btn-secondary"
                    value="<fmt:message key="global.btnBack"/>"
                    />

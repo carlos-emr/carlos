@@ -729,13 +729,13 @@ class EFormRenderPdfHtmlComposerUnitTest {
         // other test classes (e.g. ConsultationSignatureServiceUnitTest, ConvertToEdocUnitTest)
         // legitimately point at a real, existing temp directory for the duration of their own
         // tests, and Surefire reuses forks across test classes. This test now pins EFORM_IMAGES_DIR
-        // to a path it creates and immediately deletes, so the directory is deterministically absent
-        // regardless of what else has run in this JVM.
+        // to a non-existent child of a real temp parent directory, so the directory is
+        // deterministically absent without depending on delete timing/permissions on any platform.
         CarlosProperties properties = CarlosProperties.getInstance();
         boolean hadEformImagesDir = properties.containsKey("EFORM_IMAGES_DIR");
         Object originalEformImagesDir = properties.get("EFORM_IMAGES_DIR");
-        Path guaranteedAbsentDirectory = Files.createTempDirectory("eform-images-absent-");
-        Files.delete(guaranteedAbsentDirectory);
+        Path tempParentDirectory = Files.createTempDirectory("eform-images-parent-");
+        Path guaranteedAbsentDirectory = tempParentDirectory.resolve("absent");
         properties.setProperty("EFORM_IMAGES_DIR", guaranteedAbsentDirectory.toString());
         try {
             // Asserting the name is RETAINED is what makes the fail-open behaviour falsifiable: were
@@ -756,6 +756,7 @@ class EFormRenderPdfHtmlComposerUnitTest {
             } else {
                 properties.remove("EFORM_IMAGES_DIR");
             }
+            Files.deleteIfExists(tempParentDirectory);
         }
     }
 

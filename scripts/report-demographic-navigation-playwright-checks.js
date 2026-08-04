@@ -1,4 +1,25 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 /*
  * Browser regression checks for the Report > Demographic Report Tool
  * navigation fix (issue #3275).
@@ -37,6 +58,31 @@ const testPin = process.env.TEST_PIN || '2026';
 const findings = [];
 const visited = [];
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+
+// Matches a full dotted-quad IPv4 address only (anchored start-to-end), so a
+// hostname like "10.attacker.example" cannot be mistaken for the private
+// 10.0.0.0/8 range just because it starts with the same characters as one.
+function isPrivateIpv4(host) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) {
+    return false;
+  }
+  const octets = match.slice(1).map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return false;
+  }
+  const [a, b] = octets;
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+function isLocalHost(rawHost) {
+  // URL.hostname keeps the brackets on IPv6 literals (e.g. "[::1]"); strip
+  // them so bracketed loopback addresses match the same as their bare form.
+  const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+}
+
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
@@ -44,9 +90,7 @@ function validateBaseUrl(rawBaseUrl) {
   }
 
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
@@ -176,8 +220,9 @@ async function clickDemographicReportLink(context, reportIndexPage, label) {
 
   const existingPages = context.pages();
   const popupPromise = context.waitForEvent('page', { timeout: 4000 }).catch(() => null);
+  const navigatedPromise = reportIndexPage.waitForURL(/ViewReportDemographicReport/, { timeout: 15000 }).catch(() => null);
   await locator.click();
-  const popupPage = await popupPromise;
+  const [popupPage, navigated] = await Promise.all([popupPromise, navigatedPromise]);
 
   if (popupPage) {
     findings.push({ label, type: 'opens-new-tab', detail: 'click opened a second browser page/tab' });
@@ -194,6 +239,15 @@ async function clickDemographicReportLink(context, reportIndexPage, label) {
   await reportIndexPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   visited.push({ label, url: reportIndexPage.url() });
   await assertNoErrorPage(reportIndexPage, label);
+
+  // Without this, a click that silently fails to navigate would leave later
+  // scheduleNav/nav-bar assertions running against the unchanged index page,
+  // which could pass and mask a real regression.
+  if (!navigated && !/ViewReportDemographicReport/.test(reportIndexPage.url())) {
+    findings.push({ label, type: 'navigation-failed', detail: 'click did not navigate to the Demographic Report Tool', url: reportIndexPage.url() });
+    return null;
+  }
+
   return reportIndexPage;
 }
 
@@ -213,21 +267,23 @@ async function checkScheduleShellMode(context) {
     findings.push({ label, type: 'schedule-nav-lost', url: reportPage.url() });
   }
 
-  const navBarVisible = await reportPage.locator('#logoutButton').count();
+  const navBarVisible = await reportPage.locator('#logoutButton').isVisible().catch(() => false);
   if (!navBarVisible) {
     findings.push({ label, type: 'nav-bar-missing', url: reportPage.url() });
   }
 
   // Run a query and confirm the top-nav bar survives the form POST/forward.
   const demographicNoCheckbox = reportPage.locator('#select_demographic_no');
-  if (await demographicNoCheckbox.count()) {
+  if (!await demographicNoCheckbox.count()) {
+    findings.push({ label, type: 'missing-run-query-precondition', selector: '#select_demographic_no' });
+  } else {
     await demographicNoCheckbox.check();
     await Promise.all([
       reportPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {}),
       reportPage.getByRole('button', { name: 'Run Query', exact: true }).click(),
     ]);
     await assertNoErrorPage(reportPage, `${label}-run-query`);
-    const navBarAfterQuery = await reportPage.locator('#logoutButton').count();
+    const navBarAfterQuery = await reportPage.locator('#logoutButton').isVisible().catch(() => false);
     if (!navBarAfterQuery) {
       findings.push({ label: `${label}-run-query`, type: 'nav-bar-missing-after-submit', url: reportPage.url() });
     }
@@ -248,7 +304,9 @@ async function checkPopupWindowMode(context) {
     return;
   }
 
-  const backButton = reportPage.getByRole('button', { name: 'Back' });
+  // Selects by id rather than the localized "Back" label (fmt:message key
+  // global.btnBack) so this check doesn't depend on locale/label content.
+  const backButton = reportPage.locator('#demographicReportBackButton');
   if (!await backButton.count()) {
     findings.push({ label, type: 'back-control-missing', url: reportPage.url() });
   } else {
@@ -275,7 +333,14 @@ async function checkPopupWindowMode(context) {
 
   const browser = await chromium.launch(launchOptions);
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    // Certificate validation is only relaxed for local targets (self-signed dev
+    // certs are common there). A non-local target reached via ALLOW_NON_LOCAL_BASE_URL
+    // still gets full TLS validation, so a spoofed/invalid cert can't silently
+    // intercept the credentialed login this script performs.
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
+      viewport: { width: 1440, height: 1000 },
+    });
     await login(context);
 
     await checkScheduleShellMode(context);
