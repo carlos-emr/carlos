@@ -45,6 +45,10 @@ DOCS=${SRC}/OscarDocument/
 
 LOG_FILE=${SRC}CARLOS${VERSION}install.log
 LOG_ERR=${SRC}CARLOS.err
+DB_CLIENT=
+if command -v mariadb >/dev/null 2>&1 ; then
+    DB_CLIENT=mariadb
+fi
 
 # --- log the running of the script appending as necessary
 echo "#########" `date` "#########" 1>> $LOG_FILE
@@ -79,15 +83,19 @@ case "$1" in
 		rm -f ${C_BASE}webapps/drugref.war 2>>$LOG_FILE
 		echo "Removed drugref.war" >> ${LOG_FILE}
 		#and its database
-	    # get the MySQL pwd
+	    # get the database password
 	    if [ -f "${C_HOME}${PROGRAM}.properties" ]; then
 		    #first grep the password
 		    echo "grep the password from the properties file" 1>> $LOG_FILE
 		    db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 		    db_username=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_username'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 		    echo "Dropping drugref database"
-		    (export MYSQL_PWD="${db_password}"; mysql -u "${db_username}" --execute="drop database if exists drugref;" 2>>$LOG_FILE)
-		    echo "Removed drugref database" >> ${LOG_FILE}
+		    if [ -n "${DB_CLIENT}" ]; then
+		        (export MYSQL_PWD="${db_password}"; ${DB_CLIENT} -u "${db_username}" --execute="drop database if exists drugref;" 2>>$LOG_FILE)
+		        echo "Removed drugref database" >> ${LOG_FILE}
+		    else
+		        echo "mariadb client not available; skipping drugref database drop" >> ${LOG_ERR}
+		    fi
 	    else
 		    echo "Oops can't remove the drugref database, will proceed anyway" >> ${LOG_ERR}
 	    fi

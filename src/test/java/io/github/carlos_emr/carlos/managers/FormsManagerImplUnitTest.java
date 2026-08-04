@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -109,8 +111,8 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should use request demographic before patient form demographic when rendering patient form")
-    void shouldUseRequestDemographic_beforePatientFormDemographic() {
+    @DisplayName("should use patient form demographic before request demographic when rendering patient form")
+    void shouldUsePatientFormDemographic_beforeRequestDemographic() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
@@ -122,9 +124,44 @@ class FormsManagerImplUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("missing required sec object (_form)");
 
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "456");
-        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "456");
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("should ignore request form metadata when rendering an attached patient form")
+    void shouldIgnoreRequestFormMetadata_whenRenderingPatientForm() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        LoggedInInfo.setLoggedInInfoIntoRequest(request, loggedInInfo);
+        request.setParameter("formId", "999");
+        request.setParameter("formName", "Other");
+        request.setParameter("demographicNo", "456");
+        EctFormData.PatientForm form = new EctFormData.PatientForm("formAnnual", "Annual", 45, 123);
+        Path renderedPath = Path.of("target/form-preview.pdf");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123")).thenReturn(true);
+
+        try (MockedConstruction<FormTransportContainer> transportConstruction =
+                     mockConstruction(FormTransportContainer.class);
+             MockedStatic<ConvertToEdoc> convertToEdocMock = mockStatic(ConvertToEdoc.class)) {
+            convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(FormTransportContainer.class)))
+                    .thenReturn(renderedPath);
+
+            assertThat(manager.renderForm(request, response, form)).isEqualTo(renderedPath);
+
+            assertThat(transportConstruction.constructed()).hasSize(1);
+            FormTransportContainer transport = transportConstruction.constructed().get(0);
+            verify(transport).setDemographicNo("123");
+            verify(transport).setFormName("Annual");
+            verify(transport).setSubject("Annual Form ID 45");
+        }
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "123");
+        verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, "456");
+        verify(encounterFormDao).findByFormName("Annual");
+        verify(encounterFormDao, never()).findByFormName("Other");
     }
 
     @Test

@@ -17,13 +17,13 @@ server status
 ### 2. Database Connectivity
 ```bash
 # Verify database connection
-mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
 ```
 
 ### 3. Test Data Exists
 ```bash
 # Verify test patients exist
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT demographic_no, last_name, first_name, patient_status
 FROM demographic
 WHERE demographic_no IN (1, 182);"
@@ -42,13 +42,13 @@ Expected output:
 ### 4. Pre-Test Cleanup (REQUIRED for Re-Runs)
 ```bash
 # Check for existing test patient
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT demographic_no, last_name, first_name
 FROM demographic
 WHERE last_name = 'TEST-UITEST2';"
 
 # If exists, delete it
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 DELETE FROM demographic WHERE last_name = 'TEST-UITEST2';"
 ```
 
@@ -159,7 +159,7 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-2"
 
 **Database Verification** (if timeout occurs):
 ```bash
-mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE last_name='TEST-UITEST2' ORDER BY demographic_no DESC LIMIT 1;"
+mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE last_name='TEST-UITEST2' ORDER BY demographic_no DESC LIMIT 1;"
 ```
 If record exists, the save was successful despite any browser timeout.
 
@@ -365,7 +365,7 @@ ls -1 ui-test-runs/$TIMESTAMP/test-2/screenshots/test-2-*.png | wc -l
 
 ### 2. Database Verification
 ```bash
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT demographic_no, last_name, first_name, patient_status, phone, email, address, city
 FROM demographic
 WHERE last_name = 'TEST-UITEST2';"

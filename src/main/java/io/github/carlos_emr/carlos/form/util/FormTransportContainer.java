@@ -79,19 +79,19 @@ public class FormTransportContainer {
 //	private Map<String, String[]> allParameters = new TreeMap<>();
 
     /**
-     * Forwards to a form route and captures the rendered HTML without allowing nested response
+     * Includes a form route and captures the rendered HTML without allowing nested response
      * operations to modify the caller's servlet response.
      *
      * <p>The Struts response context is temporarily replaced with a capturing wrapper while the
-     * forward runs, then restored before this constructor returns or throws. Nested redirects,
+     * include runs, then restored before this constructor returns or throws. Nested redirects,
      * errors, headers, cookies, and content length changes are captured locally and do not leak to
      * the caller response.</p>
      *
      * @param response caller response that must remain uncommitted during nested form rendering
      * @param request caller request used to dispatch the internal form route
-     * @param formPath application-relative form route to forward to, or {@code null} for the legacy shortcut route
+     * @param formPath application-relative form route to include, or {@code null} for the legacy shortcut route
      * @throws ServletException when the nested form route cannot render successfully
-     * @throws IOException when the servlet container fails during forwarding
+     * @throws IOException when the servlet container fails during inclusion
      */
     public FormTransportContainer(HttpServletResponse response,
                                   HttpServletRequest request, final String formPath) throws ServletException, IOException {
@@ -105,7 +105,7 @@ public class FormTransportContainer {
             ServletActionContext.setResponse(responseWrapper);
         }
         try {
-            request.getRequestDispatcher(forwardPath).forward(request, responseWrapper);
+            request.getRequestDispatcher(forwardPath).include(request, responseWrapper);
         } finally {
             if (actionContext != null) {
                 ServletActionContext.setResponse(previousResponse);
@@ -203,7 +203,7 @@ public class FormTransportContainer {
                     throw new IllegalArgumentException("writeListener must not be null");
                 }
                 throw new IllegalStateException(
-                        "FormTransportContainer captures forwarded form output synchronously and does not support asynchronous writes");
+                        "FormTransportContainer captures included form output synchronously and does not support asynchronous writes");
             }
 
             @Override

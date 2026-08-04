@@ -24,6 +24,12 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
@@ -45,10 +51,27 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class DemographicSearch2ActionTest extends CarlosWebTestBase {
+class DemographicSearch2ActionUnitTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
+    private static final File WEBAPP_ROOT = PathValidationUtils.resolveTrustedPath(
+            new File("src/main/webapp"), "test webapp root");
+    private static final File GENERAL_RESULTS_JSP =
+            validatedTemplate("WEB-INF/jsp/demographic/demographicsearchresults.jsp");
+    private static final File APPOINTMENT_RESULTS_JSP =
+            validatedTemplate("WEB-INF/jsp/demographic/demographicsearch2apptresults.jsp");
     private DemographicSearch2Action action;
+
+    private static File validatedTemplate(String relativePath) {
+        return PathValidationUtils.validateExistingPath(
+                new File(WEBAPP_ROOT, relativePath), WEBAPP_ROOT);
+    }
+
+    private static String readTemplate(File template) throws IOException {
+        File validatedTemplate =
+                PathValidationUtils.validateExistingPath(template, WEBAPP_ROOT);
+        return Files.readString(validatedTemplate.toPath(), StandardCharsets.UTF_8);
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -175,6 +198,89 @@ class DemographicSearch2ActionTest extends CarlosWebTestBase {
             String result = executeAction(action);
 
             assertThat(result).isNotEqualTo("apptResults");
+        }
+    }
+
+    @Nested
+    @DisplayName("Patient List Mode")
+    class PatientListMode {
+
+        @BeforeEach
+        void allowAccess() {
+            allowPrivilege("_demographic", "r");
+        }
+
+        @Test
+        @DisplayName("should show recent patients for a blank active search")
+        void shouldShowRecentPatients_forBlankActiveSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "active");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should preserve recent patients for a blank search with default status")
+        void shouldShowRecentPatients_forBlankSearchWithDefaultStatus() throws Exception {
+            addRequestParameter("keyword", "");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should search all patients for a blank all-status search")
+        void shouldSearchAllPatients_forBlankAllStatusSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should search inactive patients for a blank inactive search")
+        void shouldSearchInactivePatients_forBlankInactiveSearch() throws Exception {
+            addRequestParameter("keyword", "");
+            addRequestParameter("ptstatus", "inactive");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should search matching patients for a populated active search")
+        void shouldSearchMatchingPatients_forPopulatedActiveSearch() throws Exception {
+            addRequestParameter("keyword", "fake");
+            addRequestParameter("ptstatus", "active");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE))
+                    .isEqualTo(false);
+        }
+
+        @Test
+        @DisplayName("should use the controller patient-list mode in every results view")
+        void shouldUseControllerPatientListMode_inEveryResultsView() throws Exception {
+            String attributeLookup = "request.getAttribute(\""
+                    + DemographicSearch2Action.RECENT_PATIENTS_ATTRIBUTE + "\")";
+
+            assertThat(readTemplate(GENERAL_RESULTS_JSP))
+                    .contains(attributeLookup)
+                    .doesNotContain("request.getParameter(\"keyword\").length() == 0");
+            assertThat(readTemplate(APPOINTMENT_RESULTS_JSP))
+                    .contains(attributeLookup)
+                    .doesNotContain("request.getParameter(\"keyword\").length() == 0");
         }
     }
 }

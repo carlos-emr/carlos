@@ -36,8 +36,8 @@ Description: Do you want to install demo data?
 Template: carlos-emr/password
 Type: password
 Default: 
-Description: MySQL password:
- Please enter your MySQL password.
+Description: Database password:
+ Please enter the MariaDB root password.
 
 Template: carlos-emr/eyeform
 Type: boolean

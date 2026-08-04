@@ -11,7 +11,7 @@
 server start && server log
 
 # 2. Verify database
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
 
 # 3. Create unique test run directory
@@ -244,7 +244,7 @@ Approved by: [team member]
 ### Login Fails
 ```bash
 # Reset password
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "UPDATE security SET
    password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
    forcePasswordReset=0
@@ -254,7 +254,7 @@ mysql -h db -uroot -ppassword oscar -e \
 ### Search Returns No Results
 ```bash
 # Verify patient data
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT demographic_no, last_name, first_name, patient_status
    FROM demographic
    WHERE demographic_no IN (1, 182);"
