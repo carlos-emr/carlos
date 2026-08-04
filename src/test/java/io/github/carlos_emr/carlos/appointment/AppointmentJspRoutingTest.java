@@ -25,6 +25,8 @@ class AppointmentJspRoutingTest {
 
     private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
             "(?:(?:var|let|const)\\s+)?(?:window\\.)?forceWindowPaths\\s*=\\s*(?:(?:window\\.)?forceWindowPaths\\s*\\|\\|\\s*)?\\[(?<body>[\\s\\S]*?)]\\s*;?");
+    private static final Pattern POPUP_FOCUS_PAGE_RETURN_PATTERN = Pattern.compile(
+            "function\\s+popupFocusPage\\s*\\([^)]*\\)\\s*\\{[\\s\\S]*?return\\s+popup;\\s*}");
 
     @Test
     void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {
@@ -63,17 +65,16 @@ class AppointmentJspRoutingTest {
                         "printReceipt.value='1'",
                         "onButUpdate()");
         assertThat(editAppointment)
-                .as("the validated submit path must reserve the receipt window and close an unused reservation")
+                .as("the validated submit path must reserve the receipt window and explain a failed handoff")
                 .contains(
                         "if (document.EDITAPPT.printReceipt.value === '1')",
                         "reserveAppointmentReceiptWindow()",
-                        "popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt')",
-                        "appointmentReceiptReservationTimeoutMs = 60000",
-                        "receiptWindow.location.href === 'about:blank'",
-                        "receiptWindow.close()");
+                        "popupFocusPage(350, 750, '', 'appointmentReceipt')",
+                        "receiptDocument.title = '${carlos:forJavaScript(appointmentReceiptTitle)}'",
+                        "receiptDocument.body.textContent = '${carlos:forJavaScript(appointmentReceiptPending)}'");
         assertThat(globalJs)
                 .as("popupFocusPage must return the reserved window so callers can manage its lifecycle")
-                .contains("return popup;");
+                .containsPattern(POPUP_FOCUS_PAGE_RETURN_PATTERN);
 
         assertThat(addAppointment).contains("/appointment/AddRecord");
         assertThat(addAppointment).contains("/appointment/appointmentgrouprecords");

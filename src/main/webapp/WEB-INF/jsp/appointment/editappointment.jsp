@@ -102,6 +102,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
+<fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -367,7 +369,6 @@
             }
 
             var saveTemp = 0;
-            var appointmentReceiptReservationTimeoutMs = 60000;
 
             function setfocus() {
                 this.focus();
@@ -403,14 +404,11 @@
             }
 
             function reserveAppointmentReceiptWindow() {
-                var receiptWindow = popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt');
+                var receiptWindow = popupFocusPage(350, 750, '', 'appointmentReceipt');
                 if (receiptWindow != null) {
-                    // Successful receipt navigation replaces this document and cancels its timer.
-                    receiptWindow.setTimeout(function () {
-                        if (!receiptWindow.closed && receiptWindow.location.href === 'about:blank') {
-                            receiptWindow.close();
-                        }
-                    }, appointmentReceiptReservationTimeoutMs);
+                    var receiptDocument = receiptWindow.document;
+                    receiptDocument.title = '${carlos:forJavaScript(appointmentReceiptTitle)}';
+                    receiptDocument.body.textContent = '${carlos:forJavaScript(appointmentReceiptPending)}';
                 }
             }
 
