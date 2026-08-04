@@ -95,11 +95,17 @@
     int nStep = providerPreference.getEveryMin();
     String mygroupno = providerPreference.getMyGroupNo();
 
-    String curProvider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "174";
+    String curProvider_no = request.getParameter("provider_no") != null
+            ? request.getParameter("provider_no")
+            : providerPreference.getProviderNo();
     if (!curProvider_no.matches("^[a-zA-Z0-9._-]+$")) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid provider_no");
         return;
     }
+    Provider currentProvider = providerDao.getProvider(curProvider_no);
+    String curProviderName = currentProvider != null
+            ? currentProvider.getFormattedName()
+            : curProvider_no;
     String curDemoNo = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "";
     String curDemoName = request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "";
     String[] param = new String[3];
@@ -233,7 +239,7 @@
                     <fmt:message key="schedule.scheduleflipview.btnGoBack"/>
                 </button>
                 <a class="btn btn-primary"
-                   href="<%=originalPagePath%>?year=<%=now.get(Calendar.YEAR)%>&amp;month=<%=now.get(Calendar.MONTH) + 1%>&amp;day=<%=now.get(Calendar.DATE)%>&amp;view=0&amp;displaymode=day&amp;dboperation=searchappointmentday">
+                   href="<%=originalPagePath%>?year=<%=now.get(Calendar.YEAR)%>&amp;month=<%=now.get(Calendar.MONTH) + 1%>&amp;day=<%=now.get(Calendar.DATE)%>&amp;view=1&amp;curProvider=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;curProviderName=<carlos:encode value='<%= curProviderName %>' context="uriComponent"/>&amp;displaymode=day&amp;dboperation=searchappointmentday">
                     <span class="fa-solid fa-calendar-day" aria-hidden="true"></span>
                     <fmt:message key="schedule.scheduleflipview.btnDayPage"/>
                 </a>
@@ -250,8 +256,6 @@
                             onchange="selectprovider(this)">
                 <%
 
-
-                    Provider currentProvider = providerDao.getProvider(curProvider_no);
                     if (currentProvider != null) {
                 %>
                 <option value="<carlos:encode value='<%= currentProvider.getProviderNo() %>' context="htmlAttribute"/>" selected><carlos:encode value='<%= currentProvider.getFormattedName() %>' context="html"/>
@@ -407,7 +411,7 @@
         %>
         <tr class="<%=weekend ? "weekend" : ""%>">
             <th class="availability-date" scope="row">
-                <a href="<%=originalPagePath%>?year=<%=cal.get(Calendar.YEAR)%>&amp;month=<%=cal.get(Calendar.MONTH)+1%>&amp;day=<%=cal.get(Calendar.DATE)%>&amp;view=0&amp;displaymode=day&amp;dboperation=searchappointmentday">
+                <a href="<%=originalPagePath%>?year=<%=cal.get(Calendar.YEAR)%>&amp;month=<%=cal.get(Calendar.MONTH)+1%>&amp;day=<%=cal.get(Calendar.DATE)%>&amp;view=1&amp;curProvider=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;curProviderName=<carlos:encode value='<%= curProviderName %>' context="uriComponent"/>&amp;displaymode=day&amp;dboperation=searchappointmentday">
                     <%=SafeEncode.forHtmlContent(outform.format(inform.parse(strTempDate)))%>
                 </a>
             </th>

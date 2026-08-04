@@ -100,6 +100,8 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("new SimpleDateFormat(\"yyyy-MM-dd\", Locale.ROOT)")
                 .contains("inform.setLenient(false)")
                 .contains("String requestedStartDate = request.getParameter(\"startDate\")")
+                .contains(": providerPreference.getProviderNo()")
+                .doesNotContain(": \"174\"")
                 .contains("requestedStartDate.matches(\"[0-9]{4}-[0-9]{2}-[0-9]{2}\")")
                 .contains("response.sendError(HttpServletResponse.SC_BAD_REQUEST, \"Invalid startDate\")")
                 .contains("inform.format(lastMonth.getTime())")
@@ -119,6 +121,11 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .doesNotContain("role=\"group\"")
                 .doesNotContain("<a class=\"availability-slot\" href=\"#\"")
                 .contains("schedule.scheduleflipview.instructions");
+
+        assertThat(jsp)
+                .contains("day=<%=now.get(Calendar.DATE)%>&amp;view=1&amp;curProvider=<carlos:encode value='<%= curProvider_no %>' context=\"uriComponent\"/>")
+                .contains("day=<%=cal.get(Calendar.DATE)%>&amp;view=1&amp;curProvider=<carlos:encode value='<%= curProvider_no %>' context=\"uriComponent\"/>")
+                .contains("&amp;curProviderName=<carlos:encode value='<%= curProviderName %>' context=\"uriComponent\"/>");
 
         assertThat(jsp.indexOf("String requestedStartDate = request.getParameter(\"startDate\")"))
                 .isLessThan(jsp.indexOf("<!DOCTYPE html>"));
