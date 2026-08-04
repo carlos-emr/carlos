@@ -65,7 +65,7 @@
         String _loc = jdbc.getLocationFromSchedule(scDate, provider_no);
         String color = getSafeCssColor(ApptUtil.getColorFromLocation(sites, _loc));
         if (color == null) { color = "white"; }
-        return "<span style='background-color:" + color + "'>" + SafeEncode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
+        return "<span style='background-color:" + color + "'>" + SafeEncode.forHtmlContent(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 
     private static final java.util.regex.Pattern SAFE_CSS_COLOR_PATTERN =
@@ -120,6 +120,10 @@
 
     // Validate before rendering any response content so the 400 status cannot be lost to a committed buffer.
     if (requestedStartDate != null && !requestedStartDate.isBlank() && !"today".equals(requestedStartDate)) {
+        if (!requestedStartDate.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid startDate");
+            return;
+        }
         ParsePosition parsePosition = new ParsePosition(0);
         java.util.Date parsedStartDate = inform.parse(requestedStartDate, parsePosition);
         if (parsedStartDate == null || parsePosition.getIndex() != requestedStartDate.length()) {
@@ -273,20 +277,20 @@
                 <div>
                     <div class="form-label fw-semibold mb-1"><fmt:message key="schedule.scheduleflipview.dateRange"/></div>
                     <div class="form-control bg-body-secondary">
-                        <%=SafeEncode.forHtml(outform.format(now.getTime()))%>
+                        <%=SafeEncode.forHtmlContent(outform.format(now.getTime()))%>
                         &ndash;
-                        <%=SafeEncode.forHtml(outform.format(rangeEnd.getTime()))%>
+                        <%=SafeEncode.forHtmlContent(outform.format(rangeEnd.getTime()))%>
                     </div>
                 </div>
                 <nav class="btn-group" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/>"
                        title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>">
                         <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
                         <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
                     </a>
                     <a class="btn btn-outline-primary"
-                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
+                       href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/>"
                        title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>">
                         <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
                         <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
@@ -404,7 +408,7 @@
         <tr class="<%=weekend ? "weekend" : ""%>">
             <th class="availability-date" scope="row">
                 <a href="<%=originalPagePath%>?year=<%=cal.get(Calendar.YEAR)%>&amp;month=<%=cal.get(Calendar.MONTH)+1%>&amp;day=<%=cal.get(Calendar.DATE)%>&amp;view=0&amp;displaymode=day&amp;dboperation=searchappointmentday">
-                    <%=SafeEncode.forHtml(outform.format(inform.parse(strTempDate)))%>
+                    <%=SafeEncode.forHtmlContent(outform.format(inform.parse(strTempDate)))%>
                 </a>
             </th>
             <% if (bMultisites) { %>
@@ -481,9 +485,10 @@
                     : ""%>
                 title="<%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%>">
                 <button type="button" class="availability-slot"
+                        aria-label="<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%> <%=String.format(Locale.ROOT, "%02d:%02d", hour, min)%>; <fmt:message key="schedule.scheduleflipview.msgbookings"/>: <%=SafeEncode.forHtmlAttribute(strNumOfAppts)%>; <fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>: <carlos:encode value='<%= bookinglimit %>' context="htmlAttribute"/>"
                         onclick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');">
                     <span class="availability-slot-code">
-                        <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtml(temp.toString()) %>
+                        <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtmlContent(temp.toString()) %>
                     </span>
                     <span class="availability-slot-counts">
                         <span title="<fmt:message key="schedule.scheduleflipview.msgbookings"/>"><%=strNumOfAppts%></span>
@@ -504,12 +509,12 @@
     </div>
     <nav class="availability-footer-nav mt-3" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/>">
             <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
             <fmt:message key="schedule.scheduleflipview.btnLastMonth"/>
         </a>
         <a class="btn btn-outline-primary"
-           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>">
+           href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(nextMonth.getTime()) %>' context="uriComponent"/>">
             <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
             <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
         </a>
