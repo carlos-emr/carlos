@@ -168,11 +168,13 @@ class ScheduleAvailabilityViewJspRegressionTest {
         String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()")
                 .contains("import=\"io.github.carlos_emr.carlos.utility.LoggedInInfo\"")
+                .contains("loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null")
                 .contains("if (curProvider_no == null || !curProvider_no.matches(\"^[a-zA-Z0-9._-]+$\"))");
 
-        assertThat(jsp.indexOf("LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()"))
+        // The session fallback must resolve before the validation guard, otherwise the guard
+        // dereferences a null provider number instead of returning 400.
+        assertThat(jsp.indexOf("loggedInInfo.getLoggedInProviderNo()"))
                 .isLessThan(jsp.indexOf("if (curProvider_no == null || !curProvider_no.matches"));
     }
 
