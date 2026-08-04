@@ -102,13 +102,28 @@ async function gotoApp(page, path, options = {}, query = null) {
   return page.goto(targetUrl, options); // nosemgrep
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied" —
+// verified live against a dev instance whose root password contained a
+// backslash. Double-quoting the value neutralizes '#' and surrounding
+// whitespace; '\' and '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-login-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(
+    file,
+    `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+    { mode: 0o600 }
+  );
   return { dir, file };
 }
 
@@ -286,7 +301,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('public login entry route rejects POST and allows GET', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: true });
       const post = await api.post(appUrl('/index'), { form: { anything: 'x' } });
       assert(post.status() === 405, `POST /index expected 405, got ${post.status()}`);
       assert((post.headers().allow || '').includes('GET'), `POST /index missing Allow GET header`);
@@ -312,7 +327,7 @@ async function expectSchedulePage(page, label) {
     });
 
     await record('unauthenticated structured and download routes return 401', async () => {
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: true });
       const ajax = await api.get(appUrl('/billing/CA/ON/ViewSearchRefDocAjax'), {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
@@ -485,7 +500,7 @@ async function expectSchedulePage(page, label) {
 
     await record('legacy /login forced-reset POST cannot change password without reset cache token', async () => {
       setForcedResetBaseline(1);
-      const api = await request.newContext();
+      const api = await request.newContext({ ignoreHTTPSErrors: true });
       const res = await api.post(appUrl('/login'), {
         form: {
           forcedpasswordchange: 'true',
