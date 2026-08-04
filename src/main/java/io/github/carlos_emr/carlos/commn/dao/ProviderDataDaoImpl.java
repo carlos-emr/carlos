@@ -134,6 +134,47 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     @Override
     public void batchRemove(List<ProviderData> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchPersistAtomically(List<ProviderData> list) { super.batchPersistAtomically(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchPersistAtomically(List<ProviderData> list, int size) { super.batchPersistAtomically(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchRemoveAtomically(List<ProviderData> list) { super.batchRemoveAtomically(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true)})
+    @Override public void batchRemoveAtomically(List<ProviderData> list, int size) { super.batchRemoveAtomically(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchPersistWithIndependentCommits(List<ProviderData> list) { super.batchPersistWithIndependentCommits(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchPersistWithIndependentCommits(List<ProviderData> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchRemoveWithIndependentCommits(List<ProviderData> list) { super.batchRemoveWithIndependentCommits(list); }
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS, allEntries = true, beforeInvocation = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES, allEntries = true, beforeInvocation = true)})
+    @Override public void batchRemoveWithIndependentCommits(List<ProviderData> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
+
     @SuppressWarnings("unchecked")
     @Override
     public ProviderData findByOhipNumber(String ohipNumber) {
@@ -191,28 +232,29 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     @Override
     public List<ProviderData> findByProviderName(String searchStr, String status, int limit, int offset) {
 
-        String queryString = "From ProviderData p where p.lastName like ?1 ";
+        String queryString = "From ProviderData p where p.lastName like :lastName ";
 
 
         String[] name = searchStr.split(",");
         if (name.length == 2)
-            queryString += " and p.firstName like ?2 ";
+            queryString += " and p.firstName like :firstName ";
 
         if (status != null)
-            queryString += " and p.status = ?3 ";
+            queryString += " and p.status = :status ";
 
         Query query = entityManager.createQuery(queryString);
         query.setFirstResult(offset);
         query.setMaxResults(limit);
 
-        query.setParameter(1, name[0].trim() + "%");
+        query.setParameter("lastName", name[0].trim() + "%");
         if (name.length == 2)
-            query.setParameter(2, name[1].trim() + "%");
+            query.setParameter("firstName", name[1].trim() + "%");
         if (status != null)
-            query.setParameter(3, status);
+            query.setParameter("status", status);
 
-        List list = query.getResultList();
-        return list;
+        @SuppressWarnings("unchecked")
+        List<ProviderData> results = query.getResultList();
+        return results;
     }
 
     @Override

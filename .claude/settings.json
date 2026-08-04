@@ -5,7 +5,17 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Read|Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/enforce-sql-migration-pattern.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -15,7 +25,7 @@
         ]
       },
       {
-        "matcher": "Read|Edit|Write",
+        "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -25,7 +35,7 @@
         ]
       },
       {
-        "matcher": "Read|Edit|Write",
+        "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -41,11 +51,43 @@
       "Read(**)",
       "Grep(**)",
       "Glob(**)",
-      "Write(database/mysql/updates/update-*.sql)",
-      "Edit(database/mysql/updates/update-*.sql)",
-      "Bash(mysql -h db *)",
-      "Bash(curl *)",
-      "Bash(gh pr *)",
+      "Write(database/mysql/migration/common/V1.0.*__*.sql)",
+      "Edit(database/mysql/migration/common/V1.0.*__*.sql)",
+      "Write(database/mysql/migration/on/V1.0.*__*.sql)",
+      "Edit(database/mysql/migration/on/V1.0.*__*.sql)",
+      "Write(database/mysql/migration/bc/V1.0.*__*.sql)",
+      "Edit(database/mysql/migration/bc/V1.0.*__*.sql)",
+      "Bash(mariadb -h db *)",
+      "Bash(curl http://localhost/*)",
+      "Bash(curl http://localhost:8080)",
+      "Bash(curl http://localhost:8080/*)",
+      "Bash(curl http://localhost:8000)",
+      "Bash(curl http://localhost:8000/*)",
+      "Bash(curl -s http://localhost/*)",
+      "Bash(curl -s http://localhost:8080)",
+      "Bash(curl -s http://localhost:8080/*)",
+      "Bash(curl -s http://localhost:8000)",
+      "Bash(curl -s http://localhost:8000/*)",
+      "Bash(curl -f http://localhost/*)",
+      "Bash(curl -f http://localhost:8080)",
+      "Bash(curl -f http://localhost:8080/*)",
+      "Bash(curl -f http://localhost:8000)",
+      "Bash(curl -f http://localhost:8000/*)",
+      "Bash(curl -fsSL http://localhost/*)",
+      "Bash(curl -fsSL http://localhost:8080)",
+      "Bash(curl -fsSL http://localhost:8080/*)",
+      "Bash(curl -fsSL http://localhost:8000)",
+      "Bash(curl -fsSL http://localhost:8000/*)",
+      "Bash(curl -I http://localhost/*)",
+      "Bash(curl -I http://localhost:8080)",
+      "Bash(curl -I http://localhost:8080/*)",
+      "Bash(curl -I http://localhost:8000)",
+      "Bash(curl -I http://localhost:8000/*)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
       "Bash(gh issue view *)",
       "Bash(gh issue list *)",
       "Bash(gh issue comment *)",
@@ -65,12 +107,7 @@
       "Bash(git push -u origin *)"
     ],
     "ask": [
-      "Edit(database/mysql/oscarinit*.sql)",
-      "Edit(database/mysql/oscardata*.sql)",
-      "Edit(database/mysql/icd*.sql)",
-      "Edit(database/mysql/measurementMapData.sql)",
-      "Write(database/mysql/oscarinit*.sql)",
-      "Write(database/mysql/oscardata*.sql)",
+      "Bash(curl *)",
       "Bash(gh pr close *)",
       "Bash(gh issue close *)",
       "Bash(gh issue edit *)",
@@ -103,7 +140,11 @@
       "Bash(git filter-repo *)",
       "Bash(git filter-branch *)",
       "Bash(gh repo delete *)",
-      "Bash(gh repo fork *)"
+      "Bash(gh repo fork *)",
+      "Bash(gh repo create *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh secret *)",
+      "Bash(gh auth *)"
     ]
   }
 }

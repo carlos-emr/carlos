@@ -55,6 +55,41 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Legacy {@code eform/efmPrintPDF} route into {@code /eform/createpdf}.
+ *
+ * <p><strong>This route is unreferenced and its graph branch does not work.</strong> Recorded here
+ * because none of it is apparent from the code, and the next reader would otherwise repeat the
+ * investigation:</p>
+ *
+ * <ul>
+ *   <li>Nothing calls it. No JSP, JSPF, JS or HTML under {@code src/main/webapp} references
+ *       {@code efmPrintPDF}, and neither do any of the 199 third-party eForm packages in the
+ *       compatibility corpus — which matters, because eForms are author-written HTML that could
+ *       post to it from their own markup.</li>
+ *   <li>It carries no eForm identity: there is no {@code fdid} here or in {@link EFormPrintPDFUtil},
+ *       and {@code newID} is never assigned, so the redirect always sends {@code formId=0}.</li>
+ *   <li>The {@code graph} branch builds its data into request <em>attributes</em> and then
+ *       {@link jakarta.servlet.http.HttpServletResponse#sendRedirect} — which discards them.
+ *       {@code EFormPDFServlet} reads exactly those attributes, and a redirect also drops the POST
+ *       parameters it needs ({@code __template}, {@code __numPages}, {@code __cfgfile}).</li>
+ *   <li>Consequently the {@code graph} and {@code printAll} results declared in
+ *       {@code struts-eform.xml} never fire: {@code execute()} only ever returns {@code NONE}. The
+ *       working equivalent is {@code Frm2Action} ({@code form/formname}), which returns the named
+ *       result so the forward preserves the attributes.</li>
+ *   <li>Rourke forms — what the graph branch is for — live in the <em>forms</em> subsystem, not
+ *       eForms; {@code EFormPrintPDFUtil.getFrmRourkeGraph} reaches into {@code EctFormData} and
+ *       {@code formGrowth0_36} from the eform package. This reads as an unfinished bridge between
+ *       the two.</li>
+ * </ul>
+ *
+ * <p>The privilege check below was tightened rather than the forward being repaired: making this
+ * path work again would revive a PDF route with no completeness gate, no render approval and no
+ * advisory notice, for a feature with no caller. Removing the route outright is the right end
+ * state, but is a deliberate, user-visible decision — and note that {@code /eform/createpdf} is
+ * mapped independently in {@code web.xml}, so deleting this action would not make the servlet
+ * unreachable.</p>
+ */
 public final class PrintPDF2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -68,7 +103,16 @@ public final class PrintPDF2Action extends ActionSupport {
     public String execute() throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "r", null)) {
+        // Scoped to the requested patient rather than the null (unscoped) demographic this used to
+        // pass. Naming another patient's demographic only makes the check harder to pass, never
+        // easier, so taking it from the request is safe here.
+        //
+        // It is still weaker in kind than the modern path: EformDataManagerImpl.createEformPDF
+        // resolves the demographic from the STORED eForm and checks against that, which proves the
+        // caller may read that record. This route carries no fdid at all — see the class javadoc —
+        // so the strongest available check is "may this caller read eForms for this patient".
+        String demographicNo = request.getParameter("demographic_no");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
@@ -111,7 +155,6 @@ public final class PrintPDF2Action extends ActionSupport {
             }
 
             String createPdfPath = request.getContextPath() + "/eform/createpdf";
-            String demographicNo = request.getParameter("demographic_no");
             String redirectUrl = createActionURL(createPdfPath, strAction, demographicNo, "" + newID);
             response.sendRedirect(redirectUrl);
         } catch (Exception ex) {

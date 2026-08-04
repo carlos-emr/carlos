@@ -775,8 +775,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
     @jakarta.persistence.Transient
 
+    // The family_physician column is frequently null. Coalesce to "" before matching
+    // (mirroring getFamilyDoctor()'s null handling) so these transient parse getters
+    // never NPE — e.g. when Jackson serializes a Demographic over the REST API.
     public String getFamilyPhysicianLastName() {
-        Matcher m = FD_LAST_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_LAST_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -785,7 +788,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFirstName() {
-        Matcher m = FD_FIRST_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_FIRST_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -794,7 +797,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFullName() {
-        Matcher m = FD_FULL_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_FULL_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -803,7 +806,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianNumber() {
-        Matcher m = FD_OHIP.matcher(getFamilyPhysician());
+        Matcher m = FD_OHIP.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -1294,7 +1297,33 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public String getAgeAsOf(Date asofDate) {
-        return Utility.calcAgeAtDate(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), asofDate);
+        return getAgeAsOf(asofDate, null);
+    }
+
+    /**
+     * Calculates the patient's age at a specific point in time using demographic birth date fields.
+     *
+     * <p>This method constructs a birth date from the demographic's year, month, and day of birth fields
+     * (using defaults if any component is missing), then calculates age relative to the given date.
+     *
+     * @param asofDate the reference date for age calculation; if null, the current date is used
+     * @param locale the locale for formatting age strings (e.g., "2 years", "3 months");
+     *               if null, uses the current context locale; {@link ResourceBundle#getBundle(String, Locale)}
+     *               handles further locale fallback
+     * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
+     *         or null if the birth date cannot be calculated
+     */
+    public String getAgeAsOf(Date asofDate, Locale locale) {
+        return Utility.calcAgeAtDate(
+            Utility.calcDate(
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getYearOfBirth(), DEFAULT_YEAR),
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getMonthOfBirth(), DEFAULT_MONTH),
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getDateOfBirth(), DEFAULT_DATE)),
+            asofDate,
+            locale);
     }
     @jakarta.persistence.Transient
 

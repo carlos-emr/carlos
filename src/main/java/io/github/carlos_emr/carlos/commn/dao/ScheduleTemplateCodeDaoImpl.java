@@ -197,4 +197,21 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
     @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
     @Override
     public void batchRemove(List<ScheduleTemplateCode> oList, int batchSize) { super.batchRemove(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override public void batchPersistAtomically(List<ScheduleTemplateCode> list) { super.batchPersistAtomically(list); }
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override public void batchPersistAtomically(List<ScheduleTemplateCode> list, int size) { super.batchPersistAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<ScheduleTemplateCode> list) { super.batchRemoveAtomically(list); }
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true)
+    @Override public void batchRemoveAtomically(List<ScheduleTemplateCode> list, int size) { super.batchRemoveAtomically(list, size); }
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<ScheduleTemplateCode> list) { super.batchPersistWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override public void batchPersistWithIndependentCommits(List<ScheduleTemplateCode> list, int size) { super.batchPersistWithIndependentCommits(list, size); }
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<ScheduleTemplateCode> list) { super.batchRemoveWithIndependentCommits(list); }
+    @CacheEvict(value = CacheConfig.SCHEDULE_TEMPLATE_CODES, allEntries = true, beforeInvocation = true)
+    @Override public void batchRemoveWithIndependentCommits(List<ScheduleTemplateCode> list, int size) { super.batchRemoveWithIndependentCommits(list, size); }
 }

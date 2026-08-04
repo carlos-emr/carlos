@@ -27,8 +27,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -208,6 +212,50 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
     }
 
     @Nested
+    @DisplayName("sanitizeChainResultName")
+    class SanitizeChainResultName {
+
+        @ParameterizedTest(name = "safe chain result: {0}")
+        @ValueSource(strings = {
+                "list",
+                "view",
+                "issueList_ajax"
+        })
+        @DisplayName("should return whitelisted chain result names")
+        void shouldReturn_whenResultNameWhitelisted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isEqualTo(chain);
+        }
+
+        @Test
+        @DisplayName("should return trimmed whitelisted chain result name")
+        void shouldReturn_whenResultNameHasOuterWhitespace() {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(" \tlist \n")).isEqualTo("list");
+        }
+
+        @ParameterizedTest(name = "blank chain result: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "\t", "\n"})
+        @DisplayName("should return null for blank chain result names")
+        void shouldReturnNull_whenResultNameBlank(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+
+        @ParameterizedTest(name = "unsafe chain result: {0}")
+        @ValueSource(strings = {
+                "listCPPNotes",
+                "windowClose",
+                "https://evil.example",
+                "/provider/providercontrol.jsp",
+                "../admin",
+                "list;listCPPNotes"
+        })
+        @DisplayName("should return null for untrusted chain result names")
+        void shouldReturnNull_whenResultNameUntrusted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("resolveReporterProgramTeamId")
     class ResolveReporterProgramTeamId {
 
@@ -250,6 +298,57 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
 
             assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "abc"))
                     .isEqualTo("0");
+        }
+    }
+
+    @Nested
+    @DisplayName("case-management chain redirect")
+    class CaseManagementChainRedirect {
+
+        @Test
+        @DisplayName("should allow list chain token")
+        void shouldAllowRedirect_whenChainIsList() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("list")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should allow list chain token with whitespace")
+        void shouldAllowRedirect_whenChainHasWhitespace() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(" list ")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject raw redirect values")
+        void shouldRejectRedirect_whenChainIsRawUrl() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(null)).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
+                    "/carlos/provider/providercontrol.jsp?tab=main")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
+                    "https://emr.example/carlos/provider/providercontrol.jsp")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("//evil.example/path")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should include servlet context path")
+        void shouldBuildRedirect_whenContextPathProvided() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl("/carlos"))
+                    .isEqualTo("/carlos/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should use root path when context path is empty")
+        void shouldBuildRedirect_whenContextPathEmpty() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl(""))
+                    .isEqualTo("/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should reject unsafe context paths")
+        void shouldRejectRedirect_whenContextPathUnsafe() {
+            assertThatThrownBy(() -> CaseManagementEntry2Action.caseManagementListRedirectUrl("//evil.example"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Unsafe case-management redirect context path");
         }
     }
 }

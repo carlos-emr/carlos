@@ -49,7 +49,7 @@
 		<form class="d-flex" >
 			<div class="input-group">
 		  		<input type="text" class="form-control" aria-label="Subject" name="remote_eform_subject" id="remote_eform_subject" placeholder="Subject" required/>
-		  			<button type="button" class="btn btn-primary" value="Save" name="remoteSubmitButton" title="Save only" id="remoteSubmitButton" onclick="remoteSave()" >
+		  			<button type="button" class="btn btn-primary" value="Save" name="remoteSubmitButton" title="Save only" id="remoteSubmitButton" onclick="remoteSaveOnly()" >
 		  				<span class="btn-label"><i class="fa-solid fa-floppy-disk"></i></span>
 		  				Save
 		  			</button>
