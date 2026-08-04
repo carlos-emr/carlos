@@ -3295,7 +3295,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             return null;
         }
 
-        String fileName = new File(normalizedPath).getName();
+        String fileName = extractReportFileName(normalizedPath);
         File currentDir = PathValidationUtils.resolveConfiguredDirectory(currentDirectory, "import current directory");
 
         List<File> candidates = new ArrayList<>();
@@ -3315,6 +3315,24 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
 
         return null;
+    }
+
+    private String extractReportFileName(String normalizedPath) {
+        int end = normalizedPath.length();
+        while (end > 0 && isReportPathSeparator(normalizedPath.charAt(end - 1))) {
+            end--;
+        }
+        if (end == 0) {
+            return "";
+        }
+
+        int lastForwardSlash = normalizedPath.lastIndexOf('/', end - 1);
+        int lastBackslash = normalizedPath.lastIndexOf('\\', end - 1);
+        return normalizedPath.substring(Math.max(lastForwardSlash, lastBackslash) + 1, end);
+    }
+
+    private boolean isReportPathSeparator(char value) {
+        return value == '/' || value == '\\';
     }
 
     /**
@@ -3394,14 +3412,20 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             return false;
         }
 
-        File f = new File(normalizedPath);
-        // Covers Unix and most Windows absolute cases
-        if (f.isAbsolute()) {
+        if (normalizedPath.indexOf('\0') >= 0) {
+            logger.warn("Rejecting invalid report path from XML");
             return true;
         }
 
-        // Explicit drive-letter pattern for extra defensive checking
-        return normalizedPath.matches("^[A-Za-z]:[/\\\\].*");
+        return normalizedPath.startsWith("/") || normalizedPath.startsWith("\\")
+                || hasWindowsDriveLetterAbsolutePrefix(normalizedPath);
+    }
+
+    private boolean hasWindowsDriveLetterAbsolutePrefix(String normalizedPath) {
+        return normalizedPath.length() >= 3
+                && Character.isLetter(normalizedPath.charAt(0))
+                && normalizedPath.charAt(1) == ':'
+                && isReportPathSeparator(normalizedPath.charAt(2));
     }
 
     private File makeImportLog(ArrayList<String[]> demo, String dir) throws IOException {
@@ -3446,7 +3470,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
 
         File importLog = PathValidationUtils.validateGeneratedChildPath("ImportEvent-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".log", PathValidationUtils.resolveConfiguredDirectory(dir, "import log directory"));
-        try (BufferedWriter out = new BufferedWriter(new FileWriter(importLog))) {
+        try (BufferedWriter out = Files.newBufferedWriter(importLog.toPath(), StandardCharsets.UTF_8)) {
             int tableWidth = 0;
             for (int i = 0; i < keyword.length; i++) {
                 for (int j = 0; j < keyword[i].length; j++) {
