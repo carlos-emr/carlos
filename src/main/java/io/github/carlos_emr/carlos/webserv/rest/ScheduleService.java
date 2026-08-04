@@ -204,6 +204,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse addAppointment(NewAppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
 
         NewAppointmentConverter converter = new NewAppointmentConverter();
@@ -240,6 +244,9 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public Response deleteAppointment(AppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "d", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
 
         appointmentManager.deleteAppointment(getLoggedInInfo(), appointmentTo.getId());
 
@@ -251,6 +258,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse updateAppointment(AppointmentTo1 appointmentTo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         if (appointmentTo == null || appointmentTo.getId() == null) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
                     .entity("Appointment id is required").build());
@@ -334,6 +345,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentStatus(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String status = appt.getStatus();
@@ -350,6 +365,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentType(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String type = appt.getType();
@@ -366,6 +385,10 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentUrgency(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
+        }
+
         // This route was previously unrouted (missing @POST); now that it is reachable, guard a
         // null/empty request body rather than NPE-ing on appt.getUrgency().
         if (appt == null) {
