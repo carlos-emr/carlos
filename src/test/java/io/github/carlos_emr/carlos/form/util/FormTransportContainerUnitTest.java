@@ -48,13 +48,39 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 @DisplayName("FormTransportContainer")
 @Tag("unit")
+@Tag("form")
 class FormTransportContainerUnitTest {
+
+    @Test
+    @DisplayName("captures included form HTML using the nested Struts response")
+    void shouldCaptureIncludedFormHtml_whenNestedRenderUsesStrutsResponse() throws Exception {
+        ActionContext previousContext = ActionContext.getContext();
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        ActionContext.of().withServletResponse(outerResponse).bind();
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
+            assertThat(ServletActionContext.getResponse()).isSameAs(servletResponse);
+            ServletActionContext.getResponse().getWriter().write("<html>form</html>");
+            ServletActionContext.getResponse().flushBuffer();
+        });
+
+        try {
+            FormTransportContainer container =
+                    new FormTransportContainer(outerResponse, request, "/form/formannual");
+
+            assertThat(container.getHTML()).contains("<html>form</html>");
+            assertThat(outerResponse.isCommitted()).isFalse();
+            assertThat(outerResponse.getContentAsString()).isEmpty();
+            assertThat(ServletActionContext.getResponse()).isSameAs(outerResponse);
+        } finally {
+            restoreActionContext(previousContext);
+        }
+    }
 
     @Test
     @DisplayName("captures nested form sendError without mutating the caller response")
     void shouldCaptureNestedSendError_withoutMutatingCallerResponse() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path"));
 
         assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/bad"))
@@ -71,7 +97,7 @@ class FormTransportContainerUnitTest {
         ActionContext previousContext = ActionContext.getContext();
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         ActionContext.of().withServletResponse(outerResponse).bind();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
                 ServletActionContext.getResponse().sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path"));
 
         try {
@@ -89,9 +115,9 @@ class FormTransportContainerUnitTest {
 
     @Test
     @DisplayName("does not expose the nested form error message in the thrown exception")
-    void shouldNotExposeNestedErrorMessage_whenForwardSendsErrorWithMessage() {
+    void shouldNotExposeNestedErrorMessage_whenIncludeSendsErrorWithMessage() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                         "Failed to query form data"));
 
@@ -108,7 +134,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("does not carry a stale error message when a later sendError omits one")
     void shouldClearErrorMessage_whenLaterSendErrorOmitsMessage() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
             httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to query form data");
             httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
@@ -125,7 +151,7 @@ class FormTransportContainerUnitTest {
     void shouldDecodeCapturedBytes_withCharsetFromContentType() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         outerResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             servletResponse.setContentType("text/html; charset=ISO-8859-1");
             servletResponse.getOutputStream().write("café".getBytes(StandardCharsets.ISO_8859_1));
         });
@@ -139,7 +165,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("captures nested flushBuffer without committing the caller response")
     void shouldCaptureNestedFlushBuffer_withoutCommittingCallerResponse() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             servletResponse.getWriter().write("<html>form</html>");
             servletResponse.flushBuffer();
         });
@@ -155,7 +181,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("captures nested form output stream bytes without mutating the caller response")
     void shouldCaptureNestedOutputStream_withoutMutatingCallerResponse() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             servletResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
             servletResponse.getOutputStream().write("<html>stream form</html>".getBytes(StandardCharsets.UTF_8));
         });
@@ -170,7 +196,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("rejects nested form output streams after writer access")
     void shouldRejectOutputStream_whenWriterAlreadyAccessed() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             servletResponse.getWriter().write("<html>writer form</html>");
             servletResponse.getOutputStream();
         });
@@ -186,7 +212,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("rejects nested form writers after output stream access")
     void shouldRejectWriter_whenOutputStreamAlreadyAccessed() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             servletResponse.getOutputStream().write("<html>stream form</html>".getBytes(StandardCharsets.UTF_8));
             servletResponse.getWriter();
         });
@@ -202,7 +228,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("rejects async write listeners for synchronous form capture")
     void shouldRejectAsyncWriteListener_forSynchronousCapture() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             ServletOutputStream outputStream = servletResponse.getOutputStream();
 
             assertThat(outputStream.isReady()).isTrue();
@@ -229,7 +255,7 @@ class FormTransportContainerUnitTest {
 
     @Test
     @DisplayName("keeps nested response metadata local to the form render")
-    void shouldKeepNestedResponseMetadataLocal_whenForwardMutatesResponseMetadata() throws Exception {
+    void shouldKeepNestedResponseMetadataLocal_whenIncludeMutatesResponseMetadata() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         outerResponse.setLocale(Locale.CANADA);
         outerResponse.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
@@ -240,7 +266,7 @@ class FormTransportContainerUnitTest {
         AtomicReference<String> nestedCharacterEncoding = new AtomicReference<>();
         AtomicReference<String> nestedContentType = new AtomicReference<>();
         AtomicReference<Integer> nestedBufferSize = new AtomicReference<>();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             servletResponse.setLocale(Locale.FRANCE);
             servletResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
             servletResponse.setContentType("text/html");
@@ -271,7 +297,7 @@ class FormTransportContainerUnitTest {
         ActionContext previousContext = ActionContext.getContext();
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         ActionContext.of().withServletResponse(outerResponse).bind();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             ServletActionContext.getResponse().getWriter().write("<html>form</html>");
             ServletActionContext.getResponse().flushBuffer();
         });
@@ -292,7 +318,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("rejects nested form redirects without mutating the caller response")
     void shouldRejectNestedRedirect_withoutMutatingCallerResponse() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual"));
 
         assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname"))
@@ -307,7 +333,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("rejects nested form redirects sent through the clear-buffer overload")
     void shouldRejectNestedRedirectClearBufferOverload_withoutMutatingCallerResponse() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual", true));
 
         assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname"))
@@ -322,7 +348,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("rejects nested form redirects sent through the status-code overload")
     void shouldRejectNestedRedirectStatusOverload_withoutMutatingCallerResponse() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual",
                         HttpServletResponse.SC_MOVED_PERMANENTLY));
 
@@ -338,7 +364,7 @@ class FormTransportContainerUnitTest {
     @DisplayName("rejects nested form redirects sent through the status-code and clear-buffer overload")
     void shouldRejectNestedRedirectStatusAndClearBufferOverload_withoutMutatingCallerResponse() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual",
                         HttpServletResponse.SC_TEMPORARY_REDIRECT, false));
 
@@ -351,8 +377,23 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
+    @DisplayName("rejects nested no-content responses instead of rendering a blank attachment")
+    void shouldRejectNestedNoContent_withoutRenderingBlankAttachment() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) ->
+                ((HttpServletResponse) servletResponse).setStatus(HttpServletResponse.SC_NO_CONTENT));
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/formannual"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 204");
+
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(outerResponse.isCommitted()).isFalse();
+    }
+
+    @Test
     @DisplayName("keeps nested trailer fields local to the form render")
-    void shouldKeepNestedTrailerFieldsLocal_whenForwardSetsTrailerFields() throws Exception {
+    void shouldKeepNestedTrailerFieldsLocal_whenIncludeSetsTrailerFields() throws Exception {
         AtomicBoolean outerTrailerFieldsSet = new AtomicBoolean(false);
         MockHttpServletResponse outerResponse = new MockHttpServletResponse() {
             @Override
@@ -362,7 +403,7 @@ class FormTransportContainerUnitTest {
         };
         AtomicReference<java.util.function.Supplier<java.util.Map<String, String>>> nestedTrailerFields =
                 new AtomicReference<>();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestIncluding((servletRequest, servletResponse) -> {
             HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
             httpResponse.setTrailerFields(() -> java.util.Map.of("X-Form-Trace", "nested"));
             nestedTrailerFields.set(httpResponse.getTrailerFields());
@@ -381,7 +422,7 @@ class FormTransportContainerUnitTest {
     @Test
     @DisplayName("does not reuse a custom forward path for later default renders")
     void shouldUseDefaultForwardPath_afterCustomForwardPathRender() throws Exception {
-        new FormTransportContainer(new MockHttpServletResponse(), requestForwardingTo((request, response) ->
+        new FormTransportContainer(new MockHttpServletResponse(), requestIncluding((request, response) ->
                 ((HttpServletResponse) response).setStatus(HttpServletResponse.SC_OK)), "/form/custom");
 
         AtomicReference<String> defaultPath = new AtomicReference<>();
@@ -390,7 +431,7 @@ class FormTransportContainerUnitTest {
         assertThat(defaultPath).hasValue("/form/forwardshortcutname");
     }
 
-    private MockHttpServletRequest requestForwardingTo(ForwardBehavior behavior) {
+    private MockHttpServletRequest requestIncluding(IncludeBehavior behavior) {
         MockHttpServletRequest request = new MockHttpServletRequest() {
             @Override
             public RequestDispatcher getRequestDispatcher(String path) {
@@ -398,12 +439,13 @@ class FormTransportContainerUnitTest {
                     @Override
                     public void forward(ServletRequest servletRequest, ServletResponse servletResponse)
                             throws ServletException, IOException {
-                        behavior.forward(servletRequest, servletResponse);
+                        throw new AssertionError("Nested form capture must use include, not forward");
                     }
 
                     @Override
-                    public void include(ServletRequest servletRequest, ServletResponse servletResponse) {
-                        throw new UnsupportedOperationException("include is not used by this test");
+                    public void include(ServletRequest servletRequest, ServletResponse servletResponse)
+                            throws ServletException, IOException {
+                        behavior.include(servletRequest, servletResponse);
                     }
                 };
             }
@@ -420,12 +462,12 @@ class FormTransportContainerUnitTest {
                 return new RequestDispatcher() {
                     @Override
                     public void forward(ServletRequest servletRequest, ServletResponse servletResponse) {
-                        ((HttpServletResponse) servletResponse).setStatus(HttpServletResponse.SC_OK);
+                        throw new AssertionError("Nested form capture must use include, not forward");
                     }
 
                     @Override
                     public void include(ServletRequest servletRequest, ServletResponse servletResponse) {
-                        throw new UnsupportedOperationException("include is not used by this test");
+                        ((HttpServletResponse) servletResponse).setStatus(HttpServletResponse.SC_OK);
                     }
                 };
             }
@@ -443,7 +485,7 @@ class FormTransportContainerUnitTest {
     }
 
     @FunctionalInterface
-    private interface ForwardBehavior {
-        void forward(ServletRequest request, ServletResponse response) throws ServletException, IOException;
+    private interface IncludeBehavior {
+        void include(ServletRequest request, ServletResponse response) throws ServletException, IOException;
     }
 }
