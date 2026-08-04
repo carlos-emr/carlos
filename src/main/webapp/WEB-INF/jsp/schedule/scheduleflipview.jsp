@@ -104,7 +104,8 @@
         curProvider_no = providerPreference.getProviderNo();
     }
     if (curProvider_no == null) {
-        curProvider_no = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        curProvider_no = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
     }
     if (curProvider_no == null || !curProvider_no.matches("^[a-zA-Z0-9._-]+$")) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid provider_no");
