@@ -333,10 +333,35 @@ async function clickDemographicReportLink(context, reportIndexPage, label) {
 // round-trip through the same RptDemographicReport2Action forward and must
 // all preserve the scheduleNav=1 hidden field the same way.
 async function submitQueryFormAndAssertNavBarSurvives(reportPage, submitLabel, buttonName) {
-  await Promise.all([
-    reportPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {}),
-    reportPage.getByRole('button', { name: buttonName, exact: true }).click(),
-  ]);
+  // The form's onsubmit="return checkQuery();" blocks submission (via alert())
+  // when no "Search For" field is checked. Without this, a blocked click would
+  // leave the page unchanged - #logoutButton still visible from before - and
+  // this check would report a false pass without ever exercising the POST/
+  // forward it's meant to cover. Track the dialog and require an actual POST
+  // to the form's action instead of inferring success from page state alone.
+  let dialogSeen = false;
+  const onDialog = () => { dialogSeen = true; };
+  reportPage.on('dialog', onDialog);
+
+  const submitted = reportPage.waitForResponse(
+    (response) => response.request().method() === 'POST' && /\/report\/DemographicReport(\?|$)/.test(response.url()),
+    { timeout: 15000 },
+  ).catch(() => null);
+
+  await reportPage.getByRole('button', { name: buttonName, exact: true }).click();
+  const response = await submitted;
+  reportPage.off('dialog', onDialog);
+
+  if (dialogSeen) {
+    findings.push({ label: submitLabel, type: 'submit-blocked-by-validation-dialog', detail: `${buttonName} click triggered a client-side validation dialog instead of submitting the form` });
+    return;
+  }
+  if (!response) {
+    findings.push({ label: submitLabel, type: 'submit-did-not-post', detail: `${buttonName} click did not produce a POST to /report/DemographicReport` });
+    return;
+  }
+
+  await reportPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNoErrorPage(reportPage, submitLabel);
   const navBarAfterSubmit = await reportPage.locator('#logoutButton').isVisible().catch(() => false);
   if (!navBarAfterSubmit) {
@@ -409,7 +434,7 @@ async function checkScheduleShellMode(context) {
 // is actually reached through in production (popupOscarRx -> window.open).
 async function openPopup(context, openerPage, targetPath, label) {
   const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
-  await openerPage.evaluate((url) => { window.open(url, '_blank'); }, appUrl(targetPath));
+  await openerPage.evaluate((url) => { window.open(url, '_blank'); }, appUrl(targetPath)); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- targetPath is always a hardcoded literal from this file's own call sites (never argv/env/user input), and appUrl() further validates/normalizes it against the already-validated local-only baseUrl
   const popupPage = await popupPromise;
   if (!popupPage) {
     findings.push({ label, type: 'popup-open-failed', detail: `window.open for ${targetPath} did not produce a new page` });
