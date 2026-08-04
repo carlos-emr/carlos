@@ -367,6 +367,7 @@
             }
 
             var saveTemp = 0;
+            var appointmentReceiptReservationTimeoutMs = 60000;
 
             function setfocus() {
                 this.focus();
@@ -401,6 +402,18 @@
                 saveTemp = 2;
             }
 
+            function reserveAppointmentReceiptWindow() {
+                var receiptWindow = popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt');
+                if (receiptWindow != null) {
+                    // Successful receipt navigation replaces this document and cancels its timer.
+                    receiptWindow.setTimeout(function () {
+                        if (!receiptWindow.closed && receiptWindow.location.href === 'about:blank') {
+                            receiptWindow.close();
+                        }
+                    }, appointmentReceiptReservationTimeoutMs);
+                }
+            }
+
             function onButCancel() {
                 var aptStat = document.EDITAPPT.status.value;
                 if (aptStat.indexOf('B') === 0) {
@@ -433,7 +446,7 @@
                         return false;
                     }
                     if (document.EDITAPPT.printReceipt.value === '1') {
-                        popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt');
+                        reserveAppointmentReceiptWindow();
                     }
                 }
                 return true;

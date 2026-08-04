@@ -40,6 +40,7 @@ class AppointmentJspRoutingTest {
         String ticklerAdd = readJspContent("src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp");
         String addAlternateContact = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/AddAlternateContact.jsp");
         String oscarJs = readJspContent("src/main/webapp/share/javascript/Oscar.js");
+        String globalJs = readJspContent("src/main/webapp/js/global.js");
         String schedulingStruts = readJspContent("src/main/webapp/WEB-INF/classes/struts-scheduling.xml");
 
         assertThat(editAppointment).contains("/demographic/DemographicSearch");
@@ -65,7 +66,17 @@ class AppointmentJspRoutingTest {
                 .as("the validated submit path must reserve the dedicated receipt window before navigation")
                 .contains(
                         "if (document.EDITAPPT.printReceipt.value === '1')",
+                        "reserveAppointmentReceiptWindow()",
                         "popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt')");
+        assertThat(editAppointment)
+                .as("an unused receipt reservation must close after the update fails or stalls")
+                .contains(
+                        "appointmentReceiptReservationTimeoutMs = 60000",
+                        "receiptWindow.location.href === 'about:blank'",
+                        "receiptWindow.close()");
+        assertThat(globalJs)
+                .as("popupFocusPage must return the reserved window so callers can manage its lifecycle")
+                .contains("return popup;");
 
         assertThat(addAppointment).contains("/appointment/AddRecord");
         assertThat(addAppointment).contains("/appointment/appointmentgrouprecords");
