@@ -10,10 +10,13 @@ import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -76,6 +79,9 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     private DocumentDao documentDao;
 
     @Mock
+    private QueueDao queueDao;
+
+    @Mock
     private CtlDocumentDao ctlDocumentDao;
 
     @Mock
@@ -131,6 +137,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         registerMock(DocumentDao.class, documentDao);
+        registerMock(QueueDao.class, queueDao);
         registerMock(CtlDocumentDao.class, ctlDocumentDao);
         registerMock(ProviderInboxRoutingDao.class, providerInboxRoutingDao);
         registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
@@ -218,6 +225,8 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
+        when(documentDao.find(42)).thenReturn(new Document());
+        when(queueDao.find(7)).thenReturn(new Queue());
 
         try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
             edocUtil.when(() -> EDocUtil.refileDocument("42", "7"))
@@ -261,6 +270,25 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRejectMissingQueue_whenRefilingDocument() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+        when(documentDao.find(42)).thenReturn(new Document());
+        when(queueDao.find(7)).thenReturn(null);
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
             edocUtil.verifyNoInteractions();
         }
     }

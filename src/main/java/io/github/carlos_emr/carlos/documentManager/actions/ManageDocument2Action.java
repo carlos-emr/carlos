@@ -125,6 +125,7 @@ public class ManageDocument2Action extends ActionSupport {
     private final Logger log = MiscUtils.getLogger();
 
     private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+    private final QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     private final CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -468,6 +469,16 @@ public class ManageDocument2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid documentId or queueId");
             } catch (IOException e) {
                 log.error("Unable to send invalid refile request response", e);
+            }
+            return NONE;
+        }
+
+        if (documentDao.find(Integer.parseInt(documentId)) == null
+                || queueDao.find(Integer.parseInt(queueId)) == null) {
+            try {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "document or queue not found");
+            } catch (IOException e) {
+                log.error("Unable to send missing refile target response", e);
             }
             return NONE;
         }

@@ -2184,7 +2184,10 @@ function refileDoc(id) {
         .then(responseText => {
             fileDoc(id);
         })
-        .catch(error => console.error('Error:', error));
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Unable to refile document. Please try again.');
+        });
 }
 
 function addDocToList(provNo, provName, docId) {

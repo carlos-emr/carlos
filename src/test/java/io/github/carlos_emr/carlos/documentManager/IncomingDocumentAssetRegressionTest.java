@@ -56,6 +56,7 @@ class IncomingDocumentAssetRegressionTest {
         assertThat(javascript)
                 .contains("if (!response.ok)")
                 .contains("Unable to refile document (HTTP ")
+                .contains("alert('Unable to refile document. Please try again.')")
                 .containsSubsequence("if (!response.ok)", "return response.text()", "fileDoc(id)");
     }
 
