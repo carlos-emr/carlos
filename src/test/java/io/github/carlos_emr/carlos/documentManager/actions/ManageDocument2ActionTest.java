@@ -214,6 +214,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     @Test
     void shouldSendServerErrorAndKeepAjaxFailed_whenRefileCopyFails() throws Exception {
         authorizeEdocWrite();
+        request.setMethod("POST");
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
@@ -233,6 +234,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     @Test
     void shouldRejectInvalidIdentifiers_whenRefilingDocument() {
         authorizeEdocWrite();
+        request.setMethod("POST");
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "../other");
@@ -242,6 +244,23 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRejectGet_whenRefilingDocument() {
+        authorizeEdocWrite();
+        request.setMethod("GET");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             edocUtil.verifyNoInteractions();
         }
     }

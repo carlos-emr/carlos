@@ -454,6 +454,15 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                log.error("Unable to send invalid refile method response", e);
+            }
+            return NONE;
+        }
+
         if (!isPositiveInteger(documentId) || !isPositiveInteger(queueId)) {
             try {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid documentId or queueId");
