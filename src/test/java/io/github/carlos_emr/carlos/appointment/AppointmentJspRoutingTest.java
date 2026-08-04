@@ -63,14 +63,11 @@ class AppointmentJspRoutingTest {
                         "printReceipt.value='1'",
                         "onButUpdate()");
         assertThat(editAppointment)
-                .as("the validated submit path must reserve the dedicated receipt window before navigation")
+                .as("the validated submit path must reserve the receipt window and close an unused reservation")
                 .contains(
                         "if (document.EDITAPPT.printReceipt.value === '1')",
                         "reserveAppointmentReceiptWindow()",
-                        "popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt')");
-        assertThat(editAppointment)
-                .as("an unused receipt reservation must close after the update fails or stalls")
-                .contains(
+                        "popupFocusPage(350, 750, 'about:blank', 'appointmentReceipt')",
                         "appointmentReceiptReservationTimeoutMs = 60000",
                         "receiptWindow.location.href === 'about:blank'",
                         "receiptWindow.close()");
