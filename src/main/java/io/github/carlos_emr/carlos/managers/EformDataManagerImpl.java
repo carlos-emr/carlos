@@ -53,6 +53,9 @@ import org.springframework.context.annotation.Lazy;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -61,8 +64,10 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 @Service
 public class EformDataManagerImpl implements EformDataManager {
 
-    @Autowired
-    SecurityInfoManager securityInfoManager;
+    private static final org.apache.logging.log4j.Logger logger =
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+
+    private final SecurityInfoManager securityInfoManager;
 
     @Autowired
     EFormDataDao eFormDataDao;
@@ -77,8 +82,17 @@ public class EformDataManagerImpl implements EformDataManager {
     @Autowired
     private FormsManager formsManager;
 
-    public EformDataManagerImpl() {
-        // Default
+
+    private final EFormBrowserPdfService eFormBrowserPdfService;
+
+    /**
+     * @param securityInfoManager authorization gate for {@code _eform} privilege checks
+     * @param eFormBrowserPdfService headless-browser renderer used to produce saved-eForm PDFs
+     */
+    @Autowired
+    public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfService eFormBrowserPdfService) {
+        this.securityInfoManager = securityInfoManager;
+        this.eFormBrowserPdfService = eFormBrowserPdfService;
     }
 
     // @Autowired
@@ -156,11 +170,18 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     public Integer saveEFormWithAttachmentsAsEDoc(LoggedInInfo loggedInInfo, String fdid, String demographicId, Path eFormPDFPath) throws PDFGenerationException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, demographicId)) {
+        EFormData eForm = eFormDataDao.find(Integer.parseInt(fdid));
+        if (eForm == null || eForm.getDemographicId() == null) {
+            throw new PDFGenerationException("Unable to archive an unknown eForm.");
+        }
+        String storedDemographicId = String.valueOf(eForm.getDemographicId());
+        if (!storedDemographicId.equals(demographicId)) {
+            throw new SecurityException("eForm demographic does not match fdid");
+        }
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_eform", SecurityInfoManager.UPDATE, storedDemographicId)) {
             throw new RuntimeException("missing required sec object (_eform)");
         }
-
-        EFormData eForm = eFormDataDao.find(Integer.parseInt(fdid));
         EDoc eDoc = ConvertToEdoc.from(eForm, eFormPDFPath);
         documentManager.moveDocumentToOscarDocuments(loggedInInfo, eDoc.getDocument(), eDoc.getFilePath());
         eDoc.setFilePath(null);
@@ -175,13 +196,35 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     /**
-     * Saves an form as PDF in a temp directory.
-     * <p>
-     * Path to a temp file is returned. Remember to change the .tmp filetype and to delete the tmp file when finished.
+     * Renders a saved eForm as a browser-generated PDF in a managed temporary location.
+     *
+     * @param loggedInInfo current user; must hold demographic-scoped {@code _eform} READ for the
+     *        eForm's patient. Also used for audit logging.
+     * @param fdid saved eForm data identifier, looked up via {@code eFormDataDao.find(fdid)}
+     * @return readable path to an {@code eform-browser-render-*.pdf} file; never {@code null}
+     *         (an unreadable result throws instead). Callers are responsible for cleanup.
+     * @throws SecurityException {@code missing required sec object (_eform)} when the demographic-scoped
+     *         {@code _eform} READ privilege is absent
+     * @throws PDFGenerationException when the eForm is not found, the browser render fails (the
+     *         renderer's own message is preserved; other runtime failures are wrapped), or the
+     *         renderer produces a null / unreadable output file
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
+        return createEformPDF(loggedInInfo, fdid, null);
+    }
+
+    @Override
+    public Path createEformPDF(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
+        return createEformPdfWithCompleteness(loggedInInfo, fdid, approval).path();
+    }
+
+    @Override
+    public EformPdfRender createEformPdfWithCompleteness(
+            LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
         if (eformData == null) {
+            logger.warn("EForm PDF generation failed: no saved eForm found for fdid={}", fdid);
             throw new PDFGenerationException("EForm PDF generation failed because the eForm was not found.");
         }
 
@@ -190,25 +233,37 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        Path path = null;
+        logger.debug("Generating eForm PDF via browser renderer: fdid={}", fdid);
+        Path path;
+        EFormRenderCompletenessReport completeness;
         try {
-            path = ConvertToEdoc.saveAsTempPDF(eformData);
-        } catch (Exception e) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.", e);
-        }
-
-        if (path == null) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.");
+            // The caller owns cleanup of the returned renderer output.
+            EFormBrowserPdfService.RenderedEformPdf rendered =
+                    eFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid, approval);
+            path = rendered.path();
+            completeness = rendered.completeness();
+        } catch (PDFGenerationException e) {
+            // The renderer already logged a redacted cause. Record which fdid failed and the exception
+            // TYPE only for correlation — not e.getMessage(), which can re-emit unredacted renderer
+            // text (a page-generated error, URL, or path). The message still propagates to callers/UI.
+            logger.warn("EForm PDF generation failed during browser rendering: fdid={} type={}", fdid, e.getClass().getName());
+            throw e;
+        } catch (RuntimeException e) {
+            // Only genuinely-unexpected non-renderer errors (NPE/Spring/etc.) reach here — the renderer
+            // de-chains WebDriver exceptions internally, so this carries no PHI; keep the stack for triage.
+            logger.error("EForm PDF generation errored during browser rendering: fdid={} type={}", fdid, e.getClass().getName(), e);
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
         }
 
         if (Files.isReadable(path)) {
+            logger.debug("EForm PDF generation succeeded: fdid={}", fdid);
             LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document saved at " + path.toString());
         } else {
             LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document failed to save for eform id " + fdid);
             throw new PDFGenerationException("EForm PDF generation produced an unreadable temporary file.");
         }
 
-        return path;
+        return new EformPdfRender(path, completeness);
     }
 
 

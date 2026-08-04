@@ -290,6 +290,15 @@ public class FormsManagerImpl implements FormsManager {
         } catch (Exception e) {
             throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF", e);
         }
+        if (path == null) {
+            // ConvertToEdoc.saveAsTempPDF returns null (it does NOT throw) when the internal HTML->PDF
+            // conversion fails (iText DocumentException / IO error is swallowed there). Without this
+            // guard the null escapes to callers such as DocumentAttachmentManagerImpl.attachFormPDFs,
+            // which dereferences it as path.toString() -> a context-free NPE / unmapped 500 on the
+            // eForm-with-attachments fax/print path. Fail with a named exception instead, mirroring
+            // FaxDocumentManagerImpl.getFormFaxDocument.
+            throw new PDFGenerationException("Error Details: Form [" + formTransportContainer.getFormName() + "] could not be converted into a PDF");
+        }
         return path;
     }
 
