@@ -47,7 +47,6 @@ import java.util.*;
 public interface DocumentAttachmentManager {
 
     String ATTACHMENT_WARNINGS_ATTRIBUTE = "attachmentWarnings";
-    String SKIP_FORM_ATTACHMENT_RENDERING_ATTRIBUTE = "skipFormAttachmentRendering";
 
     /**
      * Retrieves all attachments associated with a specific consultation request.

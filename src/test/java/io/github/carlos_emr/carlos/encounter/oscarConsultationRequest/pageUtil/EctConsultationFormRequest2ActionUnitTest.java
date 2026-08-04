@@ -199,8 +199,6 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
         assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
         assertThat(response.getContentAsString()).contains("\"signatureImg\":\"77\"");
-        assertThat(request.getAttribute(DocumentAttachmentManager.SKIP_FORM_ATTACHMENT_RENDERING_ATTRIBUTE))
-                .isEqualTo(Boolean.TRUE);
         verify(consultationSignatureService).saveManualSignatureForPreview(
                 loggedInInfo, 9, 1, "9999981000", "9999981000", "999998");
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
