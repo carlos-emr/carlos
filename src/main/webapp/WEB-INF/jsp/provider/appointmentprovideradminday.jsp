@@ -1744,7 +1744,7 @@
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
                                             <a class="provider-availability-link noprint"
-                                               href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<%=year + "-" + month + "-" + day%>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                               href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
                                                title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
                                                aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
                                                 <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
@@ -1784,6 +1784,17 @@
                                             </c:forEach>
                                         </c:if>
                                         <!-- caisi infirmary view extension modify end ffffffffffffffff-->
+                                    </td>
+                                </tr>
+                                <tr class="provider-availability-mobile-row noprint">
+                                    <td class="noGrid" align="center">
+                                        <a class="provider-availability-link"
+                                           href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                           aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                            <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                            <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                        </a>
                                     </td>
                                 </tr>
                                 <!-- END for the first providers's name -->

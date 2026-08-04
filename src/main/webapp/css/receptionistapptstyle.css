@@ -178,12 +178,17 @@ tr td.infirmaryView {
 }
 
 .provider-availability-link:hover,
+.provider-availability-link:focus,
 .provider-availability-link:focus-visible {
     background-color: #e2e6ea;
     color: #000;
     outline: 2px solid #0d6efd;
     outline-offset: 1px;
     text-decoration: none;
+}
+
+.provider-availability-mobile-row {
+    display: none;
 }
 
 td#group {

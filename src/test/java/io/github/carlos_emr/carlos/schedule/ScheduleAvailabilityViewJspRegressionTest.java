@@ -50,18 +50,39 @@ class ScheduleAvailabilityViewJspRegressionTest {
             projectRoot().resolve("src/main/webapp/WEB-INF/jsp/schedule/scheduleflipview.jsp");
     private static final Path AVAILABILITY_CSS =
             projectRoot().resolve("src/main/webapp/css/scheduleavailability.css");
+    private static final Path PROVIDER_DAY_CSS =
+            projectRoot().resolve("src/main/webapp/css/receptionistapptstyle.css");
+    private static final Path PROVIDER_DAY_MOBILE_CSS =
+            projectRoot().resolve("src/main/webapp/mobile/receptionistapptstyle.css");
 
     @Test
     @DisplayName("provider header should expose availability as a labelled link")
     void shouldExposeLabelledAvailabilityLink_inProviderHeader() throws IOException {
         String jsp = Files.readString(PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
+        String desktopCss = Files.readString(PROVIDER_DAY_CSS, StandardCharsets.UTF_8);
+        String mobileCss = Files.readString(PROVIDER_DAY_MOBILE_CSS, StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .contains("class=\"provider-availability-link noprint\"")
+                .contains("class=\"provider-availability-mobile-row noprint\"")
                 .contains("provider.appointmentProviderAdminDay.viewAvailability")
                 .contains("/schedule/FlipView?originalpage=")
+                .contains("String.format(Locale.ROOT, \"%04d-%02d-%02d\", year, month, day)")
                 .contains("class=\"fa-solid fa-calendar-days\"")
                 .doesNotContain("<input type='radio' name='flipview'");
+
+        int hiddenProviderHeader = jsp.indexOf("<td class=\"infirmaryView\"");
+        int hiddenProviderHeaderClose = jsp.indexOf("</td>", hiddenProviderHeader);
+        int mobileAvailabilityRow = jsp.indexOf("<tr class=\"provider-availability-mobile-row noprint\">");
+        assertThat(mobileAvailabilityRow).isGreaterThan(hiddenProviderHeaderClose);
+
+        assertThat(desktopCss)
+                .contains(".provider-availability-link:focus,")
+                .contains(".provider-availability-mobile-row {")
+                .contains("display: none;");
+        assertThat(mobileCss)
+                .contains(".provider-availability-mobile-row .provider-availability-link {")
+                .contains("display: inline-flex;");
     }
 
     @Test
@@ -78,7 +99,10 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("private String getSafeCssColor(Object configuredColor)")
                 .contains("inform.setLenient(false)")
                 .contains("String requestedStartDate = request.getParameter(\"startDate\")")
+                .contains("requestedStartDate.matches(\"[0-9]{4}-[0-9]{2}-[0-9]{2}\")")
                 .contains("response.sendError(HttpServletResponse.SC_BAD_REQUEST, \"Invalid startDate\")")
+                .contains("inform.format(lastMonth.getTime())")
+                .contains("inform.format(nextMonth.getTime())")
                 .contains("class=\"availability-grid-wrapper\"")
                 .contains("id=\"availabilityGrid\"")
                 .contains("<thead>")
@@ -87,6 +111,10 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("scope=\"row\"")
                 .contains("<nav class=\"btn-group\"")
                 .contains("<button type=\"button\" class=\"availability-slot\"")
+                .contains("aria-label=\"<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%>")
+                .contains("SafeEncode.forHtmlContent(outform.format(now.getTime()))")
+                .contains("SafeEncode.forHtmlContent(temp.toString())")
+                .doesNotContain("SafeEncode.forHtml(")
                 .doesNotContain("role=\"group\"")
                 .doesNotContain("<a class=\"availability-slot\" href=\"#\"")
                 .contains("schedule.scheduleflipview.instructions");
