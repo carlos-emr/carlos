@@ -82,7 +82,7 @@ function appUrl(appPath) {
 }
 
 function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+  return page.goto(appUrl(appPath), options); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default // NOSONAR - same rationale
 }
 
 function isExpectedConsoleNoise(message) {
