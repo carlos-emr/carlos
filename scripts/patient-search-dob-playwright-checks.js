@@ -45,6 +45,7 @@
  */
 
 const { chromium } = require('playwright');
+const net = require('node:net');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -54,20 +55,56 @@ const testPin = process.env.TEST_PIN || '2026';
 
 const findings = [];
 const checks = [];
+const EXACT_LOCAL_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '0:0:0:0:0:0:0:1',
+  '0.0.0.0',
+  'host.docker.internal',
+  'carlos',
+]);
+
+function normalizedHostname(url) {
+  const host = url.hostname.toLowerCase();
+  return host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
+}
+
+function isExactLocalHost(host) {
+  return EXACT_LOCAL_HOSTS.has(host);
+}
+
+function isPrivateIpv4(host) {
+  if (!net.isIPv4(host)) {
+    return false;
+  }
+  const [first, second] = host.split('.').map(Number);
+  return first === 10
+    || (first === 192 && second === 168)
+    || (first === 172 && second >= 16 && second <= 31);
+}
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
 
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  const host = normalizedHostname(parsed);
+  const exactLocalHost = isExactLocalHost(host);
+  const privateIpv4 = isPrivateIpv4(host);
+  if (!exactLocalHost && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
+  if (!exactLocalHost && parsed.protocol !== 'https:') {
+    throw new Error('Non-local BASE_URL targets must use https');
+  }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  parsed.search = '';
+  parsed.hash = '';
   return parsed;
 }
 
@@ -81,8 +118,34 @@ function appUrl(appPath) {
   return url.toString();
 }
 
-function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default // NOSONAR - same rationale
+function isWithinConfiguredApp(url) {
+  const appRoot = baseUrl.pathname || '/';
+  return url.origin === baseUrl.origin
+    && (appRoot === '/' || url.pathname === appRoot || url.pathname.startsWith(`${appRoot}/`));
+}
+
+async function safeGoto(page, appPath, options) {
+  const response = await page.goto(appUrl(appPath), options); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default // NOSONAR - same rationale
+  if (!isWithinConfiguredApp(new URL(page.url()))) {
+    throw new Error('Navigation left the configured CARLOS EMR application');
+  }
+  return response;
+}
+
+function waitForAppPath(page, pathPattern, options) {
+  return page.waitForURL((url) => isWithinConfiguredApp(url) && pathPattern.test(url.pathname), options);
+}
+
+async function installNavigationGuard(context) {
+  await context.route('**/*', async (route) => {
+    const request = route.request();
+    if (request.isNavigationRequest() && !isWithinConfiguredApp(new URL(request.url()))) {
+      findings.push({ label: 'navigation', type: 'outside-app-navigation-blocked' });
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  });
 }
 
 function isExpectedConsoleNoise(message) {
@@ -112,21 +175,21 @@ function wirePage(page, label) {
     const responseUrl = response.url();
     const status = response.status();
     if (status >= 400 && !isExpectedMissingAsset(status, responseUrl)) {
-      findings.push({ label, type: 'http', status, url: responseUrl });
+      findings.push({ label, type: 'http', status });
     }
   });
   page.on('console', (message) => {
     if (isSevereConsoleMessage(message)) {
-      findings.push({ label, type: `console:${message.type()}`, text: message.text(), location: message.location() });
+      findings.push({ label, type: `console:${message.type()}` });
     }
   });
-  page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: error.stack || error.message });
+  page.on('pageerror', () => {
+    findings.push({ label, type: 'pageerror' });
   });
   page.on('dialog', async (dialog) => {
     // Unlike sibling scripts, dialogs are blocking findings here: the DOB
     // format alert firing on a full date is the regression this script guards.
-    findings.push({ label, type: 'dialog', text: dialog.message() });
+    findings.push({ label, type: 'dialog' });
     await dialog.accept();
   });
 }
@@ -137,17 +200,15 @@ async function assertNoErrorPage(page, label) {
     findings.push({
       label,
       type: 'error-page',
-      url: page.url(),
-      body: bodyText.replace(/\s+/g, ' ').slice(0, 500),
     });
   }
 }
 
 function expectValue(label, actual, expected) {
   const pass = actual === expected;
-  checks.push({ label, actual, expected, pass });
+  checks.push({ label, pass });
   if (!pass) {
-    findings.push({ label, type: 'value-mismatch', actual, expected });
+    findings.push({ label, type: 'value-mismatch' });
   }
 }
 
@@ -157,9 +218,12 @@ async function login(context) {
   await safeGoto(page, '/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
+  const pin = page.locator('#pin');
+  if (await pin.count()) {
+    await pin.fill(testPin);
+  }
   await Promise.all([
-    page.waitForURL(/providercontrol/, { timeout: 30000 }),
+    waitForAppPath(page, /providercontrol|appointment/i, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -183,6 +247,11 @@ async function typeDob(page, text) {
   return page.locator('#keyword').inputValue();
 }
 
+async function fillDob(page, text) {
+  await page.locator('#keyword').fill(text);
+  return page.locator('#keyword').inputValue();
+}
+
 (async () => {
   const launchOptions = {
     headless: true,
@@ -194,7 +263,11 @@ async function typeDob(page, text) {
 
   const browser = await chromium.launch(launchOptions);
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1024, height: 700 } });
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: isExactLocalHost(normalizedHostname(baseUrl)),
+      viewport: { width: 1024, height: 700 },
+    });
+    await installNavigationGuard(context);
     const landingPage = await login(context);
     // Close the landing page once the session cookie is established. It stays
     // wired to the finding collectors, so leaving it open lets a late console
@@ -230,9 +303,28 @@ async function typeDob(page, text) {
     await clearKeyword(page);
     expectValue('dob-space-separators', await typeDob(page, '1980 01 01'), '1980-01-01');
 
+    // Single-event entry covers paste/programmatic input, while the remaining
+    // cases pin the edit paths the formatter promises to preserve.
+    expectValue('dob-paste-digits-only', await fillDob(page, '19800101'), '1980-01-01');
+    expectValue('dob-paste-with-separators', await fillDob(page, '1980-01-01'), '1980-01-01');
+
+    await clearKeyword(page);
+    await typeDob(page, '1980-');
+    await page.locator('#keyword').press('Backspace');
+    expectValue('dob-backspace-separator', await page.locator('#keyword').inputValue(), '1980');
+
+    await clearKeyword(page);
+    expectValue('dob-eight-digit-cap', await typeDob(page, '1980010199'), '1980-01-01');
+
+    await clearKeyword(page);
+    expectValue('dob-non-digits-ignored', await typeDob(page, '1980a01b01'), '1980-01-01');
+
+    await clearKeyword(page);
+    expectValue('dob-double-separators', await typeDob(page, '1980--01--01'), '1980-01-01');
+
     // A full DOB submits without the format alert and renders the results page.
     await Promise.all([
-      page.waitForURL(/DemographicSearch/, { timeout: 30000 }),
+      waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
       page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
     ]);
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -254,7 +346,7 @@ async function typeDob(page, text) {
       throw new Error(`patient search DOB browser check found ${findings.length} issue(s)`);
     }
 
-    console.log('PASS patient search DOB entry accepts full YYYY-MM-DD input');
+    console.log('PASS CARLOS EMR patient search DOB entry accepts full YYYY-MM-DD input');
   } finally {
     // Dump collected evidence on success and failure alike so a mid-flow
     // timeout (e.g. the DOB alert blocking submit) still reports the checks.
@@ -262,7 +354,7 @@ async function typeDob(page, text) {
     await browser.close();
   }
 })().catch((error) => {
-  console.error('FAIL patient search DOB Playwright check');
-  console.error(error.stack || error.message);
+  console.error('FAIL CARLOS EMR patient search DOB Playwright check');
+  console.error(`Failure type: ${error && error.name ? error.name : 'Error'}`);
   process.exit(1);
 });
