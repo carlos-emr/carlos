@@ -112,7 +112,7 @@
     }
 
     int colscode = (nEndTime - nStartTime) * 60 / nStep;
-    SimpleDateFormat inform = new SimpleDateFormat("yyyy-MM-dd", request.getLocale());
+    SimpleDateFormat inform = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
     SimpleDateFormat outform = new SimpleDateFormat("EEE, yyyy/MM/dd", request.getLocale());
     inform.setLenient(false);
     GregorianCalendar now = new GregorianCalendar();

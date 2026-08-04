@@ -97,6 +97,7 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("/library/bootstrap/5.3.8/css/bootstrap.min.css")
                 .contains("/css/scheduleavailability.css")
                 .contains("private String getSafeCssColor(Object configuredColor)")
+                .contains("new SimpleDateFormat(\"yyyy-MM-dd\", Locale.ROOT)")
                 .contains("inform.setLenient(false)")
                 .contains("String requestedStartDate = request.getParameter(\"startDate\")")
                 .contains("requestedStartDate.matches(\"[0-9]{4}-[0-9]{2}-[0-9]{2}\")")
