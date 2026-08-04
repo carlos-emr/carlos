@@ -190,7 +190,7 @@ public class EformDataManagerImpl implements EformDataManager {
 
     public EFormData findByFdid(LoggedInInfo loggedInInfo, Integer fdid) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new SecurityException("missing required sec object (_eform)");
         }
         return eFormDataDao.find(fdid);
     }
@@ -224,6 +224,9 @@ public class EformDataManagerImpl implements EformDataManager {
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
         if (eformData == null) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
+                throw new SecurityException("missing required sec object (_eform)");
+            }
             logger.warn("EForm PDF generation failed: no saved eForm found for fdid={}", fdid);
             throw new PDFGenerationException("EForm PDF generation failed because the eForm was not found.");
         }
@@ -297,14 +300,37 @@ public class EformDataManagerImpl implements EformDataManager {
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicId, false);
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocumentIds.size());
         for (String hrmId : attachedHRMDocumentIds) {
+            Integer attachedHrmId = parseHrmAttachmentId(hrmId);
+            if (attachedHrmId == null) {
+                continue;
+            }
             for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
-                if (Integer.parseInt(hrmId) == (Integer) hrmDocument.get("id")) {
+                if (attachedHrmId.equals(hrmAttachmentId(hrmDocument))) {
                     filteredHRMDocuments.add(hrmDocument);
+                    break;
                 }
             }
         }
         //return the subset of listHRMDocuments that is attached
         return filteredHRMDocuments;
+    }
+
+    private Integer hrmAttachmentId(HashMap<String, ? extends Object> hrmDocument) {
+        return hrmDocument == null ? null : parseHrmAttachmentId(hrmDocument.get("id"));
+    }
+
+    private Integer parseHrmAttachmentId(Object hrmDocumentId) {
+        if (hrmDocumentId instanceof Number) {
+            return ((Number) hrmDocumentId).intValue();
+        }
+        if (hrmDocumentId instanceof String) {
+            try {
+                return Integer.valueOf((String) hrmDocumentId);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     public List<EctFormData.PatientForm> getFormsAttachedToEForm(LoggedInInfo loggedInInfo, String fdid, String demographicId) {
