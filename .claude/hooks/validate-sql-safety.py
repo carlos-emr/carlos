@@ -13,10 +13,13 @@ Improvements over the original version:
 - Recognizes entity/class name insertion (getSimpleName()) as safe
 - Masks all Java comments (// and /* */) before scanning, so SQL in comments
   is ignored AND comment text can never serve as allowlisting evidence;
-  text blocks (\"\"\"...\"\"\") are skipped so their content is never mistaken
-  for a comment start
+  text blocks (\"\"\"...\"\"\") are normalised to ordinary string literals so
+  their content never starts a comment mask and SQL built inside a text
+  block is still scanned
 - Detects raw operands passed through calls with arguments (e.g.
   String.valueOf(userId)) and parenthesized operands (e.g. + (userId))
+- Treats StringBuilder .append(rawValue) as concatenation, so an append chain
+  cannot ride through on a named placeholder elsewhere in the statement
 - Safety evidence (placeholders, class metadata) is scoped to the Java
   statement containing the match — evidence in another statement, on the
   same line, or elsewhere in the file never allowlists a raw-value concat
@@ -109,6 +112,18 @@ PAREN_IGNORED_TOKENS = frozenset({
     'new', 'true', 'false', 'null', 'instanceof',
 })
 
+# StringBuilder/StringBuffer appends are concatenation too: `.append(userId)`
+# splices a raw value into the query exactly like `+ userId`.
+_APPEND_CALL = re.compile(r'\.\s*append\s*\(')
+
+# A string literal ending in ':' or '?' immediately before an `.append(...)`
+# means the appended token is a parameter *name or index*, not a value
+# (e.g. `.append("bd.serviceCode = :").append(param)` or `.append("?").append(counter)`).
+_PLACEHOLDER_LITERAL_BEFORE = re.compile(r'["\'][^"\']*[:?]\s*["\']\s*\)\s*$')
+
+# An argument that is nothing but a string literal carries no user data.
+_ONLY_STRING_LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'')
+
 
 def strip_line_comment(line: str) -> str:
     """Strip trailing // single-line comment from a Java line."""
@@ -171,6 +186,56 @@ def find_concat_operands(statement: str) -> list[str]:
     return operands
 
 
+def _extract_call_argument(text: str, start: int) -> str:
+    """Return the argument text of a call whose '(' ends at ``start``.
+
+    Scans with balanced-parenthesis and string-literal awareness so nested
+    calls such as ``.append(String.valueOf(userId))`` yield the full argument.
+    """
+    depth = 1
+    i = start
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == '"':
+            i += 1
+            while i < n and text[i] != '"':
+                i += 2 if text[i] == '\\' else 1
+        elif c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0:
+                return text[start:i]
+        i += 1
+    return text[start:]
+
+
+def find_append_operands(statement: str) -> list[str]:
+    """Return the non-literal arguments appended to a StringBuilder/Buffer.
+
+    ``sb.append("... WHERE name = ").append(userName)`` is concatenation with
+    no '+' token, so the '+'-based operand scan cannot see it. Appends that
+    follow a literal ending in ':' or '?' are skipped: those supply a
+    parameter *name or index* (``.append("x = :").append(param)``), which is
+    the documented safe placeholder-building idiom, not a value.
+    """
+    operands = []
+    for m in _APPEND_CALL.finditer(statement):
+        arg = _extract_call_argument(statement, m.end()).strip()
+        if not arg or _ONLY_STRING_LITERAL.fullmatch(arg):
+            continue
+        if '+' in arg:
+            # The argument is itself a concatenation (e.g.
+            # `.append("... like ?" + paramIndex++)`); the '+'-based operand
+            # scan already inspects each of its parts individually.
+            continue
+        if _PLACEHOLDER_LITERAL_BEFORE.search(statement[:m.start()]):
+            continue
+        operands.append(arg.rstrip('+-').strip())
+    return operands
+
+
 def is_safe_operand(operand: str) -> bool:
     """True if a concatenated operand is structurally safe (not user data).
 
@@ -200,11 +265,13 @@ def is_safe_operand(operand: str) -> bool:
 def has_raw_concat_operand(statement: str) -> bool:
     """True if the statement concatenates any operand that is not safe.
 
-    A single raw operand (e.g. `+ userId`) vetoes every allowlist check:
-    placeholders or metadata elsewhere in the statement must not excuse a
-    raw value being spliced into SQL.
+    Both `+` concatenation and StringBuilder `.append(...)` chaining are
+    considered: a single raw operand (e.g. `+ userId` or `.append(userId)`)
+    vetoes every allowlist check, because placeholders or metadata elsewhere
+    in the statement must not excuse a raw value being spliced into SQL.
     """
-    return any(not is_safe_operand(op) for op in find_concat_operands(statement))
+    operands = find_concat_operands(statement) + find_append_operands(statement)
+    return any(not is_safe_operand(op) for op in operands)
 
 
 def mask_java_comments(content: str) -> str:
@@ -216,6 +283,9 @@ def mask_java_comments(content: str) -> str:
     used as safety evidence to allowlist executable code on the same line.
     Unlike a line-level comment check, this correctly handles executable code
     that follows a closed block comment on the same line.
+
+    Text blocks are additionally normalised to ordinary string literals so a
+    query assembled from text-block fragments is still inspected.
     """
     out = list(content)
     i = 0
@@ -241,10 +311,28 @@ def mask_java_comments(content: str) -> str:
             i += 1
             continue
         if content.startswith('"""', i):
-            # Java text block: content is literal, so '//' and '/*' inside it
-            # must not be treated as comment starts.
+            # Java text block: its content is literal, so '//' and '/*' inside
+            # it must not be treated as comment starts. It is rewritten in
+            # place as an ordinary string literal (each three-quote delimiter
+            # collapses to one quote, embedded double quotes are blanked) so
+            # SQL built inside a text block is still scanned by the detectors.
+            # Offsets and newlines are preserved; single quotes are kept so
+            # quote-sandwich injection stays detectable.
             end = content.find('"""', i + 3)
-            i = n if end == -1 else end + 3
+            if end == -1:
+                for k in range(i, n):
+                    if out[k] != '\n':
+                        out[k] = ' '
+                i = n
+                continue
+            out[i] = out[i + 1] = ' '
+            out[i + 2] = '"'
+            for k in range(i + 3, end):
+                if out[k] == '"':
+                    out[k] = ' '
+            out[end] = '"'
+            out[end + 1] = out[end + 2] = ' '
+            i = end + 3
             continue
         if c == '"':
             in_string = True
