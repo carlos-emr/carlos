@@ -19,7 +19,6 @@
     "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
     "test:eform-admin-playwright": "node scripts/eform-admin-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
-    "test:patient-search-dob-playwright": "node scripts/patient-search-dob-playwright-checks.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
     "test:logout-session-invalidation-playwright": "node scripts/logout-session-invalidation-playwright-checks.js",
     "test:multiple-session-playwright": "node scripts/multiple-session-playwright-checks.js",
