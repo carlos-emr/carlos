@@ -241,20 +241,15 @@ RUN curl -fsSLo /tmp/gh.tar.gz \
     && install -m 0755 "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh \
     && rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_CLI_VERSION}_linux_amd64"
 
-RUN /usr/local/bin/apt-install golang-go pipx
+RUN /usr/local/bin/apt-install golang-go
 
 ARG JAVADOC2MD_COMMIT=d480f3c9d5b2f335ab90178bdd7d10311cfa5db2
 RUN go install "github.com/dburkart/javadoc2md/cmd/javadoc2md@${JAVADOC2MD_COMMIT}"
-
-ARG AIDER_VERSION=0.86.2
 
 COPY ./dev-tools/package.json ./dev-tools/package-lock.json /opt/carlos-dev-tools/
 RUN cd /opt/carlos-dev-tools \
     && npm ci \
     && ln -sf /scripts/gemini-browser /usr/local/bin/xdg-open
 ENV PATH="/opt/carlos-dev-tools/node_modules/.bin:${PATH}:/root/.local/bin"
-
-RUN pipx install "aider-chat==${AIDER_VERSION}" \
-    && pipx ensurepath
 
 CMD ["tail", "-f", "/dev/null"]

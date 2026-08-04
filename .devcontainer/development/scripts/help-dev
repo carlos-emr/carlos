@@ -37,9 +37,6 @@ AI CODING ASSISTANTS:
   copilot                 GitHub Copilot CLI
   codex                   OpenAI Codex CLI
   gemini                  Google Gemini CLI
-  aider                   AI pair programming assistant
-  aider --model claude-3-5-sonnet-20241022
-  aider --model gpt-4-turbo
   gh pr create            Create GitHub pull request
 
 DATABASE ACCESS:

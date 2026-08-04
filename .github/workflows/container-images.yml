@@ -238,7 +238,7 @@ jobs:
 
           echo "Testing developer extension..."
           docker run --rm carlos-tomcat-dev:test sh -c \
-            'gh --version && javadoc2md --help && docusaurus --version && claude --version && gemini --version && copilot --version && codex --version && aider --version'
+            'gh --version && javadoc2md --help && docusaurus --version && claude --version && gemini --version && copilot --version && codex --version'
 
       - name: Save tested tomcat images
         run: |
