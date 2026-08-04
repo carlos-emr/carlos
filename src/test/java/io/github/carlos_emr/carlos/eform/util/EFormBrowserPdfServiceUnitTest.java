@@ -1247,19 +1247,21 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should tolerate the render when a severe JavaScript console error is present")
-    void shouldTolerateRender_whenSevereConsoleErrorPresent() {
-        // A benign page-script error (a JS TypeError) is ubiquitous across the legacy eForm corpus
-        // and does not blank the form — the in-app viewer displays the same content. By default this
-        // is advisory (logged) and must NOT fail the render; it stays fail-closed under strict mode.
+    @DisplayName("should report a severe console error without failing the initial network gate")
+    void shouldReportSevereConsoleError_withoutFailingInitialNetworkGate() throws Exception {
+        // Default mode carries the error into the completeness report instead of throwing here.
+        // The final document gate then treats it as blocking because it may signal omitted clinical
+        // content. Strict mode fails earlier, directly in enforceRenderGates.
         ChromeDriver driver = driverWithConsole(browserConsole(
                 consoleEntry("http://127.0.0.1:8080/carlos/x 12:3 Uncaught TypeError: x is not a function")));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
 
-        assertThatCode(() -> service.enforceRenderGates(
-                driver, entries, 200, GATE_BASE_URL, 42))
-                .doesNotThrowAnyException();
+        EFormRenderCompletenessReport report =
+                service.enforceRenderGates(driver, entries, 200, GATE_BASE_URL, 42);
+
+        assertThat(report.severeConsoleErrors()).isEqualTo(1);
+        assertThat(report.hasBlockingOmissions()).isTrue();
     }
 
     @Test
@@ -1612,11 +1614,14 @@ class EFormBrowserPdfServiceUnitTest {
         @DisplayName("should release a render whose only conditions are advisory")
         @Disabled("issue #3235: #3193 made severeConsoleErrors withhold; this pins the intended advisory behaviour and goes green again when the in-flight #3235 production fix restores it — re-enable there")
         void shouldRelease_whenOnlyAdvisoryConditionsPresent() {
-            // A page-script error and a suppressed dialog are reported but never withhold, so an
-            // approval is not required and none is supplied.
+            // Suppressed dialogs and failed legacy timers are reported but never withhold, so an
+            // approval is not required and none is supplied. Severe page-script errors are not part
+            // of this fixture because they are blocking.
             EFormRenderCompletenessReport advisoryOnly =
-                    new EFormRenderCompletenessReport(0, 0, 3, 1, false, true, false, false, false);
+                    new EFormRenderCompletenessReport(0, 0, 0, 1, false, true, false, false, false);
 
+            assertThat(advisoryOnly.hasBlockingOmissions()).isFalse();
+            assertThat(advisoryOnly.advisoryIssueCount()).isEqualTo(2);
             assertThat(EFormBrowserPdfService.withholdsDocument(advisoryOnly, null, FDID, PROVIDER))
                     .isFalse();
         }
