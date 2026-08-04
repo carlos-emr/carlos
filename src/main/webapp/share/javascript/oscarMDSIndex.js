@@ -2162,8 +2162,10 @@ function fileDoc(docId) {
     }
 }
 
-function handleQueueListChange(queueListSelectElement, refileBtnElement, docCurrentFiledQueue) {
-	refileBtnElement.disabled = queueListSelectElement.value === docCurrentFiledQueue;
+function handleQueueListChange(queueListSelectElement, refileBtnElement) {
+	var selectedQueue = queueListSelectElement.options[queueListSelectElement.selectedIndex];
+	refileBtnElement.disabled = !selectedQueue
+		|| selectedQueue.getAttribute("data-already-refiled") === "true";
 }
 
 function refileDoc(id) {

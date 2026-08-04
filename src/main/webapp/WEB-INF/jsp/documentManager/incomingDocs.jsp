@@ -249,8 +249,8 @@
 
 
     IncomingDocUtil myIncomingDocUtil = new IncomingDocUtil();
-    ArrayList pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
-    ArrayList pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
+    List<String> pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
+    List<String> pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
 
     pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
     int pdfNoInt;
@@ -266,7 +266,7 @@
 
     int PdfIndex = pdfNoInt - 1;
     if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
-        pdfName = (String) pdfList.get(PdfIndex);
+        pdfName = pdfList.get(PdfIndex);
     } else {
         pdfName = "";
     }
@@ -527,16 +527,21 @@
             }
         }
 
-        // The explanatory tooltip belongs to the disabled state only. checkSave() in
+        // The explanation belongs to the disabled state only. checkSave() in
         // demographicProviderAutocomplete.js can re-disable the button when the typed
-        // value no longer matches a selected patient, so the title is restored from the
-        // data attribute rather than being removed permanently.
+        // value no longer matches a selected patient, so both the visible help and the
+        // tooltip are synchronized after each state change.
         function syncSaveTooltip() {
             var saveObj = document.getElementById('save');
+            var saveHelp = document.getElementById('save-disabled-help');
             if (saveObj.disabled) {
                 saveObj.setAttribute('title', saveObj.getAttribute('data-disabled-title'));
+                saveObj.setAttribute('aria-describedby', 'save-disabled-help');
+                saveHelp.hidden = false;
             } else {
                 saveObj.removeAttribute('title');
+                saveObj.removeAttribute('aria-describedby');
+                saveHelp.hidden = true;
             }
         }
 
@@ -940,8 +945,8 @@
                                                     <option value=""><fmt:message key="dms.incomingDocs.selectPDF"/></option>
                                                     <%
                                                         for (int p = 0; p < pdfList.size(); p++) {
-                                                            String docName = (String) pdfList.get(p);
-                                                            String docModifiedDate = (String) pdfListModifiedDate.get(p);
+                                                            String docName = pdfList.get(p);
+                                                            String docModifiedDate = pdfListModifiedDate.get(p);
                                                     %>
                                                     <option value="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>" title="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>"><%=p + 1%>
                                                         ) <carlos:encode value='<%= docModifiedDate %>' context="html"/>
@@ -1234,11 +1239,16 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2" align="left"><p>
-                                    <p><button type="submit" onclick="return checkDocument();" name="save"
-                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm"
-                                              title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>"
-                                              data-disabled-title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>">Save & Next</button></td>
+                                <td colspan="2" align="left">
+                                    <button type="submit" onclick="return checkDocument();" name="save"
+                                            tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm"
+                                            title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>"
+                                            data-disabled-title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>"
+                                            aria-describedby="save-disabled-help"><fmt:message key="inboxmanager.document.SaveAndNext"/></button>
+                                    <div id="save-disabled-help" class="form-text text-muted">
+                                        <fmt:message key="dms.incomingDocs.selectPatientToSave"/>
+                                    </div>
+                                </td>
                             </tr>
                         </table>
                     </form>

@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
@@ -125,7 +126,7 @@ public final class IncomingDocUtil {
     }
 
     /** List of formatted modification dates corresponding to PDF files returned by {@link #getDocList(String)}. */
-    private ArrayList<String> pdfListModifiedDate = new ArrayList<String>();
+    private final List<String> pdfListModifiedDate = new ArrayList<>();
 
     /** Comparator that sorts files by last-modified timestamp in ascending order. */
     private static final Comparator<File> lastModified = new Comparator<File>() {
@@ -139,11 +140,10 @@ public final class IncomingDocUtil {
      * Returns the list of formatted modification dates for PDF files found by the last
      * call to {@link #getDocList(String)}.
      *
-     * @return ArrayList of String date strings in "yyyy-MM-dd HH:mm:ss" format
+     * @return immutable list of date strings in "yyyy-MM-dd HH:mm:ss" format
      */
-    public ArrayList getPdfListModifiedDate() {
-        return pdfListModifiedDate;
-
+    public List<String> getPdfListModifiedDate() {
+        return List.copyOf(pdfListModifiedDate);
     }
 
     /**
@@ -155,18 +155,18 @@ public final class IncomingDocUtil {
      *
      * @param directory String the absolute path to the directory to scan for PDF files;
      * must resolve inside INCOMINGDOCUMENT_DIR
-     * @return ArrayList of String PDF filenames found in the directory, empty when the
+     * @return list of PDF filenames found in the directory, empty when the
      * queue subdirectory has not been created yet
      * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
      * @throws SecurityException if the directory resolves outside INCOMINGDOCUMENT_DIR or
-     * the configured base directory itself is missing
+     * the configured directory is missing or cannot be listed
      */
     // FindSecBugs PATH_TRAVERSAL_IN: callers pass paths built by getIncomingDocumentFilePath from
     // validated components, and the candidate is containment-checked against INCOMINGDOCUMENT_DIR
     // before any filesystem probe.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "callers pass paths built by getIncomingDocumentFilePath from validated components; candidate is containment-checked against INCOMINGDOCUMENT_DIR before any filesystem probe")
-    public ArrayList getDocList(String directory) {
-        ArrayList<String> docList = new ArrayList<String>();
+    public List<String> getDocList(String directory) {
+        List<String> docList = new ArrayList<>();
 
         String docName;
         pdfListModifiedDate.clear();
@@ -203,20 +203,23 @@ public final class IncomingDocUtil {
 
         File dir = PathValidationUtils.validateConfiguredDirectory(directory, "incoming document directory");
         File[] listOfFiles = dir.listFiles(pdfFilter);
-        if (listOfFiles != null) {
+        if (listOfFiles == null) {
+            logger.error("Unable to list incoming document directory: {}",
+                    LogSafe.sanitize(dir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new SecurityException("Unable to list incoming document directory");
+        }
 
-            Arrays.sort(listOfFiles, lastModified);
+        Arrays.sort(listOfFiles, lastModified);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-            for (int i = 0; i < listOfFiles.length; i++) {
-                if (listOfFiles[i].isFile()) {
-                    docName = listOfFiles[i].getName();
-                    long dateTime = listOfFiles[i].lastModified();
-                    Date d = new Date(dateTime);
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    String dateString = sdf.format(d);
-                    docList.add(docName);
-                    pdfListModifiedDate.add(dateString);
-                }
+        for (File file : listOfFiles) {
+            if (file.isFile()) {
+                docName = file.getName();
+                long dateTime = file.lastModified();
+                Date d = new Date(dateTime);
+                String dateString = dateFormat.format(d);
+                docList.add(docName);
+                pdfListModifiedDate.add(dateString);
             }
         }
         return docList;

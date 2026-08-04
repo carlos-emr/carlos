@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.documentManager;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -81,7 +81,7 @@ class IncomingDocUtilUnitTest {
         // a fresh queue used to throw SecurityException and land on the error page.
         String missingDirectory = incomingRoot.resolve("1").resolve("Fax").toString();
 
-        ArrayList<?> docList = new IncomingDocUtil().getDocList(missingDirectory);
+        List<String> docList = new IncomingDocUtil().getDocList(missingDirectory);
 
         assertThat(docList).isEmpty();
     }
@@ -135,13 +135,27 @@ class IncomingDocUtilUnitTest {
         Files.createFile(faxDir.toPath().resolve("notes.txt"));
 
         IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
-        @SuppressWarnings("unchecked")
-        ArrayList<String> docList = incomingDocUtil.getDocList(faxDir.getPath());
+        List<String> docList = incomingDocUtil.getDocList(faxDir.getPath());
 
         assertThat(docList)
                 .describedAs("only PDF files are listed, under their exact on-disk names")
                 .containsExactlyInAnyOrder("first.pdf", PARENTHESIZED_NAME);
         assertThat(incomingDocUtil.getPdfListModifiedDate()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("should not expose mutable modification-date state")
+    void shouldNotExposeMutableModificationDates() throws Exception {
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        Files.createFile(faxDir.toPath().resolve("first.pdf"));
+
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+        incomingDocUtil.getDocList(faxDir.getPath());
+
+        assertThatThrownBy(() -> incomingDocUtil.getPdfListModifiedDate().add("injected"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThat(incomingDocUtil.getPdfListModifiedDate()).hasSize(1);
     }
 
     @Test

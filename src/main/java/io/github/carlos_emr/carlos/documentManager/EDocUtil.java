@@ -910,6 +910,19 @@ public final class EDocUtil {
         }
     }
 
+    /**
+     * Derives the on-disk name used by the incoming-document refile queues.
+     * Stored document names normally begin with a fourteen-character timestamp;
+     * legacy short names are preserved intact.
+     */
+    private static String getRefiledDocumentFileName(String documentFileName) {
+        String destFileName = documentFileName;
+        if (destFileName.length() > 18) {
+            destFileName = destFileName.substring(14);
+        }
+        return "R" + destFileName;
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void refileDocument(String documentNo, String queueId) throws Exception {
@@ -919,14 +932,10 @@ public final class EDocUtil {
         File sourceFile = PathValidationUtils.validateExistingPath(
                 new File(sourceBaseDir, d.getDocfilename()), sourceBaseDir);
 
-        String destFileName = sourceFile.getName();
-        if (destFileName.length() > 18) {
-            destFileName = destFileName.substring(14, destFileName.length());
-        }
-
         String destPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, "Refile");
         File destBaseDir = new File(destPath);
-        File destFile = PathValidationUtils.validatePath("R" + destFileName, destBaseDir);
+        File destFile = PathValidationUtils.validatePath(
+                getRefiledDocumentFileName(sourceFile.getName()), destBaseDir);
 
         try {
             if (destFile.exists()) {
@@ -1431,11 +1440,6 @@ public final class EDocUtil {
 			return false;
 		}
 
-		String destFileName = documentFileName;
-		if (destFileName.length() > 18) {
-			destFileName = destFileName.substring(14, destFileName.length());
-		}
-
 		try {
 			String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
 			// Canonicalize through the trusted-directory helper instead of reconstructing the
@@ -1453,7 +1457,8 @@ public final class EDocUtil {
 			// Resolve the refiled name exactly the way refileDocument writes it. Normalizing here
 			// (spaces to underscores, parentheses dropped) looked for a name that was never
 			// written, so documents refiled under such names were reported as not refiled.
-			File destFile = PathValidationUtils.validatePath("R" + destFileName, destDir);
+			File destFile = PathValidationUtils.validatePath(
+					getRefiledDocumentFileName(documentFileName), destDir);
 			return destFile.exists();
 		} catch (FileValidationException | IllegalStateException e) {
 			// A name the validator rejects (a blocked final extension, say) or an unconfigured
