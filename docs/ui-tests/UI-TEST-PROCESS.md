@@ -82,7 +82,7 @@ This procedure applies to all UI tests (smoke tests, comprehensive tests, regres
 
 2. **Confirm Database State**:
    ```bash
-   mysql -h db -uroot -ppassword oscar -e \
+   mariadb -h db -uroot -ppassword oscar -e \
      "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
    ```
 
@@ -610,7 +610,7 @@ Implement automated screenshot comparison:
 **Solution**:
 ```bash
 # Reset carlosdoc password
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "UPDATE security SET
    password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
    forcePasswordReset=0
@@ -622,7 +622,7 @@ mysql -h db -uroot -ppassword oscar -e \
 ## Checklist: Before Running UI Tests
 
 - [ ] Application running (`server start`)
-- [ ] Database accessible (`mysql -h db -uroot -ppassword oscar`)
+- [ ] Database accessible (`mariadb -h db -uroot -ppassword oscar`)
 - [ ] Test user exists and password correct
 - [ ] TIMESTAMP variable set (`TIMESTAMP=$(date +%Y%m%d-%H%M%S-%3N)`)
 - [ ] Test output directory created (`ui-test-runs/$TIMESTAMP/test-N/`)

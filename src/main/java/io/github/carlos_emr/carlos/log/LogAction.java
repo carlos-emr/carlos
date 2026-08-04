@@ -32,8 +32,9 @@ package io.github.carlos_emr.carlos.log;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,7 +56,20 @@ public class LogAction {
     private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS = 5;
 
     private static ExecutorService createExecutorService() {
-        return Executors.newCachedThreadPool(new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.MAX_PRIORITY));
+        // Bounded pool at normal priority (was Executors.newCachedThreadPool at Thread.MAX_PRIORITY,
+        // which is unbounded): an audit-write burst or a database slowdown must not spawn an unbounded
+        // number of top-priority threads that exhaust memory/the DB pool and starve request threads.
+        // On saturation AbortPolicy throws RejectedExecutionException, which executeAsync() catches and
+        // handles by writing the audit entry synchronously — so no audit event is silently dropped.
+        int maxThreads = Math.max(2, Runtime.getRuntime().availableProcessors());
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                2, maxThreads,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(1000),
+                new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.NORM_PRIORITY),
+                new ThreadPoolExecutor.AbortPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 
     static void setExecutorServiceForTesting(ExecutorService testExecutorService) {
