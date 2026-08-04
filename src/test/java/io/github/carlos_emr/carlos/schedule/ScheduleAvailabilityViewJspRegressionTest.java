@@ -100,7 +100,7 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("new SimpleDateFormat(\"yyyy-MM-dd\", Locale.ROOT)")
                 .contains("inform.setLenient(false)")
                 .contains("String requestedStartDate = request.getParameter(\"startDate\")")
-                .contains(": providerPreference.getProviderNo()")
+                .contains("providerPreference.getProviderNo()")
                 .doesNotContain(": \"174\"")
                 .contains("requestedStartDate.matches(\"[0-9]{4}-[0-9]{2}-[0-9]{2}\")")
                 .contains("response.sendError(HttpServletResponse.SC_BAD_REQUEST, \"Invalid startDate\")")
@@ -154,6 +154,26 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("currentProvider.getFormattedName()")
                 .contains("if (mg.getId().getProviderNo().equals(curProvider_no))")
                 .contains("continue;");
+    }
+
+    /**
+     * The waiting-list booking popup opens this page without {@code provider_no}, and
+     * {@code Login2Action} seeds a default-constructed {@code ProviderPreference} (null
+     * {@code providerNo}) for providers with no saved preference row. Without the session
+     * fallback the raw {@code matches(...)} guard dereferences null and the page 500s.
+     */
+    @Test
+    @DisplayName("provider resolution should fall back to the session identity when no preference row exists")
+    void shouldFallBackToSessionProvider_whenPreferenceProviderNoIsNull() throws IOException {
+        String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()")
+                .contains("import=\"io.github.carlos_emr.carlos.utility.LoggedInInfo\"")
+                .contains("if (curProvider_no == null || !curProvider_no.matches(\"^[a-zA-Z0-9._-]+$\"))");
+
+        assertThat(jsp.indexOf("LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()"))
+                .isLessThan(jsp.indexOf("if (curProvider_no == null || !curProvider_no.matches"));
     }
 
     private static Path projectRoot() {

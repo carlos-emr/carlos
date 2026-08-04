@@ -31,6 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -95,10 +96,17 @@
     int nStep = providerPreference.getEveryMin();
     String mygroupno = providerPreference.getMyGroupNo();
 
-    String curProvider_no = request.getParameter("provider_no") != null
-            ? request.getParameter("provider_no")
-            : providerPreference.getProviderNo();
-    if (!curProvider_no.matches("^[a-zA-Z0-9._-]+$")) {
+    // Entry points such as the waiting-list booking popup open this page without provider_no.
+    // Login2Action stores a default-constructed ProviderPreference for providers that have no
+    // saved preference row, and its providerNo is null, so the session identity is the last resort.
+    String curProvider_no = request.getParameter("provider_no");
+    if (curProvider_no == null) {
+        curProvider_no = providerPreference.getProviderNo();
+    }
+    if (curProvider_no == null) {
+        curProvider_no = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+    }
+    if (curProvider_no == null || !curProvider_no.matches("^[a-zA-Z0-9._-]+$")) {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid provider_no");
         return;
     }
