@@ -5,6 +5,10 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * JPA Entity representing the system's email configuration.
+ * Stores SMTP server details, credentials, and default sender addresses.
+ */
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {

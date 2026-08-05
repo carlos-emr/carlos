@@ -5,6 +5,10 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * JPA Entity for email attachments.
+ * Associates uploaded files or generated PDFs with an outbound email message.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

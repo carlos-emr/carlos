@@ -7,6 +7,10 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Spring configuration for the ServletContext.
+ * Registers essential servlets and filters programmatically for the CARLOS web application.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

@@ -6,6 +6,10 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
 
+/**
+ * Jackson serializer for Date objects to JavaScript-compatible timestamps.
+ * Ensures dates are correctly formatted when transmitted to the frontend via JSON.
+ */
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 

@@ -14,6 +14,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Base interface for Struts actions that return JSON.
+ * Standardizes the contract for AJAX endpoints across the application.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

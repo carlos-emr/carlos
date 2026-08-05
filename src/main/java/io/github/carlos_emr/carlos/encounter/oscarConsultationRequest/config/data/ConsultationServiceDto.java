@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+/**
+ * Data Transfer Object for consultation services.
+ * Defines the parameters and routing information for a specific medical referral service.
+ */
 public class ConsultationServiceDto {
     private Integer serviceId;
     private String serviceDesc;

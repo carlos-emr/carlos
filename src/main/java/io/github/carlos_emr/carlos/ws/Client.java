@@ -55,6 +55,10 @@ import java.io.Serializable;
  * @see io.github.carlos_emr.carlos.ws.MatchingClientScore
  * @since 2026-01-14
  */
+/**
+ * Data Transfer Object representing a healthcare client/patient.
+ * Used in web services to transmit core demographic and identification data.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "client", propOrder = { "birthDate", "city", "firstName", "gender", "hidden", "hiddenChangeDate", "hin", "hinType", "hinValidEnd", "hinValidStart", "hinVersion", "image", "lastName", "linkingId", "lockbox", "province", "sin", "streetAddress", "updated", "updatedBy" })
 public class Client extends AbstractModel implements Serializable
@@ -138,6 +142,7 @@ public class Client extends AbstractModel implements Serializable
      * 
      * @return String the first name, or null if not set
      */
+        // Provides the client's legal first name as required for identity verification
     public String getFirstName() {
         return this.firstName;
     }

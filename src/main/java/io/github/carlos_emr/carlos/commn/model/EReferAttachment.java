@@ -12,6 +12,10 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * JPA Entity representing an eReferral attachment metadata.
+ * Links a clinical document to a specific referral without loading the full binary payload.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {
