@@ -309,7 +309,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms"><i
+                        <a href="${ctx}/eform/efmformmanager${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}" class="contentLink defaultForms"><i
                                 class="fa-solid fa-file fa-4x"></i>
                             <h5><fmt:message key="eform.showmyform.msgManageEFrm"/></h5></a>
                     </div>
