@@ -89,9 +89,10 @@
                 <input type="hidden" name="recipientFaxNumber" value="<carlos:encode value="${recipientFaxNumber}" context="htmlAttribute"/>">
                 <input type="hidden" name="letterheadFax" value="<carlos:encode value="${letterheadFax}" context="htmlAttribute"/>">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
+                <fmt:message key="fax.eformMissingContent.btnApproveAndFax" var="approveAndFaxLabel"/>
                 <fmt:message key="fax.eformMissingContent.btnPreparingFax" var="preparingFaxLabel"/>
                 <button type="submit" class="btn btn-warning" data-submitting-label="<carlos:encode value="${preparingFaxLabel}" context="htmlAttribute"/>">
-                    <span class="approval-button-label"><fmt:message key="fax.eformMissingContent.btnApproveAndFax"/></span>
+                    <span class="approval-button-label"><carlos:encode value="${approveAndFaxLabel}" context="htmlContent"/></span>
                     <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                 </button>
             </form>
@@ -101,7 +102,8 @@
                 <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
                 <input type="hidden" name="demographicNo" value="<carlos:encode value="${demographicNo}" context="htmlAttribute"/>">
                 <input type="hidden" name="renderApproval" value="<carlos:encode value="${renderApproval}" context="htmlAttribute"/>">
-                <button type="submit" class="btn btn-secondary"><fmt:message key="fax.eformMissingContent.btnCancel"/></button>
+                <fmt:message key="fax.eformMissingContent.btnCancel" var="cancelFaxLabel"/>
+                <button type="submit" class="btn btn-secondary"><carlos:encode value="${cancelFaxLabel}" context="htmlContent"/></button>
             </form>
         </div>
     </div>

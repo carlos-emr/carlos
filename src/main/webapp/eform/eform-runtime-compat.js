@@ -144,17 +144,16 @@
         // existing four-second render budget: pages also schedule long-lived UI/heartbeat callbacks
         // that cannot affect this capture and would otherwise make every render wait until the cap.
         var delayMillis = delay == null ? 0 : Number(delay);
+        var runningFunctionHandlers = status.runningFunctionHandlers || (status.runningFunctionHandlers = []);
         var counted = nativeTimer === nativeSetTimeout
                 && (typeof handler === "string"
                         || (typeof handler === "function"
-                                && isFinite(delayMillis) && delayMillis <= 4000));
+                                && isFinite(delayMillis) && delayMillis <= 4000
+                                && runningFunctionHandlers.indexOf(handler) < 0));
         if (counted) {
             status.pending += 1;
         }
         if (typeof handler !== "string" && typeof handler !== "function") {
-            if (counted) {
-                status.pending -= 1;
-            }
             return nativeTimer.apply(receiver, [handler, delay].concat(callbackArguments));
         }
         var handle;
@@ -164,7 +163,12 @@
                     if (typeof handler === "string") {
                         return executeStringCallback(handler);
                     }
-                    return handler.apply(receiver, callbackArguments);
+                    runningFunctionHandlers.push(handler);
+                    try {
+                        return handler.apply(receiver, callbackArguments);
+                    } finally {
+                        runningFunctionHandlers.pop();
+                    }
                 } finally {
                     // delete() makes completion and cancellation mutually exclusive: whichever
                     // happens first owns the one matching decrement.
