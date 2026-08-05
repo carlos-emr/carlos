@@ -79,6 +79,7 @@
         </action>
         <action name="form/xmlUpload" class="io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action">
             <result name="success">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
+            <result name="error">/WEB-INF/jsp/form/formXmlUpload.jsp</result>
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>

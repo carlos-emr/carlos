@@ -34,6 +34,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,7 +43,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
 import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
@@ -63,7 +63,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute()
-            throws ServletException, IOException {
+            throws Exception {
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -114,18 +114,42 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             }
         }
 
-        // Unzip and process entries
+        // eForm export ZIPs contain eform.properties. Import them through the eForm
+        // service so the template is persisted to the Manage eForms library; retain the
+        // established entry-by-entry importer for legacy clinical form data ZIPs.
         try (ZipFile zf = new ZipFile(tmpFile)) {
-            Enumeration<? extends ZipEntry> entries = zf.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                try (InputStream zis = zf.getInputStream(entry)) {
-                    JDBCUtil.toDataBase(zis, entry.getName());
+            if (isEFormArchive(zf)) {
+                List<String> errors;
+                try (InputStream is = new FileInputStream(tmpFile)) {
+                    errors = new EFormExportZip().importForm(is);
+                }
+                if (!errors.isEmpty()) {
+                    errors.forEach(this::addActionError);
+                    return ERROR;
+                }
+            } else {
+                Enumeration<? extends ZipEntry> entries = zf.entries();
+                while (entries.hasMoreElements()) {
+                    ZipEntry entry = entries.nextElement();
+                    try (InputStream zis = zf.getInputStream(entry)) {
+                        JDBCUtil.toDataBase(zis, entry.getName());
+                    }
                 }
             }
         }
 
         return SUCCESS;
+    }
+
+    private static boolean isEFormArchive(ZipFile zipFile) {
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+            String entryName = entries.nextElement().getName();
+            if (entryName.equals("eform.properties") || entryName.endsWith("/eform.properties")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private File file1; // Uploaded file

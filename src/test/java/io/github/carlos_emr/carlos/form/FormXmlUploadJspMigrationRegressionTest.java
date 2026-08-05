@@ -138,6 +138,7 @@ class FormXmlUploadJspMigrationRegressionTest {
 
         assertThat(struts).contains("<action name=\"form/xmlUpload\"")
                 .contains("FrmXmlUpload2Action")
-                .contains("/WEB-INF/jsp/form/formXmlUpload.jsp");
+                .contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>")
+                .contains("<result name=\"error\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>");
     }
 }

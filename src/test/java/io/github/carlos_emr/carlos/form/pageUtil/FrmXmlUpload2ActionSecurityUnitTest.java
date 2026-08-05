@@ -27,15 +27,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
@@ -52,7 +57,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -67,7 +76,9 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    private ServletContext servletContext;
     private SecurityInfoManager securityInfoManager;
+    private EFormDao eformDao;
 
     @TempDir
     Path tempDir;
@@ -81,9 +92,18 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         servletActionContextMock = org.mockito.Mockito.mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        servletContext = mock(ServletContext.class);
+        when(servletContext.getAttribute("jakarta.servlet.context.tempdir")).thenReturn(tempDir.toFile());
+        servletActionContextMock.when(ServletActionContext::getServletContext).thenReturn(servletContext);
 
         securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
+        eformDao = mock(EFormDao.class);
+        registerMock(EFormDao.class, eformDao);
+        doAnswer(invocation -> {
+            ReflectionTestUtils.setField((EForm) invocation.getArgument(0), "id", 1);
+            return null;
+        }).when(eformDao).persist(any(EForm.class));
     }
 
     @AfterEach
@@ -162,6 +182,45 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(action.getActionErrors()).contains(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull());
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull());
+    }
+
+    @Test
+    @DisplayName("should save an imported eForm archive to the current eForm library")
+    void shouldSaveEFormArchive_toCurrentEFormLibrary() throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path archive = createEFormArchive();
+
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(archive.toFile());
+
+        try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
+            imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenReturn(tempDir.toFile());
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        verify(eformDao).persist(org.mockito.ArgumentMatchers.<EForm>argThat(eform ->
+                "Issue 3071 eForm import".equals(eform.getFormName())
+                        && "issue-3071-eform.html".equals(eform.getFileName())
+                        && "<html><body>Issue 3071 eForm</body></html>".equals(eform.getFormHtml())
+                        && eform.isCurrent()));
+    }
+
+    private Path createEFormArchive() throws Exception {
+        Path archive = tempDir.resolve("issue-3071-eform.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            output.putNextEntry(new ZipEntry("Issue3071/eform.properties"));
+            output.write(("form.name=Issue 3071 eForm import\n"
+                    + "form.htmlFilename=issue-3071-eform.html\n"
+                    + "form.details=Imported form\n").getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+            output.putNextEntry(new ZipEntry("Issue3071/issue-3071-eform.html"));
+            output.write("<html><body>Issue 3071 eForm</body></html>".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+        return archive;
     }
 
     private static UploadedFile uploadedFile(Path content, String originalName, String contentType) {
