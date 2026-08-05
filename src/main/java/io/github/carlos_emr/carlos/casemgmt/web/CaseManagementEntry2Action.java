@@ -3182,6 +3182,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
     }
 
+    /**
+     * Prepends the new note text to the prior note's history for {@link #ticklerSaveNote()}.
+     * Legacy notes can have a {@code null} or empty stored history; concatenating that directly
+     * would persist the literal text {@code "null"} into the new note's history instead of
+     * being treated as "no prior history".
+     */
+    static String combineHistory(String newNote, String priorHistory) {
+        return (priorHistory == null || priorHistory.isEmpty())
+                ? newNote
+                : newNote + "\n" + priorHistory;
+    }
+
     /*
      * 1) load existing note if possible
      * 1) update/save the note
@@ -3205,7 +3217,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             if (existingNote != null) {
                 revision = nextRevision(existingNote.getRevision());
-                history = strNote + "\n" + existingNote.getHistory();
+                history = combineHistory(strNote, existingNote.getHistory());
                 uuid = existingNote.getUuid();
             }
         }

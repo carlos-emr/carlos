@@ -116,13 +116,21 @@ function appUrl(appPath, query = null) {
   return url.toString();
 }
 
+// MySQL option-file values: a bare `#` starts a comment for the rest of the line, and
+// backslash is an escape character. Quoting the value and escaping embedded backslashes/
+// quotes keeps passwords containing those characters intact instead of silently truncating
+// or corrupting the parsed value. See https://dev.mysql.com/doc/refman/8.0/en/option-files.html
+function escapeMysqlOptionValue(value) {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-tickler-note-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(file, `[client]\npassword="${escapeMysqlOptionValue(mysqlPassword)}"\n`, { mode: 0o600 });
   return { dir, file };
 }
 

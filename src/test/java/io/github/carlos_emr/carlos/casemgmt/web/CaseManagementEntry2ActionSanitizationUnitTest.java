@@ -271,7 +271,8 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
 
         @ParameterizedTest(name = "no existing note for noteId: [{0}]")
         @NullAndEmptySource
-        @ValueSource(strings = {"0", "undefined", "null", "NaN", "-1abc", "-1", "1.5", "1abc"})
+        @ValueSource(strings = {"0", "undefined", "null", "NaN", "-1abc", "-1", "1.5", "1abc",
+                "99999999999999999999"})
         @DisplayName("should return null when noteId does not identify an existing note")
         void shouldReturnNull_whenNoteIdDoesNotIdentifyExistingNote(String noteId) {
             assertThat(CaseManagementEntry2Action.parseExistingNoteId(noteId)).isNull();
@@ -298,6 +299,30 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         @DisplayName("should fall back to the first revision when the prior revision is not numeric")
         void shouldFallBackToFirstRevision_whenPriorRevisionNotNumeric(String priorRevision) {
             assertThat(CaseManagementEntry2Action.nextRevision(priorRevision)).isEqualTo("1");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // combineHistory
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("combineHistory")
+    class CombineHistory {
+
+        @Test
+        @DisplayName("should prepend new note to a non-empty prior history")
+        void shouldPrependNewNote_whenPriorHistoryNonEmpty() {
+            assertThat(CaseManagementEntry2Action.combineHistory("new note", "old note"))
+                    .isEqualTo("new note\nold note");
+        }
+
+        @ParameterizedTest(name = "returns just the new note for prior history: [{0}]")
+        @NullAndEmptySource
+        @DisplayName("should return only the new note when prior history is null or empty")
+        void shouldReturnOnlyNewNote_whenPriorHistoryNullOrEmpty(String priorHistory) {
+            assertThat(CaseManagementEntry2Action.combineHistory("new note", priorHistory))
+                    .isEqualTo("new note");
         }
     }
 
