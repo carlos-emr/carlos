@@ -494,7 +494,11 @@ public class ManageDocument2Action extends ActionSupport {
         } catch (SecurityException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Failed to refile document {} to queue {}", LogSafe.sanitize(documentId), LogSafe.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            // Do not log the exception itself: file-system exception messages can include
+            // document filenames or paths. Validated numeric IDs and the type are sufficient.
+            log.error("Failed to refile document {} to queue {} ({})",
+                    LogSafe.sanitize(documentId), LogSafe.sanitize(queueId),
+                    e.getClass().getSimpleName()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             if (!response.isCommitted()) {
                 try {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -1353,6 +1357,10 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid filename");
         }
         rejectIncomingDocumentPathComponents(fileName);
+        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            log.warn("Incoming document source does not have a PDF extension");
+            throw new SecurityException("Incoming document source must be a PDF");
+        }
         return fileName;
     }
 

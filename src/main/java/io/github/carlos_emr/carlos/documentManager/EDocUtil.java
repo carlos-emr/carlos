@@ -945,8 +945,9 @@ public final class EDocUtil {
         try {
             copyRefiledDocument(sourceFile, destFile);
         } catch (IOException e) {
-            logger.error("Error", e);
-            throw new Exception(e);
+            // File-system exception messages can contain document filenames or paths.
+            logger.error("Unable to copy refiled document ({})", e.getClass().getSimpleName());
+            throw e;
         }
     }
 
@@ -1482,6 +1483,9 @@ public final class EDocUtil {
 
 		try {
 			String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
+			PathValidationUtils.validateConfiguredDirectory(
+					CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"),
+					"incoming document root");
 			// Canonicalize through the trusted-directory helper instead of reconstructing the
 			// already validated path at the filesystem probe. This preserves lazy-directory
 			// behavior while making the containment boundary explicit to static analysis.
@@ -1498,14 +1502,13 @@ public final class EDocUtil {
 			// (spaces to underscores, parentheses dropped) looked for a name that was never
 			// written, so documents refiled under such names were reported as not refiled.
 			File destFile = PathValidationUtils.validatePath(
-					getRefiledDocumentFileName(documentFileName), destDir);
+					getRefiledDocumentFileName(new File(documentFileName).getName()), destDir);
 			return destFile.exists();
-		} catch (FileValidationException | IllegalStateException e) {
-			// A name the validator rejects (a blocked final extension, say) or an unconfigured
-			// incoming-document root must not take down every document view from inside this
-			// predicate. Containment failures are deliberately NOT caught here: those are
-			// genuine security signals and stay loud.
-			logger.warn("Refile lookup could not resolve a queued name, reporting not refiled", e);
+		} catch (FileValidationException e) {
+			// A stored name the validator rejects (a blocked final extension, say) is not a
+			// refile match. Configuration and containment failures deliberately stay loud.
+			logger.warn("Refile lookup rejected a queued name ({}), reporting not refiled",
+					e.getClass().getSimpleName());
 			return false;
 		}
 	}

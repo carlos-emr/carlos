@@ -259,10 +259,11 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    void shouldRejectGet_whenRefilingDocument() {
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectNonPostMethod_whenRefilingDocument(String method) {
         authorizeEdocWrite();
-        request.setMethod("GET");
+        request.setMethod(method);
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
@@ -371,20 +372,18 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("Moves non-PDF incoming documents without page counting")
-    void shouldMoveIncomingDocumentWithoutCountingPages_whenSourceIsNotPdf() throws Exception {
+    @DisplayName("Rejects non-PDF incoming documents before moving them")
+    void shouldRejectIncomingDocument_whenSourceIsNotPdf() throws Exception {
         Path incomingDir = configureIncomingDocumentDirectories();
         Path sourceFile = createIncomingSource(incomingDir, "note.txt", "plain-text-content");
         setupSuccessfulAddIncomingRequest("note.txt");
 
-        String result = runAddIncomingDocumentWithEdocMock();
-
-        assertThat(result).isEqualTo("nextIncomingDoc");
-        assertThat(sourceFile).doesNotExist();
+        assertThatThrownBy(() -> action.addIncomingDocument())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("must be a PDF");
+        assertThat(sourceFile).exists();
         assertThat(action.pageCountRequests).isZero();
-        List<Path> storedFiles = listStoredDocuments();
-        assertThat(storedFiles).hasSize(1);
-        assertThat(Files.readString(storedFiles.get(0))).isEqualTo("plain-text-content");
+        assertThat(listStoredDocuments()).isEmpty();
     }
 
     @Test

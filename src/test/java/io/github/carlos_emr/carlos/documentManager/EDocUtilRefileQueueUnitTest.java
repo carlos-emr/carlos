@@ -96,6 +96,27 @@ class EDocUtilRefileQueueUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should fail loudly when the incoming document root is unconfigured")
+    void shouldFailLoudly_whenIncomingDocumentRootUnconfigured() {
+        CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
+
+        assertThatThrownBy(() -> EDocUtil.isDocumentAlreadyRefiledInQueue(STORED_FILENAME, 1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("INCOMINGDOCUMENT_DIR");
+    }
+
+    @Test
+    @DisplayName("should fail loudly when the incoming document root is missing")
+    void shouldFailLoudly_whenIncomingDocumentRootMissing() {
+        CarlosProperties.getInstance().setProperty(
+                "INCOMINGDOCUMENT_DIR", incomingRoot.resolve("missing-root").toString());
+
+        assertThatThrownBy(() -> EDocUtil.isDocumentAlreadyRefiledInQueue(STORED_FILENAME, 1))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Configured path is not a directory");
+    }
+
+    @Test
     @DisplayName("should report nothing refiled when the refile directory holds no matching file")
     void shouldReportNotRefiled_whenRefiledFileAbsent() throws Exception {
         Files.createDirectories(refileDir().toPath());
@@ -123,6 +144,17 @@ class EDocUtilRefileQueueUnitTest extends CarlosUnitTestBase {
         Files.createFile(refileDir.toPath().resolve("Rreport.pdf"));
 
         assertThat(EDocUtil.isDocumentAlreadyRefiledInQueue("20260708120000report.pdf", 1)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should detect a refiled document from a legacy nested stored path")
+    void shouldDetectRefiledDocument_whenStoredFilenameContainsRelativeDirectory() throws Exception {
+        File refileDir = refileDir();
+        Files.createDirectories(refileDir.toPath());
+        Files.createFile(refileDir.toPath().resolve("Rreport.pdf"));
+
+        assertThat(EDocUtil.isDocumentAlreadyRefiledInQueue(
+                "legacy/20260708120000report.pdf", 1)).isTrue();
     }
 
     @Test
