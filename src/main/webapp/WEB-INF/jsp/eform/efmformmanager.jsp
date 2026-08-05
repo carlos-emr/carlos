@@ -150,7 +150,7 @@
                 <div class="card card-body bg-body-tertiary">
 
                     <iframe id="uploadFrame" name="uploadFrame" frameborder="0" width="100%" height="auto"
-                            scrolling="no" src="<%=request.getContextPath()%>/eform/partials/upload"></iframe>
+                            scrolling="no" src="<%=request.getContextPath()%>/eform/partials/upload${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"></iframe>
 
                 </div>
             </div>
@@ -161,7 +161,7 @@
                 <div class="card card-body bg-body-tertiary">
 
                     <iframe id="importFrame" name="importFrame" frameborder="0" width="100%" height="auto"
-                            src="<%=request.getContextPath()%>/eform/partials/import"></iframe>
+                            src="<%=request.getContextPath()%>/eform/partials/import${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}"></iframe>
 
                 </div>
             </div>
