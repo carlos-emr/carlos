@@ -44,12 +44,17 @@
     // otherwise a still-actively-rescheduling excluded chain could let whenIdle resolve true
     // (and the PDF be captured) before a later pass populates a field, even though the intent was
     // for a genuinely long-running loop to still be bounded by the render budget, not to
-    // disappear from tracking entirely. Recording the last excluded reschedule's timestamp lets
-    // whenIdle require a short quiet period after it before resolving early: a chain that
-    // actually stops rescheduling goes quiet almost immediately, while a repeating heartbeat
-    // never does and correctly falls through to the deadline. See the whenIdle comment below.
+    // disappear from tracking entirely. Recording the excluded timer's own FIRE deadline (when it
+    // was scheduled to run, not when it was scheduled) lets whenIdle require a short quiet period
+    // after that deadline before resolving early. Measuring from schedule time instead would let
+    // whenIdle resolve while a still-pending, not-yet-run delayed callback (delay >
+    // EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS) has not fired yet, skipping the exact field
+    // population this tracking exists to wait for. A chain that actually stops rescheduling goes
+    // quiet almost immediately after its last deadline passes; a repeating heartbeat keeps pushing
+    // its own deadline forward and so never goes quiet, correctly falling through to whenIdle's
+    // own maxWaitMillis deadline. See the whenIdle comment below.
     var EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS = 300;
-    var lastExcludedSelfRescheduleAt = 0;
+    var excludedSelfRescheduleDeadline = 0;
     var status = {
         installed: false,
         failed: false,
@@ -193,7 +198,10 @@
         if (selfRescheduleExcluded) {
             // Not counted in status.pending, but still observed here so whenIdle() cannot resolve
             // early while this chain keeps actively rescheduling -- see EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS.
-            lastExcludedSelfRescheduleAt = Date.now();
+            // Recorded as the timer's own FIRE deadline (now + its delay), not the current time:
+            // whenIdle must wait for the delayed callback to actually have its chance to run, not
+            // just for a fixed window from when it was merely scheduled.
+            excludedSelfRescheduleDeadline = Date.now() + (isFinite(delayMillis) ? Math.max(delayMillis, 0) : 0);
         }
         var counted = nativeTimer === nativeSetTimeout
                 && (typeof handler === "string"
@@ -265,10 +273,13 @@
      *
      * <p>A self-reschedule excluded from {@code status.pending} for exceeding
      * {@code SELF_RESCHEDULE_COUNT_LIMIT} is invisible to the {@code pending <= 0} check below, so
-     * this also requires a short quiet period since the last excluded reschedule before resolving
-     * early. A chain that genuinely stops rescheduling goes quiet almost immediately and still
-     * resolves quickly; a repeating heartbeat/UI loop never goes quiet and correctly falls through
-     * to {@code deadline} instead of silently letting the capture race ahead of it.</p>
+     * this also requires a short quiet period past the last excluded reschedule's own FIRE
+     * deadline before resolving early -- not just a fixed window since it was scheduled, which
+     * would let whenIdle resolve while a still-pending delayed callback has not run yet. A chain
+     * that genuinely stops rescheduling goes quiet almost immediately after its last deadline
+     * passes; a repeating heartbeat/UI loop keeps pushing its own deadline forward and so never
+     * goes quiet, correctly falling through to {@code deadline} instead of silently letting the
+     * capture race ahead of it.</p>
      *
      * @return {Promise<boolean>} true when the queue drained, false when the wait was capped
      */
@@ -280,7 +291,7 @@
                 if (now >= deadline) {
                     resolve(false);
                 } else if (status.pending <= 0
-                        && (now - lastExcludedSelfRescheduleAt) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS) {
+                        && (now - excludedSelfRescheduleDeadline) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS) {
                     resolve(true);
                 } else {
                     nativeSetTimeout.call(window, poll, 50);

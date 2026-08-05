@@ -63,7 +63,6 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.chromium.HasCdp;
 import org.openqa.selenium.logging.LogEntry;
 import org.openqa.selenium.logging.LogType;
 import org.openqa.selenium.logging.LoggingPreferences;
@@ -240,36 +239,36 @@ public class EFormBrowserPdfService {
      * {@link #INSTALL_INTERACTION_CONTAINMENT_JS}), it observes every request the page issues, not
      * just ones started after the settle script begins.
      */
-    static final String INSTALL_NETWORK_ACTIVITY_TRACKING_JS =
-            "(() => {\n"
-            + "  let pending = 0;\n"
-            + "  Object.defineProperty(window, '__carlosRendererPendingNetworkRequests', {\n"
-            + "    configurable: false, get: () => pending\n"
-            + "  });\n"
-            + "  const nativeFetch = typeof window.fetch === 'function' ? window.fetch : null;\n"
-            + "  const nativeXhrSend = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype.send : null;\n"
-            + "  function started() { pending += 1; }\n"
-            + "  function finished() { pending = Math.max(0, pending - 1); }\n"
-            + "  if (nativeFetch) {\n"
-            + "    window.fetch = function() {\n"
-            + "      started();\n"
-            + "      let result;\n"
-            + "      try { result = nativeFetch.apply(this, arguments); }\n"
-            + "      catch (error) { finished(); throw error; }\n"
-            + "      return Promise.resolve(result).then(\n"
-            + "        (value) => { finished(); return value; },\n"
-            + "        (error) => { finished(); throw error; });\n"
-            + "    };\n"
-            + "  }\n"
-            + "  if (nativeXhrSend) {\n"
-            + "    XMLHttpRequest.prototype.send = function() {\n"
-            + "      started();\n"
-            + "      this.addEventListener('loadend', finished, { once: true });\n"
-            + "      try { return nativeXhrSend.apply(this, arguments); }\n"
-            + "      catch (error) { finished(); throw error; }\n"
-            + "    };\n"
-            + "  }\n"
-            + "})();";
+    static final String INSTALL_NETWORK_ACTIVITY_TRACKING_JS = """
+            (() => {
+              let pending = 0;
+              Object.defineProperty(window, '__carlosRendererPendingNetworkRequests', {
+                configurable: false, get: () => pending
+              });
+              const nativeFetch = typeof window.fetch === 'function' ? window.fetch : null;
+              const nativeXhrSend = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype.send : null;
+              function started() { pending += 1; }
+              function finished() { pending = Math.max(0, pending - 1); }
+              if (nativeFetch) {
+                window.fetch = function() {
+                  started();
+                  let result;
+                  try { result = nativeFetch.apply(this, arguments); }
+                  catch (error) { finished(); throw error; }
+                  return Promise.resolve(result).then(
+                    (value) => { finished(); return value; },
+                    (error) => { finished(); throw error; });
+                };
+              }
+              if (nativeXhrSend) {
+                XMLHttpRequest.prototype.send = function() {
+                  started();
+                  this.addEventListener('loadend', finished, { once: true });
+                  try { return nativeXhrSend.apply(this, arguments); }
+                  catch (error) { finished(); throw error; }
+                };
+              }
+            })();""";
 
     /**
      * Async settle: fonts ready, pending images resolved, network activity and DOM mutations quiet together, two animation frames.
@@ -893,11 +892,11 @@ public class EFormBrowserPdfService {
             // Emulate PRINT media (not screen): the page then settles and is measured in the exact
             // layout Page.printToPDF will emit, and each form's own {@code @media print} rules (e.g.
             // the corpus fixture's PrintOnly/DoNotPrint toggles) take effect for the captured PDF.
-            ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
-            ((HasCdp) driver).executeCdpCommand(
+            driver.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
+            driver.executeCdpCommand(
                     "Page.addScriptToEvaluateOnNewDocument",
                     Map.of("source", INSTALL_INTERACTION_CONTAINMENT_JS));
-            ((HasCdp) driver).executeCdpCommand(
+            driver.executeCdpCommand(
                     "Page.addScriptToEvaluateOnNewDocument",
                     Map.of("source", INSTALL_NETWORK_ACTIVITY_TRACKING_JS));
 
@@ -1447,7 +1446,7 @@ public class EFormBrowserPdfService {
     private void printToPdf(ChromeDriver driver, Path outputPdfPath, long deadlineNanos)
             throws IOException, PDFGenerationException {
         checkDeadline(deadlineNanos);
-        Map<String, Object> result = ((HasCdp) driver).executeCdpCommand("Page.printToPDF", Map.of(
+        Map<String, Object> result = driver.executeCdpCommand("Page.printToPDF", Map.of(
                 "preferCSSPageSize", Boolean.TRUE,
                 "printBackground", Boolean.TRUE,
                 "scale", 1.0d,

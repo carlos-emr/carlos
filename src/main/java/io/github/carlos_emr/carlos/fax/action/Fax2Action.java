@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -83,6 +84,15 @@ public class Fax2Action extends ActionSupport {
             + "You can fax it only after approving the listed issues, but the document may be incomplete.";
     private static final String FAX_FILE_PATH_PARAM = "faxFilePath";
     private static final String ERROR_SENDING_ERROR_RESPONSE = "Error sending error response";
+    // Session-scoped, single-use record of the exact temp PDF path prepareFax() handed to THIS
+    // authenticated session for review, so a later queue() rejection can prove the client-supplied
+    // faxFilePath it wants deleted is actually the file this session's own prepareFax() produced --
+    // rather than deleting whatever app-temp-directory path the client happens to submit, which
+    // could belong to a different session's unrelated staged fax preview.
+    // Package-private (not private) solely so tests in this package can seed the session the same
+    // way a prior prepareFax() call would, without driving the full render pipeline.
+    static final String CLAIMED_FAX_FILE_SESSION_KEY =
+            "io.github.carlos_emr.carlos.fax.action.Fax2Action.claimedFaxFilePath";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -351,34 +361,7 @@ public class Fax2Action extends ActionSupport {
         // to a different patient in the gap between those two requests. Re-check the binding here
         // too, right before persistAndLogFaxJobs, instead of trusting the demographicNo the client
         // resubmitted with the cover-page form.
-        if (transactionType == TransactionType.EFORM && transactionId != null) {
-            EFormData eFormAtPromotion = eFormDataDao().find(transactionId.intValue());
-            String promotionDemographicNo = eFormAtPromotion == null || eFormAtPromotion.getDemographicId() == null
-                    ? null : String.valueOf(eFormAtPromotion.getDemographicId());
-            if (promotionDemographicNo == null || demographicNo == null
-                    || !promotionDemographicNo.equals(String.valueOf(demographicNo))) {
-                logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
-                        transactionId);
-                // The claimed staged PDF's ownership already transferred out of
-                // EFormRenderApprovalService back in prepareFax() (its own bookkeeping no longer
-                // tracks or will ever clean up this file); this rejection path must delete it
-                // itself or it orphans on disk instead of being promoted or cleaned up by anyone.
-                if (faxFilePath != null) {
-                    try {
-                        deleteUnownedStagedFaxPreview(Path.of(faxFilePath));
-                    } catch (InvalidPathException e) {
-                        logger.warn("Unable to parse fax file path while cleaning up a rejected promotion", e);
-                    }
-                }
-                // securityError.jsp renders the request attribute "actionErrors"; without bridging
-                // an action error onto it here (as the validateFaxInputs catch above already does
-                // for its own SecurityExceptions), the clinician only sees the generic security
-                // error page with no indication of why the fax was not sent.
-                addActionError("The eForm no longer belongs to this patient");
-                request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
-                throw new SecurityException("The eForm no longer belongs to this patient");
-            }
-        }
+        revalidateEformBindingBeforePromotion(transactionType);
 
         // recipient/comments are persisted and rendered raw (encode-at-output, not
         // encode-at-write): pre-encoding here with Encode.forHtml produced literal HTML entities
@@ -420,6 +403,62 @@ public class Fax2Action extends ActionSupport {
         return "preview";
     }
 
+    /**
+     * Re-checks that the eForm being faxed still belongs to the patient submitted with the
+     * cover-page form, immediately before {@link #queue()} promotes its staged PDF into a
+     * sendable fax job. {@code prepareFax()} performs the same check right before handing that
+     * PDF off for preview, but {@code queue()} is a separate, later request, so the eForm can be
+     * reassigned to a different patient in the gap between the two.
+     *
+     * @throws SecurityException if the eForm no longer belongs to the submitted demographic; the
+     *         claimed staged PDF is deleted and a user-facing action error is recorded first
+     */
+    private void revalidateEformBindingBeforePromotion(TransactionType transactionType) {
+        if (transactionType != TransactionType.EFORM || transactionId == null) {
+            return;
+        }
+        EFormData eFormAtPromotion = eFormDataDao().find(transactionId.intValue());
+        String promotionDemographicNo = eFormAtPromotion == null || eFormAtPromotion.getDemographicId() == null
+                ? null : String.valueOf(eFormAtPromotion.getDemographicId());
+        if (promotionDemographicNo != null && demographicNo != null
+                && promotionDemographicNo.equals(String.valueOf(demographicNo))) {
+            return;
+        }
+        logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
+                transactionId);
+        deleteClaimedFaxFilePathIfSessionOwned();
+        // securityError.jsp renders the request attribute "actionErrors"; without bridging an
+        // action error onto it here (as the validateFaxInputs catch in queue() already does for
+        // its own SecurityExceptions), the clinician only sees the generic security error page
+        // with no indication of why the fax was not sent.
+        addActionError("The eForm no longer belongs to this patient");
+        request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+        throw new SecurityException("The eForm no longer belongs to this patient");
+    }
+
+    /**
+     * Deletes the claimed staged PDF for a rejected fax promotion, but only when the
+     * client-supplied {@link #faxFilePath} matches the exact path this session's own
+     * {@code prepareFax()} recorded as claimed.
+     *
+     * <p>The claimed PDF's ownership already transferred out of {@link EFormRenderApprovalService}
+     * back in {@code prepareFax()} (its own bookkeeping no longer tracks or will ever clean up
+     * this file), so a rejected promotion must delete it itself or it orphans on disk. Deleting
+     * whatever app-temp-directory path the client happens to submit, without this session-recorded
+     * match, would let a rejection also delete an unrelated session's staged fax preview merely by
+     * resubmitting its path.</p>
+     */
+    private void deleteClaimedFaxFilePathIfSessionOwned() {
+        String claimedFaxFilePath = takeClaimedFaxFilePathFromSession();
+        if (claimedFaxFilePath == null || !claimedFaxFilePath.equals(faxFilePath)) {
+            return;
+        }
+        try {
+            deleteUnownedStagedFaxPreview(Path.of(claimedFaxFilePath));
+        } catch (InvalidPathException e) {
+            logger.warn("Unable to parse fax file path while cleaning up a rejected promotion", e);
+        }
+    }
 
     /**
      * Get a preview image of the entire fax document.
@@ -653,6 +692,7 @@ public class Fax2Action extends ActionSupport {
                 }
                 if (stagedPreview != null) {
                     pdfPath = stagedPreview.path();
+                    recordClaimedFaxFilePathInSession(pdfPath);
                     request.setAttribute("advisoryIssues", stagedPreview.advisoryIssueCount());
                     logger.info("Fax staged eForm preview claimed: fdid={} prepareMs={}", transactionId,
                             (System.nanoTime() - prepareStartedNanos) / 1_000_000L);
@@ -695,6 +735,7 @@ public class Fax2Action extends ActionSupport {
                         return "eFormMissingContent";
                     }
                     pdfPath = rendered.path();
+                    recordClaimedFaxFilePathInSession(pdfPath);
                     // Advisory conditions deliver the document rather than blocking it, so the fax
                     // preview must still say the render reported something. Count only: console and
                     // dialog text are form-authored and can carry PHI.
@@ -848,6 +889,28 @@ public class Fax2Action extends ActionSupport {
             logger.warn("Unable to delete staged fax preview after approval issuance failed: {}",
                     path, e);
         }
+    }
+
+    private void recordClaimedFaxFilePathInSession(Path claimedPath) {
+        HttpSession session = request.getSession(false);
+        if (session != null && claimedPath != null) {
+            session.setAttribute(CLAIMED_FAX_FILE_SESSION_KEY, claimedPath.toString());
+        }
+    }
+
+    /**
+     * Removes and returns this session's recorded claimed fax file path, or {@code null} if none
+     * is recorded. Single-use by design: once read here, the record is gone whether or not the
+     * caller's path matched it.
+     */
+    private String takeClaimedFaxFilePathFromSession() {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+        Object claimedPath = session.getAttribute(CLAIMED_FAX_FILE_SESSION_KEY);
+        session.removeAttribute(CLAIMED_FAX_FILE_SESSION_KEY);
+        return claimedPath == null ? null : claimedPath.toString();
     }
 
     private String faxFilePath;

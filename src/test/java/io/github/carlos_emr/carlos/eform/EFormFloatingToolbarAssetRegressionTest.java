@@ -200,11 +200,17 @@ class EFormFloatingToolbarAssetRegressionTest {
         // resolve before a later pass populates a field, even though the render budget cap was
         // supposed to still govern it. A genuinely repeating heartbeat never goes quiet and falls
         // through to the deadline; a chain that actually stops resolves quickly.
+        //
+        // The tracked instant is the excluded timer's own FIRE deadline (schedule time + delay),
+        // not the schedule time itself: measuring from schedule time let whenIdle resolve while a
+        // still-pending delayed callback (delay > the quiet window) had not run yet, skipping the
+        // exact field population this tracking exists to wait for.
         assertThat(compat)
                 .contains("var EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS = 300;")
-                .contains("var lastExcludedSelfRescheduleAt = 0;")
-                .contains("lastExcludedSelfRescheduleAt = Date.now();")
-                .contains("(now - lastExcludedSelfRescheduleAt) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS");
+                .contains("var excludedSelfRescheduleDeadline = 0;")
+                .contains("excludedSelfRescheduleDeadline = Date.now() + "
+                        + "(isFinite(delayMillis) ? Math.max(delayMillis, 0) : 0);")
+                .contains("(now - excludedSelfRescheduleDeadline) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS");
     }
 
     @Test
