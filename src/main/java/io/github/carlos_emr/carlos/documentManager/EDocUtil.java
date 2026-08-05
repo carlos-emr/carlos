@@ -933,6 +933,10 @@ public final class EDocUtil {
         if (d == null) {
             throw new FileNotFoundException("Document not found");
         }
+        if (d.getDocfilename() == null || d.getDocfilename().trim().isEmpty()) {
+            // HTML-only documents have no stored file, so there is nothing to refile.
+            throw new FileNotFoundException("Document has no stored file");
+        }
         File sourceFile = PathValidationUtils.validateExistingPath(
                 new File(sourceBaseDir, d.getDocfilename()), sourceBaseDir);
 

@@ -476,7 +476,10 @@ public class ManageDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        if (documentDao.find(parsedDocumentId) == null
+        Document targetDocument = documentDao.find(parsedDocumentId);
+        if (targetDocument == null
+                || targetDocument.getDocfilename() == null
+                || targetDocument.getDocfilename().trim().isEmpty()
                 || queueDao.find(parsedQueueId) == null) {
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "document or queue not found");

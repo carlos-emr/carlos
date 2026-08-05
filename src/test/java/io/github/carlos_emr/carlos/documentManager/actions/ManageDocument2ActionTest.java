@@ -225,7 +225,9 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
-        when(documentDao.find(42)).thenReturn(new Document());
+        Document document = new Document();
+        document.setDocfilename("stored.pdf");
+        when(documentDao.find(42)).thenReturn(document);
         when(queueDao.find(7)).thenReturn(new Queue());
 
         try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
@@ -282,8 +284,28 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "refileDocumentAjax");
         request.setParameter("documentId", "42");
         request.setParameter("queueId", "7");
-        when(documentDao.find(42)).thenReturn(new Document());
+        Document document = new Document();
+        document.setDocfilename("stored.pdf");
+        when(documentDao.find(42)).thenReturn(document);
         when(queueDao.find(7)).thenReturn(null);
+
+        try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            edocUtil.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRejectDocumentWithoutStoredFile_whenRefilingDocument() {
+        authorizeEdocWrite();
+        request.setMethod("POST");
+        request.setParameter("method", "refileDocumentAjax");
+        request.setParameter("documentId", "42");
+        request.setParameter("queueId", "7");
+        when(documentDao.find(42)).thenReturn(new Document());
 
         try (MockedStatic<EDocUtil> edocUtil = mockStatic(EDocUtil.class)) {
             String result = action.execute();
