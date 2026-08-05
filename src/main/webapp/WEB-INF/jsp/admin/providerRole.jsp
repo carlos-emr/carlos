@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -93,6 +94,9 @@
     SecuserroleDao secUserRoleDao = SpringUtils.getBean(SecuserroleDao.class);
     RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);
     ProgramProviderDAO programProviderDao = SpringUtils.getBean(ProgramProviderDAO.class);
+
+    // ObjectMapper is thread-safe once configured, so one instance serves every request.
+    static final ObjectMapper HELD_ROLES_MAPPER = new ObjectMapper();
 %>
 <%
     //check to see if new case management is request
@@ -463,9 +467,9 @@
 
         /*
          * The primary role designates which of a provider's own roles leads, so the selector
-         * only exposes roles that provider holds. Every provider/role pair is rendered
-         * server-side (encoded) and tagged with data-provider; picking a provider reveals just
-         * their rows. The roles themselves are never assigned here — that is Add in the table.
+         * only exposes roles that provider holds. Each provider option carries its held roles
+         * as encoded JSON in data-roles; picking a provider rebuilds the role options from that
+         * JSON. The roles themselves are never assigned here — that is Add in the table.
          */
         function primaryRoleChooseProvider() {
             const providerSelect = document.getElementById('primaryRoleProvider');
@@ -663,24 +667,18 @@
                             for (Properties prop : vec) {
                                 String providerNo = prop.getProperty("provider_no");
                                 if (!temp1.contains(providerNo)) {
-                                    // Held roles travel with the provider option as JSON so the role
-                                    // selector can be rebuilt client-side without a round trip.
+                                    /* Held roles travel with the provider option as JSON so the role
+                                     * selector can be rebuilt client-side without a round trip.
+                                     * Jackson is used rather than hand-escaping: a role name holding
+                                     * a control character would otherwise emit invalid JSON, and the
+                                     * JSON.parse below would fail silently, leaving an empty selector.
+                                     */
                                     List<String> heldRoles = heldRolesByProvider.get(providerNo);
-                                    StringBuilder heldRolesJson = new StringBuilder("[");
-                                    if (heldRoles != null) {
-                                        for (int r = 0; r < heldRoles.size(); r++) {
-                                            if (r > 0) {
-                                                heldRolesJson.append(',');
-                                            }
-                                            heldRolesJson.append('"')
-                                                    .append(heldRoles.get(r).replace("\\", "\\\\").replace("\"", "\\\""))
-                                                    .append('"');
-                                        }
-                                    }
-                                    heldRolesJson.append(']');
+                                    String heldRolesJson = HELD_ROLES_MAPPER.writeValueAsString(
+                                            heldRoles != null ? heldRoles : Collections.emptyList());
                         %>
                         <option value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"
-                                data-roles="<carlos:encode value='<%= heldRolesJson.toString() %>' context="htmlAttribute"/>"><carlos:encode value='<%= prop.getProperty("last_name") + "," + prop.getProperty("first_name") %>' context="html"/>
+                                data-roles="<carlos:encode value='<%= heldRolesJson %>' context="htmlAttribute"/>"><carlos:encode value='<%= prop.getProperty("last_name") + "," + prop.getProperty("first_name") %>' context="html"/>
                         </option>
                         <%
                                     temp1.add(providerNo);

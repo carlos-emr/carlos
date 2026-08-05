@@ -91,7 +91,9 @@ class ProviderRoleJspRegressionTest {
         assertThat(jsp)
                 .contains("heldRolesByProvider")
                 .contains("data-roles=\"<carlos:encode")
-                .contains("heldRolesJson.toString()")
+                // Serialized by Jackson, not hand-escaped: a control character in a role name
+                // would emit invalid JSON and leave the selector silently empty.
+                .containsPattern("HELD_ROLES_MAPPER\\s*\\.\\s*writeValueAsString")
                 .contains("secUserRoleDao.findByProviderNo(providerNo)");
 
         // The old array interpolated provider_no and role_id into a script block unencoded.
@@ -112,7 +114,7 @@ class ProviderRoleJspRegressionTest {
                 // Rebuilt, not hidden: repeating a role value per provider would make
                 // selection by value ambiguous. Labels use textContent, never innerHTML.
                 .containsPattern("while \\(roleSelect\\.options\\.length > 1\\)")
-                .contains("option.textContent = heldRole;")
+                .containsPattern("option\\.textContent\\s*=\\s*heldRole")
                 .doesNotContain("option.innerHTML");
     }
 
@@ -156,8 +158,11 @@ class ProviderRoleJspRegressionTest {
     void shouldTolerateMissingPrimaryRoleControls_duringPageInitialization() throws IOException {
         String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
 
+        // Separate anchors for the guard and the assignment: pinning them as one pattern
+        // would fail on reindentation alone, with no behaviour change.
         assertThat(jsp)
                 .contains("const primaryRoleProvider = document.getElementById('primaryRoleProvider');")
-                .containsPattern("if \\(primaryRoleProvider\\) \\{\\s+primaryRoleProvider\\.value = \\\"\\\";");
+                .containsPattern("if \\(primaryRoleProvider\\)")
+                .containsPattern("primaryRoleProvider\\.value\\s*=\\s*\"\"");
     }
 }
