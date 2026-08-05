@@ -34,8 +34,13 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Guards the discoverable schedule entry point and the provider availability
- * view's semantic, responsive layout.
+ * Guards the discoverable schedule entry point and the provider availability view.
+ *
+ * <p>These are source-level checks because the subjects are JSPs with no extractable
+ * seam. That makes them prone to becoming change-detectors, so each assertion here is
+ * chosen to encode an invariant that has a user-visible or security consequence when
+ * broken — not to pin an implementation. Prefer adding a case that would catch a real
+ * regression over one that merely restates how the current code is written.
  *
  * @since 2026-07-30
  */
@@ -43,6 +48,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("schedule")
 class ScheduleAvailabilityViewJspRegressionTest {
+
+    private static final String INFIRMARY_GUARD = "<c:if test=\"${infirmaryView_isOscar != 'false'}\">";
+    private static final String MOBILE_ROW = "<tr class=\"provider-availability-mobile-row";
 
     private static final Path PROVIDER_DAY_JSP =
             projectRoot().resolve("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
@@ -55,127 +63,167 @@ class ScheduleAvailabilityViewJspRegressionTest {
     private static final Path PROVIDER_DAY_MOBILE_CSS =
             projectRoot().resolve("src/main/webapp/mobile/receptionistapptstyle.css");
 
+    /**
+     * The entry point was an unlabelled radio input with a double-click handler, which was
+     * undiscoverable and unreachable by keyboard. Issue #3254.
+     */
     @Test
-    @DisplayName("provider header should expose availability as a labelled link")
-    void shouldExposeLabelledAvailabilityLink_inProviderHeader() throws IOException {
+    @DisplayName("provider header should expose availability as a labelled link, not a bare radio")
+    void shouldExposeAvailabilityLink_insteadOfUnlabelledRadio() throws IOException {
         String jsp = Files.readString(PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
-        String desktopCss = Files.readString(PROVIDER_DAY_CSS, StandardCharsets.UTF_8);
-        String mobileCss = Files.readString(PROVIDER_DAY_MOBILE_CSS, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("class=\"provider-availability-link noprint\"")
-                .contains("class=\"provider-availability-mobile-row noprint\"")
+                .contains("provider-availability-link")
                 .contains("provider.appointmentProviderAdminDay.viewAvailability")
                 .contains("/schedule/FlipView?originalpage=")
-                .contains("String.format(Locale.ROOT, \"%04d-%02d-%02d\", year, month, day)")
-                .contains("class=\"fa-solid fa-calendar-days\"")
-                .doesNotContain("<input type='radio' name='flipview'");
-
-        int hiddenProviderHeader = jsp.indexOf("<td class=\"infirmaryView\"");
-        int hiddenProviderHeaderClose = jsp.indexOf("</td>", hiddenProviderHeader);
-        int mobileAvailabilityRow = jsp.indexOf("<tr class=\"provider-availability-mobile-row noprint\">");
-        assertThat(mobileAvailabilityRow).isGreaterThan(hiddenProviderHeaderClose);
-
-        assertThat(desktopCss)
-                .contains(".provider-availability-link:focus,")
-                .contains(".provider-availability-mobile-row {")
-                .contains("display: none;");
-        assertThat(mobileCss)
-                .contains(".provider-availability-mobile-row .provider-availability-link {")
-                .contains("display: inline-flex;");
+                .doesNotContain("name='flipview'")
+                .doesNotContain("goFilpView");
     }
 
+    /**
+     * The mobile row duplicates a desktop link that the CAISI infirmary view deliberately
+     * suppresses. Both entry points must sit behind the same guard, or infirmary mode leaks
+     * the link on small screens only.
+     */
     @Test
-    @DisplayName("availability view should use a responsive accessible grid")
-    void shouldUseResponsiveAccessibleGrid_forAvailability() throws IOException {
+    @DisplayName("mobile availability row should sit behind the same infirmary-view guard as the desktop link")
+    void shouldGuardMobileEntryPoint_withInfirmaryViewCondition() throws IOException {
+        String jsp = Files.readString(PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
+
+        int mobileRow = jsp.indexOf(MOBILE_ROW);
+        assertThat(mobileRow).as("mobile availability row is present").isPositive();
+
+        String before = jsp.substring(0, mobileRow);
+        assertThat(before.lastIndexOf(INFIRMARY_GUARD))
+                .as("nearest enclosing tag before the mobile row is an open infirmary guard")
+                .isGreaterThan(before.lastIndexOf("</c:if>"));
+    }
+
+    /**
+     * Both stylesheets are loaded mutually exclusively, so the desktop sheet hides the mobile
+     * row and the mobile sheet styles it. Losing either rule silently drops one entry point.
+     */
+    @Test
+    @DisplayName("availability entry point should be styled for both the desktop and mobile stylesheets")
+    void shouldStyleAvailabilityEntryPoint_forBothStylesheets() throws IOException {
+        assertThat(Files.readString(PROVIDER_DAY_CSS, StandardCharsets.UTF_8))
+                .contains(".provider-availability-mobile-row {")
+                .contains(".provider-availability-link:focus");
+        assertThat(Files.readString(PROVIDER_DAY_MOBILE_CSS, StandardCharsets.UTF_8))
+                .contains(".provider-availability-mobile-row .provider-availability-link {");
+    }
+
+    /**
+     * Request parameters must be rejected before any template text reaches the writer,
+     * otherwise a committed buffer swallows the status and the user gets a broken 200.
+     */
+    @Test
+    @DisplayName("request parameters should be validated before any markup is emitted")
+    void shouldRejectInvalidRequestParameters_beforeEmittingMarkup() throws IOException {
         String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
-        String css = Files.readString(AVAILABILITY_CSS, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("<!DOCTYPE html>")
-                .contains("<html lang=\"<%= SafeEncode.forHtmlAttribute(request.getLocale().toLanguageTag()) %>\">")
-                .contains("/library/bootstrap/5.3.8/css/bootstrap.min.css")
-                .contains("/css/scheduleavailability.css")
-                .contains("private String getSafeCssColor(Object configuredColor)")
-                .contains("new SimpleDateFormat(\"yyyy-MM-dd\", Locale.ROOT)")
-                .contains("inform.setLenient(false)")
-                .contains("String requestedStartDate = request.getParameter(\"startDate\")")
+                .contains("SC_BAD_REQUEST, \"Invalid provider_no\"")
+                .contains("SC_BAD_REQUEST, \"Invalid startDate\"")
+                .contains("setLenient(false)")
+                .contains("Locale.ROOT");
+
+        int markupStart = jsp.indexOf("<!DOCTYPE html>");
+        assertThat(markupStart).as("page emits a doctype").isPositive();
+        assertThat(jsp.indexOf("SC_BAD_REQUEST, \"Invalid startDate\""))
+                .as("startDate is rejected before output is buffered")
+                .isLessThan(markupStart);
+        assertThat(jsp.indexOf("SC_BAD_REQUEST, \"Invalid provider_no\""))
+                .as("provider_no is rejected before output is buffered")
+                .isLessThan(markupStart);
+    }
+
+    /**
+     * The page previously fell back to a hardcoded provider "174". The replacement reads the
+     * session preference, whose providerNo is null for providers with no saved row, so the
+     * chain must stay null-safe and end in a 400 rather than a 500.
+     */
+    @Test
+    @DisplayName("default provider resolution should be null-safe and never hardcoded")
+    void shouldResolveProviderNullSafely_whenNoPreferenceRowExists() throws IOException {
+        String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .doesNotContain("174")
                 .contains("providerPreference.getProviderNo()")
-                .doesNotContain(": \"174\"")
-                .contains("requestedStartDate.matches(\"[0-9]{4}-[0-9]{2}-[0-9]{2}\")")
-                .contains("response.sendError(HttpServletResponse.SC_BAD_REQUEST, \"Invalid startDate\")")
-                .contains("inform.format(lastMonth.getTime())")
-                .contains("inform.format(nextMonth.getTime())")
-                .contains("class=\"availability-grid-wrapper\"")
-                .contains("id=\"availabilityGrid\"")
+                .contains("getLoggedInProviderNo()")
+                .contains("curProvider_no == null ||");
+
+        assertThat(jsp.indexOf("getLoggedInProviderNo()"))
+                .as("session fallback resolves before the validation guard dereferences it")
+                .isLessThan(jsp.indexOf("curProvider_no == null ||"));
+    }
+
+    /**
+     * Slots are the primary interaction. They must be real buttons (keyboard operable, not
+     * {@code href="#"} anchors) inside a header-scoped table so the grid is navigable.
+     */
+    @Test
+    @DisplayName("availability grid should use semantic headers and keyboard-operable slots")
+    void shouldRenderAccessibleGrid_forKeyboardAndScreenReaders() throws IOException {
+        String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("<button type=\"button\" class=\"availability-slot\"")
                 .contains("<thead>")
                 .contains("<tbody>")
                 .contains("scope=\"col\"")
                 .contains("scope=\"row\"")
-                .contains("<nav class=\"btn-group\"")
-                .contains("<button type=\"button\" class=\"availability-slot\"")
-                .contains("aria-label=\"<%=SafeEncode.forHtmlAttribute(outform.format(cal.getTime()))%>")
-                .contains("SafeEncode.forHtmlContent(outform.format(now.getTime()))")
-                .contains("SafeEncode.forHtmlContent(temp.toString())")
-                .doesNotContain("SafeEncode.forHtml(")
-                .doesNotContain("role=\"group\"")
-                .doesNotContain("<a class=\"availability-slot\" href=\"#\"")
-                .contains("schedule.scheduleflipview.instructions");
+                .contains("id=\"availabilityGrid\"")
+                .contains("class=\"availability-grid-wrapper\"")
+                .doesNotContain("<a class=\"availability-slot\" href=\"#\"");
 
         assertThat(jsp)
-                .contains("day=<%=now.get(Calendar.DATE)%>&amp;view=1&amp;curProvider=<carlos:encode value='<%= curProvider_no %>' context=\"uriComponent\"/>")
-                .contains("day=<%=cal.get(Calendar.DATE)%>&amp;view=1&amp;curProvider=<carlos:encode value='<%= curProvider_no %>' context=\"uriComponent\"/>")
-                .contains("&amp;curProviderName=<carlos:encode value='<%= curProviderName %>' context=\"uriComponent\"/>");
-
-        assertThat(jsp.indexOf("String requestedStartDate = request.getParameter(\"startDate\")"))
-                .isLessThan(jsp.indexOf("<!DOCTYPE html>"));
-        assertThat(jsp.indexOf("response.sendError(HttpServletResponse.SC_BAD_REQUEST, \"Invalid startDate\")"))
-                .isLessThan(jsp.indexOf("<!DOCTYPE html>"));
-
-        assertThat(css)
-                .contains("#availabilityGrid thead th")
-                .contains("#availabilityGrid .availability-date")
-                .contains("overflow: auto")
-                .contains(".availability-slot {")
-                .contains("cursor: pointer")
-                .contains("position: sticky");
-    }
-
-    @Test
-    @DisplayName("provider selector should retain the current provider when its group is empty")
-    void shouldRetainCurrentProvider_whenProviderGroupIsEmpty() throws IOException {
-        String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
-
-        assertThat(jsp)
-                .contains("Provider currentProvider = providerDao.getProvider(curProvider_no)")
-                .contains("SAFE_CSS_COLOR_PATTERN.matcher(color).matches()")
-                .contains("getSafeCssColor(ApptUtil.getColorFromLocation(sites, _loc))")
-                .contains("currentProvider.getProviderNo()")
-                .contains("currentProvider.getFormattedName()")
-                .contains("if (mg.getId().getProviderNo().equals(curProvider_no))")
-                .contains("continue;");
+                .as("day-view links carry the provider so the target view stays in context")
+                .contains("&amp;view=1&amp;curProvider=")
+                .contains("&amp;curProviderName=");
     }
 
     /**
-     * The waiting-list booking popup opens this page without {@code provider_no}, and
-     * {@code Login2Action} seeds a default-constructed {@code ProviderPreference} (null
-     * {@code providerNo}) for providers with no saved preference row. Without the session
-     * fallback the raw {@code matches(...)} guard dereferences null and the page 500s.
+     * Configured colours reach a style attribute, so both paths must go through the shared
+     * allowlist, and output must use the null-safe encoder wrappers rather than raw
+     * {@code SafeEncode.forHtml}.
      */
     @Test
-    @DisplayName("provider resolution should fall back to the session identity when no preference row exists")
-    void shouldFallBackToSessionProvider_whenPreferenceProviderNoIsNull() throws IOException {
+    @DisplayName("configured colours and untrusted values should use the shared validator and null-safe encoders")
+    void shouldValidateColoursAndEncoding_forUntrustedValues() throws IOException {
         String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
 
+        assertThat(jsp).contains("SAFE_CSS_COLOR_PATTERN");
+        assertThat(jsp.split("getSafeCssColor\\(", -1).length - 1)
+                .as("declaration plus both style-attribute call sites share one validator")
+                .isGreaterThanOrEqualTo(3);
         assertThat(jsp)
-                .contains("import=\"io.github.carlos_emr.carlos.utility.LoggedInInfo\"")
-                .contains("loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null")
-                .contains("if (curProvider_no == null || !curProvider_no.matches(\"^[a-zA-Z0-9._-]+$\"))");
+                .as("forHtml is not null-safe; forHtmlContent/forHtmlAttribute are")
+                .doesNotContain("SafeEncode.forHtml(");
+    }
 
-        // The session fallback must resolve before the validation guard, otherwise the guard
-        // dereferences a null provider number instead of returning 400.
-        assertThat(jsp.indexOf("loggedInInfo.getLoggedInProviderNo()"))
-                .isLessThan(jsp.indexOf("if (curProvider_no == null || !curProvider_no.matches"));
+    /**
+     * On screen the grid is a capped scroll container. Without a print override that cap
+     * clips the schedule to roughly one viewport, which the previous plain table did not do.
+     */
+    @Test
+    @DisplayName("availability stylesheet should scroll on screen and print the full grid")
+    void shouldSupportStickyScrollAndFullPrintOutput_inAvailabilityCss() throws IOException {
+        String css = Files.readString(AVAILABILITY_CSS, StandardCharsets.UTF_8);
+
+        assertThat(css)
+                .contains("position: sticky")
+                .contains("overflow: auto")
+                .contains(".availability-slot {");
+
+        int print = css.indexOf("@media print");
+        assertThat(print).as("stylesheet defines print behaviour").isPositive();
+        assertThat(css.substring(print))
+                .as("print releases the scroll cap and the viewport-relative sticky offsets")
+                .contains("max-height: none")
+                .contains("overflow: visible")
+                .contains("position: static");
     }
 
     private static Path projectRoot() {

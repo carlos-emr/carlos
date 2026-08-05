@@ -1786,6 +1786,11 @@
                                         <!-- caisi infirmary view extension modify end ffffffffffffffff-->
                                     </td>
                                 </tr>
+                                <%-- Mirrors the desktop availability link above, which the mobile
+                                     stylesheet hides with the rest of the provider header. Keep it
+                                     under the same infirmary-view guard so CAISI infirmary mode
+                                     suppresses both entry points, not just the desktop one. --%>
+                                <c:if test="${infirmaryView_isOscar != 'false'}">
                                 <tr class="provider-availability-mobile-row noprint">
                                     <td class="noGrid" align="center">
                                         <a class="provider-availability-link"
@@ -1797,6 +1802,7 @@
                                         </a>
                                     </td>
                                 </tr>
+                                </c:if>
                                 <!-- END for the first providers's name -->
                                 <tr>
 

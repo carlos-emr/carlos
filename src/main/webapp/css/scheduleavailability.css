@@ -187,3 +187,35 @@ body.availability-page {
         min-width: 100%;
     }
 }
+
+/* On screen the grid lives in a height-capped scroll container. Carried into print
+   unchanged, that cap clips the schedule to roughly one viewport, so release it here.
+   Sticky offsets resolve against the viewport rather than the page and would pin the
+   headers to the first sheet, so they are dropped in favour of a repeating thead. */
+@media print {
+    .availability-grid-wrapper {
+        border: 0;
+        max-height: none;
+        overflow: visible;
+    }
+
+    #availabilityGrid thead th,
+    #availabilityGrid .availability-date {
+        position: static;
+    }
+
+    #availabilityGrid thead {
+        display: table-header-group;
+    }
+
+    #availabilityGrid tbody tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .availability-page-header nav,
+    .availability-footer-nav,
+    .availability-controls nav {
+        display: none;
+    }
+}
