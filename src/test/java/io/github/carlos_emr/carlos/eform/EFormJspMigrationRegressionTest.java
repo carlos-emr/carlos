@@ -106,7 +106,7 @@ class EFormJspMigrationRegressionTest {
                 .contains("aria-live=\"polite\"")
                 .contains("id=\"cancel-incomplete-eform-fax\"")
                 .contains("name=\"method\" value=\"cancelStagedEFormFax\"")
-                .doesNotContain("onclick=\"history.back();\"");
+                .doesNotContainPattern("(?s)\\b(?:window\\s*\\.\\s*)?history\\s*\\.\\s*back\\s*\\(");
     }
 
     @Test
