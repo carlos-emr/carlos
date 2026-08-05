@@ -90,6 +90,8 @@ public class Fax2Action extends ActionSupport {
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final EFormRenderApprovalService renderApprovalService =
+            SpringUtils.getBean(EFormRenderApprovalService.class);
     private transient EFormDataDao eFormDataDao;
 
 
@@ -208,8 +210,6 @@ public class Fax2Action extends ActionSupport {
             sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid eForm fax approval");
             return;
         }
-        EFormRenderApprovalService renderApprovalService =
-                SpringUtils.getBean(EFormRenderApprovalService.class);
         renderApprovalService.cancelStagedFaxPreview(
                 request, loggedInInfo, transactionId, String.valueOf(demographicNo),
                 request.getParameter("renderApproval"));
@@ -570,8 +570,6 @@ public class Fax2Action extends ActionSupport {
                 request.setAttribute("fdid", String.valueOf(transactionId));
                 request.setAttribute("demographicId", String.valueOf(demographicNo));
 
-                EFormRenderApprovalService renderApprovalService =
-                        SpringUtils.getBean(EFormRenderApprovalService.class);
                 String approvalToken = request.getParameter("renderApproval");
                 EFormData currentEForm = eFormDataDao().find(transactionId.intValue());
                 if (currentEForm == null || currentEForm.getDemographicId() == null) {
