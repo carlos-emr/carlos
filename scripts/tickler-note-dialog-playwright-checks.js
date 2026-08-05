@@ -1,4 +1,17 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 /*
  * Browser regression checks for the tickler note dialog fix (#3252).
  *
@@ -257,10 +270,16 @@ async function createTickler(context, message) {
     return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-save-ok');
   }, null, { timeout: 30000 });
 
-  await page.waitForTimeout(750);
   await page.close().catch(() => {});
 
-  const row = getTicklerRows().find((item) => item.message === message);
+  let row = null;
+  const deadline = Date.now() + 15000;
+  while (!row && Date.now() < deadline) {
+    row = getTicklerRows().find((item) => item.message === message) || null;
+    if (!row) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
   assert(row, `expected a created tickler row for message ${message}`);
   return row.id;
 }
