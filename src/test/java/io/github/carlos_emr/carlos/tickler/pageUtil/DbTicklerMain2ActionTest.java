@@ -8,33 +8,21 @@
  */
 package io.github.carlos_emr.carlos.tickler.pageUtil;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.MockitoAnnotations;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
@@ -43,51 +31,18 @@ import static org.mockito.Mockito.when;
  * @since 2026-08-05
  */
 @DisplayName("DbTicklerMain2Action redirects")
-@Tag("unit")
+@Tag("integration")
 @Tag("tickler")
-class DbTicklerMain2ActionTest {
+class DbTicklerMain2ActionTest extends CarlosWebTestBase {
 
     @Mock
     private TicklerManager ticklerManager;
-    @Mock
-    private SecurityInfoManager securityInfoManager;
-    @Mock
-    private LoggedInInfo loggedInInfo;
-
-    private AutoCloseable mockitoMocks;
-    private MockedStatic<ServletActionContext> servletActionContextMock;
-    private MockedStatic<SpringUtils> springUtilsMock;
-    private MockedStatic<LoggedInInfo> loggedInInfoMock;
-    private MockHttpServletRequest mockRequest;
-    private MockHttpServletResponse mockResponse;
 
     @BeforeEach
     void setUpAction() {
-        mockitoMocks = MockitoAnnotations.openMocks(this);
-        mockRequest = new MockHttpServletRequest("POST", "/carlos/tickler/DbTicklerMain");
+        replaceSpringUtilsBean(TicklerManager.class, ticklerManager);
         mockRequest.setContextPath("/carlos");
-        mockResponse = new MockHttpServletResponse();
-
-        servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
-
-        springUtilsMock = mockStatic(SpringUtils.class);
-        springUtilsMock.when(() -> SpringUtils.getBean(TicklerManager.class)).thenReturn(ticklerManager);
-        springUtilsMock.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
-
-        loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(loggedInInfo);
-        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), isNull()))
-                .thenReturn(true);
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        if (loggedInInfoMock != null) loggedInInfoMock.close();
-        if (springUtilsMock != null) springUtilsMock.close();
-        if (servletActionContextMock != null) servletActionContextMock.close();
-        if (mockitoMocks != null) mockitoMocks.close();
+        mockRequest.setMethod("POST");
     }
 
     @Test
