@@ -53,6 +53,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/upload.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
+    private static final Path EFM_FORM_MANAGER_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanager.jsp");
     private static final Path EFM_TOP_NAV_JSPF =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
     private static final Path EFM_FORM_MANAGER_EDIT_JSP =
@@ -176,6 +178,26 @@ class EFormJspMigrationRegressionTest {
         assertThat(jsp)
                 .contains("window.location.href = '<%=request.getContextPath()%>/eform/efmformmanager';")
                 .doesNotContain("window.opener.location.href = '<%=request.getContextPath()%>/administration?show=Forms';");
+    }
+
+    @Test
+    @DisplayName("eForm uploads and imports should preserve explicit schedule navigation")
+    void shouldPreserveScheduleNavigation_throughEFormUploadAndImport() throws IOException {
+        String manager = Files.readString(EFM_FORM_MANAGER_JSP, StandardCharsets.UTF_8);
+        String upload = Files.readString(UPLOAD_PARTIAL_JSP, StandardCharsets.UTF_8);
+        String importJsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
+
+        assertThat(manager)
+                .contains("/eform/partials/upload${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}")
+                .contains("/eform/partials/import${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}");
+
+        for (String partial : List.of(upload, importJsp)) {
+            assertThat(partial)
+                    .contains("<c:if test=\"${param.scheduleNav eq '1'}\">")
+                    .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\"")
+                    .contains("/administration?show=Forms${param.scheduleNav eq '1' ? '&scheduleNav=1' : ''}")
+                    .doesNotContain("/administration?show=Forms&scheduleNav=1\"");
+        }
     }
 
     @Test
