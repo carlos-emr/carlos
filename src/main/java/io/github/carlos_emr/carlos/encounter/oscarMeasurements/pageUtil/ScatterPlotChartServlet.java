@@ -60,11 +60,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-// TODO: verify these two import paths against another servlet in this
-// package that already performs a hasPrivilege() check — package names
-// below are a best guess and may need adjusting before this compiles.
-import io.github.carlos_emr.carlos.util.LoggedInInfo;
-import io.github.carlos_emr.carlos.security.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
@@ -76,7 +73,6 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
     protected int width = 550;
     protected int height = 360;
-
 
     @Override
     public void service(HttpServletRequest request, HttpServletResponse httpServletResponse) throws ServletException, IOException {
@@ -95,10 +91,39 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
         // Security fix (issue #2623): patient-scoped authorization check,
         // mirroring the pattern in MeasurementData2Action.java (measurements/web).
+        //
+        // A missing demographicNo is rejected outright, before any privilege
+        // check runs: hasPrivilege() falls back to a general role check when
+        // demographicNo is null, which would reopen the IDOR gap this fix is
+        // meant to close (flagged by automated review on this PR).
+        if (demographicNo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+        // isAllowedAccessToPatientRecord() is checked in addition to
+        // hasPrivilege() as defense-in-depth: it enforces explicit
+        // patient-level access locks (e.g. chart restrictions) independently
+        // of role-based privilege. Note this does not fully close the
+        // deeper limitation that hasPrivilege() can fall back to a general
+        // role check when no patient-specific role mapping exists for this
+        // demographicNo -- that is existing, shared behavior used across
+        // many other files in this codebase and is out of scope for this
+        // narrowly-scoped fix; flagged separately to the maintainer.
+        Integer demographicNoInt;
+        try {
+            demographicNoInt = Integer.valueOf(demographicNo);
+        } catch (NumberFormatException e) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
             httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
