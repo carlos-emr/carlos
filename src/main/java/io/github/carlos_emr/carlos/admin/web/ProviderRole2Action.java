@@ -93,7 +93,10 @@ public class ProviderRole2Action extends ActionSupport {
              */
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
                     && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
-                throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+                // Distinct from the read gate above: this caller does hold the sec object, so
+                // naming it alone would be untrue. Paren form is kept per the message convention.
+                throw new SecurityException(
+                        "missing required sec object (_admin or _admin.userAdmin with write privilege)");
             }
         }
 

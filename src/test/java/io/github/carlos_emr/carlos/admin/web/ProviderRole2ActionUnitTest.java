@@ -153,9 +153,11 @@ class ProviderRole2ActionUnitTest extends CarlosUnitTestBase {
 
         ProviderRole2Action action = new ProviderRole2Action();
 
+        // Distinct from the read-gate rejection: this caller holds the sec object and is
+        // refused only for lacking write privilege, so the two must not be conflated.
         assertThatExceptionOfType(SecurityException.class)
                 .isThrownBy(action::execute)
-                .withMessageContaining("missing required sec object (_admin or _admin.userAdmin)");
+                .withMessageContaining("missing required sec object (_admin or _admin.userAdmin with write privilege)");
     }
 
     @Test
