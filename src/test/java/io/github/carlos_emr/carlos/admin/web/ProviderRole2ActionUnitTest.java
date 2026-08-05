@@ -45,7 +45,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -131,6 +133,19 @@ class ProviderRole2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
     }
 
+    @ParameterizedTest(name = "HEAD with {0} is rejected")
+    @MethodSource("writeIntentParameters")
+    @DisplayName("should reject HEAD for every write intent")
+    void shouldRejectHead_forEveryWriteIntent(String parameterName, String parameterValue) throws Exception {
+        request.setMethod("HEAD");
+        request.setParameter(parameterName, parameterValue);
+
+        String result = new ProviderRole2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+    }
+
     @Test
     @DisplayName("should allow GET when request is read only")
     void shouldAllowGet_whenRequestIsReadOnly() throws Exception {
@@ -141,5 +156,34 @@ class ProviderRole2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+    }
+
+    @Test
+    @DisplayName("should accept either admin security object")
+    void shouldAcceptEitherAdminSecurityObject_forUserAdminPrivilege() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.userAdmin"), eq("r"), isNull()))
+                .thenReturn(true);
+        request.setMethod("GET");
+
+        String result = new ProviderRole2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @Test
+    @DisplayName("should reject request when neither admin privilege is held")
+    void shouldRejectRequest_whenAdminPrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), eq("r"), isNull()))
+                .thenReturn(false);
+        request.setMethod("POST");
+        request.setParameter("buttonSetPrimaryRole", "Update Primary EMR Role");
+
+        ProviderRole2Action action = new ProviderRole2Action();
+
+        assertThatExceptionOfType(SecurityException.class)
+                .isThrownBy(action::execute)
+                .withMessageContaining("missing required sec object (_admin or _admin.userAdmin)");
     }
 }

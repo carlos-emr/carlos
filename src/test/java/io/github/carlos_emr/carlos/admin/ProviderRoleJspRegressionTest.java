@@ -56,14 +56,21 @@ class ProviderRoleJspRegressionTest {
         assertThat(selectEnd).isGreaterThan(selectStart);
 
         String primaryRoleSelect = jsp.substring(selectStart, selectEnd);
-        assertThat(jsp).contains("List<String> vecRoleName = new ArrayList<String>();");
+
+        // The option list is fed by the full assignable-role collection built from
+        // secRoleDao.findAllOrderByRole(), not by the selected provider's own roles.
+        assertThat(jsp).containsPattern("vecRoleName\\s*=\\s*new ArrayList");
+        assertThat(jsp).contains("secRoleDao.findAllOrderByRole()");
         assertThat(primaryRoleSelect)
-                .contains("for (int i = 0; i < vecRoleName.size(); i++)")
-                .contains("String availableRoleName = String.valueOf(vecRoleName.get(i));")
+                .containsPattern("vecRoleName\\.size\\(\\)")
+                .containsPattern("vecRoleName\\.get\\(")
                 .contains("context=\"htmlAttribute\"")
                 .contains("context=\"html\"");
 
+        // The client-side filter that narrowed the list to the provider's existing
+        // roles (issue #3258) must stay gone.
         assertThat(jsp)
+                .doesNotContain("primaryRoleChooseProvider")
                 .doesNotContain("items[i].providerNo === provider")
                 .doesNotContain("items[i].role_id !== \"\"");
     }
@@ -74,11 +81,42 @@ class ProviderRoleJspRegressionTest {
         String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("StringUtils.hasText(providerNo) ? providerDao.findByProviderNo(providerNo) : null")
-                .contains("StringUtils.hasText(roleName) && vecRoleName.contains(roleName)")
-                .contains("provider != null && \"1\".equals(provider.getStatus())")
-                .contains("secRole != null && caisiProgram != null")
+                .containsPattern("hasText\\(providerNo\\)[\\s\\S]{0,40}findByProviderNo\\(providerNo\\)")
+                .containsPattern("hasText\\(roleName\\)[\\s\\S]{0,40}vecRoleName\\.contains\\(roleName\\)")
+                .containsPattern("\"1\"\\.equals\\(provider\\.getStatus\\(\\)\\)")
+                .containsPattern("secRole != null[\\s\\S]{0,20}caisiProgram != null")
                 .contains("admin.providerrole.msgNotUpdated");
+    }
+
+    @Test
+    @DisplayName("primary role update should audit the privilege change")
+    void shouldAuditThePrivilegeChange_whenPrimaryRoleIsUpdated() throws IOException {
+        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+        int blockStart = jsp.indexOf("//set the primary role");
+        int blockEnd = jsp.indexOf("// update the role", blockStart);
+
+        assertThat(blockStart).isGreaterThanOrEqualTo(0);
+        assertThat(blockEnd).isGreaterThan(blockStart);
+
+        // program_provider.role_id drives clinical-note access rights, so the
+        // successful write must leave both an audit entry and user feedback.
+        String primaryRoleBlock = jsp.substring(blockStart, blockEnd);
+        assertThat(primaryRoleBlock)
+                .containsPattern("LogAction\\.addLog\\([\\s\\S]{0,80}LogConst\\.CON_ROLE")
+                .contains("admin.providerrole.msgUpdated");
+    }
+
+    @Test
+    @DisplayName("page should warn when a primary role is not one of the provider's assigned roles")
+    void shouldWarnAboutUnassignedPrimaryRole_whenAuditingProviders() throws IOException {
+        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+
+        // Offering every role (issue #3258) makes an unheld primary role reachable;
+        // the audit loop has to surface it rather than leave the column silently blank.
+        assertThat(jsp)
+                .contains("which is not one of their assigned roles")
+                .containsPattern("roleNamesById\\.get\\(pp\\.getRoleId\\(\\)\\)")
+                .containsPattern("assignedEntry\\.getValue\\(\\)\\.contains\\(primaryRoleName\\)");
     }
 
     @Test

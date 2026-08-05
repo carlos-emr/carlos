@@ -49,14 +49,12 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -129,8 +127,14 @@
         omit = CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "");
     }
 
+    /* roleNamesById is deliberately built from the unfiltered role list: it resolves
+     * program_provider.role_id back to a name for the consistency warning below, and
+     * must still resolve the site-access-privacy role that vecRoleName omits.
+     */
+    Map<Long, String> roleNamesById = new HashMap<Long, String>();
     List<SecRole> secRoles = secRoleDao.findAllOrderByRole();
     for (SecRole secRole : secRoles) {
+        roleNamesById.put(Long.valueOf(secRole.getId().longValue()), secRole.getName());
         if (!secRole.getName().equals(omit)) {
             vecRoleName.add(secRole.getName());
         }
@@ -146,17 +150,24 @@
 
         if (provider != null && "1".equals(provider.getStatus()) && secRole != null && caisiProgram != null) {
             Long roleId = secRole.getId().longValue();
-            ProgramProvider pp = programProviderDao.getProgramProvider(providerNo, Long.valueOf(caisiProgram));
-            if (pp != null) {
-                pp.setRoleId(roleId);
-                programProviderDao.saveProgramProvider(pp);
-            } else {
+            Long programId = Long.valueOf(caisiProgram);
+            ProgramProvider pp = programProviderDao.getProgramProvider(providerNo, programId);
+            if (pp == null) {
                 pp = new ProgramProvider();
-                pp.setProgramId(Long.valueOf(caisiProgram));
+                pp.setProgramId(programId);
                 pp.setProviderNo(providerNo);
-                pp.setRoleId(roleId);
-                programProviderDao.saveProgramProvider(pp);
             }
+            pp.setRoleId(roleId);
+            programProviderDao.saveProgramProvider(pp);
+
+            /* The primary role drives clinical-note access rights through
+             * CaseManagementManagerImpl#getAccessType (program_provider.role_id ->
+             * DefaultRoleAccess), so this write is a privilege change and must be
+             * audited like the add/update/delete role mutations below.
+             */
+            LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_ROLE, providerNo + "|primaryRole>" + roleName, ip);
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgUpdated"),
+                    SafeEncode.forHtml(roleName), SafeEncode.forHtml(providerNo));
         } else {
             msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotUpdated"),
                     SafeEncode.forHtml(roleName), SafeEncode.forHtml(providerNo));
@@ -353,25 +364,54 @@
         // audit all roles for if primary is set.
         List secUserRoleList = secUserRoleDao.findAll();
 
-        // get all the user roles.
-        Set<String> activeUsers = new HashSet<>();
+        // get all the user roles, keyed by provider so the primary role can be
+        // checked against the roles that provider actually holds.
+        Map<String, Set<String>> assignedRolesByProvider = new HashMap<String, Set<String>>();
         if(secUserRoleList != null) {
             for(Object secUserRoleItem : secUserRoleList) {
                 Secuserrole secUserRole = (Secuserrole) secUserRoleItem;
-                activeUsers.add(secUserRole.getProviderNo());
+                Set<String> assigned = assignedRolesByProvider.get(secUserRole.getProviderNo());
+                if (assigned == null) {
+                    assigned = new HashSet<String>();
+                    assignedRolesByProvider.put(secUserRole.getProviderNo(), assigned);
+                }
+                assigned.add(secUserRole.getRoleName());
             }
         }
 
         // check if the primary is set for each user role
-        if(! activeUsers.isEmpty()) {
-            for(String user : activeUsers) {
+        for(Map.Entry<String, Set<String>> assignedEntry : assignedRolesByProvider.entrySet()) {
+            String user = assignedEntry.getKey();
 
-                List programProvider = programProviderDao.getProgramProvidersByProvider(user);
+            List programProvider = programProviderDao.getProgramProvidersByProvider(user);
 
-				if(programProvider == null || programProvider.isEmpty()) {
-                    ProviderData provider = providerDao.findByProviderNo(user);
-                    if (provider != null) {
-                        msg += String.format("</br><span style='color:red;'>WARNING: Provider %s requires a primary role assignment.</span>", SafeEncode.forHtml(provider.getFirstName() + " " + provider.getLastName()));
+            if(programProvider == null || programProvider.isEmpty()) {
+                ProviderData provider = providerDao.findByProviderNo(user);
+                if (provider != null) {
+                    msg += String.format("</br><span style='color:red;'>WARNING: Provider %s requires a primary role assignment.</span>", SafeEncode.forHtml(provider.getFirstName() + " " + provider.getLastName()));
+                }
+            } else if (caisiProgram != null) {
+                /* The primary role selector offers every assignable role (issue #3258), so a
+                 * primary role can point at a role the provider does not hold in secUserRole.
+                 * That combination grants clinical-note access rights through
+                 * CaseManagementManagerImpl#getAccessType while the "Primary EMR Role" column
+                 * stays blank, so surface it instead of letting it pass silently.
+                 */
+                Long oscarProgramId = Long.valueOf(caisiProgram);
+                for (Object programProviderItem : programProvider) {
+                    ProgramProvider pp = (ProgramProvider) programProviderItem;
+                    if (!oscarProgramId.equals(pp.getProgramId()) || pp.getRoleId() == null) {
+                        continue;
+                    }
+                    String primaryRoleName = roleNamesById.get(pp.getRoleId());
+                    if (primaryRoleName != null && !assignedEntry.getValue().contains(primaryRoleName)) {
+                        ProviderData provider = providerDao.findByProviderNo(user);
+                        if (provider != null) {
+                            msg += String.format("</br><span style='color:red;'>WARNING: Provider %s has primary role %s, which is not one of their assigned roles.</span>",
+                                    SafeEncode.forHtml(provider.getFirstName() + " " + provider.getLastName()),
+                                    SafeEncode.forHtml(primaryRoleName));
+                        }
+                        break;
                     }
                 }
             }
