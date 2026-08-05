@@ -91,9 +91,9 @@
         <!-- Hapi Fhir Version -->
         <hapifhir.version>8.4.0</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>4.1.5</cxf.version>
+        <cxf.version>4.1.6</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.135.Final</netty.version>
+        <netty.version>4.1.136.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
@@ -102,13 +102,17 @@
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.22.0</jackson.version>
+        <jackson.version>2.22.1</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.1</httpclient5.version>
+        <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
+             container actually deployed against is a deployment concern (see the Dockerfile
+             base image); this property does not constrain the runtime. -->
+        <tomcat.version>11.0.24</tomcat.version>
         <!-- Bouncy Castle -->
         <bouncycastle.version>1.84</bouncycastle.version>
         <!-- JasperReports -->
-        <jasperreports.version>7.0.6</jasperreports.version>
+        <jasperreports.version>7.0.7</jasperreports.version>
         <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
              JasperReports PDF still uses the legacy com.lowagie.* OpenPDF coordinate;
              keep both coordinates distinct so Maven does not replace the JasperReports
@@ -129,6 +133,10 @@
         <jna.version>5.19.0</jna.version>
         <!-- HAPI HL7 v2 -->
         <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
+        <flyway.version>11.14.0</flyway.version>
+        <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
+        <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
         <junit-jupiter.version>6.0.3</junit-jupiter.version>
         <mockito.version>5.23.0</mockito.version>
@@ -146,23 +154,21 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- JitPack removed: ultrabuk-htmltopdf-java is now in local_repo,
-             repacked with only the Ubuntu Noble amd64 native (17MB vs 315MB).
-             This eliminates JitPack's tendency to shadow Maven Central artifacts
-             under alternate groupIds, which caused dependency-lock failures in CI. -->
+        <!-- JitPack fully removed. Every artifact it used to serve is vendored in
+             local_repo, byte-identical to dependencies-lock.json:
+             - com.github.openosp:ultrabuk-htmltopdf-java (repacked with only the
+               Ubuntu Noble amd64 native, 17MB vs 315MB)
+             - com.github.librepdf.openpdf:openpdf / openpdf-html 3.0.3 (+ parent POM).
+               These keep the JitPack multi-module coordinates on purpose: the modern
+               org.openpdf.* 3.x line must coexist with com.github.librepdf:openpdf
+               1.3.x (com.lowagie.*) required by JasperReports, and Maven allows only
+               one version per groupId:artifactId.
+             Removing JitPack ends its on-demand rebuilds serving different bytes
+             (SHA512 lock failures) and its shadowing of Maven Central artifacts
+             under alternate groupIds. -->
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
-        </repository>
-
-        <!-- Only for com.github.openosp:ultrabuk-htmltopdf-java (not on Maven Central).
-             Listed LAST so Central resolves everything it can first, preventing jitpack
-             from shadowing Central artifacts with its own builds (different bytes/hashes). -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
 
@@ -459,7 +465,7 @@
         <dependency>
             <groupId>org.apache.tomcat</groupId>
             <artifactId>tomcat-coyote</artifactId>
-            <version>11.0.20</version>
+            <version>${tomcat.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -603,6 +609,18 @@
             <artifactId>mysql-connector-j</artifactId>
             <version>9.6.0</version>
         </dependency>
+        <!-- Flyway schema migrations: flyway-core is the engine; flyway-mysql adds the
+             MariaDB/MySQL database module required since Flyway 9. Both are Community edition. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-core</artifactId>
@@ -652,7 +670,9 @@
 
         <!-- Modern OpenPDF (LGPL) for application code that imports org.openpdf.*.
              Do not use the com.github.librepdf group here; JasperReports PDF needs that
-             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*. -->
+             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*.
+             The com.github.librepdf.openpdf coordinates are vendored in local_repo
+             (formerly served by JitPack, now removed). -->
         <dependency>
             <groupId>com.github.librepdf.openpdf</groupId>
             <artifactId>openpdf</artifactId>
@@ -1342,6 +1362,25 @@
             <artifactId>caffeine</artifactId>
             <version>3.2.3</version>
         </dependency>
+        <!-- Direct API dependency for application-owned render-cleanup telemetry. Export remains
+             deployment-configured; without an SDK the API safely behaves as a no-op. -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+        <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
+             Deliberately NOT selenium-java: chrome-driver + support keeps the tree to the
+             Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-chrome-driver</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-support</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
         <!-- TOTP/HOTP library for MFA -->
         <dependency>
             <groupId>com.eatthepath</groupId>
@@ -1369,9 +1408,40 @@
                 <directory>${basedir}/src/main/resources</directory>
                 <filtering>true</filtering>
             </resource>
+            <!-- Ship the Flyway migration set on the WAR classpath at db/migration so the
+                 boot-time FlywaySchemaValidator (carlos.flyway.onBoot=validate|migrate) can read
+                 it. The canonical source stays in database/mysql/migration/ (next to the rest of
+                 the DB tree); this copies it into the classpath at build time. Not filtered — SQL
+                 must not be run through the property interpolator. -->
+            <resource>
+                <directory>${basedir}/database/mysql/migration</directory>
+                <targetPath>db/migration</targetPath>
+                <filtering>false</filtering>
+            </resource>
         </resources>
 
         <plugins>
+            <!-- Flyway CLI for local/CI schema work: `mvn flyway:info|validate|migrate|baseline`.
+                 Not bound to any lifecycle phase — the WAR build never migrates. Credentials are
+                 passed at invocation (-Dflyway.url/-Dflyway.user/-Dflyway.password or env), never
+                 committed. Locations default to the common+Ontario set; override with
+                 -Dflyway.locations for BC or test databases. -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>${flyway.version}</version>
+                <configuration>
+                    <locations>
+                        <location>filesystem:database/mysql/migration/common</location>
+                        <location>filesystem:database/mysql/migration/on</location>
+                    </locations>
+                    <!-- Conversion default: stamp at the FULL genesis (V1 + province
+                         V1.0.1/V1.0.2). Never 1 — that would replay the province files on the
+                         next migrate (data loss). -->
+                    <baselineVersion>1.0.2</baselineVersion>
+                    <baselineDescription>CARLOS full genesis (V1 + province V1.0.1/V1.0.2)</baselineDescription>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -1649,9 +1719,6 @@
                         <include>**/*UnitTest.java</include>
                         <include>**/*RegressionTest.java</include>
                     </includes>
-                    <excludes>
-                        <exclude>**/archive/**/*Test.java</exclude>
-                    </excludes>
                     <argLine>
                        @{argLine}
                        -Xmx2048m
@@ -1660,6 +1727,7 @@
                        --add-opens java.base/java.util=ALL-UNNAMED
                        -Djdk.attach.allowAttachSelf=true
                        -XX:+EnableDynamicAgentLoading
+                       -Djava.awt.headless=true
                      </argLine>
                     <!-- Test filtering by groups when specified -->
                     <groups>${groups}</groups>
@@ -1694,22 +1762,10 @@
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
-                    <!-- Skip integrity/version checks for JitPack-served artifacts.
-                         JitPack builds from source on demand and can serve different
-                         bytes (and thus different SHA512 hashes) between environments,
-                         causing spurious lock-file failures. Tracked for long-term
-                         fix (publish to a stable repo). See issue: JitPack exclusion. -->
-                    <dependencySets>
-                        <dependencySet>
-                            <includes>
-                                <include>com.github.openosp:ultrabuk-htmltopdf-java</include>
-                            </includes>
-                            <version>ignore</version>
-                            <integrity>ignore</integrity>
-                            <allowMissing>true</allowMissing>
-                            <allowExtraneous>true</allowExtraneous>
-                        </dependencySet>
-                    </dependencySets>
+                    <!-- No exemptions: formerly JitPack-served artifacts (ultrabuk-htmltopdf-java,
+                         openpdf 3.x) are vendored in local_repo with deterministic bytes that
+                         match the lock, so full version+integrity checking applies to the
+                         entire tree. -->
                 </configuration>
                 <executions>
                     <execution>
@@ -1789,10 +1845,8 @@
                             </execution>
                         </executions>
                     </plugin>
-                    <!-- Dependency lock is already validated in the build job.
-                         Skip in jspc profile because JitPack can shadow Maven Central
-                         artifacts under alternate groupIds in CI environments with cold
-                         caches, causing false dependency-lock failures. -->
+                    <!-- Dependency lock is already validated in the build job;
+                         skip the redundant check in the jspc profile. -->
                     <plugin>
                         <groupId>se.vandmo</groupId>
                         <artifactId>dependency-lock-maven-plugin</artifactId>
@@ -1807,9 +1861,10 @@
             </build>
         </profile>
 
-        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud)
-             where JitPack-served artifacts produce different SHA512 hashes
-             than locally-cached ones, causing false failures.
+        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud) and
+             container builds that validate the lock elsewhere or intentionally
+             build from a moving ref. All dependencies now resolve from Maven
+             Central or local_repo with deterministic bytes (JitPack removed).
              Activate with: mvn ... -Pskip-dependency-lock -->
         <profile>
             <id>skip-dependency-lock</id>
