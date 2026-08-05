@@ -286,8 +286,8 @@ class EFormRenderApprovalServiceUnitTest {
             java.nio.file.Files.deleteIfExists(claimed);
             java.nio.file.Files.deleteIfExists(cancelled);
             java.nio.file.Files.deleteIfExists(expired);
-            java.nio.file.Files.deleteIfExists(testRoot);
             java.nio.file.Files.deleteIfExists(abandoned);
+            java.nio.file.Files.deleteIfExists(testRoot);
         }
     }
 

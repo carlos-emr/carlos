@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
@@ -242,6 +243,8 @@ public class EformDataManagerImpl implements EformDataManager {
                     eFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid, approval);
             path = rendered.path();
             completeness = rendered.completeness();
+        } catch (EformContentUnavailableException e) {
+            throw e;
         } catch (PDFGenerationException e) {
             // The renderer owns detailed diagnostics. Its message can contain page-generated text,
             // URLs, or paths, so callers receive a stable message with no original cause chain.

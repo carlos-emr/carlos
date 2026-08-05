@@ -71,7 +71,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         when(eFormDataDao.find(42)).thenReturn(eFormData);
         when(faxManager.getFaxGatewayAccounts(loggedInInfo))
                 .thenReturn(List.of(mock(FaxConfig.class)));
-        when(documentAttachmentManager.stageEFormPacketForFaxPreview(request, response))
+        when(documentAttachmentManager.stageEFormPacketForFaxPreview(eq(request), eq(response), any()))
                 .thenReturn(new io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender(
                         Path.of("staged-eform.pdf"), report, Map.of(42, report)));
         when(approvalService.issueStagedFaxPreview(
@@ -154,7 +154,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(response.getErrorMessage()).contains("no longer available");
         verify(documentAttachmentManager, never()).stageEFormPacketForFaxPreview(
-                any(), any());
+                any(), any(), any());
     }
 
     @Test
@@ -271,7 +271,7 @@ class Fax2ActionIncompleteRenderUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.find(42)).thenReturn(eFormData);
             when(faxManager.getFaxGatewayAccounts(loggedInInfo))
                     .thenReturn(List.of(mock(FaxConfig.class)));
-            when(documentAttachmentManager.stageEFormPacketForFaxPreview(request, response))
+            when(documentAttachmentManager.stageEFormPacketForFaxPreview(eq(request), eq(response), any()))
                     .thenReturn(new io.github.carlos_emr.carlos.managers.EformDataManager.EformPdfRender(
                             stagedPath, report, Map.of(42, report)));
             when(approvalService.issueStagedFaxPreview(

@@ -195,7 +195,7 @@ public class Fax2Action extends ActionSupport {
         return faxForward;
     }
 
-    /** Revokes the one-time incomplete-render approval without releasing its staged PDF. */
+    /** Revokes the one-time incomplete-render approval and deletes its unclaimed staged PDF. */
     // FindSecBugs UNVALIDATED_REDIRECT: the servlet context plus a fixed application route is same-origin; transactionId is an integer, not a redirect target.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is the same-origin servlet context plus a fixed application route; transactionId is an integer, not attacker-controlled URL input")
     private void cancelStagedEFormFax() {
@@ -603,13 +603,28 @@ public class Fax2Action extends ActionSupport {
                     return NONE;
                 }
                 if (stagedPreview != null) {
+                    // The stored eForm can be reassigned while the one-time preview is being
+                    // claimed. Re-read its patient binding before the claimed PDF enters the fax
+                    // pipeline; on a mismatch the preview is caller-owned and must be deleted.
+                    EFormData claimedEForm = eFormDataDao().find(transactionId.intValue());
+                    if (claimedEForm == null || claimedEForm.getDemographicId() == null
+                            || !storedDemographicNo.equals(String.valueOf(claimedEForm.getDemographicId()))) {
+                        deleteUnownedStagedFaxPreview(stagedPreview.path());
+                        sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
+                                "The eForm changed while its fax preview was being approved.");
+                        return NONE;
+                    }
+                }
+                if (stagedPreview != null) {
                     pdfPath = stagedPreview.path();
                     request.setAttribute("advisoryIssues", stagedPreview.advisoryIssueCount());
                     logger.info("Fax staged eForm preview claimed: fdid={} prepareMs={}", transactionId,
                             (System.nanoTime() - prepareStartedNanos) / 1_000_000L);
                 } else try {
                     EformDataManager.EformPdfRender rendered =
-                            documentAttachmentManager.stageEFormPacketForFaxPreview(request, response);
+                            documentAttachmentManager.stageEFormPacketForFaxPreview(request, response,
+                                    renderApprovalService().stagedFaxPreviewApproval(request, loggedInInfo,
+                                            transactionId, storedDemographicNo));
                     if (rendered.completeness().hasBlockingOmissions()) {
                         String token;
                         boolean ownershipTransferred = false;

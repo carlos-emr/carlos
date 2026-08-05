@@ -621,8 +621,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      */
     @Override
     public EformDataManager.EformPdfRender stageEFormPacketForFaxPreview(
-            HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
-        return renderEFormPacket(request, response, EFormRenderApproval.forStagedFaxPreview());
+            HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException {
+        if (approval == null) {
+            throw new SecurityException("A staged fax preview requires an internal render approval");
+        }
+        return renderEFormPacket(request, response, approval);
     }
 
     private EformDataManager.EformPdfRender renderEFormPacket(HttpServletRequest request,

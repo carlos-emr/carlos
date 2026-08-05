@@ -95,9 +95,7 @@
                     <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                 </button>
             </form>
-            <output id="approve-incomplete-eform-fax-status" class="visually-hidden" aria-live="polite" form="approve-incomplete-eform-fax">
-                <fmt:message key="fax.eformMissingContent.btnPreparingFax"/>
-            </output>
+            <output id="approve-incomplete-eform-fax-status" class="visually-hidden" aria-live="polite" form="approve-incomplete-eform-fax"></output>
             <form id="cancel-incomplete-eform-fax" method="post" action="${pageContext.request.contextPath}/fax/faxAction">
                 <input type="hidden" name="method" value="cancelStagedEFormFax">
                 <input type="hidden" name="transactionId" value="<carlos:encode value="${transactionId}" context="htmlAttribute"/>">
@@ -125,6 +123,7 @@
             submit.disabled = true;
             submit.querySelector(".approval-button-label").textContent = submit.dataset.submittingLabel;
             submit.querySelector(".spinner-border").classList.remove("d-none");
+            status.textContent = submit.dataset.submittingLabel;
             status.classList.remove("visually-hidden");
         });
     })();

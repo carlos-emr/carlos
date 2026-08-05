@@ -221,6 +221,12 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("MutationObserver")
                 .contains("PerformanceObserver")
                 .contains("resourceObserver.observe({ type: 'resource', buffered: true })")
+                // Resource timing arrives after completion, so request starts must hold the quiet window too.
+                .contains("pendingNetworkRequests")
+                .contains("window.fetch = function()")
+                .contains("XMLHttpRequest.prototype.send = function()")
+                .contains("this.addEventListener('loadend', networkFinished, { once: true })")
+                .contains("if (pendingNetworkRequests > 0) { return; }")
                 .contains("quietWindowMillis = 500")
                 .contains("maxWaitMillis = 5000")
                 // Cap-exit is signalled distinctly from a quiet settle ('CAPPED' vs null) so the JVM

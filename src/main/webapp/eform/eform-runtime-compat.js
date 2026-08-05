@@ -21,6 +21,7 @@
     var nativeSetTimeout = window.setTimeout;
     var nativeClearTimeout = window.clearTimeout;
     var nativeSetInterval = window.setInterval;
+    var nativeClearInterval = window.clearInterval;
     var countedTimeouts = new Set();
     var status = {
         installed: false,
@@ -223,11 +224,17 @@
                 Array.prototype.slice.call(arguments, 2));
     };
     window.clearTimeout = function clearTimeoutCompatible(handle) {
+        return cancelTrackedTimer(nativeClearTimeout, handle);
+    };
+    window.clearInterval = function clearIntervalCompatible(handle) {
+        return cancelTrackedTimer(nativeClearInterval, handle);
+    };
+    function cancelTrackedTimer(nativeClear, handle) {
         if (countedTimeouts.delete(handle)) {
             status.pending -= 1;
         }
-        return nativeClearTimeout.call(window, handle);
-    };
+        return nativeClear.call(window, handle);
+    }
     window.setInterval = function setIntervalCompatible(handler, delay) {
         return schedule(
                 nativeSetInterval,

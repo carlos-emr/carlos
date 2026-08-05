@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.eform.util;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Scheduler;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -76,6 +77,7 @@ public class EFormRenderApprovalService {
                 // limits how long an abandoned PHI-bearing preview can survive a still-live session.
                 .expireAfterWrite(STAGED_FAX_TTL)
                 .maximumSize(MAX_PENDING_APPROVALS)
+                .scheduler(Scheduler.systemScheduler())
                 .ticker(() -> clock.instant().toEpochMilli() * 1_000_000L)
                 .executor(Runnable::run)
                 .removalListener((String token, PendingApproval pending, com.github.benmanes.caffeine.cache.RemovalCause cause) -> {
@@ -138,6 +140,20 @@ public class EFormRenderApprovalService {
                 "Incomplete eForm render approval requested: fdid={} provider={} operation={} issues={} approvedForms={}",
                 requestFdid, providerNo, operation, report.issueCount(), issueDigests.size());
         return token;
+    }
+
+    /**
+     * Issues the package-scoped capability used only while rendering a non-deliverable fax preview.
+     * The normal ticket is issued only after the render reports blocking omissions.
+     */
+    public EFormRenderApproval stagedFaxPreviewApproval(HttpServletRequest request,
+            LoggedInInfo loggedInInfo, int fdid, String demographicNo) {
+        if (fdid <= 0 || demographicNo == null || demographicNo.isBlank()
+                || request.getSession(false) == null) {
+            throw new IllegalArgumentException("A staged fax preview requires an authenticated eForm scope");
+        }
+        requireProvider(loggedInInfo);
+        return EFormRenderApproval.forStagedFaxPreview();
     }
 
     /** Stores a completed, non-deliverable fax preview beside its exact one-time approval. */
@@ -340,7 +356,7 @@ public class EFormRenderApprovalService {
         public int advisoryIssueCount() { return advisoryIssueCount; }
         private Path claim() { return claimed.compareAndSet(false, true) ? path : null; }
         private void deleteUnlessClaimed() {
-            if (!claimed.get()) {
+            if (claimed.compareAndSet(false, true)) {
                 try {
                     Files.deleteIfExists(path);
                 } catch (Exception e) {

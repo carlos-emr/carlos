@@ -160,6 +160,8 @@ class EFormFloatingToolbarAssetRegressionTest {
                 .contains("var countedTimeouts = new Set()")
                 .contains("window.clearTimeout = function clearTimeoutCompatible(handle)")
                 .contains("countedTimeouts.delete(handle)")
+                .contains("window.clearInterval = function clearIntervalCompatible(handle)")
+                .contains("countedIntervals.delete(handle)")
                 .contains("status.pending -= 1;");
     }
 

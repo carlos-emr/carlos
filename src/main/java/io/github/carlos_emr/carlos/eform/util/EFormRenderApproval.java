@@ -51,7 +51,7 @@ public final class EFormRenderApproval {
     }
 
     /** Internal capability for generating a non-deliverable, short-lived fax preview artifact. */
-    public static EFormRenderApproval forStagedFaxPreview() {
+    static EFormRenderApproval forStagedFaxPreview() {
         return new EFormRenderApproval();
     }
 
