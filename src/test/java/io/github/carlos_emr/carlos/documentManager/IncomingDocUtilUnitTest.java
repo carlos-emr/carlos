@@ -194,6 +194,22 @@ class IncomingDocUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should omit queued PDF symlinks whose targets are outside the incoming root")
+    void shouldOmitQueuedPdfSymlink_whenTargetOutsideIncomingRoot(@TempDir Path outsideRoot) throws Exception {
+        assumeTrue(File.separatorChar == '/');
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        Files.createFile(faxDir.toPath().resolve("local.pdf"));
+        Path outsidePdf = Files.createFile(outsideRoot.resolve("outside.pdf"));
+        Files.createSymbolicLink(faxDir.toPath().resolve("linked.pdf"), outsidePdf);
+
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+
+        assertThat(incomingDocUtil.getDocList(faxDir.getPath())).containsExactly("local.pdf");
+        assertThat(incomingDocUtil.getPdfListModifiedDate()).hasSize(1);
+    }
+
+    @Test
     @DisplayName("should not expose mutable modification-date state")
     void shouldNotExposeMutableModificationDates() throws Exception {
         File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();

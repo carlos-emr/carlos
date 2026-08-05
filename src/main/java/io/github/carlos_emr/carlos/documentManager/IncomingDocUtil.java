@@ -105,6 +105,15 @@ public final class IncomingDocUtil {
         throw new IllegalArgumentException("Invalid pdfDir: must be one of Fax, Mail, File, or Refile");
     }
 
+    private static String addPdfNameSuffix(String pdfName, String suffix) {
+        if (pdfName == null || !pdfName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            throw new FileValidationException("Incoming document names must end in .pdf");
+        }
+
+        int extensionIndex = pdfName.length() - 4;
+        return pdfName.substring(0, extensionIndex) + suffix + pdfName.substring(extensionIndex);
+    }
+
     /**
      * Validates that a constructed path is within the allowed base directory.
      * Delegates to PathValidationUtils for consistent validation.
@@ -172,6 +181,12 @@ public final class IncomingDocUtil {
         String docName;
         pdfListModifiedDate.clear();
 
+        String incomingRootPath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
+        if (incomingRootPath == null || incomingRootPath.isEmpty()) {
+            throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
+        }
+        File incomingBaseDir = new File(incomingRootPath);
+
         FilenameFilter pdfFilter;
 
         pdfFilter = new FilenameFilter() {
@@ -185,17 +200,13 @@ public final class IncomingDocUtil {
                 // entries that cannot be addressed safely must not appear as broken rows.
                 try {
                     validatePathComponent(name, "queued PDF filename");
+                    PathValidationUtils.validateExistingPath(new File(dir, name), incomingBaseDir);
                     return true;
-                } catch (FileValidationException e) {
+                } catch (SecurityException e) {
                     return false;
                 }
             }
         };
-
-        String incomingRootPath = CarlosProperties.getInstance().getProperty(INCOMING_DOCUMENT_DIR_PROPERTY);
-        if (incomingRootPath == null || incomingRootPath.isEmpty()) {
-            throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
-        }
 
         // A queue subdirectory is only created by the first upload or fax import, so a
         // never-used queue has no directory yet. That is an empty queue, not a
@@ -204,7 +215,6 @@ public final class IncomingDocUtil {
         // absent (config typo, unmounted volume), rendering every queue as empty would
         // hide accumulating incoming documents from intake staff, so that still fails
         // loudly below. The candidate is containment-validated before any probe.
-        File incomingBaseDir = new File(incomingRootPath);
         File queueDirCandidate = PathValidationUtils.validateChildPath(new File(directory), incomingBaseDir);
         // Files.notExists is true only when nonexistence can be established. File.exists
         // also returns false when access is denied, which would incorrectly hide an
@@ -625,17 +635,10 @@ public final class IncomingDocUtil {
 
         File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
-        // getIncomingDocumentFilePathName has already verified the final extension
-        // case-insensitively, so split from that final four-character suffix. The former
-        // case-sensitive indexOf(".pdf") crashed for valid queued names such as SCAN.PDF.
-        int index = myPdfName.length() - 4;
-
-        String myPdfNameF = myPdfName.substring(0, index);
-        String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
-
         try (PdfReader reader = new PdfReader(filePathName);
              FileOutputStream copyFos = new FileOutputStream(validatedTempFile)) {
-            String deleteFileName = myPdfNameF + "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
+            String deleteFileName = addPdfNameSuffix(myPdfName,
+                    "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()));
             validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
 
             try (FileOutputStream deleteFos = new FileOutputStream(validatedDeleteFile)) {
@@ -720,10 +723,6 @@ public final class IncomingDocUtil {
         f.setReadOnly();
 
         File extractBaseDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentFilePath(queueId, myPdfDir), "incoming extract directory");
-        int index = myPdfName.length() - 4;
-        String myPdfNameF = myPdfName.substring(0, index);
-        String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
-
         ArrayList<String> extractList = new ArrayList<String>();
         int startPage, endPage;
         boolean cancelExtract = false;
@@ -738,7 +737,8 @@ public final class IncomingDocUtil {
 
         try {
             reader = new PdfReader(filePathName);
-            String extractFileName = myPdfNameF + "E" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
+            String extractFileName = addPdfNameSuffix(myPdfName,
+                    "E" + Integer.toString(reader.getNumberOfPages()));
             File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
             extractPath = validatedExtractFile.getPath();
 
