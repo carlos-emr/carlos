@@ -88,6 +88,17 @@ class CarlosdocPrivilegeSeedRegressionTest {
     }
 
     @Test
+    @DisplayName("should grant carlosdoc admin billing access in Flyway seeds")
+    void shouldGrantCarlosdocAdminBillingAccess_whenFlywaySeeded() {
+        assertThat(seedSql).contains(
+                "('admin','_admin.billing','x',0,'999998')",
+                "'999998','admin','R0000001',1,");
+        assertThat(bcSeedSql).contains(
+                "('admin','_admin.billing','x',0,'999998')",
+                "'999998','admin','R0000001',1,");
+    }
+
+    @Test
     @DisplayName("should deny carlosdoc schedule group creation in seed")
     void shouldDenyCarlosdocGroupCreation_whenSeeded() throws IOException {
         assertThat(seedSql).contains(
