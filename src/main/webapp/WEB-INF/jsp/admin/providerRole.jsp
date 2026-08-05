@@ -420,34 +420,9 @@
             form.submit();
         }
 
-
-        var items = new Array();
-        <%
-                for(Properties prop:vec) {
-                        %>
-        item = {
-            providerNo: "<%=prop.get("provider_no")%>",
-            role_id: "<%=prop.get("role_id")%>",
-            roleName: "<carlos:encode value='<%= (String)prop.get("role_name") %>' context="javaScriptBlock"/>"
-        };
-        items.push(item);
-        <%
-}
-%>
-
         document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('primaryRoleProvider').value = "";
         });
-
-        function primaryRoleChooseProvider() {
-            $("#primaryRoleRole").find('option').remove();
-            var provider = document.getElementById('primaryRoleProvider').value;
-            for (var i = 0; i < items.length; i++) {
-                    if(items[i].providerNo === provider && items[i].role_id !== "") {
-                    $("#primaryRoleRole").append('<option value="' + items[i].roleName + '">' + items[i].roleName + '</option>');
-                }
-            }
-        }
 
         function setPrimaryRole() {
             var providerNo = document.getElementById('primaryRoleProvider').value;
@@ -606,7 +581,7 @@
             <tr>
                 <td>
                     <label class="form-label" for="primaryRoleProvider"><fmt:message key="admin.admin.provider"/>:</label>
-                    <select id="primaryRoleProvider" name="primaryRoleProvider" onChange="primaryRoleChooseProvider()">
+                    <select id="primaryRoleProvider" name="primaryRoleProvider">
                         <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
                         <%
                             List<String> temp1 = new ArrayList<String>();
@@ -629,6 +604,15 @@
                 <td>
                     <label class="form-label" for="primaryRoleRole"><fmt:message key="role"/>:</label>
                     <select id="primaryRoleRole" name="primaryRoleRole">
+                        <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
+                        <%
+                            for (int i = 0; i < vecRoleName.size(); i++) {
+                                String availableRoleName = String.valueOf(vecRoleName.get(i));
+                        %>
+                        <option value="<carlos:encode value='<%= availableRoleName %>' context="htmlAttribute"/>"><carlos:encode value='<%= availableRoleName %>' context="html"/></option>
+                        <%
+                            }
+                        %>
                     </select>
                 </td>
             </tr>
