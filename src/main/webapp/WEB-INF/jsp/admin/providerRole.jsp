@@ -127,14 +127,8 @@
         omit = CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "");
     }
 
-    /* roleNamesById is deliberately built from the unfiltered role list: it resolves
-     * program_provider.role_id back to a name for the consistency warning below, and
-     * must still resolve the site-access-privacy role that vecRoleName omits.
-     */
-    Map<Long, String> roleNamesById = new HashMap<Long, String>();
     List<SecRole> secRoles = secRoleDao.findAllOrderByRole();
     for (SecRole secRole : secRoles) {
-        roleNamesById.put(Long.valueOf(secRole.getId().longValue()), secRole.getName());
         if (!secRole.getName().equals(omit)) {
             vecRoleName.add(secRole.getName());
         }
@@ -145,8 +139,26 @@
         String providerNo = request.getParameter("primaryRoleProvider");
         String roleName = request.getParameter("primaryRoleRole");
         ProviderData provider = StringUtils.hasText(providerNo) ? providerDao.findByProviderNo(providerNo) : null;
-        SecRole secRole = StringUtils.hasText(roleName) && vecRoleName.contains(roleName)
-                ? secRoleDao.findByName(roleName) : null;
+
+        /* The primary role designates which of the provider's own roles leads; it is not a way
+         * to grant a new one (use Add in the table above for that). The selector only offers
+         * roles the provider holds, and the server re-checks it here because a POST can carry
+         * anything. A primary role outside secUserRole would also be unmarkable in the
+         * "Primary EMR Role" column and would grant note access for a role they do not hold.
+         */
+        boolean providerHoldsRole = false;
+        if (provider != null && StringUtils.hasText(roleName)) {
+            List assignedRoles = secUserRoleDao.findByProviderNo(providerNo);
+            if (assignedRoles != null) {
+                for (Object assignedRole : assignedRoles) {
+                    if (roleName.equals(((Secuserrole) assignedRole).getRoleName())) {
+                        providerHoldsRole = true;
+                        break;
+                    }
+                }
+            }
+        }
+        SecRole secRole = providerHoldsRole ? secRoleDao.findByName(roleName) : null;
 
         if (provider != null && "1".equals(provider.getStatus()) && secRole != null && caisiProgram != null) {
             Long roleId = secRole.getId().longValue();
@@ -356,6 +368,27 @@
         vec.add(prop);
     }
 
+    /* Roles each listed provider already holds. The primary-role selector is scoped to these
+     * because the primary role designates which of a provider's own roles leads; granting a
+     * new role is the Add action in the table above.
+     */
+    Map<String, List<String>> heldRolesByProvider = new LinkedHashMap<String, List<String>>();
+    for (Properties prop : vec) {
+        String heldProviderNo = prop.getProperty("provider_no", "");
+        String heldRoleName = prop.getProperty("role_name", "");
+        if (heldProviderNo.isEmpty() || heldRoleName.isEmpty()) {
+            continue;
+        }
+        List<String> held = heldRolesByProvider.get(heldProviderNo);
+        if (held == null) {
+            held = new ArrayList<String>();
+            heldRolesByProvider.put(heldProviderNo, held);
+        }
+        if (!held.contains(heldRoleName)) {
+            held.add(heldRoleName);
+        }
+    }
+
     List<Boolean> primaries = new ArrayList<Boolean>();
 
 //when caisi is off, we need to show which role is the one in the program_provider table for each providers.
@@ -364,24 +397,17 @@
         // audit all roles for if primary is set.
         List secUserRoleList = secUserRoleDao.findAll();
 
-        // get all the user roles, keyed by provider so the primary role can be
-        // checked against the roles that provider actually holds.
-        Map<String, Set<String>> assignedRolesByProvider = new HashMap<String, Set<String>>();
+        // get all the user roles.
+        Set<String> activeUsers = new HashSet<>();
         if(secUserRoleList != null) {
             for(Object secUserRoleItem : secUserRoleList) {
                 Secuserrole secUserRole = (Secuserrole) secUserRoleItem;
-                Set<String> assigned = assignedRolesByProvider.get(secUserRole.getProviderNo());
-                if (assigned == null) {
-                    assigned = new HashSet<String>();
-                    assignedRolesByProvider.put(secUserRole.getProviderNo(), assigned);
-                }
-                assigned.add(secUserRole.getRoleName());
+                activeUsers.add(secUserRole.getProviderNo());
             }
         }
 
         // check if the primary is set for each user role
-        for(Map.Entry<String, Set<String>> assignedEntry : assignedRolesByProvider.entrySet()) {
-            String user = assignedEntry.getKey();
+        for(String user : activeUsers) {
 
             List programProvider = programProviderDao.getProgramProvidersByProvider(user);
 
@@ -389,30 +415,6 @@
                 ProviderData provider = providerDao.findByProviderNo(user);
                 if (provider != null) {
                     msg += String.format("</br><span style='color:red;'>WARNING: Provider %s requires a primary role assignment.</span>", SafeEncode.forHtml(provider.getFirstName() + " " + provider.getLastName()));
-                }
-            } else if (caisiProgram != null) {
-                /* The primary role selector offers every assignable role (issue #3258), so a
-                 * primary role can point at a role the provider does not hold in secUserRole.
-                 * That combination grants clinical-note access rights through
-                 * CaseManagementManagerImpl#getAccessType while the "Primary EMR Role" column
-                 * stays blank, so surface it instead of letting it pass silently.
-                 */
-                Long oscarProgramId = Long.valueOf(caisiProgram);
-                for (Object programProviderItem : programProvider) {
-                    ProgramProvider pp = (ProgramProvider) programProviderItem;
-                    if (!oscarProgramId.equals(pp.getProgramId()) || pp.getRoleId() == null) {
-                        continue;
-                    }
-                    String primaryRoleName = roleNamesById.get(pp.getRoleId());
-                    if (primaryRoleName != null && !assignedEntry.getValue().contains(primaryRoleName)) {
-                        ProviderData provider = providerDao.findByProviderNo(user);
-                        if (provider != null) {
-                            msg += String.format("</br><span style='color:red;'>WARNING: Provider %s has primary role %s, which is not one of their assigned roles.</span>",
-                                    SafeEncode.forHtml(provider.getFirstName() + " " + provider.getLastName()),
-                                    SafeEncode.forHtml(primaryRoleName));
-                        }
-                        break;
-                    }
                 }
             }
         }
@@ -459,11 +461,42 @@
             form.submit();
         }
 
+        /*
+         * The primary role designates which of a provider's own roles leads, so the selector
+         * only exposes roles that provider holds. Every provider/role pair is rendered
+         * server-side (encoded) and tagged with data-provider; picking a provider reveals just
+         * their rows. The roles themselves are never assigned here — that is Add in the table.
+         */
+        function primaryRoleChooseProvider() {
+            const providerSelect = document.getElementById('primaryRoleProvider');
+            const roleSelect = document.getElementById('primaryRoleRole');
+            if (!providerSelect || !roleSelect) {
+                return;
+            }
+            // Rebuild rather than hide: one option per provider/role pair would repeat the same
+            // value many times, leaving selection by value ambiguous.
+            while (roleSelect.options.length > 1) {
+                roleSelect.remove(1);
+            }
+            roleSelect.value = "";
+            const selectedProvider = providerSelect.selectedOptions[0];
+            if (!selectedProvider || !selectedProvider.dataset.roles) {
+                return;
+            }
+            JSON.parse(selectedProvider.dataset.roles).forEach(function (heldRole) {
+                const option = document.createElement('option');
+                option.value = heldRole;
+                option.textContent = heldRole;
+                roleSelect.appendChild(option);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const primaryRoleProvider = document.getElementById('primaryRoleProvider');
             if (primaryRoleProvider) {
                 primaryRoleProvider.value = "";
             }
+            primaryRoleChooseProvider();
         });
 
         function setPrimaryRole() {
@@ -623,15 +656,31 @@
             <tr>
                 <td>
                     <label class="form-label" for="primaryRoleProvider"><fmt:message key="admin.admin.provider"/>:</label>
-                    <select id="primaryRoleProvider" name="primaryRoleProvider">
+                    <select id="primaryRoleProvider" name="primaryRoleProvider" onchange="primaryRoleChooseProvider()">
                         <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
                         <%
                             List<String> temp1 = new ArrayList<String>();
                             for (Properties prop : vec) {
                                 String providerNo = prop.getProperty("provider_no");
                                 if (!temp1.contains(providerNo)) {
+                                    // Held roles travel with the provider option as JSON so the role
+                                    // selector can be rebuilt client-side without a round trip.
+                                    List<String> heldRoles = heldRolesByProvider.get(providerNo);
+                                    StringBuilder heldRolesJson = new StringBuilder("[");
+                                    if (heldRoles != null) {
+                                        for (int r = 0; r < heldRoles.size(); r++) {
+                                            if (r > 0) {
+                                                heldRolesJson.append(',');
+                                            }
+                                            heldRolesJson.append('"')
+                                                    .append(heldRoles.get(r).replace("\\", "\\\\").replace("\"", "\\\""))
+                                                    .append('"');
+                                        }
+                                    }
+                                    heldRolesJson.append(']');
                         %>
-                        <option value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"><carlos:encode value='<%= prop.getProperty("last_name") + "," + prop.getProperty("first_name") %>' context="html"/>
+                        <option value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"
+                                data-roles="<carlos:encode value='<%= heldRolesJson.toString() %>' context="htmlAttribute"/>"><carlos:encode value='<%= prop.getProperty("last_name") + "," + prop.getProperty("first_name") %>' context="html"/>
                         </option>
                         <%
                                     temp1.add(providerNo);
@@ -645,16 +694,10 @@
             <tr>
                 <td>
                     <label class="form-label" for="primaryRoleRole"><fmt:message key="role"/>:</label>
+                    <%-- Options are populated by primaryRoleChooseProvider() from the selected
+                         provider's data-roles, so only roles that provider holds are offered. --%>
                     <select id="primaryRoleRole" name="primaryRoleRole">
                         <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
-                        <%
-                            for (int i = 0; i < vecRoleName.size(); i++) {
-                                String availableRoleName = String.valueOf(vecRoleName.get(i));
-                        %>
-                        <option value="<carlos:encode value='<%= availableRoleName %>' context="htmlAttribute"/>"><carlos:encode value='<%= availableRoleName %>' context="html"/></option>
-                        <%
-                            }
-                        %>
                     </select>
                 </td>
             </tr>

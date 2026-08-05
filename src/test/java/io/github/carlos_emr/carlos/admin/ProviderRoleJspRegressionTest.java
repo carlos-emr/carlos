@@ -68,8 +68,8 @@ class ProviderRoleJspRegressionTest {
     }
 
     @Test
-    @DisplayName("primary role selector should offer every assignable role")
-    void shouldOfferEveryAssignableRole_inPrimaryRoleSelector() throws IOException {
+    @DisplayName("primary role selector should offer only roles the provider holds")
+    void shouldOfferOnlyHeldRoles_inPrimaryRoleSelector() throws IOException {
         String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
         int selectStart = jsp.indexOf("<select id=\"primaryRoleRole\"");
         int selectEnd = jsp.indexOf("</select>", selectStart);
@@ -79,22 +79,41 @@ class ProviderRoleJspRegressionTest {
 
         String primaryRoleSelect = jsp.substring(selectStart, selectEnd);
 
-        // The option list is fed by the full assignable-role collection built from
-        // secRoleDao.findAllOrderByRole(), not by the selected provider's own roles.
-        assertThat(jsp).containsPattern("vecRoleName\\s*=\\s*new ArrayList");
-        assertThat(jsp).contains("secRoleDao.findAllOrderByRole()");
+        /* The selector holds only a placeholder; options are filled in from the chosen
+         * provider's own roles (issue #3258 is by design). The full assignable-role list,
+         * vecRoleName, belongs to the table's add/switch dropdown, not here.
+         */
         assertThat(primaryRoleSelect)
-                .containsPattern("vecRoleName\\.size\\(\\)")
-                .containsPattern("vecRoleName\\.get\\(")
-                .contains("context=\"htmlAttribute\"")
-                .contains("context=\"html\"");
+                .contains("admin.providerupdateprovider.selectBelow")
+                .doesNotContain("vecRoleName");
 
-        // The client-side filter that narrowed the list to the provider's existing
-        // roles (issue #3258) must stay gone.
+        // Held roles reach the browser as encoded JSON on the provider option.
         assertThat(jsp)
-                .doesNotContain("primaryRoleChooseProvider")
-                .doesNotContain("items[i].providerNo === provider")
-                .doesNotContain("items[i].role_id !== \"\"");
+                .contains("heldRolesByProvider")
+                .contains("data-roles=\"<carlos:encode")
+                .contains("heldRolesJson.toString()")
+                .contains("secUserRoleDao.findByProviderNo(providerNo)");
+
+        // The old array interpolated provider_no and role_id into a script block unencoded.
+        assertThat(jsp)
+                .doesNotContain("items.push(item)")
+                .doesNotContain("role_id: \"<%=prop.get(\"role_id\")%>\"");
+    }
+
+    @Test
+    @DisplayName("primary role selector should filter its options by the chosen provider")
+    void shouldFilterOptionsByChosenProvider_inPrimaryRoleSelector() throws IOException {
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("function primaryRoleChooseProvider()")
+                .contains("onchange=\"primaryRoleChooseProvider()\"")
+                .contains("JSON.parse(selectedProvider.dataset.roles)")
+                // Rebuilt, not hidden: repeating a role value per provider would make
+                // selection by value ambiguous. Labels use textContent, never innerHTML.
+                .containsPattern("while \\(roleSelect\\.options\\.length > 1\\)")
+                .contains("option.textContent = heldRole;")
+                .doesNotContain("option.innerHTML");
     }
 
     @Test
@@ -102,9 +121,13 @@ class ProviderRoleJspRegressionTest {
     void shouldValidateSubmittedValues_beforeUpdatingPrimaryRole() throws IOException {
         String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
 
+        // A POST can carry any role name, so the server re-checks that the provider actually
+        // holds the submitted role rather than trusting the filtered selector.
         assertThat(jsp)
                 .containsPattern("hasText\\(providerNo\\)[\\s\\S]{0,40}findByProviderNo\\(providerNo\\)")
-                .containsPattern("hasText\\(roleName\\)[\\s\\S]{0,40}vecRoleName\\.contains\\(roleName\\)")
+                .contains("secUserRoleDao.findByProviderNo(providerNo)")
+                .containsPattern("providerHoldsRole = true")
+                .containsPattern("secRole = providerHoldsRole \\? secRoleDao\\.findByName\\(roleName\\) : null")
                 .containsPattern("\"1\"\\.equals\\(provider\\.getStatus\\(\\)\\)")
                 .containsPattern("secRole != null[\\s\\S]{0,20}caisiProgram != null")
                 .contains("admin.providerrole.msgNotUpdated");
@@ -126,19 +149,6 @@ class ProviderRoleJspRegressionTest {
         assertThat(primaryRoleBlock)
                 .containsPattern("LogAction\\.addLog\\([\\s\\S]{0,80}LogConst\\.CON_ROLE")
                 .contains("admin.providerrole.msgUpdated");
-    }
-
-    @Test
-    @DisplayName("page should warn when a primary role is not one of the provider's assigned roles")
-    void shouldWarnAboutUnassignedPrimaryRole_whenAuditingProviders() throws IOException {
-        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
-
-        // Offering every role (issue #3258) makes an unheld primary role reachable;
-        // the audit loop has to surface it rather than leave the column silently blank.
-        assertThat(jsp)
-                .contains("which is not one of their assigned roles")
-                .containsPattern("roleNamesById\\.get\\(pp\\.getRoleId\\(\\)\\)")
-                .containsPattern("assignedEntry\\.getValue\\(\\)\\.contains\\(primaryRoleName\\)");
     }
 
     @Test
