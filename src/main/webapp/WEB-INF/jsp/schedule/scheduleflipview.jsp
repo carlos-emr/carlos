@@ -269,6 +269,16 @@
                 <option value="<carlos:encode value='<%= currentProvider.getProviderNo() %>' context="htmlAttribute"/>" selected><carlos:encode value='<%= currentProvider.getFormattedName() %>' context="html"/>
                 </option>
                 <%
+                    } else {
+                        // The grid below is still built from curProvider_no, so the selector has to
+                        // name it even when no provider row matches. Without an explicitly selected
+                        // option the browser falls back to the first entry, which labels this
+                        // provider's schedule with a different, real provider. curProviderName
+                        // already degrades to the raw number for exactly this case.
+                %>
+                <option value="<carlos:encode value='<%= curProvider_no %>' context="htmlAttribute"/>" selected><carlos:encode value='<%= curProviderName %>' context="html"/>
+                </option>
+                <%
                     }
 
                     if (!bMultisites) {
