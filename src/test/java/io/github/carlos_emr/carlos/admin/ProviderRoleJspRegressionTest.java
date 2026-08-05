@@ -42,13 +42,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("admin")
 class ProviderRoleJspRegressionTest {
 
+    private static final String BASEDIR_PROPERTY = "basedir";
     private static final Path PROVIDER_ROLE_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/admin/providerRole.jsp");
+
+    /**
+     * Resolves a project-relative path from the Maven {@code basedir} property or
+     * current working directory, walking parent directories for IDE and CLI runs.
+     *
+     * @param relativePath path relative to the project root
+     * @return resolved regular file or directory path
+     */
+    private static Path resolveProjectPath(Path relativePath) {
+        String searchRoot = System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir"));
+        Path current = Path.of(searchRoot).toAbsolutePath().normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException(
+                String.format("Unable to locate %s starting at %s", relativePath, searchRoot));
+    }
 
     @Test
     @DisplayName("primary role selector should offer every assignable role")
     void shouldOfferEveryAssignableRole_inPrimaryRoleSelector() throws IOException {
-        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
         int selectStart = jsp.indexOf("<select id=\"primaryRoleRole\"");
         int selectEnd = jsp.indexOf("</select>", selectStart);
 
@@ -78,7 +100,7 @@ class ProviderRoleJspRegressionTest {
     @Test
     @DisplayName("primary role update should validate submitted provider and role")
     void shouldValidateSubmittedValues_beforeUpdatingPrimaryRole() throws IOException {
-        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .containsPattern("hasText\\(providerNo\\)[\\s\\S]{0,40}findByProviderNo\\(providerNo\\)")
@@ -91,7 +113,7 @@ class ProviderRoleJspRegressionTest {
     @Test
     @DisplayName("primary role update should audit the privilege change")
     void shouldAuditThePrivilegeChange_whenPrimaryRoleIsUpdated() throws IOException {
-        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
         int blockStart = jsp.indexOf("//set the primary role");
         int blockEnd = jsp.indexOf("// update the role", blockStart);
 
@@ -109,7 +131,7 @@ class ProviderRoleJspRegressionTest {
     @Test
     @DisplayName("page should warn when a primary role is not one of the provider's assigned roles")
     void shouldWarnAboutUnassignedPrimaryRole_whenAuditingProviders() throws IOException {
-        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
 
         // Offering every role (issue #3258) makes an unheld primary role reachable;
         // the audit loop has to surface it rather than leave the column silently blank.
@@ -122,7 +144,7 @@ class ProviderRoleJspRegressionTest {
     @Test
     @DisplayName("page initialization should tolerate a hidden primary role section")
     void shouldTolerateMissingPrimaryRoleControls_duringPageInitialization() throws IOException {
-        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .contains("const primaryRoleProvider = document.getElementById('primaryRoleProvider');")

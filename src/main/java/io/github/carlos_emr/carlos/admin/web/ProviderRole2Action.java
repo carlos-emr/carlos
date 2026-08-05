@@ -69,6 +69,9 @@ public class ProviderRole2Action extends ActionSupport {
 
         if (isWriteOperation) {
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                // RFC 9110 requires a 405 to advertise the methods that would work. Only POST
+                // carries a mutation here, so the roster's own GET support is not listed.
+                response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
                 return NONE;
             }
