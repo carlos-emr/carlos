@@ -52,6 +52,7 @@ import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.owasp.encoder.Encode;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -1502,7 +1503,7 @@ public final class EDocUtil {
 			// (spaces to underscores, parentheses dropped) looked for a name that was never
 			// written, so documents refiled under such names were reported as not refiled.
 			File destFile = PathValidationUtils.validatePath(
-					getRefiledDocumentFileName(new File(documentFileName).getName()), destDir);
+					getRefiledDocumentFileName(FilenameUtils.getName(documentFileName)), destDir);
 			return destFile.exists();
 		} catch (FileValidationException e) {
 			// A stored name the validator rejects (a blocked final extension, say) is not a
