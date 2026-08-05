@@ -93,6 +93,16 @@ class FormXmlUploadJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("formXmlUpload page should include a CSRF token in its upload form")
+    void shouldIncludeCsrfToken_inXmlUploadForm() throws IOException {
+        String jsp = Files.readString(FORM_XML_UPLOAD_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("<%@ taglib uri=\"https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld\" prefix=\"csrf\" %>")
+                .contains("name=\"<csrf:tokenname/>\"")
+                .contains("value=\"<csrf:tokenvalue/>\"");
+    }
+
+    @Test
     @DisplayName("FormViewRoutes should map legacy /form/formXmlUpload.jsp onto the routed page")
     void shouldResolveLegacyFormXmlUploadJsp_toRoutedActionPath() {
         assertThat(FormViewRoutes.resolveActionPath("/form/formXmlUpload.jsp"))

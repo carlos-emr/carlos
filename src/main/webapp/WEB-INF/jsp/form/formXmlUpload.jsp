@@ -44,6 +44,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -106,6 +107,7 @@
         <h3><fmt:message key="admin.admin.btnImportFormData"/></h3>
 
         <form action="${pageContext.request.contextPath}/form/xmlUpload" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
             <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
