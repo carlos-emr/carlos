@@ -225,6 +225,9 @@ class EFormBrowserPdfServiceUnitTest {
                 .contains("pendingNetworkRequests")
                 .contains("window.fetch = function()")
                 .contains("XMLHttpRequest.prototype.send = function()")
+                // The temporary instrumentation must be restored before the disposable render page is released.
+                .contains("window.fetch = nativeFetch;")
+                .contains("XMLHttpRequest.prototype.send = nativeXhrSend;")
                 .contains("this.addEventListener('loadend', networkFinished, { once: true })")
                 .contains("if (pendingNetworkRequests > 0) { return; }")
                 .contains("quietWindowMillis = 500")
