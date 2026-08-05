@@ -177,9 +177,18 @@ public final class IncomingDocUtil {
         pdfFilter = new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {
+                if (!name.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                    return false;
+                }
+
                 // Keep listing consistent with validatePathComponent on the read path:
-                // hidden dot-files are not addressable and must not appear as broken rows.
-                return !name.startsWith(".") && name.toLowerCase(Locale.ROOT).endsWith(".pdf");
+                // entries that cannot be addressed safely must not appear as broken rows.
+                try {
+                    validatePathComponent(name, "queued PDF filename");
+                    return true;
+                } catch (FileValidationException e) {
+                    return false;
+                }
             }
         };
 

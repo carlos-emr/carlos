@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.FileValidationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Regression tests for the incoming-docs queue flows behind issue #3238: a never-used
@@ -172,6 +173,24 @@ class IncomingDocUtilUnitTest {
                 .describedAs("only PDF files are listed, under their exact on-disk names")
                 .containsExactlyInAnyOrder("first.pdf", PARENTHESIZED_NAME);
         assertThat(incomingDocUtil.getPdfListModifiedDate()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("should omit queued PDFs whose names cannot be read safely")
+    void shouldOmitQueuedPdfFiles_whenNameFailsReadValidation() throws Exception {
+        // These are legal single filenames on Unix but validatePathComponent correctly
+        // treats them as path-bearing input. Listing them created rows that always failed
+        // when selected. Windows cannot create these fixture names in the first place.
+        assumeTrue(File.separatorChar == '/');
+        File faxDir = incomingRoot.resolve("1").resolve("Fax").toFile();
+        assertThat(faxDir.mkdirs()).isTrue();
+        Files.createFile(faxDir.toPath().resolve("nested\\report.pdf"));
+        Files.createFile(faxDir.toPath().resolve("C:report.pdf"));
+
+        IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
+
+        assertThat(incomingDocUtil.getDocList(faxDir.getPath())).isEmpty();
+        assertThat(incomingDocUtil.getPdfListModifiedDate()).isEmpty();
     }
 
     @Test
