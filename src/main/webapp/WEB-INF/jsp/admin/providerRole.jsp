@@ -152,7 +152,9 @@
          */
         boolean providerHoldsRole = false;
         if (provider != null && StringUtils.hasText(roleName)) {
-            List assignedRoles = secUserRoleDao.findByProviderNo(providerNo);
+            // Active assignments only — an inactive or legacy-NULL row grants no authority, so it
+            // must not become the primary role that drives note access.
+            List assignedRoles = secUserRoleDao.findActiveByProviderNo(providerNo);
             if (assignedRoles != null) {
                 for (Object assignedRole : assignedRoles) {
                     if (roleName.equals(((Secuserrole) assignedRole).getRoleName())) {
@@ -369,18 +371,26 @@
         prop.setProperty("last_name", last_name);
         prop.setProperty("role_id", id != "null" ? id : "");
         prop.setProperty("role_name", role_name != "null" ? role_name : "");
+        // Legacy rows carry a NULL activeyn and, like an explicit 0, must not count as active.
+        prop.setProperty("activeyn", "1".equals(String.valueOf(providerSecUser[5])) ? "1" : "");
         vec.add(prop);
     }
 
     /* Roles each listed provider already holds. The primary-role selector is scoped to these
      * because the primary role designates which of a provider's own roles leads; granting a
      * new role is the Add action in the table above.
+     *
+     * Only active assignments qualify. An inactive role is ignored by authorization
+     * (SecurityInfoManagerImpl reads findActiveByProviderNo), but program_provider.role_id
+     * still feeds CaseManagementManagerImpl#getAccessType, so making a disabled role primary
+     * would grant note access that the security layer does not recognise.
      */
     Map<String, List<String>> heldRolesByProvider = new LinkedHashMap<String, List<String>>();
     for (Properties prop : vec) {
         String heldProviderNo = prop.getProperty("provider_no", "");
         String heldRoleName = prop.getProperty("role_name", "");
-        if (heldProviderNo.isEmpty() || heldRoleName.isEmpty()) {
+        if (heldProviderNo.isEmpty() || heldRoleName.isEmpty()
+                || !"1".equals(prop.getProperty("activeyn", ""))) {
             continue;
         }
         List<String> held = heldRolesByProvider.get(heldProviderNo);

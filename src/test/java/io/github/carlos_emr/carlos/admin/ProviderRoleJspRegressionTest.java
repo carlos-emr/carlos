@@ -94,7 +94,13 @@ class ProviderRoleJspRegressionTest {
                 // Serialized by Jackson, not hand-escaped: a control character in a role name
                 // would emit invalid JSON and leave the selector silently empty.
                 .containsPattern("HELD_ROLES_MAPPER\\s*\\.\\s*writeValueAsString")
-                .contains("secUserRoleDao.findByProviderNo(providerNo)");
+                /* Active assignments only, on both sides. An inactive role is ignored by
+                 * authorization but would still drive note access through
+                 * program_provider.role_id if it could be made primary.
+                 */
+                .contains("secUserRoleDao.findActiveByProviderNo(providerNo)")
+                .doesNotContain("secUserRoleDao.findByProviderNo(providerNo)")
+                .containsPattern("!\"1\"\\.equals\\(prop\\.getProperty\\(\"activeyn\"");
 
         // The old array interpolated provider_no and role_id into a script block unencoded.
         assertThat(jsp)
@@ -126,8 +132,8 @@ class ProviderRoleJspRegressionTest {
         // A POST can carry any role name, so the server re-checks that the provider actually
         // holds the submitted role rather than trusting the filtered selector.
         assertThat(jsp)
-                .containsPattern("hasText\\(providerNo\\)[\\s\\S]{0,40}findByProviderNo\\(providerNo\\)")
-                .contains("secUserRoleDao.findByProviderNo(providerNo)")
+                .containsPattern("hasText\\(providerNo\\)[\\s\\S]{0,40}providerDao\\.findByProviderNo\\(providerNo\\)")
+                .contains("secUserRoleDao.findActiveByProviderNo(providerNo)")
                 .containsPattern("providerHoldsRole = true")
                 .containsPattern("secRole = providerHoldsRole \\? secRoleDao\\.findByName\\(roleName\\) : null")
                 .containsPattern("\"1\"\\.equals\\(provider\\.getStatus\\(\\)\\)")
