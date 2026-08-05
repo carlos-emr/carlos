@@ -34,9 +34,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 
 /**
@@ -64,6 +67,35 @@ class PrintPDF2ActionTest extends CarlosWebTestBase {
         mockRequest.setMethod("POST");
         mockRequest.setRequestURI("/eform/efmPrintPDF");
         action = new PrintPDF2Action();
+    }
+
+    @Test
+    @DisplayName("Should check _eform read against the requested demographic, not an unscoped null")
+    void shouldScopePrivilegeCheck_toRequestedDemographic() throws Exception {
+        // Previously this passed a null demographic, so the check only asked "may this caller read
+        // eForms at all" and any authenticated user could print for any patient. This route carries
+        // no fdid, so the demographic can only come from the request — which is safe, because naming
+        // someone else's demographic makes the check harder to pass, never easier.
+        mockRequest.setParameter("submit", "printAll");
+        mockRequest.setParameter("demographic_no", "123");
+
+        action.execute();
+
+        Mockito.verify(mockSecurityInfoManager)
+                .hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("r"), eq("123"));
+    }
+
+    @Test
+    @DisplayName("Should refuse a demographic the caller may not read")
+    void shouldRefuseRequest_whenDemographicNotReadable() {
+        denyPrivilege("_eform", "r");
+        mockRequest.setParameter("submit", "printAll");
+        mockRequest.setParameter("demographic_no", "999");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_eform");
+        assertThat(mockResponse.getRedirectedUrl()).isNull();
     }
 
     @Test

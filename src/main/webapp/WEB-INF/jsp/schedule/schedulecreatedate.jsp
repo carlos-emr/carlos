@@ -30,9 +30,6 @@
 --%>
 <%!
     //multisite starts =====================
-    private List<Site> sites;
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-
     private String getSiteHTML(String reason, List<Site> sites) {
         if (reason == null || reason.trim().length() == 0)
             return "";
@@ -41,6 +38,10 @@
     }
 %>
 <%
+
+    List<Site> sites = java.util.Collections.emptyList();
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+
     if (bMultisites) {
         SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
         sites = siteDao.getAllSites();
@@ -387,7 +388,7 @@
 
                             %>
                             <c:set var="__enc_1"><carlos:encode value='<%= provider_no %>' context="uriComponent"/></c:set>
-                            <td bgcolor='<%=bgcolor                                                                     
+                            <td bgcolor='<%=bgcolor
 .toString()%>'><a href="#"
                                                                      onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFirstDisp=1')">
                                 <font color="red"><%= dateGrid[i][j] %>

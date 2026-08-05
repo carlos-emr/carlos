@@ -42,10 +42,12 @@ import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.xhtmlrenderer.layout.SharedContext;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import io.github.carlos_emr.CarlosProperties;
@@ -55,14 +57,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -101,17 +103,17 @@ public final class ConvertToEdoc {
     private enum FileType {pdf, css, jpeg, png, gif, js, jpg}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
-    private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", CarlosProperties.getInstance().getEformImageDirectory());
+    private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
+    /** Percent-encoded form of {@link #OSCAR_IMAGE_PATH_TOKEN} as it can appear in stored src/href markup. */
+    private static final String OSCAR_IMAGE_PATH_TOKEN_ENCODED = "%24%7Boscar_image_path%7D";
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
     private static final String SYSTEM_ID = "-1";
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
-    private static final String STYLE_ATTRIBUTE = "style";
     private static final String BACKGROUND_ATTRIBUTE = "background";
-    private static final Pattern CSS_URL_PATTERN = Pattern.compile("url\\((['\"]?)([^\"')]+)\\1\\)", Pattern.CASE_INSENSITIVE);
-    
+    private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
@@ -141,7 +143,7 @@ public final class ConvertToEdoc {
                     DocumentType.eForm,
                     path.getParent().toString());
         } else {
-            logger.error("Could not read temporary PDF file " + filename);
+            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
         }
 
         return edoc;
@@ -220,7 +222,7 @@ public final class ConvertToEdoc {
                     formTransportContainer.getDocumentType(),
                     path.toString());
         } else {
-            logger.error("Could not read temporary PDF file " + filename);
+            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
         }
 
         return edoc;
@@ -237,6 +239,18 @@ public final class ConvertToEdoc {
         String eformString = eform.getFormData();
         String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
         return execute(eformString, filename);
+    }
+
+    /**
+     * Converts an arbitrary HTML string to a temporary PDF file.
+     * The caller is responsible for deleting the temporary file after use.
+     *
+     * @param htmlString String the HTML markup to convert
+     * @param filename String the base filename (without directory) used for the temporary PDF
+     * @return Path the temporary file path to the produced PDF, or null if conversion fails
+     */
+    public static synchronized Path saveAsTempPDF(String htmlString, String filename) {
+        return execute(htmlString, filename);
     }
 
     /**
@@ -274,15 +288,26 @@ public final class ConvertToEdoc {
      * @return Path the path to the saved temporary PDF, or null if conversion fails
      */
     private static Path execute(final String eformString, final String filename) {
+        if (eformString == null) {
+            // No source HTML to render. Return null per this method's documented failure contract
+            // instead of NPE-ing deep in the Jsoup/Flying Saucer pipeline; callers treat null as a
+            // conversion failure and surface it.
+            logger.error("Cannot render PDF: source HTML was null for {}", LogSafe.sanitize(filename)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
         Path path = null;
         String document = tidyDocument(eformString);
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             renderPDF(document, os);
             path = nioFileManager.saveTempFile(filename, os);
+            if (logger.isDebugEnabled()) {
+                // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
+                logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));
+            }
         } catch (DocumentException e1) {
             logger.error("Exception parsing file to PDF. File not saved. ", e1);
         } catch (IOException e) {
-            logger.error("Problem while writing PDF file to filesystem. " + filename, e);
+            logger.error("Problem while writing PDF file to filesystem. {}", LogSafe.sanitize(filename), e);
         }
 
         return path;
@@ -425,7 +450,9 @@ public final class ConvertToEdoc {
      * Prepare document for Flying Saucer which requires strict XHTML
      */
     static Document prepareDocumentForFlyingSaucer(String document) {
-        Document doc = Jsoup.parse(document);
+        // Defensive: execute() already returns early on null HTML, but keep the sink null-safe so a
+        // future caller of this package-visible helper cannot NPE Jsoup.parse.
+        Document doc = Jsoup.parse(document == null ? "" : document);
         normalizeHtmlCommentsForXml(doc);
         
         // Flying Saucer requires XML/XHTML syntax
@@ -664,23 +691,117 @@ public final class ConvertToEdoc {
             return cssText;
         }
 
-        Matcher matcher = CSS_URL_PATTERN.matcher(cssText);
         StringBuilder rewrittenCss = new StringBuilder();
-        while (matcher.find()) {
-            String originalPath = matcher.group(2).trim();
-            String translatedPath = translateSingleResourcePath(originalPath);
-            String replacement;
-            if (translatedPath != null) {
-                replacement = Matcher.quoteReplacement("url('" + translatedPath + "')");
-            } else if (isEmbeddedDataResourcePath(originalPath)) {
-                replacement = Matcher.quoteReplacement(matcher.group(0));
+        int cursor = 0;
+        CssUrlMatch match = findNextCssUrlMatch(cssText, cursor);
+        while (match != null) {
+            rewrittenCss.append(cssText, cursor, match.urlStart());
+            if (match.complete()) {
+                appendRewrittenCssUrl(rewrittenCss, cssText, match);
+                cursor = match.urlEnd() + 1;
+                match = findNextCssUrlMatch(cssText, cursor);
             } else {
-                replacement = "url('')";
+                rewrittenCss.append(cssText, match.urlStart(), cssText.length());
+                cursor = cssText.length();
+                match = null;
             }
-            matcher.appendReplacement(rewrittenCss, replacement);
         }
-        matcher.appendTail(rewrittenCss);
+
+        rewrittenCss.append(cssText, cursor, cssText.length());
         return rewrittenCss.toString();
+    }
+
+    private static void appendRewrittenCssUrl(StringBuilder rewrittenCss, String cssText, CssUrlMatch match) {
+        String originalPath = extractCssUrlPath(cssText, match.contentStart(), match.urlEnd());
+        String translatedPath = translateSingleResourcePath(originalPath);
+        if (translatedPath != null) {
+            // translateSingleResourcePath returns data: URIs unchanged, so this branch
+            // also handles embedded data resources (they arrive here with translatedPath == originalPath).
+            rewrittenCss.append("url('").append(SafeEncode.forCssString(translatedPath)).append("')");
+        } else {
+            rewrittenCss.append("url('')");
+        }
+    }
+
+    private static CssUrlMatch findNextCssUrlMatch(String cssText, int cursor) {
+        int urlStart = StringUtils.indexOfIgnoreCase(cssText, "url(", cursor);
+        if (urlStart < 0) {
+            return null;
+        }
+
+        int contentStart = urlStart + 4;
+        while (contentStart < cssText.length() && Character.isWhitespace(cssText.charAt(contentStart))) {
+            contentStart++;
+        }
+
+        int urlEnd = findCssUrlEnd(cssText, contentStart);
+        if (urlEnd < 0) {
+            return CssUrlMatch.incomplete(urlStart, contentStart);
+        }
+
+        return CssUrlMatch.complete(urlStart, contentStart, urlEnd);
+    }
+
+    private static int findCssUrlEnd(String cssText, int contentStart) {
+        char quote = 0;
+        boolean escaped = false;
+        int nestedParens = 0;
+        for (int i = contentStart; i < cssText.length(); i++) {
+            char current = cssText.charAt(i);
+            if (quote != 0) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\' && i + 1 < cssText.length()) {
+                    escaped = true;
+                } else {
+                    quote = closeQuoteIfNeeded(quote, current);
+                }
+            } else if (isCssQuote(current)) {
+                quote = current;
+            } else if (current == '(') {
+                nestedParens++;
+            } else if (current == ')') {
+                if (nestedParens == 0) {
+                    return i;
+                }
+                nestedParens--;
+            }
+        }
+        return -1;
+    }
+
+    private static char closeQuoteIfNeeded(char quote, char current) {
+        return current == quote ? (char) 0 : quote;
+    }
+
+    private static boolean isCssQuote(char current) {
+        return current == '\'' || current == '"';
+    }
+
+    private static String extractCssUrlPath(String cssText, int contentStart, int urlEnd) {
+        String rawPath = cssText.substring(contentStart, urlEnd).trim();
+        if (rawPath.length() >= 2) {
+            char first = rawPath.charAt(0);
+            char last = rawPath.charAt(rawPath.length() - 1);
+            if (isMatchingQuote(first, last)) {
+                rawPath = rawPath.substring(1, rawPath.length() - 1).trim();
+            }
+        }
+        return rawPath;
+    }
+
+    private static boolean isMatchingQuote(char first, char last) {
+        return isCssQuote(first) && first == last;
+    }
+
+    private record CssUrlMatch(int urlStart, int contentStart, int urlEnd, boolean complete) {
+        private static CssUrlMatch complete(int urlStart, int contentStart, int urlEnd) {
+            return new CssUrlMatch(urlStart, contentStart, urlEnd, true);
+        }
+
+        private static CssUrlMatch incomplete(int urlStart, int contentStart) {
+            return new CssUrlMatch(urlStart, contentStart, -1, false);
+        }
     }
 
     private static String translateSingleResourcePath(String path) {
@@ -703,9 +824,37 @@ public final class ConvertToEdoc {
             collectImageDirectoryCandidates(path, potentialFilePaths);
         } else {
             collectRealPathCandidates(path, potentialFilePaths);
+            collectOscarImagePathCandidate(path, potentialFilePaths);
         }
 
         return potentialFilePaths;
+    }
+
+    private static void collectOscarImagePathCandidate(String path, List<String> potentialFilePaths) {
+        String filename;
+        if (path.startsWith(OSCAR_IMAGE_PATH_TOKEN)) {
+            filename = path.substring(OSCAR_IMAGE_PATH_TOKEN.length());
+        } else if (path.regionMatches(true, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED, 0, OSCAR_IMAGE_PATH_TOKEN_ENCODED.length())) {
+            // A percent-encoded token implies a percent-encoded filename too; decode the remainder so
+            // encoded eForm background images still resolve into the PDF instead of being dropped
+            // Fall back to the raw remainder if it is not validly encoded.
+            String encodedRemainder = path.substring(OSCAR_IMAGE_PATH_TOKEN_ENCODED.length());
+            try {
+                // Protect a literal '+' (percent-encode it) before decoding: URLDecoder applies form
+                // semantics and would otherwise turn '+' into a space, dropping a valid filename that
+                // legitimately contains '+'. '%20' still decodes to a real space.
+                filename = URLDecoder.decode(encodedRemainder.replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                filename = encodedRemainder;
+            }
+        } else {
+            return;
+        }
+
+        String candidate = buildImageDirectoryPath(filename);
+        if (!candidate.isEmpty()) {
+            potentialFilePaths.add(candidate);
+        }
     }
 
     private static boolean isTranslatableResourcePath(String path) {
@@ -825,33 +974,31 @@ public final class ConvertToEdoc {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static String getRealPath(String uri) {
-        if (ConvertToEdoc.realPath == null) {
-            return "";
+        String contextRealPath = "";
+
+        // Try to resolve relative paths
+        if (ConvertToEdoc.realPath != null) {
+            try {
+				Path basePath = PathValidationUtils.resolveConfiguredDirectory(ConvertToEdoc.realPath, "real path").toPath();
+				String fileNameToFind = PathValidationUtils.validatePathComponent(Paths.get(uri).getFileName().toString(), "resource file name");
+
+				try (Stream<Path> paths = Files.walk(basePath)) {
+					Path found = paths
+						.filter(Files::isRegularFile)
+						.filter(path -> path.getFileName().toString().equals(fileNameToFind))
+						.findFirst()
+						.orElse(null);
+
+					if (found != null) {
+						contextRealPath = PathValidationUtils.validateExistingPath(found.toFile(), basePath.toFile()).getAbsolutePath();
+					}
+				}
+			} catch (Exception e) {
+				logger.error("Error while searching file in directory: " + ConvertToEdoc.realPath, e);
+			}
         }
 
-        try {
-            File realPathDirectory = PathValidationUtils.resolveConfiguredDirectory(ConvertToEdoc.realPath, "real path");
-            Path basePath = realPathDirectory.toPath();
-            String fileNameToFind = PathValidationUtils.validatePathComponent(Paths.get(uri).getFileName().toString(), "resource file name");
-
-            try (Stream<Path> paths = Files.walk(basePath)) {
-                Path found = paths
-                        .filter(Files::isRegularFile)
-                        .filter(path -> path.getFileName().toString().equals(fileNameToFind))
-                        .findFirst()
-                        .orElse(null);
-
-                if (found == null) {
-                    return "";
-                }
-
-                File validatedFile = PathValidationUtils.validateExistingPath(found.toFile(), realPathDirectory);
-                return validatedFile.getAbsolutePath();
-            }
-        } catch (Exception e) {
-            logger.error("Error while searching file in directory: " + ConvertToEdoc.realPath, e);
-            return "";
-        }
+        return contextRealPath;
     }
 
     /**
@@ -1002,12 +1149,16 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * fetch the default EForm image directory in the host file system
+     * Fetches the configured EForm image directory in the host file system.
+     *
+     * <p>Resolved live on each call (via {@link CarlosProperties#getEformImageDirectory()}) rather
+     * than captured in a load-time {@code static final}, so a reconfigured image root is picked up
+     * without a redeploy and a test can point it at an isolated temporary directory.</p>
      *
      * @return String directory path
      */
     private static String getImageDirectory() {
-        return DEFAULT_IMAGE_DIRECTORY;
+        return CarlosProperties.getInstance().getEformImageDirectory();
     }
 
     /**

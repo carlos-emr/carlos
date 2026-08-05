@@ -198,11 +198,11 @@ All screenshots saved to: `docs/ui-tests/test-1/screenshots/`
 ### Login Fails
 ```bash
 # Check user exists and reset password if needed
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='carlosdoc';"
 
 # Reset password
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "UPDATE security SET
    password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
    forcePasswordReset=0
@@ -218,7 +218,7 @@ mysql -h db -uroot -ppassword oscar -e \
 ### Patient Records Missing
 ```bash
 # Verify test data exists
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT demographic_no, first_name, last_name, patient_status
    FROM demographic
    WHERE demographic_no IN (1, 182);"
