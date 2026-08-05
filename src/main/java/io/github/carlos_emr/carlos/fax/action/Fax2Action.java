@@ -90,8 +90,7 @@ public class Fax2Action extends ActionSupport {
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final EFormRenderApprovalService renderApprovalService =
-            SpringUtils.getBean(EFormRenderApprovalService.class);
+    private transient EFormRenderApprovalService renderApprovalService;
     private transient EFormDataDao eFormDataDao;
 
 
@@ -210,7 +209,7 @@ public class Fax2Action extends ActionSupport {
             sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid eForm fax approval");
             return;
         }
-        renderApprovalService.cancelStagedFaxPreview(
+        renderApprovalService().cancelStagedFaxPreview(
                 request, loggedInInfo, transactionId, String.valueOf(demographicNo),
                 request.getParameter("renderApproval"));
         // The same redirect is returned for an already-consumed, expired, or mismatched token so
@@ -573,7 +572,7 @@ public class Fax2Action extends ActionSupport {
                 String approvalToken = request.getParameter("renderApproval");
                 EFormData currentEForm = eFormDataDao().find(transactionId.intValue());
                 if (currentEForm == null || currentEForm.getDemographicId() == null) {
-                    renderApprovalService.cancelStagedFaxPreview(request, loggedInInfo, transactionId,
+                    renderApprovalService().cancelStagedFaxPreview(request, loggedInInfo, transactionId,
                             String.valueOf(demographicNo), approvalToken);
                     sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "The eForm is no longer available");
                     return NONE;
@@ -582,7 +581,7 @@ public class Fax2Action extends ActionSupport {
                 if (!storedDemographicNo.equals(String.valueOf(demographicNo))) {
                     // The saved eForm moved to another patient after staging. Revoke the old tuple
                     // before returning so neither its token nor its PHI-bearing PDF survives.
-                    renderApprovalService.cancelStagedFaxPreview(request, loggedInInfo, transactionId,
+                    renderApprovalService().cancelStagedFaxPreview(request, loggedInInfo, transactionId,
                             String.valueOf(demographicNo), approvalToken);
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
                             "The eForm no longer belongs to this patient");
@@ -590,13 +589,13 @@ public class Fax2Action extends ActionSupport {
                 }
                 if (!securityInfoManager.hasPrivilege(
                         loggedInInfo, "_eform", SecurityInfoManager.READ, storedDemographicNo)) {
-                    renderApprovalService.cancelStagedFaxPreview(request, loggedInInfo, transactionId,
+                    renderApprovalService().cancelStagedFaxPreview(request, loggedInInfo, transactionId,
                             storedDemographicNo, approvalToken);
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return NONE;
                 }
                 EFormRenderApprovalService.StagedFaxPreview stagedPreview =
-                        renderApprovalService.consumeStagedFaxPreview(request, loggedInInfo, transactionId,
+                        renderApprovalService().consumeStagedFaxPreview(request, loggedInInfo, transactionId,
                                 storedDemographicNo, approvalToken);
                 if (approvalToken != null && stagedPreview == null) {
                     sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN,
@@ -615,7 +614,7 @@ public class Fax2Action extends ActionSupport {
                         String token;
                         boolean ownershipTransferred = false;
                         try {
-                            token = renderApprovalService.issueStagedFaxPreview(request, loggedInInfo,
+                            token = renderApprovalService().issueStagedFaxPreview(request, loggedInInfo,
                                     transactionId, storedDemographicNo, rendered.formCompleteness(),
                                     rendered.completeness().advisoryIssueCount(), rendered.path());
                             ownershipTransferred = true;
@@ -706,6 +705,13 @@ public class Fax2Action extends ActionSupport {
             eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
         }
         return eFormDataDao;
+    }
+
+    private EFormRenderApprovalService renderApprovalService() {
+        if (renderApprovalService == null) {
+            renderApprovalService = SpringUtils.getBean(EFormRenderApprovalService.class);
+        }
+        return renderApprovalService;
     }
 
     /**
