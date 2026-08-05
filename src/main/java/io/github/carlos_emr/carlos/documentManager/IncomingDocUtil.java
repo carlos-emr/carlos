@@ -41,6 +41,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -194,7 +195,10 @@ public final class IncomingDocUtil {
         // loudly below. The candidate is containment-validated before any probe.
         File incomingBaseDir = new File(incomingRootPath);
         File queueDirCandidate = PathValidationUtils.validateChildPath(new File(directory), incomingBaseDir);
-        if (incomingBaseDir.isDirectory() && !queueDirCandidate.exists()) {
+        // Files.notExists is true only when nonexistence can be established. File.exists
+        // also returns false when access is denied, which would incorrectly hide an
+        // inaccessible queue as an unused/empty one instead of taking the loud path below.
+        if (incomingBaseDir.isDirectory() && Files.notExists(queueDirCandidate.toPath())) {
             // Logged so an operator can tell "never used" apart from "the queue volume
             // vanished" without having to reason from an empty screen.
             logger.debug("Incoming queue directory not created yet, reporting empty queue");
