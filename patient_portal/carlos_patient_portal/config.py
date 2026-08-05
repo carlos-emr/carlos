@@ -28,6 +28,9 @@ MAX_CLINIC_ID_LENGTH = 64
 # A conservative day count guarantees at least 25 complete calendar years,
 # including every leap-day distribution, before an event becomes eligible.
 DEFAULT_AUDIT_RETENTION_DAYS = 25 * 366
+# Loopback only: a Host header an attacker could poison into a patient-visible link is useless if
+# it points back at the patient's own machine. Real deployments add pod IPs/service names here.
+DEFAULT_PROBE_ALLOWED_HOSTS = ("127.0.0.1", "localhost", "[::1]")
 DEFAULT_CLINIC_ID = "default"
 DEFAULT_CLINIC_NAME = "Maple Creek Medical"
 ENVIRONMENT_ALIASES = {
@@ -70,6 +73,10 @@ class Settings(BaseSettings):
     clinic_name: str = DEFAULT_CLINIC_NAME
     clinic_timezone: str = Field(default="America/Toronto", min_length=1, max_length=64)
     public_base_url: str | None = Field(default=None, max_length=2048)
+    # Container/Kubernetes/load-balancer probes reach the service by pod IP or service name, not by
+    # the canonical public host. Without these aliases a correctly configured instance answers
+    # 400 "Invalid host header" to its own liveness/readiness probes and is marked dead.
+    probe_allowed_hosts: str | None = Field(default=None, max_length=1024)
     database_url: str = DEFAULT_DATABASE_URL
     database_pool_size: int = Field(default=DEFAULT_DATABASE_POOL_SIZE, ge=1, le=100)
     database_max_overflow: int = Field(default=DEFAULT_DATABASE_MAX_OVERFLOW, ge=0, le=100)
@@ -174,13 +181,27 @@ class Settings(BaseSettings):
         return self.internal_api_token is not None
 
     @property
+    def probe_host_aliases(self) -> tuple[str, ...]:
+        """Explicitly configured hostnames that health/readiness probes may use."""
+        if self.probe_allowed_hosts is None:
+            return DEFAULT_PROBE_ALLOWED_HOSTS
+        aliases = tuple(
+            alias.strip() for alias in self.probe_allowed_hosts.split(",") if alias.strip()
+        )
+        return aliases or DEFAULT_PROBE_ALLOWED_HOSTS
+
+    @property
     def allowed_hosts(self) -> tuple[str, ...]:
         if self.public_base_url is None:
             return ("127.0.0.1", "localhost", "testserver")
         hostname = urlsplit(self.public_base_url).hostname
         if hostname is None:
             raise ValueError("PATIENT_PORTAL_PUBLIC_BASE_URL must contain a hostname")
-        return (hostname,)
+        # The canonical public host stays authoritative for patient/FHIR links; the probe aliases
+        # only widen which Host headers are accepted, never which URLs are generated.
+        allowed = [hostname]
+        allowed.extend(alias for alias in self.probe_host_aliases if alias != hostname)
+        return tuple(allowed)
 
     @property
     def resolved_smtp_from_address(self) -> str | None:

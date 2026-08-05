@@ -68,6 +68,9 @@ PERMISSION_ACCOUNT_UNLOCK = "portal.account.unlock"
 PERMISSION_ACCOUNT_MANAGE = "portal.account.manage"
 PERMISSION_SECRET_MANAGE = "portal.secret.manage"
 PERMISSION_CONTACT_REVIEW = "portal.contact.review"
+# Part of the CARLOS/Java boundary: one deliberately generic 404 shared by every account lookup so
+# the contract cannot drift branch by branch.
+INTERNAL_ACCOUNT_NOT_FOUND_DETAIL = "portal account not found"
 
 
 class InternalErrorResponse(BaseModel):
@@ -364,6 +367,8 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 actor=principal.display_name,
                 actor_id=principal.provider_id,
                 demographic_no=unlock_secret.demographic_no,
+                # CARLOS retries read back the record it just created, before publishing it.
+                allow_pending=True,
             )
         except UnlockSecretDecryptionError as exc:
             session.commit()
@@ -504,7 +509,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             demographic_no=demographic_no,
         )
         if account_id is None:
-            raise HTTPException(status_code=404, detail="portal account not found")
+            raise HTTPException(status_code=404, detail=INTERNAL_ACCOUNT_NOT_FOUND_DETAIL)
         try:
             account = unlock_patient_account(
                 session,
@@ -514,7 +519,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 clinic_id=principal.clinic_id,
             )
         except AccountNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="portal account not found") from exc
+            raise HTTPException(status_code=404, detail=INTERNAL_ACCOUNT_NOT_FOUND_DETAIL) from exc
         return {
             "id": account.id,
             "clinic_id": account.clinic_id,
@@ -541,7 +546,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             )
         )
         if account is None:
-            raise HTTPException(status_code=404, detail="portal account not found")
+            raise HTTPException(status_code=404, detail=INTERNAL_ACCOUNT_NOT_FOUND_DETAIL)
         return {
             "id": account.id,
             "clinic_id": account.clinic_id,
@@ -571,7 +576,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
             demographic_no=demographic_no,
         )
         if account_id is None:
-            raise HTTPException(status_code=404, detail="portal account not found")
+            raise HTTPException(status_code=404, detail=INTERNAL_ACCOUNT_NOT_FOUND_DETAIL)
         try:
             account = set_patient_account_access(
                 session,
@@ -583,7 +588,7 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                 reason=payload.reason,
             )
         except AccountNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="portal account not found") from exc
+            raise HTTPException(status_code=404, detail=INTERNAL_ACCOUNT_NOT_FOUND_DETAIL) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail="invalid account access request") from exc
         return {

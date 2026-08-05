@@ -51,6 +51,7 @@ def main() -> None:
                         max_failures_per_invite=10,
                         max_failures_per_client=50,
                     ),
+                    expected_clinic_id=settings.clinic_id,
                 )
                 for index, label in enumerate(
                     (

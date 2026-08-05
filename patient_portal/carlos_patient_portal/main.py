@@ -181,6 +181,7 @@ from carlos_patient_portal.unlock_secrets import (
     MAX_UNLOCK_SECRET_SEARCH_LENGTH,
     UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
+    UnlockSecretNotPublishedError,
     UnlockSecretRevokedError,
     count_unlock_secret_providers,
     count_unlock_secrets,
@@ -210,6 +211,9 @@ PORTAL_ROOT_PATH = "/portal"
 MAX_PAGE_OFFSET = 100_000
 SERVICE_UNAVAILABLE_DETAIL = "service temporarily unavailable"
 AUTHENTICATION_REQUIRED_DETAIL = "authentication required"
+# Shared by login, resend, and activation so every JSON surface stays equally generic; the browser
+# equivalents come from the locale catalog.
+MFA_DELIVERY_UNAVAILABLE_DETAIL = "MFA delivery method is unavailable"
 NOT_FOUND_DETAIL = "not found"
 INVALID_CSRF_DETAIL = "invalid CSRF token"
 ACCOUNT_LOCKED_DETAIL = "account access is locked; contact the clinic for help"
@@ -1272,8 +1276,11 @@ def email_password_dashboard_context(
         ],
         "search": normalized_search or "",
         "provider": normalized_provider or "",
-        "provider_options": [{"value": value, "label": label} for value, label in provider_options],
-        "provider_option_values": [value for value, _ in provider_options],
+        "provider_options": [
+            {"value": value, "label": label} for value, label in provider_options.options
+        ],
+        "provider_option_values": [value for value, _ in provider_options.options],
+        "provider_options_truncated": provider_options.truncated,
         "date_from": date_from.isoformat() if date_from is not None else "",
         "date_to": date_to.isoformat() if date_to is not None else "",
         "has_filters": any(
@@ -2235,7 +2242,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
 
         extra_context: dict[str, object] = {}
         if active_module == "email-passwords":
-            extra_context["email_passwords"] = email_password_dashboard_context(
+            dashboard_context = email_password_dashboard_context(
                 session,
                 authenticated_session.account,
                 search=email_password_search,
@@ -2246,6 +2253,23 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 timezone_name=settings.clinic_timezone,
                 filter_error=email_password_filter_error,
             )
+            extra_context["email_passwords"] = dashboard_context
+            # The JSON and FHIR surfaces audit list access; the browser index must too, so
+            # "opened/searched the password list" stays distinguishable from "never accessed it".
+            # Only whether filters were used is recorded — never the raw query, which can be PHI.
+            dashboard_account = authenticated_session.account
+            record_audit_event(
+                session,
+                event_type=AUDIT_EVENT_UNLOCK_SECRET_LIST,
+                outcome=AUDIT_OUTCOME_SUCCESS,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                actor=dashboard_account.username,
+                clinic_id=dashboard_account.clinic_id,
+                demographic_no=dashboard_account.demographic_no,
+                account_id=dashboard_account.id,
+                reason=("browser_filtered" if dashboard_context["has_filters"] else "browser"),
+            )
+            session.commit()
         csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
             request=request,
@@ -2627,7 +2651,7 @@ def register_auth_routes(
                 render_index_response=render_index_response,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 browser_message=text["mfa_delivery_unavailable"],
-                json_content={"detail": "MFA delivery method is unavailable"},
+                json_content={"detail": MFA_DELIVERY_UNAVAILABLE_DETAIL},
             )
         except MfaRateLimitedError as exc:
             return auth_error_response(
@@ -2762,7 +2786,7 @@ def register_auth_routes(
                     )
             return JSONResponse(
                 status_code=400,
-                content={"detail": "MFA delivery method is unavailable"},
+                content={"detail": MFA_DELIVERY_UNAVAILABLE_DETAIL},
             )
         session.commit()
         try:
@@ -2930,6 +2954,7 @@ def register_auth_routes(
             client_reference_hash=client_reference_hash,
             policy=auth_policy,
             token_secret=csrf_secret,
+            clinic_id=settings.clinic_id,
         )
         response_reset_token = result.reset_token
         development_reset_url = None
@@ -3023,6 +3048,7 @@ def register_auth_routes(
                 reset_token=payload.reset_token,
                 new_password=payload.new_password,
                 token_secret=csrf_secret,
+                clinic_id=settings.clinic_id,
             )
         except PasswordResetTokenInvalidError:
             if is_browser_form:
@@ -3260,16 +3286,17 @@ def register_fhir_routes(
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> JSONResponse:
         account = authenticated_session.account
-        record_id = parse_fhir_numeric_id(document_reference_id)
         try:
+            # Parsing stays inside the audited branch so a malformed ID is recorded exactly like an
+            # unknown one; otherwise `/fhir/DocumentReference/not-a-number` left no read event.
             record = get_scoped_unlock_secret(
                 session,
-                record_id,
+                parse_fhir_numeric_id(document_reference_id),
                 clinic_id=account.clinic_id,
                 demographic_no=account.demographic_no,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             )
-        except UnlockSecretNotFoundError as exc:
+        except (UnlockSecretNotFoundError, FhirApiError) as exc:
             record_fhir_access(
                 session,
                 account,
@@ -3589,7 +3616,11 @@ def register_patient_email_password_routes(
                 demographic_no=account.demographic_no,
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             )
-        except (UnlockSecretNotFoundError, UnlockSecretRevokedError):
+        except (
+            UnlockSecretNotFoundError,
+            UnlockSecretRevokedError,
+            UnlockSecretNotPublishedError,
+        ):
             record_audit_event(
                 session,
                 event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
@@ -3920,7 +3951,11 @@ def register_portal_routes(
                 ),
                 secret_type=UNLOCK_SECRET_TYPE_EMAIL,
             )
-        except (UnlockSecretNotFoundError, UnlockSecretRevokedError):
+        except (
+            UnlockSecretNotFoundError,
+            UnlockSecretRevokedError,
+            UnlockSecretNotPublishedError,
+        ):
             record_audit_event(
                 session,
                 event_type=AUDIT_EVENT_UNLOCK_SECRET_READ,
@@ -4053,7 +4088,7 @@ def register_activation_routes(
                 )
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                content={"detail": "MFA delivery method is unavailable"},
+                content={"detail": MFA_DELIVERY_UNAVAILABLE_DETAIL},
             )
         try:
             account = await run_in_threadpool(
@@ -4072,6 +4107,7 @@ def register_activation_routes(
                 proof_secret=identity_proof_secret,
                 client_reference_hash=client_reference_hash,
                 rate_limit=activation_rate_limit,
+                expected_clinic_id=settings.clinic_id,
             )
         except UsernameUnavailableError:
             if is_browser_form:

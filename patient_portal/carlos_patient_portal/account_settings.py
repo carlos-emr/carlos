@@ -234,6 +234,9 @@ def update_account_mfa_method(
     now = utc_now()
     account.preferred_mfa_method = normalized_method
     account.updated_at = now
+    # A patient switching away from a compromised mailbox/number expects the old channel to stop
+    # authorizing sign-ins, so codes already delivered there are cancelled with the preference.
+    cancel_pending_mfa_challenges(session, account.id, now=now)
     record_account_settings_audit_event(
         session,
         account,

@@ -15,7 +15,7 @@ from carlos_patient_portal.audit import (
 from carlos_patient_portal.auth import normalize_mfa_delivery_method, normalize_phone_number
 from carlos_patient_portal.credentials import hash_password, validate_password, validate_username
 from carlos_patient_portal.identity import IdentityProof, normalize_email, verify_identity_proof
-from carlos_patient_portal.invites import hash_invite_token
+from carlos_patient_portal.invites import hash_invite_token, normalize_clinic_id
 from carlos_patient_portal.models import (
     ACCOUNT_STATUS_ACTIVE,
     AUDIT_ACTOR_TYPE_PATIENT,
@@ -194,6 +194,7 @@ def activate_patient_account(
     proof_secret: str,
     client_reference_hash: str,
     rate_limit: ActivationRateLimit,
+    expected_clinic_id: str,
 ) -> PatientPortalAccount:
     normalized_invite_code = invite_code.strip()
     if not normalized_invite_code:
@@ -221,9 +222,14 @@ def activate_patient_account(
         now=now,
     )
 
+    # An invite is only redeemable through the clinic runtime that issued it: a shared database
+    # must never let a Clinic A origin consume a Clinic B invite under Clinic A branding.
     invite = session.scalar(
         select(PatientPortalInvite)
-        .where(PatientPortalInvite.token_hash == invite_token_hash)
+        .where(
+            PatientPortalInvite.token_hash == invite_token_hash,
+            PatientPortalInvite.clinic_id == normalize_clinic_id(expected_clinic_id),
+        )
         .with_for_update()
     )
     if (

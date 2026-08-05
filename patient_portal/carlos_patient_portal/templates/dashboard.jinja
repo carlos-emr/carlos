@@ -202,6 +202,9 @@
                     <option value="{{ provider.value }}"{% if provider.value == email_passwords.provider %} selected{% endif %}>{{ provider.label }}</option>
                   {% endfor %}
                 </select>
+                {% if email_passwords.provider_options_truncated %}
+                  <small class="filter-hint">{{ text.provider_options_truncated }}</small>
+                {% endif %}
               </label>
               <label class="filter-field" for="email-password-date-from">
                 <span>{{ text.date_from }}</span>

@@ -1074,6 +1074,7 @@ def request_password_reset(
     client_reference_hash: str,
     policy: AuthPolicy,
     token_secret: str,
+    clinic_id: str,
 ) -> PasswordResetRequestResult:
     now = utc_now()
     try:
@@ -1090,9 +1091,13 @@ def request_password_reset(
         )
         return PasswordResetRequestResult(reset_token=None, recipient=None)
 
+    # Scoped like login: a clinic runtime may only issue resets for its own accounts.
     account = session.scalar(
         select(PatientPortalAccount)
-        .where(PatientPortalAccount.username == normalized_username)
+        .where(
+            PatientPortalAccount.username == normalized_username,
+            PatientPortalAccount.clinic_id == clinic_id,
+        )
         .with_for_update()
     )
     if (
@@ -1219,15 +1224,26 @@ def complete_password_reset(
     reset_token: str,
     new_password: str,
     token_secret: str,
+    clinic_id: str,
 ) -> PatientPortalAccount:
     validate_password(new_password)
     now = utc_now()
     token_hash = hash_auth_token(token_secret, "password_reset", reset_token)
+    # Scope the lookup itself by the owning account's clinic so a foreign-clinic token is simply
+    # never found here, rather than being located and then revoked by an unrelated runtime.
     reset_locator = session.execute(
         select(
             PatientPortalPasswordResetToken.id,
             PatientPortalPasswordResetToken.account_id,
-        ).where(PatientPortalPasswordResetToken.token_hash == token_hash)
+        )
+        .join(
+            PatientPortalAccount,
+            PatientPortalAccount.id == PatientPortalPasswordResetToken.account_id,
+        )
+        .where(
+            PatientPortalPasswordResetToken.token_hash == token_hash,
+            PatientPortalAccount.clinic_id == clinic_id,
+        )
     ).one_or_none()
     if reset_locator is None:
         record_audit_event(

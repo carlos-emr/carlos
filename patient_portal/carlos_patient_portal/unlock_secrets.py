@@ -72,8 +72,26 @@ class UnlockSecretRevokedError(Exception):
     """Raised when an unlock secret was revoked before it was read."""
 
 
+class UnlockSecretNotPublishedError(Exception):
+    """Raised when a patient surface reads a secret CARLOS has not published yet.
+
+    Creation and publication are separate steps: CARLOS creates the record to obtain the
+    passphrase, encrypts and sends the message, and only then publishes. Patient-facing reads must
+    treat a still-``pending`` record as absent so a passphrase is never disclosed for a message the
+    patient has not received. Callers surface this exactly like revoked/not-found.
+    """
+
+
 class UnlockSecretDecryptionError(Exception):
     """Raised when a stored unlock secret cannot be decrypted with the configured key."""
+
+
+@dataclass(frozen=True)
+class ProviderFilterOptions:
+    """Bounded provider filter choices plus whether more exist beyond the cap."""
+
+    options: list[tuple[str, str]]
+    truncated: bool
 
 
 @dataclass(frozen=True)
@@ -356,6 +374,7 @@ def read_unlock_secret(
     audit_account_id: int | None = None,
     demographic_no: int | None = None,
     secret_type: str | None = None,
+    allow_pending: bool = False,
 ) -> str:
     normalized_actor_type = normalize_actor_type(actor_type)
     normalized_actor = normalize_required_text(
@@ -382,6 +401,9 @@ def read_unlock_secret(
     )
     if unlock_secret.status == UNLOCK_SECRET_STATUS_REVOKED:
         raise UnlockSecretRevokedError()
+    # Staff/CARLOS retries legitimately re-read their own pending record; patient surfaces must not.
+    if unlock_secret.status == UNLOCK_SECRET_STATUS_PENDING and not allow_pending:
+        raise UnlockSecretNotPublishedError()
 
     try:
         plaintext_secret = decrypt_unlock_secret_payload(
@@ -788,16 +810,27 @@ def list_unlock_secret_provider_options(
     account_id: int | None = None,
     demographic_no: int | None = None,
     secret_type: str | None = None,
-) -> list[tuple[str, str]]:
-    identities = session.execute(
-        _unlock_secret_provider_identity_statement(
-            clinic_id=clinic_id,
-            account_id=account_id,
-            demographic_no=demographic_no,
-            secret_type=secret_type,
+    limit: int = MAX_UNLOCK_SECRET_PROVIDER_OPTIONS,
+) -> ProviderFilterOptions:
+    """Return a bounded provider filter list for the dashboard.
+
+    Passwords are retained indefinitely, so an unbounded list would grow without limit and render
+    every provider into the page. One extra row is fetched to report truncation to the UI; an
+    already-selected provider outside the cap is preserved separately by the template.
+    """
+    normalized_limit = normalize_list_limit(limit)
+    identities = list(
+        session.execute(
+            _unlock_secret_provider_identity_statement(
+                clinic_id=clinic_id,
+                account_id=account_id,
+                demographic_no=demographic_no,
+                secret_type=secret_type,
+            ).limit(normalized_limit + 1)
         )
     )
-    return [
+    truncated = len(identities) > normalized_limit
+    options = [
         (
             (
                 f"{PROVIDER_FILTER_ID_PREFIX}{provider_id}"
@@ -806,8 +839,9 @@ def list_unlock_secret_provider_options(
             ),
             display_name,
         )
-        for provider_id, display_name in identities
+        for provider_id, display_name in identities[:normalized_limit]
     ]
+    return ProviderFilterOptions(options=options, truncated=truncated)
 
 
 def count_unlock_secret_providers(

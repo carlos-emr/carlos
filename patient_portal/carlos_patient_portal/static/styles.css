@@ -587,6 +587,13 @@ a.module-tile:focus-visible {
   font-weight: bold;
 }
 
+.filter-hint {
+  max-width: 260px;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: normal;
+}
+
 .filter-error {
   max-width: 920px;
   margin-bottom: 12px;

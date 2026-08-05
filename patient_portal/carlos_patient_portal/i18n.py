@@ -163,6 +163,9 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "phone": "Phone",
         "previous": "Previous",
         "provider": "Provider",
+        "provider_options_truncated": (
+            "Only the most recent providers are listed. Use the search box to narrow your results."
+        ),
         "reveal": "Reveal",
         "reveal_failed": "Password could not be revealed. Try again.",
         "revealing": "Revealing...",

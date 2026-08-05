@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -8,6 +10,8 @@ from carlos_patient_portal.account_settings import update_account_contact
 from carlos_patient_portal.config import MIN_PRODUCTION_SECRET_LENGTH, Settings
 from carlos_patient_portal.credentials import hash_password
 from carlos_patient_portal.database import Base
+from carlos_patient_portal.identity import IdentityProof
+from carlos_patient_portal.invites import create_invite
 from carlos_patient_portal.main import create_app
 from carlos_patient_portal.models import (
     AUDIT_EVENT_ACCOUNT_UNLOCK,
@@ -21,6 +25,7 @@ from carlos_patient_portal.models import (
     PatientPortalAuditEvent,
     PatientPortalContactReviewRequest,
     PatientPortalInvite,
+    PatientPortalPasswordResetToken,
     PatientPortalUnlockSecret,
     utc_now,
 )
@@ -449,6 +454,157 @@ def test_internal_unlock_secret_is_hidden_until_carlos_publishes_it() -> None:
     assert before_publish.json()["items"] == []
     assert published.json()["status"] == "available"
     assert [item["id"] for item in after_publish.json()["items"]] == [created.json()["id"]]
+
+
+def test_pending_unlock_secret_cannot_be_retrieved_by_id_before_publication() -> None:
+    """A known/guessed pending ID must not disclose a passphrase for an unsent message."""
+    app = internal_app()
+    client = TestClient(app)
+    invite = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_request(),
+    )
+    client.post(
+        "/auth/activate",
+        json={
+            "invite_code": invite.json()["invite_token"],
+            "email": "example.patient@example.com",
+            "date_of_birth": "1980-05-20",
+            "health_card_number": "ABCD 1234-5678",
+            "username": "patient.user",
+            "password": PASSWORD,
+        },
+    )
+    login = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": PASSWORD},
+    )
+    verified = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": login.json()["mfa_challenge_token"],
+            "code": login.json()["development_mfa_code"],
+        },
+    )
+    patient_headers = {"Authorization": f"Bearer {verified.json()['session_token']}"}
+    created = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=carlos_headers("portal.secret.manage"),
+        json={"source_reference": "delivery-pending", "secret_type": "email"},
+    )
+    secret_id = created.json()["id"]
+
+    before_publish = client.get(
+        f"/api/patient/email-passwords/{secret_id}",
+        headers=patient_headers,
+    )
+    client.post(
+        f"/internal/carlos/unlock-secrets/{secret_id}/publish",
+        headers=carlos_headers("portal.secret.manage"),
+    )
+    after_publish = client.get(
+        f"/api/patient/email-passwords/{secret_id}",
+        headers=patient_headers,
+    )
+
+    assert created.json()["status"] == "pending"
+    # Indistinguishable from revoked/not-found, so the ID space leaks nothing.
+    assert before_publish.status_code == 404
+    assert before_publish.json() == {"detail": "email password not found"}
+    assert after_publish.status_code == 200
+    assert after_publish.json()["passphrase"] == created.json()["secret"]
+
+
+def test_internal_retry_still_reads_its_own_pending_unlock_secret() -> None:
+    """The pending read guard must not break idempotent CARLOS create retries."""
+    app = internal_app()
+    client = TestClient(app)
+    payload = {"source_reference": "delivery-retry", "secret_type": "email"}
+    created = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=carlos_headers("portal.secret.manage"),
+        json=payload,
+    )
+    retried = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=carlos_headers("portal.secret.manage"),
+        json=payload,
+    )
+
+    assert created.status_code == 201
+    assert created.json()["created"] is True
+    assert retried.json()["created"] is False
+    assert retried.json()["id"] == created.json()["id"]
+    assert retried.json()["secret"] == created.json()["secret"]
+    assert retried.json()["status"] == "pending"
+
+
+def test_foreign_clinic_invite_cannot_be_activated_through_this_runtime() -> None:
+    """A Clinic B invite must not be redeemable under Clinic A branding/origin."""
+    app = internal_app()
+    client = TestClient(app)
+    # The internal API is already clinic-locked, so a foreign invite can only reach this runtime
+    # through a database shared with another clinic's portal instance.
+    with app.state.session_factory() as session:
+        _, foreign_token = create_invite(
+            session,
+            1234,
+            "Clinic B Staff",
+            clinic_id="clinic-b",
+            identity_proof=IdentityProof(
+                email="example.patient@example.com",
+                date_of_birth=date(1980, 5, 20),
+                health_card_number="ABCD 1234-5678",
+            ),
+            proof_secret=IDENTITY_PROOF_SECRET,
+        )
+        session.commit()
+
+    activation = client.post(
+        "/auth/activate",
+        json={
+            "invite_code": foreign_token,
+            "email": "example.patient@example.com",
+            "date_of_birth": "1980-05-20",
+            "health_card_number": "ABCD 1234-5678",
+            "username": "patient.user",
+            "password": PASSWORD,
+        },
+    )
+
+    assert activation.status_code == 400
+    with app.state.session_factory() as session:
+        assert session.scalars(select(PatientPortalAccount)).all() == []
+
+
+def test_password_reset_does_not_cross_clinic_boundaries() -> None:
+    """Clinic A must neither issue nor redeem a reset for a Clinic B account."""
+    app = internal_app()
+    client = TestClient(app)
+    with app.state.session_factory() as session:
+        session.add(
+            PatientPortalAccount(
+                clinic_id="clinic-b",
+                demographic_no=4321,
+                username="foreign.patient",
+                email="foreign.patient@example.com",
+                password_hash=hash_password(PASSWORD),
+                status="active",
+            )
+        )
+        session.commit()
+
+    reset_request = client.post(
+        "/auth/password-reset/request",
+        json={"username": "foreign.patient", "email": "foreign.patient@example.com"},
+    )
+
+    # The external response stays generic; only the absence of a token proves the scope check.
+    assert reset_request.status_code == 202
+    assert reset_request.json()["development_reset_token"] is None
+    with app.state.session_factory() as session:
+        assert session.scalars(select(PatientPortalPasswordResetToken)).all() == []
 
 
 def test_internal_staff_unlock_forces_fresh_password_reset() -> None:

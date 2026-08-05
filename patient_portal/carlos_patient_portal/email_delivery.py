@@ -11,6 +11,10 @@ from carlos_patient_portal.outbound_messages import (
     password_reset_email_message,
 )
 
+# One deliberately generic message for every adapter failure path. Detailed SMTP/header failure
+# classification belongs in privacy-safe metrics/logs, never in text that can reach a patient.
+PORTAL_EMAIL_DELIVERY_ERROR_MESSAGE = "portal email delivery failed"
+
 
 class PortalEmailDeliveryError(Exception):
     """Raised when a portal authentication email cannot be delivered."""
@@ -116,7 +120,7 @@ class SmtpPortalEmailSender:
             message.set_content(content.body)
             return message
         except (TypeError, ValueError):
-            raise PortalEmailDeliveryError("portal email delivery failed") from None
+            raise PortalEmailDeliveryError(PORTAL_EMAIL_DELIVERY_ERROR_MESSAGE) from None
 
     def _send_message(self, message: EmailMessage) -> None:
         try:
@@ -132,11 +136,11 @@ class SmtpPortalEmailSender:
                     smtp.login(self.username, self.password)
                 refused_recipients = smtp.send_message(message)
                 if refused_recipients:
-                    raise PortalEmailDeliveryError("portal email delivery failed")
+                    raise PortalEmailDeliveryError(PORTAL_EMAIL_DELIVERY_ERROR_MESSAGE)
         except PortalEmailDeliveryError:
             raise
         except (OSError, smtplib.SMTPException, ValueError):
-            raise PortalEmailDeliveryError("portal email delivery failed") from None
+            raise PortalEmailDeliveryError(PORTAL_EMAIL_DELIVERY_ERROR_MESSAGE) from None
 
 
 def build_portal_email_sender(settings: Settings) -> PortalEmailSender | None:

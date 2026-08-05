@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from carlos_patient_portal import cli, main
+from carlos_patient_portal.account_settings import update_account_mfa_method
 from carlos_patient_portal.audit import hash_sensitive_reference, record_audit_event
 from carlos_patient_portal.config import (
     DEFAULT_AUDIT_RETENTION_DAYS,
@@ -126,12 +127,14 @@ from carlos_patient_portal.models import (
 )
 from carlos_patient_portal.sms_delivery import PortalSmsDeliveryError, PortalSmsSender
 from carlos_patient_portal.unlock_secrets import (
+    MAX_UNLOCK_SECRET_PROVIDER_OPTIONS,
     UnlockSecretDecryptionError,
     UnlockSecretNotFoundError,
     UnlockSecretRevokedError,
     count_unlock_secrets,
     create_unlock_secret,
     generate_unlock_secret_value,
+    list_unlock_secret_provider_options,
     list_unlock_secret_providers,
     list_unlock_secrets,
     read_unlock_secret,
@@ -4543,6 +4546,137 @@ def test_fhir_practitioner_uses_stable_provider_identity_after_rename() -> None:
     assert dashboard["provider_options"] == [{"value": "id:provider-42", "label": "Dr After"}]
 
 
+def test_browser_email_password_index_records_a_sanitized_list_audit_event() -> None:
+    """Browsing the password index must be auditable, without storing the raw query."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+
+    plain_view = client.get("/portal/email-passwords")
+    filtered_view = client.get("/portal/email-passwords?q=biopsy%20result")
+
+    assert plain_view.status_code == 200
+    assert filtered_view.status_code == 200
+    with app.state.session_factory() as session:
+        list_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_UNLOCK_SECRET_LIST)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+        assert [event.reason for event in list_events] == ["browser", "browser_filtered"]
+        assert all(event.outcome == "success" for event in list_events)
+        # The search term is PHI-bearing free text and must never be persisted.
+        assert all("biopsy" not in (event.reason or "") for event in list_events)
+
+
+def test_changing_mfa_method_cancels_codes_already_sent_to_the_old_channel() -> None:
+    """Switching away from a compromised channel must invalidate codes delivered to it."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    token = sign_in_patient_api_session(client)
+    expire_email_mfa_cooldown(app)
+    # A second sign-in leaves a live challenge addressed to the current (old) channel.
+    stale_login = client.post(
+        "/auth/login",
+        json={"username": "patient.user", "password": STRONG_PASSWORD},
+    )
+    assert stale_login.status_code == 200
+
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        update_account_mfa_method(
+            session,
+            account,
+            current_password=STRONG_PASSWORD,
+            preferred_mfa_method="email",
+            max_failed_password_attempts=5,
+        )
+        session.commit()
+
+    stale_verify = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": stale_login.json()["mfa_challenge_token"],
+            "code": stale_login.json()["development_mfa_code"],
+        },
+    )
+
+    assert token
+    # The cancelled challenge is no longer a usable credential.
+    assert stale_verify.status_code == 400
+    with app.state.session_factory() as session:
+        statuses = list(
+            session.scalars(
+                select(PatientPortalMfaChallenge.status).order_by(PatientPortalMfaChallenge.id)
+            )
+        )
+        assert "pending" not in statuses
+
+
+def test_loopback_probes_are_allowed_while_untrusted_hosts_stay_rejected() -> None:
+    """Strict Host validation must not reject the service's own liveness/readiness probes."""
+    app = migrated_development_app(public_base_url="https://portal.example.test")
+    client = TestClient(app, base_url="https://portal.example.test")
+
+    loopback_probe = client.get("/health", headers={"Host": "127.0.0.1"})
+    named_probe = client.get("/health", headers={"Host": "localhost"})
+    canonical = client.get("/health", headers={"Host": "portal.example.test"})
+    untrusted = client.get("/", headers={"Host": "attacker.example"})
+
+    assert loopback_probe.status_code == 200
+    assert named_probe.status_code == 200
+    assert canonical.status_code == 200
+    assert untrusted.status_code == 400
+
+
+def test_probe_allowed_hosts_can_be_configured_for_orchestrated_deployments() -> None:
+    app = migrated_development_app(
+        public_base_url="https://portal.example.test",
+        probe_allowed_hosts="portal.internal, 10.0.0.7",
+    )
+    client = TestClient(app, base_url="https://portal.example.test")
+
+    assert client.get("/health", headers={"Host": "portal.internal"}).status_code == 200
+    assert client.get("/health", headers={"Host": "10.0.0.7"}).status_code == 200
+    # An explicit allowlist replaces the loopback defaults rather than adding to them.
+    assert client.get("/health", headers={"Host": "127.0.0.1"}).status_code == 400
+
+
+def test_fhir_document_reference_read_audits_malformed_and_unknown_ids() -> None:
+    """A malformed ID must leave the same audited trail as an unknown one, not silently 404."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    token = sign_in_patient_api_session(client)
+
+    malformed = client.get(
+        "/fhir/DocumentReference/not-a-number",
+        headers=bearer_headers(token),
+    )
+    unknown = client.get(
+        "/fhir/DocumentReference/999999",
+        headers=bearer_headers(token),
+    )
+
+    assert malformed.status_code == 404
+    assert unknown.status_code == 404
+    with app.state.session_factory() as session:
+        read_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == "fhir.read")
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        )
+        assert [event.resource_id for event in read_events] == ["not-a-number", "999999"]
+        assert all(event.outcome == "failure" for event in read_events)
+        assert all(event.reason == "not_found" for event in read_events)
+
+
 def test_fhir_document_reference_search_pages_all_results_and_uses_canonical_origin() -> None:
     app = migrated_development_app(public_base_url="https://portal.example.test")
     client = TestClient(app, base_url="https://portal.example.test")
@@ -4623,6 +4757,16 @@ def test_fhir_document_reference_search_pages_all_results_and_uses_canonical_ori
             secret_type=UNLOCK_SECRET_TYPE_EMAIL,
         )
         assert len(provider_options) == 105
+        # The dashboard filter is capped so a lifetime of retained passwords cannot render an
+        # unbounded <select>; truncation is reported so the UI can say so.
+        dashboard_options = list_unlock_secret_provider_options(
+            session,
+            clinic_id="default",
+            demographic_no=1234,
+            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
+        )
+        assert len(dashboard_options.options) == MAX_UNLOCK_SECRET_PROVIDER_OPTIONS
+        assert dashboard_options.truncated is True
 
 
 def test_unlock_secret_decryption_rejects_wrong_encryption_secret() -> None:
