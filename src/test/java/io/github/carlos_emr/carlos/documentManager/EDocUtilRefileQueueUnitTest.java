@@ -168,6 +168,15 @@ class EDocUtilRefileQueueUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report nothing refiled when the stored filename contains a null byte")
+    void shouldReportNotRefiled_whenStoredFilenameContainsNullByte() throws Exception {
+        Files.createDirectories(refileDir().toPath());
+
+        assertThat(EDocUtil.isDocumentAlreadyRefiledInQueue(
+                "20260708120000bad\0name.pdf", 1)).isFalse();
+    }
+
+    @Test
     @DisplayName("should report nothing refiled when the document has no filename")
     void shouldReportNotRefiled_whenFilenameBlank() throws Exception {
         Files.createDirectories(refileDir().toPath());

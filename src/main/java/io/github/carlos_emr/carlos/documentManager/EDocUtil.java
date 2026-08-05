@@ -52,7 +52,6 @@ import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.owasp.encoder.Encode;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -924,6 +923,17 @@ public final class EDocUtil {
         return "R" + destFileName;
     }
 
+    private static String getStoredDocumentBaseName(String documentFileName) {
+        if (documentFileName.indexOf('\0') >= 0) {
+            throw new FileValidationException("Invalid filename");
+        }
+
+        int separatorIndex = Math.max(
+                documentFileName.lastIndexOf('/'), documentFileName.lastIndexOf('\\'));
+        String baseName = documentFileName.substring(separatorIndex + 1);
+        return PathValidationUtils.validatePathComponent(baseName, "stored document filename");
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void refileDocument(String documentNo, String queueId) throws Exception {
@@ -1503,7 +1513,7 @@ public final class EDocUtil {
 			// (spaces to underscores, parentheses dropped) looked for a name that was never
 			// written, so documents refiled under such names were reported as not refiled.
 			File destFile = PathValidationUtils.validatePath(
-					getRefiledDocumentFileName(FilenameUtils.getName(documentFileName)), destDir);
+					getRefiledDocumentFileName(getStoredDocumentBaseName(documentFileName)), destDir);
 			return destFile.exists();
 		} catch (FileValidationException e) {
 			// A stored name the validator rejects (a blocked final extension, say) is not a
