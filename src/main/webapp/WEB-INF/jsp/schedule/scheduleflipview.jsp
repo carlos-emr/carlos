@@ -117,7 +117,6 @@
             : curProvider_no;
     String curDemoNo = request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "";
     String curDemoName = request.getParameter("demographic_name") != null ? request.getParameter("demographic_name") : "";
-    String[] param = new String[3];
 
     String originalPage = request.getParameter("originalpage") != null ? request.getParameter("originalpage") : "schedule";
     String originalPagePath = request.getContextPath() + "/provider/providercontrol";
@@ -344,9 +343,6 @@
 
             //find the appts above the schedule
             Integer numOfAppts;
-            param[0] = curProvider_no;
-            param[1] = startDate;
-            param[2] = cal.get(Calendar.YEAR) + "-" + (cal.get(Calendar.MONTH) + 1) + "-" + cal.get(Calendar.DATE);
 
             for (Appointment a : appointmentDao.search_appt(ConversionUtils.fromDateString(startDate), ConversionUtils.fromDateString(cal.get(Calendar.YEAR) + "-" + (cal.get(Calendar.MONTH) + 1) + "-" + cal.get(Calendar.DATE)), curProvider_no)) {
 
@@ -520,7 +516,10 @@
         </tbody>
     </table>
     </div>
-    <nav class="availability-footer-nav mt-3" aria-label="<fmt:message key="schedule.scheduleflipview.monthNavigation"/>">
+    <%-- Visual repeat of the month controls in the filter card, for users who have scrolled
+         past the grid. Deliberately not a <nav> landmark: a second landmark carrying the same
+         accessible name as the header one is duplicate noise for screen-reader navigation. --%>
+    <div class="availability-footer-nav mt-3">
         <a class="btn btn-outline-primary"
            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<carlos:encode value='<%= originalPage %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;startDate=<carlos:encode value='<%= inform.format(lastMonth.getTime()) %>' context="uriComponent"/>">
             <span class="fa-solid fa-chevron-left" aria-hidden="true"></span>
@@ -531,7 +530,7 @@
             <fmt:message key="schedule.scheduleflipview.btnNextMonth"/>
             <span class="fa-solid fa-chevron-right" aria-hidden="true"></span>
         </a>
-    </nav>
+    </div>
     </main>
     </body>
 </html>
