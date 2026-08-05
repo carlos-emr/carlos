@@ -166,6 +166,28 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should keep counting a short chained self-reschedule instead of treating its first pass as a heartbeat")
+    void shouldBoundSelfRescheduleExclusion_soChainedDeferredWorkStaysCounted() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        // A same-reference self-reschedule (handler calls setTimeout(handler, ...) again while
+        // still running) is how BOTH a repeating heartbeat/UI loop and a short chained-completion
+        // sequence (poll until ready, then populate a field and stop) reschedule themselves.
+        // Excluding every self-reschedule unconditionally stopped counting a chain after its first
+        // pass, so whenIdle could resolve -- and the PDF could be captured -- before a still-pending
+        // later pass populated a field. Counting the first SELF_RESCHEDULE_COUNT_LIMIT reschedules
+        // keeps a short chain covered while a loop that keeps rescheduling past that bound still
+        // falls back to the render budget cap.
+        assertThat(compat)
+                .contains("var SELF_RESCHEDULE_COUNT_LIMIT = 3;")
+                .contains("var selfRescheduleCounts = new Map();")
+                .contains("var isSelfReschedule = typeof handler === \"function\" "
+                        + "&& runningFunctionHandlers.indexOf(handler) >= 0;")
+                .contains("selfRescheduleCount = (selfRescheduleCounts.get(handler) || 0) + 1;")
+                .contains("(!isSelfReschedule || selfRescheduleCount <= SELF_RESCHEDULE_COUNT_LIMIT)");
+    }
+
+    @Test
     @DisplayName("should suppress only the known delayed auto-submit callback on the PDF render surface")
     void shouldSuppressOnlyKnownAutoSubmit_whenRenderingPdf() throws IOException {
         String compat = read(RUNTIME_COMPAT_JS);

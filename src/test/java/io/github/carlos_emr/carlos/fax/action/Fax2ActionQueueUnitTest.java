@@ -29,6 +29,8 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -213,6 +215,70 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("preview");
             assertThat(action.getActionErrors()).isEmpty();
+            verify(faxManager).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should reject queue when the eForm was reassigned to a different patient after prepareFax staged its preview")
+    void shouldRejectQueue_whenEFormDemographicChangedSincePrepareFax() {
+        setUpCommonMocks();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(true);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, eFormDataDao);
+        EFormData reassignedEForm = new EFormData();
+        // Reassigned to a different patient (99) between prepareFax's staging and this queue() call.
+        reassignedEForm.setDemographicId(99);
+        when(eFormDataDao.find(7)).thenReturn(reassignedEForm);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+
+            assertThatThrownBy(action::queue)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("no longer belongs to this patient");
+
+            verify(faxManager, never()).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("should accept queue when the eForm's demographic still matches at promotion time")
+    void shouldAcceptQueue_whenEFormDemographicStillMatches() {
+        setUpCommonMocks();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(true);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, eFormDataDao);
+        EFormData unchangedEForm = new EFormData();
+        unchangedEForm.setDemographicId(42);
+        when(eFormDataDao.find(7)).thenReturn(unchangedEForm);
+        when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()))
+                .thenReturn(java.util.List.of());
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+
+            String result = action.queue();
+
+            assertThat(result).isEqualTo("preview");
             verify(faxManager).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
         }
     }

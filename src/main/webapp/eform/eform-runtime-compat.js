@@ -23,6 +23,13 @@
     var nativeSetInterval = window.setInterval;
     var nativeClearInterval = window.clearInterval;
     var countedTimeouts = new Set();
+    // How many consecutive same-reference self-reschedules (a function's setTimeout callback
+    // calling setTimeout(itself, ...) again while it is still running) stay counted before the
+    // guard in schedule() below treats further reschedules as a repeating heartbeat/UI loop
+    // rather than legitimate chained deferred work. See the comment at that guard for why a
+    // single currently-running check cannot tell the two apart on its own.
+    var SELF_RESCHEDULE_COUNT_LIMIT = 3;
+    var selfRescheduleCounts = new Map();
     var status = {
         installed: false,
         failed: false,
@@ -145,11 +152,28 @@
         // that cannot affect this capture and would otherwise make every render wait until the cap.
         var delayMillis = delay == null ? 0 : Number(delay);
         var runningFunctionHandlers = status.runningFunctionHandlers || (status.runningFunctionHandlers = []);
+        // A same-reference self-reschedule (handler calls setTimeout(handler, ...) again while it
+        // is still on the stack) is ambiguous on its own: it is exactly how BOTH a repeating
+        // heartbeat/UI loop AND a short chained-completion sequence (e.g. "poll until data is
+        // ready, then populate the field and stop") reschedule themselves. Excluding every such
+        // reschedule unconditionally (as this guard once did) stopped counting a chain after its
+        // very first pass, so whenIdle could resolve -- and the PDF could be captured -- before a
+        // still-pending later pass populated a field: the same blank-field race this tracking
+        // exists to prevent, just moved one step later. Counting the first
+        // SELF_RESCHEDULE_COUNT_LIMIT self-reschedules keeps a short chain fully covered while
+        // still letting a loop that keeps rescheduling past that bound fall back to being governed
+        // by the render budget cap, same as before.
+        var isSelfReschedule = typeof handler === "function" && runningFunctionHandlers.indexOf(handler) >= 0;
+        var selfRescheduleCount = 0;
+        if (isSelfReschedule) {
+            selfRescheduleCount = (selfRescheduleCounts.get(handler) || 0) + 1;
+            selfRescheduleCounts.set(handler, selfRescheduleCount);
+        }
         var counted = nativeTimer === nativeSetTimeout
                 && (typeof handler === "string"
                         || (typeof handler === "function"
                                 && isFinite(delayMillis) && delayMillis <= 4000
-                                && runningFunctionHandlers.indexOf(handler) < 0));
+                                && (!isSelfReschedule || selfRescheduleCount <= SELF_RESCHEDULE_COUNT_LIMIT)));
         if (counted) {
             status.pending += 1;
         }

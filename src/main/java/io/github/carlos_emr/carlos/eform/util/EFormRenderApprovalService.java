@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
@@ -335,10 +335,23 @@ public class EFormRenderApprovalService {
      * @since 2026-07-28
      */
     public static final class StagedFaxPreview {
+        /**
+         * AVAILABLE -&gt; CLAIMED (by {@link #claim()}) or AVAILABLE -&gt; DELETING (by
+         * {@link #deleteUnlessClaimed()}) are the only transitions out of AVAILABLE, and both are
+         * a single CAS, so the two can never both win for the same file — the claim-vs-delete race
+         * this state exists to prevent. DELETING is terminal on a successful delete (the file is
+         * gone), but reverts to AVAILABLE on a failed delete: a transient {@code Files.deleteIfExists}
+         * failure (e.g. a momentary AV/backup lock) must not permanently strand a PHI-bearing PDF
+         * with no path back to cleanup. The managed temp root's 24h stale-output sweep
+         * ({@link EFormBrowserPdfService#sweepStaleRendererRoots}) is the filesystem-level backstop
+         * that eventually reclaims a file even if this bookkeeping is never revisited.
+         */
+        private enum ClaimState { AVAILABLE, CLAIMED, DELETING }
+
         private final Path path;
         private final EFormRenderApproval approval;
         private final int advisoryIssueCount;
-        private final AtomicBoolean claimed = new AtomicBoolean();
+        private final AtomicReference<ClaimState> state = new AtomicReference<>(ClaimState.AVAILABLE);
 
         private StagedFaxPreview(Path path) { this(path, null, 0); }
         private StagedFaxPreview(Path path, EFormRenderApproval approval, int advisoryIssueCount) {
@@ -354,14 +367,23 @@ public class EFormRenderApprovalService {
 
         /** Returns the number of non-blocking render conditions reported for the packet. */
         public int advisoryIssueCount() { return advisoryIssueCount; }
-        private Path claim() { return claimed.compareAndSet(false, true) ? path : null; }
+        private Path claim() {
+            return state.compareAndSet(ClaimState.AVAILABLE, ClaimState.CLAIMED) ? path : null;
+        }
         private void deleteUnlessClaimed() {
-            if (claimed.compareAndSet(false, true)) {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (Exception e) {
-                    logger.warn("Unable to delete unclaimed staged fax preview PDF: {}", path, e);
-                }
+            if (!state.compareAndSet(ClaimState.AVAILABLE, ClaimState.DELETING)) {
+                // Already claimed (or a concurrent delete attempt already owns this transition):
+                // leave the file alone either way.
+                return;
+            }
+            try {
+                Files.deleteIfExists(path);
+            } catch (Exception e) {
+                // Revert instead of leaving DELETING permanently set: the delete did not happen, so
+                // the file is not "handled" and must remain eligible for a later cleanup attempt
+                // instead of being stranded with no recorded owner.
+                state.set(ClaimState.AVAILABLE);
+                logger.warn("Unable to delete unclaimed staged fax preview PDF: {}", path, e);
             }
         }
         private void deleteClaimed() {

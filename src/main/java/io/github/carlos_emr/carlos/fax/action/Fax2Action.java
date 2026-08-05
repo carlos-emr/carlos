@@ -344,6 +344,24 @@ public class Fax2Action extends ActionSupport {
 
         TransactionType transactionType = TransactionType.valueOf(getTransactionType().toUpperCase());
 
+        // prepareFax already revalidates the eForm's demographic binding immediately before it
+        // hands the staged PDF off for preview, but queue() is a separate, later request that is
+        // the actual promotion of that file into a sendable fax job -- the eForm can be reassigned
+        // to a different patient in the gap between those two requests. Re-check the binding here
+        // too, right before persistAndLogFaxJobs, instead of trusting the demographicNo the client
+        // resubmitted with the cover-page form.
+        if (transactionType == TransactionType.EFORM && transactionId != null) {
+            EFormData eFormAtPromotion = eFormDataDao().find(transactionId.intValue());
+            String promotionDemographicNo = eFormAtPromotion == null || eFormAtPromotion.getDemographicId() == null
+                    ? null : String.valueOf(eFormAtPromotion.getDemographicId());
+            if (promotionDemographicNo == null || demographicNo == null
+                    || !promotionDemographicNo.equals(String.valueOf(demographicNo))) {
+                logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
+                        transactionId);
+                throw new SecurityException("The eForm no longer belongs to this patient");
+            }
+        }
+
         // recipient/comments are persisted and rendered raw (encode-at-output, not
         // encode-at-write): pre-encoding here with Encode.forHtml produced literal HTML entities
         // on the faxed PDF cover page (PdfCoverPageCreator writes raw text into a PDF Phrase, not

@@ -248,10 +248,11 @@ public class EformDataManagerImpl implements EformDataManager {
         } catch (PDFGenerationException e) {
             // The renderer owns detailed diagnostics. Its message can contain page-generated text,
             // URLs, or paths, so callers receive a stable message with no original cause chain.
-            String message = e.getMessage();
-            if ("Browser rendering is at capacity; please retry shortly.".equals(message)
-                    || "Browser rendering was aborted before it started.".equals(message)) {
-                throw new PDFGenerationException(message);
+            // Retryable transient failures (renderer at capacity, render never started) are
+            // recognized structurally via isRetryable() rather than by matching the renderer's
+            // message text, which is free to be reworded without keeping this guard in sync.
+            if (e.isRetryable()) {
+                throw new PDFGenerationException(e.getMessage(), true);
             }
             logger.warn("EForm PDF generation failed during browser rendering");
             throw new PDFGenerationException("EForm PDF generation failed during browser rendering.");

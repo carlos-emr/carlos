@@ -229,6 +229,49 @@ public class EFormBrowserPdfService {
             + "})();";
 
     /**
+     * Installed before any stored form code, alongside {@link #INSTALL_INTERACTION_CONTAINMENT_JS}.
+     * Wraps {@code fetch}/{@code XMLHttpRequest.send} at the earliest possible point in the page
+     * lifecycle — before the render page's own bootstrap script or a stored eForm's onload work can
+     * fire a request — publishing a live pending-request count on {@code window}. Installing this
+     * wrap later, inside {@link #STABILIZE_ASYNC_JS} itself as before, left a window between
+     * navigation and that script's own execution during which an already-in-flight request was
+     * invisible to the quiet-window guarantee: the page could be captured while a request supplying
+     * clinical content was still outstanding. Because this script runs once per navigation (like
+     * {@link #INSTALL_INTERACTION_CONTAINMENT_JS}), it observes every request the page issues, not
+     * just ones started after the settle script begins.
+     */
+    static final String INSTALL_NETWORK_ACTIVITY_TRACKING_JS =
+            "(() => {\n"
+            + "  let pending = 0;\n"
+            + "  Object.defineProperty(window, '__carlosRendererPendingNetworkRequests', {\n"
+            + "    configurable: false, get: () => pending\n"
+            + "  });\n"
+            + "  const nativeFetch = typeof window.fetch === 'function' ? window.fetch : null;\n"
+            + "  const nativeXhrSend = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype.send : null;\n"
+            + "  function started() { pending += 1; }\n"
+            + "  function finished() { pending = Math.max(0, pending - 1); }\n"
+            + "  if (nativeFetch) {\n"
+            + "    window.fetch = function() {\n"
+            + "      started();\n"
+            + "      let result;\n"
+            + "      try { result = nativeFetch.apply(this, arguments); }\n"
+            + "      catch (error) { finished(); throw error; }\n"
+            + "      return Promise.resolve(result).then(\n"
+            + "        (value) => { finished(); return value; },\n"
+            + "        (error) => { finished(); throw error; });\n"
+            + "    };\n"
+            + "  }\n"
+            + "  if (nativeXhrSend) {\n"
+            + "    XMLHttpRequest.prototype.send = function() {\n"
+            + "      started();\n"
+            + "      this.addEventListener('loadend', finished, { once: true });\n"
+            + "      try { return nativeXhrSend.apply(this, arguments); }\n"
+            + "      catch (error) { finished(); throw error; }\n"
+            + "    };\n"
+            + "  }\n"
+            + "})();";
+
+    /**
      * Async settle: fonts ready, pending images resolved, network activity and DOM mutations quiet together, two animation frames.
      *
      * <p>The DOM-quiescence wait is load-bearing for script-built forms. The Rich Text Letter (and
@@ -287,45 +330,32 @@ public class EFormBrowserPdfService {
             + "    let quietTimer = null;\n"
             + "    let done = false;\n"
             + "    let resourceObserver = null;\n"
-            + "    let pendingNetworkRequests = 0;\n"
-            + "    const nativeFetch = typeof window.fetch === 'function' ? window.fetch : null;\n"
-            + "    const nativeXhrSend = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype.send : null;\n"
+            // The counter itself lives on window, published once per navigation by
+            // INSTALL_NETWORK_ACTIVITY_TRACKING_JS (see the CDP Page.addScriptToEvaluateOnNewDocument
+            // call in renderWithSlot) — before this script, or any stored form code, ever runs. Poll
+            // it here rather than re-wrapping fetch/XHR locally, so a request that started before
+            // this settle script began executing is already reflected on the very first check below.
+            + "    function pendingNetworkRequestCount() {\n"
+            + "      return window.__carlosRendererPendingNetworkRequests || 0;\n"
+            + "    }\n"
+            + "    let lastPendingNetworkRequests = pendingNetworkRequestCount();\n"
             + "    const observer = new MutationObserver(() => {\n"
             + "      if (done) { return; }\n"
             + "      resetQuietWindow();\n"
             + "    });\n"
             + "    function resetQuietWindow() {\n"
             + "      clearTimeout(quietTimer);\n"
-            + "      if (pendingNetworkRequests > 0) { return; }\n"
+            + "      if (pendingNetworkRequestCount() > 0) { return; }\n"
             + "      quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
             + "    }\n"
-            + "    function networkStarted() {\n"
-            + "      pendingNetworkRequests++;\n"
-            + "      clearTimeout(quietTimer);\n"
-            + "    }\n"
-            + "    function networkFinished() {\n"
-            + "      pendingNetworkRequests = Math.max(0, pendingNetworkRequests - 1);\n"
-            + "      resetQuietWindow();\n"
-            + "    }\n"
-            + "    if (nativeFetch) {\n"
-            + "      window.fetch = function() {\n"
-            + "        networkStarted();\n"
-            + "        let result;\n"
-            + "        try { result = nativeFetch.apply(this, arguments); }\n"
-            + "        catch (error) { networkFinished(); throw error; }\n"
-            + "        return Promise.resolve(result).then(\n"
-            + "          (value) => { networkFinished(); return value; },\n"
-            + "          (error) => { networkFinished(); throw error; });\n"
-            + "      };\n"
-            + "    }\n"
-            + "    if (nativeXhrSend) {\n"
-            + "      XMLHttpRequest.prototype.send = function() {\n"
-            + "        networkStarted();\n"
-            + "        this.addEventListener('loadend', networkFinished, { once: true });\n"
-            + "        try { return nativeXhrSend.apply(this, arguments); }\n"
-            + "        catch (error) { networkFinished(); throw error; }\n"
-            + "      };\n"
-            + "    }\n"
+            + "    const networkPollInterval = setInterval(() => {\n"
+            + "      if (done) { return; }\n"
+            + "      const pendingNow = pendingNetworkRequestCount();\n"
+            + "      if (pendingNow !== lastPendingNetworkRequests) {\n"
+            + "        lastPendingNetworkRequests = pendingNow;\n"
+            + "        resetQuietWindow();\n"
+            + "      }\n"
+            + "    }, 100);\n"
             // finish(true) means the hard cap fired before a quiet window was ever observed — the page
             // kept mutating (a broken/animating editor). Resolve with that flag so the JVM can WARN
             // that the capture is as-is rather than logging it as an ordinary quiet settle.
@@ -334,8 +364,7 @@ public class EFormBrowserPdfService {
             + "      done = true;\n"
             + "      observer.disconnect();\n"
             + "      if (resourceObserver) { resourceObserver.disconnect(); }\n"
-            + "      if (nativeFetch) { window.fetch = nativeFetch; }\n"
-            + "      if (nativeXhrSend) { XMLHttpRequest.prototype.send = nativeXhrSend; }\n"
+            + "      clearInterval(networkPollInterval);\n"
             + "      resolve(!!wasCapped);\n"
             + "    }\n"
             + "    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });\n"
@@ -774,14 +803,19 @@ public class EFormBrowserPdfService {
             // renderer is saturated (fdid only — no PHI, no render URL/token).
             logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
                     MAX_CONCURRENT_RENDERS, fdid);
-            throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.");
+            // Retryable: the renderer itself is healthy, every slot is just momentarily busy. Marked
+            // structurally (not just in the message text) so callers can tell this apart from a
+            // durable failure without matching on wording — see PDFGenerationException.isRetryable().
+            throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.", true);
         }
         if (acquisition == SlotAcquisition.INTERRUPTED) {
             // Distinct from capacity: the waiting thread was interrupted (JVM/app shutdown), so no
-            // slot was ever taken (nothing to release) and the render never started. Retry advice
-            // would be misleading here, so the message deliberately omits it.
+            // slot was ever taken (nothing to release) and the render never started. Still marked
+            // retryable structurally: on a live JVM a retry can still succeed, even though the
+            // message itself omits retry advice since a shutdown-triggered interrupt would make it
+            // misleading.
             logger.warn("Browser eForm render aborted: waiting thread interrupted (shutdown?): fdid={}", fdid);
-            throw new PDFGenerationException("Browser rendering was aborted before it started.");
+            throw new PDFGenerationException("Browser rendering was aborted before it started.", true);
         }
         try {
             return renderWithSlot(fdid, providerId, tempRoot, approval, measurementsPermitted);
@@ -863,6 +897,9 @@ public class EFormBrowserPdfService {
             ((HasCdp) driver).executeCdpCommand(
                     "Page.addScriptToEvaluateOnNewDocument",
                     Map.of("source", INSTALL_INTERACTION_CONTAINMENT_JS));
+            ((HasCdp) driver).executeCdpCommand(
+                    "Page.addScriptToEvaluateOnNewDocument",
+                    Map.of("source", INSTALL_NETWORK_ACTIVITY_TRACKING_JS));
 
             List<LogEntry> performanceEntries = new ArrayList<>();
             // Navigate the sessionless render browser to the loopback render page. Do NOT log the full

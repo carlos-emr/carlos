@@ -242,11 +242,18 @@ class EFormRenderApprovalServiceUnitTest {
                 System.getProperty("java.io.tmpdir"), "carlos-temp");
         java.nio.file.Files.createDirectories(root);
         java.nio.file.Path testRoot = java.nio.file.Files.createTempDirectory(root, "staged-fax-test-");
-        java.nio.file.Path claimed = java.nio.file.Files.createTempFile(testRoot, "claimed-", ".pdf");
-        java.nio.file.Path cancelled = java.nio.file.Files.createTempFile(testRoot, "cancelled-", ".pdf");
-        java.nio.file.Path expired = java.nio.file.Files.createTempFile(testRoot, "expired-", ".pdf");
-        java.nio.file.Path abandoned = java.nio.file.Files.createTempFile(testRoot, "abandoned-", ".pdf");
         try {
+            // Created inside the guarded try: if a later createTempFile throws, the finally below
+            // still reclaims testRoot and everything already created under it via a recursive
+            // sweep, instead of leaking a partially-populated directory into the shared
+            // carlos-temp root (the earlier version created these before the try, so only the
+            // finally's fixed, individually-named deletes ever ran — none of them for a failure
+            // that happened before all four names were assigned).
+            java.nio.file.Path claimed = java.nio.file.Files.createTempFile(testRoot, "claimed-", ".pdf");
+            java.nio.file.Path cancelled = java.nio.file.Files.createTempFile(testRoot, "cancelled-", ".pdf");
+            java.nio.file.Path expired = java.nio.file.Files.createTempFile(testRoot, "expired-", ".pdf");
+            java.nio.file.Path abandoned = java.nio.file.Files.createTempFile(testRoot, "abandoned-", ".pdf");
+
             java.util.Map<Integer, EFormRenderCompletenessReport> reports = new java.util.HashMap<>();
             reports.put(42, incompleteReport());
             reports.put(43, null);
@@ -283,16 +290,76 @@ class EFormRenderApprovalServiceUnitTest {
             assertThat(service.consumeStagedFaxPreview(
                     request, user, 42, "123", abandonedToken)).isNull();
         } finally {
-            java.nio.file.Files.deleteIfExists(claimed);
-            java.nio.file.Files.deleteIfExists(cancelled);
-            java.nio.file.Files.deleteIfExists(expired);
-            java.nio.file.Files.deleteIfExists(abandoned);
-            java.nio.file.Files.deleteIfExists(testRoot);
+            deleteRecursivelyQuietly(testRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should log and keep the file when a staged fax preview's cleanup delete fails, instead of silently losing track of it")
+    void shouldHandleCleanupFailure_withoutSilentlyLosingStagedFaxPreview() throws java.io.IOException {
+        EFormRenderApprovalService service = new EFormRenderApprovalService();
+        MockHttpServletRequest request = requestWithSession();
+        LoggedInInfo user = user("999998");
+        java.nio.file.Path root = java.nio.file.Path.of(
+                System.getProperty("java.io.tmpdir"), "carlos-temp");
+        java.nio.file.Files.createDirectories(root);
+        java.nio.file.Path testRoot =
+                java.nio.file.Files.createTempDirectory(root, "staged-fax-cleanup-fail-test-");
+        try {
+            java.nio.file.Path staged = java.nio.file.Files.createTempFile(testRoot, "undeletable-", ".pdf");
+            String token = service.issueStagedFaxPreview(request, user, 42, "123",
+                    java.util.Map.of(42, incompleteReport()), 0, staged);
+
+            // Simulate a transient cleanup failure: swap the staged file for a non-empty directory
+            // at the same path, so Files.deleteIfExists throws DirectoryNotEmptyException
+            // regardless of process privileges (a permission-based simulation would be a no-op for
+            // a root process, which the devcontainer commonly runs as).
+            java.nio.file.Files.delete(staged);
+            java.nio.file.Files.createDirectory(staged);
+            java.nio.file.Files.createFile(staged.resolve("locked"));
+
+            try (io.github.carlos_emr.carlos.test.logging.LogCapture logs =
+                    io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(EFormRenderApprovalService.class)) {
+                // Cancelling drives the same deleteUnlessClaimed() path the cache's removal
+                // listener (expiry/eviction/session invalidation) uses.
+                assertThat(service.cancelStagedFaxPreview(request, user, 42, "123", token)).isTrue();
+
+                assertThat(java.nio.file.Files.exists(staged))
+                        .describedAs("a failed cleanup delete must not be silently treated as success")
+                        .isTrue();
+                assertThat(logs.messages())
+                        .anyMatch(message -> message.contains("Unable to delete unclaimed staged fax preview PDF"));
+            }
+        } finally {
+            deleteRecursivelyQuietly(testRoot);
         }
     }
 
     private static EFormRenderCompletenessReport incompleteReport() {
         return new EFormRenderCompletenessReport(2, 1, 0, 0, true, false, false, false);
+    }
+
+    /**
+     * Best-effort recursive cleanup for a test-owned temp directory. Tolerant of a directory that
+     * was only partially populated (an earlier setup step threw) or already removed, so it is safe
+     * to call unconditionally from a {@code finally} block.
+     */
+    private static void deleteRecursivelyQuietly(java.nio.file.Path root) {
+        if (root == null || !java.nio.file.Files.exists(root)) {
+            return;
+        }
+        try (java.util.stream.Stream<java.nio.file.Path> walk = java.nio.file.Files.walk(root)) {
+            walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    java.nio.file.Files.deleteIfExists(path);
+                } catch (java.io.IOException ignored) {
+                    // Best-effort test cleanup; leaving a stray temp file here does not affect
+                    // test correctness.
+                }
+            });
+        } catch (java.io.IOException ignored) {
+            // Best-effort test cleanup.
+        }
     }
 
     /** A clock whose instant the test moves, so the TTL can be crossed without waiting. */
