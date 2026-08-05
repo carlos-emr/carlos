@@ -124,6 +124,8 @@ class ProviderRole2ActionUnitTest extends CarlosUnitTestBase {
     @MethodSource("writeIntentParameters")
     @DisplayName("should allow POST for every write intent")
     void shouldAllowPost_forEveryWriteIntent(String parameterName, String parameterValue) throws Exception {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
         request.setMethod("POST");
         request.setParameter(parameterName, parameterValue);
 
@@ -131,6 +133,35 @@ class ProviderRole2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+    }
+
+    @ParameterizedTest(name = "read-only admin cannot submit {0}")
+    @MethodSource("writeIntentParameters")
+    @DisplayName("should reject write intent when only read privilege is held")
+    void shouldRejectWriteIntent_whenOnlyReadPrivilegeHeld(String parameterName, String parameterValue) {
+        // hasPrivilege("r") is satisfied by r|u|w|x, so a read-only administrator clears the
+        // page gate. Role assignment is a privilege change and must still be refused.
+        request.setMethod("POST");
+        request.setParameter(parameterName, parameterValue);
+
+        ProviderRole2Action action = new ProviderRole2Action();
+
+        assertThatExceptionOfType(SecurityException.class)
+                .isThrownBy(action::execute)
+                .withMessageContaining("missing required sec object (_admin or _admin.userAdmin)");
+    }
+
+    @Test
+    @DisplayName("should accept write intent when userAdmin write privilege is held")
+    void shouldAcceptWriteIntent_whenUserAdminWritePrivilegeHeld() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.userAdmin"), eq("w"), isNull()))
+                .thenReturn(true);
+        request.setMethod("POST");
+        request.setParameter("buttonSetPrimaryRole", "Update Primary EMR Role");
+
+        String result = new ProviderRole2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
     }
 
     @ParameterizedTest(name = "HEAD with {0} is rejected")
