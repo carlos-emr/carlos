@@ -69,8 +69,16 @@ public class ProviderRole2Action extends ActionSupport {
 
         if (isWriteOperation) {
             if (!"POST".equalsIgnoreCase(request.getMethod())) {
-                // RFC 9110 requires a 405 to advertise the methods that would work. Only POST
-                // carries a mutation here, so the roster's own GET support is not listed.
+                /* RFC 9110 requires a 405 to advertise the methods that would work. Only POST
+                 * carries a mutation here, so the roster's own GET support is not listed.
+                 *
+                 * Caveat verified against Tomcat: the catch-all <error-page> in web.xml makes
+                 * sendError forward to errorpage.jsp, and that reset drops headers set here —
+                 * the 405 reaches the client without Allow. The header is kept because it is
+                 * the correct contract and matches the sibling gates (ViewAppointmentSelfPost2Action,
+                 * SessionHeartbeat2Action, AddPrevention2Action), but making it observable needs
+                 * a container/filter-level fix that is out of scope for this change.
+                 */
                 response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
                 return NONE;

@@ -107,6 +107,12 @@ class ProviderRole2ActionUnitTest extends CarlosUnitTestBase {
                 Arguments.of("buttonSetPrimaryRole", "Update Primary EMR Role"));
     }
 
+    /*
+     * The Allow assertions below pin what the action sets on the response object. They are not
+     * a claim about the wire: CARLOS' catch-all <error-page> makes sendError forward to
+     * errorpage.jsp, and that reset strips the header before the client sees the 405 (verified
+     * against Tomcat). Restoring it end-to-end is a container/filter concern, not this action's.
+     */
     @ParameterizedTest(name = "GET with {0} is rejected")
     @MethodSource("writeIntentParameters")
     @DisplayName("should reject GET for every write intent")
