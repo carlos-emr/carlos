@@ -162,6 +162,7 @@ class IncomingDocUtilUnitTest {
         assertThat(faxDir.mkdirs()).isTrue();
         Files.createFile(faxDir.toPath().resolve("first.pdf"));
         Files.createFile(faxDir.toPath().resolve(PARENTHESIZED_NAME));
+        Files.createFile(faxDir.toPath().resolve(".hidden.pdf"));
         Files.createFile(faxDir.toPath().resolve("notes.txt"));
 
         IncomingDocUtil incomingDocUtil = new IncomingDocUtil();
