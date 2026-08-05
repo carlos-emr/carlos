@@ -25,6 +25,9 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import io.github.carlos_emr.carlos.commn.dao.QueueDao;
+import io.github.carlos_emr.carlos.commn.model.Queue;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +40,8 @@ import io.github.carlos_emr.CarlosProperties;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Regression tests for the refile-queue lookup behind issue #3239: a queue whose refile
@@ -48,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("unit")
 @Tag("fast")
 @Tag("document")
-class EDocUtilRefileQueueUnitTest {
+class EDocUtilRefileQueueUnitTest extends CarlosUnitTestBase {
 
     /** Stored document filename: 14-char timestamp prefix, then the uploaded name. */
     private static final String STORED_FILENAME = "20260708120000scan (1).pdf";
@@ -60,11 +65,15 @@ class EDocUtilRefileQueueUnitTest {
     Path incomingRoot;
 
     private String previousIncomingDocumentDir;
+    private QueueDao queueDao;
 
     @BeforeEach
     void setUp() {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
+        queueDao = mock(QueueDao.class);
+        registerMock(QueueDao.class, queueDao);
+        when(queueDao.find(1)).thenReturn(new Queue());
     }
 
     @AfterEach
@@ -165,11 +174,47 @@ class EDocUtilRefileQueueUnitTest {
         Path source = Files.writeString(incomingRoot.resolve("source.pdf"), "content");
         Path destination = incomingRoot.resolve("destination.pdf");
         long sourceTimestamp = 1_700_000_000_000L;
-        source.toFile().setLastModified(sourceTimestamp);
+        assertThat(source.toFile().setLastModified(sourceTimestamp)).isTrue();
 
         EDocUtil.copyRefiledDocument(source.toFile(), destination.toFile());
 
         assertThat(destination.toFile().lastModified()).isEqualTo(sourceTimestamp);
+    }
+
+    @Test
+    @DisplayName("should create a missing refile directory for the first refile into a queue")
+    void shouldCreateMissingRefileDirectory_whenPreparingFirstRefile() throws Exception {
+        Path source = Files.writeString(incomingRoot.resolve(STORED_FILENAME), "content");
+
+        File destination = EDocUtil.prepareRefileDestination(source.toFile(), "1");
+        EDocUtil.copyRefiledDocument(source.toFile(), destination);
+
+        assertThat(destination.toPath())
+                .exists()
+                .hasFileName(REFILED_NAME);
+        assertThat(destination.getParentFile()).isDirectory();
+    }
+
+    @Test
+    @DisplayName("should reject a nonexistent queue without creating its refile directory")
+    void shouldRejectNonexistentQueue_withoutCreatingDirectory() {
+        File source = incomingRoot.resolve(STORED_FILENAME).toFile();
+
+        assertThatThrownBy(() -> EDocUtil.prepareRefileDestination(source, "99"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Queue not found");
+        assertThat(incomingRoot.resolve("99")).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("should reject a noncanonical queue identifier before filesystem creation")
+    void shouldRejectNoncanonicalQueueId_withoutCreatingDirectory() {
+        File source = incomingRoot.resolve(STORED_FILENAME).toFile();
+
+        assertThatThrownBy(() -> EDocUtil.prepareRefileDestination(source, "01"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("queueId must be a positive integer");
+        assertThat(incomingRoot.resolve("01")).doesNotExist();
     }
 
     private File refileDir() {

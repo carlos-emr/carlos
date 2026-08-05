@@ -455,7 +455,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             try {
                 response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -465,7 +465,9 @@ public class ManageDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!isPositiveInteger(documentId) || !isPositiveInteger(queueId)) {
+        int parsedDocumentId = parsePositiveInteger(documentId);
+        int parsedQueueId = parsePositiveInteger(queueId);
+        if (parsedDocumentId < 1 || parsedQueueId < 1) {
             try {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid documentId or queueId");
             } catch (IOException e) {
@@ -474,8 +476,8 @@ public class ManageDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        if (documentDao.find(Integer.parseInt(documentId)) == null
-                || queueDao.find(Integer.parseInt(queueId)) == null) {
+        if (documentDao.find(parsedDocumentId) == null
+                || queueDao.find(parsedQueueId) == null) {
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "document or queue not found");
             } catch (IOException e) {
@@ -502,15 +504,14 @@ public class ManageDocument2Action extends ActionSupport {
         return NONE;
     }
 
-    private static boolean isPositiveInteger(String value) {
+    private static int parsePositiveInteger(String value) {
         if (value == null || !value.matches("[1-9][0-9]*")) {
-            return false;
+            return -1;
         }
         try {
-            Integer.parseInt(value);
-            return true;
+            return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            return false;
+            return -1;
         }
     }
 

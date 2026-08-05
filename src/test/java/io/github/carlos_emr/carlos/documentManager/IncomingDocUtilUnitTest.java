@@ -87,6 +87,36 @@ class IncomingDocUtilUnitTest {
     }
 
     @Test
+    @DisplayName("should create a missing queue directory when a write path is requested")
+    void shouldCreateMissingDirectory_whenWritePathRequested() {
+        String path = IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", "Refile");
+
+        assertThat(Path.of(path)).isDirectory();
+    }
+
+    @Test
+    @DisplayName("should fail when a write path cannot be created as a directory")
+    void shouldFail_whenWritePathIsExistingFile() throws Exception {
+        Files.createFile(incomingRoot.resolve("1"));
+
+        assertThatThrownBy(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", "Refile"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Failed to create incoming document directory");
+    }
+
+    @Test
+    @DisplayName("should fail loudly instead of recreating a missing incoming document root")
+    void shouldFailLoudly_whenWriteRootMissing() {
+        Path missingRoot = incomingRoot.resolve("missing-root");
+        CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", missingRoot.toString());
+
+        assertThatThrownBy(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath("1", "Refile"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("Configured path is not a directory");
+        assertThat(missingRoot).doesNotExist();
+    }
+
+    @Test
     @DisplayName("should reject a doc list directory that resolves outside the incoming root")
     void shouldRejectDocListDirectory_whenOutsideIncomingRoot(@TempDir Path outsideRoot) {
         // The containment check must run before any filesystem probe; without it the

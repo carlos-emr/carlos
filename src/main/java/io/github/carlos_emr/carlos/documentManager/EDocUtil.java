@@ -928,20 +928,50 @@ public final class EDocUtil {
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
         File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
+        int parsedDocumentNo = parsePositiveId(documentNo, "documentNo");
+        Document d = getDocumentDao().find(parsedDocumentNo);
+        if (d == null) {
+            throw new FileNotFoundException("Document not found");
+        }
         File sourceFile = PathValidationUtils.validateExistingPath(
                 new File(sourceBaseDir, d.getDocfilename()), sourceBaseDir);
 
-        String destPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, "Refile");
-        File destBaseDir = new File(destPath);
-        File destFile = PathValidationUtils.validatePath(
-                getRefiledDocumentFileName(sourceFile.getName()), destBaseDir);
+        File destFile = prepareRefileDestination(sourceFile, queueId);
 
         try {
             copyRefiledDocument(sourceFile, destFile);
         } catch (IOException e) {
             logger.error("Error", e);
             throw new Exception(e);
+        }
+    }
+
+    /**
+     * Validates the queue before creating its lazily initialized refile directory.
+     * The old FileUtils copy created parent directories implicitly; Files.copy does
+     * not, so the first refile into a new queue otherwise fails.
+     */
+    static File prepareRefileDestination(File sourceFile, String queueId) {
+        int parsedQueueId = parsePositiveId(queueId, "queueId");
+        if (SpringUtils.getBean(QueueDao.class).find(parsedQueueId) == null) {
+            throw new IllegalArgumentException("Queue not found");
+        }
+
+        String destPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, "Refile");
+        File destBaseDir = PathValidationUtils.validateConfiguredDirectory(
+                destPath, "incoming refile directory");
+        return PathValidationUtils.validatePath(
+                getRefiledDocumentFileName(sourceFile.getName()), destBaseDir);
+    }
+
+    private static int parsePositiveId(String value, String label) {
+        if (value == null || !value.matches("[1-9][0-9]*")) {
+            throw new IllegalArgumentException(label + " must be a positive integer");
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(label + " must be a positive integer", e);
         }
     }
 

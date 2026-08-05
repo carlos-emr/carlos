@@ -439,16 +439,20 @@ public final class IncomingDocUtil {
         
         // Validate path is within bounds using PathValidationUtils
         try {
-            File baseDirFile = new File(baseDir);
+            // The configured root may be a mounted document volume. Never recreate a
+            // missing root locally: doing so would make successful writes disappear when
+            // the real volume is remounted. Only queue children are lazy-created.
+            File baseDirFile = PathValidationUtils.validateConfiguredDirectory(
+                    baseDir, "incoming document root");
             filePathDir = PathValidationUtils.validateExistingPath(filePathDir, baseDirFile);
 
             File canonicalDir = filePathDir.getCanonicalFile();
 
-            if (!canonicalDir.exists()) {
-                boolean created = canonicalDir.mkdirs();
-                if (!created) {
-                    logger.warn("Failed to create directory: {}", LogSafe.sanitize(canonicalDir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                }
+            if (!canonicalDir.isDirectory()
+                    && !canonicalDir.mkdirs()
+                    && !canonicalDir.isDirectory()) {
+                logger.error("Failed to create incoming document directory: {}", LogSafe.sanitize(canonicalDir.getPath())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new IllegalStateException("Failed to create incoming document directory");
             }
 
             return canonicalDir.getPath();
