@@ -226,6 +226,30 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("position: static");
     }
 
+    /**
+     * The grid is always built from {@code curProvider_no}, so the selector must name that
+     * provider on both branches. With no explicitly selected option the browser falls back to
+     * the first entry, labelling this provider's schedule with a different, real provider —
+     * and under multisite, where the group loop is skipped, the selector renders empty.
+     */
+    @Test
+    @DisplayName("provider selector should mark a selected option whether or not the provider row resolves")
+    void shouldAlwaysSelectRequestedProvider_evenWhenProviderRowIsMissing() throws IOException {
+        String jsp = Files.readString(AVAILABILITY_JSP, StandardCharsets.UTF_8);
+
+        int start = jsp.indexOf("<select id=\"availabilityProvider\"");
+        assertThat(start).as("provider selector is present").isPositive();
+        String selector = jsp.substring(start, jsp.indexOf("</select>", start));
+
+        // Count the attribute marker rather than the bare word, which also occurs in prose.
+        assertThat(selector.split(" selected>", -1).length - 1)
+                .as("resolved and unresolved provider branches each emit a selected option")
+                .isEqualTo(2);
+        assertThat(selector)
+                .as("the unresolved branch falls back to the requested provider")
+                .contains("curProviderName");
+    }
+
     private static Path projectRoot() {
         return Path.of(System.getProperty(
                 "maven.multiModuleProjectDirectory",
