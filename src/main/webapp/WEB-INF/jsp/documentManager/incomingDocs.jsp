@@ -1240,13 +1240,14 @@
                             </tr>
                             <tr>
                                 <td colspan="2" align="left">
+                                    <fmt:message key="dms.incomingDocs.selectPatientToSave" var="selectPatientToSaveMessage"/>
                                     <button type="submit" onclick="return checkDocument();" name="save"
                                             tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm"
-                                            title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>"
-                                            data-disabled-title="<fmt:message key="dms.incomingDocs.selectPatientToSave"/>"
+                                            title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
+                                            data-disabled-title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
                                             aria-describedby="save-disabled-help"><fmt:message key="inboxmanager.document.SaveAndNext"/></button>
                                     <div id="save-disabled-help" class="form-text text-muted">
-                                        <fmt:message key="dms.incomingDocs.selectPatientToSave"/>
+                                        <carlos:encode value='${selectPatientToSaveMessage}' context="html"/>
                                     </div>
                                 </td>
                             </tr>

@@ -66,6 +66,9 @@ class IncomingDocumentAssetRegressionTest {
         String jsp = read(INCOMING_DOCS_JSP);
 
         assertThat(jsp)
+                .contains("<fmt:message key=\"dms.incomingDocs.selectPatientToSave\" var=\"selectPatientToSaveMessage\"/>")
+                .contains("value='${selectPatientToSaveMessage}' context=\"htmlAttribute\"")
+                .contains("value='${selectPatientToSaveMessage}' context=\"html\"")
                 .contains("id=\"save-disabled-help\"")
                 .contains("aria-describedby=\"save-disabled-help\"")
                 .contains("saveObj.setAttribute('aria-describedby', 'save-disabled-help')")

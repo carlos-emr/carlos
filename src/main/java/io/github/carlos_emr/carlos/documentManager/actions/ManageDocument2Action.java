@@ -457,6 +457,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             try {
+                response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             } catch (IOException e) {
                 log.error("Unable to send invalid refile method response", e);
