@@ -61,7 +61,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("admin")
 @Tag("security")
-class ProviderRole2ActionTest extends CarlosUnitTestBase {
+class ProviderRole2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
