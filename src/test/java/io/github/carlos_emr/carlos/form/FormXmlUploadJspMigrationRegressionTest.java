@@ -100,12 +100,34 @@ class FormXmlUploadJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("struts form config should map the import page to its dedicated view gate before the wildcard")
+    void shouldMapImportPage_toDedicatedViewGateBeforeWildcard() throws IOException {
+        String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
+        int pageRoute = struts.indexOf("<action name=\"form/formXmlUpload\"");
+        int wildcardRoute = struts.indexOf("<action name=\"form/*\"");
+
+        assertThat(wildcardRoute).isGreaterThanOrEqualTo(0);
+        assertThat(pageRoute).isGreaterThanOrEqualTo(0)
+                .isLessThan(wildcardRoute);
+        assertThat(struts).contains("ViewFormXmlUpload2Action");
+    }
+
+    @Test
+    @DisplayName("struts form config should render security errors from the import page")
+    void shouldMapImportPageSecurityException_toSecurityErrorView() throws IOException {
+        String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
+
+        assertThat(struts).contains("<result name=\"securityError\">/WEB-INF/jsp/error/securityError.jsp</result>")
+                .contains("<exception-mapping exception=\"java.lang.SecurityException\" result=\"securityError\"/>");
+    }
+
+    @Test
     @DisplayName("struts form config should keep the explicit xmlUpload processing action with its internal JSP view")
     void shouldKeepXmlUploadProcessingAction_inStrutsConfig() throws IOException {
         String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
 
-        assertThat(struts).contains("<action name=\"form/xmlUpload\"");
-        assertThat(struts).contains("FrmXmlUpload2Action");
-        assertThat(struts).contains("/WEB-INF/jsp/form/formXmlUpload.jsp");
+        assertThat(struts).contains("<action name=\"form/xmlUpload\"")
+                .contains("FrmXmlUpload2Action")
+                .contains("/WEB-INF/jsp/form/formXmlUpload.jsp");
     }
 }
