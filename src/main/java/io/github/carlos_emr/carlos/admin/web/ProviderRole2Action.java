@@ -36,10 +36,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Security gate for the Provider Role admin page.
  *
  * <p>Requires either {@code _admin} or {@code _admin.userAdmin} read privilege.
- * POST method is enforced when a write operation is submitted (add, delete, or
- * update actions detected via the {@code submit} parameter); non-POST requests
- * for those operations receive HTTP 405. Read-only display requests are
- * forwarded directly to the JSP.</p>
+ * POST method is enforced when a write operation is submitted. The page uses
+ * separate parameter names for add/delete, role updates, and primary-role
+ * updates, so mutation intent is detected by parameter presence rather than by
+ * localized button labels. Non-POST requests for those operations receive HTTP
+ * 405. Read-only display requests are forwarded directly to the JSP.</p>
  *
  * @since 2026-04-05
  */
@@ -61,11 +62,9 @@ public class ProviderRole2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
-        String submit = request.getParameter("submit");
-        boolean isWriteOperation = submit != null && (
-                submit.equalsIgnoreCase("add")
-                || submit.equalsIgnoreCase("delete")
-                || submit.toLowerCase().startsWith("update"));
+        boolean isWriteOperation = request.getParameter("submit") != null
+                || request.getParameter("buttonUpdate") != null
+                || request.getParameter("buttonSetPrimaryRole") != null;
 
         if (isWriteOperation && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");

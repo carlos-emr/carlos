@@ -50,9 +50,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.springframework.web.context.WebApplicationContext" %>
-<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramProviderService" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
@@ -70,9 +67,6 @@
     SecuserroleDao secUserRoleDao = (SecuserroleDao) SpringUtils.getBean(SecuserroleDao.class);
     RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);
     ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
-
-    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(application);
-    ProgramProviderService programProviderService = (ProgramProviderService) ctx.getBean("programProviderService");
 
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String curUser_no = (String) session.getAttribute("user");
@@ -128,9 +122,7 @@
     }
 
 // get role from database
-    Vector vecRoleName = new Vector();
-    String sql;
-    String adminRoleName = "";
+    List<String> vecRoleName = new ArrayList<String>();
 
     String omit = "";
     if (isSiteAccessPrivacy) {
@@ -148,19 +140,26 @@
     if (request.getParameter("buttonSetPrimaryRole") != null && request.getParameter("buttonSetPrimaryRole").length() > 0) {
         String providerNo = request.getParameter("primaryRoleProvider");
         String roleName = request.getParameter("primaryRoleRole");
-        SecRole secRole = secRoleDao.findByName(roleName);
-        Long roleId = secRole.getId().longValue();
+        ProviderData provider = StringUtils.hasText(providerNo) ? providerDao.findByProviderNo(providerNo) : null;
+        SecRole secRole = StringUtils.hasText(roleName) && vecRoleName.contains(roleName)
+                ? secRoleDao.findByName(roleName) : null;
 
-        ProgramProvider pp = programProviderDao.getProgramProvider(providerNo, Long.valueOf(caisiProgram));
-        if (pp != null) {
-            pp.setRoleId(roleId);
-            programProviderDao.saveProgramProvider(pp);
+        if (provider != null && "1".equals(provider.getStatus()) && secRole != null && caisiProgram != null) {
+            Long roleId = secRole.getId().longValue();
+            ProgramProvider pp = programProviderDao.getProgramProvider(providerNo, Long.valueOf(caisiProgram));
+            if (pp != null) {
+                pp.setRoleId(roleId);
+                programProviderDao.saveProgramProvider(pp);
+            } else {
+                pp = new ProgramProvider();
+                pp.setProgramId(Long.valueOf(caisiProgram));
+                pp.setProviderNo(providerNo);
+                pp.setRoleId(roleId);
+                programProviderDao.saveProgramProvider(pp);
+            }
         } else {
-            pp = new ProgramProvider();
-            pp.setProgramId(Long.valueOf(caisiProgram));
-            pp.setProviderNo(providerNo);
-            pp.setRoleId(roleId);
-            programProviderDao.saveProgramProvider(pp);
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotUpdated"),
+                    SafeEncode.forHtml(roleName), SafeEncode.forHtml(providerNo));
         }
     }
 
@@ -421,7 +420,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            document.getElementById('primaryRoleProvider').value = "";
+            const primaryRoleProvider = document.getElementById('primaryRoleProvider');
+            if (primaryRoleProvider) {
+                primaryRoleProvider.value = "";
+            }
         });
 
         function setPrimaryRole() {

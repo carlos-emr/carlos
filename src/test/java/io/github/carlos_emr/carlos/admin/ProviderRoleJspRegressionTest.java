@@ -56,6 +56,7 @@ class ProviderRoleJspRegressionTest {
         assertThat(selectEnd).isGreaterThan(selectStart);
 
         String primaryRoleSelect = jsp.substring(selectStart, selectEnd);
+        assertThat(jsp).contains("List<String> vecRoleName = new ArrayList<String>();");
         assertThat(primaryRoleSelect)
                 .contains("for (int i = 0; i < vecRoleName.size(); i++)")
                 .contains("String availableRoleName = String.valueOf(vecRoleName.get(i));")
@@ -65,5 +66,28 @@ class ProviderRoleJspRegressionTest {
         assertThat(jsp)
                 .doesNotContain("items[i].providerNo === provider")
                 .doesNotContain("items[i].role_id !== \"\"");
+    }
+
+    @Test
+    @DisplayName("primary role update should validate submitted provider and role")
+    void shouldValidateSubmittedValues_beforeUpdatingPrimaryRole() throws IOException {
+        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("StringUtils.hasText(providerNo) ? providerDao.findByProviderNo(providerNo) : null")
+                .contains("StringUtils.hasText(roleName) && vecRoleName.contains(roleName)")
+                .contains("provider != null && \"1\".equals(provider.getStatus())")
+                .contains("secRole != null && caisiProgram != null")
+                .contains("admin.providerrole.msgNotUpdated");
+    }
+
+    @Test
+    @DisplayName("page initialization should tolerate a hidden primary role section")
+    void shouldTolerateMissingPrimaryRoleControls_duringPageInitialization() throws IOException {
+        String jsp = Files.readString(PROVIDER_ROLE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("const primaryRoleProvider = document.getElementById('primaryRoleProvider');")
+                .containsPattern("if \\(primaryRoleProvider\\) \\{\\s+primaryRoleProvider\\.value = \\\"\\\";");
     }
 }
