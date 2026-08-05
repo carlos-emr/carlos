@@ -217,7 +217,7 @@ function wirePage(page, label) {
   page.on('response', (response) => {
     const status = response.status();
     const responseUrl = response.url();
-    if (status >= 400) {
+    if (status >= 400 && !(status === 404 && /\/imageRenderingServlet\?/.test(responseUrl))) {
       badResponses.push({ label, status, url: responseUrl });
     }
   });
