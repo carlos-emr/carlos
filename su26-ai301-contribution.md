@@ -3,7 +3,7 @@
 **Contribution Number:** 2
 **Student:** Hana Ahmed
 **Issue:** https://github.com/carlos-emr/carlos/issues/2623
-**Status:** Phase III Complete
+**Status:** Phase IV Complete
 
 ---
 
@@ -148,14 +148,16 @@ Studied the issue, identified the vulnerable file and root cause, wrote and comm
 
 **PR Link:** https://github.com/carlos-emr/carlos/pull/3199
 
-**PR Description:** Adds a patient-scoped authorization check to `ScatterPlotChartServlet` so that measurement charts are only accessible to users with `_measurement` and `_demographic` read privileges for the requested `demographicNo`, returning `403 Forbidden` otherwise. Scoped narrowly to this one file per maintainer guidance; Struts2 migration intentionally out of scope.
+**Summary of Contribution:** Added a patient-scoped authorization check to `ScatterPlotChartServlet` (issue #2623), which previously had no per-patient access control — any authenticated user could view any patient's clinical measurement chart by changing the `demographicNo` request parameter. The fix checks `_measurement` and `_demographic` read privilege scoped to the requested patient, rejects requests with a missing `demographicNo` outright, and adds `isAllowedAccessToPatientRecord()` as an additional patient-level access check. All changes are scoped to the single file the maintainer asked for.
 
-**Maintainer Feedback:**
-- Maintainer comment on issue #2623 (prior to PR): requested the fix target `develop`, stay scoped to `ScatterPlotChartServlet` only, flag rather than silently decide on `_demographic`, add test coverage or clear manual verification notes if no test pattern exists, and DCO-sign commits.
-- Addressed by: grepping for the `_demographic` pattern and documenting the finding in the PR description, keeping the change to one file, and signing the commit with `-s`. Manual verification notes were not fully completed this phase (see Testing Strategy) — flagged rather than fabricated.
-- Automated (Sourcery) review on the PR: confirmed both privilege checks are present and correctly scoped, and that both linked-issue objectives are satisfied.
+**Feedback Received & Next Steps:**
+- Maintainer (issue comment, pre-PR): asked to target `develop`, stay scoped to this one file, flag rather than silently decide on `_demographic`, add tests or clear manual-verification notes, and DCO-sign commits. Addressed by grepping the codebase for the `_demographic` pattern instead of guessing, keeping the change single-file, and signing commits with `-s`.
+- Sourcery (automated review): confirmed both privilege checks are present, correctly scoped, and satisfy the linked issue's stated objectives.
+- `cubic-dev-ai` (automated review, second pass): flagged that a missing `demographicNo` and a lack of patient-specific role mapping could both still fall back to a general privilege check. Addressed by rejecting `null` `demographicNo` outright and adding `isAllowedAccessToPatientRecord()` as defense-in-depth; documented the remaining limitation (the shared `hasPrivilege()` fallback itself) as out of scope for this PR rather than silently leaving it unaddressed.
+- DCO check failed once on a merge commit missing a sign-off; fixed by amending that commit with `-s` and force-pushing.
+- Next step: awaiting a human maintainer re-review of the latest changes.
 
-**Status:** Awaiting maintainer review.
+**Status:** Iterating
 
 ---
 
