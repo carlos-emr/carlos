@@ -65,6 +65,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -358,6 +359,23 @@ public class Fax2Action extends ActionSupport {
                     || !promotionDemographicNo.equals(String.valueOf(demographicNo))) {
                 logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
                         transactionId);
+                // The claimed staged PDF's ownership already transferred out of
+                // EFormRenderApprovalService back in prepareFax() (its own bookkeeping no longer
+                // tracks or will ever clean up this file); this rejection path must delete it
+                // itself or it orphans on disk instead of being promoted or cleaned up by anyone.
+                if (faxFilePath != null) {
+                    try {
+                        deleteUnownedStagedFaxPreview(Path.of(faxFilePath));
+                    } catch (InvalidPathException e) {
+                        logger.warn("Unable to parse fax file path while cleaning up a rejected promotion", e);
+                    }
+                }
+                // securityError.jsp renders the request attribute "actionErrors"; without bridging
+                // an action error onto it here (as the validateFaxInputs catch above already does
+                // for its own SecurityExceptions), the clinician only sees the generic security
+                // error page with no indication of why the fax was not sent.
+                addActionError("The eForm no longer belongs to this patient");
+                request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
                 throw new SecurityException("The eForm no longer belongs to this patient");
             }
         }

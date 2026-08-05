@@ -29,7 +29,27 @@
     // rather than legitimate chained deferred work. See the comment at that guard for why a
     // single currently-running check cannot tell the two apart on its own.
     var SELF_RESCHEDULE_COUNT_LIMIT = 3;
+    // Per-handler count of CONSECUTIVE self-reschedules within the CURRENT chain. Reset to zero
+    // (by deleting the entry) once an invocation completes without rescheduling itself again, or
+    // once a still-pending reschedule of that handler is cancelled -- see the reset sites below.
+    // Without a reset, a function reference reused later for an unrelated, independent short
+    // chain would inherit the previous chain's leftover count and could have its own first
+    // reschedule wrongly excluded from the start.
     var selfRescheduleCounts = new Map();
+    // Tracks which scheduled handle belongs to which function handler, solely so a cancellation
+    // (clearTimeout/clearInterval) can reset that handler's selfRescheduleCounts entry too.
+    var handleToHandler = new Map();
+    // Once a self-reschedule is excluded from status.pending for exceeding
+    // SELF_RESCHEDULE_COUNT_LIMIT, it becomes invisible to whenIdle()'s pending<=0 check --
+    // otherwise a still-actively-rescheduling excluded chain could let whenIdle resolve true
+    // (and the PDF be captured) before a later pass populates a field, even though the intent was
+    // for a genuinely long-running loop to still be bounded by the render budget, not to
+    // disappear from tracking entirely. Recording the last excluded reschedule's timestamp lets
+    // whenIdle require a short quiet period after it before resolving early: a chain that
+    // actually stops rescheduling goes quiet almost immediately, while a repeating heartbeat
+    // never does and correctly falls through to the deadline. See the whenIdle comment below.
+    var EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS = 300;
+    var lastExcludedSelfRescheduleAt = 0;
     var status = {
         installed: false,
         failed: false,
@@ -169,11 +189,17 @@
             selfRescheduleCount = (selfRescheduleCounts.get(handler) || 0) + 1;
             selfRescheduleCounts.set(handler, selfRescheduleCount);
         }
+        var selfRescheduleExcluded = isSelfReschedule && selfRescheduleCount > SELF_RESCHEDULE_COUNT_LIMIT;
+        if (selfRescheduleExcluded) {
+            // Not counted in status.pending, but still observed here so whenIdle() cannot resolve
+            // early while this chain keeps actively rescheduling -- see EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS.
+            lastExcludedSelfRescheduleAt = Date.now();
+        }
         var counted = nativeTimer === nativeSetTimeout
                 && (typeof handler === "string"
                         || (typeof handler === "function"
                                 && isFinite(delayMillis) && delayMillis <= 4000
-                                && (!isSelfReschedule || selfRescheduleCount <= SELF_RESCHEDULE_COUNT_LIMIT)));
+                                && !selfRescheduleExcluded));
         if (counted) {
             status.pending += 1;
         }
@@ -187,13 +213,21 @@
                     if (typeof handler === "string") {
                         return executeStringCallback(handler);
                     }
+                    // Captured before invocation so the finally below can tell whether THIS
+                    // invocation triggered a further self-reschedule (the count changed) or the
+                    // chain ended here (the count is unchanged) -- see selfRescheduleCounts above.
+                    var selfRescheduleCountBeforeInvocation = selfRescheduleCounts.get(handler);
                     runningFunctionHandlers.push(handler);
                     try {
                         return handler.apply(receiver, callbackArguments);
                     } finally {
                         runningFunctionHandlers.pop();
+                        if (selfRescheduleCounts.get(handler) === selfRescheduleCountBeforeInvocation) {
+                            selfRescheduleCounts.delete(handler);
+                        }
                     }
                 } finally {
+                    handleToHandler.delete(handle);
                     // delete() makes completion and cancellation mutually exclusive: whichever
                     // happens first owns the one matching decrement.
                     if (counted && countedTimeouts.delete(handle)) {
@@ -209,6 +243,9 @@
         }
         if (counted) {
             countedTimeouts.add(handle);
+        }
+        if (typeof handler === "function") {
+            handleToHandler.set(handle, handler);
         }
         return handle;
     }
@@ -226,16 +263,25 @@
      * <p>Polls with the native timer so the wait neither recurses through the wrapper above nor
      * inflates the count it is waiting on.</p>
      *
+     * <p>A self-reschedule excluded from {@code status.pending} for exceeding
+     * {@code SELF_RESCHEDULE_COUNT_LIMIT} is invisible to the {@code pending <= 0} check below, so
+     * this also requires a short quiet period since the last excluded reschedule before resolving
+     * early. A chain that genuinely stops rescheduling goes quiet almost immediately and still
+     * resolves quickly; a repeating heartbeat/UI loop never goes quiet and correctly falls through
+     * to {@code deadline} instead of silently letting the capture race ahead of it.</p>
+     *
      * @return {Promise<boolean>} true when the queue drained, false when the wait was capped
      */
     status.whenIdle = function whenIdle(maxWaitMillis) {
         var deadline = Date.now() + (maxWaitMillis > 0 ? maxWaitMillis : 3000);
         return new Promise(function settleWhenDrained(resolve) {
             (function poll() {
-                if (status.pending <= 0) {
-                    resolve(true);
-                } else if (Date.now() >= deadline) {
+                var now = Date.now();
+                if (now >= deadline) {
                     resolve(false);
+                } else if (status.pending <= 0
+                        && (now - lastExcludedSelfRescheduleAt) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS) {
+                    resolve(true);
                 } else {
                     nativeSetTimeout.call(window, poll, 50);
                 }
@@ -260,6 +306,14 @@
     function cancelTrackedTimer(nativeClear, handle) {
         if (countedTimeouts.delete(handle)) {
             status.pending -= 1;
+        }
+        var cancelledHandler = handleToHandler.get(handle);
+        if (cancelledHandler) {
+            // The chain this handler was rescheduling ends here too: clear its count so a later,
+            // unrelated scheduling of the same function reference starts counting from zero
+            // instead of inheriting this cancelled chain's leftover count.
+            handleToHandler.delete(handle);
+            selfRescheduleCounts.delete(cancelledHandler);
         }
         return nativeClear.call(window, handle);
     }

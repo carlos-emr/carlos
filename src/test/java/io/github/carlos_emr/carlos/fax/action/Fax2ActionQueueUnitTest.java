@@ -221,7 +221,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject queue when the eForm was reassigned to a different patient after prepareFax staged its preview")
-    void shouldRejectQueue_whenEFormDemographicChangedSincePrepareFax() {
+    void shouldRejectQueue_whenEFormDemographicChangedSincePrepareFax() throws java.io.IOException {
         setUpCommonMocks();
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
                 .thenReturn(true);
@@ -232,6 +232,13 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         reassignedEForm.setDemographicId(99);
         when(eFormDataDao.find(7)).thenReturn(reassignedEForm);
 
+        // A real staged file: its ownership already transferred out of EFormRenderApprovalService
+        // back in prepareFax(), so this rejection is the only remaining code that can clean it up.
+        java.nio.file.Path appTempRoot = java.nio.file.Paths.get(APP_TEMP_ROOT);
+        java.nio.file.Files.createDirectories(appTempRoot);
+        java.nio.file.Path stagedFile =
+                java.nio.file.Files.createTempFile(appTempRoot, "queue-reject-test-", ".pdf");
+
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -241,13 +248,22 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             action.setTransactionId(7);
             action.setDemographicNo(42);
             action.setRecipientFaxNumber("1234567890");
-            action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+            action.setFaxFilePath(stagedFile.toString());
 
             assertThatThrownBy(action::queue)
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("no longer belongs to this patient");
 
             verify(faxManager, never()).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
+            // The clinician must see why the fax was not sent, not just the generic security page.
+            assertThat(action.getActionErrors()).contains("The eForm no longer belongs to this patient");
+            assertThat(request.getAttribute("actionErrors"))
+                    .asInstanceOf(LIST)
+                    .contains("The eForm no longer belongs to this patient");
+            // The orphaned claimed PDF must not be left on disk.
+            assertThat(java.nio.file.Files.exists(stagedFile)).isFalse();
+        } finally {
+            java.nio.file.Files.deleteIfExists(stagedFile);
         }
     }
 

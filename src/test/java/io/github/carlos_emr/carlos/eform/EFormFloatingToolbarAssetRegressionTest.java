@@ -184,7 +184,46 @@ class EFormFloatingToolbarAssetRegressionTest {
                 .contains("var isSelfReschedule = typeof handler === \"function\" "
                         + "&& runningFunctionHandlers.indexOf(handler) >= 0;")
                 .contains("selfRescheduleCount = (selfRescheduleCounts.get(handler) || 0) + 1;")
-                .contains("(!isSelfReschedule || selfRescheduleCount <= SELF_RESCHEDULE_COUNT_LIMIT)");
+                .contains("var selfRescheduleExcluded = isSelfReschedule "
+                        + "&& selfRescheduleCount > SELF_RESCHEDULE_COUNT_LIMIT;")
+                .contains("&& !selfRescheduleExcluded));");
+    }
+
+    @Test
+    @DisplayName("should keep whenIdle waiting while an excluded self-reschedule chain is still actively rescheduling")
+    void shouldExtendWhenIdleWait_whileExcludedSelfRescheduleStillActive() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        // Once a self-reschedule is excluded from status.pending, it is invisible to the
+        // pending<=0 check whenIdle uses to resolve early -- without this quiet-window signal, a
+        // still-actively-rescheduling excluded chain could let whenIdle (and the PDF capture)
+        // resolve before a later pass populates a field, even though the render budget cap was
+        // supposed to still govern it. A genuinely repeating heartbeat never goes quiet and falls
+        // through to the deadline; a chain that actually stops resolves quickly.
+        assertThat(compat)
+                .contains("var EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS = 300;")
+                .contains("var lastExcludedSelfRescheduleAt = 0;")
+                .contains("lastExcludedSelfRescheduleAt = Date.now();")
+                .contains("(now - lastExcludedSelfRescheduleAt) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS");
+    }
+
+    @Test
+    @DisplayName("should reset a handler's self-reschedule count once its chain ends, so a later unrelated chain starts fresh")
+    void shouldResetSelfRescheduleCount_whenChainEndsOrIsCancelled() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        // Without a reset, a function reference reused later for an unrelated, independent short
+        // chain would inherit the previous chain's leftover count and could have its own first
+        // reschedule wrongly excluded from the start. Reset on two events: the invocation
+        // completing without rescheduling itself again (chain finished), and the still-pending
+        // reschedule being cancelled (chain stopped externally).
+        assertThat(compat)
+                .contains("var selfRescheduleCountBeforeInvocation = selfRescheduleCounts.get(handler);")
+                .contains("if (selfRescheduleCounts.get(handler) === selfRescheduleCountBeforeInvocation) {")
+                .contains("selfRescheduleCounts.delete(handler);")
+                .contains("var handleToHandler = new Map();")
+                .contains("var cancelledHandler = handleToHandler.get(handle);")
+                .contains("selfRescheduleCounts.delete(cancelledHandler);");
     }
 
     @Test

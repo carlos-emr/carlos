@@ -297,6 +297,17 @@ public class EFormRenderApprovalService {
                 pending.operation(), pending.issueDigests(), pending.expiresAt());
     }
 
+    /**
+     * Test seam: returns the token's currently-cached staged preview object without consuming or
+     * removing it, so a test can hold the same object reference a concurrent
+     * {@link #consumeStagedFaxPreview} caller would have captured before a racing revocation
+     * (cancel, expiry, invalidation, or eviction) removes the cache entry.
+     */
+    StagedFaxPreview peekStagedFaxPreviewForTest(String token) {
+        PendingApproval pending = stagedFaxApprovals.getIfPresent(token);
+        return pending == null ? null : pending.stagedPreview();
+    }
+
     private String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);
@@ -336,17 +347,24 @@ public class EFormRenderApprovalService {
      */
     public static final class StagedFaxPreview {
         /**
-         * AVAILABLE -&gt; CLAIMED (by {@link #claim()}) or AVAILABLE -&gt; DELETING (by
-         * {@link #deleteUnlessClaimed()}) are the only transitions out of AVAILABLE, and both are
-         * a single CAS, so the two can never both win for the same file — the claim-vs-delete race
-         * this state exists to prevent. DELETING is terminal on a successful delete (the file is
-         * gone), but reverts to AVAILABLE on a failed delete: a transient {@code Files.deleteIfExists}
-         * failure (e.g. a momentary AV/backup lock) must not permanently strand a PHI-bearing PDF
-         * with no path back to cleanup. The managed temp root's 24h stale-output sweep
-         * ({@link EFormBrowserPdfService#sweepStaleRendererRoots}) is the filesystem-level backstop
-         * that eventually reclaims a file even if this bookkeeping is never revisited.
+         * AVAILABLE -&gt; CLAIMED (by {@link #claim()}) and AVAILABLE -&gt; REVOKED (by the first call
+         * to {@link #deleteUnlessClaimed()}) are the only transitions out of AVAILABLE, both a
+         * single CAS, so the two can never both win for the same file — the claim-vs-delete race
+         * this state exists to prevent. REVOKED is a one-way terminal state: once cancellation,
+         * expiry, session invalidation, or cache eviction has decided this preview is no longer
+         * valid, it must never become claimable again, no matter whether the underlying file
+         * delete succeeds. An earlier version reverted this state to AVAILABLE on a failed delete
+         * so a transient failure would not strand the file — but a caller that already read this
+         * object out of the cache (a request racing the exact revocation that is running
+         * concurrently) could then still win {@link #claim()} against the reverted state and hand
+         * a revoked approval's PDF to the fax pipeline. Retrying the delete itself stays possible
+         * without reopening AVAILABLE: {@link #deleteUnlessClaimed()} keeps retrying
+         * {@code Files.deleteIfExists} on every call once REVOKED, it just never claims again. The
+         * managed temp root's 24h stale-output sweep
+         * ({@link EFormBrowserPdfService#sweepStaleRendererRoots}) remains the filesystem-level
+         * backstop if this bookkeeping is never revisited at all.
          */
-        private enum ClaimState { AVAILABLE, CLAIMED, DELETING }
+        private enum ClaimState { AVAILABLE, CLAIMED, REVOKED }
 
         private final Path path;
         private final EFormRenderApproval approval;
@@ -367,22 +385,25 @@ public class EFormRenderApprovalService {
 
         /** Returns the number of non-blocking render conditions reported for the packet. */
         public int advisoryIssueCount() { return advisoryIssueCount; }
-        private Path claim() {
+        // Package-private (not private) solely so the test seam above can prove a revoked
+        // preview stays permanently unclaimable even when a caller races the revocation with the
+        // same object reference; production callers reach this only through
+        // consumeStagedFaxPreview().
+        Path claim() {
             return state.compareAndSet(ClaimState.AVAILABLE, ClaimState.CLAIMED) ? path : null;
         }
         private void deleteUnlessClaimed() {
-            if (!state.compareAndSet(ClaimState.AVAILABLE, ClaimState.DELETING)) {
-                // Already claimed (or a concurrent delete attempt already owns this transition):
-                // leave the file alone either way.
+            boolean revokedNow = state.compareAndSet(ClaimState.AVAILABLE, ClaimState.REVOKED);
+            if (!revokedNow && state.get() != ClaimState.REVOKED) {
+                // Already claimed: a legitimate claimant owns this file now, leave it alone.
                 return;
             }
+            // Either this call just revoked it, or a previous call already did and this is a
+            // retry of the delete itself -- Files.deleteIfExists is idempotent, so re-attempting
+            // it here is always safe and never reopens claim().
             try {
                 Files.deleteIfExists(path);
             } catch (Exception e) {
-                // Revert instead of leaving DELETING permanently set: the delete did not happen, so
-                // the file is not "handled" and must remain eligible for a later cleanup attempt
-                // instead of being stranded with no recorded owner.
-                state.set(ClaimState.AVAILABLE);
                 logger.warn("Unable to delete unclaimed staged fax preview PDF: {}", path, e);
             }
         }

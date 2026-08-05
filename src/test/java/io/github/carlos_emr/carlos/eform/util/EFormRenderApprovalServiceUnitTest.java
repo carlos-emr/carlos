@@ -335,6 +335,49 @@ class EFormRenderApprovalServiceUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("should permanently refuse to claim a staged fax preview once revoked, even when its cleanup delete fails")
+    void shouldRefuseClaim_afterRevocationEvenWhenCleanupDeleteFails() throws java.io.IOException {
+        EFormRenderApprovalService service = new EFormRenderApprovalService();
+        MockHttpServletRequest request = requestWithSession();
+        LoggedInInfo user = user("999998");
+        java.nio.file.Path root = java.nio.file.Path.of(
+                System.getProperty("java.io.tmpdir"), "carlos-temp");
+        java.nio.file.Files.createDirectories(root);
+        java.nio.file.Path testRoot =
+                java.nio.file.Files.createTempDirectory(root, "staged-fax-revoke-race-test-");
+        try {
+            java.nio.file.Path staged = java.nio.file.Files.createTempFile(testRoot, "undeletable-", ".pdf");
+            String token = service.issueStagedFaxPreview(request, user, 42, "123",
+                    java.util.Map.of(42, incompleteReport()), 0, staged);
+
+            // Capture the same StagedFaxPreview object reference a concurrent
+            // consumeStagedFaxPreview() call would have captured from the cache before
+            // cancellation removes the entry -- this is exactly the race a caller can win against
+            // a concurrent revocation.
+            EFormRenderApprovalService.StagedFaxPreview racingReference =
+                    service.peekStagedFaxPreviewForTest(token);
+            assertThat(racingReference).isNotNull();
+
+            // Force the revocation's cleanup delete to fail (same technique as the test above).
+            java.nio.file.Files.delete(staged);
+            java.nio.file.Files.createDirectory(staged);
+            java.nio.file.Files.createFile(staged.resolve("locked"));
+
+            assertThat(service.cancelStagedFaxPreview(request, user, 42, "123", token)).isTrue();
+
+            // The revocation must be permanent even though its cleanup delete failed: a caller
+            // racing the cancellation with the same object reference must never be able to claim
+            // it and hand a revoked approval's PDF to the fax pipeline.
+            assertThat(racingReference.claim())
+                    .describedAs("a revoked staged fax preview must never become claimable again, "
+                            + "regardless of whether its cleanup delete succeeded")
+                    .isNull();
+        } finally {
+            deleteRecursivelyQuietly(testRoot);
+        }
+    }
+
     private static EFormRenderCompletenessReport incompleteReport() {
         return new EFormRenderCompletenessReport(2, 1, 0, 0, true, false, false, false);
     }
