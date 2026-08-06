@@ -152,6 +152,8 @@ from carlos_patient_portal.models import (
 )
 from carlos_patient_portal.presenters import (
     assemble_email_password_dashboard,
+    normalize_email_password_dashboard_provider,
+    normalize_email_password_dashboard_search,
 )
 from carlos_patient_portal.schemas import (
     AccountAdminResponse,
@@ -2081,13 +2083,15 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         email_password_date_to: date | None = None,
         email_password_page: int = 1,
         email_password_filter_error: str | None = None,
+        authenticated_session: AuthenticatedPortalSession | None = None,
     ) -> Response:
-        try:
-            authenticated_session = get_authenticated_portal_cookie_session(request, session)
-        except (PortalSessionInvalidError, ValueError):
-            response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
-            clear_portal_session_cookie(response, settings=settings)
-            return response
+        if authenticated_session is None:
+            try:
+                authenticated_session = get_authenticated_portal_cookie_session(request, session)
+            except (PortalSessionInvalidError, ValueError):
+                response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+                clear_portal_session_cookie(response, settings=settings)
+                return response
 
         extra_context: dict[str, object] = {}
         if active_module == "email-passwords":
@@ -2103,22 +2107,6 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 filter_error=email_password_filter_error,
             )
             extra_context["email_passwords"] = dashboard_context
-            # The JSON and FHIR surfaces audit list access; the browser index must too, so
-            # "opened/searched the password list" stays distinguishable from "never accessed it".
-            # Only whether filters were used is recorded — never the raw query, which can be PHI.
-            dashboard_account = authenticated_session.account
-            record_audit_event(
-                session,
-                event_type=AUDIT_EVENT_UNLOCK_SECRET_LIST,
-                outcome=AUDIT_OUTCOME_SUCCESS,
-                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
-                actor=dashboard_account.username,
-                clinic_id=dashboard_account.clinic_id,
-                demographic_no=dashboard_account.demographic_no,
-                account_id=dashboard_account.id,
-                reason=("browser_filtered" if dashboard_context.has_filters else "browser"),
-            )
-            session.commit()
         csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
             request=request,
@@ -3770,9 +3758,43 @@ def register_portal_routes(
             and parsed_date_to is not None
             and parsed_date_from > parsed_date_to
         )
+        authenticated_session = get_portal_cookie_session_or_redirect(request, session)
+        if isinstance(authenticated_session, RedirectResponse):
+            return authenticated_session
+        # The JSON and FHIR surfaces audit list access; the browser index must too, so
+        # "opened/searched the password list" stays distinguishable from "never accessed it".
+        # Only whether filters were used is recorded — never the raw query, which can be PHI.
+        # This is the route's write: the assembler below stays read-only.
+        account = authenticated_session.account
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_UNLOCK_SECRET_LIST,
+            outcome=AUDIT_OUTCOME_SUCCESS,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            account_id=account.id,
+            # Normalised exactly as the assembler does, so a whitespace-only filter is not
+            # recorded as a search the patient never actually ran.
+            reason=(
+                "browser_filtered"
+                if any(
+                    (
+                        normalize_email_password_dashboard_search(q),
+                        normalize_email_password_dashboard_provider(provider),
+                        parsed_date_from,
+                        parsed_date_to,
+                    )
+                )
+                else "browser"
+            ),
+        )
+        session.commit()
         return render_portal_page(
             request,
             session,
+            authenticated_session=authenticated_session,
             active_module="email-passwords",
             status_code=(
                 status.HTTP_400_BAD_REQUEST

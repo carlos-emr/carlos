@@ -5642,3 +5642,19 @@ def test_email_password_view_model_is_immutable() -> None:
 
     with pytest.raises(AttributeError):
         row.subject = "changed"  # type: ignore[misc]
+
+
+def test_presenters_perform_no_writes() -> None:
+    """`*ViewModelAssembler` is read-only orchestration; a write belongs to the route.
+
+    Enforced structurally rather than by convention, because the previous version of the
+    dashboard audit event was added inside the render path and looked perfectly reasonable there.
+    """
+    presenter_source = (main.PACKAGE_DIR / "presenters.py").read_text(encoding="utf-8")
+
+    forbidden = re.findall(
+        r"session\.(?:commit|add|flush|delete)\(|record_audit_event\(",
+        presenter_source,
+    )
+
+    assert not forbidden, f"presenters.py must not write: {sorted(set(forbidden))}"
