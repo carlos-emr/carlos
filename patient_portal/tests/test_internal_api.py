@@ -950,46 +950,22 @@ def test_internal_contact_review_feed_pages_beyond_one_hundred_requests() -> Non
 # (method, path, body, required permission). Kept in lockstep with the registered internal routes
 # by test_internal_route_permission_manifest_covers_every_route below, so a new CARLOS endpoint
 # fails the build until its authorization expectation is declared here.
-# Bodies must be schema-valid: FastAPI validates the request model before the handler runs, so an
-# empty body would 422 before authorization is ever consulted and the test would prove nothing.
+# (method, path, required permission). No request bodies are needed: authorization now runs in
+# the dependency phase, so a caller lacking the permission is rejected before the request model is
+# ever validated. That ordering is itself asserted below.
 INTERNAL_ROUTE_PERMISSIONS = (
-    (
-        "POST",
-        "/internal/carlos/patients/1234/invites",
-        "portal.invite.manage",
-        invite_request(),
-    ),
-    ("GET", "/internal/carlos/patients/1234/invites", "portal.invite.manage", None),
-    ("POST", "/internal/carlos/invites/1/resend", "portal.invite.manage", None),
-    ("POST", "/internal/carlos/invites/1/revoke", "portal.invite.manage", None),
-    ("POST", "/internal/carlos/patients/1234/unlock", "portal.account.unlock", None),
-    ("GET", "/internal/carlos/patients/1234/portal-account", "portal.account.manage", None),
-    (
-        "POST",
-        "/internal/carlos/patients/1234/portal-account/access",
-        "portal.account.manage",
-        {"enabled": False, "reason": "staff_action"},
-    ),
-    (
-        "POST",
-        "/internal/carlos/patients/1234/unlock-secrets",
-        "portal.secret.manage",
-        {"source_reference": "authz-probe", "secret_type": "email"},
-    ),
-    ("POST", "/internal/carlos/unlock-secrets/1/publish", "portal.secret.manage", None),
-    (
-        "POST",
-        "/internal/carlos/unlock-secrets/1/revoke",
-        "portal.secret.manage",
-        {"reason": "leaked"},
-    ),
-    ("GET", "/internal/carlos/contact-reviews", "portal.contact.review", None),
-    (
-        "POST",
-        "/internal/carlos/contact-reviews/1/decision",
-        "portal.contact.review",
-        {"approve": True, "revision": "probe-revision"},
-    ),
+    ("POST", "/internal/carlos/patients/1234/invites", "portal.invite.manage"),
+    ("GET", "/internal/carlos/patients/1234/invites", "portal.invite.manage"),
+    ("POST", "/internal/carlos/invites/1/resend", "portal.invite.manage"),
+    ("POST", "/internal/carlos/invites/1/revoke", "portal.invite.manage"),
+    ("POST", "/internal/carlos/patients/1234/unlock", "portal.account.unlock"),
+    ("GET", "/internal/carlos/patients/1234/portal-account", "portal.account.manage"),
+    ("POST", "/internal/carlos/patients/1234/portal-account/access", "portal.account.manage"),
+    ("POST", "/internal/carlos/patients/1234/unlock-secrets", "portal.secret.manage"),
+    ("POST", "/internal/carlos/unlock-secrets/1/publish", "portal.secret.manage"),
+    ("POST", "/internal/carlos/unlock-secrets/1/revoke", "portal.secret.manage"),
+    ("GET", "/internal/carlos/contact-reviews", "portal.contact.review"),
+    ("POST", "/internal/carlos/contact-reviews/1/decision", "portal.contact.review"),
 )
 UNRELATED_PERMISSION = "portal.something.else"
 
@@ -1005,7 +981,7 @@ def test_internal_route_permission_manifest_covers_every_route() -> None:
     }
     declared = {
         (method, path.replace("1234", "{demographic_no}"))
-        for method, path, _, _ in INTERNAL_ROUTE_PERMISSIONS
+        for method, path, _ in INTERNAL_ROUTE_PERMISSIONS
     }
     normalized_declared = {
         (
@@ -1020,13 +996,15 @@ def test_internal_route_permission_manifest_covers_every_route() -> None:
     assert normalized_declared == registered
 
 
-@pytest.mark.parametrize(
-    ("method", "path", "permission", "body"), INTERNAL_ROUTE_PERMISSIONS
-)
+@pytest.mark.parametrize(("method", "path", "permission"), INTERNAL_ROUTE_PERMISSIONS)
 def test_internal_route_rejects_a_caller_without_its_permission(
-    method: str, path: str, permission: str, body: dict[str, object] | None
+    method: str, path: str, permission: str
 ) -> None:
-    """Holding some other permission must never satisfy a route's own requirement."""
+    """Holding some other permission must never satisfy a route's own requirement.
+
+    No body is sent deliberately: authorization must reject the caller before request-model
+    validation could turn this into a 422.
+    """
     app = internal_app()
     client = TestClient(app)
 
@@ -1034,7 +1012,6 @@ def test_internal_route_rejects_a_caller_without_its_permission(
         method,
         path,
         headers=carlos_headers(UNRELATED_PERMISSION),
-        json=body,
     )
 
     assert response.status_code == 403, f"{method} {path} accepted an unrelated permission"
@@ -1164,3 +1141,37 @@ def test_repeated_publish_is_distinguishable_from_the_first_publication() -> Non
             )
         ]
         assert reasons == ["published", "already_published", "already_published"]
+
+
+def test_internal_api_rejects_in_order_authentication_then_authorization_then_validation() -> None:
+    """CARLOS checks privileges before touching request data; the portal boundary must match.
+
+    Authorization running after body validation would leak the endpoint's schema to a caller who
+    is not allowed to use it, via 422 field errors.
+    """
+    client = TestClient(internal_app())
+    path = "/internal/carlos/patients/1234/portal-account/access"
+    invalid_body = {"enabled": False, "unexpected_field": 1}
+    valid_body = {"enabled": False, "reason": "staff_action"}
+
+    bad_token = client.post(
+        path,
+        headers=carlos_headers("portal.account.manage", token="x" * 32),
+        json=invalid_body,
+    )
+    wrong_permission = client.post(
+        path, headers=carlos_headers(UNRELATED_PERMISSION), json=invalid_body
+    )
+    authorized_invalid_body = client.post(
+        path, headers=carlos_headers("portal.account.manage"), json=invalid_body
+    )
+    authorized_valid_body = client.post(
+        path, headers=carlos_headers("portal.account.manage"), json=valid_body
+    )
+
+    # Authentication wins over everything, then authorization, and only then the request model.
+    assert bad_token.status_code == 404
+    assert wrong_permission.status_code == 403
+    assert authorized_invalid_body.status_code == 422
+    # A permitted caller with a valid body reaches the service, which reports no such account.
+    assert authorized_valid_body.status_code == 404

@@ -357,6 +357,23 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
         except CarlosServiceAuthenticationError as exc:
             raise HTTPException(status_code=404, detail="not found") from exc
 
+    def staff_principal_requiring(permission: str):
+        """Authorize in the dependency phase, not in the handler body.
+
+        FastAPI resolves dependencies before it validates the request model, so checking the
+        permission here makes 403 precede 422 — matching CARLOS's auth-first rule, where
+        `hasPrivilege` is the first statement in every 2Action, and keeping a caller who lacks
+        permission from learning the endpoint's schema through validation errors.
+        """
+
+        def dependency(
+            principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        ) -> StaffPrincipal:
+            require_permission(principal, permission)
+            return principal
+
+        return dependency
+
     # FastAPI supports function-scoped teardown; Sonar's FastAPI stub does not.
     session_dependency = Depends(get_database_session, scope="function")  # NOSONAR
 
@@ -398,10 +415,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     def internal_create_invite(
         demographic_no: Annotated[int, Path(gt=0)],
         payload: InviteCreateRequest,
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_INVITE_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_INVITE_MANAGE)
         if payload.demographic_no != demographic_no:
             raise HTTPException(status_code=400, detail="demographic scope mismatch")
         try:
@@ -431,10 +449,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     )
     def internal_list_invites(
         demographic_no: Annotated[int, Path(gt=0)],
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_INVITE_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> list[dict[str, object]]:
-        require_permission(principal, PERMISSION_INVITE_MANAGE)
         return [
             invite_payload(invite)
             for invite in list_invites(
@@ -452,10 +471,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     )
     def internal_resend_invite(
         invite_id: Annotated[int, Path(gt=0)],
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_INVITE_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_INVITE_MANAGE)
         try:
             invite, invite_token = resend_invite(
                 session,
@@ -477,10 +497,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     )
     def internal_revoke_invite(
         invite_id: Annotated[int, Path(gt=0)],
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_INVITE_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_INVITE_MANAGE)
         try:
             invite = revoke_invite(
                 session,
@@ -510,10 +531,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     )
     def internal_unlock_account(
         demographic_no: Annotated[int, Path(gt=0)],
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_ACCOUNT_UNLOCK))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_ACCOUNT_UNLOCK)
         account_id = find_account_id_for_patient(
             session,
             clinic_id=principal.clinic_id,
@@ -546,10 +568,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     )
     def internal_get_account_status(
         demographic_no: Annotated[int, Path(gt=0)],
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_ACCOUNT_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_ACCOUNT_MANAGE)
         account = session.scalar(
             select(PatientPortalAccount).where(
                 PatientPortalAccount.clinic_id == principal.clinic_id,
@@ -577,10 +600,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     def internal_set_account_access(
         demographic_no: Annotated[int, Path(gt=0)],
         payload: InternalAccountAccessRequest,
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_ACCOUNT_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_ACCOUNT_MANAGE)
         account_id = find_account_id_for_patient(
             session,
             clinic_id=principal.clinic_id,
@@ -617,10 +641,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     def internal_create_unlock_secret(
         demographic_no: Annotated[int, Path(gt=0)],
         payload: InternalUnlockSecretRequest,
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_SECRET_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_SECRET_MANAGE)
         existing_secret = get_unlock_secret_by_source_reference(
             session,
             clinic_id=principal.clinic_id,
@@ -700,10 +725,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     )
     def internal_publish_unlock_secret(
         unlock_secret_id: Annotated[int, Path(gt=0)],
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_SECRET_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_SECRET_MANAGE)
         demographic_no = session.scalar(
             select(PatientPortalUnlockSecret.demographic_no).where(
                 PatientPortalUnlockSecret.id == unlock_secret_id,
@@ -736,10 +762,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     def internal_revoke_unlock_secret(
         unlock_secret_id: Annotated[int, Path(gt=0)],
         payload: InternalUnlockSecretRevokeRequest,
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_SECRET_MANAGE))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_SECRET_MANAGE)
         try:
             unlock_secret = revoke_unlock_secret(
                 session,
@@ -765,12 +792,13 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
         responses=COMMON_INTERNAL_RESPONSES,
     )
     def internal_list_contact_reviews(
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_CONTACT_REVIEW))
+        ],
         session: Annotated[Session, session_dependency],
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         offset: Annotated[int, Query(ge=0, le=100_000)] = 0,
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_CONTACT_REVIEW)
         reviews = list_pending_contact_reviews(
             session,
             clinic_id=principal.clinic_id,
@@ -807,10 +835,11 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
     def internal_review_contact_update(
         review_request_id: Annotated[int, Path(gt=0)],
         payload: InternalContactReviewDecision,
-        principal: Annotated[StaffPrincipal, Depends(get_staff_principal)],
+        principal: Annotated[
+            StaffPrincipal, Depends(staff_principal_requiring(PERMISSION_CONTACT_REVIEW))
+        ],
         session: Annotated[Session, session_dependency],
     ) -> dict[str, object]:
-        require_permission(principal, PERMISSION_CONTACT_REVIEW)
         try:
             review = review_contact_update(
                 session,
