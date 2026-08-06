@@ -253,7 +253,14 @@
         if (typeof handler === "function") {
             handleToHandler.set(handle, handler);
         }
-        if (selfRescheduleExcluded) {
+        // Matches the nativeTimer === nativeSetTimeout gate already in the counted condition
+        // above: a repeating setInterval is never one-shot, so it must never enter pending
+        // tracking of any kind (counted or excluded-but-pending). Without this guard, a
+        // self-rescheduling setInterval registration could still be added here, and its handle
+        // is only ever removed on its FIRST tick (see the finally block below) -- until then,
+        // whenIdle() would refuse to resolve early for a timer that was supposed to be entirely
+        // excluded, hitting the render's own cap instead.
+        if (selfRescheduleExcluded && nativeTimer === nativeSetTimeout) {
             excludedSelfReschedulePending.add(handle);
         }
         return handle;

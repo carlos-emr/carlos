@@ -84,19 +84,22 @@ public class Fax2Action extends ActionSupport {
             + "You can fax it only after approving the listed issues, but the document may be incomplete.";
     private static final String FAX_FILE_PATH_PARAM = "faxFilePath";
     private static final String ERROR_SENDING_ERROR_RESPONSE = "Error sending error response";
-    // Session-scoped, single-use record of the exact temp PDF path prepareFax() handed to THIS
-    // authenticated session for review, so a later queue() rejection can prove the client-supplied
-    // faxFilePath it wants deleted is actually the file this session's own prepareFax() produced --
-    // rather than deleting whatever app-temp-directory path the client happens to submit, which
-    // could belong to a different session's unrelated staged fax preview. Keyed per transactionId
-    // (the fdid), not one session-wide slot: a session can have more than one fax preview in
-    // flight at once (concurrent tabs, or preparing a second eForm's fax before queuing the
-    // first), and a single shared key would let a later prepareFax() overwrite -- and so lose
-    // cleanup tracking for -- an earlier one's still-unresolved claimed path.
+    // Session-scoped record of every temp PDF path prepareFax() has handed to THIS authenticated
+    // session for review but not yet resolved, so a later queue() call can prove the
+    // client-supplied faxFilePath it is about to consume is actually one this session's own
+    // prepareFax() produced -- rather than trusting whatever app-temp-directory path the client
+    // happens to submit, which could belong to a different session's unrelated staged fax preview.
+    // A Set of paths, not one fixed key or one entry per fdid: a session can have more than one
+    // fax preview in flight at once (concurrent tabs, or re-previewing the same eForm before
+    // queuing an earlier attempt), and a single shared slot per fdid would let a later prepareFax()
+    // overwrite an earlier still-unresolved claim for the SAME fdid, silently losing the ability to
+    // clean up that earlier claim's file if it were later rejected. Each queue() call for an EFORM
+    // consumes (removes) exactly the one entry matching its own faxFilePath, regardless of whether
+    // that promotion succeeds or is rejected, so entries never accumulate in a long-lived session.
     // Package-private (not private) solely so tests in this package can seed the session the same
     // way a prior prepareFax() call would, without driving the full render pipeline.
-    static final String CLAIMED_FAX_FILE_SESSION_KEY_PREFIX =
-            "io.github.carlos_emr.carlos.fax.action.Fax2Action.claimedFaxFilePath.";
+    static final String CLAIMED_FAX_FILE_PATHS_SESSION_KEY =
+            "io.github.carlos_emr.carlos.fax.action.Fax2Action.claimedFaxFilePaths";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -424,13 +427,20 @@ public class Fax2Action extends ActionSupport {
         EFormData eFormAtPromotion = eFormDataDao().find(transactionId.intValue());
         String promotionDemographicNo = eFormAtPromotion == null || eFormAtPromotion.getDemographicId() == null
                 ? null : String.valueOf(eFormAtPromotion.getDemographicId());
+        // Consumed here regardless of outcome: THIS queue() call resolves this session's claim on
+        // faxFilePath either way (accepted for promotion below, or rejected and deleted below), so
+        // it must not linger in a long-lived clinician session accumulating one entry per fax
+        // preview ever prepared.
+        boolean claimedBySession = consumeClaimedFaxFilePathFromSession();
         if (promotionDemographicNo != null && demographicNo != null
                 && promotionDemographicNo.equals(String.valueOf(demographicNo))) {
             return;
         }
         logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
                 transactionId);
-        deleteClaimedFaxFilePathIfSessionOwned();
+        if (claimedBySession) {
+            deleteRejectedClaimedFaxFile();
+        }
         // securityError.jsp renders the request attribute "actionErrors"; without bridging an
         // action error onto it here (as the validateFaxInputs catch in queue() already does for
         // its own SecurityExceptions), the clinician only sees the generic security error page
@@ -441,24 +451,17 @@ public class Fax2Action extends ActionSupport {
     }
 
     /**
-     * Deletes the claimed staged PDF for a rejected fax promotion, but only when the
-     * client-supplied {@link #faxFilePath} matches the exact path this session's own
-     * {@code prepareFax()} recorded as claimed.
+     * Deletes the claimed staged PDF at {@link #faxFilePath} for a rejected fax promotion.
+     * Callers must first confirm via {@link #consumeClaimedFaxFilePathFromSession()} that this
+     * session actually claimed this exact path.
      *
      * <p>The claimed PDF's ownership already transferred out of {@link EFormRenderApprovalService}
      * back in {@code prepareFax()} (its own bookkeeping no longer tracks or will ever clean up
-     * this file), so a rejected promotion must delete it itself or it orphans on disk. Deleting
-     * whatever app-temp-directory path the client happens to submit, without this session-recorded
-     * match, would let a rejection also delete an unrelated session's staged fax preview merely by
-     * resubmitting its path.</p>
+     * this file), so a rejected promotion must delete it itself or it orphans on disk.</p>
      */
-    private void deleteClaimedFaxFilePathIfSessionOwned() {
-        String claimedFaxFilePath = takeClaimedFaxFilePathFromSession();
-        if (claimedFaxFilePath == null || !claimedFaxFilePath.equals(faxFilePath)) {
-            return;
-        }
+    private void deleteRejectedClaimedFaxFile() {
         try {
-            deleteUnownedStagedFaxPreview(Path.of(claimedFaxFilePath));
+            deleteUnownedStagedFaxPreview(Path.of(faxFilePath));
         } catch (InvalidPathException e) {
             logger.warn("Unable to parse fax file path while cleaning up a rejected promotion", e);
         }
@@ -897,27 +900,40 @@ public class Fax2Action extends ActionSupport {
 
     private void recordClaimedFaxFilePathInSession(Path claimedPath) {
         HttpSession session = request.getSession(false);
-        if (session != null && claimedPath != null && transactionId != null) {
-            // claimedPath is a server-generated renderer/staging temp file path (createSecureTempFile
-            // or the staged-approval's own claimed path), never derived from request parameters.
-            session.setAttribute(CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + transactionId, claimedPath.toString()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- claimedPath is a server-generated renderer temp file path, never derived from request parameters
+        if (session == null || claimedPath == null) {
+            return;
         }
+        // claimedPath is a server-generated renderer/staging temp file path (createSecureTempFile
+        // or the staged-approval's own claimed path), never derived from request parameters.
+        claimedFaxFilePathsInSession(session).add(claimedPath.toString()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- claimedPath is a server-generated renderer temp file path, never derived from request parameters
     }
 
     /**
-     * Removes and returns this session's recorded claimed fax file path for the current
-     * {@link #transactionId}, or {@code null} if none is recorded. Single-use by design: once read
-     * here, the record is gone whether or not the caller's path matched it.
+     * Removes {@link #faxFilePath} from this session's set of outstanding claimed fax file paths
+     * and reports whether it was present. Single-use per claim: once consumed here, the same
+     * claim can never be consumed again, whether the promotion it belongs to is accepted or
+     * rejected -- so it cannot linger in the session past the request that resolves it, and a
+     * later, distinct claim for the same fdid is never confused with this one.
      */
-    private String takeClaimedFaxFilePathFromSession() {
+    private boolean consumeClaimedFaxFilePathFromSession() {
         HttpSession session = request.getSession(false);
-        if (session == null || transactionId == null) {
-            return null;
+        if (session == null || faxFilePath == null) {
+            return false;
         }
-        String key = CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + transactionId;
-        Object claimedPath = session.getAttribute(key);
-        session.removeAttribute(key);
-        return claimedPath == null ? null : claimedPath.toString();
+        return claimedFaxFilePathsInSession(session).remove(faxFilePath);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Set<String> claimedFaxFilePathsInSession(HttpSession session) {
+        synchronized (session) {
+            java.util.Set<String> claimedPaths =
+                    (java.util.Set<String>) session.getAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
+            if (claimedPaths == null) {
+                claimedPaths = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+                session.setAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY, claimedPaths);
+            }
+            return claimedPaths;
+        }
     }
 
     private String faxFilePath;

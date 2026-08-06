@@ -238,10 +238,9 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
         java.nio.file.Files.createDirectories(appTempRoot);
         java.nio.file.Path stagedFile =
                 java.nio.file.Files.createTempFile(appTempRoot, "queue-reject-test-", ".pdf");
-        // Seed the session the same way prepareFax() would have, right after claiming this file
-        // (transactionId 7 below must match the fdid this key is scoped to).
-        request.getSession(true).setAttribute(
-                Fax2Action.CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + 7, stagedFile.toString());
+        // Seed the session the same way prepareFax() would have, right after claiming this file.
+        request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
+                new java.util.HashSet<>(java.util.List.of(stagedFile.toString())));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -272,8 +271,8 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should track claimed fax file paths per fdid, so a second prepareFax() in the same session does not clobber the first's cleanup record")
-    void shouldTrackClaimedFaxFilePathPerFdid_soConcurrentPreviewsDoNotClobberEachOther() throws java.io.IOException {
+    @DisplayName("should track each claimed fax file path independently, so a second preview for the same fdid does not clobber the first's cleanup claim")
+    void shouldTrackEachClaimedFaxFilePathIndependently_forSameFdidRepreview() throws java.io.IOException {
         setUpCommonMocks();
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
                 .thenReturn(true);
@@ -285,16 +284,15 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
         java.nio.file.Path appTempRoot = java.nio.file.Paths.get(APP_TEMP_ROOT);
         java.nio.file.Files.createDirectories(appTempRoot);
-        java.nio.file.Path stagedFileSeven =
-                java.nio.file.Files.createTempFile(appTempRoot, "queue-fdid7-", ".pdf");
-        java.nio.file.Path stagedFileEight =
-                java.nio.file.Files.createTempFile(appTempRoot, "queue-fdid8-", ".pdf");
-        // Two fax previews claimed in the same authenticated session (e.g. concurrent tabs, or a
-        // second eForm prepared before the first is queued), for different eForms.
-        request.getSession(true).setAttribute(
-                Fax2Action.CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + 7, stagedFileSeven.toString());
-        request.getSession(true).setAttribute(
-                Fax2Action.CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + 8, stagedFileEight.toString());
+        java.nio.file.Path firstPreview =
+                java.nio.file.Files.createTempFile(appTempRoot, "queue-fdid7-first-", ".pdf");
+        java.nio.file.Path secondPreview =
+                java.nio.file.Files.createTempFile(appTempRoot, "queue-fdid7-second-", ".pdf");
+        // Two previews claimed for the SAME fdid in the same session (e.g. the clinician
+        // re-approved after a blocking-issue resubmission, or refreshed the cover page before
+        // queuing the first submission).
+        request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
+                new java.util.HashSet<>(java.util.List.of(firstPreview.toString(), secondPreview.toString())));
 
         try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -305,22 +303,73 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             action.setTransactionId(7);
             action.setDemographicNo(42);
             action.setRecipientFaxNumber("1234567890");
-            action.setFaxFilePath(stagedFileSeven.toString());
+            action.setFaxFilePath(firstPreview.toString());
 
             assertThatThrownBy(action::queue).isInstanceOf(SecurityException.class);
 
-            // fdid 7's rejection must clean up only its own claimed file...
-            assertThat(java.nio.file.Files.exists(stagedFileSeven)).isFalse();
-            // ...and must never touch fdid 8's still-pending claim. A single session-wide key
-            // (instead of one keyed per fdid) would have been overwritten by the second
-            // prepareFax() call, permanently losing the ability to clean up fdid 7's file and
-            // wrongly exposing fdid 8's file to fdid 7's rejection path.
-            assertThat(java.nio.file.Files.exists(stagedFileEight)).isTrue();
-            assertThat(request.getSession(true).getAttribute(Fax2Action.CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + 8))
-                    .isEqualTo(stagedFileEight.toString());
+            // The first (older) submission's own claimed file is cleaned up...
+            assertThat(java.nio.file.Files.exists(firstPreview)).isFalse();
+            // ...without disturbing the second, still-outstanding claim for the same fdid. A
+            // single slot per fdid (instead of independently tracked entries) would have been
+            // overwritten by the second prepareFax() call, so this rejection would have compared
+            // against the WRONG path -- leaving the first orphaned and/or wrongly deleting the
+            // second's still-valid claim.
+            assertThat(java.nio.file.Files.exists(secondPreview)).isTrue();
+            @SuppressWarnings("unchecked")
+            java.util.Set<String> remainingClaims = (java.util.Set<String>) request.getSession(true)
+                    .getAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
+            assertThat(remainingClaims).containsExactly(secondPreview.toString());
         } finally {
-            java.nio.file.Files.deleteIfExists(stagedFileSeven);
-            java.nio.file.Files.deleteIfExists(stagedFileEight);
+            java.nio.file.Files.deleteIfExists(firstPreview);
+            java.nio.file.Files.deleteIfExists(secondPreview);
+        }
+    }
+
+    @Test
+    @DisplayName("should remove the session-recorded claim on a successful promotion too, so it does not accumulate in a long-lived session")
+    void shouldRemoveSessionClaim_onSuccessfulPromotion() throws java.io.IOException {
+        setUpCommonMocks();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(true);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, eFormDataDao);
+        EFormData unchangedEForm = new EFormData();
+        unchangedEForm.setDemographicId(42);
+        when(eFormDataDao.find(7)).thenReturn(unchangedEForm);
+        when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()))
+                .thenReturn(java.util.List.of());
+
+        java.nio.file.Path appTempRoot = java.nio.file.Paths.get(APP_TEMP_ROOT);
+        java.nio.file.Files.createDirectories(appTempRoot);
+        java.nio.file.Path stagedFile =
+                java.nio.file.Files.createTempFile(appTempRoot, "queue-success-", ".pdf");
+        request.getSession(true).setAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY,
+                new java.util.HashSet<>(java.util.List.of(stagedFile.toString())));
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("EFORM");
+            action.setTransactionId(7);
+            action.setDemographicNo(42);
+            action.setRecipientFaxNumber("1234567890");
+            action.setFaxFilePath(stagedFile.toString());
+
+            String result = action.queue();
+
+            assertThat(result).isEqualTo("preview");
+            @SuppressWarnings("unchecked")
+            java.util.Set<String> remainingClaims = (java.util.Set<String>) request.getSession(true)
+                    .getAttribute(Fax2Action.CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
+            assertThat(remainingClaims)
+                    .describedAs("a resolved claim (accepted or rejected) must not linger in the session")
+                    .isEmpty();
+            // A successful promotion must not delete the file itself -- only the bookkeeping entry.
+            assertThat(java.nio.file.Files.exists(stagedFile)).isTrue();
+        } finally {
+            java.nio.file.Files.deleteIfExists(stagedFile);
         }
     }
 
@@ -338,7 +387,7 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
 
         java.nio.file.Path appTempRoot = java.nio.file.Paths.get(APP_TEMP_ROOT);
         java.nio.file.Files.createDirectories(appTempRoot);
-        // This session never claimed anything (no CLAIMED_FAX_FILE_SESSION_KEY_PREFIX entry set)
+        // This session never claimed anything (no CLAIMED_FAX_FILE_PATHS_SESSION_KEY entry set)
         // -- simulating an attacker, or simply a stale/mismatched client, submitting a faxFilePath
         // under the app temp directory that this session never staged, e.g. another session's own
         // preview.

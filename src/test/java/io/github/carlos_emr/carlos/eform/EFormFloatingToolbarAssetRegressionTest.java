@@ -214,6 +214,24 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
+    @DisplayName("should never register a setInterval handle as excluded-but-pending, matching intervals being excluded from all timer tracking")
+    void shouldNotTrackSetIntervalHandles_inExcludedSelfReschedulePendingSet() throws IOException {
+        String compat = read(RUNTIME_COMPAT_JS);
+
+        // selfRescheduleExcluded on its own only checks whether the same function reference is
+        // currently running -- it does not care whether THIS scheduling call was a setTimeout or
+        // a setInterval. Without the nativeTimer === nativeSetTimeout guard here (matching the
+        // identical guard already in the counted condition above), a self-rescheduling setInterval
+        // registration could land in the excluded-but-pending set, and since its handle is only
+        // ever removed on its first tick, whenIdle() would refuse to resolve early until that
+        // first tick (which could be seconds away) or the render's own cap -- even though
+        // setInterval is supposed to be entirely excluded from this tracking.
+        assertThat(compat)
+                .contains("if (selfRescheduleExcluded && nativeTimer === nativeSetTimeout) {")
+                .contains("excludedSelfReschedulePending.add(handle);");
+    }
+
+    @Test
     @DisplayName("should reset a handler's self-reschedule count once its chain ends, so a later unrelated chain starts fresh")
     void shouldResetSelfRescheduleCount_whenChainEndsOrIsCancelled() throws IOException {
         String compat = read(RUNTIME_COMPAT_JS);
