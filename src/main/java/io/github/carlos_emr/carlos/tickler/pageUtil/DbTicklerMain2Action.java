@@ -111,9 +111,9 @@ public final class DbTicklerMain2Action extends ActionSupport {
                 sortOrder = TicklerManager.SORT_ASC;
             }
 
-            response.sendRedirect(request.getContextPath()
-                    + "/tickler/ViewTicklerMain?sort_column=" + Encode.forUriComponent(sortColumn)
-                    + "&sort_order=" + Encode.forUriComponent(sortOrder));
+            String redirect = request.getContextPath() + "/tickler/ViewTicklerMain?sort_column="
+                    + Encode.forUriComponent(sortColumn) + "&sort_order=" + Encode.forUriComponent(sortOrder);
+            response.sendRedirect(appendScheduleNav(redirect));
             return NONE;
         }
 
@@ -146,11 +146,18 @@ public final class DbTicklerMain2Action extends ActionSupport {
             }
         }
 
-        String redirect = request.getContextPath() + "/tickler/ViewTicklerMain";
+        String redirect = appendScheduleNav(request.getContextPath() + "/tickler/ViewTicklerMain");
         if (failCount > 0) {
-            redirect += "?failCount=" + failCount;
+            redirect += (redirect.contains("?") ? "&" : "?") + "failCount=" + failCount;
         }
         response.sendRedirect(redirect);
         return NONE;
+    }
+
+    private String appendScheduleNav(String redirect) {
+        if (!"1".equals(request.getParameter("scheduleNav"))) {
+            return redirect;
+        }
+        return redirect + (redirect.contains("?") ? "&" : "?") + "scheduleNav=1";
     }
 }
