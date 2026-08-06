@@ -90,6 +90,10 @@ Python Packaging Advisory Database. Keep both generated locks in the same depend
   bundled client libraries are patched by updating the locked Psycopg package and rebuilding the
   deployment. When a production image is defined, evaluate `psycopg[c]` linked to image-managed
   `libpq` and `libssl`.
+- `cryptography` tracks the current major line rather than a pinned one. 48.x carries
+  PYSEC-2026-3552, 3553, and 3554; only 50.0.0 fixes all three, so the floor is 50.0.0. The portal
+  uses it for AES-256-GCM and HKDF in `unlock_secrets`, so treat advisories against it as
+  release-blocking rather than routine.
 - The CI PostgreSQL service uses a digest-pinned `postgres:16` image. Update the tag and digest
   together after reviewing upstream PostgreSQL image changes.
 

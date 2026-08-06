@@ -10,7 +10,8 @@ requires-python = ">=3.11"
 dependencies = [
   "alembic>=1.14,<2",
   "argon2-cffi>=25.1,<26",
-  "cryptography>=48.0.1,<49",
+  # 48.x carries PYSEC-2026-3552/3553/3554; 3552 is only fixed in 50.0.0.
+  "cryptography>=50.0.0,<51",
   "fastapi>=0.115,<1",
   # Version 5.1.1 models FHIR R4 4.0.1; newer major versions omit exact R4.
   "fhir.resources==5.1.1",
