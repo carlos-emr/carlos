@@ -29,6 +29,8 @@ import java.sql.SQLException;
  * @since 2026-08-06
  */
 public class QueryByExampleValidationException extends SQLException {
+    private static final long serialVersionUID = 1L;
+
     /**
      * Creates a validation exception with a user-safe diagnostic message.
      *

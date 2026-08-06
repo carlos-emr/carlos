@@ -48,6 +48,14 @@ class QueryByExampleSqlValidatorTest {
                 properties)).doesNotThrowAnyException();
         assertThatCode(() -> QueryByExampleSqlValidator.validate(
                 "select * from `oscar_mcmaster`.`demographic`", properties)).doesNotThrowAnyException();
+        assertThatCode(() -> QueryByExampleSqlValidator.validate(
+                "select count(*), date_format(date_of_birth, '%Y') from demographic", properties))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> QueryByExampleSqlValidator.validate(
+                "select row_number() over (order by demographic_no) from demographic", properties))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> QueryByExampleSqlValidator.validate(
+                "select `into` from demographic", properties)).doesNotThrowAnyException();
     }
 
     @Test
@@ -81,6 +89,16 @@ class QueryByExampleSqlValidatorTest {
                 .isInstanceOf(QueryByExampleValidationException.class);
     }
 
+    @Test
+    @DisplayName("rejects over-limit SQL before parsing")
+    void shouldRejectOverLimitSql_whenSubmissionIsTooLarge() {
+        String sql = "select '" + "x".repeat(QueryByExampleSqlValidator.MAX_SQL_CHARACTERS) + "'";
+
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.validate(sql, properties))
+                .isInstanceOf(QueryByExampleValidationException.class)
+                .hasMessage("SQL query exceeds the allowed length");
+    }
+
     @ParameterizedTest(name = "rejects: {0}")
     @MethodSource("unsafeQueries")
     @DisplayName("rejects unsafe or out-of-scope SQL")
@@ -105,6 +123,12 @@ class QueryByExampleSqlValidatorTest {
                 "select release_lock('qbe')",
                 "select is_free_lock('qbe')",
                 "select load_file('/etc/passwd')",
+                "select custom_reporting_udf(demographic_no) from demographic",
+                "select oscar_mcmaster.custom_reporting_udf(demographic_no) from demographic",
+                "select custom_reporting_udf(demographic_no) over () from demographic",
+                "select @query_by_example_variable",
+                "select @@version",
+                "select next value for report_sequence",
                 "select * from demographic for update",
                 "select * from demographic for share",
                 "select demographic_no into @number from demographic");

@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 public class RptByExampleData {
     public static final int MAX_ROWS = 1_000;
+    public static final int MAX_OUTPUT_CHARACTERS = 1_000_000;
     public static final int QUERY_TIMEOUT_SECONDS = 15;
 
     @FunctionalInterface
@@ -57,7 +58,7 @@ public class RptByExampleData {
         Connection getConnection() throws SQLException;
     }
 
-    public record QueryResult(String html, int rowCount) {
+    public record QueryResult(String html, int rowCount, boolean truncated, long durationMillis) {
     }
 
     private final ConnectionProvider connectionProvider;
@@ -71,12 +72,8 @@ public class RptByExampleData {
     }
 
     @SuppressFBWarnings(
-            value = {
-                    "SQL_INJECTION_JDBC",
-                    "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING",
-                    "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION"
-            },
-            justification = "Validated dynamic SQL is intentional; runtime failures are audited and handled by the action")
+            value = "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION",
+            justification = "Runtime failures are audited and handled by the action")
     public QueryResult execute(String sql, Properties properties, String providerNo) throws SQLException {
         long startedAt = System.nanoTime();
         String outcome = "failed";
@@ -89,15 +86,14 @@ public class RptByExampleData {
                 Exception executionFailure = null;
                 try {
                     connection.setReadOnly(true);
-                    // codeql[java/sql-injection] -- TrustedSql is created only after structural SELECT validation.
-                    try (PreparedStatement statement = connection.prepareStatement(trustedSql.sql(),
-                            ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) { // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
+                    try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
                         statement.setMaxRows(MAX_ROWS);
                         statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                        try (ResultSet resultSet = statement.executeQuery()) { // NOSONAR javasecurity:S3649 -- validated, read-only SELECT boundary
-                            RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(resultSet);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
+                                    resultSet, MAX_OUTPUT_CHARACTERS);
                             rowCount = structured.rowCount();
-                            queryResult = new QueryResult(structured.html(), rowCount);
+                            queryResult = new QueryResult(structured.html(), rowCount, structured.truncated(), 0);
                         }
                     }
                 } catch (SQLException | RuntimeException e) {
@@ -116,7 +112,8 @@ public class RptByExampleData {
                 }
             }
             outcome = "success";
-            return queryResult;
+            return new QueryResult(queryResult.html(), queryResult.rowCount(), queryResult.truncated(),
+                    elapsedMillis(startedAt));
         } catch (QueryByExampleValidationException e) {
             outcome = "rejected";
             throw e;
@@ -132,6 +129,16 @@ public class RptByExampleData {
         } finally {
             audit(providerNo, sql, elapsedMillis(startedAt), rowCount, outcome);
         }
+    }
+
+    @SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "This narrow sink accepts only TrustedSql created by structural SELECT validation")
+    private static PreparedStatement prepareValidatedStatement(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql) throws SQLException {
+        // codeql[java/sql-injection] -- TrustedSql is created only after structural SELECT validation.
+        return connection.prepareStatement(trustedSql.sql(), ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
     }
 
     public static void audit(String providerNo, String sql, long durationMillis, int rowCount, String outcome) {

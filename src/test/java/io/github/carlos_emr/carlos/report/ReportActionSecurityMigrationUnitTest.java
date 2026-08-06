@@ -31,6 +31,9 @@ import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action;
+import io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesAllFavorites2Action;
+import io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action;
+import io.github.carlos_emr.carlos.report.pageUtil.RptViewAllQueryByExamples2Action;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportFactory;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
 import io.github.carlos_emr.carlos.report.reportByTemplate.Reporter;
@@ -136,14 +139,17 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(false);
 
         assertMissingPrivilegeFails(new RptByExample2Action());
+        assertMissingPrivilegeFails(new RptViewAllQueryByExamples2Action());
+        assertMissingPrivilegeFails(new RptByExamplesAllFavorites2Action());
+        assertMissingPrivilegeFails(new RptByExamplesFavorite2Action());
         assertMissingPrivilegeFails(new ExportTemplate2Action());
         assertMissingPrivilegeFails(new GenerateOutFiles2Action());
         assertMissingPrivilegeFails(new GenerateReport2Action());
         assertMissingPrivilegeFails(new UploadTemplates2Action());
 
-        verify(securityInfoManager, times(5))
+        verify(securityInfoManager, times(8))
                 .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
-        verify(securityInfoManager, times(5))
+        verify(securityInfoManager, times(8))
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
     }
 
@@ -155,7 +161,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         assertAuthorizedMigrationGateAllowsActionBody();
 
-        verify(securityInfoManager, times(5))
+        verify(securityInfoManager, times(8))
                 .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
         verify(securityInfoManager, never())
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
@@ -170,9 +176,9 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         assertAuthorizedMigrationGateAllowsActionBody();
 
-        verify(securityInfoManager, times(5))
+        verify(securityInfoManager, times(8))
                 .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
-        verify(securityInfoManager, times(5))
+        verify(securityInfoManager, times(8))
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
     }
 
@@ -222,7 +228,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 RptByExampleData.class,
                 (mock, context) -> when(mock.execute(
                         eq("select demographic_no from demographic"), any(Properties.class), eq("999998")))
-                        .thenReturn(new RptByExampleData.QueryResult("<table></table>", 1)))) {
+                        .thenReturn(new RptByExampleData.QueryResult("<table></table>", 1, false, 23)))) {
             properties.setProperty(RptByExample2Action.ENABLED_PROPERTY, " yes ");
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(reportData.constructed()).hasSize(1);
@@ -280,6 +286,9 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
     private void assertAuthorizedMigrationGateAllowsActionBody() throws Exception {
         assertThat(new RptByExample2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new RptViewAllQueryByExamples2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new RptByExamplesAllFavorites2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new RptByExamplesFavorite2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
 
         request.setParameter("templateid", "template-1");
         assertThat(new ExportTemplate2Action().execute()).isEqualTo(ActionSupport.SUCCESS);

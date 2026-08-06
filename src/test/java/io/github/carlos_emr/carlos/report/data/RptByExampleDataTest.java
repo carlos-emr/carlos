@@ -30,6 +30,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.StringReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -73,7 +74,7 @@ class RptByExampleDataTest {
         when(metadata.getColumnCount()).thenReturn(1);
         when(metadata.getColumnLabel(1)).thenReturn("demographic_no");
         when(resultSet.next()).thenReturn(true, false);
-        when(resultSet.getString(1)).thenReturn("42");
+        when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new StringReader("42"));
     }
 
     @Test
@@ -131,18 +132,48 @@ class RptByExampleDataTest {
     }
 
     @Test
+    @DisplayName("preserves query failure when restoring an originally read-only connection also fails")
+    void shouldPreserveQueryFailure_whenOriginallyReadOnlyRestoreFails() throws SQLException {
+        SQLException queryFailure = new SQLException("query failed");
+        SQLException restoreFailure = new SQLException("restore failed");
+        when(statement.executeQuery()).thenThrow(queryFailure);
+        org.mockito.Mockito.doNothing().doThrow(restoreFailure).when(connection).setReadOnly(true);
+
+        assertThatThrownBy(() -> reportData.execute(
+                "select demographic_no from demographic", properties, "999998"))
+                .isSameAs(queryFailure)
+                .satisfies(thrown -> assertThat(thrown.getSuppressed()).containsExactly(restoreFailure));
+
+        verify(connection, org.mockito.Mockito.times(2)).setReadOnly(true);
+        verify(connection).close();
+    }
+
+    @Test
     @DisplayName("renders duplicate column labels using their positional values")
     void shouldRenderPositionalValues_whenColumnLabelsAreDuplicated() throws SQLException {
         when(metadata.getColumnCount()).thenReturn(2);
         when(metadata.getColumnLabel(1)).thenReturn("id");
         when(metadata.getColumnLabel(2)).thenReturn("id");
-        when(resultSet.getString(1)).thenReturn("first");
-        when(resultSet.getString(2)).thenReturn("second");
+        when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new StringReader("first"));
+        when(resultSet.getCharacterStream(2)).thenAnswer(ignored -> new StringReader("second"));
 
         RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet);
 
         assertThat(result.html()).contains("first").contains("second");
         assertThat(result.rowCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("truncates encoded result output at the configured character budget")
+    void shouldTruncateEncodedOutput_whenCellExceedsCharacterBudget() throws SQLException {
+        when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new StringReader("<".repeat(1_000)));
+
+        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet, 128);
+
+        assertThat(result.truncated()).isTrue();
+        assertThat(result.rowCount()).isEqualTo(1);
+        assertThat(result.html()).hasSizeLessThanOrEqualTo(128).endsWith("</td></tr></table>");
+        assertThat(result.html()).contains("&lt;");
     }
 
     @Test

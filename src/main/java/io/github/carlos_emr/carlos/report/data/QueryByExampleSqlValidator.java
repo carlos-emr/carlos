@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
@@ -29,8 +30,13 @@ import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.expression.AnalyticExpression;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.NextValExpression;
+import net.sf.jsqlparser.expression.UserVariable;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SetOperationList;
 import net.sf.jsqlparser.util.TablesNamesFinder;
@@ -46,13 +52,39 @@ import net.sf.jsqlparser.util.TablesNamesFinder;
  * @since 2026-08-06
  */
 public final class QueryByExampleSqlValidator {
+    public static final int MAX_SQL_CHARACTERS = 16_384;
+
     private static final Pattern LOCKING_SELECT = Pattern.compile(
             "\\bfor\\s+(?:update|share)\\b|\\block\\s+in\\s+share\\s+mode\\b",
             Pattern.CASE_INSENSITIVE);
-    private static final Pattern OUTPUT_OPERATION = Pattern.compile("\\binto\\b", Pattern.CASE_INSENSITIVE);
-    private static final Pattern BLOCKED_FUNCTION = Pattern.compile(
-            "(?<![a-z0-9_$])`?(?:sleep|benchmark|get_lock|release_lock|is_free_lock|load_file)`?\\s*\\(",
-            Pattern.CASE_INSENSITIVE);
+    private static final Pattern OUTPUT_OR_PROCEDURE_OPERATION = Pattern.compile(
+            "\\b(?:into|procedure)\\b", Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Reporting-safe built-ins. Anything not listed is rejected so stored functions and
+     * newly introduced vendor functions cannot silently cross the validation boundary.
+     */
+    private static final Set<String> ALLOWED_FUNCTIONS = Set.of(
+            "abs", "acos", "adddate", "addtime", "ascii", "asin", "atan", "atan2", "avg",
+            "bin", "bit_and", "bit_length", "bit_or", "bit_xor", "ceil", "ceiling", "char_length",
+            "character_length", "coalesce", "concat", "concat_ws", "conv", "convert_tz", "cos", "cot",
+            "count", "crc32", "curdate", "current_date", "current_time", "current_timestamp", "curtime",
+            "date", "date_add", "date_format", "date_sub", "datediff", "day", "dayname", "dayofmonth",
+            "dayofweek", "dayofyear", "degrees", "elt", "exp", "field", "find_in_set", "floor", "format",
+            "from_base64", "from_days", "from_unixtime", "get_format", "greatest", "hex", "hour", "if",
+            "ifnull", "instr", "lcase", "least", "left", "length", "ln", "localtime", "localtimestamp",
+            "locate", "log", "log10", "log2", "lower", "lpad", "ltrim", "makedate", "maketime", "max",
+            "md5", "microsecond", "mid", "min", "minute", "mod", "month", "monthname", "now", "nullif",
+            "oct", "octet_length", "ord", "period_add", "period_diff", "pi", "pow", "power", "quarter",
+            "quote", "radians", "rand", "repeat", "replace", "reverse", "right", "round", "rpad", "rtrim",
+            "sec_to_time", "second", "sha", "sha1", "sha2", "sign", "sin", "soundex", "space", "sqrt",
+            "std", "stddev", "stddev_pop", "stddev_samp", "str_to_date", "strcmp", "subdate", "substr",
+            "substring", "substring_index", "subtime", "sum", "sysdate", "tan", "time", "time_format",
+            "time_to_sec", "timediff", "timestamp", "timestampadd", "timestampdiff", "to_base64", "to_days",
+            "trim", "truncate", "ucase", "unhex", "unix_timestamp", "upper", "utc_date", "utc_time",
+            "utc_timestamp", "variance", "var_pop", "var_samp", "week", "weekday", "weekofyear", "year",
+            "yearweek", "cume_dist", "dense_rank", "first_value", "lag", "last_value", "lead", "nth_value",
+            "ntile", "percent_rank", "rank", "row_number");
 
     private QueryByExampleSqlValidator() {
     }
@@ -68,7 +100,13 @@ public final class QueryByExampleSqlValidator {
      */
     public static LegacyJdbcQuery.TrustedSql validate(String sql, Properties properties)
             throws QueryByExampleValidationException {
-        if (sql == null || sql.isBlank()) {
+        if (sql == null) {
+            throw new QueryByExampleValidationException("SQL query must not be empty");
+        }
+        if (sql.length() > MAX_SQL_CHARACTERS) {
+            throw new QueryByExampleValidationException("SQL query exceeds the allowed length");
+        }
+        if (sql.isBlank()) {
             throw new QueryByExampleValidationException("SQL query must not be empty");
         }
 
@@ -83,15 +121,14 @@ public final class QueryByExampleSqlValidator {
             throw new QueryByExampleValidationException("Only one SELECT statement is allowed");
         }
 
-        String sqlWithoutStringLiterals = stripStringLiterals(sql);
-        if (LOCKING_SELECT.matcher(sqlWithoutStringLiterals).find()) {
+        String sqlWithoutQuotedSections = stripQuotedSections(sql);
+        if (LOCKING_SELECT.matcher(sqlWithoutQuotedSections).find()) {
             throw new QueryByExampleValidationException("Locking SELECT statements are not allowed");
         }
-        if (OUTPUT_OPERATION.matcher(sqlWithoutStringLiterals).find()) {
+        if (OUTPUT_OR_PROCEDURE_OPERATION.matcher(sqlWithoutQuotedSections).find()) {
             throw new QueryByExampleValidationException("SELECT output operations are not allowed");
         }
-        rejectBlockedFunctions(sqlWithoutStringLiterals);
-        rejectOtherSchemas(statement, applicationSchema(properties));
+        rejectUnsafeExpressionsAndOtherSchemas(statement, applicationSchema(properties));
         try {
             return LegacyJdbcQuery.trustedSelectSql(sql);
         } catch (SQLException e) {
@@ -111,13 +148,23 @@ public final class QueryByExampleSqlValidator {
         return unquoteIdentifier(schema);
     }
 
-    private static void rejectOtherSchemas(Statement statement, String applicationSchema)
+    private static void rejectUnsafeExpressionsAndOtherSchemas(Statement statement, String applicationSchema)
             throws QueryByExampleValidationException {
         Set<String> tables;
+        SqlSafetyVisitor visitor = new SqlSafetyVisitor();
         try {
-            tables = new TablesNamesFinder<Void>().getTables(statement);
+            tables = visitor.getTables(statement);
         } catch (RuntimeException e) {
             throw new QueryByExampleValidationException("The query table references could not be validated", e);
+        }
+        if (visitor.hasOutputOperation()) {
+            throw new QueryByExampleValidationException("SELECT output operations are not allowed");
+        }
+        if (visitor.hasVariables()) {
+            throw new QueryByExampleValidationException("Session and system variables are not allowed");
+        }
+        if (!visitor.disallowedFunctions().isEmpty()) {
+            throw new QueryByExampleValidationException("The query uses a function outside the allowed set");
         }
         for (String table : tables) {
             String normalizedTable = unquoteIdentifier(table);
@@ -131,26 +178,20 @@ public final class QueryByExampleSqlValidator {
         }
     }
 
-    private static void rejectBlockedFunctions(String sql) throws QueryByExampleValidationException {
-        if (BLOCKED_FUNCTION.matcher(sql).find()) {
-            throw new QueryByExampleValidationException("The query uses a prohibited database function");
-        }
-    }
-
-    private static String stripStringLiterals(String sql) {
+    private static String stripQuotedSections(String sql) {
         StringBuilder stripped = new StringBuilder(sql.length());
         char quote = '\0';
         for (int i = 0; i < sql.length(); i++) {
             char current = sql.charAt(i);
             char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
             if (quote == '\0') {
-                if (current == '\'' || current == '"') {
+                if (current == '\'' || current == '"' || current == '`') {
                     quote = current;
                     stripped.append(' ');
                 } else {
                     stripped.append(current);
                 }
-            } else if (current == '\\' && next != '\0') {
+            } else if (quote != '`' && current == '\\' && next != '\0') {
                 stripped.append("  ");
                 i++;
             } else if (current == quote && next == quote) {
@@ -172,5 +213,63 @@ public final class QueryByExampleSqlValidator {
 
     private static String canonicalIdentifier(String identifier) {
         return identifier.toLowerCase(Locale.ROOT);
+    }
+
+    private static final class SqlSafetyVisitor extends TablesNamesFinder<Void> {
+        private final Set<String> disallowedFunctions = new java.util.HashSet<>();
+        private boolean variables;
+        private boolean outputOperation;
+
+        @Override
+        public <S> Void visit(Function function, S context) {
+            List<String> nameParts = function.getMultipartName();
+            String functionName = canonicalIdentifier(unquoteIdentifier(function.getName()));
+            if (nameParts == null || nameParts.size() != 1 || !ALLOWED_FUNCTIONS.contains(functionName)) {
+                disallowedFunctions.add(functionName);
+            }
+            return super.visit(function, context);
+        }
+
+        @Override
+        public <S> Void visit(AnalyticExpression function, S context) {
+            String functionName = canonicalIdentifier(unquoteIdentifier(function.getName()));
+            if (!ALLOWED_FUNCTIONS.contains(functionName)) {
+                disallowedFunctions.add(functionName);
+            }
+            return super.visit(function, context);
+        }
+
+        @Override
+        public <S> Void visit(UserVariable variable, S context) {
+            variables = true;
+            return super.visit(variable, context);
+        }
+
+        @Override
+        public <S> Void visit(NextValExpression sequence, S context) {
+            variables = true;
+            return super.visit(sequence, context);
+        }
+
+        @Override
+        public <S> Void visit(PlainSelect select, S context) {
+            if ((select.getIntoTables() != null && !select.getIntoTables().isEmpty())
+                    || select.getIntoTempTable() != null) {
+                outputOperation = true;
+            }
+            return super.visit(select, context);
+        }
+
+        Set<String> disallowedFunctions() {
+            return disallowedFunctions;
+        }
+
+        boolean hasVariables() {
+            return variables;
+        }
+
+        boolean hasOutputOperation() {
+            return outputOperation;
+        }
     }
 }

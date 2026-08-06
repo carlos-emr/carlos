@@ -64,8 +64,9 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
-            throw new SecurityException("missing required sec object (_report)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
         }
 
         String providerNo = (String) request.getSession().getAttribute("user");

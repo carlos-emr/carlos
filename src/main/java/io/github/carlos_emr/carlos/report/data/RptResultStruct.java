@@ -40,13 +40,18 @@ package io.github.carlos_emr.carlos.report.data;
 import io.github.carlos_emr.Misc;
 import org.owasp.encoder.Encode;
 
+import java.io.IOException;
+import java.io.Reader;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class RptResultStruct {
 
-    public record StructuredResult(String html, int rowCount) {
+    private static final int MIN_OUTPUT_CHARACTERS = 64;
+    private static final int CLOSING_MARKUP_RESERVE = 32;
+
+    public record StructuredResult(String html, int rowCount, boolean truncated) {
     }
     
     public static String getStructure(ResultSet rs) throws SQLException {
@@ -61,40 +66,146 @@ public class RptResultStruct {
      * @throws SQLException if the result set cannot be read
      */
     public static StructuredResult getStructureWithCount(ResultSet rs) throws SQLException {
+        return getStructureWithCount(rs, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Generates an encoded HTML table within a fixed output budget.
+     *
+     * @param rs result set positioned before its first row
+     * @param maxOutputCharacters maximum number of rendered HTML characters
+     * @return encoded table markup, rendered row count, and whether output was truncated
+     * @throws SQLException if the result set cannot be read
+     */
+    public static StructuredResult getStructureWithCount(ResultSet rs, int maxOutputCharacters) throws SQLException {
+        if (maxOutputCharacters < MIN_OUTPUT_CHARACTERS) {
+            throw new IllegalArgumentException("HTML output limit is too small");
+        }
 
     // assuming  multiple rows in rs
-        StringBuilder sb = new StringBuilder();
+        LimitedHtmlBuilder html = new LimitedHtmlBuilder(maxOutputCharacters);
 
         ResultSetMetaData rsmd = rs.getMetaData();
 
         int columns = rsmd.getColumnCount();
         String rowColor = "rowColor1";
-        String[] columnLabels = new String[columns];
-        sb.append("<table id='results'>");
+        html.appendMarkup("<table id='results'>");
         for (int i = 0; i < columns; i++) {  // for each column in result set
-            columnLabels[i] = rsmd.getColumnLabel(i + 1);
-            // put names in array
-            // use i+1 or else you're going to get an exception
-            //  insert headings for table
-            sb.append("<th class='headerColor'>");
-            sb.append(Encode.forHtml(columnLabels[i]));
-            sb.append("</th>");
+            if (!html.appendMarkup("<th class='headerColor'>")
+                    || !html.appendEncoded(rsmd.getColumnLabel(i + 1))) {
+                html.appendClosingMarkup("</th></table>");
+                return new StructuredResult(html.toString(), 0, true);
+            }
+            if (!html.appendMarkup("</th>")) {
+                html.appendClosingMarkup("</th></table>");
+                return new StructuredResult(html.toString(), 0, true);
+            }
         }
         int rowCount = 0;
-        while (rs.next()) {
+        boolean stopRendering = false;
+        while (!stopRendering && rs.next()) {
             rowCount++;
-            sb.append("<tr class='").append(rowColor).append("'>");
+            if (!html.appendMarkup("<tr class='" + rowColor + "'>")) {
+                break;
+            }
             for (int j = 0; j < columns; j++) {
-                sb.append("<td>");
-                sb.append(Encode.forHtml(Misc.getString(rs, j + 1)));
-                sb.append("</td>");
-
+                if (!html.appendMarkup("<td>")) {
+                    stopRendering = true;
+                    break;
+                }
+                try (Reader value = rs.getCharacterStream(j + 1)) {
+                    if (value != null && !html.appendEncoded(value)) {
+                        stopRendering = true;
+                    }
+                } catch (IOException e) {
+                    throw new SQLException("Could not render query result", e);
+                }
+                if (stopRendering) {
+                    html.appendClosingMarkup("</td>");
+                    break;
+                }
+                if (!html.appendMarkup("</td>")) {
+                    html.appendClosingMarkup("</td>");
+                    stopRendering = true;
+                    break;
+                }
             }
             rowColor = rowColor.equals("rowColor1") ? "rowColor2" : "rowColor1";
-            sb.append("</tr>");
+            if (stopRendering || !html.appendMarkup("</tr>")) {
+                html.appendClosingMarkup("</tr>");
+                stopRendering = true;
+            }
         }
-        sb.append("</table>");
-        return new StructuredResult(sb.toString(), rowCount);
+        html.appendClosingMarkup("</table>");
+        return new StructuredResult(html.toString(), rowCount, html.isTruncated());
+    }
+
+    private static final class LimitedHtmlBuilder {
+        private static final int READ_BUFFER_SIZE = 2_048;
+
+        private final StringBuilder html;
+        private final int contentLimit;
+        private boolean truncated;
+
+        LimitedHtmlBuilder(int maxOutputCharacters) {
+            contentLimit = maxOutputCharacters - CLOSING_MARKUP_RESERVE;
+            html = new StringBuilder(Math.min(maxOutputCharacters, 8_192));
+        }
+
+        boolean appendMarkup(String markup) {
+            if (markup.length() > remaining()) {
+                truncated = true;
+                return false;
+            }
+            html.append(markup);
+            return true;
+        }
+
+        boolean appendEncoded(String value) {
+            return appendEncodedChunk(Encode.forHtml(value == null ? "" : value));
+        }
+
+        boolean appendEncoded(Reader value) throws IOException {
+            char[] buffer = new char[READ_BUFFER_SIZE];
+            int read;
+            while ((read = value.read(buffer)) != -1) {
+                if (!appendEncodedChunk(Encode.forHtml(new String(buffer, 0, read)))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private boolean appendEncodedChunk(String encoded) {
+            int remaining = remaining();
+            if (encoded.length() <= remaining) {
+                html.append(encoded);
+                return true;
+            }
+            if (remaining > 0) {
+                int contentCharacters = Math.max(0, remaining - 1);
+                html.append(encoded, 0, contentCharacters).append('\u2026');
+            }
+            truncated = true;
+            return false;
+        }
+
+        void appendClosingMarkup(String markup) {
+            html.append(markup);
+        }
+
+        boolean isTruncated() {
+            return truncated;
+        }
+
+        private int remaining() {
+            return contentLimit - html.length();
+        }
+
+        @Override
+        public String toString() {
+            return html.toString();
+        }
     }
 
     //improvement over getStructure() - changed CSS naming conventions, added enterspaces for cleaner html,

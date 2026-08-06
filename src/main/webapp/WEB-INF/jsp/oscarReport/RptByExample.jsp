@@ -245,6 +245,13 @@
                                     <fmt:param value="${resultLimit}"/>
                                 </fmt:message>
                             </p>
+                            <c:if test="${resultTruncated}">
+                                <div class="alert alert-warning" role="alert">
+                                    <fmt:message key="oscarReport.RptByExample.MsgOutputTruncated">
+                                        <fmt:param value="${resultCharacterLimit}"/>
+                                    </fmt:message>
+                                </div>
+                            </c:if>
                             ${results}
                         </div>
                     </c:if>

@@ -141,11 +141,13 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("results", result.html());
         request.setAttribute("resultRowCount", result.rowCount());
         request.setAttribute("resultLimit", RptByExampleData.MAX_ROWS);
+        request.setAttribute("resultTruncated", result.truncated());
+        request.setAttribute("resultCharacterLimit", RptByExampleData.MAX_OUTPUT_CHARACTERS);
         try {
             write2Database(sql, providerNo);
         } catch (RuntimeException e) {
             request.setAttribute("queryHistoryError", true);
-            RptByExampleData.audit(providerNo, sql, 0, result.rowCount(), "history_failed");
+            RptByExampleData.audit(providerNo, sql, result.durationMillis(), result.rowCount(), "history_failed");
         }
 
         return SUCCESS;
