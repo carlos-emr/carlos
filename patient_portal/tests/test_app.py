@@ -129,6 +129,7 @@ from carlos_patient_portal.models import (
     PatientPortalUnlockSecret,
     utc_now,
 )
+from carlos_patient_portal.routes import fhir as fhir_routes
 from carlos_patient_portal.sms_delivery import PortalSmsDeliveryError, PortalSmsSender
 from carlos_patient_portal.unlock_secrets import (
     MAX_UNLOCK_SECRET_PROVIDER_OPTIONS,
@@ -895,7 +896,7 @@ def test_internal_readiness_reports_maintenance_without_hiding_liveness() -> Non
     assert sign_in_response.headers["retry-after"] == "120"
     assert sign_in_response.headers["cache-control"] == "no-store"
     assert fhir_response.status_code == 503
-    assert fhir_response.headers["content-type"].startswith(main.FHIR_JSON_MEDIA_TYPE)
+    assert fhir_response.headers["content-type"].startswith(fhir_routes.FHIR_JSON_MEDIA_TYPE)
     assert fhir_response.json()["resourceType"] == "OperationOutcome"
     assert public_health_response.status_code == 200
     assert public_health_response.json() == {"status": "ok"}

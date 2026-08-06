@@ -1,21 +1,17 @@
 import json
 import logging
-from collections import OrderedDict
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
 from datetime import date, timedelta
 from hashlib import sha256
 from hmac import new as new_hmac
 from http.cookies import SimpleCookie
 from ipaddress import ip_address, ip_network
-from math import ceil
 from pathlib import Path as FilePath
 from secrets import compare_digest, token_urlsafe
-from threading import Lock
 from time import monotonic, time
 from typing import Annotated, TypeVar
-from urllib.parse import parse_qs, quote, urlencode
+from urllib.parse import parse_qs, quote
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
@@ -27,7 +23,7 @@ from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
@@ -103,16 +99,7 @@ from carlos_patient_portal.i18n import (
 from carlos_patient_portal.identity import IdentityProof
 from carlos_patient_portal.internal_routes import register_carlos_internal_routes
 from carlos_patient_portal.interop import (
-    build_fhir_organization_id,
-    build_fhir_patient_id,
-    build_fhir_practitioner_id,
-    build_fhir_r4_bundle,
-    build_fhir_r4_capability_statement,
-    build_fhir_r4_document_reference,
     build_fhir_r4_operation_outcome,
-    build_fhir_r4_organization,
-    build_fhir_r4_portal_patient,
-    build_fhir_r4_practitioner,
 )
 from carlos_patient_portal.invites import (
     DEFAULT_INVITE_LIST_LIMIT,
@@ -133,7 +120,6 @@ from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
     AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
-    AUDIT_EVENT_FHIR_READ,
     AUDIT_EVENT_FHIR_SEARCH,
     AUDIT_EVENT_INVITE_LIST,
     AUDIT_EVENT_LOGIN,
@@ -141,10 +127,8 @@ from carlos_patient_portal.models import (
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
-    MAX_AUDIT_RESOURCE_ID_LENGTH,
     MFA_DELIVERY_METHOD_EMAIL,
     MFA_DELIVERY_METHOD_SMS,
-    UNLOCK_SECRET_STATUS_ACTIVE,
     UNLOCK_SECRET_TYPE_EMAIL,
     PatientPortalAccount,
     PatientPortalInvite,
@@ -154,6 +138,14 @@ from carlos_patient_portal.presenters import (
     assemble_email_password_dashboard,
     normalize_email_password_dashboard_provider,
     normalize_email_password_dashboard_search,
+)
+from carlos_patient_portal.routes.fhir import fhir_json_response, register_fhir_routes
+from carlos_patient_portal.runtime import (
+    FhirApiError,
+    InMemoryRateLimiter,
+    PortalRuntime,
+    RouteDependencies,
+    function_scoped_database_dependency,
 )
 from carlos_patient_portal.schemas import (
     AccountAdminResponse,
@@ -191,10 +183,7 @@ from carlos_patient_portal.unlock_secrets import (
     UnlockSecretNotFoundError,
     UnlockSecretNotPublishedError,
     UnlockSecretRevokedError,
-    count_unlock_secret_providers,
-    count_unlock_secrets,
     get_scoped_unlock_secret,
-    list_unlock_secret_provider_identities,
     list_unlock_secrets,
     read_unlock_secret,
 )
@@ -213,7 +202,6 @@ CONTENT_SECURITY_POLICY = (
     "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; "
     "object-src 'none'"
 )
-FHIR_JSON_MEDIA_TYPE = "application/fhir+json"
 FHIR_PATH_PREFIX = "/fhir/"
 PORTAL_ROOT_PATH = "/portal"
 MAX_PAGE_OFFSET = 100_000
@@ -283,73 +271,6 @@ ACCOUNT_NOTICE_MESSAGE_KEYS = {
 VALIDATION_ERROR_PRIVATE_FIELDS = {"ctx", "input"}
 
 
-@dataclass
-class RateLimitBucket:
-    window_started_at: float
-    request_count: int
-
-
-class InMemoryRateLimiter:
-    """Small per-process limiter for pilot deployments before shared edge limits exist."""
-
-    def __init__(
-        self,
-        *,
-        window_seconds: int,
-        max_requests: int,
-        max_buckets: int = 10_000,
-    ) -> None:
-        self.window_seconds = window_seconds
-        self.max_requests = max_requests
-        self.max_buckets = max_buckets
-        self.buckets: OrderedDict[str, RateLimitBucket] = OrderedDict()
-        self.lock = Lock()
-
-    def retry_after_seconds(self, key: str, *, now: float | None = None) -> int | None:
-        current_time = now if now is not None else monotonic()
-        with self.lock:
-            self.prune_expired_buckets(current_time)
-            bucket = self.buckets.get(key)
-            if bucket is None:
-                if len(self.buckets) >= self.max_buckets:
-                    self.buckets.popitem(last=False)
-                self.buckets[key] = RateLimitBucket(
-                    window_started_at=current_time,
-                    request_count=1,
-                )
-                return None
-            self.buckets.move_to_end(key)
-
-            elapsed_seconds = current_time - bucket.window_started_at
-            if elapsed_seconds >= self.window_seconds:
-                bucket.window_started_at = current_time
-                bucket.request_count = 1
-                return None
-
-            if bucket.request_count >= self.max_requests:
-                return max(1, ceil(self.window_seconds - elapsed_seconds))
-
-            bucket.request_count += 1
-            return None
-
-    def prune_expired_buckets(self, current_time: float) -> None:
-        while self.buckets:
-            key, bucket = next(iter(self.buckets.items()))
-            if current_time - bucket.window_started_at < self.window_seconds:
-                break
-            del self.buckets[key]
-
-
-class FhirApiError(Exception):
-    """Raised when a FHIR endpoint should return an OperationOutcome."""
-
-    def __init__(self, *, status_code: int, code: str, diagnostics: str) -> None:
-        super().__init__(diagnostics)
-        self.status_code = status_code
-        self.code = code
-        self.diagnostics = diagnostics
-
-
 class BrowserFormValidationError(Exception):
     """Raised when a browser form cannot be validated without exposing field details."""
 
@@ -361,70 +282,6 @@ class BrowserFormValidationError(Exception):
     ) -> None:
         super().__init__(message)
         self.safe_form_values = safe_form_values or {}
-
-
-@dataclass
-class PortalOperationalMetrics:
-    _lock: Lock = field(default_factory=Lock)
-    _request_counts: dict[str, int] = field(default_factory=dict)
-    _failure_counts: dict[str, int] = field(default_factory=dict)
-    _request_duration_ms_total: int = 0
-
-    def record_request(self, status_code: int, duration_ms: int) -> None:
-        status_group = f"{status_code // 100}xx"
-        with self._lock:
-            self._request_counts[status_group] = self._request_counts.get(status_group, 0) + 1
-            self._request_duration_ms_total += max(0, duration_ms)
-
-    def record_failure(self, failure_type: str) -> None:
-        with self._lock:
-            self._failure_counts[failure_type] = self._failure_counts.get(failure_type, 0) + 1
-
-    def snapshot(self) -> dict[str, object]:
-        with self._lock:
-            return {
-                "requests": dict(self._request_counts),
-                "failures": dict(self._failure_counts),
-                "request_duration_ms_total": self._request_duration_ms_total,
-            }
-
-
-@dataclass(frozen=True)
-class PortalRuntime:
-    settings: Settings
-    database_engine: Engine
-    session_factory: sessionmaker[Session]
-    csrf_secret: str
-    identity_proof_secret: str
-    audit_hash_secret: str
-    unlock_secret_encryption_secret: str
-    activation_rate_limit: ActivationRateLimit
-    auth_policy: AuthPolicy
-    rate_limiter: InMemoryRateLimiter
-    auth_rate_limiter: InMemoryRateLimiter
-    email_sender: PortalEmailSender | None
-    sms_sender: PortalSmsSender | None
-    unlock_secret_encryption_keys: dict[str, str] | None = None
-    unlock_secret_active_key_id: str = "primary"
-    operational_metrics: PortalOperationalMetrics = field(default_factory=PortalOperationalMetrics)
-
-
-@dataclass(frozen=True)
-class RouteDependencies:
-    get_app_database_session: Callable[..., Generator[Session, None, None]]
-    require_internal_health_token: Callable[..., None]
-    get_dev_admin_actor: Callable[..., str]
-    get_authorization_bearer_token: Callable[..., str]
-    get_authenticated_portal_session: Callable[..., AuthenticatedPortalSession]
-    get_authenticated_fhir_session: Callable[..., AuthenticatedPortalSession]
-    render_index_response: Callable[..., Response]
-    render_portal_page: Callable[..., Response]
-    get_portal_account_form_values: Callable[..., Awaitable[dict[str, list[str]]]]
-    get_portal_cookie_session_or_redirect: Callable[
-        [Request, Session],
-        AuthenticatedPortalSession | RedirectResponse,
-    ]
-    render_account_change_error: Callable[..., Response]
 
 
 def create_csrf_token(secret: str) -> str:
@@ -574,13 +431,6 @@ def is_maintenance_exempt_path(path: str) -> bool:
     }
 
 
-def function_scoped_database_dependency(
-    dependency: Callable[[], Generator[Session, None, None]],
-) -> object:
-    # FastAPI supports dependency teardown before response delivery with scope="function".
-    return Depends(dependency, scope="function")  # NOSONAR - Sonar's FastAPI stub lacks scope.
-
-
 def is_json_request(request: Request) -> bool:
     return request.headers.get("content-type", "").partition(";")[0].strip().lower() == (
         "application/json"
@@ -677,18 +527,6 @@ def email_password_secret_response_payload(
     }
 
 
-def fhir_json_response(
-    payload: dict[str, object],
-    *,
-    status_code: int = status.HTTP_200_OK,
-) -> JSONResponse:
-    return JSONResponse(
-        status_code=status_code,
-        content=payload,
-        media_type=FHIR_JSON_MEDIA_TYPE,
-    )
-
-
 def fhir_operation_outcome_response(
     *,
     status_code: int,
@@ -699,149 +537,6 @@ def fhir_operation_outcome_response(
         build_fhir_r4_operation_outcome(code=code, diagnostics=diagnostics),
         status_code=status_code,
     )
-
-
-def fhir_not_found() -> FhirApiError:
-    return FhirApiError(
-        status_code=status.HTTP_404_NOT_FOUND,
-        code="not-found",
-        diagnostics="resource not found",
-    )
-
-
-def parse_fhir_numeric_id(resource_id: str) -> int:
-    try:
-        parsed_id = int(resource_id)
-    except ValueError as exc:
-        raise fhir_not_found() from exc
-    # Python ints are unbounded; anything beyond the column's range must be rejected here rather
-    # than raising OverflowError/DataError inside the driver and surfacing as a 500.
-    if not 0 < parsed_id <= MAX_DATABASE_ID:
-        raise fhir_not_found()
-    return parsed_id
-
-
-def fhir_patient_reference(account: PatientPortalAccount) -> str:
-    return f"Patient/{build_fhir_patient_id(account.clinic_id, account.demographic_no)}"
-
-
-def fhir_base_url(settings: Settings, request: Request) -> str:
-    if settings.public_base_url is not None:
-        return f"{settings.public_base_url.rstrip('/')}/fhir"
-    return f"{str(request.base_url).rstrip('/')}/fhir"
-
-
-def fhir_search_url(
-    *,
-    base_url: str,
-    resource_type: str,
-    count: int,
-    offset: int,
-    resource_id: str | None = None,
-    subject: str | None = None,
-) -> str:
-    query: list[tuple[str, str]] = [
-        ("_count", str(count)),
-        ("_offset", str(offset)),
-    ]
-    if resource_id is not None:
-        query.append(("_id", resource_id))
-    if subject is not None:
-        query.append(("subject", subject))
-    return f"{base_url.rstrip('/')}/{resource_type}?{urlencode(query)}"
-
-
-def fhir_bundle_links(
-    *,
-    base_url: str,
-    resource_type: str,
-    count: int,
-    offset: int,
-    total: int,
-    resource_id: str | None = None,
-    subject: str | None = None,
-) -> tuple[str, str | None, str | None]:
-    build_link = lambda page_offset: fhir_search_url(  # noqa: E731
-        base_url=base_url,
-        resource_type=resource_type,
-        count=count,
-        offset=page_offset,
-        resource_id=resource_id,
-        subject=subject,
-    )
-    self_link = build_link(offset)
-    previous_link = build_link(max(0, offset - count)) if offset > 0 else None
-    next_link = build_link(offset + count) if offset + count < total else None
-    return self_link, previous_link, next_link
-
-
-def record_fhir_access(
-    session: Session,
-    account: PatientPortalAccount,
-    *,
-    event_type: str,
-    resource_type: str,
-    resource_id: str | None,
-    outcome: str,
-    reason: str,
-) -> None:
-    # The raw client-supplied id is stored for traceability, but it must never be able to violate
-    # the column's length CHECK: an audit write that raises would turn a clean 404 into a 500 and
-    # lose the very event recording the attempt.
-    if resource_id is not None:
-        # Control characters must go too: SQLite's length() stops at an embedded NUL, so a raw
-        # "\x00" id measures as length 0 and fails the same CHECK from the other direction.
-        resource_id = "".join(
-            character if character.isprintable() else "?" for character in resource_id
-        )
-        if len(resource_id) > MAX_AUDIT_RESOURCE_ID_LENGTH:
-            resource_id = f"{resource_id[: MAX_AUDIT_RESOURCE_ID_LENGTH - 1]}~"
-        if not resource_id:
-            resource_id = "?"
-    record_audit_event(
-        session,
-        event_type=event_type,
-        outcome=outcome,
-        actor_type=AUDIT_ACTOR_TYPE_PATIENT,
-        actor=account.username,
-        actor_id=str(account.id),
-        clinic_id=account.clinic_id,
-        demographic_no=account.demographic_no,
-        account_id=account.id,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        reason=reason,
-    )
-
-
-def find_fhir_practitioner(
-    session: Session,
-    account: PatientPortalAccount,
-    practitioner_id: str,
-) -> tuple[str | None, str] | None:
-    total = count_unlock_secret_providers(
-        session,
-        clinic_id=account.clinic_id,
-        demographic_no=account.demographic_no,
-        secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-    )
-    for provider_offset in range(0, total, MAX_UNLOCK_SECRET_LIST_LIMIT):
-        provider_rows = list_unlock_secret_provider_identities(
-            session,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            limit=MAX_UNLOCK_SECRET_LIST_LIMIT,
-            offset=provider_offset,
-        )
-        for provider_id, name in provider_rows:
-            if practitioner_id == build_fhir_practitioner_id(
-                clinic_id=account.clinic_id,
-                name=name,
-                provider_id=provider_id,
-            ):
-                return provider_id, name
-    return None
 
 
 def auth_policy_from_settings(settings: Settings) -> AuthPolicy:
@@ -2944,450 +2639,6 @@ def register_auth_routes(
             "clinic_id": account.clinic_id,
             "demographic_no": account.demographic_no,
         }
-
-
-def register_fhir_routes(
-    app: FastAPI,
-    runtime: PortalRuntime,
-    route_dependencies: RouteDependencies,
-) -> None:
-    settings = runtime.settings
-    get_app_database_session = route_dependencies.get_app_database_session
-    get_authenticated_fhir_session = route_dependencies.get_authenticated_fhir_session
-
-    @app.get("/fhir/metadata")
-    def fhir_metadata(request: Request) -> JSONResponse:
-        return fhir_json_response(
-            build_fhir_r4_capability_statement(
-                service_name=settings.service_name,
-                base_url=fhir_base_url(settings, request),
-            ),
-        )
-
-    @app.get("/fhir/Patient")
-    def fhir_patient_search(
-        request: Request,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
-        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        patient = build_fhir_r4_portal_patient(account)
-        matches = resource_id is None or resource_id == patient["id"]
-        resources = [patient] if matches and offset == 0 else []
-        total = 1 if matches else 0
-        base_url = fhir_base_url(settings, request)
-        self_link, previous_link, next_link = fhir_bundle_links(
-            base_url=base_url,
-            resource_type="Patient",
-            count=count,
-            offset=offset,
-            total=total,
-            resource_id=resource_id,
-        )
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_SEARCH,
-            resource_type="Patient",
-            resource_id=str(patient["id"]),
-            outcome=AUDIT_OUTCOME_SUCCESS,
-            reason="search",
-        )
-        return fhir_json_response(
-            build_fhir_r4_bundle(
-                resources=resources,
-                base_url=base_url,
-                self_link=self_link,
-                previous_link=previous_link,
-                next_link=next_link,
-                total=total,
-            )
-        )
-
-    @app.get("/fhir/Patient/{patient_id}")
-    def fhir_patient_read(
-        patient_id: str,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        expected_patient_id = build_fhir_patient_id(account.clinic_id, account.demographic_no)
-        if patient_id != expected_patient_id:
-            record_fhir_access(
-                session,
-                account,
-                event_type=AUDIT_EVENT_FHIR_READ,
-                resource_type="Patient",
-                resource_id=patient_id,
-                outcome=AUDIT_OUTCOME_FAILURE,
-                reason="not_found",
-            )
-            session.commit()
-            raise fhir_not_found()
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_READ,
-            resource_type="Patient",
-            resource_id=patient_id,
-            outcome=AUDIT_OUTCOME_SUCCESS,
-            reason="read",
-        )
-        return fhir_json_response(build_fhir_r4_portal_patient(account))
-
-    @app.get("/fhir/DocumentReference")
-    def fhir_document_reference_search(
-        request: Request,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
-        subject: Annotated[str | None, Query(max_length=128)] = None,
-        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        patient_reference = fhir_patient_reference(account)
-        subject_matches = subject is None or subject.removeprefix("Patient/") == (
-            patient_reference.removeprefix("Patient/")
-        )
-        records: list[PatientPortalUnlockSecret] = []
-        total = 0
-        if subject_matches and resource_id is not None:
-            try:
-                record = get_scoped_unlock_secret(
-                    session,
-                    parse_fhir_numeric_id(resource_id),
-                    clinic_id=account.clinic_id,
-                    demographic_no=account.demographic_no,
-                    secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-                )
-                if record.status == UNLOCK_SECRET_STATUS_ACTIVE:
-                    total = 1
-                    if offset == 0:
-                        records = [record]
-            except (FhirApiError, UnlockSecretNotFoundError):
-                pass
-        elif subject_matches:
-            total = count_unlock_secrets(
-                session,
-                clinic_id=account.clinic_id,
-                demographic_no=account.demographic_no,
-                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            )
-            records = list_unlock_secrets(
-                session,
-                clinic_id=account.clinic_id,
-                demographic_no=account.demographic_no,
-                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-                limit=count,
-                offset=offset,
-            )
-        resources = [
-            build_fhir_r4_document_reference(
-                record,
-                patient_reference=patient_reference,
-            )
-            for record in records
-        ]
-        base_url = fhir_base_url(settings, request)
-        self_link, previous_link, next_link = fhir_bundle_links(
-            base_url=base_url,
-            resource_type="DocumentReference",
-            count=count,
-            offset=offset,
-            total=total,
-            resource_id=resource_id,
-            subject=subject,
-        )
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_SEARCH,
-            resource_type="DocumentReference",
-            resource_id=resource_id or patient_reference,
-            outcome=AUDIT_OUTCOME_SUCCESS,
-            reason="search",
-        )
-        return fhir_json_response(
-            build_fhir_r4_bundle(
-                resources=resources,
-                base_url=base_url,
-                self_link=self_link,
-                previous_link=previous_link,
-                next_link=next_link,
-                total=total,
-            )
-        )
-
-    @app.get("/fhir/DocumentReference/{document_reference_id}")
-    def fhir_document_reference_read(
-        document_reference_id: str,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        try:
-            # Parsing stays inside the audited branch so a malformed ID is recorded exactly like an
-            # unknown one; otherwise `/fhir/DocumentReference/not-a-number` left no read event.
-            record = get_scoped_unlock_secret(
-                session,
-                parse_fhir_numeric_id(document_reference_id),
-                clinic_id=account.clinic_id,
-                demographic_no=account.demographic_no,
-                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            )
-        except (UnlockSecretNotFoundError, FhirApiError) as exc:
-            record_fhir_access(
-                session,
-                account,
-                event_type=AUDIT_EVENT_FHIR_READ,
-                resource_type="DocumentReference",
-                resource_id=document_reference_id,
-                outcome=AUDIT_OUTCOME_FAILURE,
-                reason="not_found",
-            )
-            session.commit()
-            raise fhir_not_found() from exc
-        if record.status != UNLOCK_SECRET_STATUS_ACTIVE:
-            record_fhir_access(
-                session,
-                account,
-                event_type=AUDIT_EVENT_FHIR_READ,
-                resource_type="DocumentReference",
-                resource_id=document_reference_id,
-                outcome=AUDIT_OUTCOME_FAILURE,
-                reason="not_found",
-            )
-            session.commit()
-            raise fhir_not_found()
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_READ,
-            resource_type="DocumentReference",
-            resource_id=document_reference_id,
-            outcome=AUDIT_OUTCOME_SUCCESS,
-            reason="read",
-        )
-        return fhir_json_response(
-            build_fhir_r4_document_reference(
-                record,
-                patient_reference=fhir_patient_reference(account),
-            )
-        )
-
-    @app.get("/fhir/Organization")
-    def fhir_organization_search(
-        request: Request,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
-        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        organization = build_fhir_r4_organization(
-            clinic_id=account.clinic_id,
-            clinic_name=settings.clinic_name,
-        )
-        matches = resource_id is None or resource_id == organization["id"]
-        total = 1 if matches else 0
-        resources = [organization] if matches and offset == 0 else []
-        base_url = fhir_base_url(settings, request)
-        self_link, previous_link, next_link = fhir_bundle_links(
-            base_url=base_url,
-            resource_type="Organization",
-            count=count,
-            offset=offset,
-            total=total,
-            resource_id=resource_id,
-        )
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_SEARCH,
-            resource_type="Organization",
-            resource_id=str(organization["id"]),
-            outcome=AUDIT_OUTCOME_SUCCESS,
-            reason="search",
-        )
-        return fhir_json_response(
-            build_fhir_r4_bundle(
-                resources=resources,
-                base_url=base_url,
-                self_link=self_link,
-                previous_link=previous_link,
-                next_link=next_link,
-                total=total,
-            )
-        )
-
-    @app.get("/fhir/Organization/{organization_id}")
-    def fhir_organization_read(
-        organization_id: str,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        if organization_id != build_fhir_organization_id(account.clinic_id):
-            record_fhir_access(
-                session,
-                account,
-                event_type=AUDIT_EVENT_FHIR_READ,
-                resource_type="Organization",
-                resource_id=organization_id,
-                outcome=AUDIT_OUTCOME_FAILURE,
-                reason="not_found",
-            )
-            session.commit()
-            raise fhir_not_found()
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_READ,
-            resource_type="Organization",
-            resource_id=organization_id,
-            outcome=AUDIT_OUTCOME_SUCCESS,
-            reason="read",
-        )
-        return fhir_json_response(
-            build_fhir_r4_organization(
-                clinic_id=account.clinic_id,
-                clinic_name=settings.clinic_name,
-            )
-        )
-
-    @app.get("/fhir/Practitioner")
-    def fhir_practitioner_search(
-        request: Request,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-        resource_id: Annotated[str | None, Query(alias="_id", max_length=64)] = None,
-        count: Annotated[int, Query(alias="_count", ge=1, le=100)] = 20,
-        offset: Annotated[int, Query(alias="_offset", ge=0, le=MAX_PAGE_OFFSET)] = 0,
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        total = count_unlock_secret_providers(
-            session,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-        )
-        if resource_id is None:
-            provider_rows = list_unlock_secret_provider_identities(
-                session,
-                clinic_id=account.clinic_id,
-                demographic_no=account.demographic_no,
-                secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-                limit=count,
-                offset=offset,
-            )
-        else:
-            provider = find_fhir_practitioner(session, account, resource_id)
-            provider_rows = [provider] if provider is not None and offset == 0 else []
-            total = 1 if provider is not None else 0
-        resources = []
-        for provider_id, name in provider_rows:
-            practitioner = build_fhir_r4_practitioner(
-                clinic_id=account.clinic_id,
-                name=name,
-                provider_id=provider_id,
-            )
-            if resource_id is None or practitioner["id"] == resource_id:
-                resources.append(practitioner)
-        base_url = fhir_base_url(settings, request)
-        self_link, previous_link, next_link = fhir_bundle_links(
-            base_url=base_url,
-            resource_type="Practitioner",
-            count=count,
-            offset=offset,
-            total=total,
-            resource_id=resource_id,
-        )
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_SEARCH,
-            resource_type="Practitioner",
-            resource_id=resource_id or fhir_patient_reference(account),
-            outcome=AUDIT_OUTCOME_SUCCESS,
-            reason="search",
-        )
-        return fhir_json_response(
-            build_fhir_r4_bundle(
-                resources=resources,
-                base_url=base_url,
-                self_link=self_link,
-                previous_link=previous_link,
-                next_link=next_link,
-                total=total,
-            )
-        )
-
-    @app.get("/fhir/Practitioner/{practitioner_id}")
-    def fhir_practitioner_read(
-        practitioner_id: str,
-        authenticated_session: Annotated[
-            AuthenticatedPortalSession,
-            Depends(get_authenticated_fhir_session),
-        ],
-        session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
-    ) -> JSONResponse:
-        account = authenticated_session.account
-        provider = find_fhir_practitioner(session, account, practitioner_id)
-        if provider is not None:
-            provider_id, name = provider
-            record_fhir_access(
-                session,
-                account,
-                event_type=AUDIT_EVENT_FHIR_READ,
-                resource_type="Practitioner",
-                resource_id=practitioner_id,
-                outcome=AUDIT_OUTCOME_SUCCESS,
-                reason="read",
-            )
-            return fhir_json_response(
-                build_fhir_r4_practitioner(
-                    clinic_id=account.clinic_id,
-                    name=name,
-                    provider_id=provider_id,
-                )
-            )
-        record_fhir_access(
-            session,
-            account,
-            event_type=AUDIT_EVENT_FHIR_READ,
-            resource_type="Practitioner",
-            resource_id=practitioner_id,
-            outcome=AUDIT_OUTCOME_FAILURE,
-            reason="not_found",
-        )
-        session.commit()
-        raise fhir_not_found()
 
 
 def register_patient_email_password_routes(
