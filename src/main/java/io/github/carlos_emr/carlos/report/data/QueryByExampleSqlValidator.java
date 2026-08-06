@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -105,7 +106,7 @@ public final class QueryByExampleSqlValidator {
             int lastDot = normalizedTable.lastIndexOf('.');
             if (lastDot > 0) {
                 String qualifier = normalizedTable.substring(0, lastDot);
-                if (!qualifier.equalsIgnoreCase(applicationSchema)) {
+                if (!canonicalIdentifier(qualifier).equals(canonicalIdentifier(applicationSchema))) {
                     throw new QueryByExampleValidationException("Queries may only read the application database schema");
                 }
             }
@@ -149,5 +150,9 @@ public final class QueryByExampleSqlValidator {
 
     private static String unquoteIdentifier(String identifier) {
         return identifier.replace("`", "").replace("\"", "").trim();
+    }
+
+    private static String canonicalIdentifier(String identifier) {
+        return identifier.toLowerCase(Locale.ROOT);
     }
 }

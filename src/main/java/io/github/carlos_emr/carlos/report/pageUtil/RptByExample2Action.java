@@ -35,6 +35,7 @@ import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -105,7 +106,7 @@ public class RptByExample2Action extends ActionSupport {
         sql = sql == null ? "" : sql;
         request.setAttribute("submittedSql", sql);
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             return SUCCESS;
         }
 
@@ -154,10 +155,8 @@ public class RptByExample2Action extends ActionSupport {
         if (configured == null || configured.isBlank()) {
             return true;
         }
-        String normalized = configured.trim();
-        return normalized.equalsIgnoreCase("true")
-                || normalized.equalsIgnoreCase("yes")
-                || normalized.equalsIgnoreCase("on");
+        String normalized = configured.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("true") || normalized.equals("yes") || normalized.equals("on");
     }
 
     public void write2Database(String query, String providerNo) {

@@ -98,6 +98,7 @@ class QueryByExampleSqlValidatorTest {
                 "select * from demographic; select * from provider",
                 "select * from demographic -- comment",
                 "select * from other_database.demographic",
+                "select * from o\u017Fcar_mcmaster.demographic",
                 "select sleep(1)",
                 "select benchmark(1000, md5('x'))",
                 "select get_lock('qbe', 1)",
