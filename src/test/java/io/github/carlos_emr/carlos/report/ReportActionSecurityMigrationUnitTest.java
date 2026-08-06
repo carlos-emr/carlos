@@ -21,10 +21,9 @@
  */
 package io.github.carlos_emr.carlos.report;
 
-import java.util.Collections;
-
-import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
+import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesFavoriteDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action;
@@ -71,15 +70,16 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
-    private SecUserRoleDao secUserRoleDao;
+    private ReportByExamplesDao reportByExamplesDao;
 
     @BeforeEach
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
-        secUserRoleDao = mock(SecUserRoleDao.class);
+        reportByExamplesDao = mock(ReportByExamplesDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(SecUserRoleDao.class, secUserRoleDao);
-        registerMock(ReportByExamplesDao.class, mock(ReportByExamplesDao.class));
+        registerMock(ReportByExamplesDao.class, reportByExamplesDao);
+        ReportByExamplesFavoriteDao favoritesDao = mock(ReportByExamplesFavoriteDao.class);
+        registerMock(ReportByExamplesFavoriteDao.class, favoritesDao);
         registerMock(ReportTemplatesDao.class, mock(ReportTemplatesDao.class));
 
         request = new MockHttpServletRequest();
@@ -92,7 +92,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(secUserRoleDao.findByRoleNameAndProviderNo("admin", "999998")).thenReturn(Collections.emptyList());
+        when(favoritesDao.findByProvider("999998")).thenReturn(java.util.Collections.emptyList());
     }
 
     @AfterEach
@@ -142,7 +142,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("migrated actions skip report privilege check when admin read is present")
-    void shouldSkipReportReadPrivilege_whenAdminReadPrivilegeAllowsAccess() {
+    void shouldSkipReportReadPrivilege_whenAdminReadPrivilegeAllowsAccess() throws Exception {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
 
@@ -156,7 +156,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("migrated actions allow report read privilege when admin read is missing")
-    void shouldAllowAccess_whenReportReadPrivilegeAllowsAccess() {
+    void shouldAllowAccess_whenReportReadPrivilegeAllowsAccess() throws Exception {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(true);
@@ -167,6 +167,34 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
         verify(securityInfoManager, times(5))
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
+    }
+
+    @Test
+    @DisplayName("RptByExample keeps the form available but does not execute or save when disabled")
+    void shouldKeepFormWithoutSaving_whenQueryByExampleIsDisabled() throws Exception {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(true);
+        request.setMethod("POST");
+        RptByExample2Action action = new RptByExample2Action();
+        action.setSql("select demographic_no from demographic");
+
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previousValue = properties.getProperty(RptByExample2Action.ENABLED_PROPERTY);
+        try {
+            properties.setProperty(RptByExample2Action.ENABLED_PROPERTY, "false");
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        } finally {
+            if (previousValue == null) {
+                properties.remove(RptByExample2Action.ENABLED_PROPERTY);
+            } else {
+                properties.setProperty(RptByExample2Action.ENABLED_PROPERTY, previousValue);
+            }
+        }
+
+        assertThat(request.getAttribute("queryDisabled")).isEqualTo(true);
+        assertThat(request.getAttribute("submittedSql")).isEqualTo("select demographic_no from demographic");
+        verifyNoInteractions(reportByExamplesDao);
     }
 
     @Test
@@ -206,10 +234,8 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 .hasMessage(MISSING_ADMIN_OR_REPORT);
     }
 
-    private void assertAuthorizedMigrationGateAllowsActionBody() {
-        assertThatThrownBy(() -> new RptByExample2Action().execute())
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required admin privileges to run query by example");
+    private void assertAuthorizedMigrationGateAllowsActionBody() throws Exception {
+        assertThat(new RptByExample2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
 
         request.setParameter("templateid", "template-1");
         assertThat(new ExportTemplate2Action().execute()).isEqualTo(ActionSupport.SUCCESS);

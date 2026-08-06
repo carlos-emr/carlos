@@ -30,64 +30,91 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
-import java.util.ArrayList;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.Properties;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * This classes main function FluReportGenerate collects a group of patients with flu in the last specified date
  */
 public class RptByExampleData {
-    public static final String DIRECT_SQL_DISABLED_MESSAGE =
-            "Direct SQL execution has been disabled. Use curated report templates instead.";
+    public static final int MAX_ROWS = 1_000;
+    public static final int QUERY_TIMEOUT_SECONDS = 15;
 
-    public ArrayList demoList = null;
-    public String sql = "";
-    public String results = null;
-    public String connect = null;
-    Properties oscarVariables = null;
+    @FunctionalInterface
+    interface ConnectionProvider {
+        Connection getConnection() throws SQLException;
+    }
+
+    public record QueryResult(String html, int rowCount) {
+    }
+
+    private final ConnectionProvider connectionProvider;
 
     public RptByExampleData() {
+        this(LegacyJdbcQuery::getConnection);
     }
 
-    public String exampleTextGenerate(String sql, Properties oscarVariables) {
-        return exampleReportGenerate(sql, oscarVariables);
+    RptByExampleData(ConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
     }
 
-    public String exampleReportGenerate(String sql, Properties oscarVariables) {
-        if (sql == null || sql.trim().isEmpty()) {
-            return "";
-        }
-
-        this.sql = sql;
-        this.oscarVariables = oscarVariables;
-
-        // Direct request-submitted SQL is deliberately not executed. A
-        // denylist-validated SELECT can still read tables/columns outside the
-        // user's reporting workflow, so this legacy endpoint now preserves the
-        // page contract while blocking the unsafe database boundary.
-        MiscUtils.getLogger().warn("Blocked direct Query-by-Example SQL execution; queryLength={}", sql.length());
-        results = DIRECT_SQL_DISABLED_MESSAGE;
-        return results;
-    }
-
-    public static String replaceSQLString
-            (String oldString, String newString, String inputString) {
-
-        String outputString = "";
-        int i;
-        for (i = 0; i < inputString.length(); i++) {
-            if (!(inputString.regionMatches(true, i, oldString,
-                    0, oldString.length())))
-                outputString += inputString.charAt(i);
-            else {
-                outputString += newString;
-                i += oldString.length() - 1;
+    public QueryResult execute(String sql, Properties properties, String providerNo) throws SQLException {
+        long startedAt = System.nanoTime();
+        String outcome = "failed";
+        int rowCount = 0;
+        try {
+            LegacyJdbcQuery.TrustedSql trustedSql = QueryByExampleSqlValidator.validate(sql, properties);
+            QueryResult queryResult;
+            try (Connection connection = connectionProvider.getConnection()) {
+                boolean originalReadOnly = connection.isReadOnly();
+                try {
+                    connection.setReadOnly(true);
+                    // codeql[java/sql-injection] -- TrustedSql is created only after structural SELECT validation.
+                    try (PreparedStatement statement = connection.prepareStatement(trustedSql.sql(),
+                            ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) { // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
+                        statement.setMaxRows(MAX_ROWS);
+                        statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                        try (ResultSet resultSet = statement.executeQuery()) { // NOSONAR javasecurity:S3649 -- validated, read-only SELECT boundary
+                            RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(resultSet);
+                            rowCount = structured.rowCount();
+                            queryResult = new QueryResult(structured.html(), rowCount);
+                        }
+                    }
+                } finally {
+                    connection.setReadOnly(originalReadOnly);
+                }
             }
+            outcome = "success";
+            return queryResult;
+        } catch (QueryByExampleValidationException e) {
+            outcome = "rejected";
+            throw e;
+        } catch (SQLTimeoutException e) {
+            outcome = "timeout";
+            throw e;
+        } finally {
+            audit(providerNo, sql, elapsedMillis(startedAt), rowCount, outcome);
         }
-        return outputString;
     }
 
+    public static void audit(String providerNo, String sql, long durationMillis, int rowCount, String outcome) {
+        String query = sql == null ? "" : sql;
+        String queryHash = DigestUtils.sha256Hex(query);
+        MiscUtils.getLogger().info(
+                "Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}",
+                providerNo, queryHash, query.length(), durationMillis, rowCount, outcome);
+    }
 
-};
+    private static long elapsedMillis(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000L;
+    }
+}

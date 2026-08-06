@@ -31,9 +31,10 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -41,9 +42,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
+import io.github.carlos_emr.carlos.report.data.QueryByExampleValidationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
-import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -59,12 +59,14 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Struts2 action for the Query-by-Example report tool. Allows admin users to execute
- * custom SQL queries, persist them as recent searches, and display results.
+ * Struts2 action for the Query-by-Example report tool. Allows authorized report users
+ * to execute custom read-only SQL queries, persist successful searches, and display results.
  *
  * @since 2003-07-22
  */
 public class RptByExample2Action extends ActionSupport {
+    public static final String ENABLED_PROPERTY = "QUERY_BY_EXAMPLE_ENABLED";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -96,32 +98,52 @@ public class RptByExample2Action extends ActionSupport {
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        SecUserRoleDao secUserRoleDao = SpringUtils.getBean(SecUserRoleDao.class);
-
-        List<SecUserRole> userRoles = secUserRoleDao.findByRoleNameAndProviderNo("admin", providerNo);
-        if (userRoles.isEmpty()) {
-            throw new SecurityException("missing required admin privileges to run query by example");
-        }
-
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler();
         Collection favorites = hd.getFavoriteCollection(providerNo);
         request.setAttribute("favorites", favorites);
 
-        if (sql != null) {
+        sql = sql == null ? "" : sql;
+        request.setAttribute("submittedSql", sql);
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return SUCCESS;
+        }
+
+        Properties properties = CarlosProperties.getInstance();
+        if (!isEnabled(properties)) {
+            request.setAttribute("queryDisabled", true);
+            RptByExampleData.audit(providerNo, sql, 0, 0, "disabled");
+            return SUCCESS;
+        }
+
+        if (sql.isBlank()) {
+            request.setAttribute("queryValidationError", true);
+            RptByExampleData.audit(providerNo, sql, 0, 0, "rejected");
+            return SUCCESS;
+        }
+
+        try {
+            RptByExampleData.QueryResult result = new RptByExampleData().execute(sql, properties, providerNo);
+            request.setAttribute("results", result.html());
+            request.setAttribute("resultRowCount", result.rowCount());
             write2Database(sql, providerNo);
-        } else
-            sql = "";
-
-        RptByExampleData exampleData = new RptByExampleData();
-        Properties proppies = CarlosProperties.getInstance();
-
-        String results = exampleData.exampleReportGenerate(sql, proppies) == null ? null : exampleData.exampleReportGenerate(sql, proppies);
-        String resultText = exampleData.exampleTextGenerate(sql, proppies) == null ? null : exampleData.exampleTextGenerate(sql, proppies);
-
-        request.setAttribute("results", results);
-        request.setAttribute("resultText", resultText);
+        } catch (QueryByExampleValidationException e) {
+            request.setAttribute("queryValidationError", true);
+        } catch (SQLTimeoutException e) {
+            request.setAttribute("queryTimeout", true);
+        } catch (SQLException | RuntimeException e) {
+            request.setAttribute("queryExecutionError", true);
+        }
 
         return SUCCESS;
+    }
+
+    static boolean isEnabled(Properties properties) {
+        String configured = properties.getProperty(ENABLED_PROPERTY);
+        return configured == null || configured.isBlank()
+                || configured.equalsIgnoreCase("true")
+                || configured.equalsIgnoreCase("yes")
+                || configured.equalsIgnoreCase("on");
     }
 
     public void write2Database(String query, String providerNo) {

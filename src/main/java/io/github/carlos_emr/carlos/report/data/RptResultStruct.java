@@ -45,8 +45,15 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class RptResultStruct {
+
+    public record StructuredResult(String html, int rowCount) {
+    }
     
     public static String getStructure(ResultSet rs) throws SQLException {
+        return getStructureWithCount(rs).html();
+    }
+
+    public static StructuredResult getStructureWithCount(ResultSet rs) throws SQLException {
         
     /**
     * Generates an HTML table from a ResultSet with enhanced styling for report templates.
@@ -77,7 +84,9 @@ public class RptResultStruct {
             sb.append(Encode.forHtml(columnNames[i]));
             sb.append("</th>");
         }
+        int rowCount = 0;
         while (rs.next()) {
+            rowCount++;
             sb.append("<tr class='" + rowColor + "'>");
             for (int j = 0; j < columns; j++) {
                 sb.append("<td>");
@@ -89,7 +98,7 @@ public class RptResultStruct {
             sb.append("</tr>");
         }
         sb.append("</table>");
-        return sb.toString();
+        return new StructuredResult(sb.toString(), rowCount);
     }
 
     //improvement over getStructure() - changed CSS naming conventions, added enterspaces for cleaner html,

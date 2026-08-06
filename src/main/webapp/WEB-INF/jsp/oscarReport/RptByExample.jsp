@@ -49,7 +49,7 @@
     - results     — HTML string of query results (rendered unescaped; backend-generated)
 
     Security:
-    - Requires _report or _admin.reporting read privilege
+    - Requires _report or _admin read privilege
     - CSRF token auto-injected by CsrfGuardScriptInjectionFilter
 
     @since 2001-2002
@@ -68,9 +68,9 @@
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
+<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -161,8 +161,29 @@
                             <fmt:message key="oscarReport.RptByExample.MsgEnterAQuery"/>
                         </label>
                         <textarea id="sql" name="sql" rows="4"
-                                  class="form-control form-control-sm"></textarea>
+                                  class="form-control form-control-sm">${carlos:forHtml(submittedSql)}</textarea>
                     </div>
+
+                    <c:if test="${queryDisabled}">
+                        <div class="alert alert-warning" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgDisabled"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryValidationError}">
+                        <div class="alert alert-danger" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgValidationError"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryTimeout}">
+                        <div class="alert alert-danger" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgTimeout"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryExecutionError}">
+                        <div class="alert alert-danger" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgExecutionError"/>
+                        </div>
+                    </c:if>
 
                     <!-- OR divider -->
                     <div class="mb-2">
@@ -211,6 +232,11 @@
                     <!-- Query results — rendered as backend-generated HTML -->
                     <c:if test="${not empty results}">
                         <div class="mt-3">
+                            <p class="text-muted small">
+                                <fmt:message key="oscarReport.RptByExample.MsgResultLimit">
+                                    <fmt:param value="1000"/>
+                                </fmt:message>
+                            </p>
                             ${results}
                         </div>
                     </c:if>
