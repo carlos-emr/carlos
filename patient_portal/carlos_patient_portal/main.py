@@ -4,8 +4,7 @@ from collections import OrderedDict
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
-from datetime import time as datetime_time
+from datetime import date, timedelta
 from hashlib import sha256
 from hmac import new as new_hmac
 from http.cookies import SimpleCookie
@@ -17,7 +16,6 @@ from threading import Lock
 from time import monotonic, time
 from typing import Annotated, TypeVar
 from urllib.parse import parse_qs, quote, urlencode
-from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi import Path as PathParam
@@ -99,7 +97,6 @@ from carlos_patient_portal.email_delivery import (
 )
 from carlos_patient_portal.i18n import (
     DEFAULT_LOCALE,
-    format_portal_datetime,
     portal_text,
     supported_locale_options,
 )
@@ -153,6 +150,9 @@ from carlos_patient_portal.models import (
     PatientPortalInvite,
     PatientPortalUnlockSecret,
 )
+from carlos_patient_portal.presenters import (
+    assemble_email_password_dashboard,
+)
 from carlos_patient_portal.schemas import (
     AccountAdminResponse,
     ActivationRequest,
@@ -193,7 +193,6 @@ from carlos_patient_portal.unlock_secrets import (
     count_unlock_secrets,
     get_scoped_unlock_secret,
     list_unlock_secret_provider_identities,
-    list_unlock_secret_provider_options,
     list_unlock_secrets,
     read_unlock_secret,
 )
@@ -271,7 +270,6 @@ PORTAL_MODULES = (
     },
     {"slug": "help", "label_key": "help", "href": "/portal/help"},
 )
-EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE = DEFAULT_UNLOCK_SECRET_LIST_LIMIT
 ACCOUNT_NOTICE_MESSAGE_KEYS = {
     "contact-updated": "account_status_contact_updated",
     "contact-updated-notice-failed": "account_status_contact_notice_failed",
@@ -1202,189 +1200,6 @@ def portal_template_context(
     return context
 
 
-def dashboard_created_before(
-    date_to: date | None,
-    *,
-    timezone_name: str = "UTC",
-) -> datetime | None:
-    if date_to is None:
-        return None
-    if date_to == date.max:
-        return datetime.max.replace(tzinfo=UTC)
-    local_boundary = datetime.combine(
-        date_to + timedelta(days=1),
-        datetime_time.min,
-        tzinfo=ZoneInfo(timezone_name),
-    )
-    return local_boundary.astimezone(UTC)
-
-
-def email_password_dashboard_context(
-    session: Session,
-    account: PatientPortalAccount,
-    *,
-    search: str | None,
-    provider: str | None,
-    date_from: date | None,
-    date_to: date | None,
-    page: int,
-    timezone_name: str = "UTC",
-    filter_error: str | None = None,
-) -> dict[str, object]:
-    text = portal_text(DEFAULT_LOCALE)
-    normalized_search = normalize_email_password_dashboard_search(search)
-    normalized_provider = normalize_email_password_dashboard_provider(provider)
-    invalid_date_range = date_from is not None and date_to is not None and date_from > date_to
-    has_filter_error = filter_error is not None or invalid_date_range
-    created_from = (
-        datetime.combine(
-            date_from,
-            datetime_time.min,
-            tzinfo=ZoneInfo(timezone_name),
-        ).astimezone(UTC)
-        if date_from is not None
-        else None
-    )
-    created_before = dashboard_created_before(date_to, timezone_name=timezone_name)
-    total_records = (
-        0
-        if has_filter_error
-        else count_unlock_secrets(
-            session,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            search=normalized_search,
-            provider=normalized_provider,
-            created_from=created_from,
-            created_before=created_before,
-        )
-    )
-    total_pages = max(
-        1,
-        (total_records + EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE - 1)
-        // EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE,
-    )
-    normalized_page = min(max(page, 1), total_pages)
-    offset = (normalized_page - 1) * EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE
-    records = (
-        []
-        if has_filter_error
-        else list_unlock_secrets(
-            session,
-            clinic_id=account.clinic_id,
-            demographic_no=account.demographic_no,
-            secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-            search=normalized_search,
-            provider=normalized_provider,
-            created_from=created_from,
-            created_before=created_before,
-            limit=EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE,
-            offset=offset,
-        )
-    )
-    provider_options = list_unlock_secret_provider_options(
-        session,
-        clinic_id=account.clinic_id,
-        demographic_no=account.demographic_no,
-        secret_type=UNLOCK_SECRET_TYPE_EMAIL,
-    )
-    return {
-        "rows": [
-            email_password_dashboard_row(
-                record,
-                text=text,
-                timezone_name=timezone_name,
-            )
-            for record in records
-        ],
-        "search": normalized_search or "",
-        "provider": normalized_provider or "",
-        "provider_options": [
-            {"value": value, "label": label} for value, label in provider_options.options
-        ],
-        "provider_option_values": [value for value, _ in provider_options.options],
-        "provider_options_truncated": provider_options.truncated,
-        "date_from": date_from.isoformat() if date_from is not None else "",
-        "date_to": date_to.isoformat() if date_to is not None else "",
-        "has_filters": any(
-            (
-                normalized_search,
-                normalized_provider,
-                date_from,
-                date_to,
-            )
-        ),
-        "filter_error": (
-            filter_error or (text["date_range_error"] if invalid_date_range else None)
-        ),
-        "page": normalized_page,
-        "total_pages": total_pages,
-        "empty_message": (
-            text["no_matching_email_passwords"]
-            if any((normalized_search, normalized_provider, date_from, date_to))
-            else text["no_email_passwords"]
-        ),
-        "previous_href": (
-            portal_email_password_page_href(
-                search=normalized_search,
-                provider=normalized_provider,
-                date_from=date_from,
-                date_to=date_to,
-                page=normalized_page - 1,
-            )
-            if normalized_page > 1
-            else None
-        ),
-        "next_href": (
-            portal_email_password_page_href(
-                search=normalized_search,
-                provider=normalized_provider,
-                date_from=date_from,
-                date_to=date_to,
-                page=normalized_page + 1,
-            )
-            if normalized_page < total_pages
-            else None
-        ),
-    }
-
-
-def email_password_dashboard_row(
-    unlock_secret: PatientPortalUnlockSecret,
-    *,
-    text: dict[str, str],
-    timezone_name: str = "UTC",
-) -> dict[str, object]:
-    return {
-        "id": unlock_secret.id,
-        "subject": unlock_secret.label or text["email_password"],
-        "provider": unlock_secret.created_by,
-        "sent_at": format_portal_datetime(
-            unlock_secret.created_at,
-            timezone_name=timezone_name,
-        ),
-        "source_reference": unlock_secret.source_reference,
-        "is_available": unlock_secret.status == UNLOCK_SECRET_STATUS_ACTIVE,
-    }
-
-
-def normalize_email_password_dashboard_search(search: str | None) -> str | None:
-    if search is None:
-        return None
-    normalized_search = search.strip()
-    if not normalized_search:
-        return None
-    return normalized_search[:MAX_UNLOCK_SECRET_SEARCH_LENGTH]
-
-
-def normalize_email_password_dashboard_provider(provider: str | None) -> str | None:
-    if provider is None:
-        return None
-    normalized_provider = provider.strip()
-    return normalized_provider or None
-
-
 def parse_optional_email_password_date(value: str | None) -> date | None:
     if value is None:
         return None
@@ -1397,33 +1212,6 @@ def parse_optional_email_password_date(value: str | None) -> date | None:
     if parsed_date.isoformat() != normalized_value:
         raise ValueError("date must use YYYY-MM-DD format")
     return parsed_date
-
-
-def portal_email_password_page_href(
-    *,
-    search: str | None,
-    provider: str | None,
-    date_from: date | None,
-    date_to: date | None,
-    page: int,
-) -> str:
-    query_params: dict[str, str] = {}
-    normalized_search = normalize_email_password_dashboard_search(search)
-    if normalized_search is not None:
-        query_params["q"] = normalized_search
-    normalized_provider = normalize_email_password_dashboard_provider(provider)
-    if normalized_provider is not None:
-        query_params["provider"] = normalized_provider
-    if date_from is not None:
-        query_params["date_from"] = date_from.isoformat()
-    if date_to is not None:
-        query_params["date_to"] = date_to.isoformat()
-    if page > 1:
-        query_params["page"] = str(page)
-    query_string = urlencode(query_params)
-    if not query_string:
-        return "/portal/email-passwords"
-    return f"/portal/email-passwords?{query_string}"
 
 
 async def read_limited_request_body(request: Request, max_bytes: int) -> bytes:
@@ -2303,7 +2091,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
 
         extra_context: dict[str, object] = {}
         if active_module == "email-passwords":
-            dashboard_context = email_password_dashboard_context(
+            dashboard_context = assemble_email_password_dashboard(
                 session,
                 authenticated_session.account,
                 search=email_password_search,
@@ -2328,7 +2116,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 clinic_id=dashboard_account.clinic_id,
                 demographic_no=dashboard_account.demographic_no,
                 account_id=dashboard_account.id,
-                reason=("browser_filtered" if dashboard_context["has_filters"] else "browser"),
+                reason=("browser_filtered" if dashboard_context.has_filters else "browser"),
             )
             session.commit()
         csrf_token = create_csrf_token(runtime.csrf_secret)

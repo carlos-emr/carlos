@@ -1,6 +1,7 @@
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import fields
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlsplit
 
@@ -22,7 +23,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from carlos_patient_portal import cli, main
+from carlos_patient_portal import cli, main, presenters
 from carlos_patient_portal.account_settings import update_account_mfa_method
 from carlos_patient_portal.audit import hash_sensitive_reference, record_audit_event
 from carlos_patient_portal.config import (
@@ -139,6 +140,11 @@ from carlos_patient_portal.unlock_secrets import (
     list_unlock_secrets,
     read_unlock_secret,
     revoke_unlock_secret,
+)
+from carlos_patient_portal.view_models import (
+    EmailPasswordDashboardViewModel,
+    EmailPasswordRowViewModel,
+    ProviderFilterOptionViewModel,
 )
 
 NON_DEVELOPMENT_SESSION_SECRET = "s" * MIN_PRODUCTION_SECRET_LENGTH
@@ -533,7 +539,7 @@ def test_dashboard_datetime_and_date_boundary_use_clinic_timezone() -> None:
         )
         == "2026-01-15 00:30 EST"
     )
-    assert main.dashboard_created_before(
+    assert presenters.dashboard_created_before(
         datetime(2026, 7, 15).date(),
         timezone_name="America/Toronto",
     ) == datetime(2026, 7, 16, 4, 0, tzinfo=UTC)
@@ -4549,7 +4555,7 @@ def test_fhir_practitioner_uses_stable_provider_identity_after_rename() -> None:
     with app.state.session_factory() as session:
         account = session.get(PatientPortalAccount, account_id)
         assert account is not None
-        dashboard = main.email_password_dashboard_context(
+        dashboard = presenters.assemble_email_password_dashboard(
             session,
             account,
             search=None,
@@ -4559,8 +4565,10 @@ def test_fhir_practitioner_uses_stable_provider_identity_after_rename() -> None:
             page=1,
         )
 
-    assert [row["provider"] for row in dashboard["rows"]] == ["Dr After", "Dr Before"]
-    assert dashboard["provider_options"] == [{"value": "id:provider-42", "label": "Dr After"}]
+    assert [row.provider for row in dashboard.rows] == ["Dr After", "Dr Before"]
+    assert dashboard.provider_options == (
+        ProviderFilterOptionViewModel(value="id:provider-42", label="Dr After"),
+    )
 
 
 def test_browser_email_password_index_records_a_sanitized_list_audit_event() -> None:
@@ -5598,3 +5606,39 @@ def test_password_reset_redemption_revokes_every_preexisting_session() -> None:
         assert len(sessions) == 2
         assert all(row.revoked_at is not None for row in sessions)
         assert all(row.revoked_reason == "password_reset" for row in sessions)
+
+
+def test_dashboard_template_only_reads_fields_the_view_model_declares() -> None:
+    """The typed view model exists to make a template/field mismatch fail loudly.
+
+    Jinja renders an unknown attribute as empty rather than raising, so before the view model
+    a renamed context key produced a silently blank cell. This pins the template's field usage
+    against the declared contract instead.
+    """
+    template = (main.PACKAGE_DIR / "templates" / "dashboard.jinja").read_text(encoding="utf-8")
+    dashboard_fields = {field.name for field in fields(EmailPasswordDashboardViewModel)}
+    row_fields = {field.name for field in fields(EmailPasswordRowViewModel)}
+
+    used_dashboard_fields = set(re.findall(r"email_passwords\.([a-z_]+)", template))
+    used_row_fields = set(re.findall(r"\brow\.([a-z_]+)", template))
+
+    assert used_dashboard_fields, "template no longer reads the email-password view model"
+    undeclared = sorted(used_dashboard_fields - dashboard_fields)
+    assert not undeclared, f"template reads undeclared dashboard fields: {undeclared}"
+    undeclared_rows = sorted(used_row_fields - row_fields)
+    assert not undeclared_rows, f"template reads undeclared row fields: {undeclared_rows}"
+
+
+def test_email_password_view_model_is_immutable() -> None:
+    """`*ViewModel` carries no behaviour and cannot be mutated after assembly."""
+    row = EmailPasswordRowViewModel(
+        id=1,
+        subject="Lab results",
+        provider="CarlosDoc",
+        sent_at="2026-08-05 10:00 UTC",
+        source_reference="message-1",
+        is_available=True,
+    )
+
+    with pytest.raises(AttributeError):
+        row.subject = "changed"  # type: ignore[misc]
