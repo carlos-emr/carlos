@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -207,6 +208,18 @@ class EDocUtilRefileQueueUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> EDocUtil.copyRefiledDocument(source.toFile(), destination.toFile()))
                 .isInstanceOf(FileAlreadyExistsException.class);
         assertThat(Files.readString(destination)).isEqualTo("existing content");
+    }
+
+    @Test
+    @DisplayName("should reject a directory as a refile source")
+    void shouldRejectRefileSource_whenSourceIsDirectory() throws Exception {
+        Path source = Files.createDirectories(incomingRoot.resolve("source-directory.pdf"));
+        Path destination = incomingRoot.resolve("destination.pdf");
+
+        assertThatThrownBy(() -> EDocUtil.copyRefiledDocument(source.toFile(), destination.toFile()))
+                .isInstanceOf(IOException.class)
+                .hasMessage("Source document is not a regular file");
+        assertThat(destination).doesNotExist();
     }
 
     @Test

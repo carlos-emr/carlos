@@ -998,6 +998,9 @@ public final class EDocUtil {
      * it between path validation and the copy.
      */
     static void copyRefiledDocument(File sourceFile, File destFile) throws IOException {
+        if (!Files.isRegularFile(sourceFile.toPath())) {
+            throw new IOException("Source document is not a regular file");
+        }
         Files.copy(sourceFile.toPath(), destFile.toPath(), StandardCopyOption.COPY_ATTRIBUTES);
     }
 
