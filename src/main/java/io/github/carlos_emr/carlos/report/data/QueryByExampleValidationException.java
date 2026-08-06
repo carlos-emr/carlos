@@ -23,12 +23,27 @@ package io.github.carlos_emr.carlos.report.data;
 
 import java.sql.SQLException;
 
-/** Indicates that a Query-by-Example submission was rejected before execution. */
+/**
+ * Indicates that a Query-by-Example submission was rejected before execution.
+ *
+ * @since 2026-08-06
+ */
 public class QueryByExampleValidationException extends SQLException {
+    /**
+     * Creates a validation exception with a user-safe diagnostic message.
+     *
+     * @param message description of why validation failed
+     */
     public QueryByExampleValidationException(String message) {
         super(message);
     }
 
+    /**
+     * Creates a validation exception retaining the parser or validation failure.
+     *
+     * @param message description of why validation failed
+     * @param cause underlying parser or SQL validation failure
+     */
     public QueryByExampleValidationException(String message, Throwable cause) {
         super(message, cause);
     }

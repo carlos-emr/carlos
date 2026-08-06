@@ -41,7 +41,7 @@ class QueryByExampleSqlValidatorTest {
 
     @Test
     @DisplayName("allows one SELECT using application tables, joins, and subqueries")
-    void shouldAllowReadOnlyApplicationSelects() {
+    void shouldAllowReadOnlyApplicationSelects_whenSchemaIsConfigured() {
         assertThatCode(() -> QueryByExampleSqlValidator.validate(
                 "select d.demographic_no from demographic d join provider p on p.provider_no=d.provider_no "
                         + "where exists (select 1 from appointment a where a.demographic_no=d.demographic_no)",
@@ -52,7 +52,7 @@ class QueryByExampleSqlValidatorTest {
 
     @Test
     @DisplayName("does not treat prohibited function names inside string literals as invocations")
-    void shouldAllowBlockedFunctionNameInsideLiteral() {
+    void shouldAllowBlockedFunctionNameInsideLiteral_whenFunctionTextIsQuoted() {
         assertThatCode(() -> QueryByExampleSqlValidator.validate("select 'sleep(1)'", properties))
                 .doesNotThrowAnyException();
         assertThatCode(() -> QueryByExampleSqlValidator.validate(
@@ -62,7 +62,7 @@ class QueryByExampleSqlValidatorTest {
 
     @Test
     @DisplayName("structurally rejects set-operation SELECTs")
-    void shouldRejectSetOperationSelects() {
+    void shouldRejectSetOperationSelects_whenMultipleQueriesAreCombined() {
         assertThatThrownBy(() -> QueryByExampleSqlValidator.validate(
                 "select demographic_no from demographic union select provider_no from provider", properties))
                 .isInstanceOf(QueryByExampleValidationException.class)
@@ -71,7 +71,7 @@ class QueryByExampleSqlValidatorTest {
 
     @Test
     @DisplayName("fails closed when the application schema is not configured")
-    void shouldRejectMissingApplicationSchema() {
+    void shouldRejectMissingApplicationSchema_whenSchemaIsUnavailable() {
         Properties missing = new Properties();
         Properties blank = properties("   ?useUnicode=true");
 

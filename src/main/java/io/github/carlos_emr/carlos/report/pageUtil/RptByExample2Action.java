@@ -131,6 +131,7 @@ public class RptByExample2Action extends ActionSupport {
             return SUCCESS;
         } catch (SQLTimeoutException e) {
             request.setAttribute("queryTimeout", true);
+            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
             return SUCCESS;
         } catch (SQLException | RuntimeException e) {
             request.setAttribute("queryExecutionError", true);

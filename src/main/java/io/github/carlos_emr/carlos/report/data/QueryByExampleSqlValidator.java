@@ -35,7 +35,16 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SetOperationList;
 import net.sf.jsqlparser.util.TablesNamesFinder;
 
-/** Fail-closed validation for request-submitted Query-by-Example SQL. */
+/**
+ * Fail-closed validation for request-submitted Query-by-Example SQL.
+ *
+ * <p>Accepted input is one non-locking, non-output {@code SELECT} whose table
+ * references are unqualified or belong to the configured application schema.
+ * Comments, statement separators, set operations, write/control keywords, and
+ * prohibited database functions are rejected.</p>
+ *
+ * @since 2026-08-06
+ */
 public final class QueryByExampleSqlValidator {
     private static final Pattern LOCKING_SELECT = Pattern.compile(
             "\\bfor\\s+(?:update|share)\\b|\\block\\s+in\\s+share\\s+mode\\b",
@@ -48,6 +57,15 @@ public final class QueryByExampleSqlValidator {
     private QueryByExampleSqlValidator() {
     }
 
+    /**
+     * Validates SQL and returns the same text wrapped for the trusted JDBC boundary.
+     *
+     * @param sql request-submitted SQL to validate
+     * @param properties application properties containing a non-blank {@code db_name}
+     * @return the unchanged SQL represented as {@link LegacyJdbcQuery.TrustedSql}
+     * @throws QueryByExampleValidationException if the SQL is empty, cannot be parsed,
+     *         is not one allowed {@code SELECT}, or references an unapproved schema or operation
+     */
     public static LegacyJdbcQuery.TrustedSql validate(String sql, Properties properties)
             throws QueryByExampleValidationException {
         if (sql == null || sql.isBlank()) {

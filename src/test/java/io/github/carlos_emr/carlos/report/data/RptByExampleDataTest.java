@@ -78,7 +78,7 @@ class RptByExampleDataTest {
 
     @Test
     @DisplayName("executes once using a bounded read-only JDBC statement and restores connection state")
-    void shouldExecuteBoundedReadOnlyQueryAndRestoreConnection() throws SQLException {
+    void shouldExecuteBoundedReadOnlyQuery_whenConnectionStartsReadOnly() throws SQLException {
         RptByExampleData.QueryResult result = reportData.execute(
                 "select demographic_no from demographic", properties, "999998");
 
@@ -93,6 +93,22 @@ class RptByExampleDataTest {
         order.verify(resultSet).close();
         order.verify(statement).close();
         order.verify(connection).setReadOnly(true);
+        order.verify(connection).close();
+    }
+
+    @Test
+    @DisplayName("restores a writable connection after a successful query")
+    void shouldRestoreWritableConnection_whenQuerySucceeds() throws SQLException {
+        when(connection.isReadOnly()).thenReturn(false);
+
+        reportData.execute("select demographic_no from demographic", properties, "999998");
+
+        InOrder order = inOrder(connection, statement, resultSet);
+        order.verify(connection).setReadOnly(true);
+        order.verify(statement).executeQuery();
+        order.verify(resultSet).close();
+        order.verify(statement).close();
+        order.verify(connection).setReadOnly(false);
         order.verify(connection).close();
     }
 
@@ -131,7 +147,7 @@ class RptByExampleDataTest {
 
     @Test
     @DisplayName("rejects unsafe SQL before acquiring a database connection")
-    void shouldRejectBeforeConnecting() throws SQLException {
+    void shouldRejectBeforeConnecting_whenSqlIsUnsafe() throws SQLException {
         assertThatThrownBy(() -> reportData.execute("delete from demographic", properties, "999998"))
                 .isInstanceOf(QueryByExampleValidationException.class);
 

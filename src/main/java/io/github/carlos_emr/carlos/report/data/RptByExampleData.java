@@ -44,7 +44,9 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * This classes main function FluReportGenerate collects a group of patients with flu in the last specified date
+ * Validates and executes Query-by-Example SQL for authorized report users.
+ * Queries run read-only with row and timeout limits, and every outcome is audited
+ * without recording the submitted SQL text.
  */
 public class RptByExampleData {
     public static final int MAX_ROWS = 1_000;

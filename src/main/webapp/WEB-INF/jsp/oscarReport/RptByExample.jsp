@@ -176,7 +176,9 @@
                     </c:if>
                     <c:if test="${queryTimeout}">
                         <div class="alert alert-danger" role="alert">
-                            <fmt:message key="oscarReport.RptByExample.MsgTimeout"/>
+                            <fmt:message key="oscarReport.RptByExample.MsgTimeout">
+                                <fmt:param value="${queryTimeoutSeconds}"/>
+                            </fmt:message>
                         </div>
                     </c:if>
                     <c:if test="${queryExecutionError}">
@@ -239,6 +241,7 @@
                         <div class="mt-3">
                             <p class="text-muted small">
                                 <fmt:message key="oscarReport.RptByExample.MsgResultLimit">
+                                    <fmt:param value="${resultRowCount}"/>
                                     <fmt:param value="${resultLimit}"/>
                                 </fmt:message>
                             </p>
