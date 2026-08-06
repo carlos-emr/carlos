@@ -197,19 +197,19 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
     }
 
     public List<DxRegistedPTInfo> patientRegistedActive(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("A", searchItems, doctorList);
+        return patientRegistedStatus('A', searchItems, doctorList);
     }
 
     public List<DxRegistedPTInfo> patientRegistedResolve(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("C", searchItems, doctorList);
+        return patientRegistedStatus('C', searchItems, doctorList);
     }
 
     public List<DxRegistedPTInfo> patientRegistedDeleted(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
-        return patientRegistedStatus("D", searchItems, doctorList);
+        return patientRegistedStatus('D', searchItems, doctorList);
     }
 
 
-    public List<DxRegistedPTInfo> patientRegistedStatus(String status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
+    public List<DxRegistedPTInfo> patientRegistedStatus(Character status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         List<Dxresearch> dList = null;
 
         List<dxCodeSearchBean> listItems = searchItems;
