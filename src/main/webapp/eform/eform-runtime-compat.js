@@ -44,17 +44,18 @@
     // otherwise a still-actively-rescheduling excluded chain could let whenIdle resolve true
     // (and the PDF be captured) before a later pass populates a field, even though the intent was
     // for a genuinely long-running loop to still be bounded by the render budget, not to
-    // disappear from tracking entirely. Recording the excluded timer's own FIRE deadline (when it
-    // was scheduled to run, not when it was scheduled) lets whenIdle require a short quiet period
-    // after that deadline before resolving early. Measuring from schedule time instead would let
-    // whenIdle resolve while a still-pending, not-yet-run delayed callback (delay >
-    // EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS) has not fired yet, skipping the exact field
-    // population this tracking exists to wait for. A chain that actually stops rescheduling goes
-    // quiet almost immediately after its last deadline passes; a repeating heartbeat keeps pushing
-    // its own deadline forward and so never goes quiet, correctly falling through to whenIdle's
-    // own maxWaitMillis deadline. See the whenIdle comment below.
-    var EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS = 300;
-    var excludedSelfRescheduleDeadline = 0;
+    // disappear from tracking entirely. Holds the handle of every excluded self-reschedule that is
+    // still scheduled (not yet fired or cancelled); whenIdle() below waits while this is non-empty.
+    // Tracked per HANDLE, not as a single deadline shared by the whole page: an earlier version
+    // recorded one global "next fire time," which a cancelled excluded reschedule left stale --
+    // whenIdle then waited out that now-irrelevant future time (or the render budget cap) for a
+    // callback that would never run. Removing the handle here when it fires or is cancelled (see
+    // the two removal sites below) means the set holds exactly the excluded work still genuinely
+    // outstanding, nothing more. A chain that stops rescheduling empties the set as soon as its
+    // last invocation completes; a repeating heartbeat keeps re-adding a fresh handle before the
+    // old one is removed, so the set never stays empty and whenIdle correctly falls through to its
+    // own maxWaitMillis deadline instead of waiting on it forever. See the whenIdle comment below.
+    var excludedSelfReschedulePending = new Set();
     var status = {
         installed: false,
         failed: false,
@@ -195,14 +196,6 @@
             selfRescheduleCounts.set(handler, selfRescheduleCount);
         }
         var selfRescheduleExcluded = isSelfReschedule && selfRescheduleCount > SELF_RESCHEDULE_COUNT_LIMIT;
-        if (selfRescheduleExcluded) {
-            // Not counted in status.pending, but still observed here so whenIdle() cannot resolve
-            // early while this chain keeps actively rescheduling -- see EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS.
-            // Recorded as the timer's own FIRE deadline (now + its delay), not the current time:
-            // whenIdle must wait for the delayed callback to actually have its chance to run, not
-            // just for a fixed window from when it was merely scheduled.
-            excludedSelfRescheduleDeadline = Date.now() + (isFinite(delayMillis) ? Math.max(delayMillis, 0) : 0);
-        }
         var counted = nativeTimer === nativeSetTimeout
                 && (typeof handler === "string"
                         || (typeof handler === "function"
@@ -236,6 +229,11 @@
                     }
                 } finally {
                     handleToHandler.delete(handle);
+                    // This handle's excluded reschedule (if it was one) fired: it is no longer
+                    // outstanding, whether or not it rescheduled itself again -- a further
+                    // reschedule adds its OWN new handle to the set during handler.apply() above,
+                    // before this delete() for the old handle runs.
+                    excludedSelfReschedulePending.delete(handle);
                     // delete() makes completion and cancellation mutually exclusive: whichever
                     // happens first owns the one matching decrement.
                     if (counted && countedTimeouts.delete(handle)) {
@@ -255,6 +253,9 @@
         if (typeof handler === "function") {
             handleToHandler.set(handle, handler);
         }
+        if (selfRescheduleExcluded) {
+            excludedSelfReschedulePending.add(handle);
+        }
         return handle;
     }
 
@@ -273,13 +274,12 @@
      *
      * <p>A self-reschedule excluded from {@code status.pending} for exceeding
      * {@code SELF_RESCHEDULE_COUNT_LIMIT} is invisible to the {@code pending <= 0} check below, so
-     * this also requires a short quiet period past the last excluded reschedule's own FIRE
-     * deadline before resolving early -- not just a fixed window since it was scheduled, which
-     * would let whenIdle resolve while a still-pending delayed callback has not run yet. A chain
-     * that genuinely stops rescheduling goes quiet almost immediately after its last deadline
-     * passes; a repeating heartbeat/UI loop keeps pushing its own deadline forward and so never
-     * goes quiet, correctly falling through to {@code deadline} instead of silently letting the
-     * capture race ahead of it.</p>
+     * this also requires {@code excludedSelfReschedulePending} to be empty before resolving early.
+     * That set holds exactly the excluded handles still genuinely scheduled (not yet fired or
+     * cancelled), so a chain that stops rescheduling empties it as soon as its last invocation
+     * completes, while a repeating heartbeat/UI loop keeps a handle in it continuously and so
+     * correctly falls through to {@code deadline} instead of silently letting the capture race
+     * ahead of it.</p>
      *
      * @return {Promise<boolean>} true when the queue drained, false when the wait was capped
      */
@@ -290,8 +290,7 @@
                 var now = Date.now();
                 if (now >= deadline) {
                     resolve(false);
-                } else if (status.pending <= 0
-                        && (now - excludedSelfRescheduleDeadline) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS) {
+                } else if (status.pending <= 0 && excludedSelfReschedulePending.size === 0) {
                     resolve(true);
                 } else {
                     nativeSetTimeout.call(window, poll, 50);
@@ -318,6 +317,9 @@
         if (countedTimeouts.delete(handle)) {
             status.pending -= 1;
         }
+        // This handle will never fire now, so it can no longer be outstanding excluded work --
+        // without this, whenIdle() would wait on a cancelled callback that will never run.
+        excludedSelfReschedulePending.delete(handle);
         var cancelledHandler = handleToHandler.get(handle);
         if (cancelledHandler) {
             // The chain this handler was rescheduling ends here too: clear its count so a later,

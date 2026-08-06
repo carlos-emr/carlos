@@ -88,11 +88,15 @@ public class Fax2Action extends ActionSupport {
     // authenticated session for review, so a later queue() rejection can prove the client-supplied
     // faxFilePath it wants deleted is actually the file this session's own prepareFax() produced --
     // rather than deleting whatever app-temp-directory path the client happens to submit, which
-    // could belong to a different session's unrelated staged fax preview.
+    // could belong to a different session's unrelated staged fax preview. Keyed per transactionId
+    // (the fdid), not one session-wide slot: a session can have more than one fax preview in
+    // flight at once (concurrent tabs, or preparing a second eForm's fax before queuing the
+    // first), and a single shared key would let a later prepareFax() overwrite -- and so lose
+    // cleanup tracking for -- an earlier one's still-unresolved claimed path.
     // Package-private (not private) solely so tests in this package can seed the session the same
     // way a prior prepareFax() call would, without driving the full render pipeline.
-    static final String CLAIMED_FAX_FILE_SESSION_KEY =
-            "io.github.carlos_emr.carlos.fax.action.Fax2Action.claimedFaxFilePath";
+    static final String CLAIMED_FAX_FILE_SESSION_KEY_PREFIX =
+            "io.github.carlos_emr.carlos.fax.action.Fax2Action.claimedFaxFilePath.";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -893,23 +897,26 @@ public class Fax2Action extends ActionSupport {
 
     private void recordClaimedFaxFilePathInSession(Path claimedPath) {
         HttpSession session = request.getSession(false);
-        if (session != null && claimedPath != null) {
-            session.setAttribute(CLAIMED_FAX_FILE_SESSION_KEY, claimedPath.toString());
+        if (session != null && claimedPath != null && transactionId != null) {
+            // claimedPath is a server-generated renderer/staging temp file path (createSecureTempFile
+            // or the staged-approval's own claimed path), never derived from request parameters.
+            session.setAttribute(CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + transactionId, claimedPath.toString()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- claimedPath is a server-generated renderer temp file path, never derived from request parameters
         }
     }
 
     /**
-     * Removes and returns this session's recorded claimed fax file path, or {@code null} if none
-     * is recorded. Single-use by design: once read here, the record is gone whether or not the
-     * caller's path matched it.
+     * Removes and returns this session's recorded claimed fax file path for the current
+     * {@link #transactionId}, or {@code null} if none is recorded. Single-use by design: once read
+     * here, the record is gone whether or not the caller's path matched it.
      */
     private String takeClaimedFaxFilePathFromSession() {
         HttpSession session = request.getSession(false);
-        if (session == null) {
+        if (session == null || transactionId == null) {
             return null;
         }
-        Object claimedPath = session.getAttribute(CLAIMED_FAX_FILE_SESSION_KEY);
-        session.removeAttribute(CLAIMED_FAX_FILE_SESSION_KEY);
+        String key = CLAIMED_FAX_FILE_SESSION_KEY_PREFIX + transactionId;
+        Object claimedPath = session.getAttribute(key);
+        session.removeAttribute(key);
         return claimedPath == null ? null : claimedPath.toString();
     }
 

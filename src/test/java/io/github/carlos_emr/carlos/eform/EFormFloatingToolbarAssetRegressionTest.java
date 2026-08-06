@@ -195,22 +195,22 @@ class EFormFloatingToolbarAssetRegressionTest {
         String compat = read(RUNTIME_COMPAT_JS);
 
         // Once a self-reschedule is excluded from status.pending, it is invisible to the
-        // pending<=0 check whenIdle uses to resolve early -- without this quiet-window signal, a
+        // pending<=0 check whenIdle uses to resolve early -- without this signal, a
         // still-actively-rescheduling excluded chain could let whenIdle (and the PDF capture)
         // resolve before a later pass populates a field, even though the render budget cap was
-        // supposed to still govern it. A genuinely repeating heartbeat never goes quiet and falls
-        // through to the deadline; a chain that actually stops resolves quickly.
+        // supposed to still govern it. A genuinely repeating heartbeat keeps a handle in the
+        // pending set continuously and falls through to the deadline; a chain that actually stops
+        // empties the set as soon as its last invocation completes and resolves quickly.
         //
-        // The tracked instant is the excluded timer's own FIRE deadline (schedule time + delay),
-        // not the schedule time itself: measuring from schedule time let whenIdle resolve while a
-        // still-pending delayed callback (delay > the quiet window) had not run yet, skipping the
-        // exact field population this tracking exists to wait for.
+        // Tracked per HANDLE (added once scheduled, removed on fire or cancellation), not as a
+        // single deadline shared by the whole page: a single global "next fire time" left stale by
+        // a cancelled excluded reschedule would force whenIdle to wait out that now-irrelevant
+        // future time for a callback that will never run.
         assertThat(compat)
-                .contains("var EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS = 300;")
-                .contains("var excludedSelfRescheduleDeadline = 0;")
-                .contains("excludedSelfRescheduleDeadline = Date.now() + "
-                        + "(isFinite(delayMillis) ? Math.max(delayMillis, 0) : 0);")
-                .contains("(now - excludedSelfRescheduleDeadline) >= EXCLUDED_RESCHEDULE_QUIET_WINDOW_MILLIS");
+                .contains("var excludedSelfReschedulePending = new Set();")
+                .contains("excludedSelfReschedulePending.add(handle);")
+                .contains("excludedSelfReschedulePending.delete(handle);")
+                .contains("status.pending <= 0 && excludedSelfReschedulePending.size === 0");
     }
 
     @Test
