@@ -51,7 +51,7 @@ public class RptResultStruct {
     private static final int MIN_OUTPUT_CHARACTERS = 64;
     private static final int CLOSING_MARKUP_RESERVE = 32;
 
-    public record StructuredResult(String html, int rowCount, boolean truncated) {
+    public record StructuredResult(String html, int rowCount, boolean truncated, boolean rowLimitReached) {
     }
     
     public static String getStructure(ResultSet rs) throws SQLException {
@@ -66,7 +66,7 @@ public class RptResultStruct {
      * @throws SQLException if the result set cannot be read
      */
     public static StructuredResult getStructureWithCount(ResultSet rs) throws SQLException {
-        return getStructureWithCount(rs, Integer.MAX_VALUE);
+        return getStructureWithCount(rs, Integer.MAX_VALUE, Integer.MAX_VALUE);
     }
 
     /**
@@ -78,8 +78,25 @@ public class RptResultStruct {
      * @throws SQLException if the result set cannot be read
      */
     public static StructuredResult getStructureWithCount(ResultSet rs, int maxOutputCharacters) throws SQLException {
+        return getStructureWithCount(rs, maxOutputCharacters, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Generates an encoded HTML table within output and row budgets.
+     *
+     * @param rs result set positioned before its first row
+     * @param maxOutputCharacters maximum number of rendered HTML characters
+     * @param maxRows maximum number of rows to render
+     * @return encoded table markup, rendered row count, and truncation state
+     * @throws SQLException if the result set cannot be read
+     */
+    public static StructuredResult getStructureWithCount(ResultSet rs, int maxOutputCharacters, int maxRows)
+            throws SQLException {
         if (maxOutputCharacters < MIN_OUTPUT_CHARACTERS) {
             throw new IllegalArgumentException("HTML output limit is too small");
+        }
+        if (maxRows < 1) {
+            throw new IllegalArgumentException("Row limit must be positive");
         }
 
     // assuming  multiple rows in rs
@@ -94,16 +111,16 @@ public class RptResultStruct {
             if (!html.appendMarkup("<th class='headerColor'>")
                     || !html.appendEncoded(rsmd.getColumnLabel(i + 1))) {
                 html.appendClosingMarkup("</th></table>");
-                return new StructuredResult(html.toString(), 0, true);
+                return new StructuredResult(html.toString(), 0, true, false);
             }
             if (!html.appendMarkup("</th>")) {
                 html.appendClosingMarkup("</th></table>");
-                return new StructuredResult(html.toString(), 0, true);
+                return new StructuredResult(html.toString(), 0, true, false);
             }
         }
         int rowCount = 0;
         boolean stopRendering = false;
-        while (!stopRendering && rs.next()) {
+        while (!stopRendering && rowCount < maxRows && rs.next()) {
             rowCount++;
             if (!html.appendMarkup("<tr class='" + rowColor + "'>")) {
                 break;
@@ -136,8 +153,9 @@ public class RptResultStruct {
                 stopRendering = true;
             }
         }
+        boolean rowLimitReached = !stopRendering && rowCount == maxRows && rs.next();
         html.appendClosingMarkup("</table>");
-        return new StructuredResult(html.toString(), rowCount, html.isTruncated());
+        return new StructuredResult(html.toString(), rowCount, html.isTruncated(), rowLimitReached);
     }
 
     private static final class LimitedHtmlBuilder {
@@ -184,10 +202,20 @@ public class RptResultStruct {
             }
             if (remaining > 0) {
                 int contentCharacters = Math.max(0, remaining - 1);
-                html.append(encoded, 0, contentCharacters).append('\u2026');
+                int safeCharacters = entitySafePrefixLength(encoded, contentCharacters);
+                html.append(encoded, 0, safeCharacters).append('\u2026');
             }
             truncated = true;
             return false;
+        }
+
+        private static int entitySafePrefixLength(String encoded, int requestedLength) {
+            if (requestedLength == 0) {
+                return 0;
+            }
+            int lastEntityStart = encoded.lastIndexOf('&', requestedLength - 1);
+            int lastEntityEnd = encoded.lastIndexOf(';', requestedLength - 1);
+            return lastEntityStart > lastEntityEnd ? lastEntityStart : requestedLength;
         }
 
         void appendClosingMarkup(String markup) {

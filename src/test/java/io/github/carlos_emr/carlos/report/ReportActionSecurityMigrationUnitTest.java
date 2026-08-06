@@ -64,6 +64,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -81,6 +82,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
     private ReportByExamplesDao reportByExamplesDao;
+    private ReportByExamplesFavoriteDao favoritesDao;
 
     @BeforeEach
     void setUp() {
@@ -88,7 +90,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         reportByExamplesDao = mock(ReportByExamplesDao.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ReportByExamplesDao.class, reportByExamplesDao);
-        ReportByExamplesFavoriteDao favoritesDao = mock(ReportByExamplesFavoriteDao.class);
+        favoritesDao = mock(ReportByExamplesFavoriteDao.class);
         registerMock(ReportByExamplesFavoriteDao.class, favoritesDao);
         registerMock(ReportTemplatesDao.class, mock(ReportTemplatesDao.class));
 
@@ -161,7 +163,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         assertAuthorizedMigrationGateAllowsActionBody();
 
-        verify(securityInfoManager, times(8))
+        verify(securityInfoManager, times(7))
                 .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
         verify(securityInfoManager, never())
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
@@ -176,9 +178,9 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         assertAuthorizedMigrationGateAllowsActionBody();
 
-        verify(securityInfoManager, times(8))
+        verify(securityInfoManager, times(7))
                 .hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null);
-        verify(securityInfoManager, times(8))
+        verify(securityInfoManager, times(7))
                 .hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null);
     }
 
@@ -208,6 +210,51 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("queryDisabled")).isEqualTo(true);
         assertThat(request.getAttribute("submittedSql")).isEqualTo("select demographic_no from demographic");
         verifyNoInteractions(reportByExamplesDao);
+        verify(favoritesDao).findByProvider("999998");
+    }
+
+    @Test
+    @DisplayName("RptByExamplesFavorite rejects non-POST requests before writing")
+    void shouldRejectNonPostMethods_beforeFavoriteWrite() throws Exception {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+        request.setMethod("GET");
+        RptByExamplesFavorite2Action getAction = spy(new RptByExamplesFavorite2Action());
+        getAction.setQuery("select demographic_no from demographic");
+
+        assertThat(getAction.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        verify(getAction, never()).write2Database(any(), any(), any());
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setMethod("HEAD");
+        RptByExamplesFavorite2Action headAction = spy(new RptByExamplesFavorite2Action());
+        headAction.setQuery("select demographic_no from demographic");
+
+        assertThat(headAction.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        verify(headAction, never()).write2Database(any(), any(), any());
+        verifyNoInteractions(reportByExamplesDao, favoritesDao);
+    }
+
+    @Test
+    @DisplayName("RptByExamplesFavorite permits an authorized POST mutation")
+    void shouldAllowFavoriteWrite_whenAuthorizedPostIsSubmitted() throws Exception {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+        request.getSession().setAttribute("user", "999998");
+        request.setMethod("POST");
+        RptByExamplesFavorite2Action action = spy(new RptByExamplesFavorite2Action());
+        action.setFavoriteName("Active patients");
+        action.setQuery("select demographic_no from demographic");
+        org.mockito.Mockito.doNothing().when(action).write2Database(
+                "999998", "Active patients", "select demographic_no from demographic");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(action).write2Database("999998", "Active patients", "select demographic_no from demographic");
+        verify(favoritesDao).findByProvider("999998");
     }
 
     @Test
@@ -228,7 +275,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 RptByExampleData.class,
                 (mock, context) -> when(mock.execute(
                         eq("select demographic_no from demographic"), any(Properties.class), eq("999998")))
-                        .thenReturn(new RptByExampleData.QueryResult("<table></table>", 1, false, 23)))) {
+                        .thenReturn(new RptByExampleData.QueryResult("<table></table>", 1, false, false, 23)))) {
             properties.setProperty(RptByExample2Action.ENABLED_PROPERTY, " yes ");
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(reportData.constructed()).hasSize(1);
@@ -288,7 +335,6 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         assertThat(new RptByExample2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(new RptViewAllQueryByExamples2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(new RptByExamplesAllFavorites2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(new RptByExamplesFavorite2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
 
         request.setParameter("templateid", "template-1");
         assertThat(new ExportTemplate2Action().execute()).isEqualTo(ActionSupport.SUCCESS);

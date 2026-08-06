@@ -29,6 +29,24 @@
 
 --%>
 
+<%--
+    RptByExamplesFavorite.jsp
+    =========================
+    Purpose: Edit a saved Query-by-Example favorite before returning to the
+             favorites list.
+
+    Features:
+    - Requires _report or _admin read privilege
+    - Localized favorite-name and SQL editing form
+    - POST-only submission to RptByExamplesFavorite
+
+    Parameters (set by backing action):
+    - favoriteName — Display name for the favorite
+    - newQuery     — SQL text being edited
+
+    @since 2001-2002
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

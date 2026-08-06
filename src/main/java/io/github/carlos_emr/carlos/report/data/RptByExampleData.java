@@ -58,7 +58,8 @@ public class RptByExampleData {
         Connection getConnection() throws SQLException;
     }
 
-    public record QueryResult(String html, int rowCount, boolean truncated, long durationMillis) {
+    public record QueryResult(String html, int rowCount, boolean truncated, boolean rowLimitReached,
+            long durationMillis) {
     }
 
     private final ConnectionProvider connectionProvider;
@@ -87,13 +88,14 @@ public class RptByExampleData {
                 try {
                     connection.setReadOnly(true);
                     try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
-                        statement.setMaxRows(MAX_ROWS);
+                        statement.setMaxRows(MAX_ROWS + 1);
                         statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
-                                    resultSet, MAX_OUTPUT_CHARACTERS);
+                                    resultSet, MAX_OUTPUT_CHARACTERS, MAX_ROWS);
                             rowCount = structured.rowCount();
-                            queryResult = new QueryResult(structured.html(), rowCount, structured.truncated(), 0);
+                            queryResult = new QueryResult(structured.html(), rowCount, structured.truncated(),
+                                    structured.rowLimitReached(), 0);
                         }
                     }
                 } catch (SQLException | RuntimeException e) {
@@ -113,7 +115,7 @@ public class RptByExampleData {
             }
             outcome = "success";
             return new QueryResult(queryResult.html(), queryResult.rowCount(), queryResult.truncated(),
-                    elapsedMillis(startedAt));
+                    queryResult.rowLimitReached(), elapsedMillis(startedAt));
         } catch (QueryByExampleValidationException e) {
             outcome = "rejected";
             throw e;

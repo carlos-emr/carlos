@@ -252,6 +252,13 @@
                                     </fmt:message>
                                 </div>
                             </c:if>
+                            <c:if test="${resultRowLimitReached}">
+                                <div class="alert alert-warning" role="alert">
+                                    <fmt:message key="oscarReport.RptByExample.MsgRowLimitReached">
+                                        <fmt:param value="${resultLimit}"/>
+                                    </fmt:message>
+                                </div>
+                            </c:if>
                             ${results}
                         </div>
                     </c:if>

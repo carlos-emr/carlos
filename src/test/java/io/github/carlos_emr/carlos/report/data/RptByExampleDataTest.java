@@ -85,7 +85,7 @@ class RptByExampleDataTest {
 
         assertThat(result.rowCount()).isEqualTo(1);
         assertThat(result.html()).contains("demographic_no").contains("42");
-        verify(statement).setMaxRows(RptByExampleData.MAX_ROWS);
+        verify(statement).setMaxRows(RptByExampleData.MAX_ROWS + 1);
         verify(statement).setQueryTimeout(RptByExampleData.QUERY_TIMEOUT_SECONDS);
 
         InOrder order = inOrder(connection, statement, resultSet);
@@ -174,6 +174,29 @@ class RptByExampleDataTest {
         assertThat(result.rowCount()).isEqualTo(1);
         assertThat(result.html()).hasSizeLessThanOrEqualTo(128).endsWith("</td></tr></table>");
         assertThat(result.html()).contains("&lt;");
+        String cell = result.html().substring(result.html().indexOf("<td>") + 4, result.html().indexOf("</td>"));
+        assertThat(cell).matches("(?:&lt;)*…");
+    }
+
+    @Test
+    @DisplayName("reports omitted rows when the result exceeds the rendering row limit")
+    void shouldReportRowLimit_whenResultContainsAnotherRow() throws SQLException {
+        when(resultSet.next()).thenReturn(true, true);
+
+        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet, 1_000, 1);
+
+        assertThat(result.rowCount()).isEqualTo(1);
+        assertThat(result.rowLimitReached()).isTrue();
+        assertThat(result.html()).contains("42");
+    }
+
+    @Test
+    @DisplayName("does not report omitted rows when the result exactly reaches the row limit")
+    void shouldNotReportRowLimit_whenResultExactlyMatchesLimit() throws SQLException {
+        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet, 1_000, 1);
+
+        assertThat(result.rowCount()).isEqualTo(1);
+        assertThat(result.rowLimitReached()).isFalse();
     }
 
     @Test

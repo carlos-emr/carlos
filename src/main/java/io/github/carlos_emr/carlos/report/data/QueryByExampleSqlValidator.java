@@ -36,6 +36,7 @@ import net.sf.jsqlparser.expression.NextValExpression;
 import net.sf.jsqlparser.expression.UserVariable;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.ParenthesedSelect;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SetOperationList;
@@ -117,7 +118,7 @@ public final class QueryByExampleSqlValidator {
             throw new QueryByExampleValidationException("The query could not be parsed as a single SELECT", e);
         }
 
-        if (!(statement instanceof Select select) || select instanceof SetOperationList) {
+        if (!(statement instanceof Select select) || containsSetOperation(select)) {
             throw new QueryByExampleValidationException("Only one SELECT statement is allowed");
         }
 
@@ -160,6 +161,12 @@ public final class QueryByExampleSqlValidator {
         if (visitor.hasOutputOperation()) {
             throw new QueryByExampleValidationException("SELECT output operations are not allowed");
         }
+        if (visitor.hasLockingOperation()) {
+            throw new QueryByExampleValidationException("Locking SELECT statements are not allowed");
+        }
+        if (visitor.hasSetOperation()) {
+            throw new QueryByExampleValidationException("Set operations are not allowed");
+        }
         if (visitor.hasVariables()) {
             throw new QueryByExampleValidationException("Session and system variables are not allowed");
         }
@@ -178,6 +185,14 @@ public final class QueryByExampleSqlValidator {
         }
     }
 
+    private static boolean containsSetOperation(Select select) {
+        if (select instanceof SetOperationList) {
+            return true;
+        }
+        return select instanceof ParenthesedSelect parenthesedSelect
+                && containsSetOperation(parenthesedSelect.getSelect());
+    }
+
     private static String stripQuotedSections(String sql) {
         StringBuilder stripped = new StringBuilder(sql.length());
         char quote = '\0';
@@ -191,9 +206,6 @@ public final class QueryByExampleSqlValidator {
                 } else {
                     stripped.append(current);
                 }
-            } else if (quote != '`' && current == '\\' && next != '\0') {
-                stripped.append("  ");
-                i++;
             } else if (current == quote && next == quote) {
                 stripped.append("  ");
                 i++;
@@ -219,6 +231,8 @@ public final class QueryByExampleSqlValidator {
         private final Set<String> disallowedFunctions = new java.util.HashSet<>();
         private boolean variables;
         private boolean outputOperation;
+        private boolean lockingOperation;
+        private boolean setOperation;
 
         @Override
         public <S> Void visit(Function function, S context) {
@@ -257,7 +271,18 @@ public final class QueryByExampleSqlValidator {
                     || select.getIntoTempTable() != null) {
                 outputOperation = true;
             }
+            if (select.getForMode() != null || select.getForClause() != null
+                    || select.getForUpdateTable() != null || select.isSkipLocked()
+                    || select.isNoWait() || select.getWait() != null) {
+                lockingOperation = true;
+            }
             return super.visit(select, context);
+        }
+
+        @Override
+        public <S> Void visit(SetOperationList operations, S context) {
+            setOperation = true;
+            return super.visit(operations, context);
         }
 
         Set<String> disallowedFunctions() {
@@ -270,6 +295,14 @@ public final class QueryByExampleSqlValidator {
 
         boolean hasOutputOperation() {
             return outputOperation;
+        }
+
+        boolean hasLockingOperation() {
+            return lockingOperation;
+        }
+
+        boolean hasSetOperation() {
+            return setOperation;
         }
     }
 }

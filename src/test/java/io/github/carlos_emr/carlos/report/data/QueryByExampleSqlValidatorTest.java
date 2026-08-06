@@ -114,6 +114,7 @@ class QueryByExampleSqlValidatorTest {
                 "explain select * from demographic",
                 "update demographic set last_name='x'",
                 "select * from demographic; select * from provider",
+                "(select demographic_no from demographic union select provider_no from provider)",
                 "select * from demographic -- comment",
                 "select * from other_database.demographic",
                 "select * from o\u017Fcar_mcmaster.demographic",
@@ -130,6 +131,7 @@ class QueryByExampleSqlValidatorTest {
                 "select @@version",
                 "select next value for report_sequence",
                 "select * from demographic for update",
+                "select '\\' as value from demographic for update",
                 "select * from demographic for share",
                 "select demographic_no into @number from demographic");
     }

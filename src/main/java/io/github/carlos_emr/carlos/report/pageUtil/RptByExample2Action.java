@@ -142,6 +142,7 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("resultRowCount", result.rowCount());
         request.setAttribute("resultLimit", RptByExampleData.MAX_ROWS);
         request.setAttribute("resultTruncated", result.truncated());
+        request.setAttribute("resultRowLimitReached", result.rowLimitReached());
         request.setAttribute("resultCharacterLimit", RptByExampleData.MAX_OUTPUT_CHARACTERS);
         try {
             write2Database(sql, providerNo);

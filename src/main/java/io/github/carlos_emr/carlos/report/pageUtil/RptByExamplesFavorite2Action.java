@@ -68,6 +68,10 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_admin or _report)");
         }
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         String providerNo = (String) request.getSession().getAttribute("user");
 
