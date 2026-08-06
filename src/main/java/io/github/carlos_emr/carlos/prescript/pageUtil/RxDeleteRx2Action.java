@@ -32,9 +32,11 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -123,6 +125,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
             int drugId;
             int i;
 
+            // First pass: validate ownership of every requested drug before archiving any.
+            List<Drug> drugsToDelete = new ArrayList<>();
             for (i = 0; i < drugArr.length; i++) {
                 try {
                     drugId = Integer.parseInt(drugArr[i]);
@@ -133,11 +137,16 @@ public final class RxDeleteRx2Action extends ActionSupport {
                 Drug drug = drugDao.find(drugId);
                 if (drug == null || drug.getDemographicId() != bean.getDemographicNo()) {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                    return null;
+                    return NONE;
                 }
+                drugsToDelete.add(drug);
+            }
+
+            // Second pass: all requested drugs passed ownership validation, safe to archive.
+            for (Drug drug : drugsToDelete) {
                 setDrugDelete(drug);
                 drugDao.merge(drug);
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, String.valueOf(drug.getId()), ip, "" + bean.getDemographicNo(), drug.getAuditString());
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -170,7 +179,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             Drug drug = drugDao.find(Integer.parseInt(deleteRxId));
             if (drug == null || drug.getDemographicId() != bean.getDemographicNo()) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return null;
+                return NONE;
             }
             setDrugDelete(drug);
             drugDao.merge(drug);
@@ -219,6 +228,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write(jsonObject.toString());
+            MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
+            return NONE;
         }
         MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
         return null;
@@ -269,7 +280,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         Drug drug = drugDao.find(id);
         if (drug == null || drug.getDemographicId() != bean.getDemographicNo()) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return null;
+            return NONE;
         }
 
         Date date = new Date();
@@ -294,7 +305,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
         response.getWriter().write(jsonArray.toString());
 
-        return null;
+        return NONE;
     }
 
     private void createDiscontinueNote(HttpServletRequest request, int sessionDemographicNo) {
