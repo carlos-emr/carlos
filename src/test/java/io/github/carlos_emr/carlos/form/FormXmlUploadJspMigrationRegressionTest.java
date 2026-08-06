@@ -57,6 +57,8 @@ class FormXmlUploadJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp");
     private static final Path FORM_XML_UPLOAD_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/form/formXmlUpload.jsp");
+    private static final Path FORM_XML_UPLOAD_SUCCESS_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/form/formXmlUploadSuccess.jsp");
     private static final Path STRUTS_FORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-form.xml");
 
@@ -110,6 +112,20 @@ class FormXmlUploadJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("successful form XML imports should confirm completion before returning to Administration")
+    void shouldConfirmSuccessfulImport_andReturnToAdministration() throws IOException {
+        String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
+        String jsp = Files.readString(FORM_XML_UPLOAD_SUCCESS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(struts).contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>")
+                .contains("<result name=\"error\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>");
+        assertThat(jsp).contains("Import complete")
+                .contains("href=\"${pageContext.request.contextPath}/administration\"")
+                .contains("http-equiv=\"refresh\"")
+                .contains("content=\"3;url=${pageContext.request.contextPath}/administration\"");
+    }
+
+    @Test
     @DisplayName("struts form config should map the import page to its dedicated view gate before the wildcard")
     void shouldMapImportPage_toDedicatedViewGateBeforeWildcard() throws IOException {
         String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
@@ -138,7 +154,7 @@ class FormXmlUploadJspMigrationRegressionTest {
 
         assertThat(struts).contains("<action name=\"form/xmlUpload\"")
                 .contains("FrmXmlUpload2Action")
-                .contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>")
+                .contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>")
                 .contains("<result name=\"error\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>");
     }
 }
