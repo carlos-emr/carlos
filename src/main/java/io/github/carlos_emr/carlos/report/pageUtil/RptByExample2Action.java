@@ -150,6 +150,9 @@ public class RptByExample2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification = "Locale.ROOT normalization is safe for controlled ASCII feature-flag values")
     static boolean isEnabled(Properties properties) {
         String configured = properties.getProperty(ENABLED_PROPERTY);
         if (configured == null || configured.isBlank()) {

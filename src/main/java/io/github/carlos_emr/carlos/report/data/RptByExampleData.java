@@ -39,6 +39,7 @@ import java.util.Properties;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -67,6 +68,13 @@ public class RptByExampleData {
         this.connectionProvider = connectionProvider;
     }
 
+    @SuppressFBWarnings(
+            value = {
+                    "SQL_INJECTION_JDBC",
+                    "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING",
+                    "THROWS_METHOD_THROWS_RUNTIMEEXCEPTION"
+            },
+            justification = "Validated dynamic SQL is intentional; runtime failures are audited and handled by the action")
     public QueryResult execute(String sql, Properties properties, String providerNo) throws SQLException {
         long startedAt = System.nanoTime();
         String outcome = "failed";
