@@ -224,6 +224,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         assertThat(getAction.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(getAction, never()).write2Database(any(), any(), any());
 
         response = new MockHttpServletResponse();
@@ -234,6 +235,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         assertThat(headAction.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(headAction, never()).write2Database(any(), any(), any());
         verifyNoInteractions(reportByExamplesDao, favoritesDao);
     }
