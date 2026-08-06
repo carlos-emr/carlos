@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.ProviderBeanResolver" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -735,8 +736,11 @@
                                 <td colspan="2">
                                     Linked Providers:
                                     <%
-                                        Properties p = (Properties) session.getAttribute("providerBean");
-                                        List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                        Properties p = ProviderBeanResolver.resolve(session, docId);
+                                        List<ProviderInboxItem> routeList = Collections.emptyList();
+                                        if (docId != null && !docId.trim().isEmpty()) {
+                                            routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                        }
                                     %>
                                     <ul>
                                         <%

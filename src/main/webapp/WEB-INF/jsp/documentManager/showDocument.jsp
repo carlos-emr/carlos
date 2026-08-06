@@ -128,6 +128,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.ProviderBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
@@ -768,9 +769,9 @@
                                 <td colspan="2">
                                     <fmt:message key="inboxmanager.document.LinkedProvidersMsg"/>
                                     <%
-                                        Properties p = (Properties) session.getAttribute("providerBean");
+                                        Properties p = ProviderBeanResolver.resolve(session, docId);
                                         List<ProviderInboxItem> routeList = Collections.emptyList();
-                                        if (docId != null) {
+                                        if (docId != null && !docId.trim().isEmpty()) {
                                             routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
                                         }
                                     %>

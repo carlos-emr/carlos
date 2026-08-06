@@ -1410,11 +1410,20 @@ public final class EDocUtil {
 	/**
 	 * Checks if a document with the given filename has already been refiled in the specified queue.
 	 *
+	 * <p>Unlike most {@code PathValidationUtils.validateConfiguredDirectory} callers in this class,
+	 * a missing Refile directory here is not treated as a configuration failure: that subdirectory
+	 * is created lazily by {@link #refileDocument(String, String)} on its first use for a given
+	 * queue, so a queue that has never had a document refiled into it legitimately has no Refile
+	 * directory yet. Only that specific case — the directory not existing — is treated as
+	 * "not yet refiled" and returns {@code false}. Genuine configuration errors (a blank path, an
+	 * existing path that is not a directory, or a canonicalization failure) still propagate as a
+	 * {@code SecurityException} from {@code PathValidationUtils.resolveConfiguredDirectory}.</p>
+	 *
 	 * @see #refileDocument(String, String)
 	 * @param filename The original filename of the document.
 	 * @param queueId  The ID of the queue where the document might have been refiled.
 	 * @return {@code true} if a document with the refiled name exists in the queue's refile directory,
-	 * {@code false} otherwise.
+	 * {@code false} otherwise, including when the queue's refile directory does not exist yet.
 	 */
 	public static boolean isDocumentAlreadyRefiledInQueue(String filename, int queueId) {
 		String destFileName = filename;
@@ -1423,7 +1432,15 @@ public final class EDocUtil {
 		}
 
 		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destDir = PathValidationUtils.validateConfiguredDirectory(destPath, "incoming refile directory");
+		// The Refile subdirectory is created lazily by refileDocument() on first use (see
+		// FileUtils.copyFile's auto-mkdirs behavior there), so it legitimately does not exist
+		// for a queue that has never had a document refiled into it yet. Use the tolerant
+		// resolver instead of validateConfiguredDirectory, which hard-fails on a missing
+		// directory — nothing can have been refiled into a directory that doesn't exist.
+		File destDir = PathValidationUtils.resolveConfiguredDirectory(destPath, "incoming refile directory");
+		if (destDir == null || !destDir.isDirectory()) {
+			return false;
+		}
 		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
 		return destFile.exists();
 	}
