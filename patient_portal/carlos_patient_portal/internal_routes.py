@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Generator
 from datetime import datetime
 from typing import Annotated, Protocol
@@ -62,6 +63,8 @@ from carlos_patient_portal.unlock_secrets import (
     read_unlock_secret,
     revoke_unlock_secret,
 )
+
+logger = logging.getLogger(__name__)
 
 PERMISSION_INVITE_MANAGE = "portal.invite.manage"
 PERMISSION_ACCOUNT_UNLOCK = "portal.account.unlock"
@@ -318,8 +321,16 @@ def register_carlos_internal_routes(app: FastAPI, runtime: InternalRuntime) -> N
                         resource_type="internal_api",
                         reason=reason,
                     )
-        except SQLAlchemyError:
+        except SQLAlchemyError as exc:
             runtime.operational_metrics.record_failure("internal_audit")
+            # This middleware is the only record of failed staff actions; if it cannot write, the
+            # security log stops while the API keeps serving, so it must be loud in the logs.
+            logger.error(
+                "Internal staff-action audit write failed: %s reason=%s status=%s",
+                type(exc).__name__,
+                reason,
+                response.status_code,
+            )
         return response
 
     def get_database_session() -> Generator[Session, None, None]:

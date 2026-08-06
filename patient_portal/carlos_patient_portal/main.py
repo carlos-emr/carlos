@@ -35,9 +35,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
 
 from carlos_patient_portal.account_settings import (
+    ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
     AccountSettingsStepUpError,
     AccountSettingsValidationError,
     change_account_password,
+    record_account_settings_audit_event,
     update_account_contact,
     update_account_mfa_method,
 )
@@ -65,6 +67,7 @@ from carlos_patient_portal.auth import (
     MfaChallengeNotFoundError,
     MfaDeliveryUnavailableError,
     MfaRateLimitedError,
+    PasswordHashUnusableError,
     PasswordResetRequestResult,
     PasswordResetRequiredError,
     PasswordResetTokenInvalidError,
@@ -132,13 +135,16 @@ from carlos_patient_portal.invites import (
 from carlos_patient_portal.models import (
     AUDIT_ACTOR_TYPE_PATIENT,
     AUDIT_ACTOR_TYPE_STAFF,
+    AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
     AUDIT_EVENT_FHIR_READ,
     AUDIT_EVENT_FHIR_SEARCH,
     AUDIT_EVENT_INVITE_LIST,
+    AUDIT_EVENT_LOGIN,
     AUDIT_EVENT_UNLOCK_SECRET_LIST,
     AUDIT_EVENT_UNLOCK_SECRET_READ,
     AUDIT_OUTCOME_FAILURE,
     AUDIT_OUTCOME_SUCCESS,
+    MAX_AUDIT_RESOURCE_ID_LENGTH,
     MFA_DELIVERY_METHOD_EMAIL,
     MFA_DELIVERY_METHOD_SMS,
     UNLOCK_SECRET_STATUS_ACTIVE,
@@ -209,6 +215,8 @@ FHIR_JSON_MEDIA_TYPE = "application/fhir+json"
 FHIR_PATH_PREFIX = "/fhir/"
 PORTAL_ROOT_PATH = "/portal"
 MAX_PAGE_OFFSET = 100_000
+# Largest value a 64-bit signed integer key can hold; ids beyond this cannot exist in any row.
+MAX_DATABASE_ID = 2**63 - 1
 SERVICE_UNAVAILABLE_DETAIL = "service temporarily unavailable"
 AUTHENTICATION_REQUIRED_DETAIL = "authentication required"
 # Shared by login, resend, and activation so every JSON surface stays equally generic; the browser
@@ -266,6 +274,7 @@ PORTAL_MODULES = (
 EMAIL_PASSWORD_DASHBOARD_PAGE_SIZE = DEFAULT_UNLOCK_SECRET_LIST_LIMIT
 ACCOUNT_NOTICE_MESSAGE_KEYS = {
     "contact-updated": "account_status_contact_updated",
+    "contact-updated-notice-failed": "account_status_contact_notice_failed",
     "mfa-updated": "account_status_mfa_updated",
     "no-change": "account_status_no_change",
     "password-updated": "account_status_password_updated",
@@ -704,7 +713,9 @@ def parse_fhir_numeric_id(resource_id: str) -> int:
         parsed_id = int(resource_id)
     except ValueError as exc:
         raise fhir_not_found() from exc
-    if parsed_id <= 0:
+    # Python ints are unbounded; anything beyond the column's range must be rejected here rather
+    # than raising OverflowError/DataError inside the driver and surfacing as a 500.
+    if not 0 < parsed_id <= MAX_DATABASE_ID:
         raise fhir_not_found()
     return parsed_id
 
@@ -773,6 +784,19 @@ def record_fhir_access(
     outcome: str,
     reason: str,
 ) -> None:
+    # The raw client-supplied id is stored for traceability, but it must never be able to violate
+    # the column's length CHECK: an audit write that raises would turn a clean 404 into a 500 and
+    # lose the very event recording the attempt.
+    if resource_id is not None:
+        # Control characters must go too: SQLite's length() stops at an embedded NUL, so a raw
+        # "\x00" id measures as length 0 and fails the same CHECK from the other direction.
+        resource_id = "".join(
+            character if character.isprintable() else "?" for character in resource_id
+        )
+        if len(resource_id) > MAX_AUDIT_RESOURCE_ID_LENGTH:
+            resource_id = f"{resource_id[: MAX_AUDIT_RESOURCE_ID_LENGTH - 1]}~"
+        if not resource_id:
+            resource_id = "?"
     record_audit_event(
         session,
         event_type=event_type,
@@ -1934,6 +1958,22 @@ def register_exception_handlers(app: FastAPI) -> None:
             diagnostics=exc.diagnostics,
         )
 
+    @app.exception_handler(PasswordHashUnusableError)
+    async def password_hash_unusable_handler(
+        request: Request,
+        exc: PasswordHashUnusableError,
+    ) -> JSONResponse:
+        # A stored hash that cannot be evaluated is a server-side data fault, not a bad password.
+        # Returning 401/403 here would tell the patient they mistyped and, on the settings screen,
+        # would charge the attempt to a lockout budget they cannot recover from.
+        request.app.state.operational_metrics.record_failure("password_hash_unusable")
+        logger.error("Stored password hash is unusable; credential check cannot be completed")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": SERVICE_UNAVAILABLE_DETAIL},
+            headers={"Retry-After": "1"},
+        )
+
     @app.exception_handler(OperationalError)
     async def database_operational_error_handler(
         request: Request,
@@ -2137,6 +2177,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
         return supplied_token.strip()
 
     def get_authenticated_portal_session(
+        request: Request,
         session_token: Annotated[str, Depends(get_authorization_bearer_token)],
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> AuthenticatedPortalSession:
@@ -2148,6 +2189,26 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 idle_timeout=runtime.auth_policy.session_idle_timeout,
             )
         except (PortalSessionInvalidError, ValueError) as exc:
+            # These JSON routes serve the same PHI as the FHIR surface, so failed bearer
+            # authentication must be equally visible to an investigator. The commit also persists
+            # any revocation authenticate_session_token wrote (idle timeout, account disabled),
+            # which the dependency teardown would otherwise roll back on this error path.
+            record_audit_event(
+                session,
+                # Reuses the existing `login` type (the FHIR dependency likewise reuses
+                # `fhir.search`) so no audit-constraint migration is needed; the
+                # `authentication_failed` reason keeps it distinct from a password failure.
+                event_type=AUDIT_EVENT_LOGIN,
+                outcome=AUDIT_OUTCOME_FAILURE,
+                actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+                client_reference_hash=hash_sensitive_reference(
+                    runtime.audit_hash_secret,
+                    "portal_client",
+                    get_request_client_reference(request, settings),
+                ),
+                reason="authentication_failed",
+            )
+            session.commit()
             raise HTTPException(status_code=401, detail=AUTHENTICATION_REQUIRED_DETAIL) from exc
 
     def get_authenticated_fhir_session(
@@ -3586,7 +3647,7 @@ def register_patient_email_password_routes(
         response_model=EmailPasswordSecretResponse,
     )
     def retrieve_patient_email_password(
-        email_password_id: Annotated[int, PathParam(gt=0)],
+        email_password_id: Annotated[int, PathParam(gt=0, le=MAX_DATABASE_ID)],
         authenticated_session: Annotated[
             AuthenticatedPortalSession,
             Depends(get_authenticated_portal_session),
@@ -3818,6 +3879,7 @@ def register_portal_routes(
                     review_request.email_after,
                 )
             )
+            notices_delivered = True
             for recipient in recipients:
                 try:
                     await run_in_threadpool(
@@ -3826,9 +3888,27 @@ def register_portal_routes(
                         recipient=recipient,
                     )
                 except PortalEmailDeliveryError:
+                    notices_delivered = False
                     runtime.operational_metrics.record_failure("contact_change_delivery")
                     logger.error("Contact-change notice delivery failed")
-        status_key = "contact-updated" if review_request is not None else "no-change"
+            if not notices_delivered:
+                # The notice to the old address is the only out-of-band takeover alarm, so its
+                # failure must be durable in the audit trail and visible to the patient, rather
+                # than leaving an unqualified success row behind.
+                record_account_settings_audit_event(
+                    session,
+                    authenticated_session.account,
+                    event_type=AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE,
+                    outcome=AUDIT_OUTCOME_FAILURE,
+                    reason=ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE,
+                )
+                session.commit()
+        if review_request is None:
+            status_key = "no-change"
+        elif notices_delivered:
+            status_key = "contact-updated"
+        else:
+            status_key = "contact-updated-notice-failed"
         return RedirectResponse(
             f"/portal/account?status={status_key}",
             status_code=status.HTTP_303_SEE_OTHER,
@@ -3921,7 +4001,7 @@ def register_portal_routes(
 
     @app.post("/portal/email-passwords/{email_password_id}/reveal")
     async def reveal_portal_email_password(
-        email_password_id: Annotated[int, PathParam(gt=0)],
+        email_password_id: Annotated[int, PathParam(gt=0, le=MAX_DATABASE_ID)],
         request: Request,
         session: Annotated[Session, function_scoped_database_dependency(get_app_database_session)],
     ) -> Response:
@@ -4262,7 +4342,7 @@ def register_dev_admin_routes(
             responses=DEV_ADMIN_CONFLICT_RESPONSES,
         )
         def dev_resend_invite(
-            invite_id: Annotated[int, PathParam(gt=0)],
+            invite_id: Annotated[int, PathParam(gt=0, le=MAX_DATABASE_ID)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
             session: Annotated[
                 Session,
@@ -4295,7 +4375,7 @@ def register_dev_admin_routes(
             responses=DEV_ADMIN_CONFLICT_RESPONSES,
         )
         def dev_revoke_invite(
-            invite_id: Annotated[int, PathParam(gt=0)],
+            invite_id: Annotated[int, PathParam(gt=0, le=MAX_DATABASE_ID)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
             session: Annotated[
                 Session,
@@ -4326,7 +4406,7 @@ def register_dev_admin_routes(
             responses=DEV_ADMIN_COMMON_RESPONSES,
         )
         def dev_unlock_account(
-            account_id: Annotated[int, PathParam(gt=0)],
+            account_id: Annotated[int, PathParam(gt=0, le=MAX_DATABASE_ID)],
             actor: Annotated[str, Depends(get_dev_admin_actor)],
             session: Annotated[
                 Session,

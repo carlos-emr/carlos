@@ -1063,7 +1063,11 @@ def test_login_mfa_session_and_logout_happy_path() -> None:
             (AUDIT_EVENT_MFA_DELIVERY, AUDIT_OUTCOME_SUCCESS),
             (AUDIT_EVENT_MFA_VERIFY, AUDIT_OUTCOME_SUCCESS),
             (AUDIT_EVENT_SESSION_LOGOUT, AUDIT_OUTCOME_SUCCESS),
+            # Re-using the revoked token is a rejected authentication and is now audited, so a
+            # token replayed after logout cannot be probed without leaving a trace.
+            (AUDIT_EVENT_LOGIN, AUDIT_OUTCOME_FAILURE),
         ]
+        assert audit_events[-1].reason == "authentication_failed"
 
 
 def test_login_sends_mfa_email_after_committing_challenge() -> None:
@@ -1806,6 +1810,9 @@ def test_account_settings_step_up_failures_lock_and_revoke_session() -> None:
         assert account.email == SEEDED_INVITE_EMAIL
         assert portal_session is not None
         assert portal_session.revoked_at is not None
+        # Pin the reason, not just non-null: the lazy kill on next use also sets revoked_at, so
+        # this assertion held even with lock-time revocation deleted.
+        assert portal_session.revoked_reason == "password_failures"
 
 
 def test_account_mfa_settings_require_phone_then_allow_sms() -> None:
@@ -2767,6 +2774,16 @@ def test_account_lock_revokes_preexisting_password_reset_token() -> None:
         "/auth/login",
         json={"username": "patient.user", "password": "Wrong1!password"},
     )
+    # Assert the token is already dead BEFORE attempting redemption. Redeeming first would let the
+    # redeem-time guard revoke it, so this test passed even with lock-time revocation removed.
+    with app.state.session_factory() as session:
+        locked_account = session.get(PatientPortalAccount, account_id)
+        revoked_at_lock_time = session.scalar(select(PatientPortalPasswordResetToken))
+        assert locked_account is not None
+        assert locked_account.locked_at is not None
+        assert revoked_at_lock_time is not None
+        assert revoked_at_lock_time.status == "revoked"
+
     complete_response = client.post(
         "/auth/password-reset/complete",
         json={"reset_token": reset_token, "new_password": STRONG_RESET_PASSWORD},
@@ -5356,3 +5373,228 @@ def test_packaged_migration_command_upgrades_to_head_by_default(
         "script_location": "carlos_patient_portal:migrations",
         "database_url": "sqlite+pysqlite:///:memory:",
     }
+
+
+def test_unusable_password_hash_is_a_server_fault_not_a_patient_lockout() -> None:
+    """A hash that cannot be parsed must not be blamed on the patient or burn their budget."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    account_id = activate_seeded_patient_account(app, client)
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        account.password_hash = "$2b$12$notanargon2hash00000000000000000000000000000000000000"
+        session.commit()
+
+    responses = [
+        client.post("/auth/login", json={"username": "patient.user", "password": STRONG_PASSWORD})
+        for _ in range(3)
+    ]
+
+    assert [response.status_code for response in responses] == [503, 503, 503]
+    with app.state.session_factory() as session:
+        account = session.get(PatientPortalAccount, account_id)
+        assert account is not None
+        # The correct password was supplied every time; the patient must not be pushed to lockout.
+        assert account.failed_login_count == 0
+        assert account.locked_at is None
+        reasons = {
+            event.reason
+            for event in session.scalars(
+                select(PatientPortalAuditEvent).where(
+                    PatientPortalAuditEvent.event_type == AUDIT_EVENT_LOGIN,
+                    PatientPortalAuditEvent.outcome == AUDIT_OUTCOME_FAILURE,
+                )
+            )
+        }
+        assert "password_hash_unusable" in reasons
+        assert "invalid_credentials" not in reasons
+
+
+def test_contact_change_records_a_failure_when_the_security_notice_cannot_be_sent() -> None:
+    """The old-address notice is the takeover alarm; its failure must be durable and visible."""
+
+    class FailingNoticeSender:
+        def send_code(self, **kwargs: object) -> None:
+            return None
+
+        def send_password_reset(self, **kwargs: object) -> None:
+            return None
+
+        def send_contact_change_notice(self, **kwargs: object) -> None:
+            raise PortalEmailDeliveryError("portal email delivery failed")
+
+    original_builder = main.build_portal_email_sender
+    main.build_portal_email_sender = lambda settings: FailingNoticeSender()
+    try:
+        app = migrated_development_app()
+        client = TestClient(app)
+        browser_sign_in_seeded_patient(app, client)
+        csrf_token = CSRF_TOKEN_PATTERN.search(client.get("/portal/account").text)
+        assert csrf_token is not None
+        response = client.post(
+            "/portal/account/contact",
+            data={
+                "csrf_token": csrf_token.group(1),
+                "current_password": STRONG_PASSWORD,
+                "email": "replacement.patient@example.com",
+                "phone_number": "",
+            },
+            follow_redirects=False,
+        )
+    finally:
+        main.build_portal_email_sender = original_builder
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/portal/account?status=contact-updated-notice-failed"
+    with app.state.session_factory() as session:
+        outcomes = [
+            (event.outcome, event.reason)
+            for event in session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_ACCOUNT_CONTACT_UPDATE)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        ]
+        # The change really did happen, and the fact the alarm never fired is recorded alongside it.
+        assert outcomes == [
+            (AUDIT_OUTCOME_SUCCESS, "updated"),
+            (AUDIT_OUTCOME_FAILURE, "delivery_unavailable"),
+        ]
+
+
+def test_password_change_revokes_a_reset_token_issued_before_the_change() -> None:
+    """A reset link captured before the patient changed their password must not still work."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    browser_sign_in_seeded_patient(app, client)
+    reset_request = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    stale_token = reset_request.json()["development_reset_token"]
+    assert stale_token
+
+    csrf_token = CSRF_TOKEN_PATTERN.search(client.get("/portal/account").text)
+    assert csrf_token is not None
+    replacement_password = "V1ctimChosen!pass"
+    change = client.post(
+        "/portal/account/password",
+        data={
+            "csrf_token": csrf_token.group(1),
+            "current_password": STRONG_PASSWORD,
+            "new_password": replacement_password,
+            "new_password_confirmation": replacement_password,
+        },
+        follow_redirects=False,
+    )
+    replay = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": stale_token, "new_password": "Att4ckerChosen!x"},
+    )
+
+    assert change.status_code == 303
+    assert replay.status_code == 400
+    with app.state.session_factory() as session:
+        statuses = [
+            token.status for token in session.scalars(select(PatientPortalPasswordResetToken))
+        ]
+        assert statuses == ["revoked"]
+
+
+def test_failed_mfa_delivery_does_not_reserve_the_resend_cooldown() -> None:
+    """A provider outage must not throttle a patient who never received a code."""
+
+    class FailingSender:
+        def send_code(self, **kwargs: object) -> None:
+            raise PortalEmailDeliveryError("portal email delivery failed")
+
+        def send_password_reset(self, **kwargs: object) -> None:
+            return None
+
+        def send_contact_change_notice(self, **kwargs: object) -> None:
+            return None
+
+    original_builder = main.build_portal_email_sender
+    main.build_portal_email_sender = lambda settings: FailingSender()
+    try:
+        app = migrated_development_app()
+        client = TestClient(app)
+        activate_seeded_patient_account(app, client)
+        first = client.post(
+            "/auth/login", json={"username": "patient.user", "password": STRONG_PASSWORD}
+        )
+        immediate_retry = client.post(
+            "/auth/login", json={"username": "patient.user", "password": STRONG_PASSWORD}
+        )
+    finally:
+        main.build_portal_email_sender = original_builder
+
+    assert first.status_code == 503
+    # Previously 429 "sent recently": the cooldown was reserved before the send that never landed.
+    assert immediate_retry.status_code == 503
+
+
+def test_oversized_and_malformed_resource_ids_are_audited_not_five_hundreds() -> None:
+    """Client-supplied ids must never reach the driver or break the audit write."""
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    token = sign_in_patient_api_session(client)
+
+    oversized = [
+        client.get(f"/fhir/{resource}/{'a' * 300}", headers=bearer_headers(token))
+        for resource in ("Patient", "Organization", "Practitioner", "DocumentReference")
+    ]
+    control_character = client.get("/fhir/Practitioner/%00", headers=bearer_headers(token))
+    huge_numeric = client.get(
+        f"/api/patient/email-passwords/{2**63}", headers=bearer_headers(token)
+    )
+
+    assert [response.status_code for response in oversized] == [404, 404, 404, 404]
+    assert control_character.status_code == 404
+    assert huge_numeric.status_code == 422
+    with app.state.session_factory() as session:
+        read_events = list(
+            session.scalars(
+                select(PatientPortalAuditEvent).where(
+                    PatientPortalAuditEvent.event_type == "fhir.read"
+                )
+            )
+        )
+        # Every rejected probe still leaves a trace; over-length ids used to lose the event.
+        assert len(read_events) == 5
+        assert all(len(event.resource_id or "") <= 128 for event in read_events)
+
+
+def test_password_reset_redemption_revokes_every_preexisting_session() -> None:
+    """Reset is the takeover-recovery path: a stolen session must not survive it.
+
+    Unlike the lock path there is no lazy-kill backstop here, because redemption clears
+    ``force_password_reset``; the eager revocation is the only control.
+    """
+    app = migrated_development_app()
+    client = TestClient(app)
+    activate_seeded_patient_account(app, client)
+    first_token = sign_in_patient_api_session(client)
+    expire_email_mfa_cooldown(app)
+    second_token = sign_in_patient_api_session(client)
+    reset_request = client.post(
+        "/auth/password-reset/request",
+        json={"username": "patient.user", "email": SEEDED_INVITE_EMAIL},
+    )
+    reset_token = reset_request.json()["development_reset_token"]
+
+    completed = client.post(
+        "/auth/password-reset/complete",
+        json={"reset_token": reset_token, "new_password": STRONG_RESET_PASSWORD},
+    )
+
+    assert completed.status_code == 200
+    assert client.get("/auth/session", headers=bearer_headers(first_token)).status_code == 401
+    assert client.get("/auth/session", headers=bearer_headers(second_token)).status_code == 401
+    with app.state.session_factory() as session:
+        sessions = list(session.scalars(select(PatientPortalSession)))
+        assert len(sessions) == 2
+        assert all(row.revoked_at is not None for row in sessions)
+        assert all(row.revoked_reason == "password_reset" for row in sessions)

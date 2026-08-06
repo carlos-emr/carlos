@@ -148,14 +148,18 @@ def cleanup_transient_auth_rows(
                 select(model.id).where(predicate).order_by(model.id).limit(normalized_batch_size)
             )
         )
-        counts.append(len(record_ids))
-        if record_ids and not dry_run:
-            session.execute(
-                delete(model).where(
-                    model.id.in_(record_ids),
-                    predicate,
-                )
+        if dry_run or not record_ids:
+            counts.append(len(record_ids))
+            continue
+        # The DELETE re-applies the predicate to close the resend-vs-cleanup race, so the
+        # selected count can overstate; report what was actually removed, like prune_audit_events.
+        result = session.execute(
+            delete(model).where(
+                model.id.in_(record_ids),
+                predicate,
             )
+        )
+        counts.append(int(result.rowcount or 0))
     return TransientCleanupResult(*counts)
 
 

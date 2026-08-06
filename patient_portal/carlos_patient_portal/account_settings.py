@@ -1,3 +1,4 @@
+import logging
 from secrets import token_urlsafe
 
 from sqlalchemy import func, select
@@ -8,6 +9,7 @@ from carlos_patient_portal.auth import (
     AUTH_REASON_PASSWORD_FAILURES,
     AuthPolicy,
     MfaDeliveryUnavailableError,
+    PasswordHashUnusableError,
     cancel_pending_mfa_challenges,
     create_patient_session,
     ensure_mfa_delivery_available,
@@ -42,8 +44,11 @@ from carlos_patient_portal.models import (
     utc_now,
 )
 
+logger = logging.getLogger(__name__)
+
 ACCOUNT_SETTINGS_REASON_DELIVERY_UNAVAILABLE = "delivery_unavailable"
 ACCOUNT_SETTINGS_REASON_NO_CHANGE = "no_change"
+ACCOUNT_SETTINGS_REASON_PASSWORD_HASH_UNUSABLE = "password_hash_unusable"
 ACCOUNT_SETTINGS_REASON_STEP_UP_FAILED = "step_up_failed"
 ACCOUNT_SETTINGS_REASON_UPDATED = "updated"
 
@@ -106,6 +111,9 @@ def change_account_password(
         now=now,
     )
     cancel_pending_mfa_challenges(session, account.id, now=now)
+    # A reset link issued before this change must not be able to override the new password;
+    # lock_account, staff disable, and contact update all revoke here too.
+    revoke_pending_password_reset_tokens(session, account.id)
     record_account_settings_audit_event(
         session,
         account,
@@ -358,7 +366,22 @@ def verify_current_password(
 ) -> None:
     if max_failed_password_attempts <= 0:
         raise ValueError("max_failed_password_attempts must be positive")
-    if password_matches(account.password_hash, current_password):
+    try:
+        step_up_succeeded = password_matches(account.password_hash, current_password)
+    except PasswordHashUnusableError:
+        # An unreadable hash is a server fault. Charging it to the patient here would lock them
+        # out of the very screen they would use to set a working password.
+        logger.error("Stored password hash is unusable; step-up cannot be evaluated")
+        record_account_settings_audit_event(
+            session,
+            account,
+            event_type=event_type,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            reason=ACCOUNT_SETTINGS_REASON_PASSWORD_HASH_UNUSABLE,
+        )
+        session.commit()
+        raise
+    if step_up_succeeded:
         account.failed_login_count = 0
         return
     now = utc_now()

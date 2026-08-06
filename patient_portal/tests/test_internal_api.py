@@ -26,6 +26,7 @@ from carlos_patient_portal.models import (
     PatientPortalContactReviewRequest,
     PatientPortalInvite,
     PatientPortalPasswordResetToken,
+    PatientPortalSession,
     PatientPortalUnlockSecret,
     utc_now,
 )
@@ -944,3 +945,222 @@ def test_internal_contact_review_feed_pages_beyond_one_hundred_requests() -> Non
     assert len(second_page.json()["items"]) == 1
     assert second_page.json()["total"] == 101
     assert second_page.json()["next_offset"] is None
+
+
+# (method, path, body, required permission). Kept in lockstep with the registered internal routes
+# by test_internal_route_permission_manifest_covers_every_route below, so a new CARLOS endpoint
+# fails the build until its authorization expectation is declared here.
+# Bodies must be schema-valid: FastAPI validates the request model before the handler runs, so an
+# empty body would 422 before authorization is ever consulted and the test would prove nothing.
+INTERNAL_ROUTE_PERMISSIONS = (
+    (
+        "POST",
+        "/internal/carlos/patients/1234/invites",
+        "portal.invite.manage",
+        invite_request(),
+    ),
+    ("GET", "/internal/carlos/patients/1234/invites", "portal.invite.manage", None),
+    ("POST", "/internal/carlos/invites/1/resend", "portal.invite.manage", None),
+    ("POST", "/internal/carlos/invites/1/revoke", "portal.invite.manage", None),
+    ("POST", "/internal/carlos/patients/1234/unlock", "portal.account.unlock", None),
+    ("GET", "/internal/carlos/patients/1234/portal-account", "portal.account.manage", None),
+    (
+        "POST",
+        "/internal/carlos/patients/1234/portal-account/access",
+        "portal.account.manage",
+        {"enabled": False, "reason": "staff_action"},
+    ),
+    (
+        "POST",
+        "/internal/carlos/patients/1234/unlock-secrets",
+        "portal.secret.manage",
+        {"source_reference": "authz-probe", "secret_type": "email"},
+    ),
+    ("POST", "/internal/carlos/unlock-secrets/1/publish", "portal.secret.manage", None),
+    (
+        "POST",
+        "/internal/carlos/unlock-secrets/1/revoke",
+        "portal.secret.manage",
+        {"reason": "leaked"},
+    ),
+    ("GET", "/internal/carlos/contact-reviews", "portal.contact.review", None),
+    (
+        "POST",
+        "/internal/carlos/contact-reviews/1/decision",
+        "portal.contact.review",
+        {"approve": True, "revision": "probe-revision"},
+    ),
+)
+UNRELATED_PERMISSION = "portal.something.else"
+
+
+def test_internal_route_permission_manifest_covers_every_route() -> None:
+    """A newly added internal route must declare its authorization expectation."""
+    app = internal_app()
+    registered = {
+        (method, route.path)
+        for route in app.routes
+        if getattr(route, "path", "").startswith("/internal/carlos")
+        for method in sorted(getattr(route, "methods", set()) - {"HEAD", "OPTIONS"})
+    }
+    declared = {
+        (method, path.replace("1234", "{demographic_no}"))
+        for method, path, _, _ in INTERNAL_ROUTE_PERMISSIONS
+    }
+    normalized_declared = {
+        (
+            method,
+            path.replace("/invites/1/", "/invites/{invite_id}/")
+            .replace("/unlock-secrets/1/", "/unlock-secrets/{unlock_secret_id}/")
+            .replace("/contact-reviews/1/", "/contact-reviews/{review_request_id}/"),
+        )
+        for method, path in declared
+    }
+
+    assert normalized_declared == registered
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "permission", "body"), INTERNAL_ROUTE_PERMISSIONS
+)
+def test_internal_route_rejects_a_caller_without_its_permission(
+    method: str, path: str, permission: str, body: dict[str, object] | None
+) -> None:
+    """Holding some other permission must never satisfy a route's own requirement."""
+    app = internal_app()
+    client = TestClient(app)
+
+    response = client.request(
+        method,
+        path,
+        headers=carlos_headers(UNRELATED_PERMISSION),
+        json=body,
+    )
+
+    assert response.status_code == 403, f"{method} {path} accepted an unrelated permission"
+    assert response.json() == {"detail": "permission denied"}
+    with app.state.session_factory() as session:
+        failures = [
+            event.reason
+            for event in session.scalars(
+                select(PatientPortalAuditEvent).where(
+                    PatientPortalAuditEvent.event_type == AUDIT_EVENT_STAFF_ACTION
+                )
+            )
+        ]
+        assert failures == ["authorization_failed"]
+
+
+def test_staff_disable_immediately_revokes_an_already_authenticated_session() -> None:
+    """Disabling access is the emergency cut-off; an issued session must die with it."""
+    app = internal_app()
+    client = TestClient(app)
+    invite = client.post(
+        "/internal/carlos/patients/1234/invites",
+        headers=carlos_headers("portal.invite.manage"),
+        json=invite_request(),
+    )
+    client.post(
+        "/auth/activate",
+        json={
+            "invite_code": invite.json()["invite_token"],
+            "email": "example.patient@example.com",
+            "date_of_birth": "1980-05-20",
+            "health_card_number": "ABCD 1234-5678",
+            "username": "patient.user",
+            "password": PASSWORD,
+        },
+    )
+    login = client.post("/auth/login", json={"username": "patient.user", "password": PASSWORD})
+    verified = client.post(
+        "/auth/mfa/verify",
+        json={
+            "mfa_challenge_token": login.json()["mfa_challenge_token"],
+            "code": login.json()["development_mfa_code"],
+        },
+    )
+    token = verified.json()["session_token"]
+    assert client.get("/auth/session", headers={"Authorization": f"Bearer {token}"}).status_code
+
+    disabled = client.post(
+        "/internal/carlos/patients/1234/portal-account/access",
+        headers=carlos_headers("portal.account.manage"),
+        json={"enabled": False, "reason": "patient_requested"},
+    )
+    after = client.get("/auth/session", headers={"Authorization": f"Bearer {token}"})
+
+    assert disabled.status_code == 200
+    assert after.status_code == 401
+    with app.state.session_factory() as session:
+        account = session.scalar(select(PatientPortalAccount))
+        assert account is not None
+        assert account.status == "disabled"
+        assert account.disabled_at is not None
+        assert account.disabled_reason == "patient_requested"
+        sessions = list(session.scalars(select(PatientPortalSession)))
+        assert sessions
+        # The reason distinguishes eager revocation from the lazy kill that would otherwise
+        # satisfy this test even with disable-time revocation deleted.
+        assert all(row.revoked_at is not None for row in sessions)
+        assert all(row.revoked_reason == "account_disabled" for row in sessions)
+
+
+def test_revoked_unlock_secret_cannot_be_republished() -> None:
+    """Revocation must be terminal, including against an idempotent CARLOS retry."""
+    app = internal_app()
+    client = TestClient(app)
+    created = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=carlos_headers("portal.secret.manage"),
+        json={"source_reference": "revoked-message", "secret_type": "email"},
+    )
+    secret_id = created.json()["id"]
+    client.post(
+        f"/internal/carlos/unlock-secrets/{secret_id}/publish",
+        headers=carlos_headers("portal.secret.manage"),
+    )
+    revoked = client.post(
+        f"/internal/carlos/unlock-secrets/{secret_id}/revoke",
+        headers=carlos_headers("portal.secret.manage"),
+        json={"reason": "leaked"},
+    )
+    republish = client.post(
+        f"/internal/carlos/unlock-secrets/{secret_id}/publish",
+        headers=carlos_headers("portal.secret.manage"),
+    )
+
+    assert revoked.status_code == 200
+    assert republish.status_code == 409
+    with app.state.session_factory() as session:
+        secret = session.get(PatientPortalUnlockSecret, secret_id)
+        assert secret is not None
+        assert secret.status == "revoked"
+        assert secret.revoked_at is not None
+
+
+def test_repeated_publish_is_distinguishable_from_the_first_publication() -> None:
+    """An idempotent CARLOS retry must not look like a second real publication."""
+    app = internal_app()
+    client = TestClient(app)
+    created = client.post(
+        "/internal/carlos/patients/1234/unlock-secrets",
+        headers=carlos_headers("portal.secret.manage"),
+        json={"source_reference": "retry-message", "secret_type": "email"},
+    )
+    secret_id = created.json()["id"]
+    for _ in range(3):
+        client.post(
+            f"/internal/carlos/unlock-secrets/{secret_id}/publish",
+            headers=carlos_headers("portal.secret.manage"),
+        )
+
+    with app.state.session_factory() as session:
+        reasons = [
+            event.reason
+            for event in session.scalars(
+                select(PatientPortalAuditEvent)
+                .where(PatientPortalAuditEvent.event_type == AUDIT_EVENT_UNLOCK_SECRET_PUBLISH)
+                .order_by(PatientPortalAuditEvent.id)
+            )
+        ]
+        assert reasons == ["published", "already_published", "already_published"]

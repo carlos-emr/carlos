@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
@@ -60,6 +61,8 @@ from carlos_patient_portal.models import (
     utc_now,
 )
 
+logger = logging.getLogger(__name__)
+
 AUTH_LOCKED_BY_AUTOMATION = "portal-auth"
 AUTH_REASON_ACCOUNT_LOCKED = "account_locked"
 AUTH_REASON_DELIVERY_UNAVAILABLE = "delivery_unavailable"
@@ -70,6 +73,7 @@ AUTH_REASON_INVALID_RESET_TOKEN = "invalid_reset_token"
 AUTH_REASON_MFA_EXPIRED = "mfa_expired"
 AUTH_REASON_MFA_REQUIRED = "mfa_required"
 AUTH_REASON_PASSWORD_FAILURES = "password_failures"
+AUTH_REASON_PASSWORD_HASH_UNUSABLE = "password_hash_unusable"
 AUTH_REASON_MFA_FAILURES = "mfa_failures"
 AUTH_TOKEN_BYTES = 32
 MFA_CODE_DIGITS = 6
@@ -151,6 +155,10 @@ class MfaChallengeDelivery:
     previous_code_hash: str | None = None
     previous_delivery_method: str | None = None
     previous_expires_at: datetime | None = None
+    # The account-level send cooldown is reserved before delivery is attempted; these carry the
+    # prior values so a failed send can release the reservation it never earned.
+    previous_account_email_sent_at: datetime | None = None
+    previous_account_sms_sent_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -260,15 +268,63 @@ def seconds_until_allowed(last_sent_at: datetime, now: datetime, cooldown: timed
     return max(1, ceil(cooldown.total_seconds() - elapsed_seconds))
 
 
+class PasswordHashUnusableError(Exception):
+    """Raised when a stored password hash cannot be evaluated at all.
+
+    This is a data-integrity fault (a truncated column, a partial restore, a non-Argon2 hash
+    imported from elsewhere), not a wrong password. Collapsing it into "credentials invalid" would
+    tell the patient they mistyped, burn their lockout budget, and record their own correct attempt
+    in the audit trail as a failure.
+    """
+
+
 def password_matches(password_hash: str, password: str) -> bool:
     try:
         return verify_password(password_hash, password)
-    except (InvalidHashError, VerificationError, VerifyMismatchError):
+    except VerifyMismatchError:
         return False
+    except (InvalidHashError, VerificationError) as exc:
+        raise PasswordHashUnusableError() from exc
+
+
+def verify_account_password(
+    session: Session,
+    account: PatientPortalAccount,
+    password: str,
+    *,
+    client_reference_hash: str | None = None,
+) -> bool:
+    """Verify a real account password, distinguishing a wrong password from an unusable hash."""
+    try:
+        return password_matches(account.password_hash, password)
+    except PasswordHashUnusableError:
+        # Deliberately NOT counted against the lockout budget: the patient did nothing wrong.
+        logger.error("Stored password hash is unusable; login cannot be evaluated")
+        record_audit_event(
+            session,
+            event_type=AUDIT_EVENT_LOGIN,
+            outcome=AUDIT_OUTCOME_FAILURE,
+            actor_type=AUDIT_ACTOR_TYPE_PATIENT,
+            actor=account.username,
+            clinic_id=account.clinic_id,
+            demographic_no=account.demographic_no,
+            account_id=account.id,
+            client_reference_hash=client_reference_hash,
+            reason=AUTH_REASON_PASSWORD_HASH_UNUSABLE,
+        )
+        # The request aborts with a 503, whose teardown rolls back; commit so the operational
+        # evidence of the integrity fault survives the failure it is describing.
+        session.commit()
+        raise
 
 
 def verify_dummy_password(password: str) -> None:
-    password_matches(DUMMY_PASSWORD_HASH, password)
+    # The dummy hash is a module constant, so it can only fail if the process itself is broken;
+    # equalising login timing must never surface as an error to the caller.
+    try:
+        password_matches(DUMMY_PASSWORD_HASH, password)
+    except PasswordHashUnusableError:
+        logger.error("Dummy password hash is unusable")
 
 
 def ensure_mfa_delivery_available(
@@ -434,6 +490,8 @@ def create_mfa_challenge(
         )
         raise MfaRateLimitedError(retry_after_seconds)
 
+    previous_account_email_sent_at = account.last_mfa_email_sent_at
+    previous_account_sms_sent_at = account.last_mfa_sms_sent_at
     if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL:
         account.last_mfa_email_sent_at = now
     else:
@@ -483,6 +541,8 @@ def create_mfa_challenge(
         destination=destination,
         available_delivery_methods=available_mfa_delivery_methods(account),
         expires_at=challenge.expires_at,
+        previous_account_email_sent_at=previous_account_email_sent_at,
+        previous_account_sms_sent_at=previous_account_sms_sent_at,
     )
 
 
@@ -534,7 +594,9 @@ def start_login(
         raise InvalidCredentialsError()
 
     if account.locked_at is not None:
-        password_is_valid = password_matches(account.password_hash, password)
+        password_is_valid = verify_account_password(
+            session, account, password, client_reference_hash=client_reference_hash
+        )
         record_audit_event(
             session,
             event_type=AUDIT_EVENT_LOGIN,
@@ -553,7 +615,9 @@ def start_login(
             raise AccountLockedError()
         raise InvalidCredentialsError()
 
-    if not password_matches(account.password_hash, password):
+    if not verify_account_password(
+        session, account, password, client_reference_hash=client_reference_hash
+    ):
         account.failed_login_count += 1
         account.updated_at = now
         lockout_reached = account.failed_login_count >= policy.max_failed_password_attempts
@@ -850,6 +914,8 @@ def resend_mfa_challenge(
         )
         raise MfaRateLimitedError(retry_after_seconds)
 
+    previous_account_email_sent_at = account.last_mfa_email_sent_at
+    previous_account_sms_sent_at = account.last_mfa_sms_sent_at
     if normalized_delivery_method == MFA_DELIVERY_METHOD_EMAIL:
         account.last_mfa_email_sent_at = now
     else:
@@ -892,6 +958,8 @@ def resend_mfa_challenge(
         previous_code_hash=previous_code_hash,
         previous_delivery_method=previous_delivery_method,
         previous_expires_at=previous_expires_at,
+        previous_account_email_sent_at=previous_account_email_sent_at,
+        previous_account_sms_sent_at=previous_account_sms_sent_at,
     )
 
 
@@ -931,18 +999,25 @@ def record_mfa_delivery_outcome(
         else:
             challenge.last_sms_sent_at = delivered_at
             account.last_mfa_sms_sent_at = delivered_at
-    elif (
-        delivery.previous_code_hash is not None
-        and delivery.previous_delivery_method is not None
-        and delivery.previous_expires_at is not None
-    ):
-        challenge.code_hash = delivery.previous_code_hash
-        challenge.delivery_method = delivery.previous_delivery_method
-        challenge.expires_at = delivery.previous_expires_at
-        challenge.updated_at = utc_now()
     else:
-        challenge.status = MFA_CHALLENGE_STATUS_CANCELLED
-        challenge.updated_at = utc_now()
+        # No code reached the patient, so the cooldown reserved before the attempt must be
+        # released; otherwise a provider outage throttles every patient to one login per window
+        # despite never having delivered anything.
+        account.last_mfa_email_sent_at = delivery.previous_account_email_sent_at
+        account.last_mfa_sms_sent_at = delivery.previous_account_sms_sent_at
+        if (
+            delivery.previous_code_hash is not None
+            and delivery.previous_delivery_method is not None
+            and delivery.previous_expires_at is not None
+        ):
+            # Resend failure: restore the code the patient still holds, alongside its cooldown.
+            challenge.code_hash = delivery.previous_code_hash
+            challenge.delivery_method = delivery.previous_delivery_method
+            challenge.expires_at = delivery.previous_expires_at
+            challenge.updated_at = utc_now()
+        else:
+            challenge.status = MFA_CHALLENGE_STATUS_CANCELLED
+            challenge.updated_at = utc_now()
 
     record_audit_event(
         session,

@@ -27,6 +27,10 @@ TEXT_CATALOG: dict[str, dict[str, str]] = {
         "account": "Account",
         "account_change_error": "Account change could not be completed.",
         "account_help": "Account help",
+        "account_status_contact_notice_failed": (
+            "Portal contact updated, but the confirmation email could not be sent. "
+            "Contact the clinic if you did not expect this change."
+        ),
         "account_status_contact_updated": (
             "Portal contact updated. Staff will review the matching CARLOS demographics."
         ),

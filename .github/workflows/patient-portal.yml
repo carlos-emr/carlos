@@ -22,6 +22,10 @@ on:
     paths:
       - ".github/workflows/patient-portal.yml"
       - "patient_portal/**"
+      # The browser suite lives outside patient_portal/, so without these a change to the check
+      # itself would not run the only job that executes it.
+      - "scripts/patient-portal-playwright-checks.js"
+      - "package.json"
 
 permissions:
   contents: read

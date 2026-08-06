@@ -332,9 +332,12 @@ def publish_unlock_secret(
     )
     if unlock_secret.status == UNLOCK_SECRET_STATUS_REVOKED:
         raise UnlockSecretRevokedError()
+    already_published = unlock_secret.status == UNLOCK_SECRET_STATUS_ACTIVE
     if unlock_secret.status == UNLOCK_SECRET_STATUS_PENDING:
         unlock_secret.status = UNLOCK_SECRET_STATUS_ACTIVE
         unlock_secret.updated_at = utc_now()
+    # CARLOS retries this call after a timeout, so a no-op republish must stay distinguishable
+    # from the real publication that first made the passphrase patient-visible.
     record_audit_event(
         session,
         event_type=AUDIT_EVENT_UNLOCK_SECRET_PUBLISH,
@@ -355,7 +358,7 @@ def publish_unlock_secret(
         account_id=unlock_secret.account_id,
         resource_type="unlock_secret",
         resource_id=str(unlock_secret.id),
-        reason="published",
+        reason="already_published" if already_published else "published",
     )
     return unlock_secret
 

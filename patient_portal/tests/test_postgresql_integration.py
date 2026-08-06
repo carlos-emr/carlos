@@ -514,3 +514,129 @@ def test_postgresql_unlock_idempotency_and_contact_review_replacement() -> None:
             assert pending_count == 1
     finally:
         engine.dispose()
+
+
+def test_postgresql_staff_revocation_races_in_flight_patient_requests() -> None:
+    """Staff disabling an account must win against concurrent authenticated reads.
+
+    Session authentication is deliberately lock-free for throughput, so revocation and an
+    in-flight request can interleave. What must hold is that once the disable commits, no
+    later request is served, and every session row is revoked.
+    """
+    assert POSTGRES_URL is not None
+    clean_postgresql_database()
+    account_id = insert_postgres_account(username="revoked.patient", demographic_no=7101)
+    settings = postgres_settings()
+    app = create_app(settings)
+    client = TestClient(app)
+    engine = create_portal_engine(POSTGRES_URL)
+    tokens: list[str] = []
+    try:
+        with Session(engine) as session:
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            for _ in range(8):
+                tokens.append(
+                    create_patient_session(
+                        session,
+                        account,
+                        policy=auth_policy_from_settings(settings),
+                        token_secret=settings.session_secret.get_secret_value(),
+                        now=utc_now(),
+                    )
+                )
+            session.commit()
+
+        barrier = Barrier(len(tokens) + 1)
+        statuses: list[int] = []
+
+        def read_session(token: str) -> None:
+            barrier.wait(timeout=10)
+            statuses.append(
+                client.get(
+                    "/auth/session", headers={"Authorization": f"Bearer {token}"}
+                ).status_code
+            )
+
+        def revoke_access() -> None:
+            barrier.wait(timeout=10)
+            client.post(
+                "/internal/carlos/patients/7101/portal-account/access",
+                headers={**staff_headers(), "X-CARLOS-Permissions": "portal.account.manage"},
+                json={"enabled": False, "reason": "staff_action"},
+            )
+
+        with ThreadPoolExecutor(max_workers=len(tokens) + 1) as executor:
+            futures = [executor.submit(read_session, token) for token in tokens]
+            futures.append(executor.submit(revoke_access))
+            for future in futures:
+                future.result(timeout=30)
+
+        # Interleaving decides how many in-flight reads land before the commit; the invariant
+        # is that afterwards nothing is authenticated and no session row survives unrevoked.
+        assert all(status in {200, 401} for status in statuses)
+        after = [
+            client.get("/auth/session", headers={"Authorization": f"Bearer {token}"}).status_code
+            for token in tokens
+        ]
+        assert set(after) == {401}
+        with Session(engine) as session:
+            account = session.get(PatientPortalAccount, account_id)
+            assert account is not None
+            assert account.status == "disabled"
+            unrevoked = session.scalar(
+                select(func.count(PatientPortalSession.id)).where(
+                    PatientPortalSession.account_id == account_id,
+                    PatientPortalSession.revoked_at.is_(None),
+                )
+            )
+            assert unrevoked == 0
+    finally:
+        engine.dispose()
+
+
+def test_postgresql_concurrent_fresh_logins_leave_one_usable_mfa_challenge() -> None:
+    """Concurrent fresh logins must not leave several independently valid MFA challenges.
+
+    A superseded challenge is what carries the failure budget across logins, so two live
+    challenges would also reset an attacker's per-challenge attempt allowance.
+    """
+    assert POSTGRES_URL is not None
+    clean_postgresql_database()
+    insert_postgres_account(username="mfa.race.patient", demographic_no=7102)
+    app = create_app(postgres_settings())
+    client = TestClient(app)
+    engine = create_portal_engine(POSTGRES_URL)
+    barrier = Barrier(4)
+    responses: list[tuple[int, dict]] = []
+
+    def login(_: int) -> None:
+        barrier.wait(timeout=10)
+        response = client.post(
+            "/auth/login",
+            json={"username": "mfa.race.patient", "password": POSTGRES_PATIENT_PASSWORD},
+        )
+        responses.append((response.status_code, response.json()))
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(login, range(4)))
+
+        accepted = [body for status, body in responses if status == 200]
+        with Session(engine) as session:
+            pending = list(
+                session.execute(
+                    text(
+                        "select id, status from patient_portal_mfa_challenges "
+                        "where status = 'pending' order by id"
+                    )
+                )
+            )
+        # The account-level send cooldown should admit exactly one delivery per window, and
+        # at most one challenge may remain pending regardless of how the logins interleaved.
+        assert len(pending) <= 1
+        assert len(accepted) <= 1
+        verifiable = [body for body in accepted if body.get("mfa_challenge_token")]
+        assert len(verifiable) == len(accepted)
+    finally:
+        engine.dispose()
