@@ -255,8 +255,8 @@ public class DxresearchReport2Action extends ActionSupport {
 
         InputStream reportInstream = this.getClass().getClassLoader().getResourceAsStream(REPORTS_PATH);
 
-        response.setContentType("application/excel");
-        response.setHeader("Content-disposition", "inline; filename=dxResearchReport.xls");
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-disposition", "attachment; filename=dxResearchReport.xlsx");
 
         osc.fillDocumentStream(reportParams, outputStream, OscarDocumentCreator.EXCEL, reportInstream, patients);
 
