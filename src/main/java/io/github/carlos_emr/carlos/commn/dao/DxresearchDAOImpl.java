@@ -196,19 +196,47 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         }
     }
 
+    /**
+     * Returns registry records whose status is active ({@code 'A'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedActive(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         return patientRegistedStatus('A', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is resolved ({@code 'C'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedResolve(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         return patientRegistedStatus('C', searchItems, doctorList);
     }
 
+    /**
+     * Returns registry records whose status is deleted ({@code 'D'}).
+     *
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedDeleted(List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         return patientRegistedStatus('D', searchItems, doctorList);
     }
 
-
+    /**
+     * Returns registry records matching one entity-level status code.
+     *
+     * @param status registry status stored by {@link Dxresearch}, normally {@code 'A'}, {@code 'C'}, or {@code 'D'}
+     * @param searchItems optional diagnosis-code filters
+     * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
+     * @return matching registry patient information, or {@code null} when no records match
+     */
     public List<DxRegistedPTInfo> patientRegistedStatus(Character status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         List<Dxresearch> dList = null;
 

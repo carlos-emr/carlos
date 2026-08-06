@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +44,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("DxresearchDAOImpl Unit Tests")
 @Tag("unit")
 @Tag("dao")
-class DxresearchDAOImplUnitTest {
+class DxresearchDAOImplUnitTest extends CarlosUnitTestBase {
 
     private DxresearchDAOImpl dao;
     private Query query;
@@ -66,7 +67,7 @@ class DxresearchDAOImplUnitTest {
         "deleted,D"
     })
     @DisplayName("should bind Disease Registry report statuses using the entity attribute type")
-    void shouldBindStatusAsCharacter(String report, char expectedStatus) {
+    void shouldBindStatus_whenStatusSpecificReportIsRequested(String report, char expectedStatus) {
         switch (report) {
             case "active" -> dao.patientRegistedActive(null, List.of("*"));
             case "resolved" -> dao.patientRegistedResolve(null, List.of("*"));
