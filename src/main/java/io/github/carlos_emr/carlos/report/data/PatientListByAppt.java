@@ -35,6 +35,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Objects;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -101,7 +102,16 @@ public class PatientListByAppt extends HttpServlet {
                     pw.print(escapeCsv(d.getPhone2()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
                     pw.print(ConversionUtils.toTimeString(a.getStartTime()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted time
                     pw.print(ConversionUtils.toDateString(a.getAppointmentDate()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, formatted date
-                    pw.print(escapeCsv(a.getType().replaceAll("\r\n", "")) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+                    // Appointment type is free text and optional. Strip CR and LF
+                    // individually — the legacy replaceAll("\r\n", "") only matched
+                    // CRLF pairs, so a lone newline survived, escapeCsv quoted the
+                    // field, and one appointment spilled across two output lines.
+                    // Objects.toString keeps this null-safe independently of the
+                    // entity getter's own null coalescing.
+                    String appointmentType = Objects.toString(a.getType(), "")
+                            .replace("\r", "")
+                            .replace("\n", "");
+                    pw.print(escapeCsv(appointmentType) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
                     pw.print(escapeCsv(p.getFirstName() + " " + p.getLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
                     pw.print(escapeCsv(a.getLocation())); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
                     pw.print("\n"); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download literal newline
