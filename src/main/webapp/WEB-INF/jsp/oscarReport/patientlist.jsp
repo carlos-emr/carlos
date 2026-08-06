@@ -3,6 +3,7 @@
 <%@ page import="java.util.ArrayList" %>
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
@@ -54,7 +55,7 @@
                             for (int i = 0; i < dnl.size(); i++) {
                                 ProviderNameBean pb = (ProviderNameBean) dnl.get(i);
                         %>
-                        <option value="<%=pb.getProviderID()%>"><%=pb.getProviderName()%>
+                        <option value="<carlos:encode value='<%= pb.getProviderID() %>' context="htmlAttribute"/>"><carlos:encode value='<%= pb.getProviderName() %>' context="html"/>
                         </option>
                         <%
                             }

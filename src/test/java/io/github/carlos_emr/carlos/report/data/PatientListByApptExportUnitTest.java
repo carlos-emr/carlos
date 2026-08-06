@@ -147,6 +147,21 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("visible export form should HTML-encode provider option values and labels")
+    void shouldEncodeProviderOptions_whenReadingPatientListJsp() throws IOException {
+        String patientListJsp = Files.readString(PATIENT_LIST_JSP, StandardCharsets.UTF_8);
+
+        assertThat(patientListJsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("<carlos:encode value='<%= pb.getProviderID() %>' "
+                        + "context=\"htmlAttribute\"/>")
+                .contains("<carlos:encode value='<%= pb.getProviderName() %>' "
+                        + "context=\"html\"/>")
+                .doesNotContain("value=\"<%=pb.getProviderID()%>\"")
+                .doesNotContain("><%=pb.getProviderName()%>");
+    }
+
+    @Test
     @DisplayName("export should emit an empty type field when the appointment has no type")
     void shouldEmitEmptyTypeField_whenAppointmentTypeIsNull() throws Exception {
         Date appointmentDate = ConversionUtils.fromDateString("2026-08-07");
