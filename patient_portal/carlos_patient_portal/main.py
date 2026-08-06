@@ -198,6 +198,7 @@ from carlos_patient_portal.unlock_secrets import (
     list_unlock_secrets,
     read_unlock_secret,
 )
+from carlos_patient_portal.view_models import EmailPasswordDashboardViewModel
 
 PACKAGE_DIR = FilePath(__file__).resolve().parent
 RequestModel = TypeVar("RequestModel", bound=BaseModel)
@@ -1061,8 +1062,14 @@ def public_auth_template_context(
     error_message: str | None = None,
     notice_message: str | None = None,
     form_values: dict[str, str] | None = None,
-    **extra_context: object,
+    sms_mfa_available: bool | None = None,
+    reset_token: str | None = None,
+    development_reset_url: str | None = None,
+    result_heading: str | None = None,
+    result_message: str | None = None,
 ) -> dict[str, object]:
+    # Declared explicitly rather than as **extra_context: these five keys are read by individual
+    # public templates, and a kwargs bag let a caller typo one into silence.
     return {
         "request": request,
         "clinic_name": settings.clinic_name,
@@ -1073,7 +1080,11 @@ def public_auth_template_context(
         "service_name": settings.service_name,
         "supported_locales": supported_locale_options(DEFAULT_LOCALE),
         "text": portal_text(DEFAULT_LOCALE),
-        **extra_context,
+        "sms_mfa_available": sms_mfa_available,
+        "reset_token": reset_token,
+        "development_reset_url": development_reset_url,
+        "result_heading": result_heading,
+        "result_message": result_message,
     }
 
 
@@ -1087,7 +1098,11 @@ def render_public_auth_template(
     error_message: str | None = None,
     notice_message: str | None = None,
     form_values: dict[str, str] | None = None,
-    **extra_context: object,
+    sms_mfa_available: bool | None = None,
+    reset_token: str | None = None,
+    development_reset_url: str | None = None,
+    result_heading: str | None = None,
+    result_message: str | None = None,
 ) -> Response:
     csrf_token = create_csrf_token(csrf_secret)
     response = templates.TemplateResponse(
@@ -1100,7 +1115,11 @@ def render_public_auth_template(
             error_message=error_message,
             notice_message=notice_message,
             form_values=form_values,
-            **extra_context,
+            sms_mfa_available=sms_mfa_available,
+            reset_token=reset_token,
+            development_reset_url=development_reset_url,
+            result_heading=result_heading,
+            result_message=result_message,
         ),
         status_code=status_code,
     )
@@ -1179,7 +1198,7 @@ def portal_template_context(
     sms_mfa_available: bool,
     account_notice: str | None = None,
     account_error: str | None = None,
-    extra_context: dict[str, object] | None = None,
+    email_passwords: EmailPasswordDashboardViewModel | None = None,
 ) -> dict[str, object]:
     account = authenticated_session.account
     text = portal_text(DEFAULT_LOCALE)
@@ -1197,8 +1216,8 @@ def portal_template_context(
         "sms_mfa_available": sms_mfa_available and account.phone_number is not None,
         "text": text,
     }
-    if extra_context is not None:
-        context.update(extra_context)
+    # The only module with its own view state; typed so a rename is a type error, not a blank page.
+    context["email_passwords"] = email_passwords
     return context
 
 
@@ -2093,9 +2112,9 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 clear_portal_session_cookie(response, settings=settings)
                 return response
 
-        extra_context: dict[str, object] = {}
+        email_passwords: EmailPasswordDashboardViewModel | None = None
         if active_module == "email-passwords":
-            dashboard_context = assemble_email_password_dashboard(
+            email_passwords = assemble_email_password_dashboard(
                 session,
                 authenticated_session.account,
                 search=email_password_search,
@@ -2106,7 +2125,6 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 timezone_name=settings.clinic_timezone,
                 filter_error=email_password_filter_error,
             )
-            extra_context["email_passwords"] = dashboard_context
         csrf_token = create_csrf_token(runtime.csrf_secret)
         response = templates.TemplateResponse(
             request=request,
@@ -2120,7 +2138,7 @@ def build_route_dependencies(runtime: PortalRuntime) -> RouteDependencies:
                 sms_mfa_available=runtime.sms_sender is not None,
                 account_notice=account_notice,
                 account_error=account_error,
-                extra_context=extra_context,
+                email_passwords=email_passwords,
             ),
             status_code=status_code,
         )

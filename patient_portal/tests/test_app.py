@@ -3,6 +3,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import fields
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -17,6 +18,7 @@ from fhir.resources.operationoutcome import OperationOutcome
 from fhir.resources.organization import Organization
 from fhir.resources.patient import Patient
 from fhir.resources.practitioner import Practitioner
+from jinja2 import meta
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.engine import make_url
@@ -26,6 +28,7 @@ from sqlalchemy.orm import Session
 from carlos_patient_portal import cli, main, presenters
 from carlos_patient_portal.account_settings import update_account_mfa_method
 from carlos_patient_portal.audit import hash_sensitive_reference, record_audit_event
+from carlos_patient_portal.auth import MfaChallengeDelivery
 from carlos_patient_portal.config import (
     DEFAULT_AUDIT_RETENTION_DAYS,
     DEFAULT_DATABASE_URL,
@@ -5658,3 +5661,68 @@ def test_presenters_perform_no_writes() -> None:
     )
 
     assert not forbidden, f"presenters.py must not write: {sorted(set(forbidden))}"
+
+
+def _sample_mfa_delivery() -> MfaChallengeDelivery:
+    return MfaChallengeDelivery(
+        challenge_id=1,
+        challenge_token="challenge-token",
+        code="123456",
+        delivery_method="email",
+        destination="patient@example.com",
+        available_delivery_methods=("email",),
+        expires_at=utc_now(),
+    )
+
+
+def _template_variable_names(template_name: str) -> set[str]:
+    """Top-level names a template (and its includes) reads, per Jinja's own parser."""
+    environment = main.templates.env
+    source, _, _ = environment.loader.get_source(environment, template_name)
+    names = meta.find_undeclared_variables(environment.parse(source))
+    for included in meta.find_referenced_templates(environment.parse(source)):
+        if included is not None:
+            names |= _template_variable_names(included)
+    return names
+
+
+@pytest.mark.parametrize(
+    ("template_name", "context_builder"),
+    [
+        ("index.jinja", "index_template_context"),
+        ("activate.jinja", "public_auth_template_context"),
+        ("password_reset_request.jinja", "public_auth_template_context"),
+        ("password_reset_complete.jinja", "public_auth_template_context"),
+        ("auth_result.jinja", "public_auth_template_context"),
+        ("locked.jinja", "public_auth_template_context"),
+        ("mfa.jinja", "mfa_template_context"),
+    ],
+)
+def test_public_template_reads_only_keys_its_context_builder_supplies(
+    template_name: str, context_builder: str
+) -> None:
+    """Every variable a public template reads must be supplied by its assembler.
+
+    Jinja renders an unknown name as empty instead of raising, so an assembler that stops
+    supplying a key -- or a template that starts reading a new one -- fails silently in the
+    browser. This closes that gap for the pages that do not have a dedicated view model.
+    """
+    settings = Settings(environment="development", database_url="sqlite+pysqlite:///:memory:")
+    builder = getattr(main, context_builder)
+    if context_builder == "mfa_template_context":
+        context = builder(
+            SimpleNamespace(),
+            settings=settings,
+            delivery=_sample_mfa_delivery(),
+            csrf_token="token",
+        )
+    else:
+        context = builder(SimpleNamespace(), settings=settings, csrf_token="token")
+    # Derived from the assembler itself rather than a hand-maintained list, so the assertion
+    # cannot drift away from what the code actually supplies.
+    supplied = set(context) | {"url_for", "request"}
+
+    used = _template_variable_names(template_name)
+
+    undeclared = sorted(used - supplied)
+    assert not undeclared, f"{template_name} reads keys no assembler supplies: {undeclared}"
