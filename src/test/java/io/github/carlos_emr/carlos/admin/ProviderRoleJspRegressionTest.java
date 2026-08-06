@@ -179,6 +179,12 @@ class ProviderRoleJspRegressionTest {
                 // data-org feeds enableAddRoleButton and must not be raw DB text.
                 .containsPattern("data-org=\"<carlos:encode")
                 .doesNotContain("data-org=\"<%= item.getProperty(\"role_name\", \"\") %>\"");
+
+        // One role select per row, so each carries its own id and a hidden label; without them
+        // a screen reader cannot tell the rows apart.
+        assertThat(jsp)
+                .containsPattern("<label[^>]*for=\"roleNew-<%= i %>\"")
+                .containsPattern("<select id=\"roleNew-<%= i %>\" name=\"roleNew\"");
     }
 
     @Test
