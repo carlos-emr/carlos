@@ -37,6 +37,7 @@ import java.util.Set;
 
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.commn.Gender;
+import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
@@ -418,7 +419,7 @@ public interface DemographicDao {
 
     // public List<Demographic> findByCriterion(DemographicCriterion c);
 
-    public List<Object[]> findDemographicsForFluReport(String providerNo);
+    public List<FluReportDemographicRow> findDemographicsForFluReport(String providerNo);
 
     public List<Integer> getActiveDemographicIdsOlderThan(int age);
 

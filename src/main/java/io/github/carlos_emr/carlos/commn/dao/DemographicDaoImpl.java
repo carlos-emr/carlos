@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
+import jakarta.persistence.Tuple;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.query.NativeQuery;
@@ -55,6 +56,7 @@ import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.commn.DemographicSearchResultTransformer;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
@@ -85,6 +87,13 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEventPublisherAware, DemographicDao {
 
     private static final int MAX_SELECT_SIZE = 500;
+    private static final String FLU_DEMOGRAPHIC_NO = "demographic_no";
+    private static final String FLU_PATIENT_NAME = "patient_name";
+    private static final String FLU_PHONE = "phone";
+    private static final String FLU_ROSTER_STATUS = "roster_status";
+    private static final String FLU_PATIENT_STATUS = "patient_status";
+    private static final String FLU_DATE_OF_BIRTH = "date_of_birth";
+    private static final String FLU_AGE = "age";
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
@@ -2454,13 +2463,18 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         return (List<Demographic>) JpqlQueryHelper.find(entityManager(), sSQL, c.getAll(true));
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public List<Object[]> findDemographicsForFluReport(String providerNo) {
-        String sql = "select demographic_no, CONCAT(last_name,',',first_name) as demoname, phone, roster_status, patient_status, "
-            + "DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth), '-',(date_of_birth)),'%Y-%m-%d') as dob, "
+    public List<FluReportDemographicRow> findDemographicsForFluReport(String providerNo) {
+        String sql = "select demographic_no as " + FLU_DEMOGRAPHIC_NO
+            + ", CONCAT(last_name,',',first_name) as " + FLU_PATIENT_NAME
+            + ", phone as " + FLU_PHONE
+            + ", roster_status as " + FLU_ROSTER_STATUS
+            + ", patient_status as " + FLU_PATIENT_STATUS + ", "
+            + "DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth), '-',(date_of_birth)),'%Y-%m-%d') as "
+            + FLU_DATE_OF_BIRTH + ", "
             + "(YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d')))-"
-            + "(RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) as age "
+            + "(RIGHT(CURRENT_DATE,5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) as "
+            + FLU_AGE + " "
             + "from demographic  where (YEAR(CURRENT_DATE)-YEAR(DATE_FORMAT(CONCAT((year_of_birth),'-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d')))-"
             + "(RIGHT(CURRENT_DATE,5)<"
             + "RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >= 65 "
@@ -2471,12 +2485,26 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
         sql = sql + " order by last_name ";
 
-        EntityManager session = entityManager();
-            Query sqlQuery = session.createNativeQuery(sql);
-            if (providerNo != null && !providerNo.equals("-1")) {
-                sqlQuery.setParameter("providerNo", providerNo);
-            }
-            return sqlQuery.getResultList();
+        Query sqlQuery = entityManager().createNativeQuery(sql, Tuple.class);
+        if (providerNo != null && !providerNo.equals("-1")) {
+            sqlQuery.setParameter("providerNo", providerNo);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Tuple> rows = sqlQuery.getResultList();
+        return rows.stream().map(DemographicDaoImpl::toFluReportDemographicRow).toList();
+    }
+
+    static FluReportDemographicRow toFluReportDemographicRow(Tuple row) {
+        return new FluReportDemographicRow(
+            Objects.toString(row.get(FLU_DEMOGRAPHIC_NO), ""),
+            Objects.toString(row.get(FLU_PATIENT_NAME), ""),
+            Objects.toString(row.get(FLU_PHONE), ""),
+            Objects.toString(row.get(FLU_ROSTER_STATUS), ""),
+            Objects.toString(row.get(FLU_PATIENT_STATUS), ""),
+            Objects.toString(row.get(FLU_DATE_OF_BIRTH), ""),
+            Objects.toString(row.get(FLU_AGE), "")
+        );
     }
 
     @SuppressWarnings("unchecked")

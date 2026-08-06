@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
-import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -46,9 +47,10 @@ class RptFluReportDataUnitTest {
     @DisplayName("should map every demographic query column to its patient detail field")
     void shouldMapEveryQueryColumnToItsPatientDetailField() {
         DemographicDao demographicDao = mock(DemographicDao.class);
-        Object[] queryRow = {714, "Patient,Flu", "416-555-0714", "RO", "AC", "1940-06-15", 85};
         when(demographicDao.findDemographicsForFluReport("-1"))
-            .thenReturn(Arrays.<Object[]>asList(queryRow));
+            .thenReturn(List.of(new FluReportDemographicRow(
+                "714", "Patient,Flu", "416-555-0714", "RO", "AC", "1940-06-15", "85"
+            )));
 
         try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
             springUtils.when(() -> SpringUtils.getBean(DemographicDao.class)).thenReturn(demographicDao);
@@ -74,9 +76,8 @@ class RptFluReportDataUnitTest {
     @DisplayName("should render empty patient details instead of literal null values")
     void shouldRenderEmptyStringsForNullQueryColumns() {
         DemographicDao demographicDao = mock(DemographicDao.class);
-        Object[] queryRow = {null, null, null, null, null, null, null};
         when(demographicDao.findDemographicsForFluReport("999998"))
-            .thenReturn(Arrays.<Object[]>asList(queryRow));
+            .thenReturn(List.of(new FluReportDemographicRow(null, null, null, null, null, null, null)));
 
         try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
             springUtils.when(() -> SpringUtils.getBean(DemographicDao.class)).thenReturn(demographicDao);

@@ -32,12 +32,12 @@ package io.github.carlos_emr.carlos.report.data;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -70,23 +70,15 @@ public class RptFluReportData {
 
         demoList = new ArrayList<DemoFluDataStruct>();
         DemoFluDataStruct demofludatastruct;
-        for (Object[] o : dao.findDemographicsForFluReport(s)) {
-            String demographicNo = Objects.toString(o[0], "");
-            String demoName = Objects.toString(o[1], "");
-            String phone = Objects.toString(o[2], "");
-            String rosterStatus = Objects.toString(o[3], "");
-            String patientStatus = Objects.toString(o[4], "");
-            String dob = Objects.toString(o[5], "");
-            String age = Objects.toString(o[6], "");
-
+        for (FluReportDemographicRow patient : dao.findDemographicsForFluReport(s)) {
             demofludatastruct = new DemoFluDataStruct();
-            demofludatastruct.demoNo = demographicNo;
-            demofludatastruct.demoName = demoName;
-            demofludatastruct.demoPhone = phone;
-            demofludatastruct.demoRosterStatus = rosterStatus;
-            demofludatastruct.demoPatientStatus = patientStatus;
-            demofludatastruct.demoDOB = dob;
-            demofludatastruct.demoAge = age;
+            demofludatastruct.demoNo = patient.demographicNo();
+            demofludatastruct.demoName = patient.patientName();
+            demofludatastruct.demoPhone = patient.phone();
+            demofludatastruct.demoRosterStatus = patient.rosterStatus();
+            demofludatastruct.demoPatientStatus = patient.patientStatus();
+            demofludatastruct.demoDOB = patient.dateOfBirth();
+            demofludatastruct.demoAge = patient.age();
 
             demoList.add(demofludatastruct);
         }
