@@ -75,6 +75,26 @@ class OscarSessionListenerMfaCleanupUnitTest extends CarlosUnitTestBase {
         verify(eFormRenderApprovalService).invalidateStagedFaxPreviewsForSession(session.getId());
     }
 
+    @Test
+    @DisplayName("should clear Fax2Action's per-session claimed-fax-file-paths lock when session is destroyed")
+    void shouldClearFax2ActionSessionLock_whenSessionIsDestroyed() {
+        MockHttpSession session = new MockHttpSession();
+        when(casemgmtNoteLockDao.findBySession(session.getId())).thenReturn(Collections.emptyList());
+        // Populate the per-session lock registry the same way a real fax preview/queue request
+        // would.
+        io.github.carlos_emr.carlos.fax.action.Fax2Action.registerClaimedFaxFilePathsLockForTest(session.getId());
+        try {
+            new OscarSessionListener().sessionDestroyed(new HttpSessionEvent(session));
+
+            // Cleared, not left to accumulate for the life of the JVM once the session that owned
+            // it is gone.
+            assertThat(io.github.carlos_emr.carlos.fax.action.Fax2Action
+                    .hasClaimedFaxFilePathsLockForTest(session.getId())).isFalse();
+        } finally {
+            io.github.carlos_emr.carlos.fax.action.Fax2Action.clearClaimedFaxFilePathsLockForSession(session.getId());
+        }
+    }
+
     private static PendingMfaChallengeCache.PendingMfaChallenge challenge() {
         return new PendingMfaChallengeCache.PendingMfaChallenge(
                 12345, "999998", new String[]{"999998", "Test"}, "secret");

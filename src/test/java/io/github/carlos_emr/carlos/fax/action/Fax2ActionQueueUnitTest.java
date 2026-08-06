@@ -448,4 +448,44 @@ class Fax2ActionQueueUnitTest extends CarlosUnitTestBase {
             verify(faxManager).persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any());
         }
     }
+
+    @Test
+    @DisplayName("should register a dedicated per-session lock (not a single shared one) for the claimed fax file paths set")
+    void shouldRegisterPerSessionLock_forClaimedFaxFilePaths() {
+        setUpCommonMocks();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(true);
+        EFormDataDao eFormDataDao = mock(EFormDataDao.class);
+        registerMock(EFormDataDao.class, eFormDataDao);
+        EFormData unchangedEForm = new EFormData();
+        unchangedEForm.setDemographicId(42);
+        when(eFormDataDao.find(7)).thenReturn(unchangedEForm);
+        when(faxManager.persistAndLogFaxJobs(any(LoggedInInfo.class), anyMap(), any(), any()))
+                .thenReturn(java.util.List.of());
+        String sessionId = request.getSession(true).getId();
+
+        try {
+            assertThat(Fax2Action.hasClaimedFaxFilePathsLockForTest(sessionId)).isFalse();
+
+            try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+                servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+                Fax2Action action = new Fax2Action();
+                action.setTransactionType("EFORM");
+                action.setTransactionId(7);
+                action.setDemographicNo(42);
+                action.setRecipientFaxNumber("1234567890");
+                action.setFaxFilePath(APP_TEMP_ROOT + "/fax.pdf");
+
+                action.queue();
+            }
+
+            // A dedicated lock was registered for THIS session -- not a single shared lock object
+            // that every unrelated session's fax requests would also contend on.
+            assertThat(Fax2Action.hasClaimedFaxFilePathsLockForTest(sessionId)).isTrue();
+        } finally {
+            Fax2Action.clearClaimedFaxFilePathsLockForSession(sessionId);
+        }
+    }
 }

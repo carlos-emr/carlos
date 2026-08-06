@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 import io.github.carlos_emr.carlos.login.PendingMfaChallenges;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import io.github.carlos_emr.carlos.managers.UserSessionManagerImpl;
@@ -58,6 +59,7 @@ public class OscarSessionListener implements HttpSessionListener {
         PendingMfaChallenges.clearFromSession(se.getSession());
         SpringUtils.getBean(EFormRenderApprovalService.class)
                 .invalidateStagedFaxPreviewsForSession(id);
+        Fax2Action.clearClaimedFaxFilePathsLockForSession(id);
 
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
 

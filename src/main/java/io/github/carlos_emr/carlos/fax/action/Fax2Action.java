@@ -950,14 +950,48 @@ public class Fax2Action extends ActionSupport {
     }
 
     // Guards the get-or-create of the session's claim-set attribute below. Deliberately a private
-    // lock object, not the HttpSession itself: synchronizing on a method parameter (or any object
-    // this class does not exclusively own) risks unpredictable contention or deadlock with
-    // unrelated code that might also lock on the same shared session object.
-    private static final Object CLAIMED_FAX_FILE_PATHS_LOCK = new Object();
+    // lock object per session, not the HttpSession itself: synchronizing on a method parameter (or
+    // any object this class does not exclusively own) risks unpredictable contention or deadlock
+    // with unrelated code that might also lock on the same shared session object. A single shared
+    // lock object was tried first, but that made every session's fax preview/queue requests
+    // contend on one process-wide monitor -- unrelated users blocking each other for no reason.
+    // ConcurrentHashMap.computeIfAbsent is itself thread-safe (no external synchronization needed
+    // to create an entry), and its per-key locking only ever contends for the SAME session id.
+    // Cleared on session destruction (see OscarSessionListener) so this map does not grow
+    // unboundedly over the life of the JVM.
+    private static final java.util.concurrent.ConcurrentHashMap<String, Object> CLAIMED_FAX_FILE_PATHS_LOCKS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static Object claimedFaxFilePathsLockForSession(HttpSession session) {
+        return CLAIMED_FAX_FILE_PATHS_LOCKS.computeIfAbsent(session.getId(), id -> new Object());
+    }
+
+    /**
+     * Removes this session's dedicated claimed-fax-file-paths lock object. Invoked from
+     * {@link io.github.carlos_emr.carlos.web.OscarSessionListener#sessionDestroyed} alongside its
+     * other per-session cleanup (e.g. {@code EFormRenderApprovalService}'s own staged-preview
+     * invalidation), so the per-session lock registry above does not accumulate one stray entry
+     * per login for the life of the JVM.
+     *
+     * @param sessionId the destroyed session's id
+     */
+    public static void clearClaimedFaxFilePathsLockForSession(String sessionId) {
+        CLAIMED_FAX_FILE_PATHS_LOCKS.remove(sessionId);
+    }
+
+    /** Test seam: reports whether a lock object is currently registered for the given session id. */
+    public static boolean hasClaimedFaxFilePathsLockForTest(String sessionId) {
+        return CLAIMED_FAX_FILE_PATHS_LOCKS.containsKey(sessionId);
+    }
+
+    /** Test seam: registers a lock object for the given session id, as a real request would. */
+    public static void registerClaimedFaxFilePathsLockForTest(String sessionId) {
+        CLAIMED_FAX_FILE_PATHS_LOCKS.computeIfAbsent(sessionId, id -> new Object());
+    }
 
     @SuppressWarnings("unchecked")
     private static java.util.Set<String> claimedFaxFilePathsInSession(HttpSession session) {
-        synchronized (CLAIMED_FAX_FILE_PATHS_LOCK) {
+        synchronized (claimedFaxFilePathsLockForSession(session)) {
             java.util.Set<String> claimedPaths =
                     (java.util.Set<String>) session.getAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
             if (claimedPaths == null) {
