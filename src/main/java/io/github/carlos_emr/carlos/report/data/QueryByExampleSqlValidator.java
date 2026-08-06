@@ -101,6 +101,18 @@ public final class QueryByExampleSqlValidator {
      */
     public static LegacyJdbcQuery.TrustedSql validate(String sql, Properties properties)
             throws QueryByExampleValidationException {
+        validateSqlText(sql);
+        Select select = parseSingleSelect(sql);
+        rejectUnsafeTextOperations(sql);
+        rejectUnsafeExpressionsAndOtherSchemas(select, applicationSchema(properties));
+        try {
+            return LegacyJdbcQuery.trustedSelectSql(sql);
+        } catch (SQLException e) {
+            throw new QueryByExampleValidationException(e.getMessage(), e);
+        }
+    }
+
+    private static void validateSqlText(String sql) throws QueryByExampleValidationException {
         if (sql == null) {
             throw new QueryByExampleValidationException("SQL query must not be empty");
         }
@@ -110,7 +122,9 @@ public final class QueryByExampleSqlValidator {
         if (sql.isBlank()) {
             throw new QueryByExampleValidationException("SQL query must not be empty");
         }
+    }
 
+    private static Select parseSingleSelect(String sql) throws QueryByExampleValidationException {
         Statement statement;
         try {
             statement = CCJSqlParserUtil.parse(sql);
@@ -121,19 +135,16 @@ public final class QueryByExampleSqlValidator {
         if (!(statement instanceof Select select) || containsSetOperation(select)) {
             throw new QueryByExampleValidationException("Only one SELECT statement is allowed");
         }
+        return select;
+    }
 
+    private static void rejectUnsafeTextOperations(String sql) throws QueryByExampleValidationException {
         String sqlWithoutQuotedSections = stripQuotedSections(sql);
         if (LOCKING_SELECT.matcher(sqlWithoutQuotedSections).find()) {
             throw new QueryByExampleValidationException("Locking SELECT statements are not allowed");
         }
         if (OUTPUT_OR_PROCEDURE_OPERATION.matcher(sqlWithoutQuotedSections).find()) {
             throw new QueryByExampleValidationException("SELECT output operations are not allowed");
-        }
-        rejectUnsafeExpressionsAndOtherSchemas(statement, applicationSchema(properties));
-        try {
-            return LegacyJdbcQuery.trustedSelectSql(sql);
-        } catch (SQLException e) {
-            throw new QueryByExampleValidationException(e.getMessage(), e);
         }
     }
 
@@ -196,7 +207,8 @@ public final class QueryByExampleSqlValidator {
     private static String stripQuotedSections(String sql) {
         StringBuilder stripped = new StringBuilder(sql.length());
         char quote = '\0';
-        for (int i = 0; i < sql.length(); i++) {
+        int i = 0;
+        while (i < sql.length()) {
             char current = sql.charAt(i);
             char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
             if (quote == '\0') {
@@ -206,15 +218,18 @@ public final class QueryByExampleSqlValidator {
                 } else {
                     stripped.append(current);
                 }
-            } else if (current == quote && next == quote) {
-                stripped.append("  ");
-                i++;
-            } else if (current == quote) {
-                quote = '\0';
-                stripped.append(' ');
             } else {
+                if (current == quote && next == quote) {
+                    stripped.append("  ");
+                    i += 2;
+                    continue;
+                }
+                if (current == quote) {
+                    quote = '\0';
+                }
                 stripped.append(' ');
             }
+            i++;
         }
         return stripped.toString();
     }

@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,7 +40,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesFavoriteDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
@@ -74,23 +74,23 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
             return NONE;
         }
 
-        String providerNo = (String) request.getSession().getAttribute("user");
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (!StringUtils.isEmpty(this.getNewQuery())) {
             // Edit case
-            this.setQuery(this.getNewQuery());
-            if (!StringUtils.isEmpty(this.getNewName())) {
-                this.setFavoriteName(this.getNewName());
+            if (hasFavoriteId()) {
+                ReportByExamplesFavorite favorite = requireOwnedFavorite(providerNo, this.getId());
+                this.setQuery(favorite.getQuery());
+                this.setFavoriteName(favorite.getName());
             } else {
-                ReportByExamplesFavoriteDao dao = SpringUtils.getBean(ReportByExamplesFavoriteDao.class);
-                for (ReportByExamplesFavorite f : dao.findByQuery(this.getNewQuery())) {
-                    this.setFavoriteName(f.getName());
-                }
+                prepareNewFavorite(providerNo);
             }
             return "edit";
         } else if ("true".equalsIgnoreCase(this.getToDelete())) {
             // Deletion case
-            deleteQuery(this.getId());
+            deleteQuery(providerNo, this.getId());
+        } else if (hasFavoriteId()) {
+            updateFavorite(providerNo, this.getId(), this.getFavoriteName(), this.getQuery());
         } else {
             // Add to favorite case
             String favoriteName = this.getFavoriteName();
@@ -110,9 +110,6 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
             return;
         }
 
-        MiscUtils.getLogger().debug("Fav " + favoriteName + " query " + query);
-
-        ReportByExamplesFavoriteDao dao = SpringUtils.getBean(ReportByExamplesFavoriteDao.class);
         List<ReportByExamplesFavorite> favorites = dao.findByEverything(providerNo, favoriteName, query);
         if (favorites.isEmpty()) {
             ReportByExamplesFavorite r = new ReportByExamplesFavorite();
@@ -131,8 +128,45 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
 
     }
 
-    public void deleteQuery(String id) {
-        dao.remove(Integer.parseInt(id));
+    public void deleteQuery(String providerNo, String id) {
+        dao.remove(requireOwnedFavorite(providerNo, id));
+    }
+
+    private void prepareNewFavorite(String providerNo) {
+        this.setQuery(this.getNewQuery());
+        if (!StringUtils.isEmpty(this.getNewName())) {
+            this.setFavoriteName(this.getNewName());
+            return;
+        }
+        List<ReportByExamplesFavorite> favorites = dao.findByProviderAndQuery(providerNo, this.getNewQuery());
+        if (!favorites.isEmpty()) {
+            this.setFavoriteName(favorites.get(0).getName());
+        }
+    }
+
+    private void updateFavorite(String providerNo, String id, String favoriteName, String query) {
+        ReportByExamplesFavorite favorite = requireOwnedFavorite(providerNo, id);
+        favorite.setName(favoriteName);
+        favorite.setQuery(StringUtils.defaultString(query));
+        dao.merge(favorite);
+    }
+
+    private ReportByExamplesFavorite requireOwnedFavorite(String providerNo, String id) {
+        final int favoriteId;
+        try {
+            favoriteId = Integer.parseInt(id);
+        } catch (NumberFormatException e) {
+            throw new SecurityException("Invalid favorite selection", e);
+        }
+        ReportByExamplesFavorite favorite = dao.find(favoriteId);
+        if (favorite == null || !Objects.equals(providerNo, favorite.getProviderNo())) {
+            throw new SecurityException("Favorite does not belong to the current provider");
+        }
+        return favorite;
+    }
+
+    private boolean hasFavoriteId() {
+        return StringUtils.isNotBlank(this.getId()) && !"error".equals(this.getId());
     }
 
 

@@ -62,26 +62,24 @@
     }
 %>
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<link rel="stylesheet" type="text/css"
-      href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
+<!DOCTYPE html>
 <html>
-    <script language="JavaScript" type="text/JavaScript">
-
-    </script>
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+        <link rel="stylesheet" type="text/css"
+              href="${pageContext.request.contextPath}/encounter/encounterStyles.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></title>
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <form action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite" method="post">
+    <form action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite" method="post">
+        <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
+    <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
             <td class="MainTableTopRowRightColumn">
@@ -97,16 +95,16 @@
             <td class="MainTableRightColumn">
                 <table>
                     <tr>
-                       <td><input type="text" name="favoriteName" size="40" value="${favoriteName}"/></td>
+                       <td><input type="text" name="favoriteName" size="40" value="${carlos:forHtmlAttribute(favoriteName)}"/></td>
                     </tr>
                     <tr>
-                        <td><textarea name="query" cols="80" rows="3">${newQuery}</textarea></td>
+                        <td><textarea name="query" cols="80" rows="3">${carlos:forHtmlContent(query)}</textarea></td>
                     </tr>
                     <tr>
-                        <td><input type="button" value="Add" onclick="submit();"/> <input
+                        <td><input type="submit" value="<fmt:message key='global.btnAdd'/>"/> <input
                                 type="button"
                                 value="<fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
-                                onclick="javascript:history.back(1);"/></td>
+                                onclick="history.back();"/></td>
                     </tr>
                     <tr></tr>
 
@@ -118,7 +116,6 @@
             <td class="MainTableBottomRowRightColumn"></td>
         </tr>
     </table>
-
     </form>
     </body>
 </html>

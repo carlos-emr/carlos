@@ -61,7 +61,7 @@ public class RptByExamplesAllFavorites2Action extends ActionSupport {
         }
 
 
-        String providerNo = (String) request.getSession().getAttribute("user");
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler(providerNo);
         request.setAttribute("allFavorites", hd);
         return SUCCESS;

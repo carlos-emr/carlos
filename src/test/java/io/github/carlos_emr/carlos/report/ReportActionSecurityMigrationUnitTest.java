@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesFavoriteDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
+import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action;
@@ -260,6 +261,61 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("RptByExamplesFavorite rejects deletion of another provider's favorite")
+    void shouldRejectFavoriteDelete_whenFavoriteBelongsToAnotherProvider() {
+        authorizeFavoritePost();
+        ReportByExamplesFavorite favorite = favorite(42, "100001", "Other provider", "select 1");
+        when(favoritesDao.find(42)).thenReturn(favorite);
+
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setToDelete("true");
+        action.setId("42");
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("Favorite does not belong to the current provider");
+        verify(favoritesDao, never()).remove(favorite);
+    }
+
+    @Test
+    @DisplayName("RptByExamplesFavorite rejects editing another provider's favorite")
+    void shouldRejectFavoriteEdit_whenFavoriteBelongsToAnotherProvider() {
+        authorizeFavoritePost();
+        ReportByExamplesFavorite favorite = favorite(42, "100001", "Other provider", "select 1");
+        when(favoritesDao.find(42)).thenReturn(favorite);
+
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setId("42");
+        action.setNewName("Spoofed name");
+        action.setNewQuery("select 2");
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("Favorite does not belong to the current provider");
+        verify(favoritesDao, never()).merge(favorite);
+    }
+
+    @Test
+    @DisplayName("RptByExamplesFavorite updates only the current provider's selected favorite")
+    void shouldUpdateFavorite_whenFavoriteBelongsToCurrentProvider() throws Exception {
+        authorizeFavoritePost();
+        ReportByExamplesFavorite favorite = favorite(42, "999998", "Old name", "select 1");
+        when(favoritesDao.find(42)).thenReturn(favorite);
+
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setId("42");
+        action.setFavoriteName("New name");
+        action.setQuery("select 2");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(favorite.getName()).isEqualTo("New name");
+        assertThat(favorite.getQuery()).isEqualTo("select 2");
+        verify(favoritesDao).merge(favorite);
+        verify(favoritesDao).findByProvider("999998");
+    }
+
+    @Test
     @DisplayName("RptByExample keeps successful results when query history cannot be saved")
     void shouldKeepResults_whenQueryHistorySaveFails() throws Exception {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
@@ -325,6 +381,22 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage(MISSING_ADMIN_OR_REPORT);
+    }
+
+    private void authorizeFavoritePost() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setMethod("POST");
+    }
+
+    private static ReportByExamplesFavorite favorite(int id, String providerNo, String name, String query) {
+        ReportByExamplesFavorite favorite = new ReportByExamplesFavorite();
+        favorite.setId(id);
+        favorite.setProviderNo(providerNo);
+        favorite.setName(name);
+        favorite.setQuery(query);
+        return favorite;
     }
 
     private void assertMissingPrivilegeFails(ActionSupport action) {

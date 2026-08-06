@@ -104,9 +104,10 @@
          * @param {string} text1 - The raw SQL query text (JS-attribute-encoded by JSP)
          * @param {string} text2 - The display name of the favourite (JS-attribute-encoded by JSP)
          */
-        function set(text1, text2) {
+        function set(text1, text2, id) {
             document.getElementById('favoritesForm').newQuery.value = text1;
             document.getElementById('favoritesForm').newName.value = text2;
+            document.getElementById('favoritesForm').id.value = id;
         }
 
         /**
@@ -189,7 +190,7 @@
                             <input type="button"
                                    class="btn btn-outline-secondary btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgEdit'/>"
-                                   onclick="set('${carlos:forJavaScript(favorite.query)}', '${carlos:forJavaScript(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
+                                   onclick="set('${carlos:forJavaScript(favorite.query)}', '${carlos:forJavaScript(favorite.queryName)}', '${carlos:forJavaScript(favorite.id)}'); document.getElementById('favoritesForm').submit(); return false;"/>
                             <input type="button"
                                    class="btn btn-danger btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgDelete'/>"

@@ -36,7 +36,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
 
 public interface ReportByExamplesFavoriteDao extends AbstractDao<ReportByExamplesFavorite> {
-    List<ReportByExamplesFavorite> findByQuery(String query);
+    List<ReportByExamplesFavorite> findByProviderAndQuery(String providerNo, String query);
 
     List<ReportByExamplesFavorite> findByEverything(String providerNo, String favoriteName, String queryString);
 
