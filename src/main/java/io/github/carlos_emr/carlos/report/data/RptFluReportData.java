@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.report.data;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -70,20 +71,20 @@ public class RptFluReportData {
         demoList = new ArrayList<DemoFluDataStruct>();
         DemoFluDataStruct demofludatastruct;
         for (Object[] o : dao.findDemographicsForFluReport(s)) {
-            String demographic_no = String.valueOf(o[0]);
-            String demoname = String.valueOf(o[0]);
-            String phone = String.valueOf(o[0]);
-            String roster_status = String.valueOf(o[0]);
-            String patient_status = String.valueOf(o[0]);
-            String dob = String.valueOf(o[0]);
-            String age = String.valueOf(o[0]);
+            String demographicNo = Objects.toString(o[0], "");
+            String demoName = Objects.toString(o[1], "");
+            String phone = Objects.toString(o[2], "");
+            String rosterStatus = Objects.toString(o[3], "");
+            String patientStatus = Objects.toString(o[4], "");
+            String dob = Objects.toString(o[5], "");
+            String age = Objects.toString(o[6], "");
 
             demofludatastruct = new DemoFluDataStruct();
-            demofludatastruct.demoNo = demographic_no;
-            demofludatastruct.demoName = demoname;
+            demofludatastruct.demoNo = demographicNo;
+            demofludatastruct.demoName = demoName;
             demofludatastruct.demoPhone = phone;
-            demofludatastruct.demoRosterStatus = roster_status;
-            demofludatastruct.demoPatientStatus = patient_status;
+            demofludatastruct.demoRosterStatus = rosterStatus;
+            demofludatastruct.demoPatientStatus = patientStatus;
             demofludatastruct.demoDOB = dob;
             demofludatastruct.demoAge = age;
 
