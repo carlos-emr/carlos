@@ -121,8 +121,9 @@ class FormXmlUploadJspMigrationRegressionTest {
                 .contains("<result name=\"error\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>");
         assertThat(jsp).contains("Import complete")
                 .contains("href=\"${pageContext.request.contextPath}/administration\"")
-                .contains("http-equiv=\"refresh\"")
-                .contains("content=\"3;url=${pageContext.request.contextPath}/administration\"");
+                .doesNotContain("http-equiv=\"refresh\"")
+                .contains("setTimeout(")
+                .contains("window.location.href = \"${pageContext.request.contextPath}/administration\"");
     }
 
     @Test
