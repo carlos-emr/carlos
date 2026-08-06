@@ -38,6 +38,8 @@
  *   5. An empty date range still downloads a valid, empty attachment.
  *   6. An unauthenticated request is still rejected with 401 - excluding the
  *      route from Struts must not open a hole in the auth policy.
+ *   7. The visible form submits with POST so CSRF-TOKEN remains in the request
+ *      body instead of leaking into URLs, logs, and browser history.
  *
  * This script only reads; it seeds nothing and mutates nothing. It expects the
  * three LOCAL_SEED_OBEC_REPORT_* appointments (2026-08-07..2026-08-10) to be
@@ -255,6 +257,7 @@ async function exportViaForm(context, label, providerNo, dateFrom, dateTo) {
   const headers = await exportResponse.allHeaders();
   const downloadPath = download ? await download.path() : null;
   const result = {
+    method: exportResponse.request().method(),
     status: exportResponse.status(),
     url: exportResponse.url(),
     contentDisposition: headers['content-disposition'] || null,
@@ -274,6 +277,9 @@ function dataRows(body) {
 }
 
 function checkDownloadEnvelope(label, result) {
+  if (result.method !== 'POST') {
+    findings.push({ label, type: 'export-method', expected: 'POST', actual: result.method });
+  }
   if (result.status !== 200) {
     findings.push({ label, type: 'export-status', status: result.status, url: result.url });
   }

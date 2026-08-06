@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -48,8 +49,10 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * Regression tests for the "Patient List by Appointment Time" export
@@ -63,6 +66,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  *       and answers 404 ("no Action mapped for namespace [/]").</li>
  *   <li>Null appointment type — {@code appointment.appointment_type} is
  *       optional, so the export must not dereference it.</li>
+ *   <li>Authorization — the servlet is directly addressable and must enforce
+ *       the same {@code _report} or {@code _admin.reporting} read policy as
+ *       the report form.</li>
  * </ul>
  *
  * @since 2026-08-06
@@ -75,6 +81,8 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     private static final Path STRUTS_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Path WEB_XML = Path.of("src/main/webapp/WEB-INF/web.xml");
+    private static final Path PATIENT_LIST_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/oscarReport/patientlist.jsp");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
     private static final Pattern PATIENT_LIST_SERVLET = Pattern.compile(
@@ -88,12 +96,18 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
             Pattern.DOTALL);
 
     private final OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+    private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+    private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
 
     private PatientListByAppt servlet;
 
     @BeforeEach
     void setUpServlet() {
         registerMock(OscarAppointmentDao.class, appointmentDao);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_report,_admin.reporting", "r", null))
+                .thenReturn(true);
         servlet = new PatientListByAppt();
     }
 
@@ -120,6 +134,16 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(PATIENT_LIST_SERVLET.matcher(webXml).find()).isTrue();
         assertThat(PATIENT_LIST_SERVLET_MAPPING.matcher(webXml).find()).isTrue();
+    }
+
+    @Test
+    @DisplayName("visible export form should use POST so CSRF tokens do not enter the URL")
+    void shouldSubmitVisibleFormWithPost_whenReadingPatientListJsp() throws IOException {
+        String patientListJsp = Files.readString(PATIENT_LIST_JSP, StandardCharsets.UTF_8);
+
+        assertThat(patientListJsp).contains(
+                "<form id=\"plForm\" method=\"post\" "
+                        + "action=\"<%=request.getContextPath() %>/patientlistbyappt\"");
     }
 
     @Test
@@ -241,16 +265,76 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
                 eq(ConversionUtils.fromDateString("2026-08-10")));
     }
 
+    @Test
+    @DisplayName("export should reject an unauthenticated direct servlet request")
+    void shouldReturnUnauthorizedAndSkipQuery_whenSessionIsMissing() throws Exception {
+        MockHttpServletRequest request = exportRequest("all", "2026-08-07", "2026-08-10");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        servlet.processRequest(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verifyNoInteractions(appointmentDao);
+    }
+
+    @Test
+    @DisplayName("export should require report read privilege at the servlet boundary")
+    void shouldReturnForbiddenAndSkipQuery_whenReportPrivilegeIsDenied() throws Exception {
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_report,_admin.reporting", "r", null))
+                .thenReturn(false);
+
+        MockHttpServletResponse response = export("all", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(appointmentDao);
+    }
+
+    @Test
+    @DisplayName("export should reject missing or invalid dates instead of running an unbounded query")
+    void shouldReturnBadRequestAndSkipQuery_whenDatesAreMissingInvalidOrReversed() throws Exception {
+        List<MockHttpServletResponse> responses = List.of(
+                export("all", null, "2026-08-10"),
+                export("all", "2026-02-30", "2026-08-10"),
+                export("all", "2026-08-11", "2026-08-10"));
+
+        assertThat(responses).allSatisfy(response ->
+                assertThat(response.getStatus()).isEqualTo(400));
+        verifyNoInteractions(appointmentDao);
+    }
+
+    @Test
+    @DisplayName("export should reject a missing provider instead of widening to all doctors")
+    void shouldReturnBadRequestAndSkipQuery_whenProviderIsMissing() throws Exception {
+        MockHttpServletResponse response = export(null, "2026-08-07", "2026-08-10");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(appointmentDao);
+    }
+
     private MockHttpServletResponse export(String providerNo, String dateFrom, String dateTo)
             throws IOException {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/patientlistbyappt");
-        request.setParameter("provider_no", providerNo);
-        request.setParameter("date_from", dateFrom);
-        request.setParameter("date_to", dateTo);
+        MockHttpServletRequest request = exportRequest(providerNo, dateFrom, dateTo);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
 
         MockHttpServletResponse response = new MockHttpServletResponse();
         servlet.processRequest(request, response);
         return response;
+    }
+
+    private static MockHttpServletRequest exportRequest(
+            String providerNo, String dateFrom, String dateTo) {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/patientlistbyappt");
+        if (providerNo != null) {
+            request.setParameter("provider_no", providerNo);
+        }
+        if (dateFrom != null) {
+            request.setParameter("date_from", dateFrom);
+        }
+        if (dateTo != null) {
+            request.setParameter("date_to", dateTo);
+        }
+        return request;
     }
 
     private void stubAppointments(Object[]... rows) {

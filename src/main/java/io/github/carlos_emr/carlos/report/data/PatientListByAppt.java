@@ -34,6 +34,8 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.Objects;
 
@@ -47,6 +49,9 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -68,19 +73,48 @@ public class PatientListByAppt extends HttpServlet {
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
-            response.setContentType("text/plain; charset=UTF-8");
-            response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (loggedInInfo == null) {
+                UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+                return;
+            }
+
+            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+            if (!securityInfoManager.hasPrivilege(
+                    loggedInInfo, "_report,_admin.reporting", "r", null)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                        "Report read privilege is required");
+                return;
+            }
 
             String drNo = request.getParameter("provider_no");
+            if (drNo == null || drNo.isBlank()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                        "provider_no is required");
+                return;
+            }
             // clear dr no value for all doc's
-            if (drNo != null && drNo.equals("all")) {
+            if (drNo.equals("all")) {
                 drNo = null;
             }
             String datefrom = request.getParameter("date_from");
             String dateto = request.getParameter("date_to");
 
-            Date from = datefrom != null ? ConversionUtils.fromDateString(datefrom) : null;
-            Date to = dateto != null ? ConversionUtils.fromDateString(dateto) : null;
+            Date from = parseRequiredDate(datefrom);
+            Date to = parseRequiredDate(dateto);
+            if (from == null || to == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                        "date_from and date_to must use YYYY-MM-DD");
+                return;
+            }
+            if (from.after(to)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                        "date_from must not be after date_to");
+                return;
+            }
+
+            response.setContentType("text/plain; charset=UTF-8");
+            response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
 
             OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
 
@@ -126,6 +160,17 @@ public class PatientListByAppt extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
+        }
+    }
+
+    private static Date parseRequiredDate(String value) {
+        if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return null;
+        }
+        try {
+            return java.sql.Date.valueOf(LocalDate.parse(value));
+        } catch (DateTimeParseException | IllegalArgumentException e) {
+            return null;
         }
     }
 
