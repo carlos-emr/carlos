@@ -34,6 +34,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -48,6 +49,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -62,6 +64,25 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes a POSTed form/eForm XML archive upload.
+     *
+     * <p>Rejects non-POST requests with {@link #NONE} and a 405 response. Requires
+     * {@code _admin.eform} or {@code _admin} write privilege; unauthorized callers get a
+     * {@link SecurityException}, which the surrounding struts-form.xml mapping routes to
+     * the security error view. A rejected upload (e.g. an invalid filename caught by
+     * {@link #withUploadedFiles}) or a failed import returns {@link #ERROR} with the
+     * failure reasons published as request attribute {@code actionErrors} for
+     * {@code formXmlUpload.jsp} to render. On success the archive has been fully imported
+     * and {@link #SUCCESS} is returned.</p>
+     *
+     * @return {@link #NONE} for a rejected HTTP method, {@link #ERROR} for a validation or
+     *         import failure, or {@link #SUCCESS} once the archive is imported
+     * @throws SecurityException if the caller lacks the required administrative privilege
+     * @throws IllegalStateException if the servlet container's temp directory is unavailable
+     * @throws IllegalArgumentException if the uploaded file path fails validation
+     * @throws Exception if the legacy entry-by-entry import path fails
+     */
     public String execute()
             throws Exception {
         if (!"POST".equals(request.getMethod())) {
@@ -77,7 +98,7 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         }
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
-            return ERROR;
+            return forwardActionErrors();
         }
 
         int BUFFER = 2048;
@@ -122,10 +143,15 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
                 List<String> errors;
                 try (InputStream is = new FileInputStream(tmpFile)) {
                     errors = new EFormExportZip().importForm(is);
+                } catch (SecurityException e) {
+                    throw e;
+                } catch (Exception e) {
+                    addActionError("Unable to import eForm archive.");
+                    return forwardActionErrors();
                 }
                 if (!errors.isEmpty()) {
                     errors.forEach(this::addActionError);
-                    return ERROR;
+                    return forwardActionErrors();
                 }
             } else {
                 Enumeration<? extends ZipEntry> entries = zf.entries();
@@ -141,11 +167,27 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return SUCCESS;
     }
 
+    /**
+     * Publishes the current Struts action errors onto the request so the plain-JSP
+     * error view ({@code formXmlUpload.jsp}, which has no Struts tag library) can
+     * render them; {@code addActionError()} alone only populates the value stack.
+     *
+     * @return {@link #ERROR}
+     */
+    private String forwardActionErrors() {
+        request.setAttribute("actionErrors", getActionErrors());
+        return ERROR;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match against the fixed ASCII eForm
+    // export marker filename, not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match against the fixed ASCII eForm export marker filename; not a security or authorization decision")
     private static boolean isEFormArchive(ZipFile zipFile) {
         Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
-            String entryName = entries.nextElement().getName();
-            if (entryName.equals("eform.properties") || entryName.endsWith("/eform.properties")) {
+            String entryName = entries.nextElement().getName().replace('\\', '/');
+            if (entryName.equalsIgnoreCase("eform.properties")
+                    || entryName.toLowerCase(Locale.ROOT).endsWith("/eform.properties")) {
                 return true;
             }
         }

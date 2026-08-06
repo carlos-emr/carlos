@@ -33,6 +33,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -160,6 +161,7 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
         assertThat(action.getActionErrors()).contains(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(action.getActionErrors());
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull());
         verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull());
     }
@@ -208,10 +210,86 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
                         && eform.isCurrent()));
     }
 
-    private Path createEFormArchive() throws Exception {
-        Path archive = tempDir.resolve("issue-3071-eform.zip");
+    @Test
+    @DisplayName("should detect an eForm archive whose marker entry uses a different case or backslash separators")
+    void shouldSaveEFormArchive_whenMarkerEntryIsCaseVariant() throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path archive = createEFormArchive("Issue3071\\EForm.Properties");
+
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(archive.toFile());
+
+        try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
+            imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenReturn(tempDir.toFile());
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        verify(eformDao).persist(any(EForm.class));
+    }
+
+    @Test
+    @DisplayName("should return a friendly action error and not propagate exceptions from a failed eForm import")
+    void shouldReturnFriendlyError_whenEFormImportThrows() throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path archive = createEFormArchive("Issue3071/eform.properties");
+
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(archive.toFile());
+
+        String result;
+        try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
+            imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenThrow(new IOException("boom"));
+
+            result = action.execute();
+        }
+
+        assertThat(result).isEqualTo(ActionSupport.ERROR);
+        assertThat(action.getActionErrors()).contains("Unable to import eForm archive.");
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(action.getActionErrors());
+        verify(eformDao, never()).persist(any(EForm.class));
+    }
+
+    @Test
+    @DisplayName("should propagate a SecurityException from a path-traversing eForm archive entry")
+    void shouldPropagateSecurityException_whenEFormArchiveContainsPathTraversalEntry() throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path archive = tempDir.resolve("path-traversal-eform.zip");
         try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
             output.putNextEntry(new ZipEntry("Issue3071/eform.properties"));
+            output.write("form.name=Path Traversal\n".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+            output.putNextEntry(new ZipEntry("../evil.txt"));
+            output.write("payload".getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(archive.toFile());
+
+        try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
+            imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenReturn(tempDir.toFile());
+
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+        }
+
+        verify(eformDao, never()).persist(any(EForm.class));
+    }
+
+    private Path createEFormArchive() throws Exception {
+        return createEFormArchive("Issue3071/eform.properties");
+    }
+
+    private Path createEFormArchive(String propertiesEntryName) throws Exception {
+        Path archive = tempDir.resolve("issue-3071-eform.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            output.putNextEntry(new ZipEntry(propertiesEntryName));
             output.write("""
                     form.name=Issue 3071 eForm import
                     form.htmlFilename=issue-3071-eform.html

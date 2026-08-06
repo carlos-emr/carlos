@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
 import org.junit.jupiter.api.DisplayName;
@@ -101,7 +103,10 @@ class FormXmlUploadJspMigrationRegressionTest {
 
         assertThat(jsp).contains("<%@ taglib uri=\"https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld\" prefix=\"csrf\" %>")
                 .contains("name=\"<csrf:tokenname/>\"")
-                .contains("value=\"<csrf:tokenvalue/>\"");
+                .contains("value=\"<csrf:tokenvalue/>\"")
+                .contains("action=\"${pageContext.request.contextPath}/form/xmlUpload\"")
+                .containsPattern("(?is)<form\\b[^>]*\\bmethod\\s*=\\s*['\"]post['\"]")
+                .contains("enctype=\"multipart/form-data\"");
     }
 
     @Test
@@ -117,9 +122,11 @@ class FormXmlUploadJspMigrationRegressionTest {
         String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
         String jsp = Files.readString(FORM_XML_UPLOAD_SUCCESS_JSP, StandardCharsets.UTF_8);
 
-        assertThat(struts).contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>")
+        String xmlUploadAction = extractActionBlock(struts, "form/xmlUpload");
+        assertThat(xmlUploadAction).contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>")
                 .contains("<result name=\"error\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>");
-        assertThat(jsp).contains("Import complete")
+        assertThat(jsp).contains("fmt:setBundle basename=\"oscarResources\"")
+                .contains("fmt:message key=\"form.xmlUploadSuccess.heading\"")
                 .contains("href=\"${pageContext.request.contextPath}/administration\"")
                 .doesNotContain("http-equiv=\"refresh\"")
                 .contains("setTimeout(")
@@ -153,9 +160,25 @@ class FormXmlUploadJspMigrationRegressionTest {
     void shouldKeepXmlUploadProcessingAction_inStrutsConfig() throws IOException {
         String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
 
-        assertThat(struts).contains("<action name=\"form/xmlUpload\"")
-                .contains("FrmXmlUpload2Action")
-                .contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>")
+        String xmlUploadAction = extractActionBlock(struts, "form/xmlUpload");
+        assertThat(struts).contains("<action name=\"form/xmlUpload\" class=\"io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action\">");
+        assertThat(xmlUploadAction).contains("<result name=\"success\">/WEB-INF/jsp/form/formXmlUploadSuccess.jsp</result>")
                 .contains("<result name=\"error\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>");
+    }
+
+    /**
+     * Extracts the body of a single {@code <action name="...">...</action>} block from
+     * struts-form.xml so assertions verify the mapping owned by that action instead of
+     * matching a same-named result string anywhere else in the file.
+     */
+    private static String extractActionBlock(String struts, String actionName) {
+        Pattern actionBlock = Pattern.compile(
+                "<action\\s+name=\"" + Pattern.quote(actionName) + "\"[^>]*>(.*?)</action>",
+                Pattern.DOTALL);
+        Matcher matcher = actionBlock.matcher(struts);
+        assertThat(matcher.find())
+                .as("struts-form.xml should declare an action named '%s'", actionName)
+                .isTrue();
+        return matcher.group(1);
     }
 }

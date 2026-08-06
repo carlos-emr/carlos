@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
+<%@ page import="io.github.carlos_emr.CarlosProperties" %><%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -143,7 +143,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= SafeEncode.forHtmlContent(error) %></li>
             <% } %>
         </ul>
     </div>
