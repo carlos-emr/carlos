@@ -127,7 +127,7 @@ class FormXmlUploadJspMigrationRegressionTest {
                 .contains("<result name=\"error\">/WEB-INF/jsp/form/formXmlUpload.jsp</result>");
         assertThat(jsp).contains("fmt:setBundle basename=\"oscarResources\"")
                 .contains("fmt:message key=\"form.xmlUploadSuccess.heading\"")
-                .contains("href=\"${pageContext.request.contextPath}/administration\"")
+                .contains("href=\"${carlos:forHtmlAttribute(pageContext.request.contextPath)}/administration\"")
                 .doesNotContain("http-equiv=\"refresh\"")
                 .contains("setTimeout(")
                 .contains("window.location.href = \"${pageContext.request.contextPath}/administration\"");

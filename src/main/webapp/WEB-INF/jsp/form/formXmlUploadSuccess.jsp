@@ -27,6 +27,7 @@
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!doctype html>
 <html lang="${pageContext.request.locale.language}">
@@ -40,7 +41,7 @@
         <div class="alert alert-success">
             <h1 class="h3"><fmt:message key="form.xmlUploadSuccess.heading"/></h1>
             <output class="d-block"><fmt:message key="form.xmlUploadSuccess.message"/></output>
-            <a class="btn btn-primary" href="${pageContext.request.contextPath}/administration"><fmt:message key="form.xmlUploadSuccess.returnLink"/></a>
+            <a class="btn btn-primary" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/administration"><fmt:message key="form.xmlUploadSuccess.returnLink"/></a>
         </div>
     </main>
     <script>

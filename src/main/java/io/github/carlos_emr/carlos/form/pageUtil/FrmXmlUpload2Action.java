@@ -39,9 +39,11 @@ import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
+import org.apache.logging.log4j.Logger;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,13 +52,17 @@ import java.io.*;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String ADMIN_SECURITY_OBJECT = "_admin";
     private static final String ADMIN_EFORM_SECURITY_OBJECT = "_admin.eform";
     private static final String WRITE_PRIVILEGE = "w";
+    private static final String EFORM_IMPORT_FAILURE_KEY = "form.xmlUpload.failure";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -146,7 +152,8 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
                 } catch (SecurityException e) {
                     throw e;
                 } catch (Exception e) {
-                    addActionError("Unable to import eForm archive.");
+                    LOGGER.error("Unable to import eForm archive.", e);
+                    addActionError(getEformImportFailureMessage());
                     return forwardActionErrors();
                 }
                 if (!errors.isEmpty()) {
@@ -177,6 +184,21 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     private String forwardActionErrors() {
         request.setAttribute("actionErrors", getActionErrors());
         return ERROR;
+    }
+
+    /**
+     * Looks up the localized generic eForm import failure message from the
+     * {@code oscarResources} bundle, matching the {@code fmt:message} lookups the
+     * success page uses. Falls back to the English default if the key or bundle is
+     * unavailable so a resource-loading gap never blocks the retry flow.
+     */
+    private String getEformImportFailureMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(EFORM_IMPORT_FAILURE_KEY);
+        } catch (MissingResourceException e) {
+            return "Unable to import eForm archive.";
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive match against the fixed ASCII eForm
