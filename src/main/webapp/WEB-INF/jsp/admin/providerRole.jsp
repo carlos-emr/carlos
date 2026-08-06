@@ -151,7 +151,8 @@
          * "Primary EMR Role" column and would grant note access for a role they do not hold.
          */
         boolean providerHoldsRole = false;
-        if (provider != null && StringUtils.hasText(roleName)) {
+        // The selector hides the multioffice role, but a POST can still name it.
+        if (provider != null && StringUtils.hasText(roleName) && !roleName.equals(omit)) {
             // Active assignments only — an inactive or legacy-NULL row grants no authority, so it
             // must not become the primary role that drives note access.
             List assignedRoles = secUserRoleDao.findActiveByProviderNo(providerNo);
@@ -384,13 +385,18 @@
      * (SecurityInfoManagerImpl reads findActiveByProviderNo), but program_provider.role_id
      * still feeds CaseManagementManagerImpl#getAccessType, so making a disabled role primary
      * would grant note access that the security layer does not recognise.
+     *
+     * The multioffice role withheld from vecRoleName is excluded for the same reason: making it
+     * primary activates its note access, so an administrator who may not assign that role must
+     * not be able to promote it either.
      */
     Map<String, List<String>> heldRolesByProvider = new LinkedHashMap<String, List<String>>();
     for (Properties prop : vec) {
         String heldProviderNo = prop.getProperty("provider_no", "");
         String heldRoleName = prop.getProperty("role_name", "");
         if (heldProviderNo.isEmpty() || heldRoleName.isEmpty()
-                || !"1".equals(prop.getProperty("activeyn", ""))) {
+                || !"1".equals(prop.getProperty("activeyn", ""))
+                || heldRoleName.equals(omit)) {
             continue;
         }
         List<String> held = heldRolesByProvider.get(heldProviderNo);
@@ -609,9 +615,23 @@
               <td><carlos:encode value='<%= item.getProperty("first_name", "") %>' context="html"/></td>
               <td><carlos:encode value='<%= item.getProperty("last_name", "") %>' context="html"/></td>
             <td>
-              <select name="roleNew" onchange="enableAddRoleButton(this)" data-org="<%= item.getProperty("role_name", "") %>">
+              <select name="roleNew" onchange="enableAddRoleButton(this)" data-org="<carlos:encode value='<%= item.getProperty("role_name", "") %>' context="htmlAttribute"/>">
                     <option value="-">-</option>
                     <%
+                        /* A role withheld by the multioffice guard is still listed on the row that
+                         * already holds it. Without this the select has no matching option and
+                         * silently falls back to "-", misrepresenting the stored assignment — the
+                         * row then reads as blank while "Primary EMR Role" says Yes. It is added
+                         * only to its own row, so the guard still prevents conferring it on anyone.
+                         */
+                        String currentRoleName = item.getProperty("role_name", "");
+                        if (!currentRoleName.isEmpty() && !vecRoleName.contains(currentRoleName)) {
+                    %>
+                      <option value="<carlos:encode value='<%= currentRoleName %>' context="htmlAttribute"/>" selected>
+                        <carlos:encode value='<%= currentRoleName %>' context="html"/>
+                    </option>
+                    <%
+                        }
                         for (int j = 0; j < vecRoleName.size(); j++) {
                     %>
                       <option value="<carlos:encode value='<%= String.valueOf(vecRoleName.get(j)) %>' context="htmlAttribute"/>"

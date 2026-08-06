@@ -100,7 +100,13 @@ class ProviderRoleJspRegressionTest {
                  */
                 .contains("secUserRoleDao.findActiveByProviderNo(providerNo)")
                 .doesNotContain("secUserRoleDao.findByProviderNo(providerNo)")
-                .containsPattern("!\"1\"\\.equals\\(prop\\.getProperty\\(\"activeyn\"");
+                .containsPattern("!\"1\"\\.equals\\(prop\\.getProperty\\(\"activeyn\"")
+                /* The multioffice role is withheld from the selector and refused server-side:
+                 * promoting it activates its note access, so an administrator who may not
+                 * assign that role must not be able to make it primary either.
+                 */
+                .containsPattern("heldRoleName\\.equals\\(omit\\)")
+                .containsPattern("!roleName\\.equals\\(omit\\)");
 
         // The old array interpolated provider_no and role_id into a script block unencoded.
         assertThat(jsp)
@@ -157,6 +163,22 @@ class ProviderRoleJspRegressionTest {
         assertThat(primaryRoleBlock)
                 .containsPattern("LogAction\\.addLog\\([\\s\\S]{0,80}LogConst\\.CON_ROLE")
                 .contains("admin.providerrole.msgUpdated");
+    }
+
+    @Test
+    @DisplayName("role column should show a withheld role on the row that holds it")
+    void shouldShowWithheldRole_onItsOwnRow() throws IOException {
+        String jsp = Files.readString(resolveProjectPath(PROVIDER_ROLE_JSP), StandardCharsets.UTF_8);
+
+        /* Without an option for it the select falls back to "-", so the row reads blank while
+         * "Primary EMR Role" says Yes. Added only to its own row, so the multioffice guard
+         * still prevents conferring the role on anyone else.
+         */
+        assertThat(jsp)
+                .containsPattern("!currentRoleName\\.isEmpty\\(\\)\\s*&&\\s*!vecRoleName\\.contains\\(currentRoleName\\)")
+                // data-org feeds enableAddRoleButton and must not be raw DB text.
+                .containsPattern("data-org=\"<carlos:encode")
+                .doesNotContain("data-org=\"<%= item.getProperty(\"role_name\", \"\") %>\"");
     }
 
     @Test
