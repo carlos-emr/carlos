@@ -158,7 +158,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
             RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            if (bean == null) {
+            if (bean == null || !bean.isValid()) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return null;
             }
@@ -210,7 +210,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
             RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            if (bean == null) {
+            if (bean == null || !bean.isValid()) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return null;
             }
