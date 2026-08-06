@@ -170,5 +170,7 @@
 </table>
 
 <script>
-    registerFormSubmit('fluForm', 'dynamic-content');
+    if (typeof registerFormSubmit === 'function') {
+        registerFormSubmit('fluForm', 'dynamic-content');
+    }
 </script>
