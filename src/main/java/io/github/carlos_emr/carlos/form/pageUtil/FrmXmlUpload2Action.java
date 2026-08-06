@@ -107,71 +107,91 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
             return forwardActionErrors();
         }
 
-        int BUFFER = 2048;
+        File tmpFile = stageUploadedArchive();
 
-        // Temporary file handling
+        try (ZipFile zf = new ZipFile(tmpFile)) {
+            String importResult = isEFormArchive(zf) ? importEFormArchive(tmpFile) : importLegacyArchive(zf);
+            if (importResult != null) {
+                return importResult;
+            }
+        }
+
+        return SUCCESS;
+    }
+
+    /**
+     * Copies the validated upload into a fresh temp file for zip processing.
+     *
+     * @return the staged temp file, ready to be opened as a {@link ZipFile}
+     * @throws IllegalStateException if the servlet container's temp directory is unavailable
+     * @throws IllegalArgumentException if the uploaded file path fails validation
+     * @throws IOException if the upload cannot be copied to the temp file
+     */
+    private File stageUploadedArchive() throws IOException {
         File tmpFile = File.createTempFile("tmp", ".zip");
         tmpFile.deleteOnExit();
 
-        // Get context of the temp directory, get the file path to the the temp directory
         ServletContext servletContext = ServletActionContext.getServletContext();
-
-        // Validate the paths
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
-        
         if (safeDir == null) {
             throw new IllegalStateException("Temporary directory attribute is not set.");
         }
-        
-        File normalizedFile = file1.toPath().normalize().toFile();
 
-        // Validate file path using PathValidationUtils
+        File normalizedFile = file1.toPath().normalize().toFile();
         try {
             normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
         } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }
 
-       try (InputStream is = new FileInputStream(normalizedFile);
-            OutputStream fos = new FileOutputStream(tmpFile)) {
-            byte[] data = new byte[BUFFER];
-            int count;
-            while ((count = is.read(data)) != -1) {
-                fos.write(data, 0, count);
+        try (InputStream is = new FileInputStream(normalizedFile);
+             OutputStream fos = new FileOutputStream(tmpFile)) {
+            is.transferTo(fos);
+        }
+        return tmpFile;
+    }
+
+    /**
+     * Imports an eForm export ZIP through the eForm service so the template is
+     * persisted to the Manage eForms library.
+     *
+     * @return the result to return from {@link #execute()} on failure, or {@code null}
+     *         to continue on to {@link #SUCCESS}
+     * @throws SecurityException propagated unchanged so struts-form.xml routes it to
+     *         the security error view instead of the retryable upload form
+     */
+    private String importEFormArchive(File tmpFile) throws IOException {
+        List<String> errors;
+        try (InputStream is = new FileInputStream(tmpFile)) {
+            errors = new EFormExportZip().importForm(is);
+        } catch (SecurityException e) {
+            throw e;
+        } catch (Exception e) {
+            LOGGER.error("Unable to import eForm archive.", e);
+            addActionError(getEformImportFailureMessage());
+            return forwardActionErrors();
+        }
+        if (!errors.isEmpty()) {
+            errors.forEach(this::addActionError);
+            return forwardActionErrors();
+        }
+        return null;
+    }
+
+    /**
+     * Imports a legacy clinical form data ZIP using the established entry-by-entry importer.
+     *
+     * @return {@code null} to continue on to {@link #SUCCESS}
+     */
+    private String importLegacyArchive(ZipFile zf) throws IOException {
+        Enumeration<? extends ZipEntry> entries = zf.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            try (InputStream zis = zf.getInputStream(entry)) {
+                JDBCUtil.toDataBase(zis, entry.getName());
             }
         }
-
-        // eForm export ZIPs contain eform.properties. Import them through the eForm
-        // service so the template is persisted to the Manage eForms library; retain the
-        // established entry-by-entry importer for legacy clinical form data ZIPs.
-        try (ZipFile zf = new ZipFile(tmpFile)) {
-            if (isEFormArchive(zf)) {
-                List<String> errors;
-                try (InputStream is = new FileInputStream(tmpFile)) {
-                    errors = new EFormExportZip().importForm(is);
-                } catch (SecurityException e) {
-                    throw e;
-                } catch (Exception e) {
-                    LOGGER.error("Unable to import eForm archive.", e);
-                    addActionError(getEformImportFailureMessage());
-                    return forwardActionErrors();
-                }
-                if (!errors.isEmpty()) {
-                    errors.forEach(this::addActionError);
-                    return forwardActionErrors();
-                }
-            } else {
-                Enumeration<? extends ZipEntry> entries = zf.entries();
-                while (entries.hasMoreElements()) {
-                    ZipEntry entry = entries.nextElement();
-                    try (InputStream zis = zf.getInputStream(entry)) {
-                        JDBCUtil.toDataBase(zis, entry.getName());
-                    }
-                }
-            }
-        }
-
-        return SUCCESS;
+        return null;
     }
 
     /**
