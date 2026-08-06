@@ -105,9 +105,10 @@
          * @param {string} text2 - The display name of the favourite (JS-attribute-encoded by JSP)
          */
         function set(text1, text2, id) {
-            document.getElementById('favoritesForm').newQuery.value = text1;
-            document.getElementById('favoritesForm').newName.value = text2;
-            document.getElementById('favoritesForm').id.value = id;
+            const form = document.getElementById('favoritesForm');
+            form.elements['newQuery'].value = text1;
+            form.elements['newName'].value = text2;
+            form.elements['id'].value = id;
         }
 
         /**
@@ -118,9 +119,10 @@
          */
         function confirmDelete(id) {
             if (confirm(msgConfirmDelete)) {
-                document.getElementById('favoritesForm').toDelete.value = 'true';
-                document.getElementById('favoritesForm').id.value = id;
-                document.getElementById('favoritesForm').submit();
+                const form = document.getElementById('favoritesForm');
+                form.elements['toDelete'].value = 'true';
+                form.elements['id'].value = id;
+                form.submit();
             }
         }
 

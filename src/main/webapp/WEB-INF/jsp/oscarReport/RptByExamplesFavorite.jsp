@@ -69,15 +69,15 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+        <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
         <link rel="stylesheet" type="text/css"
-              href="${pageContext.request.contextPath}/encounter/encounterStyles.css"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+              href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/encounter/encounterStyles.css"/>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
         <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></title>
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
-    <form action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite" method="post">
+    <form action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/oscarReport/RptByExamplesFavorite" method="post">
         <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
