@@ -431,15 +431,15 @@ public class Fax2Action extends ActionSupport {
         // faxFilePath either way (accepted for promotion below, or rejected and deleted below), so
         // it must not linger in a long-lived clinician session accumulating one entry per fax
         // preview ever prepared.
-        boolean claimedBySession = consumeClaimedFaxFilePathFromSession();
+        String claimedFaxFilePath = consumeClaimedFaxFilePathFromSession();
         if (promotionDemographicNo != null && demographicNo != null
                 && promotionDemographicNo.equals(String.valueOf(demographicNo))) {
             return;
         }
         logger.warn("Rejected fax promotion: eForm {} no longer belongs to the demographic submitted with the fax job",
                 transactionId);
-        if (claimedBySession) {
-            deleteRejectedClaimedFaxFile();
+        if (claimedFaxFilePath != null) {
+            deleteRejectedClaimedFaxFile(claimedFaxFilePath);
         }
         // securityError.jsp renders the request attribute "actionErrors"; without bridging an
         // action error onto it here (as the validateFaxInputs catch in queue() already does for
@@ -451,17 +451,22 @@ public class Fax2Action extends ActionSupport {
     }
 
     /**
-     * Deletes the claimed staged PDF at {@link #faxFilePath} for a rejected fax promotion.
-     * Callers must first confirm via {@link #consumeClaimedFaxFilePathFromSession()} that this
-     * session actually claimed this exact path.
+     * Deletes the claimed staged PDF for a rejected fax promotion.
+     *
+     * <p>Takes the path {@link #consumeClaimedFaxFilePathFromSession()} actually removed from the
+     * session's trusted claim set -- not {@link #faxFilePath} directly -- even though the two are
+     * verified equal by that point: a static analyzer cannot see that equality check as a
+     * sanitizer, so deleting straight from the client-supplied request field here reads as an
+     * unsanitized path-traversal sink again, the same class of finding the session-ownership check
+     * exists to close off.</p>
      *
      * <p>The claimed PDF's ownership already transferred out of {@link EFormRenderApprovalService}
      * back in {@code prepareFax()} (its own bookkeeping no longer tracks or will ever clean up
      * this file), so a rejected promotion must delete it itself or it orphans on disk.</p>
      */
-    private void deleteRejectedClaimedFaxFile() {
+    private void deleteRejectedClaimedFaxFile(String claimedFaxFilePath) {
         try {
-            deleteUnownedStagedFaxPreview(Path.of(faxFilePath));
+            deleteUnownedStagedFaxPreview(Path.of(claimedFaxFilePath));
         } catch (InvalidPathException e) {
             logger.warn("Unable to parse fax file path while cleaning up a rejected promotion", e);
         }
@@ -909,23 +914,50 @@ public class Fax2Action extends ActionSupport {
     }
 
     /**
-     * Removes {@link #faxFilePath} from this session's set of outstanding claimed fax file paths
-     * and reports whether it was present. Single-use per claim: once consumed here, the same
-     * claim can never be consumed again, whether the promotion it belongs to is accepted or
-     * rejected -- so it cannot linger in the session past the request that resolves it, and a
-     * later, distinct claim for the same fdid is never confused with this one.
+     * Removes and returns the entry matching {@link #faxFilePath} from this session's set of
+     * outstanding claimed fax file paths, or {@code null} if none matches. Single-use per claim:
+     * once consumed here, the same claim can never be consumed again, whether the promotion it
+     * belongs to is accepted or rejected -- so it cannot linger in the session past the request
+     * that resolves it, and a later, distinct claim for the same fdid is never confused with this
+     * one.
+     *
+     * <p>Returns the value actually stored in the session's claim set -- populated only by
+     * {@link #recordClaimedFaxFilePathInSession} from a server-generated renderer path, never from
+     * {@link #faxFilePath} itself -- so callers that use the result downstream (e.g. to delete a
+     * file) do so with a value a static analyzer can see originates from that trusted store, not
+     * from the client-supplied request field, even though the two are verified equal here.</p>
      */
-    private boolean consumeClaimedFaxFilePathFromSession() {
+    private String consumeClaimedFaxFilePathFromSession() {
         HttpSession session = request.getSession(false);
         if (session == null || faxFilePath == null) {
-            return false;
+            return null;
         }
-        return claimedFaxFilePathsInSession(session).remove(faxFilePath);
+        java.util.Set<String> claimedPaths = claimedFaxFilePathsInSession(session);
+        // Collections.synchronizedSet requires the caller to hold the set's own monitor while
+        // iterating; per-call methods like remove() are internally synchronized, but this find-
+        // and-remove needs the exact stored String back, which no Set method returns directly.
+        synchronized (claimedPaths) {
+            java.util.Iterator<String> iterator = claimedPaths.iterator();
+            while (iterator.hasNext()) {
+                String claimedPath = iterator.next();
+                if (claimedPath.equals(faxFilePath)) {
+                    iterator.remove();
+                    return claimedPath;
+                }
+            }
+        }
+        return null;
     }
+
+    // Guards the get-or-create of the session's claim-set attribute below. Deliberately a private
+    // lock object, not the HttpSession itself: synchronizing on a method parameter (or any object
+    // this class does not exclusively own) risks unpredictable contention or deadlock with
+    // unrelated code that might also lock on the same shared session object.
+    private static final Object CLAIMED_FAX_FILE_PATHS_LOCK = new Object();
 
     @SuppressWarnings("unchecked")
     private static java.util.Set<String> claimedFaxFilePathsInSession(HttpSession session) {
-        synchronized (session) {
+        synchronized (CLAIMED_FAX_FILE_PATHS_LOCK) {
             java.util.Set<String> claimedPaths =
                     (java.util.Set<String>) session.getAttribute(CLAIMED_FAX_FILE_PATHS_SESSION_KEY);
             if (claimedPaths == null) {
