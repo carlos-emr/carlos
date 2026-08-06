@@ -161,7 +161,7 @@
                             <fmt:message key="oscarReport.RptByExample.MsgEnterAQuery"/>
                         </label>
                         <textarea id="sql" name="sql" rows="4"
-                                  class="form-control form-control-sm">${carlos:forHtml(submittedSql)}</textarea>
+                                  class="form-control form-control-sm">${carlos:forHtmlContent(submittedSql)}</textarea>
                     </div>
 
                     <c:if test="${queryDisabled}">
@@ -182,6 +182,11 @@
                     <c:if test="${queryExecutionError}">
                         <div class="alert alert-danger" role="alert">
                             <fmt:message key="oscarReport.RptByExample.MsgExecutionError"/>
+                        </div>
+                    </c:if>
+                    <c:if test="${queryHistoryError}">
+                        <div class="alert alert-warning" role="alert">
+                            <fmt:message key="oscarReport.RptByExample.MsgHistoryError"/>
                         </div>
                     </c:if>
 
@@ -234,7 +239,7 @@
                         <div class="mt-3">
                             <p class="text-muted small">
                                 <fmt:message key="oscarReport.RptByExample.MsgResultLimit">
-                                    <fmt:param value="1000"/>
+                                    <fmt:param value="${resultLimit}"/>
                                 </fmt:message>
                             </p>
                             ${results}

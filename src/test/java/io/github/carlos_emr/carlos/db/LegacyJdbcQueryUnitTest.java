@@ -61,6 +61,9 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     void shouldAllowSelectOnlyQueries_forAdminReportBoundary() {
         assertThatCode(() -> validateSafeSelectQuery("select demographic_no from demographic"))
                 .doesNotThrowAnyException();
+        assertThatCode(() -> validateSafeSelectQuery(
+                "select 'update delete create drop' as instruction from demographic"))
+                .doesNotThrowAnyException();
     }
 
     @Test

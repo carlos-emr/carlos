@@ -332,21 +332,22 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Potential SQL injection pattern detected");
         }
 
-        if (containsSqlWord(normalized, "union")) {
+        String normalizedSqlSyntax = stripQuotedSqlSections(sql).toLowerCase(Locale.ROOT);
+        if (containsSqlWord(normalizedSqlSyntax, "union")) {
             throw new SQLException("Unsafe SQL detected: UNION not permitted");
         }
 
         String[] blockedWords = {"insert", "update", "delete", "drop", "alter", "create", "truncate",
                 "grant", "revoke", "exec", "execute", "call", "merge", "commit", "rollback"};
         for (String word : blockedWords) {
-            if (containsSqlWord(normalized, word)) {
+            if (containsSqlWord(normalizedSqlSyntax, word)) {
                 throw new SQLException("Unsafe SQL detected: prohibited keyword");
             }
         }
 
         String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
         for (String phrase : blockedPhrases) {
-            if (normalized.contains(phrase)) {
+            if (normalizedSqlSyntax.contains(phrase)) {
                 throw new SQLException("Unsafe SQL detected: prohibited keyword");
             }
         }
@@ -613,6 +614,35 @@ public final class LegacyJdbcQuery {
             index = sql.indexOf(word, index + 1);
         }
         return false;
+    }
+
+    private static String stripQuotedSqlSections(String sql) {
+        StringBuilder stripped = new StringBuilder(sql.length());
+        char quote = '\0';
+        for (int i = 0; i < sql.length(); i++) {
+            char current = sql.charAt(i);
+            char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
+            if (quote == '\0') {
+                if (current == '\'' || current == '"' || current == '`') {
+                    quote = current;
+                    stripped.append(' ');
+                } else {
+                    stripped.append(current);
+                }
+            } else if (quote != '`' && current == '\\' && next != '\0') {
+                stripped.append("  ");
+                i++;
+            } else if (current == quote && next == quote) {
+                stripped.append("  ");
+                i++;
+            } else if (current == quote) {
+                quote = '\0';
+                stripped.append(' ');
+            } else {
+                stripped.append(' ');
+            }
+        }
+        return stripped.toString();
     }
 
     private static boolean startsWithSqlWord(String sql, String word) {

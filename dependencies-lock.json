@@ -1195,14 +1195,6 @@
     "optional" : false,
     "integrity" : "sha512:6oPQclFmUY/UxgXW0HXw/IcSjKRVy9/6wIVOBVKOeZpPu7OAUHGLCgbpQmwujcd/qVlLZXCDu1HHErGF1OiacQ=="
   }, {
-    "groupId" : "net.sf.jopt-simple",
-    "artifactId" : "jopt-simple",
-    "version" : "5.0.4",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:y8J+C22mrktiRTU9ZibS48FxwwJqVV+iHo72GzBxTihtuFCG0aV8FnAW6Kfwe+KiQ+NLOrUEsYd4BvO87F35hg=="
-  }, {
     "groupId" : "net.sf.saxon",
     "artifactId" : "Saxon-HE",
     "version" : "11.6",
@@ -3187,14 +3179,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:H6mQ0VvRefB/+8Rg1YCm/QVi5F3ui9SpQFkXU2t49FwNb2RLZ/hdeBx1iqVu/5Cu8j7tzJvX9f+Ieme3Fgg+YQ=="
-  }, {
-    "groupId" : "org.openjdk.jmh",
-    "artifactId" : "jmh-core",
-    "version" : "1.37",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:jkNMyJ98ijA14XJnXZ+RRBUDmtjcQDqfSjBu++MknCDaA0OqUev547n4umdG6FRKxWH7zWLynbsWO38QyWwfNA=="
   }, {
     "groupId" : "org.opensaml",
     "artifactId" : "opensaml-core-api",

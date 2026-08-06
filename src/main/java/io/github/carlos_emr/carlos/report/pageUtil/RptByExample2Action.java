@@ -122,17 +122,28 @@ public class RptByExample2Action extends ActionSupport {
             return SUCCESS;
         }
 
+        RptByExampleData.QueryResult result;
         try {
-            RptByExampleData.QueryResult result = new RptByExampleData().execute(sql, properties, providerNo);
-            request.setAttribute("results", result.html());
-            request.setAttribute("resultRowCount", result.rowCount());
-            write2Database(sql, providerNo);
+            result = new RptByExampleData().execute(sql, properties, providerNo);
         } catch (QueryByExampleValidationException e) {
             request.setAttribute("queryValidationError", true);
+            return SUCCESS;
         } catch (SQLTimeoutException e) {
             request.setAttribute("queryTimeout", true);
+            return SUCCESS;
         } catch (SQLException | RuntimeException e) {
             request.setAttribute("queryExecutionError", true);
+            return SUCCESS;
+        }
+
+        request.setAttribute("results", result.html());
+        request.setAttribute("resultRowCount", result.rowCount());
+        request.setAttribute("resultLimit", RptByExampleData.MAX_ROWS);
+        try {
+            write2Database(sql, providerNo);
+        } catch (RuntimeException e) {
+            request.setAttribute("queryHistoryError", true);
+            RptByExampleData.audit(providerNo, sql, 0, result.rowCount(), "history_failed");
         }
 
         return SUCCESS;
@@ -140,10 +151,13 @@ public class RptByExample2Action extends ActionSupport {
 
     static boolean isEnabled(Properties properties) {
         String configured = properties.getProperty(ENABLED_PROPERTY);
-        return configured == null || configured.isBlank()
-                || configured.equalsIgnoreCase("true")
-                || configured.equalsIgnoreCase("yes")
-                || configured.equalsIgnoreCase("on");
+        if (configured == null || configured.isBlank()) {
+            return true;
+        }
+        String normalized = configured.trim();
+        return normalized.equalsIgnoreCase("true")
+                || normalized.equalsIgnoreCase("yes")
+                || normalized.equalsIgnoreCase("on");
     }
 
     public void write2Database(String query, String providerNo) {

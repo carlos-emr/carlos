@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import java.sql.SQLException;
-import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -41,19 +40,17 @@ public final class QueryByExampleSqlValidator {
             "\\bfor\\s+(?:update|share)\\b|\\block\\s+in\\s+share\\s+mode\\b",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern OUTPUT_OPERATION = Pattern.compile("\\binto\\b", Pattern.CASE_INSENSITIVE);
-    private static final Set<String> BLOCKED_FUNCTIONS = Set.of(
-            "sleep", "benchmark", "get_lock", "release_lock", "is_free_lock", "load_file");
+    private static final Pattern BLOCKED_FUNCTION = Pattern.compile(
+            "(?<![a-z0-9_$])`?(?:sleep|benchmark|get_lock|release_lock|is_free_lock|load_file)`?\\s*\\(",
+            Pattern.CASE_INSENSITIVE);
 
     private QueryByExampleSqlValidator() {
     }
 
     public static LegacyJdbcQuery.TrustedSql validate(String sql, Properties properties)
             throws QueryByExampleValidationException {
-        LegacyJdbcQuery.TrustedSql trustedSql;
-        try {
-            trustedSql = LegacyJdbcQuery.trustedSelectSql(sql);
-        } catch (SQLException e) {
-            throw new QueryByExampleValidationException(e.getMessage(), e);
+        if (sql == null || sql.isBlank()) {
+            throw new QueryByExampleValidationException("SQL query must not be empty");
         }
 
         Statement statement;
@@ -63,7 +60,7 @@ public final class QueryByExampleSqlValidator {
             throw new QueryByExampleValidationException("The query could not be parsed as a single SELECT", e);
         }
 
-        if (!(statement instanceof Select) || statement instanceof SetOperationList) {
+        if (!(statement instanceof Select select) || select instanceof SetOperationList) {
             throw new QueryByExampleValidationException("Only one SELECT statement is allowed");
         }
 
@@ -76,7 +73,11 @@ public final class QueryByExampleSqlValidator {
         }
         rejectBlockedFunctions(sqlWithoutStringLiterals);
         rejectOtherSchemas(statement, applicationSchema(properties));
-        return trustedSql;
+        try {
+            return LegacyJdbcQuery.trustedSelectSql(sql);
+        } catch (SQLException e) {
+            throw new QueryByExampleValidationException(e.getMessage(), e);
+        }
     }
 
     static String applicationSchema(Properties properties) throws QueryByExampleValidationException {
@@ -93,7 +94,12 @@ public final class QueryByExampleSqlValidator {
 
     private static void rejectOtherSchemas(Statement statement, String applicationSchema)
             throws QueryByExampleValidationException {
-        Set<String> tables = new TablesNamesFinder<Void>().getTables(statement);
+        Set<String> tables;
+        try {
+            tables = new TablesNamesFinder<Void>().getTables(statement);
+        } catch (RuntimeException e) {
+            throw new QueryByExampleValidationException("The query table references could not be validated", e);
+        }
         for (String table : tables) {
             String normalizedTable = unquoteIdentifier(table);
             int lastDot = normalizedTable.lastIndexOf('.');
@@ -107,13 +113,8 @@ public final class QueryByExampleSqlValidator {
     }
 
     private static void rejectBlockedFunctions(String sql) throws QueryByExampleValidationException {
-        String normalized = sql.toLowerCase(Locale.ROOT);
-        for (String function : BLOCKED_FUNCTIONS) {
-            Pattern invocation = Pattern.compile("(?<![a-z0-9_$])`?" + Pattern.quote(function)
-                    + "`?\\s*\\(", Pattern.CASE_INSENSITIVE);
-            if (invocation.matcher(normalized).find()) {
-                throw new QueryByExampleValidationException("The query uses a prohibited database function");
-            }
+        if (BLOCKED_FUNCTION.matcher(sql).find()) {
+            throw new QueryByExampleValidationException("The query uses a prohibited database function");
         }
     }
 

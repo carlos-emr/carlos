@@ -76,6 +76,7 @@ public class RptByExampleData {
             QueryResult queryResult;
             try (Connection connection = connectionProvider.getConnection()) {
                 boolean originalReadOnly = connection.isReadOnly();
+                Exception executionFailure = null;
                 try {
                     connection.setReadOnly(true);
                     // codeql[java/sql-injection] -- TrustedSql is created only after structural SELECT validation.
@@ -89,8 +90,19 @@ public class RptByExampleData {
                             queryResult = new QueryResult(structured.html(), rowCount);
                         }
                     }
+                } catch (SQLException | RuntimeException e) {
+                    executionFailure = e;
+                    throw e;
                 } finally {
-                    connection.setReadOnly(originalReadOnly);
+                    try {
+                        connection.setReadOnly(originalReadOnly);
+                    } catch (SQLException restoreFailure) {
+                        if (executionFailure != null) {
+                            executionFailure.addSuppressed(restoreFailure);
+                        } else {
+                            throw restoreFailure;
+                        }
+                    }
                 }
             }
             outcome = "success";
@@ -101,6 +113,12 @@ public class RptByExampleData {
         } catch (SQLTimeoutException e) {
             outcome = "timeout";
             throw e;
+        } catch (SQLException e) {
+            logFailure(providerNo, sql, e.getSQLState(), e.getClass().getSimpleName());
+            throw e;
+        } catch (RuntimeException e) {
+            logFailure(providerNo, sql, null, e.getClass().getSimpleName());
+            throw e;
         } finally {
             audit(providerNo, sql, elapsedMillis(startedAt), rowCount, outcome);
         }
@@ -108,7 +126,7 @@ public class RptByExampleData {
 
     public static void audit(String providerNo, String sql, long durationMillis, int rowCount, String outcome) {
         String query = sql == null ? "" : sql;
-        String queryHash = DigestUtils.sha256Hex(query);
+        String queryHash = queryHash(query);
         MiscUtils.getLogger().info(
                 "Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}",
                 providerNo, queryHash, query.length(), durationMillis, rowCount, outcome);
@@ -116,5 +134,15 @@ public class RptByExampleData {
 
     private static long elapsedMillis(long startedAt) {
         return (System.nanoTime() - startedAt) / 1_000_000L;
+    }
+
+    private static void logFailure(String providerNo, String sql, String sqlState, String exceptionType) {
+        MiscUtils.getLogger().warn(
+                "Query-by-Example failure provider={} queryHash={} sqlState={} exceptionType={}",
+                providerNo, queryHash(sql), sqlState, exceptionType);
+    }
+
+    private static String queryHash(String sql) {
+        return DigestUtils.sha256Hex(sql == null ? "" : sql);
     }
 }

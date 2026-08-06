@@ -53,18 +53,14 @@ public class RptResultStruct {
         return getStructureWithCount(rs).html();
     }
 
-    public static StructuredResult getStructureWithCount(ResultSet rs) throws SQLException {
-        
     /**
-    * Generates an HTML table from a ResultSet with enhanced styling for report templates.
-    * Includes proper thead/tbody structure, alternating row classes, and XSS protection.
-    * Each column header and cell value is HTML-encoded using OWASP Encoder.
-    *
-    * `@param` rs the ResultSet containing data to display; must be positioned before the first row
-    * `@return` an HTML string containing a complete table with id="results" 
-    * `@throws` SQLException if a database access error occurs or the ResultSet is closed
-    * `@since` 1.0
-    */
+     * Generates an encoded HTML table and row count from a {@link ResultSet}.
+     *
+     * @param rs result set positioned before its first row
+     * @return encoded table markup and the number of rows rendered
+     * @throws SQLException if the result set cannot be read
+     */
+    public static StructuredResult getStructureWithCount(ResultSet rs) throws SQLException {
 
     // assuming  multiple rows in rs
         StringBuilder sb = new StringBuilder();
@@ -73,28 +69,28 @@ public class RptResultStruct {
 
         int columns = rsmd.getColumnCount();
         String rowColor = "rowColor1";
-        String[] columnNames = new String[columns];
+        String[] columnLabels = new String[columns];
         sb.append("<table id='results'>");
         for (int i = 0; i < columns; i++) {  // for each column in result set
-            columnNames[i] = rsmd.getColumnName(i + 1);
+            columnLabels[i] = rsmd.getColumnLabel(i + 1);
             // put names in array
             // use i+1 or else you're going to get an exception
             //  insert headings for table
             sb.append("<th class='headerColor'>");
-            sb.append(Encode.forHtml(columnNames[i]));
+            sb.append(Encode.forHtml(columnLabels[i]));
             sb.append("</th>");
         }
         int rowCount = 0;
         while (rs.next()) {
             rowCount++;
-            sb.append("<tr class='" + rowColor + "'>");
+            sb.append("<tr class='").append(rowColor).append("'>");
             for (int j = 0; j < columns; j++) {
                 sb.append("<td>");
-                sb.append(Encode.forHtml(Misc.getString(rs, columnNames[j])));
+                sb.append(Encode.forHtml(Misc.getString(rs, j + 1)));
                 sb.append("</td>");
 
             }
-            rowColor = rowColor.compareTo("rowColor1") == 0 ? "rowColor2" : "rowColor1";
+            rowColor = rowColor.equals("rowColor1") ? "rowColor2" : "rowColor1";
             sb.append("</tr>");
         }
         sb.append("</table>");

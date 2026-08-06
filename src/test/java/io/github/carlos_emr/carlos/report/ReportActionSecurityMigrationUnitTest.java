@@ -21,11 +21,15 @@
  */
 package io.github.carlos_emr.carlos.report;
 
+import java.util.Properties;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesFavoriteDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
+import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.report.data.RptByExampleData;
 import io.github.carlos_emr.carlos.report.pageUtil.RptByExample2Action;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportFactory;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
@@ -51,6 +55,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
@@ -195,6 +202,43 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("queryDisabled")).isEqualTo(true);
         assertThat(request.getAttribute("submittedSql")).isEqualTo("select demographic_no from demographic");
         verifyNoInteractions(reportByExamplesDao);
+    }
+
+    @Test
+    @DisplayName("RptByExample keeps successful results when query history cannot be saved")
+    void shouldKeepResults_whenQueryHistorySaveFails() throws Exception {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(true);
+        request.setMethod("POST");
+        RptByExample2Action action = new RptByExample2Action();
+        action.setSql("select demographic_no from demographic");
+        doThrow(new IllegalStateException("history unavailable"))
+                .when(reportByExamplesDao).persist(any(ReportByExamples.class));
+
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previousValue = properties.getProperty(RptByExample2Action.ENABLED_PROPERTY);
+        try (MockedConstruction<RptByExampleData> reportData = mockConstruction(
+                RptByExampleData.class,
+                (mock, context) -> when(mock.execute(
+                        eq("select demographic_no from demographic"), any(Properties.class), eq("999998")))
+                        .thenReturn(new RptByExampleData.QueryResult("<table></table>", 1)))) {
+            properties.setProperty(RptByExample2Action.ENABLED_PROPERTY, " yes ");
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(reportData.constructed()).hasSize(1);
+        } finally {
+            if (previousValue == null) {
+                properties.remove(RptByExample2Action.ENABLED_PROPERTY);
+            } else {
+                properties.setProperty(RptByExample2Action.ENABLED_PROPERTY, previousValue);
+            }
+        }
+
+        assertThat(request.getAttribute("results")).isEqualTo("<table></table>");
+        assertThat(request.getAttribute("queryHistoryError")).isEqualTo(true);
+        assertThat(request.getAttribute("queryExecutionError")).isNull();
+        assertThat(request.getAttribute("resultLimit")).isEqualTo(RptByExampleData.MAX_ROWS);
+        verify(reportByExamplesDao).persist(any(ReportByExamples.class));
     }
 
     @Test

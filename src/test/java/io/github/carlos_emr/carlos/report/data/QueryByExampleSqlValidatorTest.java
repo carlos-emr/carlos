@@ -55,6 +55,30 @@ class QueryByExampleSqlValidatorTest {
     void shouldAllowBlockedFunctionNameInsideLiteral() {
         assertThatCode(() -> QueryByExampleSqlValidator.validate("select 'sleep(1)'", properties))
                 .doesNotThrowAnyException();
+        assertThatCode(() -> QueryByExampleSqlValidator.validate(
+                "select 'update delete create drop' as instruction", properties))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("structurally rejects set-operation SELECTs")
+    void shouldRejectSetOperationSelects() {
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.validate(
+                "select demographic_no from demographic union select provider_no from provider", properties))
+                .isInstanceOf(QueryByExampleValidationException.class)
+                .hasMessage("Only one SELECT statement is allowed");
+    }
+
+    @Test
+    @DisplayName("fails closed when the application schema is not configured")
+    void shouldRejectMissingApplicationSchema() {
+        Properties missing = new Properties();
+        Properties blank = properties("   ?useUnicode=true");
+
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.applicationSchema(missing))
+                .isInstanceOf(QueryByExampleValidationException.class);
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.applicationSchema(blank))
+                .isInstanceOf(QueryByExampleValidationException.class);
     }
 
     @ParameterizedTest(name = "rejects: {0}")
@@ -71,7 +95,6 @@ class QueryByExampleSqlValidatorTest {
                 "describe demographic",
                 "explain select * from demographic",
                 "update demographic set last_name='x'",
-                "select * from demographic union select * from provider",
                 "select * from demographic; select * from provider",
                 "select * from demographic -- comment",
                 "select * from other_database.demographic",

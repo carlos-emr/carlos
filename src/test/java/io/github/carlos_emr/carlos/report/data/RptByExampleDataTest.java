@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.report.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -34,6 +35,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.Properties;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -63,15 +65,15 @@ class RptByExampleDataTest {
         properties = new Properties();
         properties.setProperty("db_name", "oscar_mcmaster?useUnicode=true");
 
-        when(connection.isReadOnly()).thenReturn(false);
+        when(connection.isReadOnly()).thenReturn(true);
         when(connection.prepareStatement("select demographic_no from demographic",
                 ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)).thenReturn(statement);
         when(statement.executeQuery()).thenReturn(resultSet);
         when(resultSet.getMetaData()).thenReturn(metadata);
         when(metadata.getColumnCount()).thenReturn(1);
-        when(metadata.getColumnName(1)).thenReturn("demographic_no");
+        when(metadata.getColumnLabel(1)).thenReturn("demographic_no");
         when(resultSet.next()).thenReturn(true, false);
-        when(resultSet.getString("demographic_no")).thenReturn("42");
+        when(resultSet.getString(1)).thenReturn("42");
     }
 
     @Test
@@ -90,8 +92,41 @@ class RptByExampleDataTest {
         order.verify(statement).executeQuery();
         order.verify(resultSet).close();
         order.verify(statement).close();
-        order.verify(connection).setReadOnly(false);
+        order.verify(connection).setReadOnly(true);
         order.verify(connection).close();
+    }
+
+    @Test
+    @DisplayName("preserves a timeout when restoring connection state also fails")
+    void shouldPreserveTimeout_whenReadOnlyRestoreFails() throws SQLException {
+        SQLTimeoutException timeout = new SQLTimeoutException("timed out");
+        SQLException restoreFailure = new SQLException("restore failed");
+        when(connection.isReadOnly()).thenReturn(false);
+        when(statement.executeQuery()).thenThrow(timeout);
+        doThrow(restoreFailure).when(connection).setReadOnly(false);
+
+        assertThatThrownBy(() -> reportData.execute(
+                "select demographic_no from demographic", properties, "999998"))
+                .isSameAs(timeout)
+                .satisfies(thrown -> assertThat(thrown.getSuppressed()).containsExactly(restoreFailure));
+
+        verify(connection).setReadOnly(false);
+        verify(connection).close();
+    }
+
+    @Test
+    @DisplayName("renders duplicate column labels using their positional values")
+    void shouldRenderPositionalValues_whenColumnLabelsAreDuplicated() throws SQLException {
+        when(metadata.getColumnCount()).thenReturn(2);
+        when(metadata.getColumnLabel(1)).thenReturn("id");
+        when(metadata.getColumnLabel(2)).thenReturn("id");
+        when(resultSet.getString(1)).thenReturn("first");
+        when(resultSet.getString(2)).thenReturn("second");
+
+        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet);
+
+        assertThat(result.html()).contains("first").contains("second");
+        assertThat(result.rowCount()).isEqualTo(1);
     }
 
     @Test

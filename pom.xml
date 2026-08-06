@@ -453,6 +453,13 @@
             <groupId>com.github.jsqlparser</groupId>
             <artifactId>jsqlparser</artifactId>
             <version>${jsqlparser.version}</version>
+            <exclusions>
+                <!-- Benchmarking support is not used by the parser at runtime. -->
+                <exclusion>
+                    <groupId>org.openjdk.jmh</groupId>
+                    <artifactId>jmh-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- ==================== HTTP Client ==================== -->
 
