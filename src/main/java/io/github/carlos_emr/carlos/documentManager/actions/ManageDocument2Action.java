@@ -125,6 +125,7 @@ public class ManageDocument2Action extends ActionSupport {
     private final Logger log = MiscUtils.getLogger();
 
     private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+    private final QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
     private final CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -454,12 +455,71 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                log.error("Unable to send invalid refile method response", e);
+            }
+            return NONE;
+        }
+
+        int parsedDocumentId = parsePositiveInteger(documentId);
+        int parsedQueueId = parsePositiveInteger(queueId);
+        if (parsedDocumentId < 1 || parsedQueueId < 1) {
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid documentId or queueId");
+            } catch (IOException e) {
+                log.error("Unable to send invalid refile request response", e);
+            }
+            return NONE;
+        }
+
+        Document targetDocument = documentDao.find(parsedDocumentId);
+        if (targetDocument == null
+                || targetDocument.getDocfilename() == null
+                || targetDocument.getDocfilename().trim().isEmpty()
+                || queueDao.find(parsedQueueId) == null) {
+            try {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "document or queue not found");
+            } catch (IOException e) {
+                log.error("Unable to send missing refile target response", e);
+            }
+            return NONE;
+        }
+
         try {
             EDocUtil.refileDocument(documentId, queueId);
+        } catch (SecurityException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to refile document {} to queue {}", LogSafe.sanitize(documentId), LogSafe.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            // Do not log the exception itself: file-system exception messages can include
+            // document filenames or paths. Validated numeric IDs and the type are sufficient.
+            log.error("Failed to refile document {} to queue {} ({})",
+                    LogSafe.sanitize(documentId), LogSafe.sanitize(queueId),
+                    e.getClass().getSimpleName()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "Unable to refile document");
+                } catch (IOException ioe) {
+                    log.error("Unable to send refile failure response", ioe);
+                }
+            }
         }
         return NONE;
+    }
+
+    private static int parsePositiveInteger(String value) {
+        if (value == null || !value.matches("[1-9][0-9]*")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /**
@@ -1297,6 +1357,10 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid filename");
         }
         rejectIncomingDocumentPathComponents(fileName);
+        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            log.warn("Incoming document source does not have a PDF extension");
+            throw new SecurityException("Incoming document source must be a PDF");
+        }
         return fileName;
     }
 

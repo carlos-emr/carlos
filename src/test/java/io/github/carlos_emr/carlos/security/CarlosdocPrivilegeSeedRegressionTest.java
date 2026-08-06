@@ -50,17 +50,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class CarlosdocPrivilegeSeedRegressionTest {
 
+    private static final Path DEVELOPMENT_SEED =
+            Path.of(".devcontainer", "db", "scripts", "development.sql");
     private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
     private static final Path BC_SEED = Path.of("database", "mysql", "migration", "bc", "V1.0.2__bc_data.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
+    private static String developmentSeedSql;
     private static String seedSql;
     private static String bcSeedSql;
 
     @BeforeAll
     static void loadSeed() throws IOException {
+        developmentSeedSql = Files.readString(DEVELOPMENT_SEED, StandardCharsets.UTF_8);
         seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
         bcSeedSql = Files.readString(BC_SEED, StandardCharsets.UTF_8);
     }
@@ -73,6 +77,25 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "('admin','_admin','x',0,'999998')",
                 "('admin','_admin.schedule','x',0,'999998')",
                 "('admin','_appointment','x',0,'999998')");
+    }
+
+    @Test
+    @DisplayName("should grant carlosdoc admin billing access in development seed")
+    void shouldGrantCarlosdocAdminBillingAccess_whenDevelopmentSeeded() {
+        assertThat(developmentSeedSql).contains(
+                "INSERT INTO `secObjPrivilege` VALUES ('admin','_admin.billing','x',0,'999998');",
+                "(2,'999998','admin','R0000001',1,");
+    }
+
+    @Test
+    @DisplayName("should grant carlosdoc admin billing access in Flyway seeds")
+    void shouldGrantCarlosdocAdminBillingAccess_whenFlywaySeeded() {
+        assertThat(seedSql).contains(
+                "('admin','_admin.billing','x',0,'999998')",
+                "'999998','admin','R0000001',1,");
+        assertThat(bcSeedSql).contains(
+                "('admin','_admin.billing','x',0,'999998')",
+                "'999998','admin','R0000001',1,");
     }
 
     @Test
