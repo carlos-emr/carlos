@@ -63,7 +63,6 @@ import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.chromium.HasCdp;
 import org.openqa.selenium.logging.LogEntry;
 import org.openqa.selenium.logging.LogType;
 import org.openqa.selenium.logging.LoggingPreferences;
@@ -122,9 +121,6 @@ public class EFormBrowserPdfService {
     // timeouts" invariant; production code treats them as private.
     static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(30);
     static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
-    private static final Duration NETWORK_QUIET_WINDOW = Duration.ofMillis(500);
-    private static final Duration NETWORK_QUIET_MAX_WAIT = Duration.ofSeconds(10);
-    private static final long SETTLE_DELAY_MILLIS = 1500;
 
     /**
      * Client-side HTTP read timeout for every WebDriver/CDP command sent to chromedriver
@@ -232,7 +228,50 @@ public class EFormBrowserPdfService {
             + "})();";
 
     /**
-     * Async settle: fonts ready, pending images resolved, DOM mutations quiet, two animation frames.
+     * Installed before any stored form code, alongside {@link #INSTALL_INTERACTION_CONTAINMENT_JS}.
+     * Wraps {@code fetch}/{@code XMLHttpRequest.send} at the earliest possible point in the page
+     * lifecycle — before the render page's own bootstrap script or a stored eForm's onload work can
+     * fire a request — publishing a live pending-request count on {@code window}. Installing this
+     * wrap later, inside {@link #STABILIZE_ASYNC_JS} itself as before, left a window between
+     * navigation and that script's own execution during which an already-in-flight request was
+     * invisible to the quiet-window guarantee: the page could be captured while a request supplying
+     * clinical content was still outstanding. Because this script runs once per navigation (like
+     * {@link #INSTALL_INTERACTION_CONTAINMENT_JS}), it observes every request the page issues, not
+     * just ones started after the settle script begins.
+     */
+    static final String INSTALL_NETWORK_ACTIVITY_TRACKING_JS = """
+            (() => {
+              let pending = 0;
+              Object.defineProperty(window, '__carlosRendererPendingNetworkRequests', {
+                configurable: false, get: () => pending
+              });
+              const nativeFetch = typeof window.fetch === 'function' ? window.fetch : null;
+              const nativeXhrSend = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype.send : null;
+              function started() { pending += 1; }
+              function finished() { pending = Math.max(0, pending - 1); }
+              if (nativeFetch) {
+                window.fetch = function() {
+                  started();
+                  let result;
+                  try { result = nativeFetch.apply(this, arguments); }
+                  catch (error) { finished(); throw error; }
+                  return Promise.resolve(result).then(
+                    (value) => { finished(); return value; },
+                    (error) => { finished(); throw error; });
+                };
+              }
+              if (nativeXhrSend) {
+                XMLHttpRequest.prototype.send = function() {
+                  started();
+                  this.addEventListener('loadend', finished, { once: true });
+                  try { return nativeXhrSend.apply(this, arguments); }
+                  catch (error) { finished(); throw error; }
+                };
+              }
+            })();""";
+
+    /**
+     * Async settle: fonts ready, pending images resolved, network activity and DOM mutations quiet together, two animation frames.
      *
      * <p>The DOM-quiescence wait is load-bearing for script-built forms. The Rich Text Letter (and
      * other editor-driven corpus forms) construct their visible content asynchronously after
@@ -289,11 +328,33 @@ public class EFormBrowserPdfService {
             + "    const maxWaitMillis = 5000;\n"
             + "    let quietTimer = null;\n"
             + "    let done = false;\n"
+            + "    let resourceObserver = null;\n"
+            // The counter itself lives on window, published once per navigation by
+            // INSTALL_NETWORK_ACTIVITY_TRACKING_JS (see the CDP Page.addScriptToEvaluateOnNewDocument
+            // call in renderWithSlot) — before this script, or any stored form code, ever runs. Poll
+            // it here rather than re-wrapping fetch/XHR locally, so a request that started before
+            // this settle script began executing is already reflected on the very first check below.
+            + "    function pendingNetworkRequestCount() {\n"
+            + "      return window.__carlosRendererPendingNetworkRequests || 0;\n"
+            + "    }\n"
+            + "    let lastPendingNetworkRequests = pendingNetworkRequestCount();\n"
             + "    const observer = new MutationObserver(() => {\n"
             + "      if (done) { return; }\n"
-            + "      clearTimeout(quietTimer);\n"
-            + "      quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
+            + "      resetQuietWindow();\n"
             + "    });\n"
+            + "    function resetQuietWindow() {\n"
+            + "      clearTimeout(quietTimer);\n"
+            + "      if (pendingNetworkRequestCount() > 0) { return; }\n"
+            + "      quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
+            + "    }\n"
+            + "    const networkPollInterval = setInterval(() => {\n"
+            + "      if (done) { return; }\n"
+            + "      const pendingNow = pendingNetworkRequestCount();\n"
+            + "      if (pendingNow !== lastPendingNetworkRequests) {\n"
+            + "        lastPendingNetworkRequests = pendingNow;\n"
+            + "        resetQuietWindow();\n"
+            + "      }\n"
+            + "    }, 100);\n"
             // finish(true) means the hard cap fired before a quiet window was ever observed — the page
             // kept mutating (a broken/animating editor). Resolve with that flag so the JVM can WARN
             // that the capture is as-is rather than logging it as an ordinary quiet settle.
@@ -301,10 +362,18 @@ public class EFormBrowserPdfService {
             + "      if (done) { return; }\n"
             + "      done = true;\n"
             + "      observer.disconnect();\n"
+            + "      if (resourceObserver) { resourceObserver.disconnect(); }\n"
+            + "      clearInterval(networkPollInterval);\n"
             + "      resolve(!!wasCapped);\n"
             + "    }\n"
             + "    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, characterData: true });\n"
-            + "    quietTimer = setTimeout(() => finish(false), quietWindowMillis);\n"
+            + "    try {\n"
+            + "      if (typeof PerformanceObserver === 'function') {\n"
+            + "        resourceObserver = new PerformanceObserver(() => resetQuietWindow());\n"
+            + "        resourceObserver.observe({ type: 'resource', buffered: true });\n"
+            + "      }\n"
+            + "    } catch (ignored) { }\n"
+            + "    resetQuietWindow();\n"
             + "    setTimeout(() => finish(true), maxWaitMillis);\n"
             + "  });\n"
             + "  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n"
@@ -733,14 +802,19 @@ public class EFormBrowserPdfService {
             // renderer is saturated (fdid only — no PHI, no render URL/token).
             logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
                     MAX_CONCURRENT_RENDERS, fdid);
-            throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.");
+            // Retryable: the renderer itself is healthy, every slot is just momentarily busy. Marked
+            // structurally (not just in the message text) so callers can tell this apart from a
+            // durable failure without matching on wording — see PDFGenerationException.isRetryable().
+            throw new PDFGenerationException("Browser rendering is at capacity; please retry shortly.", true);
         }
         if (acquisition == SlotAcquisition.INTERRUPTED) {
             // Distinct from capacity: the waiting thread was interrupted (JVM/app shutdown), so no
-            // slot was ever taken (nothing to release) and the render never started. Retry advice
-            // would be misleading here, so the message deliberately omits it.
+            // slot was ever taken (nothing to release) and the render never started. Still marked
+            // retryable structurally: on a live JVM a retry can still succeed, even though the
+            // message itself omits retry advice since a shutdown-triggered interrupt would make it
+            // misleading.
             logger.warn("Browser eForm render aborted: waiting thread interrupted (shutdown?): fdid={}", fdid);
-            throw new PDFGenerationException("Browser rendering was aborted before it started.");
+            throw new PDFGenerationException("Browser rendering was aborted before it started.", true);
         }
         try {
             return renderWithSlot(fdid, providerId, tempRoot, approval, measurementsPermitted);
@@ -811,30 +885,35 @@ public class EFormBrowserPdfService {
             RendererBrowser browser = createDriver(buildChromeOptions(resolveChromiumPath(), unsandboxed, allowedOrigin));
             driver = browser.driver();
             driverService = browser.service();
+            long driverStartedNanos = System.nanoTime();
             logger.debug("Browser eForm renderer driver started for fdid={} (OS sandbox {})",
                     fdid, unsandboxed ? "disabled" : "enabled");
             driver.manage().timeouts().pageLoadTimeout(PAGE_LOAD_TIMEOUT).scriptTimeout(SCRIPT_TIMEOUT);
             // Emulate PRINT media (not screen): the page then settles and is measured in the exact
             // layout Page.printToPDF will emit, and each form's own {@code @media print} rules (e.g.
             // the corpus fixture's PrintOnly/DoNotPrint toggles) take effect for the captured PDF.
-            ((HasCdp) driver).executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
-            ((HasCdp) driver).executeCdpCommand(
+            driver.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
+            driver.executeCdpCommand(
                     "Page.addScriptToEvaluateOnNewDocument",
                     Map.of("source", INSTALL_INTERACTION_CONTAINMENT_JS));
+            driver.executeCdpCommand(
+                    "Page.addScriptToEvaluateOnNewDocument",
+                    Map.of("source", INSTALL_NETWORK_ACTIVITY_TRACKING_JS));
 
             List<LogEntry> performanceEntries = new ArrayList<>();
             // Navigate the sessionless render browser to the loopback render page. Do NOT log the full
             // URL: it carries the fdid and the render token; log the origin only.
             logger.debug("Browser eForm renderer navigating to render page: fdid={} origin={}", fdid, allowedOrigin);
             driver.get(baseUrl + appPath);
+            long navigationFinishedNanos = System.nanoTime();
             // Drain immediately after navigation so the main-document response is captured into our
             // non-evicting list before any later request flood can push it out of Selenium's
             // bounded internal buffer, then latch its status as a fallback for the final gate.
             drainPerformanceLog(driver, performanceEntries);
             Integer latchedMainStatus = scanNetworkEvents(
                     performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
-            awaitNetworkQuiet(driver, performanceEntries, deadlineNanos);
             boolean stabilizationCapped = settle(driver, deadlineNanos, fdid);
+            long stabilizationFinishedNanos = System.nanoTime();
             if (!isExpectedRendererUrl(driver.getCurrentUrl(), baseUrl + appPath)) {
                 throw new PDFGenerationException(
                         "Browser rendering navigated away from the authorized eForm page.");
@@ -898,8 +977,10 @@ public class EFormBrowserPdfService {
                         geometry.excludedCount(), Math.round(geometry.excludedHeight()), fdid);
             }
             logger.debug("Browser eForm renderer measured {} authored page size(s): fdid={}", pageSizes.size(), fdid);
+            long gatesFinishedNanos = System.nanoTime();
 
             printToPdf(driver, outputPdfPath, deadlineNanos);
+            long printedNanos = System.nanoTime();
 
             // Capture the size once, before declaring success: a second Files.size inside the
             // success log could race an external sweep and turn a completed render into a
@@ -913,9 +994,15 @@ public class EFormBrowserPdfService {
             success = true;
             // Success record: fdid, page count, output size and elapsed time give operators an
             // end-to-end render trace. No PHI, no render URL/token — origin/counts/bytes only.
-            logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={}",
+            logger.info("Browser eForm renderer completed: fdid={} pages={} bytes={} elapsedMs={} "
+                            + "driverStartupMs={} navigationMs={} stabilizationMs={} gatesMs={} printMs={}",
                     fdid, pageSizes.size(), outputPdfBytes,
-                    (System.nanoTime() - startNanos) / 1_000_000L);
+                    (System.nanoTime() - startNanos) / 1_000_000L,
+                    (driverStartedNanos - startNanos) / 1_000_000L,
+                    (navigationFinishedNanos - driverStartedNanos) / 1_000_000L,
+                    (stabilizationFinishedNanos - navigationFinishedNanos) / 1_000_000L,
+                    (gatesFinishedNanos - stabilizationFinishedNanos) / 1_000_000L,
+                    (printedNanos - gatesFinishedNanos) / 1_000_000L);
             // Carry the report out with the file rather than in a field: renders run concurrently
             // under the slot semaphore, so any per-service mutable state would cross-talk.
             return new RenderedEformPdf(outputPdfPath, completeness);
@@ -932,9 +1019,6 @@ public class EFormBrowserPdfService {
             logger.error("Browser eForm renderer I/O failure: fdid={} baseUrl={} type={} error={}",
                     fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
             throw new PDFGenerationException("Unable to prepare files for the browser PDF renderer.", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new PDFGenerationException("Browser rendering was interrupted while generating the eForm PDF.", e);
         } catch (RuntimeException e) {
             // Deliberately no catch (IllegalArgumentException e) here: that would re-widen this
             // handler back over the whole render body and risk mislabeling an unrelated IAE (e.g.
@@ -1300,28 +1384,9 @@ public class EFormBrowserPdfService {
     // Stabilization and capture
     // ---------------------------------------------------------------------------------------------
 
-    /**
-     * Best-effort network quiescence: poll the performance log until no new events arrive for the
-     * quiet window, capped, never failing the render on its own (a quiet-window timeout is
-     * ignored). Drained entries are retained for the gates; a drain FAULT does fail the render —
-     * see {@link #drainPerformanceLog}.
-     */
-    private void awaitNetworkQuiet(ChromeDriver driver, List<LogEntry> performanceEntries, long deadlineNanos)
-            throws InterruptedException, PDFGenerationException {
-        long quietSinceNanos = System.nanoTime();
-        long waitDeadline = Math.min(deadlineNanos, System.nanoTime() + NETWORK_QUIET_MAX_WAIT.toNanos());
-        while (System.nanoTime() < waitDeadline) {
-            Thread.sleep(250);
-            if (drainPerformanceLog(driver, performanceEntries) > 0) {
-                quietSinceNanos = System.nanoTime();
-            } else if (System.nanoTime() - quietSinceNanos >= NETWORK_QUIET_WINDOW.toNanos()) {
-                return;
-            }
-        }
-    }
-
-    /**
-     * Waits for the page to stop mutating, then reports whether it actually reached a quiet window.
+     /**
+     * Waits for both the page DOM and its resource activity to become quiet, then reports whether it
+     * reached a quiet window.
      *
      * @return {@code true} when the stabilization cap expired with the DOM still changing, meaning the
      *         page was captured mid-assembly. The caller MUST fold this into
@@ -1330,8 +1395,10 @@ public class EFormBrowserPdfService {
      *         exactly the ones that print half-assembled.
      * @throws PDFGenerationException if the page reported a stabilization error
      */
-    boolean settle(ChromeDriver driver, long deadlineNanos, int fdid) throws InterruptedException, PDFGenerationException {
-        Thread.sleep(SETTLE_DELAY_MILLIS);
+    boolean settle(ChromeDriver driver, long deadlineNanos, int fdid) throws PDFGenerationException {
+        // Deferred one-shot timers are tracked by eform-runtime-compat.js and awaited by
+        // STABILIZE_ASYNC_JS below.  Do not impose a blind grace sleep here: static forms
+        // can proceed after the same measured quiet-window check as dynamic forms.
         checkDeadline(deadlineNanos);
         Object settleResult = driver.executeAsyncScript(STABILIZE_ASYNC_JS);
         boolean capped = false;
@@ -1379,7 +1446,7 @@ public class EFormBrowserPdfService {
     private void printToPdf(ChromeDriver driver, Path outputPdfPath, long deadlineNanos)
             throws IOException, PDFGenerationException {
         checkDeadline(deadlineNanos);
-        Map<String, Object> result = ((HasCdp) driver).executeCdpCommand("Page.printToPDF", Map.of(
+        Map<String, Object> result = driver.executeCdpCommand("Page.printToPDF", Map.of(
                 "preferCSSPageSize", Boolean.TRUE,
                 "printBackground", Boolean.TRUE,
                 "scale", 1.0d,

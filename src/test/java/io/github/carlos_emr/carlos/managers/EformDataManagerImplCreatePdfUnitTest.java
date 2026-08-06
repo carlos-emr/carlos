@@ -21,6 +21,7 @@ import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -142,6 +143,38 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, "123");
         verify(eFormBrowserPdfService).renderSavedEformPdf(
                 loggedInInfo, 77, (EFormRenderApproval) null);
+    }
+
+    @Test
+    @DisplayName("should preserve a retryable renderer failure's message and retryability structurally, not by matching its wording")
+    void shouldPreserveRetryableRendererFailure_structurally() throws Exception {
+        when(eFormBrowserPdfService.renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null))
+                .thenThrow(new PDFGenerationException(
+                        "Browser rendering is at capacity; please retry shortly.", true));
+
+        PDFGenerationException thrown = catchThrowableOfType(
+                PDFGenerationException.class, () -> manager.createEformPDF(loggedInInfo, 77));
+
+        assertThat(thrown).hasMessage("Browser rendering is at capacity; please retry shortly.");
+        assertThat(thrown.isRetryable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should mask a non-retryable renderer failure's message behind a stable diagnosis")
+    void shouldMaskNonRetryableRendererFailure_behindStableDiagnosis() throws Exception {
+        // A non-retryable renderer message can carry page-generated text, URLs, or paths, so it
+        // must never reach the caller verbatim -- only the two known-transient messages do, and
+        // only because they are marked retryable() structurally, not because of their wording.
+        when(eFormBrowserPdfService.renderSavedEformPdf(
+                loggedInInfo, 77, (EFormRenderApproval) null))
+                .thenThrow(new PDFGenerationException("<script>page-generated text</script>"));
+
+        PDFGenerationException thrown = catchThrowableOfType(
+                PDFGenerationException.class, () -> manager.createEformPDF(loggedInInfo, 77));
+
+        assertThat(thrown).hasMessage("EForm PDF generation failed during browser rendering.");
+        assertThat(thrown.isRetryable()).isFalse();
     }
 
     @Test

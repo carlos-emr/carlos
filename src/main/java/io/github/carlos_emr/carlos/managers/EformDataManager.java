@@ -95,7 +95,11 @@ public interface EformDataManager {
      * @param completeness counts and flags only — never resource URLs or rendered text, which can
      *        carry PHI
      */
-    record EformPdfRender(Path path, EFormRenderCompletenessReport completeness) {
+    record EformPdfRender(Path path, EFormRenderCompletenessReport completeness,
+            Map<Integer, EFormRenderCompletenessReport> formCompleteness) {
+        public EformPdfRender(Path path, EFormRenderCompletenessReport completeness) {
+            this(path, completeness, Map.of());
+        }
     }
 
 
