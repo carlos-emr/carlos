@@ -228,10 +228,10 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
                     "icd9", "250", "2026-01-01", "2026-08-06", "A"))));
             setSessionAttribute("radiovaluestatus", "patientRegistedAll");
 
-            // patientExcelReport returns null (writes directly to output stream)
+            // patientExcelReport returns NONE after writing directly to the output stream
             String result = executeAction(action);
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(getMockResponse().getContentType())
                     .isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             assertThat(getMockResponse().getHeader("Content-disposition"))

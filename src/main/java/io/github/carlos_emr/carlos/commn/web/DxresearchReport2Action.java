@@ -260,7 +260,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         osc.fillDocumentStream(reportParams, outputStream, OscarDocumentCreator.EXCEL, reportInstream, patients);
 
-        return null;
+        return NONE;
     }
 
     public String patientRegistedDistincted() {

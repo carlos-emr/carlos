@@ -237,7 +237,7 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
      * @param doctorList provider numbers used to limit patients; {@code "*"} includes all providers
      * @return matching registry patient information, or {@code null} when no records match
      */
-    public List<DxRegistedPTInfo> patientRegistedStatus(Character status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
+    private List<DxRegistedPTInfo> patientRegistedStatus(Character status, List<dxCodeSearchBean> searchItems, List<String> doctorList) {
         List<Dxresearch> dList = null;
 
         List<dxCodeSearchBean> listItems = searchItems;
