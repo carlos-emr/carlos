@@ -45,9 +45,9 @@
         </h4>
         <div class="row">
             <div class="mb-3">
-                <label class="form-label">Doctor</label>
+                <label class="form-label" for="provider_no">Doctor</label>
                 <div>
-                    <select name="provider_no" class="form-select">
+                    <select id="provider_no" name="provider_no" class="form-select">
                         <option value="all">All Doctors</option>
                         <%
                             ArrayList<ProviderNameBean> dnl = new DoctorList().getDoctorNameList();
@@ -63,17 +63,19 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">Date From</label>
+                <label class="form-label" for="date_from">Date From</label>
                 <div>
                     <input id="date_from" name="date_from" size="10"
-                           type="text"/>
+                           type="text" required pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
+                           title="Enter a date in YYYY-MM-DD format"/>
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">Date To</label>
+                <label class="form-label" for="date_to">Date To</label>
                 <div>
                     <input id="date_to" name="date_to" size="10"
-                           type="text"/>
+                           type="text" required pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
+                           title="Enter a date in YYYY-MM-DD format"/>
                 </div>
             </div>
             <div class="mb-3">
@@ -91,22 +93,41 @@
     flatpickr("#date_from", {dateFormat: "Y-m-d", allowInput: true});
     flatpickr("#date_to", {dateFormat: "Y-m-d", allowInput: true});
 
-    $(document).ready(function () {
-        $('#plForm').validate({
-            rules: {
-                date_from: {
-                    required: true,
-                    oscarDate: true
-                },
-                date_to: {
-                    required: true,
-                    oscarDate: true
-                }
-            },
-            submitHandler: function (form) {
-                form.submit();
-            }
-        });
+    const reportForm = document.getElementById("plForm");
+    const dateFrom = document.getElementById("date_from");
+    const dateTo = document.getElementById("date_to");
+    const datePattern = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
+    function isValidDate(value) {
+        if (!datePattern.test(value)) {
+            return false;
+        }
+        const parsed = new Date(value + "T00:00:00Z");
+        return !Number.isNaN(parsed.getTime()) && parsed.toISOString().substring(0, 10) === value;
+    }
+
+    function validateDateRange() {
+        dateFrom.setCustomValidity("");
+        dateTo.setCustomValidity("");
+        if (dateFrom.value && !isValidDate(dateFrom.value)) {
+            dateFrom.setCustomValidity("Date From must be a valid date in YYYY-MM-DD format.");
+        }
+        if (dateTo.value && !isValidDate(dateTo.value)) {
+            dateTo.setCustomValidity("Date To must be a valid date in YYYY-MM-DD format.");
+        }
+        if (isValidDate(dateFrom.value) && isValidDate(dateTo.value) && dateFrom.value > dateTo.value) {
+            dateTo.setCustomValidity("Date To must be on or after Date From.");
+        }
+    }
+
+    dateFrom.addEventListener("input", validateDateRange);
+    dateTo.addEventListener("input", validateDateRange);
+    reportForm.addEventListener("submit", function (event) {
+        validateDateRange();
+        if (!reportForm.checkValidity()) {
+            event.preventDefault();
+            reportForm.reportValidity();
+        }
     });
 </script>
 </body>

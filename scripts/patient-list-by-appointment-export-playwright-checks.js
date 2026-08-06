@@ -40,6 +40,8 @@
  *      route from Struts must not open a hole in the auth policy.
  *   7. The visible form submits with POST so CSRF-TOKEN remains in the request
  *      body instead of leaking into URLs, logs, and browser history.
+ *   8. The report page has no JavaScript errors while wiring its client-side
+ *      date validation.
  *
  * This script only reads; it seeds nothing and mutates nothing. It expects the
  * three LOCAL_SEED_OBEC_REPORT_* appointments (2026-08-07..2026-08-10) to be
@@ -160,18 +162,6 @@ function isSevereConsoleMessage(message) {
   return /(ReferenceError|TypeError|SyntaxError|redeclaration|Cannot read|Cannot set)/i.test(text);
 }
 
-// patientlist.jsp calls $(document).ready(...) to wire jQuery Validate, but the
-// page never loads jQuery, so the block throws "$ is not defined" and the
-// required/oscarDate date validation silently never runs. That is a separate,
-// pre-existing defect - the same shape affects several other report JSPs, which
-// reference the custom "oscarDate" validator that only administration/index.jsp
-// ever registers - and it is NOT what issue #3346 fixed. It is allowed through
-// here (recorded, not blocking) so this script keeps failing on any NEW page
-// error; remove this allowance once the validation stack on these pages is fixed.
-function isKnownUnrelatedPageError(error) {
-  return /\$ is not defined/.test(error.message);
-}
-
 function wirePage(page, label) {
   page.on('response', (response) => {
     const status = response.status();
@@ -186,11 +176,6 @@ function wirePage(page, label) {
     }
   });
   page.on('pageerror', (error) => {
-    if (isKnownUnrelatedPageError(error)) {
-      // Recorded, not blocking: see isKnownUnrelatedPageError.
-      observed.push({ check: `${label}:known-page-error`, text: error.message });
-      return;
-    }
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
   });
   page.on('dialog', async (dialog) => {
@@ -270,6 +255,64 @@ async function exportViaForm(context, label, providerNo, dateFrom, dateTo) {
   }
   await page.close();
   return result;
+}
+
+async function checkClientDateValidation(context) {
+  const page = await context.newPage();
+  wirePage(page, 'client-date-validation');
+  await safeGoto(page, '/oscarReport/ViewPatientlist', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  const validation = await page.evaluate(() => {
+    const form = document.getElementById('plForm');
+    const dateFrom = document.getElementById('date_from');
+    const dateTo = document.getElementById('date_to');
+    const setDate = (input, value) => {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const blankValid = form.checkValidity();
+
+    setDate(dateFrom, '2026-08-11');
+    setDate(dateTo, '2026-08-10');
+    const reversedValid = form.checkValidity();
+    const reversedMessage = dateTo.validationMessage;
+
+    setDate(dateFrom, '08/07/2026');
+    setDate(dateTo, '2026-08-10');
+    const malformedValid = form.checkValidity();
+
+    setDate(dateFrom, '2026-02-29');
+    const invalidCalendarValid = form.checkValidity();
+
+    setDate(dateFrom, '2026-08-07');
+    const validRangeAccepted = form.checkValidity();
+
+    return { blankValid, reversedValid, reversedMessage, malformedValid, invalidCalendarValid, validRangeAccepted };
+  });
+
+  observed.push({ check: 'client-date-validation', ...validation });
+  if (validation.blankValid) {
+    findings.push({ label: 'client-date-validation', type: 'blank-dates-accepted' });
+  }
+  if (validation.reversedValid || !/on or after Date From/.test(validation.reversedMessage)) {
+    findings.push({
+      label: 'client-date-validation',
+      type: 'reversed-range-accepted',
+      valid: validation.reversedValid,
+      message: validation.reversedMessage,
+    });
+  }
+  if (validation.malformedValid) {
+    findings.push({ label: 'client-date-validation', type: 'malformed-date-accepted' });
+  }
+  if (validation.invalidCalendarValid) {
+    findings.push({ label: 'client-date-validation', type: 'invalid-calendar-date-accepted' });
+  }
+  if (!validation.validRangeAccepted) {
+    findings.push({ label: 'client-date-validation', type: 'valid-range-rejected' });
+  }
+  await page.close();
 }
 
 function dataRows(body) {
@@ -353,6 +396,8 @@ async function checkUnauthenticatedRejection(browser) {
     });
     const loginPage = await login(context);
     await loginPage.close();
+
+    await checkClientDateValidation(context);
 
     const allDoctors = await exportViaForm(context, 'all-doctors', PROVIDER_ALL, SEED_DATE_FROM, SEED_DATE_TO);
     checkDownloadEnvelope('all-doctors', allDoctors);
