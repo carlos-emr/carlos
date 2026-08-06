@@ -28,6 +28,33 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+<%--
+/**
+ * Form XML Data Import
+ *
+ * Administrative page that lets an authorized admin upload a zip archive of
+ * form/eForm XML data for import into the CARLOS database. The upload form
+ * posts to the "/form/xmlUpload" action (FrmXmlUpload2Action), which is
+ * reached via this gated view served by ViewFormXmlUpload2Action.
+ *
+ * Main Features:
+ * - CSRF-protected multipart file upload form (zip archive, field name "file1")
+ * - Renders Struts actionErrors from a prior failed import attempt
+ * - Inline tooltip warning about upload behavior (global.uploadWarningBody)
+ *
+ * Security Requirements:
+ * - Requires "_admin" or "_admin.eform" write privilege via the security taglib;
+ *   unauthorized requests are redirected to /securityError
+ * - Requires an active user session; redirects to /logoutPage otherwise
+ * - Form submission carries a CSRFGuard token (csrf:tokenname / csrf:tokenvalue)
+ *
+ * Request Attributes:
+ * - actionErrors: optional List&lt;String&gt; of import errors rendered above the form
+ *
+ * @since 2026-08-05
+ */
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

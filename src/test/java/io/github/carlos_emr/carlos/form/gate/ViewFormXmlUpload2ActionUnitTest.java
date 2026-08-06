@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -47,7 +48,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("form")
 @Tag("security")
-class ViewFormXmlUpload2ActionUnitTest {
+class ViewFormXmlUpload2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;

@@ -212,9 +212,11 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         Path archive = tempDir.resolve("issue-3071-eform.zip");
         try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
             output.putNextEntry(new ZipEntry("Issue3071/eform.properties"));
-            output.write(("form.name=Issue 3071 eForm import\n"
-                    + "form.htmlFilename=issue-3071-eform.html\n"
-                    + "form.details=Imported form\n").getBytes(StandardCharsets.UTF_8));
+            output.write("""
+                    form.name=Issue 3071 eForm import
+                    form.htmlFilename=issue-3071-eform.html
+                    form.details=Imported form
+                    """.getBytes(StandardCharsets.UTF_8));
             output.closeEntry();
             output.putNextEntry(new ZipEntry("Issue3071/issue-3071-eform.html"));
             output.write("<html><body>Issue 3071 eForm</body></html>".getBytes(StandardCharsets.UTF_8));
