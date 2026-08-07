@@ -197,9 +197,10 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
 
         CarlosProperties properties = CarlosProperties.getInstance();
         String previousValue = properties.getProperty(RptByExample2Action.ENABLED_PROPERTY);
-        try {
+        try (MockedConstruction<RptByExampleData> reportData = mockConstruction(RptByExampleData.class)) {
             properties.setProperty(RptByExample2Action.ENABLED_PROPERTY, "false");
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(reportData.constructed()).isEmpty();
         } finally {
             if (previousValue == null) {
                 properties.remove(RptByExample2Action.ENABLED_PROPERTY);
