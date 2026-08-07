@@ -50,6 +50,11 @@ public class RptResultStruct {
 
     private static final int MIN_OUTPUT_CHARACTERS = 64;
     private static final int CLOSING_MARKUP_RESERVE = 32;
+    private static final String TABLE_END = "</table>";
+    private static final String HEADER_END = "</th>";
+    private static final String ROW_END = "</tr>";
+    private static final String CELL_START = "<td>";
+    private static final String CELL_END = "</td>";
 
     public record StructuredResult(String html, int rowCount, boolean truncated, boolean rowLimitReached) {
     }
@@ -92,70 +97,92 @@ public class RptResultStruct {
      */
     public static StructuredResult getStructureWithCount(ResultSet rs, int maxOutputCharacters, int maxRows)
             throws SQLException {
+        validateLimits(maxOutputCharacters, maxRows);
+        LimitedHtmlBuilder html = new LimitedHtmlBuilder(maxOutputCharacters);
+        ResultSetMetaData rsmd = rs.getMetaData();
+        int columns = rsmd.getColumnCount();
+        html.appendMarkup("<table id='results'>");
+        if (!appendHeaders(html, rsmd, columns)) {
+            html.appendClosingMarkup(TABLE_END);
+            return new StructuredResult(html.toString(), 0, true, false);
+        }
+
+        int rowCount = 0;
+        boolean stopRendering = false;
+        String rowColor = "rowColor1";
+        while (!stopRendering && rowCount < maxRows && rs.next()) {
+            rowCount++;
+            stopRendering = !appendRow(html, rs, columns, rowColor);
+            rowColor = rowColor.equals("rowColor1") ? "rowColor2" : "rowColor1";
+        }
+        boolean rowLimitReached = !stopRendering && rowCount == maxRows && rs.next();
+        html.appendClosingMarkup(TABLE_END);
+        return new StructuredResult(html.toString(), rowCount, html.isTruncated(), rowLimitReached);
+    }
+
+    private static void validateLimits(int maxOutputCharacters, int maxRows) {
         if (maxOutputCharacters < MIN_OUTPUT_CHARACTERS) {
             throw new IllegalArgumentException("HTML output limit is too small");
         }
         if (maxRows < 1) {
             throw new IllegalArgumentException("Row limit must be positive");
         }
+    }
 
-    // assuming  multiple rows in rs
-        LimitedHtmlBuilder html = new LimitedHtmlBuilder(maxOutputCharacters);
-
-        ResultSetMetaData rsmd = rs.getMetaData();
-
-        int columns = rsmd.getColumnCount();
-        String rowColor = "rowColor1";
-        html.appendMarkup("<table id='results'>");
-        for (int i = 0; i < columns; i++) {  // for each column in result set
-            if (!html.appendMarkup("<th class='headerColor'>")
-                    || !html.appendEncoded(rsmd.getColumnLabel(i + 1))) {
-                html.appendClosingMarkup("</th></table>");
-                return new StructuredResult(html.toString(), 0, true, false);
-            }
-            if (!html.appendMarkup("</th>")) {
-                html.appendClosingMarkup("</th></table>");
-                return new StructuredResult(html.toString(), 0, true, false);
+    private static boolean appendHeaders(LimitedHtmlBuilder html, ResultSetMetaData metadata, int columns)
+            throws SQLException {
+        for (int i = 1; i <= columns; i++) {
+            if (!appendHeader(html, metadata.getColumnLabel(i))) {
+                return false;
             }
         }
-        int rowCount = 0;
-        boolean stopRendering = false;
-        while (!stopRendering && rowCount < maxRows && rs.next()) {
-            rowCount++;
-            if (!html.appendMarkup("<tr class='" + rowColor + "'>")) {
-                break;
-            }
-            for (int j = 0; j < columns; j++) {
-                if (!html.appendMarkup("<td>")) {
-                    stopRendering = true;
-                    break;
-                }
-                try (Reader value = rs.getCharacterStream(j + 1)) {
-                    if (value != null && !html.appendEncoded(value)) {
-                        stopRendering = true;
-                    }
-                } catch (IOException e) {
-                    throw new SQLException("Could not render query result", e);
-                }
-                if (stopRendering) {
-                    html.appendClosingMarkup("</td>");
-                    break;
-                }
-                if (!html.appendMarkup("</td>")) {
-                    html.appendClosingMarkup("</td>");
-                    stopRendering = true;
-                    break;
-                }
-            }
-            rowColor = rowColor.equals("rowColor1") ? "rowColor2" : "rowColor1";
-            if (stopRendering || !html.appendMarkup("</tr>")) {
-                html.appendClosingMarkup("</tr>");
-                stopRendering = true;
+        return true;
+    }
+
+    private static boolean appendHeader(LimitedHtmlBuilder html, String label) {
+        if (!html.appendMarkup("<th class='headerColor'>")) {
+            return false;
+        }
+        if (!html.appendEncoded(label) || !html.appendMarkup(HEADER_END)) {
+            html.appendClosingMarkup(HEADER_END);
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean appendRow(LimitedHtmlBuilder html, ResultSet resultSet, int columns, String rowColor)
+            throws SQLException {
+        if (!html.appendMarkup("<tr class='" + rowColor + "'>")) {
+            return false;
+        }
+        for (int column = 1; column <= columns; column++) {
+            if (!appendCell(html, resultSet, column)) {
+                html.appendClosingMarkup(ROW_END);
+                return false;
             }
         }
-        boolean rowLimitReached = !stopRendering && rowCount == maxRows && rs.next();
-        html.appendClosingMarkup("</table>");
-        return new StructuredResult(html.toString(), rowCount, html.isTruncated(), rowLimitReached);
+        if (!html.appendMarkup(ROW_END)) {
+            html.appendClosingMarkup(ROW_END);
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean appendCell(LimitedHtmlBuilder html, ResultSet resultSet, int column) throws SQLException {
+        if (!html.appendMarkup(CELL_START)) {
+            return false;
+        }
+        boolean complete;
+        try (Reader value = resultSet.getCharacterStream(column)) {
+            complete = value == null || html.appendEncoded(value);
+        } catch (IOException e) {
+            throw new SQLException("Could not render query result", e);
+        }
+        if (!complete || !html.appendMarkup(CELL_END)) {
+            html.appendClosingMarkup(CELL_END);
+            return false;
+        }
+        return true;
     }
 
     private static final class LimitedHtmlBuilder {

@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -114,6 +115,39 @@ class RptByExampleDataUnitTest {
     }
 
     @Test
+    @DisplayName("reports a read-only setup failure without executing SQL")
+    void shouldNotExecuteQuery_whenReadOnlySetupFails() throws SQLException {
+        SQLException setupFailure = new SQLException("read-only setup failed");
+        when(connection.isReadOnly()).thenReturn(false);
+        doThrow(setupFailure).when(connection).setReadOnly(true);
+
+        assertThatThrownBy(() -> reportData.execute(
+                "select demographic_no from demographic", properties, "999998"))
+                .isSameAs(setupFailure);
+
+        verify(connection).setReadOnly(false);
+        verify(connection).close();
+        verify(connection, never()).prepareStatement(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("reports a connection restore failure after a successful query")
+    void shouldReportRestoreFailure_whenQuerySucceeds() throws SQLException {
+        SQLException restoreFailure = new SQLException("restore failed");
+        when(connection.isReadOnly()).thenReturn(false);
+        doThrow(restoreFailure).when(connection).setReadOnly(false);
+
+        assertThatThrownBy(() -> reportData.execute(
+                "select demographic_no from demographic", properties, "999998"))
+                .isSameAs(restoreFailure);
+
+        verify(statement).executeQuery();
+        verify(connection).setReadOnly(false);
+        verify(connection).close();
+    }
+
+    @Test
     @DisplayName("preserves a timeout when restoring connection state also fails")
     void shouldPreserveTimeout_whenReadOnlyRestoreFails() throws SQLException {
         SQLTimeoutException timeout = new SQLTimeoutException("timed out");
@@ -144,7 +178,7 @@ class RptByExampleDataUnitTest {
                 .isSameAs(queryFailure)
                 .satisfies(thrown -> assertThat(thrown.getSuppressed()).containsExactly(restoreFailure));
 
-        verify(connection, org.mockito.Mockito.times(2)).setReadOnly(true);
+        verify(connection, times(2)).setReadOnly(true);
         verify(connection).close();
     }
 
@@ -157,7 +191,10 @@ class RptByExampleDataUnitTest {
         when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new StringReader("first"));
         when(resultSet.getCharacterStream(2)).thenAnswer(ignored -> new StringReader("second"));
 
-        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet);
+        RptResultStruct.StructuredResult result;
+        try (ResultSet closeableResultSet = resultSet) {
+            result = RptResultStruct.getStructureWithCount(closeableResultSet);
+        }
 
         assertThat(result.html()).contains("first").contains("second");
         assertThat(result.rowCount()).isEqualTo(1);
@@ -168,7 +205,10 @@ class RptByExampleDataUnitTest {
     void shouldTruncateEncodedOutput_whenCellExceedsCharacterBudget() throws SQLException {
         when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new StringReader("<".repeat(1_000)));
 
-        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet, 128);
+        RptResultStruct.StructuredResult result;
+        try (ResultSet closeableResultSet = resultSet) {
+            result = RptResultStruct.getStructureWithCount(closeableResultSet, 128);
+        }
 
         assertThat(result.truncated()).isTrue();
         assertThat(result.rowCount()).isEqualTo(1);
@@ -183,7 +223,10 @@ class RptByExampleDataUnitTest {
     void shouldReportRowLimit_whenResultContainsAnotherRow() throws SQLException {
         when(resultSet.next()).thenReturn(true, true);
 
-        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet, 1_000, 1);
+        RptResultStruct.StructuredResult result;
+        try (ResultSet closeableResultSet = resultSet) {
+            result = RptResultStruct.getStructureWithCount(closeableResultSet, 1_000, 1);
+        }
 
         assertThat(result.rowCount()).isEqualTo(1);
         assertThat(result.rowLimitReached()).isTrue();
@@ -193,7 +236,10 @@ class RptByExampleDataUnitTest {
     @Test
     @DisplayName("does not report omitted rows when the result exactly reaches the row limit")
     void shouldNotReportRowLimit_whenResultExactlyMatchesLimit() throws SQLException {
-        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet, 1_000, 1);
+        RptResultStruct.StructuredResult result;
+        try (ResultSet closeableResultSet = resultSet) {
+            result = RptResultStruct.getStructureWithCount(closeableResultSet, 1_000, 1);
+        }
 
         assertThat(result.rowCount()).isEqualTo(1);
         assertThat(result.rowLimitReached()).isFalse();

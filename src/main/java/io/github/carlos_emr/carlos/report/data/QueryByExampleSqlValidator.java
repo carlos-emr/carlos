@@ -212,26 +212,27 @@ public final class QueryByExampleSqlValidator {
             char current = sql.charAt(i);
             char next = i + 1 < sql.length() ? sql.charAt(i + 1) : '\0';
             if (quote == '\0') {
-                if (current == '\'' || current == '"' || current == '`') {
-                    quote = current;
-                    stripped.append(' ');
-                } else {
-                    stripped.append(current);
-                }
-            } else {
-                if (current == quote && next == quote) {
-                    stripped.append("  ");
-                    i += 2;
-                    continue;
-                }
-                if (current == quote) {
-                    quote = '\0';
-                }
-                stripped.append(' ');
+                quote = sqlQuoteDelimiter(current);
+                stripped.append(quote == '\0' ? current : ' ');
+                i++;
+                continue;
             }
+            if (current == quote && next == quote) {
+                stripped.append("  ");
+                i += 2;
+                continue;
+            }
+            if (current == quote) {
+                quote = '\0';
+            }
+            stripped.append(' ');
             i++;
         }
         return stripped.toString();
+    }
+
+    private static char sqlQuoteDelimiter(char candidate) {
+        return candidate == '\'' || candidate == '"' || candidate == '`' ? candidate : '\0';
     }
 
     private static String unquoteIdentifier(String identifier) {

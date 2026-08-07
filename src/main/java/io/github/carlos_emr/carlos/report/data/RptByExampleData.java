@@ -81,38 +81,8 @@ public class RptByExampleData {
         int rowCount = 0;
         try {
             LegacyJdbcQuery.TrustedSql trustedSql = QueryByExampleSqlValidator.validate(sql, properties);
-            QueryResult queryResult;
-            try (Connection connection = connectionProvider.getConnection()) {
-                boolean originalReadOnly = connection.isReadOnly();
-                Exception executionFailure = null;
-                try {
-                    connection.setReadOnly(true);
-                    try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
-                        statement.setMaxRows(MAX_ROWS + 1);
-                        statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
-                                    resultSet, MAX_OUTPUT_CHARACTERS, MAX_ROWS);
-                            rowCount = structured.rowCount();
-                            queryResult = new QueryResult(structured.html(), rowCount, structured.truncated(),
-                                    structured.rowLimitReached(), 0);
-                        }
-                    }
-                } catch (SQLException | RuntimeException e) {
-                    executionFailure = e;
-                    throw e;
-                } finally {
-                    try {
-                        connection.setReadOnly(originalReadOnly);
-                    } catch (SQLException restoreFailure) {
-                        if (executionFailure != null) {
-                            executionFailure.addSuppressed(restoreFailure);
-                        } else {
-                            throw restoreFailure;
-                        }
-                    }
-                }
-            }
+            QueryResult queryResult = executeWithConnection(trustedSql);
+            rowCount = queryResult.rowCount();
             outcome = "success";
             return new QueryResult(queryResult.html(), queryResult.rowCount(), queryResult.truncated(),
                     queryResult.rowLimitReached(), elapsedMillis(startedAt));
@@ -143,6 +113,61 @@ public class RptByExampleData {
                 ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
     }
 
+    private QueryResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql) throws SQLException {
+        try (Connection connection = connectionProvider.getConnection()) {
+            return executeValidatedQuery(connection, trustedSql);
+        }
+    }
+
+    private static QueryResult executeValidatedQuery(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql)
+            throws SQLException {
+        boolean originalReadOnly = connection.isReadOnly();
+        try {
+            connection.setReadOnly(true);
+        } catch (SQLException setupFailure) {
+            restoreReadOnlyAfterFailure(connection, originalReadOnly, setupFailure);
+            throw setupFailure;
+        }
+        QueryResult result;
+        try {
+            result = executeStatement(connection, trustedSql);
+        } catch (SQLException | RuntimeException executionFailure) {
+            restoreReadOnlyAfterFailure(connection, originalReadOnly, executionFailure);
+            throw executionFailure;
+        }
+        connection.setReadOnly(originalReadOnly);
+        return result;
+    }
+
+    private static QueryResult executeStatement(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql)
+            throws SQLException {
+        try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
+            statement.setMaxRows(MAX_ROWS + 1);
+            statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            return readStatementResult(statement);
+        }
+    }
+
+    private static QueryResult readStatementResult(PreparedStatement statement) throws SQLException {
+        try (ResultSet resultSet = statement.executeQuery()) {
+            RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
+                    resultSet, MAX_OUTPUT_CHARACTERS, MAX_ROWS);
+            return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),
+                    structured.rowLimitReached(), 0);
+        }
+    }
+
+    private static void restoreReadOnlyAfterFailure(Connection connection, boolean originalReadOnly,
+            Exception executionFailure) {
+        try {
+            connection.setReadOnly(originalReadOnly);
+        } catch (SQLException restoreFailure) {
+            if (restoreFailure != executionFailure) {
+                executionFailure.addSuppressed(restoreFailure);
+            }
+        }
+    }
+
     public static void audit(String providerNo, String sql, long durationMillis, int rowCount, String outcome) {
         String query = sql == null ? "" : sql;
         String queryHash = queryHash(query);
@@ -156,9 +181,11 @@ public class RptByExampleData {
     }
 
     private static void logFailure(String providerNo, String sql, String sqlState, String exceptionType) {
-        MiscUtils.getLogger().warn(
-                "Query-by-Example failure provider={} queryHash={} sqlState={} exceptionType={}",
-                providerNo, queryHash(sql), sqlState, exceptionType);
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn(
+                    "Query-by-Example failure provider={} queryHash={} sqlState={} exceptionType={}",
+                    providerNo, queryHash(sql), sqlState, exceptionType);
+        }
     }
 
     private static String queryHash(String sql) {

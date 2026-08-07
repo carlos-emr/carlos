@@ -79,11 +79,11 @@
     <body vlink="#0000FF" class="BodyStyle">
     <form action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/oscarReport/RptByExamplesFavorite" method="post">
         <input type="hidden" name="id" value="${carlos:forHtmlAttribute(id)}"/>
-    <table class="MainTable" id="scrollNumber1">
+    <table class="MainTable" id="scrollNumber1" role="presentation">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"><fmt:message key="oscarReport.CDMReport.msgReport"/></td>
             <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
+                <table class="TopStatusBar" role="presentation">
                     <tr>
                         <td><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> - <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/></td>
                     </tr>
@@ -93,12 +93,19 @@
         <tr>
             <td class="MainTableLeftColumn" valign="top"></td>
             <td class="MainTableRightColumn">
-                <table>
+                <table role="presentation">
                     <tr>
-                       <td><input type="text" name="favoriteName" size="40" value="${carlos:forHtmlAttribute(favoriteName)}"/></td>
+                       <td>
+                           <label for="favoriteName"><fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/></label>
+                           <input id="favoriteName" type="text" name="favoriteName" size="40"
+                                  value="${carlos:forHtmlAttribute(favoriteName)}"/>
+                       </td>
                     </tr>
                     <tr>
-                        <td><textarea name="query" cols="80" rows="3">${carlos:forHtmlContent(query)}</textarea></td>
+                        <td>
+                            <label for="query"><fmt:message key="oscarReport.RptByExample.MsgQuery"/></label>
+                            <textarea id="query" name="query" cols="80" rows="3">${carlos:forHtmlContent(query)}</textarea>
+                        </td>
                     </tr>
                     <tr>
                         <td><input type="submit" value="<fmt:message key='global.btnAdd'/>"/> <input
@@ -106,8 +113,6 @@
                                 value="<fmt:message key='oscarReport.RptByExample.MsgCancel'/>"
                                 onclick="history.back();"/></td>
                     </tr>
-                    <tr></tr>
-
                 </table>
             </td>
         </tr>
