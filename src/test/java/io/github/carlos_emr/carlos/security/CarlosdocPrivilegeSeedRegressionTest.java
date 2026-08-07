@@ -131,6 +131,9 @@ class CarlosdocPrivilegeSeedRegressionTest {
         Map<PrivilegeKey, String> repairedPrivileges = effectivePrivileges(
                 developmentSeedSql, privilegeRepairSql);
 
+        assertThat(baselinePrivileges).isNotEmpty();
+        assertThat(bcBaselinePrivileges).isNotEmpty();
+        assertThat(repairPrivileges).hasSize(8);
         assertThat(repairedPrivileges).isEqualTo(baselinePrivileges);
         assertThat(baselinePrivileges).containsAllEntriesOf(repairPrivileges);
         assertThat(bcBaselinePrivileges).containsAllEntriesOf(repairPrivileges);
