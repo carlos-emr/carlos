@@ -93,10 +93,10 @@ public class RptByExampleData {
         ExecutionProgress progress = new ExecutionProgress();
         try {
             LegacyJdbcQuery.TrustedSql trustedSql = QueryByExampleSqlValidator.validate(sql, properties);
-            QueryResult queryResult = executeWithConnection(trustedSql, progress);
+            RptResultStruct.StructuredResult structured = executeWithConnection(trustedSql, progress);
             outcome = "success";
-            return new QueryResult(queryResult.html(), queryResult.rowCount(), queryResult.truncated(),
-                    queryResult.rowLimitReached(), elapsedMillis(startedAt));
+            return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),
+                    structured.rowLimitReached(), elapsedMillis(startedAt));
         } catch (QueryByExampleValidationException e) {
             outcome = "rejected";
             throw e;
@@ -124,15 +124,16 @@ public class RptByExampleData {
                 ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
     }
 
-    private QueryResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress)
+    private RptResultStruct.StructuredResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql,
+            ExecutionProgress progress)
             throws SQLException {
         try (Connection connection = connectionProvider.getConnection()) {
             return executeValidatedQuery(connection, trustedSql, progress);
         }
     }
 
-    private static QueryResult executeValidatedQuery(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql,
-            ExecutionProgress progress) throws SQLException {
+    private static RptResultStruct.StructuredResult executeValidatedQuery(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress) throws SQLException {
         boolean originalReadOnly = connection.isReadOnly();
         try {
             connection.setReadOnly(true);
@@ -140,7 +141,7 @@ public class RptByExampleData {
             restoreReadOnlyAfterFailure(connection, originalReadOnly, setupFailure);
             throw setupFailure;
         }
-        QueryResult result;
+        RptResultStruct.StructuredResult result;
         try {
             result = executeStatement(connection, trustedSql, progress);
         } catch (SQLException | RuntimeException executionFailure) {
@@ -151,8 +152,8 @@ public class RptByExampleData {
         return result;
     }
 
-    private static QueryResult executeStatement(Connection connection, LegacyJdbcQuery.TrustedSql trustedSql,
-            ExecutionProgress progress) throws SQLException {
+    private static RptResultStruct.StructuredResult executeStatement(Connection connection,
+            LegacyJdbcQuery.TrustedSql trustedSql, ExecutionProgress progress) throws SQLException {
         try (PreparedStatement statement = prepareValidatedStatement(connection, trustedSql)) {
             statement.setMaxRows(MAX_ROWS + 1);
             statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
@@ -160,14 +161,14 @@ public class RptByExampleData {
         }
     }
 
-    private static QueryResult readStatementResult(PreparedStatement statement, ExecutionProgress progress)
+    private static RptResultStruct.StructuredResult readStatementResult(PreparedStatement statement,
+            ExecutionProgress progress)
             throws SQLException {
         try (ResultSet resultSet = statement.executeQuery()) {
             RptResultStruct.StructuredResult structured = RptResultStruct.getStructureWithCount(
                     resultSet, MAX_OUTPUT_CHARACTERS, MAX_ROWS);
             progress.recordRows(structured.rowCount());
-            return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),
-                    structured.rowLimitReached(), 0);
+            return structured;
         }
     }
 

@@ -418,6 +418,9 @@ public final class LegacyJdbcQuery {
                 char current = sql.charAt(position);
                 char next = nextChar();
                 if (insideQuotedLiteral()) {
+                    if (isSqlModeDependentEscape(current)) {
+                        return true;
+                    }
                     skipQuotedLiteralToken(current, next);
                 } else if (opensQuotedLiteral(current)) {
                     quote = current;
@@ -437,13 +440,15 @@ public final class LegacyJdbcQuery {
         }
 
         private void skipQuotedLiteralToken(char current, char next) {
-            if (quote != '`' && current == '\\' && next != '\0') {
-                position++;
-            } else if (current == quote && next == quote) {
+            if (current == quote && next == quote) {
                 position++;
             } else if (current == quote) {
                 quote = '\0';
             }
+        }
+
+        private boolean isSqlModeDependentEscape(char current) {
+            return quote != '`' && current == '\\';
         }
 
         private static boolean opensQuotedLiteral(char current) {
@@ -618,9 +623,10 @@ public final class LegacyJdbcQuery {
 
     /**
      * Masks quoted sections while preserving input length for keyword checks.
-     * Backslash escapes are handled here to match MySQL literal parsing. This intentionally differs
-     * from the Query-by-Example validator's scanner, which must match JSqlParser's configured parsing
-     * and therefore handles only doubled quote delimiters. The two scanners must not be merged.
+     * Backslash-containing string literals are rejected by the control-token scanner before this
+     * method is called because their boundaries depend on MySQL's {@code NO_BACKSLASH_ESCAPES} mode.
+     * This intentionally differs from the Query-by-Example validator's scanner, which must match
+     * JSqlParser's configured parsing. The two scanners must not be merged.
      */
     private static String stripQuotedSqlSections(String sql) {
         StringBuilder stripped = new StringBuilder(sql.length());
@@ -648,8 +654,7 @@ public final class LegacyJdbcQuery {
     }
 
     private static boolean isSqlEscapedPair(char quote, char current, char next) {
-        return (quote != '`' && current == '\\' && next != '\0')
-                || (current == quote && next == quote);
+        return current == quote && next == quote;
     }
 
     private static char sqlQuoteDelimiter(char candidate) {

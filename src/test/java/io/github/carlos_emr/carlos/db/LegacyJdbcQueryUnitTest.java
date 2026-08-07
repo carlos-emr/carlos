@@ -142,6 +142,20 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject SQL-mode-dependent backslash quote escapes")
+    void shouldRejectBackslashQuotedSql_whenSqlModeIsUnknown() {
+        String ambiguousSql = "select 'safe\\' union select provider_no from provider";
+
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedSelectSql(ambiguousSql))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("comment or statement separator");
+        assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(ambiguousSql))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("comment or statement separator");
+        assertThat(LegacyJdbcQuery.containsUnsafeSqlControlToken(ambiguousSql)).isTrue();
+    }
+
+    @Test
     @DisplayName("shouldRejectBlockedPatterns_forAdminReportBoundary")
     void shouldRejectBlockedPatterns_forAdminReportBoundary() {
         List<String> unsafeSql = List.of(

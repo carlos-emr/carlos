@@ -89,8 +89,13 @@ class RptByExampleDataUnitTest {
     @Test
     @DisplayName("executes once using a bounded read-only JDBC statement and restores connection state")
     void shouldExecuteBoundedReadOnlyQuery_whenConnectionStartsReadOnly() throws SQLException {
-        RptByExampleData.QueryResult result = reportData.execute(
-                "select demographic_no from demographic", properties, "999998");
+        Logger logger = mock(Logger.class);
+        RptByExampleData.QueryResult result;
+        try (MockedStatic<MiscUtils> miscUtils = mockStatic(MiscUtils.class)) {
+            miscUtils.when(MiscUtils::getLogger).thenReturn(logger);
+            result = reportData.execute(
+                    "select demographic_no from demographic", properties, "999998");
+        }
 
         assertThat(result.rowCount()).isEqualTo(1);
         assertThat(result.html()).contains("demographic_no").contains("42");
@@ -104,6 +109,9 @@ class RptByExampleDataUnitTest {
         order.verify(statement).close();
         order.verify(connection).setReadOnly(true);
         order.verify(connection).close();
+        verify(logger).info(
+                eq("Query-by-Example audit provider={} queryHash={} queryLength={} durationMs={} rowCount={} outcome={}"),
+                eq("999998"), anyString(), eq(38), anyLong(), eq(1), eq("success"));
     }
 
     @Test

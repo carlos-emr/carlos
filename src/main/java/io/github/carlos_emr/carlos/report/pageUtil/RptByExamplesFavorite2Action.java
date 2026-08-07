@@ -147,7 +147,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
     private void updateFavorite(String providerNo, String id, String favoriteName, String query) {
         ReportByExamplesFavorite favorite = requireOwnedFavorite(providerNo, id);
         favorite.setName(favoriteName);
-        favorite.setQuery(StringUtils.defaultString(query));
+        favorite.setQuery(StringUtils.defaultIfEmpty(query, favorite.getQuery()));
         dao.merge(favorite);
     }
 

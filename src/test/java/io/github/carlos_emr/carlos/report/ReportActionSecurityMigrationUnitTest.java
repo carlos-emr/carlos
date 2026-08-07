@@ -316,6 +316,25 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("RptByExamplesFavorite preserves the saved query when an edit submits no query")
+    void shouldPreserveFavoriteQuery_whenEditedQueryIsEmpty() throws Exception {
+        authorizeFavoritePost();
+        ReportByExamplesFavorite favorite = favorite(42, "999998", "Old name", "select 1");
+        when(favoritesDao.find(42)).thenReturn(favorite);
+
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setId("42");
+        action.setFavoriteName("New name");
+        action.setQuery("");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(favorite.getName()).isEqualTo("New name");
+        assertThat(favorite.getQuery()).isEqualTo("select 1");
+        verify(favoritesDao).merge(favorite);
+    }
+
+    @Test
     @DisplayName("RptByExample keeps successful results when query history cannot be saved")
     void shouldKeepResults_whenQueryHistorySaveFails() throws Exception {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
