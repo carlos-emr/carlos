@@ -44,8 +44,8 @@ const consoleIssues = [];
 // means the AJAX handler injected an error fragment or an empty body rather than the panel.
 const MIN_PANEL_BYTES = 500;
 
-// Playwright resource types whose 4xx/5xx responses are cosmetic for this check.
-const IGNORED_FAILING_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media']);
+// Playwright resource types whose absence (404 only) is cosmetic for this check.
+const IGNORED_MISSING_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media']);
 
 // Matches a full dotted-quad IPv4 address only (anchored start-to-end), so a
 // hostname like "10.attacker.example" cannot be mistaken for the private
@@ -116,11 +116,12 @@ function wirePage(page, label) {
     if (status < 400) {
       return;
     }
-    // Decorative assets are not what this check is about: a missing icon or font in the
-    // administration shell must not be reported as a Select Forms panel regression.
-    // Documents, scripts, and XHR/fetch traffic are still captured, so a failing
-    // navigation or a failing panel POST does fail the run.
-    if (IGNORED_FAILING_RESOURCE_TYPES.has(response.request().resourceType())) {
+    // A missing icon or font in the administration shell is not a Select Forms panel
+    // regression, so a 404 on a decorative asset is ignored. The exemption stops at 404
+    // on purpose: a 403 or 5xx on the very same asset signals a real server or
+    // authorization failure and must still fail the run, as must every non-asset
+    // response — documents, scripts, and XHR/fetch traffic are always captured.
+    if (status === 404 && IGNORED_MISSING_RESOURCE_TYPES.has(response.request().resourceType())) {
       return;
     }
     badResponses.push({ label, status, url: response.url() });
