@@ -34,11 +34,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
-import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -125,19 +123,6 @@ public class RptFluReportData {
 
         public String getDemoDOB() {
             return demoDOB;
-        }
-
-        public String getBillingDate() {
-            // Empty, not an "&nbsp;" markup sentinel: the JSP renders this through
-            // <carlos:encode context="html"/>, which escapes the ampersand and would
-            // print the literal characters "&nbsp;" in the cell.
-            String s = "";
-
-            BillingDao dao = SpringUtils.getBean(BillingDao.class);
-            for (Billing b : dao.findBillingsByDemoNoServiceCodeAndDate(ConversionUtils.fromIntString(demoNo), ConversionUtils.fromDateString("2003-04-01"), Arrays.asList(new String[]{"G590A", "G591A"}))) {
-                s = ConversionUtils.toDateString(b.getBillingDate());
-            }
-            return s;
         }
 
         /**

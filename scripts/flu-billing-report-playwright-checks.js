@@ -38,6 +38,11 @@
  *   TEST_PIN=2026
  *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
  *   ALLOW_NON_LOCAL_BASE_URL=true only for an intentional non-local test target
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
+ *
+ * BASE_URL and MYSQL_HOST are both restricted to local hosts by default. The
+ * database opt-in is the one that matters most: this check inserts synthetic
+ * patients and OHIP claims, so it must never be pointed at a real schema.
  */
 
 const { execFileSync } = require('child_process');
@@ -78,11 +83,29 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in the URL would travel into Playwright navigations and can
+  // surface in request or failure logging, so reject them outright.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
   if (!isLocalHost(parsed.hostname) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${parsed.hostname}`);
+    throw new Error(`Refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+/*
+ * This check writes synthetic patients and OHIP claims, so the database target
+ * gets the same local-by-default treatment as BASE_URL. Without this an
+ * exported MYSQL_HOST could seed fixtures straight into a shared or production
+ * patient schema, which no amount of cleanup fully undoes.
+ */
+function validateMysqlHost(rawHost) {
+  if (!isLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+    throw new Error(`Refusing to seed synthetic patients into non-local MYSQL_HOST ${rawHost}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database`);
+  }
+  return rawHost;
 }
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -90,7 +113,7 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';

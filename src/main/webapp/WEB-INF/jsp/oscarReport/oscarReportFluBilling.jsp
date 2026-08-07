@@ -127,7 +127,7 @@
     </h4>
 </div>
 
-<form action="${ctx}/oscarReport/FluBilling" method="get" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
+<form action="${carlos:forHtmlAttribute(ctx)}/oscarReport/FluBilling" method="get" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
     <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
             for (int i = curYear - 2; i <= curYear + 2; i++) {

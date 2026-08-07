@@ -74,8 +74,12 @@ class RptFluReportDataUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should render empty patient details instead of literal null values")
-    void shouldRenderEmptyStrings_forNullQueryColumns() {
+    @DisplayName("should carry the projection's null-coalesced blanks through to the report struct")
+    void shouldCarryCoalescedBlanks_throughToTheReportStruct() {
+        // The null -> "" coalescing itself happens in the FluReportDemographicRow
+        // compact constructor, so this pins the end-to-end guarantee the JSP relies
+        // on — a NULL database column reaches the cell as a blank, never the literal
+        // text "null" — rather than any null handling inside fluReportGenerate.
         DemographicDao demographicDao = createAndRegisterMock(DemographicDao.class);
         when(demographicDao.findDemographicsForFluReport("999998"))
             .thenReturn(List.of(new FluReportDemographicRow(null, null, null, null, null, null, null)));
