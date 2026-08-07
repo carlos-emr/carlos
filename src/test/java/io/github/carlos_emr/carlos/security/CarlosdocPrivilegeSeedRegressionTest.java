@@ -25,6 +25,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -52,10 +56,21 @@ class CarlosdocPrivilegeSeedRegressionTest {
 
     private static final Path DEVELOPMENT_SEED =
             Path.of(".devcontainer", "db", "scripts", "development.sql");
+    private static final Path DEVELOPMENT_PRIVILEGES =
+            Path.of(".devcontainer", "db", "scripts", "development_privileges.sql");
+    private static final Path DATABASE_DOCKERFILE =
+            Path.of(".devcontainer", "db", "Dockerfile");
+    private static final Path POPULATE_SCRIPT =
+            Path.of(".devcontainer", "db", "scripts", "populate_db.sh");
+    private static final Path DEVCONTAINER_SEED =
+            Path.of(".devcontainer", "development", "setup", "seed_data.sh");
     private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
     private static final Path BC_SEED = Path.of("database", "mysql", "migration", "bc", "V1.0.2__bc_data.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
+    private static final Pattern ADMIN_PRIVILEGE = Pattern.compile(
+            "\\(\\s*'admin'\\s*,\\s*'([^']+)'\\s*,\\s*'([^']+)'\\s*,"
+                    + "\\s*(\\d+)\\s*,\\s*'([^']+)'\\s*\\)");
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
     private static String developmentSeedSql;
@@ -99,6 +114,39 @@ class CarlosdocPrivilegeSeedRegressionTest {
     }
 
     @Test
+    @DisplayName("should restore baseline admin privileges after development snapshot")
+    void shouldRestoreBaselineAdminPrivileges_afterDevelopmentSnapshot() throws IOException {
+        String privilegeRepairSql = Files.readString(DEVELOPMENT_PRIVILEGES, StandardCharsets.UTF_8);
+        Map<String, String> baselinePrivileges = adminPrivileges(seedSql);
+
+        assertThat(adminPrivileges(bcSeedSql)).isEqualTo(baselinePrivileges);
+        assertThat(adminPrivileges(developmentSeedSql + privilegeRepairSql))
+                .containsAllEntriesOf(baselinePrivileges);
+        assertThat(privilegeRepairSql).contains(
+                "('admin', '_admin.schedule', 'x', 0, '999998')",
+                "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')",
+                "ON DUPLICATE KEY UPDATE");
+    }
+
+    @Test
+    @DisplayName("should apply development privilege repair to fresh and existing databases")
+    void shouldApplyDevelopmentPrivilegeRepair_toFreshAndExistingDatabases() throws IOException {
+        String databaseDockerfile = Files.readString(DATABASE_DOCKERFILE, StandardCharsets.UTF_8);
+        String populateScript = Files.readString(POPULATE_SCRIPT, StandardCharsets.UTF_8);
+        String devcontainerSeed = Files.readString(DEVCONTAINER_SEED, StandardCharsets.UTF_8);
+
+        assertThat(databaseDockerfile).contains(
+                "COPY ./.devcontainer/db/scripts/development_privileges.sql /scripts/development_privileges.sql");
+        assertThat(populateScript)
+                .contains("$SQL oscar < /scripts/development_privileges.sql")
+                .satisfies(script -> assertThat(script.indexOf("/scripts/development_privileges.sql"))
+                        .isGreaterThan(script.indexOf("/scripts/development.sql")));
+        assertThat(devcontainerSeed).contains(
+                "mariadb -h db -u root oscar \\",
+                "/workspace/.devcontainer/db/scripts/development_privileges.sql");
+    }
+
+    @Test
     @DisplayName("should deny carlosdoc schedule group creation in seed")
     void shouldDenyCarlosdocGroupCreation_whenSeeded() throws IOException {
         assertThat(seedSql).contains(
@@ -127,5 +175,15 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "('_admin.schedule.groupCreate', 'Create schedule provider groups', 0)",
                 "('admin', '_admin.schedule.groupCreate', 'x', 0, '999998')",
                 "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')");
+    }
+
+    private static Map<String, String> adminPrivileges(String sql) {
+        Map<String, String> privileges = new LinkedHashMap<>();
+        Matcher matcher = ADMIN_PRIVILEGE.matcher(sql);
+        while (matcher.find()) {
+            privileges.put(matcher.group(1),
+                    matcher.group(2) + '|' + matcher.group(3) + '|' + matcher.group(4));
+        }
+        return privileges;
     }
 }
