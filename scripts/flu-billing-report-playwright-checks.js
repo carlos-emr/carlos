@@ -88,14 +88,26 @@ function isLocalHost(rawHost) {
 }
 
 /*
- * Deliberately stricter than isLocalHost: no private-IPv4 carve-out. Browsing a
- * private-network host is read-only and harmless, but a shared clinic database
- * typically sits on exactly such an address, and this check writes patients and
- * claims. Only loopback and the known devcontainer/docker service names pass
- * without an explicit opt-in.
+ * Deliberately stricter than isLocalHost, and deliberately its own list rather
+ * than a subset of LOCAL_HOSTS. Browsing a private-network host is read-only and
+ * harmless; seeding is not, and this check writes patients and OHIP claims.
+ *
+ * Excluded on purpose: private IPv4 ranges and host.docker.internal, which reach
+ * the developer's host or a shared network where a real schema may live, and
+ * 0.0.0.0, which is a bind address rather than a meaningful connect target.
+ * Only loopback and the two devcontainer compose service names pass without an
+ * explicit opt-in.
  */
+const LOCAL_DATABASE_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  'db',
+  'carlos',
+]);
+
 function isLocalDatabaseHost(rawHost) {
-  return LOCAL_HOSTS.has(normalizeHost(rawHost));
+  return LOCAL_DATABASE_HOSTS.has(normalizeHost(rawHost));
 }
 
 function validateBaseUrl(rawBaseUrl) {

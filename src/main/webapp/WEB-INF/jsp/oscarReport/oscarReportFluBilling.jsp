@@ -100,7 +100,7 @@
     int curYear = thisYear;
     if (requestedYear != null && requestedYear.matches("\\d{4}")) {
         int parsedYear = Integer.parseInt(requestedYear);
-        if (parsedYear >= 1900 && parsedYear <= thisYear + 2) {
+        if (parsedYear >= MIN_REPORT_YEAR && parsedYear <= thisYear + MAX_FUTURE_REPORT_YEARS) {
             curYear = parsedYear;
         }
     }
@@ -120,6 +120,11 @@
     List<Provider> providers = fluData.providerList();
 %>
 <%!
+    // Bounds shared by the numMonth validation and the year dropdown, so the
+    // selector can never offer a year the validation would reject.
+    static final int MIN_REPORT_YEAR = 1900;
+    static final int MAX_FUTURE_REPORT_YEARS = 2;
+
     String selled(String i, String years) {
         String retval = "";
         if (i.equals(years)) {
@@ -140,7 +145,11 @@
 <form action="${carlos:forHtmlAttribute(ctx)}/oscarReport/FluBilling" method="get" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
     <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
-            for (int i = curYear - 2; i <= curYear + 2; i++) {
+            // Clamped to the same range the validation above accepts, so every
+            // offered year is actually selectable. Otherwise picking the highest
+            // year exposes options that silently fall back to the current year.
+            for (int i = Math.max(MIN_REPORT_YEAR, curYear - 2);
+                 i <= Math.min(thisYear + MAX_FUTURE_REPORT_YEARS, curYear + 2); i++) {
         %>
         <option value="<%=i%>" <%=selled(("" + i), years)%>><%=i%>
         </option>
