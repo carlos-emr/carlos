@@ -60,6 +60,19 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public Appointment findForUpdate(Integer appointmentNo) {
+        if (appointmentNo == null) {
+            return null;
+        }
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM appointment WHERE appointment_no = ?1 FOR UPDATE",
+                Appointment.class);
+        query.setParameter(1, appointmentNo);
+        List<Appointment> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
     public boolean checkForConflict(Appointment appt) {
         String sb = "select a from Appointment a where a.appointmentDate = ?1 and a.startTime >= ?2 and a.endTime <= ?3" +
         "and a.providerNo = ?4 and a.status != 'N' and a.status != 'C'";
