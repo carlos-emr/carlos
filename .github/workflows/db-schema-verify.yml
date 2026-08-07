@@ -250,6 +250,10 @@ jobs:
             echo "SET FOREIGN_KEY_CHECKS=1;"
           } | $MYSQL "${ADOPT_DB}"
 
+          # Some live clinics already have the legacy PHCP lookup. Prove the forward migration
+          # adopts its old shape, preserves clinic-specific mappings, and seeds missing codes.
+          $MYSQL "${ADOPT_DB}" -e "CREATE TABLE dxphcpgroup (dxcode int NOT NULL, level1 varchar(100) NOT NULL, level2 varchar(100) NOT NULL, PRIMARY KEY (dxcode)) ENGINE=MyISAM DEFAULT CHARSET=latin1; INSERT INTO dxphcpgroup (dxcode, level1, level2) VALUES (250, 'Clinic PHCP sentinel', 'Custom diabetes grouping');"
+
           # Real BC installs can already have this live legacy form even though the consolidated
           # V1.0.1 fixture does not. Verify V1.0.6's IF NOT EXISTS contract preserves it verbatim.
           if [ "${PROV}" = "bc" ]; then
@@ -284,6 +288,14 @@ jobs:
           ADOPT_TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${ADOPT_DB}' AND table_name<>'flyway_schema_history'")
           if [ "${ADOPT_TABLES}" -lt 300 ]; then
             echo "::error::Only ${ADOPT_TABLES} tables after adopted migrate for ${PROV}"
+            exit 1
+          fi
+
+          ADOPT_PHCP_SENTINEL=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=250 AND level1='Clinic PHCP sentinel' AND level2='Custom diabetes grouping'")
+          ADOPT_PHCP_SEED=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=2 AND level2='ICD-9 001-139'")
+          ADOPT_PHCP_AUDIT=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${ADOPT_DB}' AND table_name='dxphcpgroup' AND column_name IN ('lastUpdateUser','lastUpdateDate')")
+          if [ "${ADOPT_PHCP_SENTINEL}" != "1" ] || [ "${ADOPT_PHCP_SEED}" != "1" ] || [ "${ADOPT_PHCP_AUDIT}" != "2" ]; then
+            echo "::error::adopted PHCP lookup did not preserve its clinic mapping, seed code 002, or add audit columns for ${PROV}"
             exit 1
           fi
 
