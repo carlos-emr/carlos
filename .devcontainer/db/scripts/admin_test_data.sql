@@ -125,6 +125,113 @@ WHERE e.form_name = 'Rich Text Letter'
 ORDER BY e.fid
 LIMIT 1;
 
+-- Patient-independent eForms are backed by saved eform_data rows rather than
+-- the eform library alone. Seed two small, self-contained definitions and a
+-- mix of current/deleted instances so both Administration views are useful.
+INSERT INTO eform
+    (form_name, file_name, subject, form_date, form_time, form_creator, status,
+     form_html, showLatestFormOnly, patient_independent, roleType, stable)
+SELECT
+    'Local Test - Independent Checklist',
+    'local-test-independent-checklist.html',
+    'Reusable checklist for local administration testing',
+    '2026-08-01', '09:00:00', '999998', 1,
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Local Test - Independent Checklist</title></head><body><h1>Local Test - Independent Checklist</h1><form method="post" action="" name="LocalIndependentChecklist"><label>Review title <input type="text" name="review_title"></label><br><label><input type="checkbox" name="review_complete" value="1"> Review complete</label><br><label>Notes <textarea name="notes"></textarea></label><br><input type="submit" name="SubmitButton" value="Save"></form></body></html>',
+    0, 1, NULL, 1
+WHERE EXISTS (SELECT 1 FROM provider WHERE provider_no = '999998')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM eform
+      WHERE form_name = 'Local Test - Independent Checklist'
+        AND patient_independent = 1
+  );
+
+INSERT INTO eform
+    (form_name, file_name, subject, form_date, form_time, form_creator, status,
+     form_html, showLatestFormOnly, patient_independent, roleType, stable)
+SELECT
+    'Local Test - Shared Operations Note',
+    'local-test-shared-operations-note.html',
+    'Shared note for local administration testing',
+    '2026-08-01', '09:05:00', '999998', 1,
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Local Test - Shared Operations Note</title></head><body><h1>Local Test - Shared Operations Note</h1><form method="post" action="" name="LocalSharedOperationsNote"><label>Topic <input type="text" name="topic"></label><br><label>Details <textarea name="details"></textarea></label><br><input type="submit" name="SubmitButton" value="Save"></form></body></html>',
+    0, 1, NULL, 1
+WHERE EXISTS (SELECT 1 FROM provider WHERE provider_no = '999998')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM eform
+      WHERE form_name = 'Local Test - Shared Operations Note'
+        AND patient_independent = 1
+  );
+
+-- Current patient-independent examples.
+INSERT INTO eform_data
+    (fid, form_name, subject, demographic_no, status, form_date, form_time,
+     form_provider, form_data, showLatestFormOnly, patient_independent, roleType)
+SELECT
+    e.fid, e.form_name, 'Local Test - Monthly Safety Review', 0, 1,
+    '2026-08-03', '09:30:00', '999998',
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Local Test - Independent Checklist</title></head><body><h1>Local Test - Independent Checklist</h1><form method="post" action="" name="LocalIndependentChecklist"><label>Review title <input type="text" name="review_title" value="Monthly safety review"></label><br><label><input type="checkbox" name="review_complete" value="1" checked> Review complete</label><br><label>Notes <textarea name="notes">Synthetic current fixture for local testing.</textarea></label><br><input type="submit" name="SubmitButton" value="Save"></form></body></html>',
+    0, 1, NULL
+FROM eform e
+WHERE e.form_name = 'Local Test - Independent Checklist'
+  AND e.status = 1
+  AND e.patient_independent = 1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM eform_data ed
+      WHERE ed.fid = e.fid
+        AND ed.subject = 'Local Test - Monthly Safety Review'
+        AND ed.patient_independent = 1
+  )
+ORDER BY e.fid
+LIMIT 1;
+
+INSERT INTO eform_data
+    (fid, form_name, subject, demographic_no, status, form_date, form_time,
+     form_provider, form_data, showLatestFormOnly, patient_independent, roleType)
+SELECT
+    e.fid, e.form_name, 'Local Test - Quarterly Operations Review', 0, 1,
+    '2026-07-15', '14:15:00', '999998',
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Local Test - Shared Operations Note</title></head><body><h1>Local Test - Shared Operations Note</h1><form method="post" action="" name="LocalSharedOperationsNote"><label>Topic <input type="text" name="topic" value="Quarterly operations review"></label><br><label>Details <textarea name="details">Synthetic shared note for local testing.</textarea></label><br><input type="submit" name="SubmitButton" value="Save"></form></body></html>',
+    0, 1, NULL
+FROM eform e
+WHERE e.form_name = 'Local Test - Shared Operations Note'
+  AND e.status = 1
+  AND e.patient_independent = 1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM eform_data ed
+      WHERE ed.fid = e.fid
+        AND ed.subject = 'Local Test - Quarterly Operations Review'
+        AND ed.patient_independent = 1
+  )
+ORDER BY e.fid
+LIMIT 1;
+
+-- Deleted patient-independent example for the Deleted eForms view.
+INSERT INTO eform_data
+    (fid, form_name, subject, demographic_no, status, form_date, form_time,
+     form_provider, form_data, showLatestFormOnly, patient_independent, roleType)
+SELECT
+    e.fid, e.form_name, 'Local Test - Archived Safety Draft', 0, 0,
+    '2026-06-30', '16:45:00', '999998',
+    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Local Test - Independent Checklist</title></head><body><h1>Local Test - Independent Checklist</h1><form method="post" action="" name="LocalIndependentChecklist"><label>Review title <input type="text" name="review_title" value="Archived safety draft"></label><br><label><input type="checkbox" name="review_complete" value="1"> Review complete</label><br><label>Notes <textarea name="notes">Synthetic deleted fixture for local testing.</textarea></label><br><input type="submit" name="SubmitButton" value="Save"></form></body></html>',
+    0, 1, NULL
+FROM eform e
+WHERE e.form_name = 'Local Test - Independent Checklist'
+  AND e.status = 1
+  AND e.patient_independent = 1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM eform_data ed
+      WHERE ed.fid = e.fid
+        AND ed.subject = 'Local Test - Archived Safety Draft'
+        AND ed.patient_independent = 1
+  )
+ORDER BY e.fid
+LIMIT 1;
+
 -- Reports -------------------------------------------------------------------
 -- Read-only examples are compatible with the Query By Example validator and
 -- avoid exposing patient information in a developer's screenshots.
