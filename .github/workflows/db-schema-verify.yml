@@ -161,6 +161,13 @@ jobs:
             echo "::error::PHCP diagnosis grouping reference data missing after migrate for ${PROV}"
             exit 1
           fi
+          if [ "${PROV}" = "bc" ]; then
+            BC_PRECISE_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=2740 AND level2='ICD-9 240-279'")
+            if [ "${BC_PRECISE_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC four-digit diagnosis 2740 was not grouped by its 274 chapter prefix"
+              exit 1
+            fi
+          fi
 
           COMMON_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name IN ('demographicstudy','study','studydata','form_hsfo2_visit','providerstudy')")
           if [ "${COMMON_RESTORED}" != "5" ]; then

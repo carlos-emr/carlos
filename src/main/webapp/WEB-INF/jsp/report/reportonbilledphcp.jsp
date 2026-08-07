@@ -817,7 +817,7 @@
 
                     // sync vServiceCode and vec
                     String serviceCode = (String) vServiceCode.get(i);
-                    boolean numericServiceCode = serviceCode != null && serviceCode.matches("[0-9]{1,3}");
+                    boolean numericServiceCode = serviceCode != null && serviceCode.matches("[0-9]{1,5}");
                     if (numericServiceCode) {
                         codeNum = Integer.parseInt(serviceCode);
                     }

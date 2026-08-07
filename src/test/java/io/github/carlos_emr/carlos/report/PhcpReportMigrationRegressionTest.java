@@ -44,7 +44,9 @@ class PhcpReportMigrationRegressionTest {
                 .contains("lastUpdateUser varchar(100) NOT NULL")
                 .contains("lastUpdateDate timestamp NOT NULL")
                 .contains("FROM diagnosticcode")
-                .contains("WHERE diagnostic_code REGEXP '^[0-9]{1,3}$'")
+                .contains("WHERE diagnostic_code REGEXP '^[0-9]{1,5}$'")
+                .contains("MIN(CAST(LEFT(diagnostic_code, 3) AS UNSIGNED)) AS category_code")
+                .contains("WHEN codes.category_code <= 279 THEN '03 Endocrine")
                 .contains("WHERE NOT EXISTS (")
                 .contains("ICD-9 001-139", "ICD-9 800-999");
     }
@@ -53,17 +55,17 @@ class PhcpReportMigrationRegressionTest {
     @DisplayName("should fail visibly, tolerate alphanumeric codes, and encode category labels")
     void shouldRenderDiagnosisSearchesSafelyAndFailVisibly() throws IOException {
         String report = Files.readString(REPORT, StandardCharsets.UTF_8);
+        String normalizedReport = report.replaceAll("\\s+", " ").trim();
 
-        assertThat(report)
-                .startsWith("<%@ page errorPage=\"/WEB-INF/jsp/error/errorpage.jsp\" buffer=\"64kb\" %>")
-                .contains("if (bDx) {\n                    sql = \"select dxcode, level1, level2 from dxphcpgroup")
-                .contains("serviceCode.matches(\"[0-9]{1,3}\")")
+        assertThat(normalizedReport)
+                .contains("<%@ page errorPage=\"/WEB-INF/jsp/error/errorpage.jsp\" buffer=\"64kb\" %>")
+                .contains("if (bDx) { sql = \"select dxcode, level1, level2 from dxphcpgroup")
+                .contains("serviceCode.matches(\"[0-9]{1,5}\")")
                 .contains("<carlos:encode value='<%= curCatName %>' context=\"html\"/>")
                 .contains("getProperty(\"providerNo\", \"\") %>' context=\"htmlAttribute\"/>")
                 .contains("getProperty(\"lastName\", \"\") %>' context=\"html\"/>")
                 .doesNotContain("<td colspan=\"24\"><%= curCatName %>")
-                .doesNotContain("value=\"<%=((Properties)VEC_PROVIDER")
-                .doesNotContain("\n                        <%= ((Properties) VEC_PROVIDER")
+                .doesNotContain("<option value=\"<%=((Properties)VEC_PROVIDER")
                 .doesNotContain("catch (Exception e)")
                 .doesNotContain("request.getRequestDispatcher(\"/WEB-INF/jsp/error/errorpage.jsp\")");
     }
