@@ -525,9 +525,12 @@ async function run() {
 
     assert(browserFindings.length === 0, `Browser findings: ${JSON.stringify(browserFindings)}`);
 
+    // The provider number is deliberately not reported: it is a real
+    // security.provider_no, a PHI-correlating identifier, and nothing about the
+    // result needs it. The seeded ids in cleanup diagnostics are different — those
+    // rows are synthetic and an operator needs the ids to remove them by hand.
     console.log(JSON.stringify({
       reportYear,
-      providerNo,
       assertions: [
         'all seven patient and billing columns map correctly',
         'latest valid selected-year flu claim is displayed',
