@@ -72,75 +72,7 @@ public class PatientListByAppt extends HttpServlet {
      */
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            if (loggedInInfo == null) {
-                UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
-                return;
-            }
-
-            SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-            if (!securityInfoManager.hasPrivilege(
-                    loggedInInfo, "_report,_admin.reporting", "r", null)) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN,
-                        "Report read privilege is required");
-                return;
-            }
-
-            String providerFilter = request.getParameter("provider_no");
-            if (providerFilter == null || providerFilter.isBlank()) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                        "provider_no is required");
-                return;
-            }
-            // clear dr no value for all doc's
-            String providerNo = providerFilter.equals("all") ? null : providerFilter;
-            String datefrom = request.getParameter("date_from");
-            String dateto = request.getParameter("date_to");
-
-            Date from = parseRequiredDate(datefrom);
-            Date to = parseRequiredDate(dateto);
-            if (from == null || to == null) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                        "date_from and date_to must use YYYY-MM-DD");
-                return;
-            }
-            if (from.after(to)) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                        "date_from must not be after date_to");
-                return;
-            }
-
-            response.setContentType("text/plain; charset=UTF-8");
-            response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
-
-            OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
-            int[] rowCount = {0};
-            String outcome = "error";
-            String errorType = null;
-
-            try {
-                // The servlet container owns the response stream. Closing it while an
-                // exception unwinds can commit an empty 200 response before the outer
-                // error handler has a chance to send a 500. checkError() flushes a
-                // successful export; on failure, any uncommitted response buffer remains
-                // available for sendError() to reset.
-                PrintWriter pw = new PrintWriter(new OutputStreamWriter(
-                        response.getOutputStream(), StandardCharsets.UTF_8), true);
-                dao.streamPatientAppointments(providerNo, from, to, row -> {
-                    writeCsvRow(pw, row);
-                    rowCount[0]++;
-                });
-                if (pw.checkError()) {
-                    throw new IOException("Unable to complete patient appointment export response");
-                }
-                outcome = "success";
-            } catch (IOException | RuntimeException e) {
-                errorType = e.getClass().getSimpleName();
-                throw e;
-            } finally {
-                auditExport(loggedInInfo, providerFilter, datefrom, dateto,
-                        rowCount[0], outcome, errorType);
-            }
+            processExportRequest(request, response);
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
@@ -149,6 +81,81 @@ public class PatientListByAppt extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
+        }
+    }
+
+    /**
+     * Validates and streams one export request. The response output stream is
+     * container-owned and must remain open; closing it during exception unwinding
+     * can commit an empty success response before {@link HttpServletResponse#sendError}
+     * can replace it.
+     */
+    @SuppressWarnings("java:S2093")
+    private void processExportRequest(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+            return;
+        }
+
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_report,_admin.reporting", "r", null)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                    "Report read privilege is required");
+            return;
+        }
+
+        String providerFilter = request.getParameter("provider_no");
+        if (providerFilter == null || providerFilter.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "provider_no is required");
+            return;
+        }
+        // clear dr no value for all doc's
+        String providerNo = providerFilter.equals("all") ? null : providerFilter;
+        String datefrom = request.getParameter("date_from");
+        String dateto = request.getParameter("date_to");
+
+        Date from = parseRequiredDate(datefrom);
+        Date to = parseRequiredDate(dateto);
+        if (from == null || to == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "date_from and date_to must use YYYY-MM-DD");
+            return;
+        }
+        if (from.after(to)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+                    "date_from must not be after date_to");
+            return;
+        }
+
+        response.setContentType("text/plain; charset=UTF-8");
+        response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
+
+        OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
+        int[] rowCount = {0};
+        String outcome = "error";
+        String errorType = null;
+
+        try {
+            PrintWriter pw = new PrintWriter(new OutputStreamWriter(
+                    response.getOutputStream(), StandardCharsets.UTF_8), true);
+            dao.streamPatientAppointments(providerNo, from, to, row -> {
+                writeCsvRow(pw, row);
+                rowCount[0]++;
+            });
+            if (pw.checkError()) {
+                throw new IOException("Unable to complete patient appointment export response");
+            }
+            outcome = "success";
+        } catch (IOException | RuntimeException e) {
+            errorType = e.getClass().getSimpleName();
+            throw e;
+        } finally {
+            auditExport(loggedInInfo, providerFilter, datefrom, dateto,
+                    rowCount[0], outcome, errorType);
         }
     }
 
