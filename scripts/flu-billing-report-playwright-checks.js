@@ -304,9 +304,25 @@ async function login(page) {
   ]);
 }
 
-async function reportRows(page, reportYear, providerNo) {
-  const query = new URLSearchParams({ numMonth: reportYear, proNo: providerNo });
-  await page.goto(appUrl(`/oscarReport/FluBilling?${query.toString()}`), { // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- reportYear and providerNo are database-derived validated values, and appUrl restricts the target host/path
+/*
+ * Loads the report and returns its rows as arrays of cell text.
+ *
+ * Passing reportYear/providerNo as null omits the parameter entirely, which is
+ * how the real entry points link to this report (leftNav.jspf and admin.jsp both
+ * send only "?orderby="). Exercising that shape matters: an absent proNo used to
+ * filter on provider_no = '' and render an empty worklist under a dropdown that
+ * still read "All Providers".
+ */
+async function reportRows(page, reportYear, providerNo, expectedSelectedProvider) {
+  const query = new URLSearchParams();
+  if (reportYear !== null) {
+    query.set('numMonth', reportYear);
+  }
+  if (providerNo !== null) {
+    query.set('proNo', providerNo);
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : '?orderby=';
+  await page.goto(appUrl(`/oscarReport/FluBilling${suffix}`), { // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- reportYear and providerNo are database-derived validated values, and appUrl restricts the target host/path
     waitUntil: 'domcontentloaded',
     timeout: 30000,
   });
@@ -322,9 +338,12 @@ async function reportRows(page, reportYear, providerNo) {
   const body = await page.locator('body').innerText();
   assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report/i.test(body), 'Flu Billing Report rendered an error page');
   assert(await page.locator('table tbody').count(), 'Flu Billing Report result table was missing');
+  // The dropdown must agree with the filter that actually ran, so a mismatch
+  // between "All Providers" on screen and the applied filter cannot recur.
+  const expectedSelection = expectedSelectedProvider === undefined ? providerNo : expectedSelectedProvider;
   const selectedProvider = await page.locator('select[name="proNo"]').inputValue();
-  assert(selectedProvider === providerNo,
-    `Flu Billing Report selected provider ${selectedProvider} instead of ${providerNo}`);
+  assert(selectedProvider === expectedSelection,
+    `Flu Billing Report selected provider ${selectedProvider} instead of ${expectedSelection}`);
   return page.locator('table tbody tr').evaluateAll((rows) => rows.map((row) =>
     [...row.querySelectorAll('td')].map((cell) => cell.textContent.trim())
   ));
@@ -484,6 +503,26 @@ async function run() {
     });
     assert(!individualProviderRows.some((row) => row[0] === secondary.patientName),
       'Individual-provider filtering included the synthetic patient assigned to another provider');
+
+    // The shape both real entry points use: no numMonth, no proNo. This must list
+    // every eligible patient rather than filtering on an empty provider number.
+    // The year defaults to the current one, so the fixtures' previous-year claims
+    // correctly show as blank billing dates here.
+    const defaultEntryRows = await reportRows(page, null, null, '-1');
+    for (const fixture of [primary, secondary, unvaccinated]) {
+      const row = fixtureRow(defaultEntryRows, fixture.patientName);
+      assert(row[6] === '',
+        `Default entry point showed a billing date for ${fixture.patientName} whose only claims predate the current year`);
+    }
+
+    // A malformed year must fall back to the current year, not error and not
+    // drive the year-select loop past Integer.MAX_VALUE.
+    for (const badYear of ['abc', '+2023', '2147483645', '-5']) {
+      const rows = await reportRows(page, badYear, '-1');
+      assert(rows.length > 0, `Malformed numMonth=${badYear} produced no rows at all`);
+      fixtureRow(rows, primary.patientName);
+    }
+
     assert(browserFindings.length === 0, `Browser findings: ${JSON.stringify(browserFindings)}`);
 
     console.log(JSON.stringify({
@@ -495,6 +534,8 @@ async function run() {
         'a patient with no claim that year renders a blank billing date',
         'All Providers includes every synthetic patient',
         'individual provider keeps both of its assigned synthetic patients and excludes the other',
+        'the parameterless entry-point URL lists every patient and selects All Providers',
+        'a malformed report year falls back to the current year instead of erroring',
       ],
     }, null, 2));
   } finally {

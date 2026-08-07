@@ -2480,13 +2480,17 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             + "RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >= 65 "
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
             + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
-        if (providerNo != null && !providerNo.equals("-1")) {
+        // Blank means "all providers", same as the "-1" sentinel. A blank value
+        // previously became a literal provider_no = '' filter, which matches no
+        // demographic and silently emptied the report.
+        boolean allProviders = StringUtils.isBlank(providerNo) || "-1".equals(providerNo);
+        if (!allProviders) {
             sql = sql + " and provider_no = :providerNo ";
         }
         sql = sql + " order by last_name ";
 
         Query sqlQuery = entityManager().createNativeQuery(sql, Tuple.class);
-        if (providerNo != null && !providerNo.equals("-1")) {
+        if (!allProviders) {
             sqlQuery.setParameter("providerNo", providerNo);
         }
 

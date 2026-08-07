@@ -88,21 +88,25 @@
     curUser_no = (String) session.getAttribute("user");
     int count = 0;
 
-    String years = null;
-    int curYear = 0;
+    // numMonth is attacker-controllable, so anything that is not literally a
+    // four-digit year falls back to the current year. Passing it straight to
+    // Integer.parseInt used to 500 on non-numeric input, and a value near
+    // Integer.MAX_VALUE overflowed the year-select loop below into an
+    // effectively unbounded render that pinned a request thread.
+    GregorianCalendar cal = new GregorianCalendar();
+    int thisYear = cal.get(Calendar.YEAR);
+    String requestedYear = request.getParameter("numMonth");
+    int curYear = (requestedYear != null && requestedYear.matches("\\d{4}"))
+            ? Integer.parseInt(requestedYear)
+            : thisYear;
+    String years = String.valueOf(curYear);
 
-    String pros = "";
-    if (request.getParameter("numMonth") != null) {
-        years = request.getParameter("numMonth");
-        curYear = Integer.parseInt(years);
-    } else {
-        GregorianCalendar cal = new GregorianCalendar();
-        curYear = cal.get(Calendar.YEAR);
-        years = "" + curYear; //"2003";
-    }
-
-    if (request.getParameter("proNo") != null) {
-        pros = request.getParameter("proNo");
+    // An absent proNo means "All Providers", which the DAO spells "-1". Leaving
+    // it blank made the query filter on provider_no = '', which matches no one,
+    // so the report rendered empty while the dropdown still read All Providers.
+    String pros = request.getParameter("proNo");
+    if (pros == null || pros.trim().isEmpty()) {
+        pros = "-1";
     }
 
     RptFluReportData fluData = new RptFluReportData();

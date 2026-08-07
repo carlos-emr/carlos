@@ -429,7 +429,7 @@ public interface DemographicDao {
      * results shift as patients cross the age-65 boundary.</p>
      *
      * @param providerNo the demographic's assigned provider to filter on;
-     *                   {@code "-1"} or {@code null} means all providers
+     *                   {@code "-1"}, {@code null}, or blank means all providers
      * @return one row per eligible patient, never {@code null}. Every component
      *         is a non-null String — a NULL column arrives as the empty string,
      *         so callers render blanks rather than the literal text "null".
