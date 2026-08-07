@@ -193,13 +193,31 @@ function createMysqlDefaultsFile() {
 }
 
 /*
- * On failure, execFileSync builds its message from the whole argv -- which here
- * includes the SQL, and the seeding statements carry a real provider number. That
- * message would reach the console through run()'s error.stack. Only mysql's own
- * stderr is reported instead: it names the database error without echoing the
- * statement, and digit runs are masked in case a future statement's error text
- * quotes a value back.
+ * Reduces a failed mysql invocation to a reportable reason.
+ *
+ * Neither of the obvious sources is safe on its own. execFileSync builds its
+ * message from the whole argv, so it embeds the statement, and the seeding
+ * statements carry a real provider number. mysql's stderr is safe for errors
+ * like access-denied, but on a syntax error it echoes the offending statement on
+ * its own line and then quotes a fragment back in "near '...' at line 1".
+ *
+ * So: take only the ERROR line, drop the quoted fragment, mask digit runs, and
+ * cap the length. Taking the first stderr line instead would report the literal
+ * "--------------" that mysql prints above the echoed statement.
  */
+function describeMysqlFailure(error) {
+  const errorLine = String(error.stderr || '')
+    .split('\n')
+    .find((line) => line.startsWith('ERROR '));
+  if (!errorLine) {
+    return `mysql exited with status ${error.status}`;
+  }
+  return errorLine
+    .replace(/ near '.*$/, ' near <redacted>')
+    .replace(/\d{3,}/g, '###')
+    .slice(0, 200);
+}
+
 function sql(query) {
   try {
     return execFileSync('mysql', [
@@ -216,9 +234,7 @@ function sql(query) {
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
   } catch (error) {
-    const reason = String(error.stderr || '').split('\n')[0].replace(/\d{3,}/g, '###')
-      || `mysql exited with status ${error.status}`;
-    throw new Error(`mysql command failed: ${reason}`);
+    throw new Error(`mysql command failed: ${describeMysqlFailure(error)}`);
   }
 }
 
