@@ -117,6 +117,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     private OscarLog persistedAuditLog;
     private RuntimeException daoResolutionFailure;
     private RuntimeException securityResolutionFailure;
+    private RuntimeException auditPersistenceFailure;
 
     @BeforeEach
     void setUpServlet() {
@@ -145,6 +146,9 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
             @Override
             protected void persistExportAudit(OscarLog auditLog) {
                 persistedAuditLog = auditLog;
+                if (auditPersistenceFailure != null) {
+                    throw auditPersistenceFailure;
+                }
             }
         };
     }
@@ -426,7 +430,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("response write failures should occur only after DAO streaming completes")
+    @DisplayName("audit failures should not mask response failures after DAO streaming")
     void shouldAuditSpoolCount_whenResponseWriteFails() {
         Date appointmentDate = ConversionUtils.fromDateString("2026-08-07");
         Date startTime = ConversionUtils.fromTimestampString("2026-08-07 09:00:00");
@@ -443,6 +447,8 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
             rowConsumer.accept(firstRow);
             return null;
         }).when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
+        auditPersistenceFailure = new IllegalStateException(
+                "audit persistence detail must not mask the response failure");
 
         MockHttpServletRequest request = exportRequest("all", "2026-08-07", "2026-08-10");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);

@@ -179,7 +179,7 @@ public class PatientListByAppt extends HttpServlet {
             throw e;
         } finally {
             deleteExportSpoolFile(spoolFile);
-            auditExport(loggedInInfo, validatedScope.providerFilter(),
+            auditExportSafely(loggedInInfo, validatedScope.providerFilter(),
                     validatedScope.dateFrom(), validatedScope.dateTo(),
                     rowCount[0], outcome, errorType);
         }
@@ -200,7 +200,7 @@ public class PatientListByAppt extends HttpServlet {
             return getSecurityInfoManager().hasPrivilege(
                     loggedInInfo, "_report,_admin.reporting", "r", null);
         } catch (RuntimeException e) {
-            auditExport(loggedInInfo, null, null, null,
+            auditExportSafely(loggedInInfo, null, null, null,
                     0, "error", e.getClass().getSimpleName());
             throw e;
         }
@@ -244,9 +244,22 @@ public class PatientListByAppt extends HttpServlet {
                               int status, String message, String reason,
                               ExportScope validatedScope) throws IOException {
         response.sendError(status, message);
-        auditExport(loggedInInfo, validatedScope.providerFilter(),
+        auditExportSafely(loggedInInfo, validatedScope.providerFilter(),
                 validatedScope.dateFrom(), validatedScope.dateTo(),
                 0, "rejected", reason);
+    }
+
+    private void auditExportSafely(LoggedInInfo loggedInInfo, String providerFilter,
+                                   String dateFrom, String dateTo, int rowCount,
+                                   String outcome, String errorType) {
+        try {
+            auditExport(loggedInInfo, providerFilter, dateFrom, dateTo,
+                    rowCount, outcome, errorType);
+        } catch (RuntimeException e) {
+            // Auditing is best-effort at this boundary: an audit-store outage must
+            // not mask the original export, authorization, or response failure.
+            log.error("Unable to persist patient export audit", e);
+        }
     }
 
     private void auditExport(LoggedInInfo loggedInInfo, String providerFilter,
