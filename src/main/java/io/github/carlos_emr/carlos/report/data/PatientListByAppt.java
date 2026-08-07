@@ -233,8 +233,9 @@ public class PatientListByAppt extends HttpServlet {
      * if it contains commas, double-quotes, or newlines, and escapes embedded
      * double-quotes by doubling them. Also prevents spreadsheet formula injection
      * by prefixing values that start with formula trigger characters (=, +, -, @,
-     * tab, carriage return) with a single quote so spreadsheet applications treat
-     * them as literal text rather than formulas.
+     * tab, carriage return, line feed, NUL, or their full-width variants) with a
+     * single quote so spreadsheet applications treat them as literal text rather
+     * than formulas.
      *
      * @param value the raw field value; null is treated as an empty string
      * @return the RFC 4180 escaped field value, safe from formula injection
@@ -249,7 +250,9 @@ public class PatientListByAppt extends HttpServlet {
         if (!value.isEmpty()) {
             char first = value.charAt(0);
             if (first == '=' || first == '+' || first == '-' || first == '@'
-                    || first == '\t' || first == '\r') {
+                    || first == '\t' || first == '\r' || first == '\n' || first == '\0'
+                    || first == '\uFF1D' || first == '\uFF0B'
+                    || first == '\uFF0D' || first == '\uFF20') {
                 value = "'" + value;
             }
         }

@@ -229,6 +229,24 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("export should protect control and full-width spreadsheet formula prefixes")
+    void shouldProtectSpreadsheetFormulas_whenPrefixesUseControlOrFullWidthCharacters()
+            throws Exception {
+        Date appointmentDate = ConversionUtils.fromDateString("2026-08-09");
+        Date startTime = ConversionUtils.fromTimestampString("2026-08-09 10:30:00");
+        stubAppointments(row(
+                demographic("\n=1+1", "\uFF1D1+1", "\0=1+1", null),
+                appointment(appointmentDate, startTime, "\uFF0D1+1", "\uFF201+1"),
+                provider("\uFF0B1+1", "Doctor")));
+
+        MockHttpServletResponse response = export("999998", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getContentAsString()).isEqualTo(
+                "'\uFF1D1+1,\"'\n=1+1\",'\0=1+1,,10:30:00,2026-08-09,"
+                        + "'\uFF0D1+1,'\uFF0B1+1 Doctor,'\uFF201+1\n");
+    }
+
+    @Test
     @DisplayName("export should emit empty fields for null optional phone, type, and location values")
     void shouldEmitEmptyFields_whenOptionalValuesAreNull() throws Exception {
         Date appointmentDate = ConversionUtils.fromDateString("2026-08-09");
