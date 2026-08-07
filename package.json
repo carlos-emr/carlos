@@ -38,7 +38,8 @@
     "test:consultation-signature-playwright": "node scripts/consultation-signature-playwright-checks.js",
     "test:consultation-signature-submit-playwright": "node scripts/consultation-signature-submit-playwright-checks.js",
     "test:prescription-signature-playwright": "node scripts/prescription-signature-playwright-checks.js",
-    "test:report-demographic-navigation-playwright": "node scripts/report-demographic-navigation-playwright-checks.js"
+    "test:report-demographic-navigation-playwright": "node scripts/report-demographic-navigation-playwright-checks.js",
+    "test:select-forms-panel-playwright": "node scripts/select-forms-panel-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
