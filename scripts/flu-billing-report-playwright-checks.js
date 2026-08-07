@@ -306,6 +306,25 @@ function cleanupSeedData() {
   return failures;
 }
 
+/*
+ * Cleanup runs from the normal finally block and from the signal handlers, so it
+ * is latched: whichever path arrives first does the work and the other gets an
+ * empty result rather than a second round of deletes.
+ */
+let cleanupCompleted = false;
+
+function runCleanupOnce() {
+  if (cleanupCompleted) {
+    return [];
+  }
+  cleanupCompleted = true;
+  try {
+    return cleanupSeedData();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+}
+
 function cleanupMysqlDefaultsFile() {
   if (mysqlDefaults) {
     fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true });
@@ -390,10 +409,19 @@ async function reportRows(page, reportYear, providerNo, expectedSelectedProvider
     query.set('proNo', providerNo);
   }
   const suffix = query.toString() ? `?${query.toString()}` : '?orderby=';
-  await page.goto(appUrl(`/oscarReport/FluBilling${suffix}`), { // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- reportYear and providerNo are database-derived validated values, and appUrl restricts the target host/path
-    waitUntil: 'domcontentloaded',
-    timeout: 30000,
-  });
+  // A navigation failure reports the URL it was loading, twice, and run()'s
+  // handler prints error.stack verbatim -- which would put the real provider
+  // number in the output that wirePage and the assertions are careful to keep it
+  // out of. Replace it with the path and the failure reason only.
+  try {
+    await page.goto(appUrl(`/oscarReport/FluBilling${suffix}`), { // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- reportYear and providerNo are database-derived validated values, and appUrl restricts the target host/path
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+  } catch (error) {
+    const reason = String(error.message).split('\n')[0].replace(/https?:\/\/\S+/g, '<url>');
+    throw new Error(`Navigation to the Flu Billing Report failed: ${reason}`);
+  }
   // Only a networkidle timeout is expected here (the report page keeps some
   // long-lived connections open). Anything else — a closed target, a failed
   // navigation — must surface rather than turn into a confusing failure on the
@@ -665,11 +693,7 @@ async function run() {
         console.error(`WARN failed to close browser: ${error.message}`);
       });
     }
-    try {
-      cleanupFailures = cleanupSeedData();
-    } finally {
-      cleanupMysqlDefaultsFile();
-    }
+    cleanupFailures = runCleanupOnce();
     cleanupFailures.forEach((failure) => console.error(`WARN ${failure}`));
   }
 
@@ -681,6 +705,25 @@ async function run() {
     );
   }
   console.log('PASS CARLOS EMR Flu Billing Report demographic mapping and provider filters');
+}
+
+// A run takes minutes, so Ctrl-C part way through is entirely likely. Without
+// this, Node exits without unwinding the finally block and leaves synthetic 65+
+// patients sitting in the schema -- exactly what the cleanup guarantee exists to
+// prevent. The browser is left to the OS; only the database and the cleartext
+// password file matter here.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    console.error(`\n${signal} received; removing seeded rows before exiting.`);
+    let interrupted = [];
+    try {
+      interrupted = runCleanupOnce();
+    } catch (error) {
+      console.error(`WARN cleanup after ${signal} failed: ${error.message}`);
+    }
+    interrupted.forEach((failure) => console.error(`WARN ${failure}`));
+    process.exit(130);
+  });
 }
 
 run().catch((error) => {
