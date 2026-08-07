@@ -66,7 +66,13 @@ SELECT codes.dxcode,
        CURRENT_TIMESTAMP
 FROM (
   SELECT CAST(diagnostic_code AS UNSIGNED) AS dxcode,
-         MIN(CAST(LEFT(diagnostic_code, 3) AS UNSIGNED)) AS category_code
+         COALESCE(
+           MAX(CASE
+             WHEN diagnostic_code = CAST(CAST(diagnostic_code AS UNSIGNED) AS CHAR)
+               THEN CAST(LEFT(diagnostic_code, 3) AS UNSIGNED)
+           END),
+           MIN(CAST(LEFT(diagnostic_code, 3) AS UNSIGNED))
+         ) AS category_code
   FROM diagnosticcode
   WHERE diagnostic_code REGEXP '^[0-9]{1,5}$'
   GROUP BY CAST(diagnostic_code AS UNSIGNED)

@@ -167,6 +167,11 @@ jobs:
               echo "::error::BC four-digit diagnosis 2740 was not grouped by its 274 chapter prefix"
               exit 1
             fi
+            BC_CANONICAL_PHCP_GROUP=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM dxphcpgroup WHERE dxcode=320 AND level2='ICD-9 320-389'")
+            if [ "${BC_CANONICAL_PHCP_GROUP:-0}" != "1" ]; then
+              echo "::error::BC diagnosis 320 did not prefer its canonical non-zero-padded chapter"
+              exit 1
+            fi
           fi
 
           COMMON_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name IN ('demographicstudy','study','studydata','form_hsfo2_visit','providerstudy')")

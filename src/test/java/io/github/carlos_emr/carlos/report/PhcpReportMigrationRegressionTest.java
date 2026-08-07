@@ -45,7 +45,8 @@ class PhcpReportMigrationRegressionTest {
                 .contains("lastUpdateDate timestamp NOT NULL")
                 .contains("FROM diagnosticcode")
                 .contains("WHERE diagnostic_code REGEXP '^[0-9]{1,5}$'")
-                .contains("MIN(CAST(LEFT(diagnostic_code, 3) AS UNSIGNED)) AS category_code")
+                .contains("WHEN diagnostic_code = CAST(CAST(diagnostic_code AS UNSIGNED) AS CHAR)")
+                .contains("MIN(CAST(LEFT(diagnostic_code, 3) AS UNSIGNED))")
                 .contains("WHEN codes.category_code <= 279 THEN '03 Endocrine")
                 .contains("WHERE NOT EXISTS (")
                 .contains("ICD-9 001-139", "ICD-9 800-999");
