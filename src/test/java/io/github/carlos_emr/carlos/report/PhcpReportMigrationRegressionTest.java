@@ -50,13 +50,16 @@ class PhcpReportMigrationRegressionTest {
     }
 
     @Test
-    @DisplayName("should fail through the buffered error page and keep service searches independent")
-    void shouldFailVisiblyAndKeepServiceSearchIndependent() throws IOException {
+    @DisplayName("should fail visibly, tolerate alphanumeric codes, and encode category labels")
+    void shouldRenderDiagnosisSearchesSafelyAndFailVisibly() throws IOException {
         String report = Files.readString(REPORT, StandardCharsets.UTF_8);
 
         assertThat(report)
                 .startsWith("<%@ page errorPage=\"/WEB-INF/jsp/error/errorpage.jsp\" buffer=\"64kb\" %>")
                 .contains("if (bDx) {\n                    sql = \"select dxcode, level1, level2 from dxphcpgroup")
+                .contains("serviceCode.matches(\"[0-9]{1,3}\")")
+                .contains("<carlos:encode value='<%= curCatName %>' context=\"html\"/>")
+                .doesNotContain("<td colspan=\"24\"><%= curCatName %>")
                 .doesNotContain("catch (Exception e)")
                 .doesNotContain("request.getRequestDispatcher(\"/WEB-INF/jsp/error/errorpage.jsp\")");
     }

@@ -813,9 +813,15 @@
             int vecNum = 0;
             for (int i = 0; i < vServiceCode.size(); i++) {
                 if (bDx) {
+                    color = i % 2 == 0 ? tdInterlColor : "white";
+
                     // sync vServiceCode and vec
-                    codeNum = Integer.parseInt((String) vServiceCode.get(i));
-                    if (propCatCode.containsKey("" + codeNum)) {
+                    String serviceCode = (String) vServiceCode.get(i);
+                    boolean numericServiceCode = serviceCode != null && serviceCode.matches("[0-9]{1,3}");
+                    if (numericServiceCode) {
+                        codeNum = Integer.parseInt(serviceCode);
+                    }
+                    if (numericServiceCode && propCatCode.containsKey("" + codeNum)) {
                         vecNum = Integer.parseInt(propCatCode.getProperty("" + codeNum));
 
                         // display the category name if necessary
@@ -834,12 +840,11 @@
                             catName = curCatName;
         %>
         <tr bgcolor="<%=tdSubtitleColor%>">
-            <td colspan="24"><%= curCatName %>
+            <td colspan="24"><carlos:encode value='<%= curCatName %>' context="html"/>
             </td>
         </tr>
         <%
                     }
-                    color = i % 2 == 0 ? tdInterlColor : "white";
                 } else {
                     color = "gold";
                 }
