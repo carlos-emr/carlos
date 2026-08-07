@@ -10,15 +10,24 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionProxy;
+import org.apache.struts2.ActionProxyFactory;
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.dispatcher.HttpParameters;
+import org.apache.struts2.dispatcher.Dispatcher;
+import org.apache.struts2.inject.Container;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.web.context.WebApplicationContext;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -146,6 +155,29 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldBindRawRequestValuesThroughTheStrutsParameterInterceptor() throws Exception {
+        AppointmentStatus2Action bindingAction = bindRawParametersThroughStruts(Map.of(
+                "id", "13",
+                "active", "0",
+                "apptDesc", "d".repeat(30),
+                "apptColor", "#ABCDEF"));
+
+        assertThat(bindingAction.getId()).isEqualTo(13);
+        assertThat(bindingAction.getActive()).isZero();
+        assertThat(bindingAction.getApptDesc()).hasSize(30);
+        assertThat(bindingAction.getApptColor()).isEqualTo("#ABCDEF");
+    }
+
+    @Test
+    void shouldRejectRawValuesThatCannotBeCoercedByStruts() throws Exception {
+        AppointmentStatus2Action bindingAction = bindRawParametersThroughStruts(
+                Map.of("id", "not-a-number", "active", "false"));
+
+        assertThat(bindingAction.getId()).isNull();
+        assertThat(bindingAction.getActive()).isNull();
+    }
+
+    @Test
     void shouldRejectInvalidActiveValue() throws Exception {
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", "changestatus");
@@ -178,6 +210,38 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         verify(appointmentStatusMgr, never()).reset();
         verify(appointmentStatusMgr, never()).changeStatus(anyInt(), anyInt());
         verify(appointmentStatusMgr, never()).modifyStatus(anyInt(), anyString(), anyString());
+    }
+
+    private AppointmentStatus2Action bindRawParametersThroughStruts(
+            Map<String, String> parameters) throws Exception {
+        parameters.forEach(this::addRequestParameter);
+        mockRequest.getServletContext().setAttribute(
+                WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, applicationContext);
+        Dispatcher dispatcher = new Dispatcher(mockRequest.getServletContext(), Map.of(
+                "config", "struts-default.xml,struts-plugin.xml,struts-appointment-status-test.xml"));
+        dispatcher.init();
+        try {
+            Container container = dispatcher.getContainer();
+            ActionContext bindingContext = ActionContext.of(
+                            new HashMap<>(ActionContext.getContext().getContextMap()))
+                    .withContainer(container)
+                    .withServletContext(mockRequest.getServletContext())
+                    .withServletRequest(mockRequest)
+                    .withServletResponse(mockResponse)
+                    .withSession(new HashMap<>())
+                    .withParameters(HttpParameters.create(requestParameters).build());
+            bindingContext.bind();
+            ActionProxy proxy = container.getInstance(ActionProxyFactory.class).createActionProxy(
+                    "/", "appointment-status-binding-test", null,
+                    bindingContext.getContextMap(), false, true);
+
+            proxy.execute();
+            return (AppointmentStatus2Action) proxy.getAction();
+        } finally {
+            dispatcher.cleanup();
+            Dispatcher.clearInstance();
+            setUpActionContext();
+        }
     }
 
     private static final class TestAppointmentStatus2Action extends AppointmentStatus2Action {

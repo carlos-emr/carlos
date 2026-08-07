@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC
+        "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN"
+        "https://struts.apache.org/dtds/struts-6.5.dtd">
+<struts>
+    <package name="appointment-status-binding-test" namespace="/" extends="struts-default">
+        <action name="appointment-status-binding-test"
+                class="io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action"/>
+    </package>
+</struts>
