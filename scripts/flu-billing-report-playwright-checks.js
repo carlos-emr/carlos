@@ -192,20 +192,34 @@ function createMysqlDefaultsFile() {
   return { dir, file };
 }
 
+/*
+ * On failure, execFileSync builds its message from the whole argv -- which here
+ * includes the SQL, and the seeding statements carry a real provider number. That
+ * message would reach the console through run()'s error.stack. Only mysql's own
+ * stderr is reported instead: it names the database error without echoing the
+ * statement, and digit runs are masked in case a future statement's error text
+ * quotes a value back.
+ */
 function sql(query) {
-  return execFileSync('mysql', [
-    `--defaults-extra-file=${mysqlDefaults.file}`,
-    '-h', mysqlHost,
-    '-u', mysqlUser,
-    mysqlDatabase,
-    '-N',
-    '-B',
-    '-e',
-    query,
-  ], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
+  try {
+    return execFileSync('mysql', [
+      `--defaults-extra-file=${mysqlDefaults.file}`,
+      '-h', mysqlHost,
+      '-u', mysqlUser,
+      mysqlDatabase,
+      '-N',
+      '-B',
+      '-e',
+      query,
+    ], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    const reason = String(error.stderr || '').split('\n')[0].replace(/\d{3,}/g, '###')
+      || `mysql exited with status ${error.status}`;
+    throw new Error(`mysql command failed: ${reason}`);
+  }
 }
 
 function escapeSql(value) {
