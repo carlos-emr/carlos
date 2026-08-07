@@ -48,10 +48,10 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     void shouldCreateAppointmentTypeWithValidatedValues() throws Exception {
         configureSave("30");
         action.setName("  Follow Up  ");
-        action.setReason("Follow-up reason");
-        action.setNotes("Bring results");
-        action.setLocation("Main");
-        action.setResources("Room 1");
+        action.setReason("  Follow-up reason  ");
+        action.setNotes("  Bring results  ");
+        action.setLocation("  Main  ");
+        action.setResources("  Room 1  ");
 
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
 
@@ -61,6 +61,9 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
         assertThat(saved.getName()).isEqualTo("Follow Up");
         assertThat(saved.getDuration()).isEqualTo(30);
         assertThat(saved.getReason()).isEqualTo("Follow-up reason");
+        assertThat(saved.getNotes()).isEqualTo("Bring results");
+        assertThat(saved.getLocation()).isEqualTo("Main");
+        assertThat(saved.getResources()).isEqualTo("Room 1");
         assertThat(action.getActionMessages()).isNotEmpty();
         assertThat(action.getId()).isNull();
         assertThat(action.getName()).isNull();

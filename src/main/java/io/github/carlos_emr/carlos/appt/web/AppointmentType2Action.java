@@ -202,10 +202,10 @@ public class AppointmentType2Action extends ActionSupport {
         if (name == null || name.trim().isEmpty() || name.trim().length() > NAME_MAX_LENGTH) {
             addActionError(getText("appointment.type.name.error"));
         }
-        validateLength(reason, TEXT_MAX_LENGTH, "appointment.type.reason.length.error");
-        validateLength(notes, TEXT_MAX_LENGTH, "appointment.type.notes.length.error");
-        validateLength(location, LOCATION_MAX_LENGTH, "appointment.type.location.length.error");
-        validateLength(resources, RESOURCES_MAX_LENGTH, "appointment.type.resources.length.error");
+        validateLength(normalize(reason), TEXT_MAX_LENGTH, "appointment.type.reason.length.error");
+        validateLength(normalize(notes), TEXT_MAX_LENGTH, "appointment.type.notes.length.error");
+        validateLength(normalize(location), LOCATION_MAX_LENGTH, "appointment.type.location.length.error");
+        validateLength(normalize(resources), RESOURCES_MAX_LENGTH, "appointment.type.resources.length.error");
 
         if (duration == null || duration.isEmpty() || !duration.matches("[0-9]+")) {
             addActionError(getText("appointment.type.duration.error"));
@@ -231,12 +231,16 @@ public class AppointmentType2Action extends ActionSupport {
     }
 
     private void populateBean(AppointmentType bean, int parsedDuration) {
-        bean.setName(name.trim());
+        bean.setName(normalize(name));
         bean.setDuration(parsedDuration);
-        bean.setLocation(location);
-        bean.setNotes(notes);
-        bean.setReason(reason);
-        bean.setResources(resources);
+        bean.setLocation(normalize(location));
+        bean.setNotes(normalize(notes));
+        bean.setReason(normalize(reason));
+        bean.setResources(normalize(resources));
+    }
+
+    private String normalize(String value) {
+        return value == null ? null : value.trim();
     }
 
     private void clearForm() {
