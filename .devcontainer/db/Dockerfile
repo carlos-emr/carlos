@@ -22,6 +22,7 @@ COPY ./.devcontainer/db/scripts/demo-provider-links.sql /scripts/demo-provider-l
 COPY ./.devcontainer/db/scripts/demo-program-links.sql /scripts/demo-program-links.sql
 COPY ./.devcontainer/db/scripts/demo-issue-codes.sql /scripts/demo-issue-codes.sql
 COPY ./.devcontainer/db/scripts/demo-hrm-report.sql /scripts/demo-hrm-report.sql
+COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql
 COPY ./database /database
 COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
 

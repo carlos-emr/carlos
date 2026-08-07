@@ -128,4 +128,6 @@ $SQL carlos < /scripts/demo-hrm-report.sql
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
 $SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+echo 'Loading Administration test fixtures...'
+$SQL carlos < /scripts/admin_test_data.sql
 echo 'Database initialization complete!'

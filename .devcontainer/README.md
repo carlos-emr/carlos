@@ -92,6 +92,11 @@ Exploded WAR".
     * Password: carlos2026
     * PIN     : 2026
     * **Note**: On first login, you will be forced to change the password. Use the same credentials above to complete the password reset process.
+* Administration test account (safe to intentionally lock while testing the Unlock Account screen):
+    * Username: locktest
+    * Password: carlos2026
+    * PIN: 2026
+    * This account has the receptionist role and synthetic provider number `999996`; use `carlosdoc` for administration itself.
 
 ### Subsequent Compilations
 
