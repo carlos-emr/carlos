@@ -153,7 +153,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(patientListJsp).contains(
                 "<form id=\"plForm\" method=\"post\" "
-                        + "action=\"<%=request.getContextPath() %>/patientlistbyappt\"");
+                        + "action=\"${carlos:forHtmlAttribute(ctx)}/patientlistbyappt\"");
     }
 
     @Test
@@ -266,6 +266,25 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("export should omit null provider-name parts instead of rendering null text")
+    void shouldOmitNullProviderNameParts_whenProviderNameIsIncomplete() throws Exception {
+        Date appointmentDate = ConversionUtils.fromDateString("2026-08-09");
+        Date startTime = ConversionUtils.fromTimestampString("2026-08-09 14:00:00");
+        stubAppointments(
+                row(demographic("Aaron", "Bell", null, null),
+                        appointment(appointmentDate, startTime, null, null),
+                        provider(null, "Doctor")),
+                row(demographic("Cara", "Dunn", null, null),
+                        appointment(appointmentDate, startTime, null, null),
+                        provider("Ravi", null)));
+
+        MockHttpServletResponse response = export("all", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getContentAsString()).contains(",Doctor,\n", ",Ravi,\n")
+                .doesNotContain("null");
+    }
+
+    @Test
     @DisplayName("export should keep one row per appointment when the type contains line breaks")
     void shouldKeepOneRowPerAppointment_whenTypeContainsLineBreaks() throws Exception {
         Date appointmentDate = ConversionUtils.fromDateString("2026-08-10");
@@ -371,15 +390,27 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(appointmentDao);
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=null; dateTo=null; rows=0; "
+                        + "outcome=rejected; error=Forbidden");
     }
 
     @Test
     @DisplayName("export should reject missing or invalid dates instead of running an unbounded query")
     void shouldReturnBadRequestAndSkipQuery_whenDatesAreMissingInvalidOrReversed() throws Exception {
-        List<MockHttpServletResponse> responses = List.of(
-                export("all", null, "2026-08-10"),
-                export("all", "2026-02-30", "2026-08-10"),
-                export("all", "2026-08-11", "2026-08-10"));
+        MockHttpServletResponse missing = export("all", null, "2026-08-10");
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=null; dateTo=null; rows=0; "
+                        + "outcome=rejected; error=InvalidDate")
+                .doesNotContain("2026-08-10");
+        MockHttpServletResponse invalid = export("all", "private invalid date", "2026-08-10");
+        assertThat(persistedAuditLog.getData()).doesNotContain("private invalid date", "2026-08-10");
+        MockHttpServletResponse reversed = export("all", "2026-08-11", "2026-08-10");
+        assertThat(persistedAuditLog.getData())
+                .endsWith("outcome=rejected; error=ReversedDateRange")
+                .doesNotContain("2026-08-11", "2026-08-10");
+
+        List<MockHttpServletResponse> responses = List.of(missing, invalid, reversed);
 
         assertThat(responses).allSatisfy(response ->
                 assertThat(response.getStatus()).isEqualTo(400));
@@ -393,6 +424,9 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(appointmentDao);
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=null; dateTo=null; rows=0; "
+                        + "outcome=rejected; error=MissingProvider");
     }
 
     private MockHttpServletResponse export(String providerNo, String dateFrom, String dateTo)

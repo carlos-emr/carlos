@@ -78,6 +78,9 @@ function validateBaseUrl(rawBaseUrl) {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
 
   const host = parsed.hostname.toLowerCase();
   const loopback = isLoopbackHost(host);
@@ -133,8 +136,22 @@ function appUrl(appPath) {
   return url.toString();
 }
 
-function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+function isWithinApplication(rawUrl) {
+  const candidate = new URL(rawUrl);
+  const applicationPath = baseUrl.pathname.replace(/\/$/, '');
+  return candidate.origin === baseUrl.origin
+    && (applicationPath === ''
+      || applicationPath === '/'
+      || candidate.pathname === applicationPath
+      || candidate.pathname.startsWith(`${applicationPath}/`));
+}
+
+async function safeGoto(page, appPath, options) {
+  const response = await page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
+  if (!isWithinApplication(page.url())) {
+    throw new Error('Navigation left the configured application boundary');
+  }
+  return response;
 }
 
 function isExpectedConsoleNoise(message) {
@@ -341,22 +358,22 @@ function checkDownloadEnvelope(label, result) {
 
 function checkRows(label, rows, expected) {
   if (rows.length !== expected.length) {
-    findings.push({ label, type: 'row-count', expected: expected.length, actual: rows.length, rows });
+    findings.push({ label, type: 'row-count', expected: expected.length, actual: rows.length });
     return;
   }
   const sortedRows = [...rows].sort();
   const sortedExpected = [...expected].sort();
   sortedExpected.forEach((expectedRow, index) => {
     if (sortedRows[index] !== expectedRow) {
-      findings.push({ label, type: 'row-mismatch', expected: expectedRow, actual: sortedRows[index] });
+      findings.push({ label, type: 'row-mismatch', rowIndex: index });
     }
   });
   // The seeded appointments all carry a NULL type; column 7 (0-indexed 6) must
   // therefore be empty rather than the literal string "null".
-  rows.forEach((row) => {
+  rows.forEach((row, rowIndex) => {
     const typeField = row.split(',')[6];
     if (typeField !== '') {
-      findings.push({ label, type: 'null-type-field', actual: typeField, row });
+      findings.push({ label, type: 'null-type-field', rowIndex });
     }
   });
 }
@@ -401,7 +418,7 @@ async function checkUnauthenticatedRejection(browser) {
     const allDoctors = await exportViaForm(context, 'all-doctors', PROVIDER_ALL, SEED_DATE_FROM, SEED_DATE_TO);
     checkDownloadEnvelope('all-doctors', allDoctors);
     const allRows = dataRows(allDoctors.body);
-    observed.push({ check: 'all-doctors', status: allDoctors.status, rows: allRows });
+    observed.push({ check: 'all-doctors', status: allDoctors.status, rowCount: allRows.length });
 
     const expectedAll = [...EXPECTED_ROWS[PROVIDER_WELCH], ...EXPECTED_ROWS[PROVIDER_CARLOSDOC]];
     if (allRows.length === 0) {
@@ -415,16 +432,16 @@ async function checkUnauthenticatedRejection(browser) {
       const result = await exportViaForm(context, label, providerNo, SEED_DATE_FROM, SEED_DATE_TO);
       checkDownloadEnvelope(label, result);
       const rows = dataRows(result.body);
-      observed.push({ check: label, status: result.status, rows });
+      observed.push({ check: label, status: result.status, rowCount: rows.length });
       checkRows(label, rows, EXPECTED_ROWS[providerNo]);
     }
 
     const emptyRange = await exportViaForm(context, 'empty-range', PROVIDER_ALL, '2026-09-01', '2026-09-02');
     checkDownloadEnvelope('empty-range', emptyRange);
     const emptyRows = dataRows(emptyRange.body);
-    observed.push({ check: 'empty-range', status: emptyRange.status, rows: emptyRows });
+    observed.push({ check: 'empty-range', status: emptyRange.status, rowCount: emptyRows.length });
     if (emptyRows.length !== 0) {
-      findings.push({ label: 'empty-range', type: 'unexpected-rows', rows: emptyRows });
+      findings.push({ label: 'empty-range', type: 'unexpected-rows', rowCount: emptyRows.length });
     }
 
     await checkUnauthenticatedRejection(browser);

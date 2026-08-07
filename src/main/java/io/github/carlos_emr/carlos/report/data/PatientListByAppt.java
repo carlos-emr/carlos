@@ -102,15 +102,15 @@ public class PatientListByAppt extends HttpServlet {
         SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(
                 loggedInInfo, "_report,_admin.reporting", "r", null)) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN,
-                    "Report read privilege is required");
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_FORBIDDEN,
+                    "Report read privilege is required", "Forbidden");
             return;
         }
 
         String providerFilter = request.getParameter("provider_no");
         if (providerFilter == null || providerFilter.isBlank()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                    "provider_no is required");
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "provider_no is required", "MissingProvider");
             return;
         }
         // clear dr no value for all doc's
@@ -121,13 +121,13 @@ public class PatientListByAppt extends HttpServlet {
         Date from = parseRequiredDate(datefrom);
         Date to = parseRequiredDate(dateto);
         if (from == null || to == null) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                    "date_from and date_to must use YYYY-MM-DD");
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "date_from and date_to must use YYYY-MM-DD", "InvalidDate");
             return;
         }
         if (from.after(to)) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-                    "date_from must not be after date_to");
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "date_from must not be after date_to", "ReversedDateRange");
             return;
         }
 
@@ -184,9 +184,27 @@ public class PatientListByAppt extends HttpServlet {
                 .replace("\r", "")
                 .replace("\n", "");
         pw.print(escapeCsv(appointmentType) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
-        pw.print(escapeCsv(row.providerFirstName() + " " + row.providerLastName()) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
+        pw.print(escapeCsv(formatProviderName(row.providerFirstName(), row.providerLastName())) + ","); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
         pw.print(escapeCsv(row.location())); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download, escapeCsv applied
         pw.print("\n"); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV download literal newline
+    }
+
+    private static String formatProviderName(String firstName, String lastName) {
+        if (firstName == null || firstName.isEmpty()) {
+            return Objects.toString(lastName, "");
+        }
+        if (lastName == null || lastName.isEmpty()) {
+            return firstName;
+        }
+        return firstName + " " + lastName;
+    }
+
+    private void rejectExport(HttpServletResponse response, LoggedInInfo loggedInInfo,
+                              int status, String message, String reason) throws IOException {
+        response.sendError(status, message);
+        // Rejected parameters are deliberately omitted: malformed attacker-controlled
+        // values must not become PHI or log-injection content in the audit record.
+        auditExport(loggedInInfo, null, null, null, 0, "rejected", reason);
     }
 
     private void auditExport(LoggedInInfo loggedInInfo, String providerFilter,
