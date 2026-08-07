@@ -21,10 +21,12 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +40,25 @@ import org.junit.jupiter.params.provider.MethodSource;
 @Tag("report")
 @Tag("security")
 class QueryByExampleSqlValidatorUnitTest {
+    private static final Set<String> EXPECTED_SECURITY_SENSITIVE_TABLES = Set.of(
+            "appdefinition",
+            "appuser",
+            "emailconfig",
+            "emaillog",
+            "fax_config",
+            "oscarcommlocations",
+            "oscarkeys",
+            "professionalspecialists",
+            "property",
+            "publickeys",
+            "security",
+            "securityarchive",
+            "securitytoken",
+            "serviceaccesstoken",
+            "serviceclient",
+            "serviceoauthnonce",
+            "servicerequesttoken");
+
     private final Properties properties = properties("oscar_mcmaster?useUnicode=true");
 
     @Test
@@ -118,6 +139,13 @@ class QueryByExampleSqlValidatorUnitTest {
     }
 
     @Test
+    @DisplayName("keeps the sensitive-table fixture synchronized with the validator policy")
+    void shouldMatchSensitiveTableFixture_whenValidatorPolicyChanges() {
+        assertThat(QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES)
+                .containsExactlyInAnyOrderElementsOf(EXPECTED_SECURITY_SENSITIVE_TABLES);
+    }
+
+    @Test
     @DisplayName("rejects sensitive tables through qualified, quoted, and nested references")
     void shouldRejectSecuritySensitiveTables_whenReferenceIsObscured() {
         assertThatThrownBy(() -> QueryByExampleSqlValidator.validate(
@@ -165,24 +193,7 @@ class QueryByExampleSqlValidatorUnitTest {
     }
 
     private static Stream<Arguments> securitySensitiveTables() {
-        return Stream.of(
-                "AppDefinition",
-                "AppUser",
-                "emailConfig",
-                "emailLog",
-                "fax_config",
-                "oscarCommLocations",
-                "oscarKeys",
-                "professionalSpecialists",
-                "property",
-                "publicKeys",
-                "security",
-                "SecurityArchive",
-                "SecurityToken",
-                "ServiceAccessToken",
-                "ServiceClient",
-                "ServiceOAuthNonce",
-                "ServiceRequestToken")
+        return EXPECTED_SECURITY_SENSITIVE_TABLES.stream()
                 .map(Arguments::of);
     }
 

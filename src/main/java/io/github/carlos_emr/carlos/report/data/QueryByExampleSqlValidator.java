@@ -66,7 +66,7 @@ public final class QueryByExampleSqlValidator {
      * Query-by-Example is a reporting surface, so even administrators must use the
      * purpose-built management flows rather than exporting these records as report data.
      */
-    private static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
+    static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
             "appdefinition",
             "appuser",
             "emailconfig",
