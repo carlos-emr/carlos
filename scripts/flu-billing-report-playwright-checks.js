@@ -43,8 +43,10 @@
  * BASE_URL and MYSQL_HOST are both restricted to local targets by default, but
  * MYSQL_HOST is held to a stricter definition. Browsing accepts any private
  * network address; seeding does not, because a shared clinic database usually
- * lives on one. Only loopback and the devcontainer/docker service names reach
- * the database without ALLOW_NON_LOCAL_MYSQL_HOST=true.
+ * lives on one. Only loopback and the devcontainer service names reach the
+ * database without ALLOW_NON_LOCAL_MYSQL_HOST=true. A browse target that is not
+ * plainly loopback must additionally use https, since this script logs in with
+ * real credentials.
  */
 
 const { execFileSync } = require('child_process');
@@ -88,17 +90,18 @@ function isLocalHost(rawHost) {
 }
 
 /*
- * Deliberately stricter than isLocalHost, and deliberately its own list rather
- * than a subset of LOCAL_HOSTS. Browsing a private-network host is read-only and
- * harmless; seeding is not, and this check writes patients and OHIP claims.
+ * Hosts that are unambiguously this machine or its private compose network.
  *
- * Excluded on purpose: private IPv4 ranges and host.docker.internal, which reach
- * the developer's host or a shared network where a real schema may live, and
- * 0.0.0.0, which is a bind address rather than a meaningful connect target.
- * Only loopback and the two devcontainer compose service names pass without an
- * explicit opt-in.
+ * Deliberately excludes the private IPv4 ranges and host.docker.internal that
+ * isLocalHost accepts, since those reach the developer's host or a shared
+ * network, and 0.0.0.0, which is a bind address rather than a connect target.
+ *
+ * Two things key off this rather than the looser check:
+ *   - the database target, because seeding writes patients and OHIP claims;
+ *   - whether TLS verification may be skipped, because this script logs in with
+ *     real credentials and any non-loopback target must prove its certificate.
  */
-const LOCAL_DATABASE_HOSTS = new Set([
+const EXACT_LOCAL_HOSTS = new Set([
   'localhost',
   '127.0.0.1',
   '::1',
@@ -106,8 +109,8 @@ const LOCAL_DATABASE_HOSTS = new Set([
   'carlos',
 ]);
 
-function isLocalDatabaseHost(rawHost) {
-  return LOCAL_DATABASE_HOSTS.has(normalizeHost(rawHost));
+function isExactLocalHost(rawHost) {
+  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
 }
 
 function validateBaseUrl(rawBaseUrl) {
@@ -123,18 +126,24 @@ function validateBaseUrl(rawBaseUrl) {
   if (!isLocalHost(parsed.hostname) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
+  // This script logs in with real credentials, so anything that is not plainly
+  // loopback has to prove its certificate. Matches the same rule in
+  // scripts/patient-search-dob-playwright-checks.js.
+  if (!isExactLocalHost(parsed.hostname) && parsed.protocol !== 'https:') {
+    throw new Error(`Non-loopback BASE_URL host ${parsed.hostname} must use https`);
+  }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
 }
 
 /*
  * This check writes synthetic patients and OHIP claims, so the database target is
- * gated harder than the browsing target — see isLocalDatabaseHost. Without this an
+ * gated harder than the browsing target — see isExactLocalHost. Without this an
  * exported MYSQL_HOST could seed fixtures straight into a shared or production
  * patient schema, which no amount of cleanup fully undoes.
  */
 function validateMysqlHost(rawHost) {
-  if (!isLocalDatabaseHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
+  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed synthetic patients into non-local MYSQL_HOST ${rawHost}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database`);
   }
   return rawHost;
@@ -193,6 +202,20 @@ function sql(query) {
 
 function escapeSql(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
+}
+
+/*
+ * Age the report should show for a fixture, derived from that fixture's own
+ * birth fields and evaluated by the database so it uses the same clock and the
+ * same birthday-adjustment rule as the report query. Deriving it from the
+ * fixture keeps the two from drifting; deriving it from the rendered report
+ * instead would make the age assertion tautological.
+ */
+function expectedAgeFor(fixture) {
+  const age = sql(`SELECT YEAR(CURRENT_DATE)-${fixture.birthYear}`
+    + `-(DATE_FORMAT(CURRENT_DATE,'%m%d')<'${fixture.birthMonth}${fixture.birthDay}')`);
+  assert(/^\d{1,3}$/.test(age), `Database returned an invalid expected age for ${fixture.lastName}`);
+  return age;
 }
 
 function numericId(value, label) {
@@ -282,12 +305,36 @@ function cleanupMysqlDefaultsFile() {
   }
 }
 
+/*
+ * Browser text is captured from a rendered patient report, so it can carry names,
+ * phone numbers, and demographic or provider numbers. Findings are printed on
+ * every failure, so only JavaScript engine errors are reproduced: their messages
+ * name code identifiers rather than data, and they are the diagnostic that
+ * actually matters here -- "ReferenceError: registerFormSubmit is not defined" is
+ * what a broken render looks like. Anything else, including arbitrary
+ * console.error output that may embed patient data, is reduced to its category.
+ * Digit runs are masked either way so identifiers cannot ride along.
+ *
+ * The residual is narrow but real: application code that throws a TypeError
+ * built from a patient name would still surface that name. Widening the filter
+ * to drop engine-error text as well would remove the one diagnostic this has
+ * actually needed, so the trade is deliberate rather than overlooked.
+ */
+const JS_ENGINE_ERROR = /^(ReferenceError|TypeError|SyntaxError|RangeError|EvalError|URIError):/;
+
+function redactFinding(text) {
+  const firstLine = String(text).split('\n')[0];
+  if (!JS_ENGINE_ERROR.test(firstLine)) {
+    return `[redacted ${firstLine.length} chars]`;
+  }
+  return firstLine.replace(/\d{3,}/g, '###').slice(0, 160);
+}
+
 function wirePage(page) {
   page.on('response', (response) => {
     const responseUrl = response.url();
     if (response.status() >= 400 && !/\/favicon\.ico$|\/imageRenderingServlet\?/.test(responseUrl)) {
-      // Path only: report URLs carry proNo, a real provider number, and these
-      // findings are printed on every failure.
+      // Path only: report URLs carry proNo, a real provider number.
       browserFindings.push({ type: 'http', status: response.status(), path: new URL(responseUrl).pathname });
     }
   });
@@ -295,14 +342,14 @@ function wirePage(page) {
     const text = message.text();
     const expected = /Content Security Policy.*report-only|Master token \[CSRF-TOKEN\]|Hidden token fields .* updated/.test(text);
     if (!expected && (message.type() === 'error' || /(ReferenceError|TypeError|SyntaxError)/.test(text))) {
-      browserFindings.push({ type: `console:${message.type()}`, text });
+      browserFindings.push({ type: `console:${message.type()}`, detail: redactFinding(text) });
     }
   });
   page.on('pageerror', (error) => {
-    browserFindings.push({ type: 'pageerror', text: error.message });
+    browserFindings.push({ type: 'pageerror', detail: redactFinding(error.message) });
   });
   page.on('dialog', async (dialog) => {
-    browserFindings.push({ type: 'dialog', text: dialog.message() });
+    browserFindings.push({ type: 'dialog', detail: redactFinding(dialog.message()) });
     await dialog.dismiss();
   });
 }
@@ -356,8 +403,10 @@ async function reportRows(page, reportYear, providerNo, expectedSelectedProvider
   // between "All Providers" on screen and the applied filter cannot recur.
   const expectedSelection = expectedSelectedProvider === undefined ? providerNo : expectedSelectedProvider;
   const selectedProvider = await page.locator('select[name="proNo"]').inputValue();
+  // Provider numbers are PHI-correlating, so report only whether the dropdown
+  // agreed with the requested filter, never the values themselves.
   assert(selectedProvider === expectedSelection,
-    `Flu Billing Report selected provider ${selectedProvider} instead of ${expectedSelection}`);
+    'Flu Billing Report provider dropdown did not match the filter that was applied');
   return page.locator('table tbody tr').evaluateAll((rows) => rows.map((row) =>
     [...row.querySelectorAll('td')].map((cell) => cell.textContent.trim())
   ));
@@ -398,12 +447,6 @@ async function run() {
     // minus two, so the previous year remains a normal UI-supported choice.
     const reportYear = sql('SELECT YEAR(CURRENT_DATE)-1');
     assert(/^\d{4}$/.test(reportYear), `Database returned invalid current year ${reportYear}`);
-    const expectedAge = sql("SELECT YEAR(CURRENT_DATE)-1940-(DATE_FORMAT(CURRENT_DATE,'%m%d')<'0615')");
-    assert(/^\d{1,3}$/.test(expectedAge), `Database returned invalid fixture age ${expectedAge}`);
-    const expectedSecondaryAge = sql("SELECT YEAR(CURRENT_DATE)-1941-(DATE_FORMAT(CURRENT_DATE,'%m%d')<'0102')");
-    assert(/^\d{1,3}$/.test(expectedSecondaryAge), `Database returned invalid secondary fixture age ${expectedSecondaryAge}`);
-    const expectedUnvaccinatedAge = sql("SELECT YEAR(CURRENT_DATE)-1942-(DATE_FORMAT(CURRENT_DATE,'%m%d')<'0309')");
-    assert(/^\d{1,3}$/.test(expectedUnvaccinatedAge), `Database returned invalid unvaccinated fixture age ${expectedUnvaccinatedAge}`);
     const providerNo = providerNoForTestUser();
     const suffix = Date.now().toString(36).slice(-8);
     const primary = {
@@ -442,9 +485,11 @@ async function run() {
       patientStatus: 'AC',
       providerNo,
     };
-    primary.patientName = `${primary.lastName},${primary.firstName}`;
-    secondary.patientName = `${secondary.lastName},${secondary.firstName}`;
-    unvaccinated.patientName = `${unvaccinated.lastName},${unvaccinated.firstName}`;
+    for (const fixture of [primary, secondary, unvaccinated]) {
+      fixture.patientName = `${fixture.lastName},${fixture.firstName}`;
+      fixture.expectedAge = expectedAgeFor(fixture);
+      fixture.expectedDateOfBirth = `${fixture.birthYear}-${fixture.birthMonth}-${fixture.birthDay}`;
+    }
 
     const primaryId = seedDemographic(primary);
     const secondaryId = seedDemographic(secondary);
@@ -462,7 +507,7 @@ async function run() {
     }
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: isExactLocalHost(baseUrl.hostname),
       viewport: { width: 1440, height: 1000 },
     });
     const page = await context.newPage();
@@ -472,8 +517,8 @@ async function run() {
     const allProviderRows = await reportRows(page, reportYear, '-1');
     assertPatientRow(fixtureRow(allProviderRows, primary.patientName), {
       name: primary.patientName,
-      dateOfBirth: '1940-06-15',
-      age: expectedAge,
+      dateOfBirth: primary.expectedDateOfBirth,
+      age: primary.expectedAge,
       rosterStatus: primary.rosterStatus,
       patientStatus: primary.patientStatus,
       phone: primary.phone,
@@ -481,8 +526,8 @@ async function run() {
     });
     assertPatientRow(fixtureRow(allProviderRows, secondary.patientName), {
       name: secondary.patientName,
-      dateOfBirth: '1941-01-02',
-      age: expectedSecondaryAge,
+      dateOfBirth: secondary.expectedDateOfBirth,
+      age: secondary.expectedAge,
       rosterStatus: secondary.rosterStatus,
       patientStatus: secondary.patientStatus,
       phone: secondary.phone,
@@ -490,8 +535,8 @@ async function run() {
     });
     assertPatientRow(fixtureRow(allProviderRows, unvaccinated.patientName), {
       name: unvaccinated.patientName,
-      dateOfBirth: '1942-03-09',
-      age: expectedUnvaccinatedAge,
+      dateOfBirth: unvaccinated.expectedDateOfBirth,
+      age: unvaccinated.expectedAge,
       rosterStatus: unvaccinated.rosterStatus,
       patientStatus: unvaccinated.patientStatus,
       phone: unvaccinated.phone,
@@ -501,8 +546,8 @@ async function run() {
     const individualProviderRows = await reportRows(page, reportYear, providerNo);
     assertPatientRow(fixtureRow(individualProviderRows, primary.patientName), {
       name: primary.patientName,
-      dateOfBirth: '1940-06-15',
-      age: expectedAge,
+      dateOfBirth: primary.expectedDateOfBirth,
+      age: primary.expectedAge,
       rosterStatus: primary.rosterStatus,
       patientStatus: primary.patientStatus,
       phone: primary.phone,
@@ -512,8 +557,8 @@ async function run() {
     // and must keep its billing-date cell blank rather than dropping the row.
     assertPatientRow(fixtureRow(individualProviderRows, unvaccinated.patientName), {
       name: unvaccinated.patientName,
-      dateOfBirth: '1942-03-09',
-      age: expectedUnvaccinatedAge,
+      dateOfBirth: unvaccinated.expectedDateOfBirth,
+      age: unvaccinated.expectedAge,
       rosterStatus: unvaccinated.rosterStatus,
       patientStatus: unvaccinated.patientStatus,
       phone: unvaccinated.phone,
