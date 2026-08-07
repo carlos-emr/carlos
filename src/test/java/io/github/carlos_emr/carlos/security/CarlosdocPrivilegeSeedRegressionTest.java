@@ -128,6 +128,8 @@ class CarlosdocPrivilegeSeedRegressionTest {
         assertThat(repairedPrivileges)
                 .isEqualTo(baselinePrivileges)
                 .doesNotContainKey("_admin.traceability");
+        assertThat(adminPrivilegeTupleCount(privilegeRepairSql))
+                .isEqualTo(adminPrivileges(privilegeRepairSql).size());
         assertThat(privilegeRepairSql).contains(
                 "('admin', '_admin.schedule', 'x', 0, '999998')",
                 "('999998', '_admin.schedule.groupCreate', 'o', 1, '999998')",
@@ -148,8 +150,8 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 .satisfies(script -> assertThat(script.indexOf("/scripts/development_privileges.sql"))
                         .isGreaterThan(script.indexOf("/scripts/development.sql")));
         assertThat(devcontainerSeed).contains(
-                "mariadb -h db -u root oscar \\",
-                "/workspace/.devcontainer/db/scripts/development_privileges.sql");
+                "mariadb -h db -u root oscar \\\n"
+                        + "    < /workspace/.devcontainer/db/scripts/development_privileges.sql");
     }
 
     @Test
@@ -187,10 +189,16 @@ class CarlosdocPrivilegeSeedRegressionTest {
         Map<String, String> privileges = new LinkedHashMap<>();
         Matcher matcher = ADMIN_PRIVILEGE.matcher(sql);
         while (matcher.find()) {
+            // The table key is (roleUserGroup, objectName), so later repair upserts
+            // replace the effective tuple for the same admin object.
             privileges.put(matcher.group(1),
                     matcher.group(2) + '|' + matcher.group(3) + '|' + matcher.group(4));
         }
         return privileges;
+    }
+
+    private static long adminPrivilegeTupleCount(String sql) {
+        return ADMIN_PRIVILEGE.matcher(sql).results().count();
     }
 
     private static Map<String, String> effectiveAdminPrivileges(String seed, String repair) {
