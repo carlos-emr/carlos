@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("AppointmentStatus2Action")
 @Tag("unit")
 @Tag("appointment")
-class AppointmentStatus2ActionTest extends CarlosWebTestBase {
+class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
 
     private AppointmentStatusMgr appointmentStatusMgr;
     private TestAppointmentStatus2Action action;

@@ -55,7 +55,7 @@
         var exactTypedColor = colorInput.val();
         var typedSincePickerUse = false;
 
-        colorInput.on('input change', function () {
+        colorInput.on('input', function () {
             exactTypedColor = this.value;
             typedSincePickerUse = true;
         });
@@ -70,8 +70,10 @@
         exactTypedColor = initialColor;
         colorInput.val(exactTypedColor);
         typedSincePickerUse = false;
-        colorInput.closest('.colorpicker').on('mousedown touchstart', 'canvas, .slider, .picker', function () {
-            typedSincePickerUse = false;
+        colorInput.closest('.colorpicker').on('mousedown touchstart', function (event) {
+            if (event.target !== colorInput[0]) {
+                typedSincePickerUse = false;
+            }
         });
         colorInput.closest('form').on('submit', function () {
             if (typedSincePickerUse) {
