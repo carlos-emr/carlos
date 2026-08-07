@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -66,7 +68,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public String execute() {
+    public String execute() throws IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
@@ -85,6 +87,21 @@ public class AddDemographicRelationship2Action extends ActionSupport {
 
         if (request.getParameter("pmmClient") != null && request.getParameter("pmmClient").equals("Finished")) {
             return "pmmClient";
+        }
+
+        // Creating a relationship is a mutation and must arrive via POST. The "Add Relation"
+        // popup (edit-view.jsp) opens this action with a plain GET carrying only `demo` to
+        // render the contact-search form (AddAlternateContact.jsp) — linkingDemo/relation are
+        // only present once the form is actually submitted. Gating on their presence (rather
+        // than method alone) also lets the intermediate "select a contact from search results"
+        // POST step render without persisting a relationship row before the user has chosen one.
+        boolean isMutation = linkingDemo != null && relation != null;
+        if (isMutation && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        if (!isMutation) {
+            return SUCCESS;
         }
 
         String providerNo = (String) request.getSession().getAttribute("user");
