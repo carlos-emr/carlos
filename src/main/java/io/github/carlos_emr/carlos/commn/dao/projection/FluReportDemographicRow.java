@@ -18,9 +18,13 @@
 package io.github.carlos_emr.carlos.commn.dao.projection;
 
 /**
- * One row from {@code DemographicDao.findDemographicsForFluReport} — the
- * seven patient columns the Flu Billing Report renders for each 65-and-over
- * patient eligible for a G590A/G591A influenza claim.
+ * One row from {@code DemographicDao.findDemographicsForFluReport}, for a
+ * 65-and-over patient eligible for a G590A/G591A influenza claim.
+ *
+ * <p>Six of the seven components are rendered by the Flu Billing Report:
+ * name, date of birth, age, roster status, patient status, and phone. The
+ * seventh, {@code demographicNo}, is never displayed — the report uses it only
+ * to resolve each row's Billing Date, which is not part of this projection.</p>
  *
  * <p>The typed projection keeps the native-query column contract inside the
  * DAO and prevents report consumers from depending on positional

@@ -2486,7 +2486,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
             + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
         String selectedProvider = StringUtils.trimToEmpty(providerNo);
-        boolean allProviders = isAllProvidersSelection(providerNo);
+        boolean allProviders = isAllProvidersSelection(selectedProvider);
         if (!allProviders) {
             sql = sql + " and provider_no = :providerNo ";
         }

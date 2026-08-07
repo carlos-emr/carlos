@@ -42,15 +42,20 @@
     Features:
         - Seven patient columns: name, date of birth, age, enrolment (roster)
           status, patient status, phone, and billing date.
-        - Year selector spanning the selected year plus or minus two.
+        - Year selector spanning the selected year plus or minus two, clamped
+          to the range the validation accepts, so it never offers a year that
+          would fall back to the current one.
         - Provider filter defaulting to All Providers.
         - Renders as a fragment loaded into #dynamic-content by the
           administration left navigation, and standalone in the popup opened
           from admin/admin.jsp.
 
     Request parameters:
-        numMonth - four-digit report year; defaults to the current year.
-        proNo    - provider number to filter on; "-1" means all providers.
+        numMonth - four-digit report year, from 1900 to two years ahead of the
+                   current year. Anything else falls back to the current year.
+        proNo    - provider number to filter on. "-1", blank, or a provider not
+                   in the active list all mean all providers, so the dropdown
+                   label always matches the filter that ran.
 
     Security:
         RptFluBilling2Action is the authority and requires read rights on
@@ -106,14 +111,11 @@
     }
     String years = String.valueOf(curYear);
 
-    // An absent proNo means "All Providers", which the DAO spells "-1". Leaving
-    // it blank made the query filter on provider_no = '', which matches no one,
-    // so the report rendered empty while the dropdown still read All Providers.
+    // Trimmed here so a padded value can still match a real provider below; the
+    // selectability guard after the provider list is loaded is what turns every
+    // other unusable value -- absent, blank, unknown, deactivated -- into "-1".
     String pros = request.getParameter("proNo");
     pros = (pros == null) ? "-1" : pros.trim();
-    if (pros.isEmpty()) {
-        pros = "-1";
-    }
 
     RptFluReportData fluData = new RptFluReportData();
     List<Provider> providers = fluData.providerList();

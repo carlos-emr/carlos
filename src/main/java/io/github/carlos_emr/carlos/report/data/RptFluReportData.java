@@ -65,10 +65,11 @@ public class RptFluReportData {
      * Loads the flu-recall patient list into {@link #demoList} and records the
      * report year in {@link #years} for the JSP to read back.
      *
-     * <p>Each {@link DemoFluDataStruct} carries the seven rendered patient
-     * columns — number, name, phone, roster status, patient status, date of
-     * birth, and age — all non-null. The Billing Date column is not loaded
-     * here; the JSP resolves it per row through
+     * <p>Each {@link DemoFluDataStruct} carries the six rendered patient
+     * columns — name, phone, roster status, patient status, date of birth, and
+     * age — plus the demographic number, which is not displayed and exists only
+     * to resolve the Billing Date. All are non-null. The Billing Date itself is
+     * not loaded here; the JSP resolves it per row through
      * {@link DemoFluDataStruct#getBillingDate(String)}.</p>
      *
      * <p>The typed-projection mapping dates from 2026-08-06; the method itself

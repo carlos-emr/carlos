@@ -41,9 +41,11 @@ import static org.mockito.Mockito.when;
  * reading them here would make the test move with any rename and pass against
  * a consistently wrong alias.</p>
  *
- * <p>These stubs reproduce real {@code Tuple} semantics — a value is null only
- * when the column itself is SQL NULL, and an unknown alias raises
- * {@code IllegalArgumentException}. Whether MariaDB actually reports these
+ * <p>{@code tupleReturning} stubs exactly the seven aliases the mapper reads, so
+ * a null there means a SQL NULL column, as in production. It does not reproduce
+ * the rest of the {@code Tuple} contract: an alias it does not stub returns
+ * Mockito's default null rather than throwing, which is why the unknown-alias
+ * behaviour is pinned separately below. Whether MariaDB actually reports these
  * seven labels is a database contract that only
  * {@code scripts/flu-billing-report-playwright-checks.js} exercises.</p>
  */

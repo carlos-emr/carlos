@@ -20,12 +20,18 @@
 /*
  * Browser regression coverage for the Flu Billing Report demographic mapping.
  *
- * The check creates three synthetic patients and three valid flu claims, verifies
- * every displayed demographic field, the latest selected-year billing date, and
- * the blank billing-date cell of a patient with no claim that year, and exercises
- * both All Providers and individual-provider filters. Seeded rows are removed even
- * when an assertion fails; a delete that does not succeed fails the run rather
- * than leaving synthetic patients behind silently.
+ * The check creates three synthetic patients and three valid flu claims, then
+ * verifies every displayed demographic field, the latest selected-year billing
+ * date, and the blank billing-date cell of a patient with no claim that year.
+ *
+ * It also covers the input handling that repeatedly produced an empty worklist
+ * under an "All Providers" label: the parameterless URL both entry points
+ * actually link to, a whitespace-padded provider, a provider that is unknown or
+ * deactivated, malformed report years, and the year selector at both ends of its
+ * accepted range.
+ *
+ * Seeded rows are removed even when an assertion fails; a delete that does not
+ * succeed fails the run rather than leaving synthetic patients behind silently.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:flu-billing-report-playwright
@@ -55,13 +61,15 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 
-// 'carlos' and 'db' are the devcontainer compose service names for the app and
-// the MariaDB container; both resolve only inside that private network.
+// Hosts reachable enough to browse against. 'carlos' and 'db' are the
+// devcontainer compose service names for the app and the MariaDB container, and
+// host.docker.internal reaches the developer's own machine; all resolve only
+// from inside that environment. 0.0.0.0 is deliberately absent: it is a bind
+// address rather than a connect target.
 const LOCAL_HOSTS = new Set([
   'localhost',
   '127.0.0.1',
   '::1',
-  '0.0.0.0',
   'host.docker.internal',
   'carlos',
   'db',
@@ -94,7 +102,7 @@ function isLocalHost(rawHost) {
  *
  * Deliberately excludes the private IPv4 ranges and host.docker.internal that
  * isLocalHost accepts, since those reach the developer's host or a shared
- * network, and 0.0.0.0, which is a bind address rather than a connect target.
+ * network.
  *
  * Two things key off this rather than the looser check:
  *   - the database target, because seeding writes patients and OHIP claims;
@@ -306,28 +314,27 @@ function cleanupMysqlDefaultsFile() {
 }
 
 /*
- * Browser text is captured from a rendered patient report, so it can carry names,
- * phone numbers, and demographic or provider numbers. Findings are printed on
- * every failure, so only JavaScript engine errors are reproduced: their messages
- * name code identifiers rather than data, and they are the diagnostic that
- * actually matters here -- "ReferenceError: registerFormSubmit is not defined" is
- * what a broken render looks like. Anything else, including arbitrary
- * console.error output that may embed patient data, is reduced to its category.
- * Digit runs are masked either way so identifiers cannot ride along.
+ * Browser text is captured from a rendered patient report, so any of it can carry
+ * names, phone numbers, or demographic and provider numbers, and findings are
+ * printed on every failure. No message body is reproduced: a finding records the
+ * error's class where the engine supplies one, and otherwise only that something
+ * was logged and how long it was.
  *
- * The residual is narrow but real: application code that throws a TypeError
- * built from a patient name would still surface that name. Widening the filter
- * to drop engine-error text as well would remove the one diagnostic this has
- * actually needed, so the trade is deliberate rather than overlooked.
+ * An earlier version kept engine-error text verbatim on the grounds that
+ * "ReferenceError: registerFormSubmit is not defined" was the diagnostic this
+ * check had needed. That reasoning no longer holds -- the typeof guard added to
+ * the JSP means the identifier is never dereferenced, so that error cannot fire
+ * -- and with the motivating case gone there is no reason to keep the residual
+ * risk that an application-thrown TypeError built from a patient name would
+ * surface that name. The error class plus the failing assertion is enough to
+ * reproduce by hand.
  */
-const JS_ENGINE_ERROR = /^(ReferenceError|TypeError|SyntaxError|RangeError|EvalError|URIError):/;
+const JS_ENGINE_ERROR = /^([A-Z][A-Za-z]*Error):/;
 
 function redactFinding(text) {
   const firstLine = String(text).split('\n')[0];
-  if (!JS_ENGINE_ERROR.test(firstLine)) {
-    return `[redacted ${firstLine.length} chars]`;
-  }
-  return firstLine.replace(/\d{3,}/g, '###').slice(0, 160);
+  const engineError = JS_ENGINE_ERROR.exec(firstLine);
+  return engineError ? engineError[1] : `[redacted ${firstLine.length} chars]`;
 }
 
 function wirePage(page) {
