@@ -468,12 +468,12 @@ async function checkUnauthenticatedRejection(browser) {
       throw new Error(`patient list export check found ${blockingFindings.length} issue(s)`);
     }
 
-    console.log('PASS patient list by appointment time exports patientlist.txt with correct provider filtering');
+    console.log('PASS CARLOS EMR patient list by appointment time exports patientlist.txt with correct provider filtering');
   } finally {
     await browser.close();
   }
 })().catch((error) => {
-  console.error('FAIL patient list by appointment time export Playwright check');
+  console.error('FAIL CARLOS EMR patient list by appointment time export Playwright check');
   console.error(error.stack || error.message);
   process.exit(1);
 });

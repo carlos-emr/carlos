@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -45,6 +46,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
 
 import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -108,6 +112,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     private PatientListByAppt servlet;
     private OscarLog persistedAuditLog;
     private RuntimeException daoResolutionFailure;
+    private RuntimeException securityResolutionFailure;
 
     @BeforeEach
     void setUpServlet() {
@@ -117,6 +122,14 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
                 loggedInInfo, "_report,_admin.reporting", "r", null))
                 .thenReturn(true);
         servlet = new PatientListByAppt() {
+            @Override
+            protected SecurityInfoManager getSecurityInfoManager() {
+                if (securityResolutionFailure != null) {
+                    throw securityResolutionFailure;
+                }
+                return securityInfoManager;
+            }
+
             @Override
             protected OscarAppointmentDao getAppointmentDao() {
                 if (daoResolutionFailure != null) {
@@ -390,6 +403,75 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=0; "
                         + "outcome=error; error=IllegalStateException")
                 .doesNotContain("bean detail");
+    }
+
+    @Test
+    @DisplayName("authorization infrastructure failures should produce a PHI-free failure audit")
+    void shouldAuditFailureMetadata_whenAuthorizationInfrastructureFails() throws Exception {
+        securityResolutionFailure = new IllegalStateException(
+                "authorization detail must not be audited");
+
+        MockHttpServletResponse response = export("999998", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        verifyNoInteractions(appointmentDao);
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=null; dateTo=null; rows=0; "
+                        + "outcome=error; error=IllegalStateException")
+                .doesNotContain("authorization detail", "999998", "2026-08-07");
+    }
+
+    @Test
+    @DisplayName("response write failures should abort streaming before consuming another row")
+    void shouldAbortStreamingAndAuditPartialCount_whenResponseWriteFails() throws Exception {
+        Date appointmentDate = ConversionUtils.fromDateString("2026-08-07");
+        Date startTime = ConversionUtils.fromTimestampString("2026-08-07 09:00:00");
+        PatientAppointmentExportRow firstRow = row(
+                demographic("PrivateFirst", "PrivateLast", "555-0100", null),
+                appointment(appointmentDate, startTime, null, "PrivateLocation"),
+                provider("Doris", "Doctor"));
+        AtomicInteger consumedRows = new AtomicInteger();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Consumer<PatientAppointmentExportRow> rowConsumer = invocation.getArgument(3);
+            consumedRows.incrementAndGet();
+            rowConsumer.accept(firstRow);
+            consumedRows.incrementAndGet();
+            rowConsumer.accept(firstRow);
+            return null;
+        }).when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
+
+        MockHttpServletRequest request = exportRequest("all", "2026-08-07", "2026-08-10");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        MockHttpServletResponse response = new MockHttpServletResponse() {
+            @Override
+            public ServletOutputStream getOutputStream() {
+                return new ServletOutputStream() {
+                    @Override
+                    public void write(int value) throws IOException {
+                        throw new IOException("disconnected client detail must not be audited");
+                    }
+
+                    @Override
+                    public boolean isReady() {
+                        return true;
+                    }
+
+                    @Override
+                    public void setWriteListener(WriteListener writeListener) {
+                        // Synchronous test stream; listener callbacks are not used.
+                    }
+                };
+            }
+        };
+
+        servlet.processRequest(request, response);
+
+        assertThat(consumedRows).hasValue(1);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=0; "
+                        + "outcome=error; error=UncheckedIOException")
+                .doesNotContain("disconnected client", "PrivateFirst", "PrivateLast");
     }
 
     @Test

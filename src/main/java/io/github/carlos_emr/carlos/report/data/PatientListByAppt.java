@@ -33,6 +33,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -103,9 +104,7 @@ public class PatientListByAppt extends HttpServlet {
             return;
         }
 
-        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-        if (!securityInfoManager.hasPrivilege(
-                loggedInInfo, "_report,_admin.reporting", "r", null)) {
+        if (!hasReportPrivilege(loggedInInfo)) {
             rejectExport(response, loggedInInfo, HttpServletResponse.SC_FORBIDDEN,
                     "Report read privilege is required", "Forbidden");
             return;
@@ -154,11 +153,12 @@ public class PatientListByAppt extends HttpServlet {
                     response.getOutputStream(), StandardCharsets.UTF_8), true);
             dao.streamPatientAppointments(providerNo, from, to, row -> {
                 writeCsvRow(pw, row);
+                if (pw.checkError()) {
+                    throw new UncheckedIOException(new IOException(
+                            "Unable to write patient appointment export response"));
+                }
                 rowCount[0]++;
             });
-            if (pw.checkError()) {
-                throw new IOException("Unable to complete patient appointment export response");
-            }
             outcome = "success";
         } catch (IOException | RuntimeException e) {
             errorType = e.getClass().getSimpleName();
@@ -172,6 +172,22 @@ public class PatientListByAppt extends HttpServlet {
     /** Test seam for exercising infrastructure failures during DAO resolution. */
     protected OscarAppointmentDao getAppointmentDao() {
         return SpringUtils.getBean(OscarAppointmentDao.class);
+    }
+
+    /** Test seam for exercising authorization infrastructure failures. */
+    protected SecurityInfoManager getSecurityInfoManager() {
+        return SpringUtils.getBean(SecurityInfoManager.class);
+    }
+
+    private boolean hasReportPrivilege(LoggedInInfo loggedInInfo) {
+        try {
+            return getSecurityInfoManager().hasPrivilege(
+                    loggedInInfo, "_report,_admin.reporting", "r", null);
+        } catch (RuntimeException e) {
+            auditExport(loggedInInfo, null, null, null,
+                    0, "error", e.getClass().getSimpleName());
+            throw e;
+        }
     }
 
     // FindSecBugs XSS_SERVLET: this is an attachment-only CSV context and every
