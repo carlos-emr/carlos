@@ -633,22 +633,23 @@ public final class LegacyJdbcQuery {
                 quote = sqlQuoteDelimiter(current);
                 stripped.append(quote == '\0' ? current : ' ');
                 i++;
+            } else if (isSqlEscapedPair(quote, current, next)) {
+                stripped.append("  ");
+                i += 2;
             } else {
-                boolean escapedPair = (quote != '`' && current == '\\' && next != '\0')
-                        || (current == quote && next == quote);
-                if (escapedPair) {
-                    stripped.append("  ");
-                    i += 2;
-                } else {
-                    if (current == quote) {
-                        quote = '\0';
-                    }
-                    stripped.append(' ');
-                    i++;
+                if (current == quote) {
+                    quote = '\0';
                 }
+                stripped.append(' ');
+                i++;
             }
         }
         return stripped.toString();
+    }
+
+    private static boolean isSqlEscapedPair(char quote, char current, char next) {
+        return (quote != '`' && current == '\\' && next != '\0')
+                || (current == quote && next == quote);
     }
 
     private static char sqlQuoteDelimiter(char candidate) {
