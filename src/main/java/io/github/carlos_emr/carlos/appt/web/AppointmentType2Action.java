@@ -48,6 +48,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class AppointmentType2Action extends ActionSupport {
+    private static final String EDIT = "edit";
+    private static final String SAVE = "save";
+    private static final String DELETE = "del";
+    private static final int NAME_MAX_LENGTH = 50;
+    private static final int TEXT_MAX_LENGTH = 80;
+    private static final int LOCATION_MAX_LENGTH = 30;
+    private static final int RESOURCES_MAX_LENGTH = 10;
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -61,110 +69,190 @@ public class AppointmentType2Action extends ActionSupport {
         }
 
         String sOper = request.getParameter("oper");
-        int typeNo = -1;
-        if ((this.getId() != null ? this.getId().intValue() : -1) > 0) {
-            typeNo = this.getId().intValue();
-        } else if (request.getParameter("no") != null) {
-            try {
-                typeNo = Integer.parseInt(request.getParameter("no"));
-            } catch (NumberFormatException nex) {
-                addActionError(getText("appointment.type.number.error"));
-                return "failure";
-            }
+        if (isMutation(sOper) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        int typeNo = resolveTypeNumber();
+        if ((EDIT.equals(sOper) || DELETE.equals(sOper)) && typeNo <= 0 && !hasActionErrors()) {
+            addActionError(getText("appointment.type.number.error"));
+        }
+        if (hasActionErrors()) {
+            return failure();
         }
 
         if (sOper != null) {
-            if (sOper.equals("save")) {
-                if (this.getName() == null || this.getName().length() == 0 || this.getName().length() > 50) {
-                    addActionError(getText("appointment.type.name.error"));
-                    return "failure";
-                }
-            }
+            AppointmentTypeDao appDao = getAppointmentTypeDao();
 
-            AppointmentTypeDao appDao = (AppointmentTypeDao) SpringUtils.getBean(AppointmentTypeDao.class);
-
-            if (sOper.equals("edit")) {
-                AppointmentType dbBean = appDao.find(Integer.valueOf(typeNo));
+            if (EDIT.equals(sOper)) {
+                AppointmentType dbBean = appDao.find(typeNo);
                 if (dbBean != null) {
-                    //this.setTypeNo(dbBean.getTypeNo());
                     this.setId(dbBean.getId());
                     this.setName(dbBean.getName());
-                    this.setDuration(dbBean.getDuration());
+                    this.setDuration(Integer.toString(dbBean.getDuration()));
                     this.setLocation(dbBean.getLocation());
                     this.setNotes(dbBean.getNotes());
                     this.setReason(dbBean.getReason());
                     this.setResources(dbBean.getResources());
                 } else {
                     addActionError(getText("appointment.type.notfound.error"));
-                    return "failure";
+                    return failure();
                 }
-            } else if (sOper.equals("save")) {
+            } else if (SAVE.equals(sOper)) {
+                Integer parsedDuration = validateSave();
+                if (hasActionErrors()) {
+                    return failure();
+                }
+
                 if (typeNo <= 0) {
-                    //new bean
                     AppointmentType bean = new AppointmentType();
-                    bean.setName(this.getName());
-                    bean.setDuration(this.getDuration());
-                    bean.setLocation(this.getLocation());
-                    bean.setNotes(this.getNotes());
-                    bean.setReason(this.getReason());
-                    bean.setResources(this.getResources());
+                    populateBean(bean, parsedDuration);
                     appDao.persist(bean);
                 } else {
-                    AppointmentType bean = appDao.find(Integer.valueOf(typeNo));
+                    AppointmentType bean = appDao.find(typeNo);
                     if (bean != null) {
-                        bean.setName(this.getName());
-                        bean.setDuration(this.getDuration());
-                        bean.setLocation(this.getLocation());
-                        bean.setNotes(this.getNotes());
-                        bean.setReason(this.getReason());
-                        bean.setResources(this.getResources());
+                        populateBean(bean, parsedDuration);
                         appDao.merge(bean);
                     } else {
                         addActionError(getText("appointment.type.notfound.error"));
-                        return "failure";
+                        return failure();
                     }
                 }
-            } else if (sOper.equals("del")) {
+                clearForm();
+                addActionMessage(getText("appointment.type.saved.message"));
+            } else if (DELETE.equals(sOper)) {
                 try {
                     appDao.remove(typeNo);
-                    return "redirect"; 
+                    return "redirect";
                 } catch (Exception e) {
-                    addActionError("Delete failed: " + e.getMessage());
-                    return "failure";
+                    addActionError(getText("appointment.type.delete.error"));
+                    return failure();
                 }
+            } else {
+                addActionError(getText("appointment.type.oper.error"));
+                return failure();
             }
-
         }
 
-        if (IsPropertiesOn.isMultisitesEnable()) {
+        populateLocations();
+
+        return SUCCESS;
+    }
+
+    private String failure() {
+        populateLocations();
+        return "failure";
+    }
+
+    private void populateLocations() {
+        if (isMultisitesEnabled()) {
             List<LabelValueBean> locations = new ArrayList<LabelValueBean>();
-            SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
+            SiteDao siteDao = getSiteDao();
             List<Site> sites = siteDao.getAllActiveSites();
             for (Site site : sites) {
                 locations.add(new LabelValueBean(site.getName(), Integer.toString(site.getSiteId())));
             }
             request.setAttribute("locationsList", locations);
         }
-
-        return SUCCESS;
     }
-    private int typeNo;
+
+    private boolean isMutation(String operation) {
+        return SAVE.equals(operation) || DELETE.equals(operation);
+    }
+
+    private int resolveTypeNumber() {
+        String rawNumber = request.getParameter("id");
+        if (rawNumber == null || rawNumber.isBlank()) {
+            rawNumber = request.getParameter("no");
+        }
+        if (rawNumber == null || rawNumber.isBlank()) {
+            return -1;
+        }
+
+        try {
+            int parsed = Integer.parseInt(rawNumber);
+            if (parsed <= 0) {
+                throw new NumberFormatException();
+            }
+            return parsed;
+        } catch (NumberFormatException e) {
+            addActionError(getText("appointment.type.number.error"));
+            return -1;
+        }
+    }
+
+    private Integer validateSave() {
+        if (name == null || name.trim().isEmpty() || name.trim().length() > NAME_MAX_LENGTH) {
+            addActionError(getText("appointment.type.name.error"));
+        }
+        validateLength(reason, TEXT_MAX_LENGTH, "appointment.type.reason.length.error");
+        validateLength(notes, TEXT_MAX_LENGTH, "appointment.type.notes.length.error");
+        validateLength(location, LOCATION_MAX_LENGTH, "appointment.type.location.length.error");
+        validateLength(resources, RESOURCES_MAX_LENGTH, "appointment.type.resources.length.error");
+
+        if (duration == null || duration.isEmpty() || !duration.matches("[0-9]+")) {
+            addActionError(getText("appointment.type.duration.error"));
+            return null;
+        }
+        try {
+            int parsed = Integer.parseInt(duration);
+            if (parsed <= 0) {
+                addActionError(getText("appointment.type.duration.error"));
+                return null;
+            }
+            return parsed;
+        } catch (NumberFormatException e) {
+            addActionError(getText("appointment.type.duration.error"));
+            return null;
+        }
+    }
+
+    private void validateLength(String value, int maximum, String messageKey) {
+        if (value != null && value.length() > maximum) {
+            addActionError(getText(messageKey));
+        }
+    }
+
+    private void populateBean(AppointmentType bean, int parsedDuration) {
+        bean.setName(name.trim());
+        bean.setDuration(parsedDuration);
+        bean.setLocation(location);
+        bean.setNotes(notes);
+        bean.setReason(reason);
+        bean.setResources(resources);
+    }
+
+    private void clearForm() {
+        id = null;
+        name = null;
+        notes = null;
+        reason = null;
+        location = null;
+        resources = null;
+        duration = null;
+    }
+
+    protected AppointmentTypeDao getAppointmentTypeDao() {
+        return SpringUtils.getBean(AppointmentTypeDao.class);
+    }
+
+    protected SiteDao getSiteDao() {
+        return SpringUtils.getBean(SiteDao.class);
+    }
+
+    protected boolean isMultisitesEnabled() {
+        return IsPropertiesOn.isMultisitesEnable();
+    }
+
     private Integer id;
     private String name;
     private String notes;
     private String reason;
     private String location;
     private String resources;
-    private int duration;
-
-    public int getTypeNo() {
-        return typeNo;
-    }
-
-    @StrutsParameter
-    public void setTypeNo(int typeNo) {
-        this.typeNo = typeNo;
-    }
+    private String duration;
 
     public Integer getId() {
         return id;
@@ -220,12 +308,12 @@ public class AppointmentType2Action extends ActionSupport {
         this.resources = resources;
     }
 
-    public int getDuration() {
+    public String getDuration() {
         return duration;
     }
 
     @StrutsParameter
-    public void setDuration(int duration) {
+    public void setDuration(String duration) {
         this.duration = duration;
     }
 
