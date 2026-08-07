@@ -38,6 +38,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -59,6 +60,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class PatientListByAppt extends HttpServlet {
+    private static final Pattern PROVIDER_FILTER_PATTERN =
+            Pattern.compile("[A-Za-z0-9_-]{1,6}");
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -96,6 +99,8 @@ public class PatientListByAppt extends HttpServlet {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
+            auditExport(null, request.getRemoteAddr(), null, null, null,
+                    0, "rejected", "Unauthenticated");
             return;
         }
 
@@ -111,6 +116,12 @@ public class PatientListByAppt extends HttpServlet {
         if (providerFilter == null || providerFilter.isBlank()) {
             rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
                     "provider_no is required", "MissingProvider");
+            return;
+        }
+        if (!providerFilter.equals("all")
+                && !PROVIDER_FILTER_PATTERN.matcher(providerFilter).matches()) {
+            rejectExport(response, loggedInInfo, HttpServletResponse.SC_BAD_REQUEST,
+                    "provider_no is invalid", "InvalidProvider");
             return;
         }
         // clear dr no value for all doc's
@@ -134,12 +145,12 @@ public class PatientListByAppt extends HttpServlet {
         response.setContentType("text/plain; charset=UTF-8");
         response.setHeader("Content-disposition", "attachment; filename=patientlist.txt");
 
-        OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
         int[] rowCount = {0};
         String outcome = "error";
         String errorType = null;
 
         try {
+            OscarAppointmentDao dao = getAppointmentDao();
             PrintWriter pw = new PrintWriter(new OutputStreamWriter(
                     response.getOutputStream(), StandardCharsets.UTF_8), true);
             dao.streamPatientAppointments(providerNo, from, to, row -> {
@@ -154,9 +165,14 @@ public class PatientListByAppt extends HttpServlet {
             errorType = e.getClass().getSimpleName();
             throw e;
         } finally {
-            auditExport(loggedInInfo, providerFilter, datefrom, dateto,
+            auditExport(loggedInInfo, loggedInInfo.getIp(), providerFilter, datefrom, dateto,
                     rowCount[0], outcome, errorType);
         }
+    }
+
+    /** Test seam for exercising infrastructure failures during DAO resolution. */
+    protected OscarAppointmentDao getAppointmentDao() {
+        return SpringUtils.getBean(OscarAppointmentDao.class);
     }
 
     // FindSecBugs XSS_SERVLET: this is an attachment-only CSV context and every
@@ -204,23 +220,25 @@ public class PatientListByAppt extends HttpServlet {
         response.sendError(status, message);
         // Rejected parameters are deliberately omitted: malformed attacker-controlled
         // values must not become PHI or log-injection content in the audit record.
-        auditExport(loggedInInfo, null, null, null, 0, "rejected", reason);
+        auditExport(loggedInInfo, loggedInInfo.getIp(), null, null, null,
+                0, "rejected", reason);
     }
 
-    private void auditExport(LoggedInInfo loggedInInfo, String providerFilter,
+    private void auditExport(LoggedInInfo loggedInInfo, String remoteAddress,
+                             String providerFilter,
                              String dateFrom, String dateTo, int rowCount,
                              String outcome, String errorType) {
         OscarLog auditLog = new OscarLog();
-        if (loggedInInfo.getLoggedInSecurity() != null) {
+        if (loggedInInfo != null && loggedInInfo.getLoggedInSecurity() != null) {
             auditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
         }
-        if (loggedInInfo.getLoggedInProvider() != null) {
+        if (loggedInInfo != null && loggedInInfo.getLoggedInProvider() != null) {
             auditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
         }
         auditLog.setAction(LogConst.EXPORT);
         auditLog.setContent("patient_list_by_appointment");
         auditLog.setContentId(providerFilter);
-        auditLog.setIp(loggedInInfo.getIp());
+        auditLog.setIp(remoteAddress);
         String data = "dateFrom=" + dateFrom + "; dateTo=" + dateTo
                 + "; rows=" + rowCount + "; outcome=" + outcome;
         if (errorType != null) {

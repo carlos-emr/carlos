@@ -43,13 +43,16 @@
  *   8. The report page has no JavaScript errors while wiring its client-side
  *      date validation.
  *
- * This script only reads; it seeds nothing and mutates nothing. It expects the
- * three LOCAL_SEED_OBEC_REPORT_* appointments (2026-08-07..2026-08-10) to be
- * present; missing seed data is reported as a test failure so the provider and
- * representative-content assertions cannot silently pass without coverage.
+ * This script only reads; it seeds nothing and mutates nothing. Its fixture set
+ * is not part of the repository's default database seed. Before running, provision
+ * the three LOCAL_SEED_OBEC_REPORT_* appointments represented in EXPECTED_ROWS
+ * (2026-08-07..2026-08-10), then explicitly select that fixture contract with
+ * PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1. Missing data remains a
+ * test failure so representative-content assertions cannot pass without coverage.
  *
- * Defaults are for the local devcontainer:
- *   node scripts/patient-list-by-appointment-export-playwright-checks.js
+ * Example for a local devcontainer after provisioning the required fixtures:
+ *   PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 \
+ *     node scripts/patient-list-by-appointment-export-playwright-checks.js
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -57,14 +60,17 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
+ *   PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 (required)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-loopback HTTPS test app
- *   TEST_USER, TEST_PASSWORD, and TEST_PIN are all required for non-loopback targets
+ *   TEST_USER and TEST_PASSWORD are required for non-loopback targets; TEST_PIN is
+ *   additionally required only when that target renders the legacy PIN field
  */
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const REQUIRED_FIXTURE_PROFILE = 'local-seed-obec-report-v1';
 
 function isLoopbackHost(rawHost) {
   // URL.hostname keeps the brackets on IPv6 literals (e.g. "[::1]"); strip
@@ -97,12 +103,15 @@ function validateBaseUrl(rawBaseUrl) {
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const loopbackTarget = isLoopbackHost(baseUrl.hostname);
-if (!loopbackTarget && ['TEST_USER', 'TEST_PASSWORD', 'TEST_PIN'].some((name) => !process.env[name])) {
-  throw new Error('TEST_USER, TEST_PASSWORD, and TEST_PIN are required for non-loopback targets');
+if (process.env.PATIENT_LIST_FIXTURE_PROFILE !== REQUIRED_FIXTURE_PROFILE) {
+  throw new Error(`PATIENT_LIST_FIXTURE_PROFILE must be ${REQUIRED_FIXTURE_PROFILE}; this harness does not seed its required appointments`);
+}
+if (!loopbackTarget && ['TEST_USER', 'TEST_PASSWORD'].some((name) => !process.env[name])) {
+  throw new Error('TEST_USER and TEST_PASSWORD are required for non-loopback targets');
 }
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
-const testPin = process.env.TEST_PIN || '2026';
+const testPin = process.env.TEST_PIN || (loopbackTarget ? '2026' : '');
 
 // The locally seeded LOCAL_SEED_OBEC_REPORT_* appointments, all with a NULL
 // appointment type on purpose. Names are FAKE-* synthetic dev data, not PHI.
@@ -200,7 +209,13 @@ async function login(context) {
   await safeGoto(page, '/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
-  await page.locator('#pin').fill(testPin);
+  const pinInput = page.locator('#pin');
+  if (await pinInput.count()) {
+    if (!testPin) {
+      throw new Error('TEST_PIN is required because the target login page includes a PIN field');
+    }
+    await pinInput.fill(testPin);
+  }
   await Promise.all([
     page.waitForURL(/providercontrol/, { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),

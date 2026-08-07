@@ -83,10 +83,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
     private static final Path STRUTS_XML =
-            Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
-    private static final Path WEB_XML = Path.of("src/main/webapp/WEB-INF/web.xml");
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/classes/struts.xml"));
+    private static final Path WEB_XML =
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/web.xml"));
     private static final Path PATIENT_LIST_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/oscarReport/patientlist.jsp");
+            resolveProjectPath(Path.of(
+                    "src/main/webapp/WEB-INF/jsp/oscarReport/patientlist.jsp"));
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
     private static final Pattern PATIENT_LIST_SERVLET = Pattern.compile(
@@ -105,6 +107,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
     private PatientListByAppt servlet;
     private OscarLog persistedAuditLog;
+    private RuntimeException daoResolutionFailure;
 
     @BeforeEach
     void setUpServlet() {
@@ -114,6 +117,14 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
                 loggedInInfo, "_report,_admin.reporting", "r", null))
                 .thenReturn(true);
         servlet = new PatientListByAppt() {
+            @Override
+            protected OscarAppointmentDao getAppointmentDao() {
+                if (daoResolutionFailure != null) {
+                    throw daoResolutionFailure;
+                }
+                return appointmentDao;
+            }
+
             @Override
             protected void persistExportAudit(OscarLog auditLog) {
                 persistedAuditLog = auditLog;
@@ -368,6 +379,20 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("DAO resolution failures should still produce a PHI-free failure audit")
+    void shouldAuditFailureMetadata_whenDaoResolutionFails() throws Exception {
+        daoResolutionFailure = new IllegalStateException("bean detail must not be audited");
+
+        MockHttpServletResponse response = export("999998", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=2026-08-07; dateTo=2026-08-10; rows=0; "
+                        + "outcome=error; error=IllegalStateException")
+                .doesNotContain("bean detail");
+    }
+
+    @Test
     @DisplayName("export should reject an unauthenticated direct servlet request")
     void shouldReturnUnauthorizedAndSkipQuery_whenSessionIsMissing() throws Exception {
         MockHttpServletRequest request = exportRequest("all", "2026-08-07", "2026-08-10");
@@ -377,6 +402,12 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(401);
         verifyNoInteractions(appointmentDao);
+        assertThat(persistedAuditLog.getAction()).isEqualTo(LogConst.EXPORT);
+        assertThat(persistedAuditLog.getContent()).isEqualTo("patient_list_by_appointment");
+        assertThat(persistedAuditLog.getData())
+                .isEqualTo("dateFrom=null; dateTo=null; rows=0; "
+                        + "outcome=rejected; error=Unauthenticated")
+                .doesNotContain("2026-08-07", "2026-08-10", "all");
     }
 
     @Test
@@ -429,6 +460,20 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
                         + "outcome=rejected; error=MissingProvider");
     }
 
+    @Test
+    @DisplayName("export should reject provider filters that are unsafe for query and audit use")
+    void shouldReturnBadRequestAndSafeAudit_whenProviderFilterIsInvalid() throws Exception {
+        MockHttpServletResponse response = export(
+                "9\r\nForged audit content", "2026-08-07", "2026-08-10");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(appointmentDao);
+        assertThat(persistedAuditLog.getContentId()).isNull();
+        assertThat(persistedAuditLog.getData())
+                .endsWith("outcome=rejected; error=InvalidProvider")
+                .doesNotContain("Forged", "2026-08-07", "2026-08-10");
+    }
+
     private MockHttpServletResponse export(String providerNo, String dateFrom, String dateTo)
             throws IOException {
         MockHttpServletRequest request = exportRequest(providerNo, dateFrom, dateTo);
@@ -461,6 +506,20 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
             results.forEach(rowConsumer);
             return null;
         }).when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath);
     }
 
     private static PatientAppointmentExportRow row(
