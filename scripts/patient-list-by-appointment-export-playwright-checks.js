@@ -203,19 +203,25 @@ async function exportViaForm(context, label, providerNo, dateFrom, dateTo) {
 
   await page.locator('select[name="provider_no"]').selectOption(providerNo);
 
-  // flatpickr opens its calendar overlay on focus and keeps it open, so a
-  // focus-driven fill() leaves an overlay that swallows the next click - both
-  // the second date input and the Export button end up unreachable. Setting
-  // the value directly and dispatching input/change gives jQuery Validate the
-  // same signal without ever opening the calendar.
-  await page.evaluate(({ from, to }) => {
-    for (const [id, value] of [['date_from', from], ['date_to', to]]) {
-      const input = document.getElementById(id);
-      input.value = value;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+  // flatpickr opens its calendar overlay on focus. Use Playwright's typed DOM
+  // APIs, then close the overlay before moving on. This preserves the browser
+  // input/change events without passing values into page.evaluate(), which
+  // security scanners correctly treat as a risky trust-boundary primitive.
+  for (const [name, value] of [['date_from', dateFrom], ['date_to', dateTo]]) {
+    const input = page.locator(`input[name="${name}"]`);
+    await input.fill(value, { force: true });
+    await input.dispatchEvent('change');
+    await input.blur();
+    await input.evaluate((element) => element._flatpickr?.close());
+    const actualValue = await input.inputValue();
+    const valid = await input.evaluate((element) => element.checkValidity());
+    if (actualValue !== value || !valid) {
+      throw new Error(`${name} rejected ${value}; actual=${actualValue}; valid=${valid}`);
     }
-  }, { from: dateFrom, to: dateTo });
+  }
+  if (await page.locator('.flatpickr-calendar.open').count()) {
+    throw new Error('flatpickr calendar remained open after setting export dates');
+  }
 
   const exportResponsePromise = page.waitForResponse(
     (response) => /\/patientlistbyappt(\?|$)/.test(response.url()),
