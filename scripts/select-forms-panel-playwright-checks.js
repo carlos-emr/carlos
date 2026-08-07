@@ -26,6 +26,11 @@
 
 const { chromium } = require('playwright');
 
+// Declared before the validateBaseUrl() call below: `const` bindings are in the
+// temporal dead zone until initialized, so a set declared further down the file
+// would throw when the validator runs at module load.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
@@ -39,16 +44,42 @@ const consoleIssues = [];
 // means the AJAX handler injected an error fragment or an empty body rather than the panel.
 const MIN_PANEL_BYTES = 500;
 
+// Matches a full dotted-quad IPv4 address only (anchored start-to-end), so a
+// hostname like "10.attacker.example" cannot be mistaken for the private
+// 10.0.0.0/8 range just because it starts with the same characters as one.
+function isPrivateIpv4(host) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) {
+    return false;
+  }
+  const octets = match.slice(1).map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return false;
+  }
+  const [a, b] = octets;
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+function isLocalHost(rawHost) {
+  // URL.hostname keeps the brackets on IPv6 literals (e.g. "[::1]"); strip
+  // them so bracketed loopback addresses match the same as their bare form.
+  const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
+}
+
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
+  // Credentials in BASE_URL would ride along on every navigation and could surface
+  // in the badResponses diagnostics this script prints on failure.
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not contain embedded credentials');
+  }
 
   const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
@@ -205,6 +236,35 @@ function assertPanelRendered(panel, label) {
   );
 }
 
+/**
+ * Best-effort rollback for a run that died between the Add and the Delete.
+ *
+ * Deleting the subject undoes the whole sequence: Add appends it last, and Delete
+ * zeroes its display order while decrementing everything above it, so any form the
+ * Move Up/Move Down steps displaced lands back on its original order. Failures here
+ * are swallowed — the real assertion error must be what surfaces.
+ */
+async function restoreSubject(page, subject) {
+  try {
+    const panel = await readPanel(page);
+    if (!panel.hasSelectForm || !panel.selected.includes(subject)) {
+      return;
+    }
+    await clickPanelButton(page, {
+      buttonSelector: '#delete',
+      label: 'cleanup delete',
+      listName: 'selectedDeleteTypes',
+      formName: subject,
+    });
+    console.log(`cleanup: returned ${subject} to the available list`);
+  } catch (cleanupError) {
+    console.error(
+      `WARN cleanup could not return ${subject} to the available list; the encounter form`
+        + ` display order may still be modified: ${cleanupError.message}`,
+    );
+  }
+}
+
 (async () => {
   const launchOptions = {
     headless: true,
@@ -216,8 +276,11 @@ function assertPanelRendered(panel, label) {
 
   const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  let page = null;
+  let subject = null;
+  let subjectRestored = false;
   try {
-    const page = await context.newPage();
+    page = await context.newPage();
     wirePage(page, 'select-forms');
     await login(page);
     await openSelectFormsPanel(page);
@@ -228,7 +291,7 @@ function assertPanelRendered(panel, label) {
       initial.available.length > 0,
       'Select Forms has no available forms to exercise Add/Delete; seed at least one hidden encounter form',
     );
-    const subject = initial.available[0];
+    subject = initial.available[0];
 
     // Acceptance criterion: submitting with nothing selected must not blank the panel.
     const noSelection = await clickPanelButton(page, { buttonSelector: '#add', label: 'add with no selection' });
@@ -282,12 +345,17 @@ function assertPanelRendered(panel, label) {
     assertPanelRendered(afterDelete, 'delete');
     assert(afterDelete.available.includes(subject), `delete did not return ${subject} to the available list`);
     assert(!afterDelete.selected.includes(subject), `delete left ${subject} in the selected list`);
+    // The Delete step is itself the rollback; nothing is left for the finally block to undo.
+    subjectRestored = true;
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
 
     console.log(`PASS Select Forms panel renders after add, delete, move up, and move down (subject form ${subject})`);
   } finally {
+    if (page && subject && !subjectRestored) {
+      await restoreSubject(page, subject);
+    }
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
