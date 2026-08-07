@@ -55,6 +55,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts-integration.xml");
     private static final Path WEB_XML =
             Path.of("src/main/webapp/WEB-INF/web.xml");
+    private static final Path CONTEXT_XML =
+            Path.of("src/main/webapp/META-INF/context.xml");
     private static final Path CSRF_GUARD =
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
     private static final Path MENU_CONFIG =
@@ -315,6 +317,22 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("/login;jsessionid=")
                 .doesNotContain("oauthData.replyTo)};jsessionid=")
                 .doesNotContain("pageContext.session.id");
+    }
+
+    @Test
+    @DisplayName("session cookies should require secure cookie attributes")
+    void shouldRequireSecureCookieAttributes_forSessionCookies() throws IOException {
+        String webXml = Files.readString(WEB_XML, StandardCharsets.UTF_8);
+        String contextXml = Files.readString(CONTEXT_XML, StandardCharsets.UTF_8);
+
+        assertThat(webXml)
+                .contains("<session-timeout>120</session-timeout>")
+                .contains("<cookie-config>")
+                .contains("<http-only>true</http-only>")
+                .contains("<secure>true</secure>")
+                .contains("<tracking-mode>COOKIE</tracking-mode>");
+        assertThat(contextXml)
+                .contains("<CookieProcessor sameSiteCookies=\"strict\" />");
     }
 
     @Test
