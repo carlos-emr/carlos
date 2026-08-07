@@ -386,10 +386,17 @@ function redactFinding(text) {
   return engineError ? engineError[1] : `[redacted ${firstLine.length} chars]`;
 }
 
+// Resource fetches whose failure says nothing about the report. Both handlers
+// below consult this: Chromium reports a failed subresource twice, once as a
+// response and once as a console error, so tolerating it in only one place would
+// fail the run on exactly the 404 the other is written to ignore -- and, since
+// console text is redacted, with nothing but "[redacted N chars]" to explain it.
+const IGNORABLE_RESOURCE = /\/favicon\.ico$|\/imageRenderingServlet\?/;
+
 function wirePage(page) {
   page.on('response', (response) => {
     const responseUrl = response.url();
-    if (response.status() >= 400 && !/\/favicon\.ico$|\/imageRenderingServlet\?/.test(responseUrl)) {
+    if (response.status() >= 400 && !IGNORABLE_RESOURCE.test(responseUrl)) {
       // Path only: report URLs carry proNo, a real provider number.
       browserFindings.push({ type: 'http', status: response.status(), path: new URL(responseUrl).pathname });
     }
@@ -397,7 +404,9 @@ function wirePage(page) {
   page.on('console', (message) => {
     const text = message.text();
     const expected = /Content Security Policy.*report-only|Master token \[CSRF-TOKEN\]|Hidden token fields .* updated/.test(text);
-    if (!expected && (message.type() === 'error' || /(ReferenceError|TypeError|SyntaxError)/.test(text))) {
+    const ignorableResource = IGNORABLE_RESOURCE.test((message.location() || {}).url || '');
+    if (!expected && !ignorableResource
+        && (message.type() === 'error' || /(ReferenceError|TypeError|SyntaxError)/.test(text))) {
       browserFindings.push({ type: `console:${message.type()}`, detail: redactFinding(text) });
     }
   });
