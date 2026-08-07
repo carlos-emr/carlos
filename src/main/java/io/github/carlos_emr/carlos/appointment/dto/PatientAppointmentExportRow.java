@@ -27,7 +27,10 @@ import java.util.Date;
  * Narrow projection of the fields required by the patient appointment export.
  * Keeping the cursor scalar avoids loading complete entities and triggering
  * relationship queries while a MySQL streaming result set is active.
+ * The legacy {@link Date} fields intentionally match the Hibernate entity
+ * projection constructor; accessors return defensive copies.
  */
+@SuppressWarnings("java:S2143")
 public record PatientAppointmentExportRow(
         String patientLastName,
         String patientFirstName,

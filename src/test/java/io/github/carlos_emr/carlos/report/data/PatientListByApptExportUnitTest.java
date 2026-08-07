@@ -25,7 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -229,7 +232,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getContentAsString().lines().findFirst()).hasValue(
                 "Dunn,Cara,555-0200,,10:00:00,2026-08-08,Follow Up,Ravi Singh,Annex");
-        org.mockito.Mockito.verify(appointmentDao).streamPatientAppointments(
+        verify(appointmentDao).streamPatientAppointments(
                 eq("999998"),
                 eq(ConversionUtils.fromDateString("2026-08-07")),
                 eq(ConversionUtils.fromDateString("2026-08-10")),
@@ -348,7 +351,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         export("all", "2026-08-07", "2026-08-10");
 
-        org.mockito.Mockito.verify(appointmentDao).streamPatientAppointments(
+        verify(appointmentDao).streamPatientAppointments(
                 eq(null),
                 eq(ConversionUtils.fromDateString("2026-08-07")),
                 eq(ConversionUtils.fromDateString("2026-08-10")),
@@ -380,7 +383,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("failed exports should audit the non-PHI failure type and partial row count")
     void shouldAuditFailureMetadata_whenStreamingFails() throws Exception {
-        org.mockito.Mockito.doThrow(new IllegalStateException("database detail must not be audited"))
+        doThrow(new IllegalStateException("database detail must not be audited"))
                 .when(appointmentDao).streamPatientAppointments(any(), any(), any(), any());
 
         MockHttpServletResponse response = export("999998", "2026-08-07", "2026-08-10");
@@ -424,7 +427,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("response write failures should occur only after DAO streaming completes")
-    void shouldAuditSpoolCount_whenResponseWriteFails() throws Exception {
+    void shouldAuditSpoolCount_whenResponseWriteFails() {
         Date appointmentDate = ConversionUtils.fromDateString("2026-08-07");
         Date startTime = ConversionUtils.fromTimestampString("2026-08-07 09:00:00");
         PatientAppointmentExportRow firstRow = row(
@@ -432,7 +435,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
                 appointment(appointmentDate, startTime, null, "PrivateLocation"),
                 provider("Doris", "Doctor"));
         AtomicInteger consumedRows = new AtomicInteger();
-        org.mockito.Mockito.doAnswer(invocation -> {
+        doAnswer(invocation -> {
             Consumer<PatientAppointmentExportRow> rowConsumer = invocation.getArgument(3);
             consumedRows.incrementAndGet();
             rowConsumer.accept(firstRow);
@@ -485,7 +488,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
                 demographic("PrivateFirst", "PrivateLast", "555-0100", null),
                 appointment(appointmentDate, startTime, null, "PrivateLocation"),
                 provider("Doris", "Doctor"));
-        org.mockito.Mockito.doAnswer(invocation -> {
+        doAnswer(invocation -> {
             Consumer<PatientAppointmentExportRow> rowConsumer = invocation.getArgument(3);
             rowConsumer.accept(firstRow);
             throw new IllegalStateException("database detail must not be audited");
@@ -554,7 +557,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         List<MockHttpServletResponse> responses = List.of(missing, invalid, reversed);
 
-        assertThat(responses).allSatisfy(response ->
+        assertThat(responses).hasSize(3).allSatisfy(response ->
                 assertThat(response.getStatus()).isEqualTo(400));
         verifyNoInteractions(appointmentDao);
     }
@@ -612,7 +615,7 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
     private void stubAppointments(PatientAppointmentExportRow... rows) {
         List<PatientAppointmentExportRow> results = new ArrayList<>(List.of(rows));
-        org.mockito.Mockito.doAnswer(invocation -> {
+        doAnswer(invocation -> {
             Consumer<PatientAppointmentExportRow> rowConsumer = invocation.getArgument(3);
             results.forEach(rowConsumer);
             return null;

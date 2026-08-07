@@ -33,10 +33,8 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Date;
@@ -56,11 +54,11 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class PatientListByAppt extends HttpServlet {
     private static final Pattern PROVIDER_FILTER_PATTERN =
@@ -310,12 +308,8 @@ public class PatientListByAppt extends HttpServlet {
     }
 
     private static Path createExportSpoolFile() throws IOException {
-        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
-            return Files.createTempFile("carlos-patient-export-", ".csv",
-                    PosixFilePermissions.asFileAttribute(
-                            PosixFilePermissions.fromString("rw-------")));
-        }
-        return Files.createTempFile("carlos-patient-export-", ".csv");
+        return PathValidationUtils.createSecureTempFile(
+                "carlos-patient-export-", ".csv").toPath();
     }
 
     private static void deleteExportSpoolFile(Path spoolFile) {
