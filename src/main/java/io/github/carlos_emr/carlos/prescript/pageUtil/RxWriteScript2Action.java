@@ -251,7 +251,17 @@ public final class RxWriteScript2Action extends ActionSupport {
         List<String> reRxDrugIdList = bean.getReRxDrugIdList();
         String action = request.getParameter("action");
         String drugId = request.getParameter("reRxDrugId");
+        if (action == null) {
+            logger.warn("WARNING: reRxDrugId not updated, no action requested");
+            return null;
+        }
         if (action.equals("addToReRxDrugIdList") && !reRxDrugIdList.contains(drugId)) {
+            // drugId is client-supplied. Nothing is persisted at staging time, so reject outright
+            // rather than let saveDrug() archive another patient's medication.
+            if (!isDrugOwnedByDemographic(drugId, bean.getDemographicNo())) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             reRxDrugIdList.add(drugId);
         } else if (action.equals("removeFromReRxDrugIdList") && reRxDrugIdList.contains(drugId)) {
             reRxDrugIdList.remove(drugId);
@@ -1327,31 +1337,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         String ip = request.getRemoteAddr();
         request.setAttribute("scriptId", scriptId);
 
-        List<String> reRxDrugList = new ArrayList<String>();
-        reRxDrugList = bean.getReRxDrugIdList();
+        archiveReRxDrugs(loggedInInfo, bean, ip, auditStr.toString());
 
-        Iterator<String> i = reRxDrugList.iterator();
-
-        DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-
-        while (i.hasNext()) {
-
-            String item = i.next();
-
-            //archive drug(s)
-            Drug drug = drugDao.find(Integer.parseInt(item));
-            drug.setArchived(true);
-            drug.setArchivedDate(new Date());
-            drug.setArchivedReason(Drug.REPRESCRIBED);
-            drugDao.merge(drug);
-
-            //log that this med is being re-prescribed
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + item, ip, "" + bean.getDemographicNo(), auditStr.toString());
-
-            //log that the med is being discontinued buy the system
-            LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + item, "", "" + bean.getDemographicNo(), auditStr.toString());
-
-        }
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
         return;
@@ -1468,6 +1455,84 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", privilege, null)) {
             throw new RuntimeException("missing required sec object (_rx)");
         }
+    }
+
+    /**
+     * Archives the drugs staged for re-prescribing. More than one entry point appends to the
+     * staged list, so ownership is re-checked here rather than trusted from staging time.
+     *
+     * <p>A rejected drug is skipped, not fatal: the new prescription is already persisted by this
+     * point and no transaction spans the loop, so aborting would leave a half-written script.</p>
+     *
+     * <p>Package-private for the re-prescribe regression tests.</p>
+     */
+    void archiveReRxDrugs(LoggedInInfo loggedInInfo, RxSessionBean bean, String ip, String auditStr) {
+        for (String item : bean.getReRxDrugIdList()) {
+
+            int drugId;
+            try {
+                drugId = Integer.parseInt(item.trim());
+            } catch (NumberFormatException e) {
+                logger.warn("Skipped re-Rx archival: malformed staged drug id, demographicNo={}",
+                        bean.getDemographicNo());
+                continue;
+            }
+
+            //archive drug(s)
+            boolean archived = this.rxManager.archiveDrug(loggedInInfo, drugId,
+                    bean.getDemographicNo(), Drug.REPRESCRIBED);
+
+            if (!archived) {
+                logger.warn("Blocked cross-patient re-Rx archival: drugId={} demographicNo={}",
+                        drugId, bean.getDemographicNo());
+                continue;
+            }
+
+            //log that this med is being re-prescribed
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + drugId, ip, "" + bean.getDemographicNo(), auditStr);
+
+            //log that the med is being discontinued buy the system
+            LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + drugId, "", "" + bean.getDemographicNo(), auditStr);
+        }
+    }
+
+    /**
+     * Confirms a client-supplied drug id belongs to the demographic the Rx session is scoped to.
+     *
+     * <p>The {@code _rx} write privilege says the caller may prescribe, not that this drug row is
+     * theirs to touch. Without this, a caller in one chart can stage another patient's drug id and
+     * have it archived.</p>
+     */
+    private boolean isDrugOwnedByDemographic(String drugIdParam, int sessionDemographicNo) {
+        if (drugIdParam == null || drugIdParam.trim().isEmpty()) {
+            logger.warn("Blocked re-Rx staging: no drug id supplied, sessionDemographicNo={}", sessionDemographicNo);
+            return false;
+        }
+
+        int drugId;
+        try {
+            drugId = Integer.parseInt(drugIdParam.trim());
+        } catch (NumberFormatException e) {
+            logger.warn("Blocked re-Rx staging: malformed drug id, sessionDemographicNo={}", sessionDemographicNo);
+            return false;
+        }
+
+        DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+        Drug drug = drugDao.find(drugId);
+        if (drug == null) {
+            logger.warn("Blocked re-Rx staging: drugId={} not found, sessionDemographicNo={}",
+                    drugId, sessionDemographicNo);
+            return false;
+        }
+
+        // getDemographicId() is a nullable Integer -- '!=' would unbox to an NPE on a null demographic_no.
+        if (!Objects.equals(drug.getDemographicId(), sessionDemographicNo)) {
+            logger.warn("Blocked cross-patient re-Rx staging: drugId={} drugDemographicNo={} sessionDemographicNo={}",
+                    drugId, drug.getDemographicId(), sessionDemographicNo);
+            return false;
+        }
+
+        return true;
     }
 
     private void addDrugReason(String codingSystem,
