@@ -241,9 +241,10 @@ class PatientListByApptExportUnitTest extends CarlosUnitTestBase {
 
         MockHttpServletResponse response = export("999998", "2026-08-07", "2026-08-10");
 
-        assertThat(response.getContentAsString()).isEqualTo(
-                "'\uFF1D1+1,\"'\n=1+1\",'\0=1+1,,10:30:00,2026-08-09,"
-                        + "'\uFF0D1+1,'\uFF0B1+1 Doctor,'\uFF201+1\n");
+        assertThat(response.getContentAsString()).isEqualTo("""
+                '\uFF1D1+1,"'
+                =1+1",'\0=1+1,,10:30:00,2026-08-09,'\uFF0D1+1,'\uFF0B1+1 Doctor,'\uFF201+1
+                """);
     }
 
     @Test
