@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @Tag("unit")
@@ -107,6 +108,29 @@ class QueryByExampleSqlValidatorUnitTest {
                 .isInstanceOf(QueryByExampleValidationException.class);
     }
 
+    @ParameterizedTest(name = "rejects sensitive table: {0}")
+    @MethodSource("securitySensitiveTables")
+    @DisplayName("rejects tables containing authentication secrets")
+    void shouldRejectSecuritySensitiveTables(String table) {
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.validate("select * from " + table, properties))
+                .isInstanceOf(QueryByExampleValidationException.class)
+                .hasMessage("Queries may not read tables containing authentication secrets");
+    }
+
+    @Test
+    @DisplayName("rejects sensitive tables through qualified, quoted, and nested references")
+    void shouldRejectSecuritySensitiveTables_whenReferenceIsObscured() {
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.validate(
+                "select * from `oscar_mcmaster`.`Security`", properties))
+                .isInstanceOf(QueryByExampleValidationException.class);
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.validate(
+                "select * from demographic where exists (select 1 from ServiceAccessToken)", properties))
+                .isInstanceOf(QueryByExampleValidationException.class);
+        assertThatThrownBy(() -> QueryByExampleSqlValidator.validate(
+                "with tokens as (select * from SecurityToken) select * from tokens", properties))
+                .isInstanceOf(QueryByExampleValidationException.class);
+    }
+
     private static Stream<String> unsafeQueries() {
         return Stream.of(
                 "show tables",
@@ -120,6 +144,10 @@ class QueryByExampleSqlValidatorUnitTest {
                 "select * from o\u017Fcar_mcmaster.demographic",
                 "select sleep(1)",
                 "select benchmark(1000, md5('x'))",
+                "select repeat('x', 2147483647)",
+                "select space(2147483647)",
+                "select lpad('x', 2147483647, 'x')",
+                "select rpad('x', 2147483647, 'x')",
                 "select get_lock('qbe', 1)",
                 "select release_lock('qbe')",
                 "select is_free_lock('qbe')",
@@ -134,6 +162,28 @@ class QueryByExampleSqlValidatorUnitTest {
                 "select '\\\\' as value from demographic for update",
                 "select * from demographic for share",
                 "select demographic_no into @number from demographic");
+    }
+
+    private static Stream<Arguments> securitySensitiveTables() {
+        return Stream.of(
+                "AppDefinition",
+                "AppUser",
+                "emailConfig",
+                "emailLog",
+                "fax_config",
+                "oscarCommLocations",
+                "oscarKeys",
+                "professionalSpecialists",
+                "property",
+                "publicKeys",
+                "security",
+                "SecurityArchive",
+                "SecurityToken",
+                "ServiceAccessToken",
+                "ServiceClient",
+                "ServiceOAuthNonce",
+                "ServiceRequestToken")
+                .map(Arguments::of);
     }
 
     private static Properties properties(String databaseName) {

@@ -62,6 +62,30 @@ public final class QueryByExampleSqlValidator {
             "\\b(?:into|procedure)\\b", Pattern.CASE_INSENSITIVE);
 
     /**
+     * Tables containing reusable authentication material or private cryptographic keys.
+     * Query-by-Example is a reporting surface, so even administrators must use the
+     * purpose-built management flows rather than exporting these records as report data.
+     */
+    private static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
+            "appdefinition",
+            "appuser",
+            "emailconfig",
+            "emaillog",
+            "fax_config",
+            "oscarcommlocations",
+            "oscarkeys",
+            "professionalspecialists",
+            "property",
+            "publickeys",
+            "security",
+            "securityarchive",
+            "securitytoken",
+            "serviceaccesstoken",
+            "serviceclient",
+            "serviceoauthnonce",
+            "servicerequesttoken");
+
+    /**
      * Reporting-safe built-ins. Anything not listed is rejected so stored functions and
      * newly introduced vendor functions cannot silently cross the validation boundary.
      */
@@ -74,11 +98,11 @@ public final class QueryByExampleSqlValidator {
             "dayofweek", "dayofyear", "degrees", "elt", "exp", "field", "find_in_set", "floor", "format",
             "from_base64", "from_days", "from_unixtime", "get_format", "greatest", "hex", "hour", "if",
             "ifnull", "instr", "lcase", "least", "left", "length", "ln", "localtime", "localtimestamp",
-            "locate", "log", "log10", "log2", "lower", "lpad", "ltrim", "makedate", "maketime", "max",
+            "locate", "log", "log10", "log2", "lower", "ltrim", "makedate", "maketime", "max",
             "md5", "microsecond", "mid", "min", "minute", "mod", "month", "monthname", "now", "nullif",
             "oct", "octet_length", "ord", "period_add", "period_diff", "pi", "pow", "power", "quarter",
-            "quote", "radians", "rand", "repeat", "replace", "reverse", "right", "round", "rpad", "rtrim",
-            "sec_to_time", "second", "sha", "sha1", "sha2", "sign", "sin", "soundex", "space", "sqrt",
+            "quote", "radians", "rand", "replace", "reverse", "right", "round", "rtrim", "sec_to_time",
+            "second", "sha", "sha1", "sha2", "sign", "sin", "soundex", "sqrt",
             "std", "stddev", "stddev_pop", "stddev_samp", "str_to_date", "strcmp", "subdate", "substr",
             "substring", "substring_index", "subtime", "sum", "sysdate", "tan", "time", "time_format",
             "time_to_sec", "timediff", "timestamp", "timestampadd", "timestampdiff", "to_base64", "to_days",
@@ -192,6 +216,11 @@ public final class QueryByExampleSqlValidator {
                 if (!canonicalIdentifier(qualifier).equals(canonicalIdentifier(applicationSchema))) {
                     throw new QueryByExampleValidationException("Queries may only read the application database schema");
                 }
+            }
+            String unqualifiedTable = lastDot >= 0 ? normalizedTable.substring(lastDot + 1) : normalizedTable;
+            if (SECURITY_SENSITIVE_TABLES.contains(canonicalIdentifier(unqualifiedTable))) {
+                throw new QueryByExampleValidationException(
+                        "Queries may not read tables containing authentication secrets");
             }
         }
     }
