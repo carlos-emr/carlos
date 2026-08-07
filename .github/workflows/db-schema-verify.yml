@@ -156,6 +156,11 @@ jobs:
             echo "::error::diagnostic code table (icd9) empty after migrate for ${PROV}"
             exit 1
           fi
+          PHCP_GROUPS=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM dxphcpgroup")
+          if [ "${PHCP_GROUPS:-0}" -lt 1 ]; then
+            echo "::error::PHCP diagnosis grouping reference data missing after migrate for ${PROV}"
+            exit 1
+          fi
 
           COMMON_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name IN ('demographicstudy','study','studydata','form_hsfo2_visit','providerstudy')")
           if [ "${COMMON_RESTORED}" != "5" ]; then
