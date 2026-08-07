@@ -45,6 +45,7 @@ import java.io.Reader;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 
 public class RptResultStruct {
 
@@ -101,6 +102,7 @@ public class RptResultStruct {
         LimitedHtmlBuilder html = new LimitedHtmlBuilder(maxOutputCharacters);
         ResultSetMetaData rsmd = rs.getMetaData();
         int columns = rsmd.getColumnCount();
+        int[] columnTypes = getColumnTypes(rsmd, columns);
         html.appendMarkup("<table id='results'>");
         if (!appendHeaders(html, rsmd, columns)) {
             html.appendClosingMarkup(TABLE_END);
@@ -112,7 +114,7 @@ public class RptResultStruct {
         String rowColor = "rowColor1";
         while (!stopRendering && rowCount < maxRows && rs.next()) {
             rowCount++;
-            stopRendering = !appendRow(html, rs, columns, rowColor);
+            stopRendering = !appendRow(html, rs, columnTypes, rowColor);
             rowColor = rowColor.equals("rowColor1") ? "rowColor2" : "rowColor1";
         }
         boolean rowLimitReached = !stopRendering && rowCount == maxRows && rs.next();
@@ -139,6 +141,14 @@ public class RptResultStruct {
         return true;
     }
 
+    private static int[] getColumnTypes(ResultSetMetaData metadata, int columns) throws SQLException {
+        int[] columnTypes = new int[columns];
+        for (int column = 1; column <= columns; column++) {
+            columnTypes[column - 1] = metadata.getColumnType(column);
+        }
+        return columnTypes;
+    }
+
     private static boolean appendHeader(LimitedHtmlBuilder html, String label) {
         if (!html.appendMarkup("<th class='headerColor'>")) {
             return false;
@@ -150,13 +160,13 @@ public class RptResultStruct {
         return true;
     }
 
-    private static boolean appendRow(LimitedHtmlBuilder html, ResultSet resultSet, int columns, String rowColor)
+    private static boolean appendRow(LimitedHtmlBuilder html, ResultSet resultSet, int[] columnTypes, String rowColor)
             throws SQLException {
         if (!html.appendMarkup("<tr class='" + rowColor + "'>")) {
             return false;
         }
-        for (int column = 1; column <= columns; column++) {
-            if (!appendCell(html, resultSet, column)) {
+        for (int column = 1; column <= columnTypes.length; column++) {
+            if (!appendCell(html, resultSet, column, columnTypes[column - 1])) {
                 html.appendClosingMarkup(ROW_END);
                 return false;
             }
@@ -168,21 +178,36 @@ public class RptResultStruct {
         return true;
     }
 
-    private static boolean appendCell(LimitedHtmlBuilder html, ResultSet resultSet, int column) throws SQLException {
+    private static boolean appendCell(LimitedHtmlBuilder html, ResultSet resultSet, int column, int columnType)
+            throws SQLException {
         if (!html.appendMarkup(CELL_START)) {
             return false;
         }
         boolean complete;
-        try (Reader value = resultSet.getCharacterStream(column)) {
-            complete = value == null || html.appendEncoded(value);
-        } catch (IOException e) {
-            throw new SQLException("Could not render query result", e);
+        if (supportsCharacterStream(columnType)) {
+            try (Reader value = resultSet.getCharacterStream(column)) {
+                complete = value == null || html.appendEncoded(value);
+            } catch (IOException e) {
+                throw new SQLException("Could not render query result", e);
+            }
+        } else {
+            complete = html.appendEncoded(resultSet.getString(column));
         }
         if (!complete || !html.appendMarkup(CELL_END)) {
             html.appendClosingMarkup(CELL_END);
             return false;
         }
         return true;
+    }
+
+    private static boolean supportsCharacterStream(int columnType) {
+        return switch (columnType) {
+            case Types.CHAR, Types.VARCHAR, Types.LONGVARCHAR,
+                    Types.NCHAR, Types.NVARCHAR, Types.LONGNVARCHAR,
+                    Types.CLOB, Types.NCLOB,
+                    Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY, Types.BLOB -> true;
+            default -> false;
+        };
     }
 
     private static final class LimitedHtmlBuilder {

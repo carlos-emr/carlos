@@ -42,6 +42,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
+import java.sql.Types;
 import java.util.Properties;
 
 import org.apache.logging.log4j.Logger;
@@ -82,6 +83,7 @@ class RptByExampleDataUnitTest {
         when(resultSet.getMetaData()).thenReturn(metadata);
         when(metadata.getColumnCount()).thenReturn(1);
         when(metadata.getColumnLabel(1)).thenReturn("demographic_no");
+        when(metadata.getColumnType(1)).thenReturn(Types.VARCHAR);
         when(resultSet.next()).thenReturn(true, false);
         when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new StringReader("42"));
     }
@@ -247,6 +249,7 @@ class RptByExampleDataUnitTest {
         when(metadata.getColumnCount()).thenReturn(2);
         when(metadata.getColumnLabel(1)).thenReturn("id");
         when(metadata.getColumnLabel(2)).thenReturn("id");
+        when(metadata.getColumnType(2)).thenReturn(Types.VARCHAR);
         when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new StringReader("first"));
         when(resultSet.getCharacterStream(2)).thenAnswer(ignored -> new StringReader("second"));
 
@@ -257,6 +260,19 @@ class RptByExampleDataUnitTest {
 
         assertThat(result.html()).contains("first").contains("second");
         assertThat(result.rowCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("renders numeric columns without requesting an unsupported character stream")
+    void shouldRenderUsingStringValue_whenColumnIsNumeric() throws SQLException {
+        when(metadata.getColumnType(1)).thenReturn(Types.INTEGER);
+        when(resultSet.getString(1)).thenReturn("42");
+
+        RptResultStruct.StructuredResult result = RptResultStruct.getStructureWithCount(resultSet);
+
+        assertThat(result.html()).contains("42");
+        verify(resultSet).getString(1);
+        verify(resultSet, never()).getCharacterStream(1);
     }
 
     @Test
