@@ -53,8 +53,11 @@
         proNo    - provider number to filter on; "-1" means all providers.
 
     Security:
-        Requires read rights on _report or _admin.reporting; unauthorized
-        requests are redirected to the security error page.
+        RptFluBilling2Action is the authority and requires read rights on
+        _report, so that is the effective requirement. The <security:oscarSec>
+        gate below is defence in depth for direct dispatches and additionally
+        accepts _admin.reporting; a user holding only _admin.reporting is
+        already rejected by the action and never reaches it.
 
     @since 2026-08-06
 --%>
@@ -84,28 +87,31 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
-    String curUser_no, userfirstname, userlastname;
-    curUser_no = (String) session.getAttribute("user");
-    int count = 0;
-
-    // numMonth is attacker-controllable, so anything that is not literally a
+    // numMonth is attacker-controllable, so anything that is not a plausible
     // four-digit year falls back to the current year. Passing it straight to
     // Integer.parseInt used to 500 on non-numeric input, and a value near
     // Integer.MAX_VALUE overflowed the year-select loop below into an
-    // effectively unbounded render that pinned a request thread.
+    // effectively unbounded render that pinned a request thread. The lower bound
+    // keeps values such as 0025 out, which parse but render every billing date
+    // blank -- and a blank cell here means "this patient still needs a flu shot".
     GregorianCalendar cal = new GregorianCalendar();
     int thisYear = cal.get(Calendar.YEAR);
     String requestedYear = request.getParameter("numMonth");
-    int curYear = (requestedYear != null && requestedYear.matches("\\d{4}"))
-            ? Integer.parseInt(requestedYear)
-            : thisYear;
+    int curYear = thisYear;
+    if (requestedYear != null && requestedYear.matches("\\d{4}")) {
+        int parsedYear = Integer.parseInt(requestedYear);
+        if (parsedYear >= 1900 && parsedYear <= thisYear + 2) {
+            curYear = parsedYear;
+        }
+    }
     String years = String.valueOf(curYear);
 
     // An absent proNo means "All Providers", which the DAO spells "-1". Leaving
     // it blank made the query filter on provider_no = '', which matches no one,
     // so the report rendered empty while the dropdown still read All Providers.
     String pros = request.getParameter("proNo");
-    if (pros == null || pros.trim().isEmpty()) {
+    pros = (pros == null) ? "-1" : pros.trim();
+    if (pros.isEmpty()) {
         pros = "-1";
     }
 
@@ -179,7 +185,6 @@
         for (int i = 0; i < fluData.demoList.size(); i++) {
             demoData = (RptFluReportData.DemoFluDataStruct) fluData.demoList
                     .get(i);
-            count = count + 1;
     %>
     <tr>
         <td><carlos:encode value='<%= demoData.demoName %>' context="html"/>

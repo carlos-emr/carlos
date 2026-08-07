@@ -24,6 +24,9 @@ import jakarta.persistence.Tuple;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,7 +62,7 @@ class DemographicDaoImplFluReportUnitTest {
         when(tuple.get("phone")).thenReturn(phone);
         when(tuple.get("roster_status")).thenReturn(rosterStatus);
         when(tuple.get("patient_status")).thenReturn(patientStatus);
-        when(tuple.get("date_of_birth")).thenReturn(dateOfBirth);
+        when(tuple.get("dob_formatted")).thenReturn(dateOfBirth);
         when(tuple.get("age")).thenReturn(age);
         return tuple;
     }
@@ -89,6 +92,24 @@ class DemographicDaoImplFluReportUnitTest {
         assertThat(patient.patientName()).isEmpty();
         assertThat(patient.phone()).isEmpty();
         assertThat(patient.demographicNo()).isEqualTo("714");
+    }
+
+    @ParameterizedTest(name = "providerNo=\"{0}\"")
+    @NullSource
+    @ValueSource(strings = {"", "   ", "-1", " -1 "})
+    @DisplayName("should select every provider when no specific provider is requested")
+    void shouldSelectEveryProvider_whenNoSpecificProviderRequested(String providerNo) {
+        // Guards the regression where a blank provider became a literal
+        // provider_no = '' filter, matching nobody and emptying the report while
+        // the UI still claimed to show All Providers.
+        assertThat(DemographicDaoImpl.isAllProvidersSelection(providerNo)).isTrue();
+    }
+
+    @ParameterizedTest(name = "providerNo=\"{0}\"")
+    @ValueSource(strings = {"999998", " 999998 ", "P123"})
+    @DisplayName("should filter by provider when a specific provider is requested")
+    void shouldFilterByProvider_whenSpecificProviderRequested(String providerNo) {
+        assertThat(DemographicDaoImpl.isAllProvidersSelection(providerNo)).isFalse();
     }
 
     @Test

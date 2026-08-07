@@ -71,18 +71,20 @@ public class RptFluReportData {
      * here; the JSP resolves it per row through
      * {@link DemoFluDataStruct#getBillingDate(String)}.</p>
      *
-     * @param s  the provider filter; {@code "-1"} means all providers
-     * @param s1 the four-digit report year used to scope the billing lookup
-     * @since 2026-08-06 typed projection mapping; the method itself predates it.
+     * <p>The typed-projection mapping dates from 2026-08-06; the method itself
+     * is considerably older.</p>
+     *
+     * @param providerNo the provider filter; {@code "-1"} means all providers
+     * @param reportYear the four-digit report year used to scope the billing lookup
      */
-    public void fluReportGenerate(String s, String s1) {
-        years = s1;
+    public void fluReportGenerate(String providerNo, String reportYear) {
+        years = reportYear;
 
         DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
         demoList = new ArrayList<DemoFluDataStruct>();
         DemoFluDataStruct demofludatastruct;
-        for (FluReportDemographicRow patient : dao.findDemographicsForFluReport(s)) {
+        for (FluReportDemographicRow patient : dao.findDemographicsForFluReport(providerNo)) {
             demofludatastruct = new DemoFluDataStruct();
             demofludatastruct.demoNo = patient.demographicNo();
             demofludatastruct.demoName = patient.patientName();

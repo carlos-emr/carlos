@@ -92,7 +92,12 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     private static final String FLU_PHONE = "phone";
     private static final String FLU_ROSTER_STATUS = "roster_status";
     private static final String FLU_PATIENT_STATUS = "patient_status";
-    private static final String FLU_DATE_OF_BIRTH = "date_of_birth";
+    // Deliberately not "date_of_birth": that is a real column on demographic
+    // holding only the day of month, and this alias covers the whole formatted
+    // date. MySQL resolves ORDER BY and HAVING against aliases first, so reusing
+    // the column name would silently change the meaning of any such clause added
+    // to this query later.
+    private static final String FLU_DATE_OF_BIRTH = "dob_formatted";
     private static final String FLU_AGE = "age";
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
@@ -2480,10 +2485,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             + "RIGHT(DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >= 65 "
             + "and (patient_status = 'AC' or patient_status = 'UHIP') "
             + "and (roster_status='RO' or roster_status='NR' or roster_status='FS' or roster_status='RF' or roster_status='PL')";
-        // Blank means "all providers", same as the "-1" sentinel. A blank value
-        // previously became a literal provider_no = '' filter, which matches no
-        // demographic and silently emptied the report.
-        boolean allProviders = StringUtils.isBlank(providerNo) || "-1".equals(providerNo);
+        String selectedProvider = StringUtils.trimToEmpty(providerNo);
+        boolean allProviders = isAllProvidersSelection(providerNo);
         if (!allProviders) {
             sql = sql + " and provider_no = :providerNo ";
         }
@@ -2491,12 +2494,26 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         Query sqlQuery = entityManager().createNativeQuery(sql, Tuple.class);
         if (!allProviders) {
-            sqlQuery.setParameter("providerNo", providerNo);
+            sqlQuery.setParameter("providerNo", selectedProvider);
         }
 
         @SuppressWarnings("unchecked")
         List<Tuple> rows = sqlQuery.getResultList();
         return rows.stream().map(DemographicDaoImpl::toFluReportDemographicRow).toList();
+    }
+
+    /**
+     * Whether a Flu Billing Report request means "every provider".
+     *
+     * <p>Null, blank, and the {@code "-1"} sentinel all mean all providers, and
+     * surrounding whitespace is ignored. Untrimmed or blank values previously
+     * became a literal {@code provider_no = ''} filter, which matches no
+     * demographic and silently emptied the report while the UI still claimed to
+     * be showing every provider.</p>
+     */
+    static boolean isAllProvidersSelection(String providerNo) {
+        String trimmed = StringUtils.trimToEmpty(providerNo);
+        return trimmed.isEmpty() || "-1".equals(trimmed);
     }
 
     /**

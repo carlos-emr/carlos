@@ -274,7 +274,9 @@ function wirePage(page) {
   page.on('response', (response) => {
     const responseUrl = response.url();
     if (response.status() >= 400 && !/\/favicon\.ico$|\/imageRenderingServlet\?/.test(responseUrl)) {
-      browserFindings.push({ type: 'http', status: response.status(), url: responseUrl });
+      // Path only: report URLs carry proNo, a real provider number, and these
+      // findings are printed on every failure.
+      browserFindings.push({ type: 'http', status: response.status(), path: new URL(responseUrl).pathname });
     }
   });
   page.on('console', (message) => {
@@ -517,11 +519,26 @@ async function run() {
 
     // A malformed year must fall back to the current year, not error and not
     // drive the year-select loop past Integer.MAX_VALUE.
-    for (const badYear of ['abc', '+2023', '2147483645', '-5']) {
+    const currentYear = sql('SELECT YEAR(CURRENT_DATE)');
+    for (const badYear of ['abc', '+2023', '2147483645', '-5', '0025']) {
       const rows = await reportRows(page, badYear, '-1');
       assert(rows.length > 0, `Malformed numMonth=${badYear} produced no rows at all`);
       fixtureRow(rows, primary.patientName);
+      // Assert what it fell back TO, not merely that it did not error.
+      const shownYear = await page.locator('select[name="numMonth"]').inputValue();
+      assert(shownYear === currentYear,
+        `Malformed numMonth=${badYear} fell back to ${shownYear} instead of the current year ${currentYear}`);
     }
+
+    // Whitespace around the provider must not turn into a literal filter. This is
+    // the same "empty worklist under an All Providers label" failure as an absent
+    // proNo, reachable from a hand-edited or copied URL.
+    const paddedAllRows = await reportRows(page, null, ' -1 ', '-1');
+    fixtureRow(paddedAllRows, primary.patientName);
+    const paddedProviderRows = await reportRows(page, null, ` ${providerNo} `, providerNo);
+    fixtureRow(paddedProviderRows, primary.patientName);
+    assert(!paddedProviderRows.some((row) => row[0] === secondary.patientName),
+      'Padded provider filter did not actually filter by provider');
 
     assert(browserFindings.length === 0, `Browser findings: ${JSON.stringify(browserFindings)}`);
 
