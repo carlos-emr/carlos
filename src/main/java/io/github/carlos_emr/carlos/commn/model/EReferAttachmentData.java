@@ -7,6 +7,10 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * Holds the binary payload and metadata for an attachment sent via eReferral.
+ */
+
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)

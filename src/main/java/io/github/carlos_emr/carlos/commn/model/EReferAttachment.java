@@ -11,6 +11,10 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * JPA Entity mapping to the eReferral attachment database table.
+ */
+
 
 @Entity
 @Table(name = "erefer_attachment")

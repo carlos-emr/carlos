@@ -6,6 +6,10 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+
+/**
+ * Data container holding parsed laboratory result information extracted from an attachment.
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;

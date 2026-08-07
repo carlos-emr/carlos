@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.utility;
 
+
+/**
+ * Custom runtime exception thrown when an email fails to send through the configured SMTP provider.
+ */
 public class EmailSendingException extends Exception {
     public EmailSendingException() {
         super();

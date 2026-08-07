@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+
+/**
+ * Data Transfer Object for specialist details used in the OSCAR Consultation Request eForm.
+ */
 public class SpecialistDto {
     private Integer specId;
     private String name;

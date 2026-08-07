@@ -6,10 +6,16 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
 
+
+/**
+ * Serializes Java Date objects into a specific string format required by legacy prototype.js frontend components.
+ */
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
+        // Output the date using prototype.js compatible formatting strings
+
         if (value == null) {
             gen.writeNull();
             return;

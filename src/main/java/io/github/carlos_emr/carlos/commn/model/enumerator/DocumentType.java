@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+
+/**
+ * Enumeration defining the supported clinical document formats (e.g., PDF, TIF, JPG).
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

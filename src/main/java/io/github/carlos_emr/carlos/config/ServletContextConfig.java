@@ -6,6 +6,10 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
+/**
+ * Configures global servlet context parameters for the Spring MVC application context.
+ */
+
 
 @Configuration
 public class ServletContextConfig implements ServletContextAware {

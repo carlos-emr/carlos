@@ -2,6 +2,10 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.EmailConfig.EmailProvider;
 import jakarta.persistence.Converter;
+/**
+ * JPA AttributeConverter for specific email provider profiles (e.g., Office365, Gmail).
+ */
+
 
 @Converter
 public class EmailConfigProviderConverter extends NullSafeEnumConverter<EmailProvider> {

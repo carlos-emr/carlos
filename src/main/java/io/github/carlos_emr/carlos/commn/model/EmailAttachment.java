@@ -4,6 +4,10 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * JPA Entity representing a file attachment associated with an outgoing email log.
+ */
+
 
 @Entity
 @Table(name = "emailAttachment")

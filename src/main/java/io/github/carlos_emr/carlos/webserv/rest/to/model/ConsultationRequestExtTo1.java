@@ -2,6 +2,10 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+
+/**
+ * Transfer Object (TO) version 1 representing the extended data payload of a consultation request for the REST API.
+ */
 public class ConsultationRequestExtTo1 {
     private Integer id;
     private Integer requestId;
