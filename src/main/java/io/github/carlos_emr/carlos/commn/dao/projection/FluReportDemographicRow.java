@@ -18,11 +18,22 @@
 package io.github.carlos_emr.carlos.commn.dao.projection;
 
 /**
- * Demographic details required by the Flu Billing Report.
+ * One row from {@code DemographicDao.findDemographicsForFluReport} — the
+ * seven patient columns the Flu Billing Report renders for each 65-and-over
+ * patient eligible for a G590A/G591A influenza claim.
  *
  * <p>The typed projection keeps the native-query column contract inside the
  * DAO and prevents report consumers from depending on positional
  * {@code Object[]} indexes.</p>
+ *
+ * <p>Every component is null-coalesced to the empty string here, so this is
+ * the single place a missing database value becomes a blank report cell
+ * rather than the literal text {@code null}. Note that a mistyped query alias
+ * does <em>not</em> arrive here as a null — {@code Tuple.get(String)} throws
+ * {@code IllegalArgumentException} for an unknown alias, so alias drift fails
+ * loudly instead of silently blanking a column.</p>
+ *
+ * @since 2026-08-06
  */
 public record FluReportDemographicRow(
         String demographicNo,

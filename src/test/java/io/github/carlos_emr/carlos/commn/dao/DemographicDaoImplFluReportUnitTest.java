@@ -26,25 +26,48 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Alias-mapping contract for {@code DemographicDaoImpl.toFluReportDemographicRow}.
+ *
+ * <p>The aliases are asserted as literals rather than through the
+ * {@code FLU_*} constants on purpose: the constants also build the SQL, so
+ * reading them here would make the test move with any rename and pass against
+ * a consistently wrong alias.</p>
+ *
+ * <p>These stubs reproduce real {@code Tuple} semantics — a value is null only
+ * when the column itself is SQL NULL, and an unknown alias raises
+ * {@code IllegalArgumentException}. Whether MariaDB actually reports these
+ * seven labels is a database contract that only
+ * {@code scripts/flu-billing-report-playwright-checks.js} exercises.</p>
+ */
 @Tag("unit")
 @Tag("fast")
+@Tag("dao")
 @DisplayName("Flu billing report DAO projection")
 class DemographicDaoImplFluReportUnitTest {
 
+    private static Tuple tupleReturning(Object demographicNo, Object patientName, Object phone,
+                                        Object rosterStatus, Object patientStatus,
+                                        Object dateOfBirth, Object age) {
+        Tuple tuple = mock(Tuple.class);
+        when(tuple.get("demographic_no")).thenReturn(demographicNo);
+        when(tuple.get("patient_name")).thenReturn(patientName);
+        when(tuple.get("phone")).thenReturn(phone);
+        when(tuple.get("roster_status")).thenReturn(rosterStatus);
+        when(tuple.get("patient_status")).thenReturn(patientStatus);
+        when(tuple.get("date_of_birth")).thenReturn(dateOfBirth);
+        when(tuple.get("age")).thenReturn(age);
+        return tuple;
+    }
+
     @Test
     @DisplayName("should map demographic values by query alias instead of column position")
-    void shouldMapDemographicValuesByQueryAlias() {
-        Tuple tuple = mock(Tuple.class);
-        when(tuple.get("demographic_no")).thenReturn(714);
-        when(tuple.get("patient_name")).thenReturn("Patient,Flu");
-        when(tuple.get("phone")).thenReturn("416-555-0714");
-        when(tuple.get("roster_status")).thenReturn("RO");
-        when(tuple.get("patient_status")).thenReturn("AC");
-        when(tuple.get("date_of_birth")).thenReturn("1940-06-15");
-        when(tuple.get("age")).thenReturn(85);
+    void shouldMapDemographicValues_byQueryAlias() {
+        Tuple tuple = tupleReturning(714, "Patient,Flu", "416-555-0714", "RO", "AC", "1940-06-15", 85);
 
         FluReportDemographicRow patient = DemographicDaoImpl.toFluReportDemographicRow(tuple);
 
@@ -54,12 +77,29 @@ class DemographicDaoImplFluReportUnitTest {
     }
 
     @Test
-    @DisplayName("should normalize null demographic query values to empty strings")
-    void shouldNormalizeNullDemographicQueryValues() {
-        Tuple tuple = mock(Tuple.class);
+    @DisplayName("should normalize null column values to empty strings")
+    void shouldNormalizeNullColumnValues_toEmptyStrings() {
+        // phone is the only nullable column reachable in production; the query's
+        // WHERE clause filters out rows with a null age, DOB, or status, and
+        // CONCAT() yields null only when a name part is missing.
+        Tuple tuple = tupleReturning(714, null, null, "RO", "AC", "1940-06-15", 85);
 
         FluReportDemographicRow patient = DemographicDaoImpl.toFluReportDemographicRow(tuple);
 
-        assertThat(patient).isEqualTo(new FluReportDemographicRow("", "", "", "", "", "", ""));
+        assertThat(patient.patientName()).isEmpty();
+        assertThat(patient.phone()).isEmpty();
+        assertThat(patient.demographicNo()).isEqualTo("714");
+    }
+
+    @Test
+    @DisplayName("should propagate the lookup failure when a query alias is missing")
+    void shouldPropagateLookupFailure_whenQueryAliasMissing() {
+        // Real Tuple.get(String) throws for an unknown alias rather than returning
+        // null, so alias drift must fail loudly instead of blanking a column.
+        Tuple tuple = mock(Tuple.class);
+        when(tuple.get("demographic_no")).thenThrow(new IllegalArgumentException("demographic_no"));
+
+        assertThatThrownBy(() -> DemographicDaoImpl.toFluReportDemographicRow(tuple))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 }

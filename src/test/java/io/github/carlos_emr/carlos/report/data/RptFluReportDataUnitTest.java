@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -33,6 +34,8 @@ import org.mockito.MockedStatic;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -45,7 +48,7 @@ class RptFluReportDataUnitTest {
 
     @Test
     @DisplayName("should map every demographic query column to its patient detail field")
-    void shouldMapEveryQueryColumnToItsPatientDetailField() {
+    void shouldMapEveryQueryColumn_toItsPatientDetailField() {
         DemographicDao demographicDao = mock(DemographicDao.class);
         when(demographicDao.findDemographicsForFluReport("-1"))
             .thenReturn(List.of(new FluReportDemographicRow(
@@ -74,7 +77,7 @@ class RptFluReportDataUnitTest {
 
     @Test
     @DisplayName("should render empty patient details instead of literal null values")
-    void shouldRenderEmptyStringsForNullQueryColumns() {
+    void shouldRenderEmptyStrings_forNullQueryColumns() {
         DemographicDao demographicDao = mock(DemographicDao.class);
         when(demographicDao.findDemographicsForFluReport("999998"))
             .thenReturn(List.of(new FluReportDemographicRow(null, null, null, null, null, null, null)));
@@ -94,6 +97,34 @@ class RptFluReportDataUnitTest {
                 assertThat(patient.demoDOB).isEmpty();
                 assertThat(patient.demoAge).isEmpty();
             });
+        }
+    }
+
+    @Test
+    @DisplayName("should leave the billing date cell blank when the patient has no flu claim that year")
+    void shouldLeaveBillingDateBlank_whenNoClaimInReportYear() {
+        // Regression guard for the "&nbsp;" sentinel: the JSP renders this value
+        // through <carlos:encode context="html"/>, which escapes the ampersand and
+        // printed the literal characters "&nbsp;" for every unvaccinated patient —
+        // exactly the rows this recall report exists to surface.
+        DemographicDao demographicDao = mock(DemographicDao.class);
+        when(demographicDao.findDemographicsForFluReport("-1"))
+            .thenReturn(List.of(new FluReportDemographicRow(
+                "714", "Patient,Flu", "416-555-0714", "RO", "AC", "1940-06-15", "85"
+            )));
+        BillingONCHeader1Dao billingDao = mock(BillingONCHeader1Dao.class);
+        when(billingDao.findBillingsByDemoNoCh1HeaderServiceCodeAndDate(
+            any(), anyList(), any(), any())).thenReturn(List.of());
+
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            springUtils.when(() -> SpringUtils.getBean(DemographicDao.class)).thenReturn(demographicDao);
+            springUtils.when(() -> SpringUtils.getBean(BillingONCHeader1Dao.class)).thenReturn(billingDao);
+
+            RptFluReportData reportData = new RptFluReportData();
+            reportData.fluReportGenerate("-1", "2026");
+
+            assertThat(reportData.demoList).singleElement().satisfies(patient ->
+                assertThat(patient.getBillingDate("2026")).isEmpty());
         }
     }
 }

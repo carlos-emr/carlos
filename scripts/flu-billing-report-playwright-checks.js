@@ -20,10 +20,12 @@
 /*
  * Browser regression coverage for the Flu Billing Report demographic mapping.
  *
- * The check creates two synthetic patients and three valid flu claims, verifies
- * every displayed demographic field and the latest selected-year billing date,
- * and exercises both All Providers and individual-provider filters. All seeded
- * rows are removed even when an assertion fails.
+ * The check creates three synthetic patients and three valid flu claims, verifies
+ * every displayed demographic field, the latest selected-year billing date, and
+ * the blank billing-date cell of a patient with no claim that year, and exercises
+ * both All Providers and individual-provider filters. Seeded rows are removed even
+ * when an assertion fails; a delete that does not succeed fails the run rather
+ * than leaving synthetic patients behind silently.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:flu-billing-report-playwright
@@ -192,22 +194,30 @@ function seedFluClaim(demographicId, providerNo, patientName, billingDate, servi
   );
 }
 
+/*
+ * Deletes every seeded row, continuing past individual failures so one blocked
+ * delete cannot orphan the rest. Failures are returned rather than only logged:
+ * leftover synthetic 65+ patients would show up in real Flu Billing Reports and
+ * patient searches, so the caller must fail the run instead of printing PASS.
+ */
 function cleanupSeedData() {
+  const failures = [];
   for (const headerId of [...seededHeaderIds].reverse()) {
     try {
       sql(`DELETE FROM billing_on_item WHERE ch1_id=${headerId}`);
       sql(`DELETE FROM billing_on_cheader1 WHERE id=${headerId}`);
     } catch (error) {
-      console.error(`WARN failed to clean synthetic billing header ${headerId}: ${error.message}`);
+      failures.push(`billing_on_cheader1 id=${headerId}: ${error.message}`);
     }
   }
   for (const demographicId of [...seededDemographicIds].reverse()) {
     try {
       sql(`DELETE FROM demographic WHERE demographic_no=${demographicId}`);
     } catch (error) {
-      console.error(`WARN failed to clean synthetic demographic ${demographicId}: ${error.message}`);
+      failures.push(`demographic demographic_no=${demographicId}: ${error.message}`);
     }
   }
+  return failures;
 }
 
 function cleanupMysqlDefaultsFile() {
@@ -257,7 +267,15 @@ async function reportRows(page, reportYear, providerNo) {
     waitUntil: 'domcontentloaded',
     timeout: 30000,
   });
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  // Only a networkidle timeout is expected here (the report page keeps some
+  // long-lived connections open). Anything else — a closed target, a failed
+  // navigation — must surface rather than turn into a confusing failure on the
+  // innerText() call below.
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch((error) => {
+    if (!/Timeout .* exceeded/.test(error.message)) {
+      throw error;
+    }
+  });
   const body = await page.locator('body').innerText();
   assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report/i.test(body), 'Flu Billing Report rendered an error page');
   assert(await page.locator('table tbody').count(), 'Flu Billing Report result table was missing');
@@ -265,7 +283,7 @@ async function reportRows(page, reportYear, providerNo) {
   assert(selectedProvider === providerNo,
     `Flu Billing Report selected provider ${selectedProvider} instead of ${providerNo}`);
   return page.locator('table tbody tr').evaluateAll((rows) => rows.map((row) =>
-    [...row.querySelectorAll('td')].map((cell) => cell.textContent.replace(/\u00a0/g, ' ').trim())
+    [...row.querySelectorAll('td')].map((cell) => cell.textContent.trim())
   ));
 }
 
@@ -292,6 +310,7 @@ function assertPatientRow(row, expected) {
 
 async function run() {
   let browser = null;
+  let cleanupFailures = [];
   mysqlDefaults = createMysqlDefaultsFile();
   try {
     // Use a completed year so both seeded claims are valid historical data no
@@ -303,6 +322,8 @@ async function run() {
     assert(/^\d{1,3}$/.test(expectedAge), `Database returned invalid fixture age ${expectedAge}`);
     const expectedSecondaryAge = sql("SELECT YEAR(CURRENT_DATE)-1941-(DATE_FORMAT(CURRENT_DATE,'%m%d')<'0102')");
     assert(/^\d{1,3}$/.test(expectedSecondaryAge), `Database returned invalid secondary fixture age ${expectedSecondaryAge}`);
+    const expectedUnvaccinatedAge = sql("SELECT YEAR(CURRENT_DATE)-1942-(DATE_FORMAT(CURRENT_DATE,'%m%d')<'0309')");
+    assert(/^\d{1,3}$/.test(expectedUnvaccinatedAge), `Database returned invalid unvaccinated fixture age ${expectedUnvaccinatedAge}`);
     const providerNo = providerNoForTestUser();
     const suffix = Date.now().toString(36).slice(-8);
     const primary = {
@@ -327,11 +348,27 @@ async function run() {
       patientStatus: 'UHIP',
       providerNo: 'PWNONE',
     };
+    // Seeded with no flu claim at all: the unvaccinated 65+ patient this recall
+    // report exists to surface. Its Billing Date cell must be blank, not the
+    // literal text "&nbsp;".
+    const unvaccinated = {
+      lastName: `Flu${suffix}C`,
+      firstName: 'Unvaccinated',
+      phone: '416-555-0716',
+      birthYear: '1942',
+      birthMonth: '03',
+      birthDay: '09',
+      rosterStatus: 'FS',
+      patientStatus: 'AC',
+      providerNo,
+    };
     primary.patientName = `${primary.lastName},${primary.firstName}`;
     secondary.patientName = `${secondary.lastName},${secondary.firstName}`;
+    unvaccinated.patientName = `${unvaccinated.lastName},${unvaccinated.firstName}`;
 
     const primaryId = seedDemographic(primary);
     const secondaryId = seedDemographic(secondary);
+    seedDemographic(unvaccinated);
     seedFluClaim(primaryId, primary.providerNo, primary.patientName, `${reportYear}-01-15`, 'G590A');
     seedFluClaim(primaryId, primary.providerNo, primary.patientName, `${reportYear}-10-20`, 'G591A');
     seedFluClaim(secondaryId, secondary.providerNo, secondary.patientName, `${reportYear}-05-05`, 'G590A');
@@ -371,6 +408,15 @@ async function run() {
       phone: secondary.phone,
       billingDate: `${reportYear}-05-05`,
     });
+    assertPatientRow(fixtureRow(allProviderRows, unvaccinated.patientName), {
+      name: unvaccinated.patientName,
+      dateOfBirth: '1942-03-09',
+      age: expectedUnvaccinatedAge,
+      rosterStatus: unvaccinated.rosterStatus,
+      patientStatus: unvaccinated.patientStatus,
+      phone: unvaccinated.phone,
+      billingDate: '',
+    });
 
     const individualProviderRows = await reportRows(page, reportYear, providerNo);
     assertPatientRow(fixtureRow(individualProviderRows, primary.patientName), {
@@ -392,25 +438,46 @@ async function run() {
       assertions: [
         'all seven patient and billing columns map correctly',
         'latest valid selected-year flu claim is displayed',
-        'All Providers includes both synthetic patients',
-        'individual provider includes only its assigned synthetic patient',
+        'a patient with no claim that year renders a blank billing date',
+        'All Providers includes every synthetic patient',
+        'individual provider includes only its assigned synthetic patients',
       ],
     }, null, 2));
-    console.log('PASS Flu Billing Report demographic mapping and provider filters');
   } finally {
+    // browser.close() can reject (crashed target, close timeout). Swallow it here
+    // so the database and the cleartext MySQL password file are always cleaned up
+    // rather than the rest of this block being skipped.
     if (browser) {
-      await browser.close();
+      await browser.close().catch((error) => {
+        console.error(`WARN failed to close browser: ${error.message}`);
+      });
     }
     try {
-      cleanupSeedData();
+      cleanupFailures = cleanupSeedData();
     } finally {
       cleanupMysqlDefaultsFile();
     }
+    cleanupFailures.forEach((failure) => console.error(`WARN ${failure}`));
   }
+
+  // Reached only when every assertion passed. Left-behind synthetic 65+ patients
+  // would pollute real Flu Billing Reports, so a dirty database is a failed run.
+  if (cleanupFailures.length) {
+    throw new Error(
+      `Synthetic rows were left in the database and must be removed by hand:\n  ${cleanupFailures.join('\n  ')}`
+    );
+  }
+  console.log('PASS Flu Billing Report demographic mapping and provider filters');
 }
 
 run().catch((error) => {
   console.error('FAIL Flu Billing Report Playwright check');
   console.error(error.stack || error.message);
+  // A row mismatch is usually caused by something the page already reported —
+  // an HTTP 500 on the report action, a JS error that broke rendering. Print the
+  // collected findings on every failure, not only when they are the assertion.
+  if (browserFindings.length) {
+    console.error(`Browser findings during the run: ${JSON.stringify(browserFindings, null, 2)}`);
+  }
   process.exit(1);
 });

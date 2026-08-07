@@ -2495,15 +2495,25 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         return rows.stream().map(DemographicDaoImpl::toFluReportDemographicRow).toList();
     }
 
+    /**
+     * Maps one aliased result row onto the report projection.
+     *
+     * <p>Values are stringified but left null here; {@link FluReportDemographicRow}
+     * is the single place nulls become blank report cells. Alias lookups are
+     * deliberately not defended: {@code Tuple.get(String)} throws
+     * {@code IllegalArgumentException} for an unknown alias, so drift between the
+     * {@code FLU_*} constants and the generated SQL surfaces as a hard failure
+     * rather than a silently empty column.</p>
+     */
     static FluReportDemographicRow toFluReportDemographicRow(Tuple row) {
         return new FluReportDemographicRow(
-            Objects.toString(row.get(FLU_DEMOGRAPHIC_NO), ""),
-            Objects.toString(row.get(FLU_PATIENT_NAME), ""),
-            Objects.toString(row.get(FLU_PHONE), ""),
-            Objects.toString(row.get(FLU_ROSTER_STATUS), ""),
-            Objects.toString(row.get(FLU_PATIENT_STATUS), ""),
-            Objects.toString(row.get(FLU_DATE_OF_BIRTH), ""),
-            Objects.toString(row.get(FLU_AGE), "")
+            Objects.toString(row.get(FLU_DEMOGRAPHIC_NO), null),
+            Objects.toString(row.get(FLU_PATIENT_NAME), null),
+            Objects.toString(row.get(FLU_PHONE), null),
+            Objects.toString(row.get(FLU_ROSTER_STATUS), null),
+            Objects.toString(row.get(FLU_PATIENT_STATUS), null),
+            Objects.toString(row.get(FLU_DATE_OF_BIRTH), null),
+            Objects.toString(row.get(FLU_AGE), null)
         );
     }
 

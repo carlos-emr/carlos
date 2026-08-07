@@ -97,7 +97,7 @@
     </h4>
 </div>
 
-<form action="${ctx}/oscarReport/FluBilling" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
+<form action="${ctx}/oscarReport/FluBilling" method="get" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
     <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
             for (int i = curYear - 2; i <= curYear + 2; i++) {
@@ -170,7 +170,14 @@
 </table>
 
 <script>
+    // registerFormSubmit is defined on the administration/index.jsp parent, which
+    // loads this fragment into #dynamic-content via the leftNav contentLink handler.
+    // admin/admin.jsp opens the same report standalone in a popup, where the parent
+    // (and therefore the hook) does not exist; there the form falls back to its
+    // native GET submit against the same action, which is the intended degradation.
     if (typeof registerFormSubmit === 'function') {
         registerFormSubmit('fluForm', 'dynamic-content');
+    } else {
+        console.warn('registerFormSubmit unavailable; Flu Billing Report filters will full-page submit.');
     }
 </script>

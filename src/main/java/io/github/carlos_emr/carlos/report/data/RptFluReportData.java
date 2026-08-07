@@ -115,7 +115,10 @@ public class RptFluReportData {
         }
 
         public String getBillingDate() {
-            String s = "&nbsp;";
+            // Empty, not an "&nbsp;" markup sentinel: the JSP renders this through
+            // <carlos:encode context="html"/>, which escapes the ampersand and would
+            // print the literal characters "&nbsp;" in the cell.
+            String s = "";
 
             BillingDao dao = SpringUtils.getBean(BillingDao.class);
             for (Billing b : dao.findBillingsByDemoNoServiceCodeAndDate(ConversionUtils.fromIntString(demoNo), ConversionUtils.fromDateString("2003-04-01"), Arrays.asList(new String[]{"G590A", "G591A"}))) {
@@ -124,8 +127,14 @@ public class RptFluReportData {
             return s;
         }
 
+        /**
+         * Latest non-deleted G590A/G591A claim date for this patient inside
+         * {@code reportYear}, or the empty string when the patient has no flu
+         * claim that year — the "needs a flu shot" case this report exists to
+         * surface, so it must render as a blank cell rather than markup.
+         */
         public String getBillingDate(String reportYear) {
-            String s = "&nbsp;";
+            String s = "";
 
             String sDate = reportYear + "-01-01";
             String eDate = reportYear + "-12-31";
