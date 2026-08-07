@@ -23,19 +23,23 @@
 
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListNameUtil;
-import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.util.Date;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class WLEditWaitingListName2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -44,16 +48,22 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
     private String message = "";
 
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute()
             throws Exception {
-
-
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): just entering.");
         HttpSession session = request.getSession();
         //LazyValidatorForm wlnForm = (LazyValidatorForm) form;
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic r)");
+        }
 
-        String edit = request.getParameter("edit");
         String actionChosen = request.getParameter("actionChosen");
         String providerNo = (String) session.getAttribute("user");
         String groupNo = "";
@@ -65,12 +75,20 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         request.setAttribute("message", "");
         setMessage("");
 
-        MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): edit = " + edit);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): actionChosen = " + actionChosen);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): selectedWL = " + selectedWL);
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): selectedWL2 = " + selectedWL2);
 
-        if (edit != null && !edit.equals("")) {
+        if (actionChosen != null && !actionChosen.isEmpty()) {
+
+            // Name create/change/delete is a mutation — require POST + write.
+            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+                throw new SecurityException("missing required sec object (_demographic w)");
+            }
 
             if (wlNewName == null || wlNewName.length() <= 0) {
                 wlNewName = wlChangedName;
@@ -83,8 +101,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
 
             try {
-                if (actionChosen != null && actionChosen.length() > 0 &&
-                        providerNo != null && providerNo.length() > 0) {
+                if (providerNo != null && providerNo.length() > 0) {
 
                     if (actionChosen.equalsIgnoreCase("create")) {
                         if (wlNewName != null && wlNewName.length() > 0) {
@@ -175,9 +192,9 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
         String today = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
 
-        session.setAttribute("waitingListNames", wlNameHd.getWaitingListNameList());
+        session.setAttribute("waitingListNames", wlNameHd.getWaitingListNameList()); // nosemgrep: tainted-session-from-http-request -- DAO-sourced list from WLWaitingListNameBeanHandler
 
-        session.setAttribute("today", today);
+        session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from new Date()
 
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): getMessage() = " + getMessage());
         request.setAttribute("message", getMessage());
@@ -190,6 +207,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return message;
     }
 
+    @StrutsParameter
     public void setMessage(String message) {
         this.message = message;
     }
@@ -203,6 +221,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return wlNewName;
     }
 
+    @StrutsParameter
     public void setWlNewName(String wlNewName) {
         this.wlNewName = wlNewName;
     }
@@ -211,6 +230,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return wlChangedName;
     }
 
+    @StrutsParameter
     public void setWlChangedName(String wlChangedName) {
         this.wlChangedName = wlChangedName;
     }
@@ -219,6 +239,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return selectedWL;
     }
 
+    @StrutsParameter
     public void setSelectedWL(String selectedWL) {
         this.selectedWL = selectedWL;
     }
@@ -227,6 +248,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return selectedWL2;
     }
 
+    @StrutsParameter
     public void setSelectedWL2(String selectedWL2) {
         this.selectedWL2 = selectedWL2;
     }

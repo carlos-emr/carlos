@@ -33,9 +33,9 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import java.io.IOException;
 import java.util.Vector;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -44,8 +44,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.Doc2PDF;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for viewing PDF attachments stored in XML format within messages.
@@ -171,6 +172,7 @@ public class MsgViewPDF2Action extends ActionSupport {
      * 
      * @param attachment String the attachment parameter
      */
+    @StrutsParameter
     public void setAttachment(String attachment) {
         this.attachment = attachment;
     }
@@ -189,6 +191,7 @@ public class MsgViewPDF2Action extends ActionSupport {
      * 
      * @param file_id String the 0-based index of the PDF to retrieve
      */
+    @StrutsParameter
     public void setFile_id(String file_id) {
         this.file_id = file_id;
     }

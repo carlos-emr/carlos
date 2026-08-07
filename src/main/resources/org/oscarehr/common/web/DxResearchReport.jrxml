@@ -1,29 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"  ?>
-<!-- Created with iReport - A designer for JasperReports -->
-<!DOCTYPE jasperReport PUBLIC "//JasperReports//DTD Report Design//EN" "http://jasperreports.sourceforge.net/dtds/jasperreport.dtd">
-<jasperReport
-		 name="DxResearchReport"
-		 columnCount="1"
-		 printOrder="Vertical"
-		 orientation="Portrait"
-		 pageWidth="595"
-		 pageHeight="842"
-		 columnWidth="535"
-		 columnSpacing="0"
-		 leftMargin="0"
-		 rightMargin="0"
-		 topMargin="20"
-		 bottomMargin="20"
-		 whenNoDataType="NoPages"
-		 isTitleNewPage="false"
-		 isSummaryNewPage="false">
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport name="DxResearchReport" columnCount="1" printOrder="Vertical" orientation="Portrait" pageWidth="595" pageHeight="842" columnWidth="535" columnSpacing="0" leftMargin="0" rightMargin="0" topMargin="20" bottomMargin="20" whenNoDataType="NoPages" isTitleNewPage="false" isSummaryNewPage="false">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
 	<import value="java.util.*" />
 	<import value="net.sf.jasperreports.engine.*" />
 	<import value="net.sf.jasperreports.engine.data.*" />
-
-
 	<field name="strFirstName" class="java.lang.String">
 		<fieldDescription><![CDATA[strFirstName]]></fieldDescription>
 	</field>
@@ -57,336 +38,114 @@
 	<field name="strPhone" class="java.lang.String">
 		<fieldDescription><![CDATA[strPhone]]></fieldDescription>
 	</field>
-
-		<background>
-			<band height="0"  isSplitAllowed="true" >
-			</band>
-		</background>
-		<title>
-			<band height="25"  isSplitAllowed="true" >
-				<staticText>
-					<reportElement
-						x="52"
-						y="0"
-						width="426"
-						height="24"
-						key="staticText-1"/>
-					<box></box>
-					<textElement textAlignment="Center">
-						<font pdfFontName="Helvetica-Bold" size="14" isBold="true"/>
-					</textElement>
-				<text><![CDATA[Dx Research Report]]></text>
-				</staticText>
-			</band>
-		</title>
-		<pageHeader>
-			<band height="0"  isSplitAllowed="false" >
-			</band>
-		</pageHeader>
-		<columnHeader>
-			<band height="30"  isSplitAllowed="true" >
-				<staticText>
-					<reportElement
-						x="0"
-						y="-1"
-						width="52"
-						height="15"
-						key="staticText-2"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[First Name]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="52"
-						y="-1"
-						width="92"
-						height="15"
-						key="staticText-3"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Last Name]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="298"
-						y="-1"
-						width="40"
-						height="15"
-						key="staticText-4"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[HIN]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="144"
-						y="-1"
-						width="21"
-						height="15"
-						key="staticText-5"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Sex]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="165"
-						y="-1"
-						width="62"
-						height="15"
-						key="staticText-6"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[DOB]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="227"
-						y="-1"
-						width="71"
-						height="15"
-						key="staticText-7"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Phone]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="338"
-						y="-1"
-						width="44"
-						height="28"
-						key="staticText-8"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Code System]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="383"
-						y="-1"
-						width="58"
-						height="15"
-						key="staticText-9"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Code]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="441"
-						y="-1"
-						width="62"
-						height="15"
-						key="staticText-10"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Start Date]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="503"
-						y="-1"
-						width="62"
-						height="15"
-						key="staticText-11"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Update Date]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="565"
-						y="-1"
-						width="30"
-						height="15"
-						key="staticText-12"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<text><![CDATA[Status]]></text>
-				</staticText>
-			</band>
-		</columnHeader>
-		<detail>
-			<band height="13"  isSplitAllowed="true" >
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="0"
-						y="0"
-						width="52"
-						height="13"
-						key="textField-1"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strFirstName}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="52"
-						y="0"
-						width="92"
-						height="13"
-						key="textField-2"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strLastName}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="298"
-						y="0"
-						width="39"
-						height="13"
-						key="textField-3"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strHIN}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="165"
-						y="0"
-						width="62"
-						height="13"
-						key="textField-5"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strDOB}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="227"
-						y="0"
-						width="71"
-						height="13"
-						key="textField-6"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strPhone}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="338"
-						y="0"
-						width="45"
-						height="13"
-						key="textField-7"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strCodeSys}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="383"
-						y="0"
-						width="58"
-						height="13"
-						key="textField-8"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strCode}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="441"
-						y="0"
-						width="62"
-						height="13"
-						key="textField-9"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strStartDate}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="503"
-						y="0"
-						width="62"
-						height="13"
-						key="textField-10"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strUpdateDate}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="565"
-						y="0"
-						width="30"
-						height="13"
-						key="textField-11"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strStatus}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="144"
-						y="0"
-						width="21"
-						height="13"
-						key="textField-12"/>
-					<box></box>
-					<textElement>
-						<font/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{strSex}]]></textFieldExpression>
-				</textField>
-			</band>
-		</detail>
-		<columnFooter>
-			<band height="0"  isSplitAllowed="false" >
-			</band>
-		</columnFooter>
-		<pageFooter>
-			<band height="0"  isSplitAllowed="false" >
-			</band>
-		</pageFooter>
-		<summary>
-			<band height="0"  isSplitAllowed="false" >
-			</band>
-		</summary>
+	<background height="0">
+			</background>
+	<title height="25">
+		<element kind="staticText" x="52" y="0" width="426" height="24" key="staticText-1" hTextAlign="Center" fontSize="14.0" bold="true" pdfFontName="Helvetica-Bold">
+			<box />
+			<text><![CDATA[Dx Research Report]]></text>
+		</element>
+	</title>
+	<pageHeader height="0" splitType="Prevent">
+			</pageHeader>
+	<columnHeader height="30">
+		<element kind="staticText" x="0" y="-1" width="52" height="15" key="staticText-2">
+			<box />
+			<text><![CDATA[First Name]]></text>
+		</element>
+		<element kind="staticText" x="52" y="-1" width="92" height="15" key="staticText-3">
+			<box />
+			<text><![CDATA[Last Name]]></text>
+		</element>
+		<element kind="staticText" x="298" y="-1" width="40" height="15" key="staticText-4">
+			<box />
+			<text><![CDATA[HIN]]></text>
+		</element>
+		<element kind="staticText" x="144" y="-1" width="21" height="15" key="staticText-5">
+			<box />
+			<text><![CDATA[Sex]]></text>
+		</element>
+		<element kind="staticText" x="165" y="-1" width="62" height="15" key="staticText-6">
+			<box />
+			<text><![CDATA[DOB]]></text>
+		</element>
+		<element kind="staticText" x="227" y="-1" width="71" height="15" key="staticText-7">
+			<box />
+			<text><![CDATA[Phone]]></text>
+		</element>
+		<element kind="staticText" x="338" y="-1" width="44" height="28" key="staticText-8">
+			<box />
+			<text><![CDATA[Code System]]></text>
+		</element>
+		<element kind="staticText" x="383" y="-1" width="58" height="15" key="staticText-9">
+			<box />
+			<text><![CDATA[Code]]></text>
+		</element>
+		<element kind="staticText" x="441" y="-1" width="62" height="15" key="staticText-10">
+			<box />
+			<text><![CDATA[Start Date]]></text>
+		</element>
+		<element kind="staticText" x="503" y="-1" width="62" height="15" key="staticText-11">
+			<box />
+			<text><![CDATA[Update Date]]></text>
+		</element>
+		<element kind="staticText" x="565" y="-1" width="30" height="15" key="staticText-12">
+			<box />
+			<text><![CDATA[Status]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="13">
+			<element kind="textField" x="0" y="0" width="52" height="13" key="textField-1" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strFirstName}]]></expression>
+			</element>
+			<element kind="textField" x="52" y="0" width="92" height="13" key="textField-2" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strLastName}]]></expression>
+			</element>
+			<element kind="textField" x="298" y="0" width="39" height="13" key="textField-3" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strHIN}]]></expression>
+			</element>
+			<element kind="textField" x="165" y="0" width="62" height="13" key="textField-5" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strDOB}]]></expression>
+			</element>
+			<element kind="textField" x="227" y="0" width="71" height="13" key="textField-6" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strPhone}]]></expression>
+			</element>
+			<element kind="textField" x="338" y="0" width="45" height="13" key="textField-7" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strCodeSys}]]></expression>
+			</element>
+			<element kind="textField" x="383" y="0" width="58" height="13" key="textField-8" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strCode}]]></expression>
+			</element>
+			<element kind="textField" x="441" y="0" width="62" height="13" key="textField-9" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strStartDate}]]></expression>
+			</element>
+			<element kind="textField" x="503" y="0" width="62" height="13" key="textField-10" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strUpdateDate}]]></expression>
+			</element>
+			<element kind="textField" x="565" y="0" width="30" height="13" key="textField-11" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strStatus}]]></expression>
+			</element>
+			<element kind="textField" x="144" y="0" width="21" height="13" key="textField-12" textAdjust="StretchHeight" blankWhenNull="true" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box />
+				<expression><![CDATA[$F{strSex}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<columnFooter height="0" splitType="Prevent">
+			</columnFooter>
+	<pageFooter height="0" splitType="Prevent">
+			</pageFooter>
+	<summary height="0" splitType="Prevent">
+			</summary>
 </jasperReport>

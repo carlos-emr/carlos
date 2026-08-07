@@ -29,19 +29,17 @@
 
 package io.github.carlos_emr.carlos.utility;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public final class WebUtils {
@@ -53,32 +51,19 @@ public final class WebUtils {
     }
 
     public static void dumpParameters(HttpServletRequest request) {
-        logger.error("--- Dump Request Parameters Start for " + request.getRequestURI() + " Start ---");
+        logger.debug("--- Dump Request Parameters Start for {} Start ---", LogSafe.sanitizeUri(request.getRequestURI())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         Enumeration e = request.getParameterNames();
 
         while (e.hasMoreElements()) {
             String key = (String) e.nextElement();
-            logger.error(key + '=' + request.getParameter(key));
+            logger.debug("{}={}", LogSafe.sanitize(key), LogSafe.sanitize(request.getParameter(key))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
 
-        logger.error("--- Dump Request Parameters End ---");
+        logger.debug("--- Dump Request Parameters End ---");
     }
 
-    public static void dumpRequest(HttpServletRequest request) throws IOException {
-        logger.error("--- Dump Request Start ---");
-        InputStream is = request.getInputStream();
-        StringBuilder sb = new StringBuilder();
-        boolean var3 = false;
-
-        int x;
-        while ((x = is.read()) != -1) {
-            sb.append((char) x);
-        }
-
-        logger.error(sb.toString());
-        logger.error("--- Dump Request End ---");
-    }
-
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isChecked(HttpServletRequest request, String parameter) {
         String temp = request.getParameter(parameter);
         return temp != null && (temp.equalsIgnoreCase("on") || temp.equalsIgnoreCase("true") || temp.equalsIgnoreCase("checked"));
@@ -94,8 +79,8 @@ public final class WebUtils {
             while (i$.hasNext()) {
                 String s = (String) i$.next();
                 sb.append("<li>");
-                sb.append(s);
-                sb.append("</il>");
+                sb.append(SafeEncode.forHtmlContent(s));
+                sb.append("</li>");
             }
 
             sb.append("</ul>");
@@ -116,6 +101,10 @@ public final class WebUtils {
         return renderMessagesAsHtml(session, INFO_MESSAGE_SESSION_KEY, styleClass, style, id, name);
     }
 
+    /**
+     * Adds a plain-text error message. Do not pass markup; HTML renderers encode
+     * message text before output.
+     */
     public static void addErrorMessage(HttpSession session, String message) {
         addMessage(session, ERROR_MESSAGE_SESSION_KEY, message);
     }
@@ -128,6 +117,10 @@ public final class WebUtils {
         addLocalisedMessage(request, ERROR_MESSAGE_SESSION_KEY, messageKey, additionalText);
     }
 
+    /**
+     * Adds a plain-text informational message. Do not pass markup; HTML renderers
+     * encode message text before output.
+     */
     public static void addInfoMessage(HttpSession session, String message) {
         addMessage(session, INFO_MESSAGE_SESSION_KEY, message);
     }
@@ -161,6 +154,7 @@ public final class WebUtils {
             ArrayList<String> messages = (ArrayList) ((ArrayList) session.getAttribute(type));
             if (messages == null) {
                 messages = new ArrayList();
+                // nosemgrep: tainted-session-from-http-request -- messages is an internally constructed ArrayList; message content is caller-provided server-side text
                 session.setAttribute(type, messages);
             }
 
@@ -236,20 +230,12 @@ public final class WebUtils {
 
     public static String trimToEmptyEscapeHtml(String s) {
         s = StringUtils.trimToEmpty(s);
-        s = StringEscapeUtils.escapeHtml4(s);
+        s = SafeEncode.forHtml(s);
         return s;
     }
 
     public static String getDisabledString(boolean enabled) {
         return !enabled ? "disabled=\"disabled\"" : "";
-    }
-
-    public static String limitStringLength(String s, int length) {
-        if (s == null) {
-            return null;
-        } else {
-            return s.length() <= length ? s : s.substring(0, length - 3) + "...";
-        }
     }
 
     public static String popErrorMessagesAsHtml(HttpSession session) {
@@ -262,8 +248,8 @@ public final class WebUtils {
 
             for (String s : al) {
                 sb.append("<li>");
-                sb.append(s);
-                sb.append("</il>");
+                sb.append(SafeEncode.forHtmlContent(s));
+                sb.append("</li>");
             }
 
             sb.append("</ul>");
@@ -282,8 +268,8 @@ public final class WebUtils {
 
             for (String s : al) {
                 sb.append("<li>");
-                sb.append(s);
-                sb.append("</il>");
+                sb.append(SafeEncode.forHtmlContent(s));
+                sb.append("</li>");
             }
 
             sb.append("</ul>");
@@ -301,7 +287,7 @@ public final class WebUtils {
             sb.append("<script type=\"text/javascript\">");
             sb.append("alert('");
 
-            for (String s : al) sb.append(StringEscapeUtils.escapeEcmaScript(s));
+            for (String s : al) sb.append(SafeEncode.forJavaScript(s));
 
             sb.append("');");
             sb.append("</script>");

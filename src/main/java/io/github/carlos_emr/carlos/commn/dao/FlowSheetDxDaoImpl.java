@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.FlowSheetDx;
 import org.springframework.stereotype.Repository;
@@ -48,7 +48,7 @@ public class FlowSheetDxDaoImpl extends AbstractDaoImpl<FlowSheetDx> implements 
     }
 
     public List<FlowSheetDx> getFlowSheetDx(String flowsheet, Integer demographic) {
-        Query query = entityManager.createQuery("select fd from FlowSheetDx fd where fd.flowsheet = ?1 and fd.archived=0 and fd.demographicNo=?2");
+        Query query = entityManager.createQuery("select fd from FlowSheetDx fd where fd.flowsheet = ?1 and fd.archived=false and fd.demographicNo=?2");
         query.setParameter(1, flowsheet);
         query.setParameter(2, demographic);
         @SuppressWarnings("unchecked")

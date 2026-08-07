@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.io.Serializable;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement(name = "securityObject")
 public class SecurityObjectTo1 implements Serializable {

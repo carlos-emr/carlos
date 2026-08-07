@@ -30,27 +30,23 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
+import java.sql.Connection;
+
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7MshDao;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.labs.LabIdAndType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.xml.sax.SAXException;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
@@ -58,11 +54,10 @@ import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CommonLabResultData {
 
@@ -105,7 +100,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -158,7 +153,7 @@ public class CommonLabResultData {
             return labs;
         }
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -198,7 +193,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -248,7 +243,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -342,7 +337,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -396,6 +391,8 @@ public class CommonLabResultData {
         return updateReportStatus(labNo, providerNo, status, comment, labType, false);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType, boolean skipCommentOnUpdate) {
 
         if (comment == null) {
@@ -443,12 +440,31 @@ public class CommonLabResultData {
         }
 
         if (!"0".equals(providerNo)) {
-            List<ProviderLabRoutingModel> modelRecords = providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, providerNo);
-            ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
-            adr.recordRowsToBeDeleted(modelRecords, "" + providerNo, "providerLabRouting");
-
-            for (ProviderLabRoutingModel plr : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0")) {
-                providerLabRoutingDao.remove(plr.getId());
+            // The unassigned ("0") placeholder rows are now obsolete because the lab has been assigned
+            // to a real provider, so they are deleted. Archive the EXACT rows being deleted (not the
+            // provider-specific rows, which are kept) and fail closed if the archive fails: never
+            // destroy a routing row without a successful audit copy. recordRowsToBeDeleted returns -1
+            // on failure, >= 0 on success.
+            List<ProviderLabRoutingModel> rowsToDelete =
+                    providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(labNo, labType, "0");
+            if (rowsToDelete != null && !rowsToDelete.isEmpty()) {
+                ArchiveDeletedRecords adr = new ArchiveDeletedRecords();
+                int archived = adr.recordRowsToBeDeleted(rowsToDelete, "0", "providerLabRouting");
+                if (archived < 0) {
+                    // Fail closed on the CLEANUP only: leave the obsolete unassigned ("0") rows in
+                    // place rather than delete them without an audit copy. The acknowledgement/status
+                    // write above already persisted, so this is NOT an acknowledgement failure — the
+                    // stale placeholder lingering is an operational residue, logged here for an
+                    // operator, and must not be surfaced to the clinician as a failed filing (a real
+                    // acknowledgement failure throws and is handled by the caller's catch).
+                    logger.error("Provider-lab routing cleanup incomplete for lab {}: archival of the "
+                            + "unassigned (provider-0) rows failed, so they are left in place to "
+                            + "preserve the audit trail; the acknowledgement itself succeeded", labNo);
+                    return Boolean.TRUE;
+                }
+                for (ProviderLabRoutingModel plr : rowsToDelete) {
+                    providerLabRoutingDao.remove(plr.getId());
+                }
             }
         }
         return Boolean.TRUE;
@@ -516,7 +532,7 @@ public class CommonLabResultData {
                 plr.setLabType(labType);
                 patientLabRoutingDao.persist(plr);
 
-                if (OscarProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
+                if (CarlosProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
                     DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
                     List<DemographicCust> demographicCust = demographicCustDao.findAllByDemographicNumber(Integer.parseInt(demographicNo));
                     if (demographicCust.size() > 0) {
@@ -566,29 +582,31 @@ public class CommonLabResultData {
         try {
             CommonLabResultData data = new CommonLabResultData();
             ProviderLabRouting plr = new ProviderLabRouting();
-            // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
-            for (int i = 0; i < flaggedLabs.size(); i++) {
-                String[] strarr = flaggedLabs.get(i);
-                String lab = strarr[0];
-                String labType = strarr[1];
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
+                for (int i = 0; i < flaggedLabs.size(); i++) {
+                    String[] strarr = flaggedLabs.get(i);
+                    String lab = strarr[0];
+                    String labType = strarr[1];
 
-                // Forward all versions of the lab
-                String matchingLabs = data.getMatchingLabs(lab, labType);
-                String[] labIds = matchingLabs.split(",");
-                // MiscUtils.getLogger().info(labIds.length+"labIds --");
-                for (int k = 0; k < labIds.length; k++) {
+                    // Forward all versions of the lab
+                    String matchingLabs = data.getMatchingLabs(lab, labType);
+                    String[] labIds = matchingLabs.split(",");
+                    // MiscUtils.getLogger().info(labIds.length+"labIds --");
+                    for (int k = 0; k < labIds.length; k++) {
 
-                    for (int j = 0; j < providersArray.length; j++) {
-                        plr.route(labIds[k], providersArray[j], DbConnectionFilter.getThreadLocalDbConnection(), labType);
-                    }
+                        for (int j = 0; j < providersArray.length; j++) {
+                            plr.route(labIds[k], providersArray[j], connection, labType);
+                        }
 
-                    // delete old entries
-                    for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labIds[k]), labType, "0")) {
-                        providerLabRoutingDao.remove(p.getId());
+                        // delete old entries
+                        for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labIds[k]), labType, "0")) {
+                            providerLabRoutingDao.remove(p.getId());
+                        }
+
                     }
 
                 }
-
             }
 
             return true;
@@ -611,7 +629,13 @@ public class CommonLabResultData {
     public static boolean fileLabs(ArrayList<String[]> flaggedLabs, String provider) {
 
         CommonLabResultData data = new CommonLabResultData();
-        boolean success = Boolean.FALSE;
+        // Accumulate the real per-lab outcome and return it, instead of overwriting a single flag each
+        // iteration and returning an unconditional TRUE. Do NOT remove entries from flaggedLabs
+        // mid-iteration: the previous `if(!success) flaggedLabs.remove(i)` shifted the next lab into
+        // the current index and the `i++` then skipped it — filing N labs silently processed only
+        // some. A real acknowledgement failure now throws out of updateReportStatus (see it), so
+        // allFiled reflects genuine per-lab success.
+        boolean allFiled = true;
         for (int i = 0; i < flaggedLabs.size(); i++) {
 
             String[] strarr = flaggedLabs.get(i);
@@ -622,20 +646,16 @@ public class CommonLabResultData {
             if (labs != null && !labs.equals("")) {
                 String[] labArray = labs.split(",");
                 for (int j = 0; j < labArray.length; j++) {
-                    success = updateReportStatus(Integer.parseInt(labArray[j]), provider, 'F', "", labType);
+                    allFiled = updateReportStatus(Integer.parseInt(labArray[j]), provider, 'F', "", labType) && allFiled;
                     removeFromQueue(Integer.parseInt(labArray[j]));
                 }
 
             } else {
-                success = updateReportStatus(Integer.parseInt(lab), provider, 'F', "", labType);
+                allFiled = updateReportStatus(Integer.parseInt(lab), provider, 'F', "", labType) && allFiled;
                 removeFromQueue(Integer.parseInt(lab));
             }
-
-            if (!success) {
-                flaggedLabs.remove(i);
-            }
         }
-        return Boolean.TRUE;
+        return allFiled;
     }
 
 
@@ -727,61 +747,6 @@ public class CommonLabResultData {
         if (labType.equals(LabResultData.HL7TEXT)) {
             Hl7textResultsData.populateMeasurementsTable(labId, demographicNo);
         }
-    }
-
-    public static ArrayList<LabResultData> getRemoteLabs(LoggedInInfo loggedInInfo, Integer demographicId) {
-        ArrayList<LabResultData> results = new ArrayList<LabResultData>();
-
-        try {
-            List<CachedDemographicLabResult> labResults = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                    labResults = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicLabResults(demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                labResults = IntegratorFallBackManager.getLabResults(loggedInInfo, demographicId);
-            }
-
-            for (CachedDemographicLabResult cachedDemographicLabResult : labResults) {
-                results.add(toLabResultData(cachedDemographicLabResult));
-            }
-        } catch (Exception e) {
-            logger.error("Error retriving remote labs", e);
-        }
-
-        return (results);
-    }
-
-    private static LabResultData toLabResultData(CachedDemographicLabResult cachedDemographicLabResult) throws IOException, SAXException, ParserConfigurationException {
-        LabResultData result = new LabResultData();
-        result.setRemoteFacilityId(cachedDemographicLabResult.getFacilityIdLabResultCompositePk().getIntegratorFacilityId());
-
-        result.labType = cachedDemographicLabResult.getType();
-
-        Document doc = XmlUtils.toDocument(cachedDemographicLabResult.getData());
-        Node root = doc.getFirstChild();
-        result.acknowledgedStatus = XmlUtils.getChildNodeTextContents(root, "acknowledgedStatus");
-        result.accessionNumber = XmlUtils.getChildNodeTextContents(root, "accessionNumber");
-        result.dateTime = XmlUtils.getChildNodeTextContents(root, "dateTime");
-        result.discipline = XmlUtils.getChildNodeTextContents(root, "discipline");
-        result.healthNumber = XmlUtils.getChildNodeTextContents(root, "healthNumber");
-        result.labPatientId = XmlUtils.getChildNodeTextContents(root, "labPatientId");
-        result.patientName = XmlUtils.getChildNodeTextContents(root, "patientName");
-        result.priority = XmlUtils.getChildNodeTextContents(root, "priority");
-        result.reportStatus = XmlUtils.getChildNodeTextContents(root, "reportStatus");
-        result.requestingClient = XmlUtils.getChildNodeTextContents(root, "requestingClient");
-        result.segmentID = XmlUtils.getChildNodeTextContents(root, "segmentID");
-        result.sex = XmlUtils.getChildNodeTextContents(root, "sex");
-        result.setAckCount(Integer.parseInt(XmlUtils.getChildNodeTextContents(root, "ackCount")));
-        result.setMultipleAckCount(Integer.parseInt(XmlUtils.getChildNodeTextContents(root, "multipleAckCount")));
-
-        return result;
     }
 
     public List<LabIdAndType> getCmlAndEpsilonLabResultsSince(Integer demographicNo, Date updateDate) {

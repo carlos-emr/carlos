@@ -28,8 +28,6 @@
  */
 
 
-// javac -classpath .;..\lib\itext-1.01.jar -d . FrmPDFServlet.java
-// form/createpdf?__title=British+Columbia+Antenatal+Record+Part+1&__cfgfile=bcar1PrintCfgPg1&__cfgfile=bcar1PrintCfgPg2&__template=bcar1
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.io.ByteArrayOutputStream;
@@ -38,71 +36,125 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.*;
+import java.awt.Color;
+import org.openpdf.text.*;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
 import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostValueProcessor;
+import io.github.carlos_emr.carlos.form.pdfservlet.PostProcessorRegistry;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfImportedPage;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfWriter;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfImportedPage;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfWriter;
 
 /**
+ * Servlet that generates PDF documents from electronic form (e-form) templates.
  *
+ * <p>Overlays form field values onto a pre-existing PDF template using coordinate-based
+ * positioning defined in text configuration files. Supports single-line text, multi-line
+ * text areas, checkboxes (ZapfDingbats), rectangles, lines, and graphical plots
+ * (e.g., growth charts for Rourke forms).</p>
+ *
+ * <p>Configuration files ({@code .txt}) define field placement using a CSV format:
+ * {@code paramName : alignment, X, Y, 0, font, fontSize [, textToPrint] [, topRightX, topRightY, lineSpacing]}.
+ * Coordinates reference the bottom-left corner of each element and are measured in PDF points.
+ * Graphic configuration files drive measurement plotting via {@link FrmPdfGraphic} implementations.</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF template reading, content overlay,
+ * and multi-page document generation.</p>
+ *
+ * @see io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic
+ * @see io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory
+ * @see io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory
+ * @since 2013-07-26
  */
 public class EFormPDFServlet extends HttpServlet {
 
     Logger log = MiscUtils.getLogger();
 
     /**
-     *
+     * Default constructor.
      */
     public EFormPDFServlet() {
         super();
     }
 
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    /**
+     * Delegates GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}.
+     *
+     * @param req HttpServletRequest the incoming request
+     * @param res HttpServletResponse the outgoing response
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs
+     */
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
 
     /**
-     * @param req HTTP request object
-     * @param res HTTP response object
+     * Generates one or more e-form PDFs and streams the result to the HTTP response.
+     *
+     * <p>If the {@code multiple} parameter is present, generates multiple PDFs and
+     * concatenates them via {@link ConcatPDF}. Otherwise generates a single PDF.
+     * The response is set to {@code application/pdf} with inline content disposition.</p>
+     *
+     * @param req HttpServletRequest containing e-form field values and configuration parameters
+     * @param res HttpServletResponse to write the generated PDF to
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
-    public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
+
+        // This servlet is mapped at /eform/createpdf in web.xml, so it is reachable by direct URL
+        // independently of PrintPDF2Action — the only route that forwards here. LoginFilter covers
+        // authentication, but until now nothing checked AUTHORIZATION: any authenticated user could
+        // generate a PDF for any demographic. Scoped to the requested patient, matching the check
+        // the calling action now performs.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_eform", "r", req.getParameter("demographic_no"))) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
 
         ByteArrayOutputStream baosPDF = null;
         FileInputStream fis = null;
         File tmpFile = null;
+        ArrayList<File> intermediateFiles = new ArrayList<File>();
 
         try {
 
@@ -110,34 +162,36 @@ public class EFormPDFServlet extends HttpServlet {
                 ArrayList<Object> files = new ArrayList<Object>();
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), x);
-                    tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                    baosPDF.writeTo(new FileOutputStream(tmpFile));
+                    tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
+                    try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
+                        baosPDF.writeTo(fos);
+                    }
                     files.add(tmpFile.getAbsolutePath());
-                    tmpFile.deleteOnExit();
+                    intermediateFiles.add(tmpFile);
                 }
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
+                for (File intermediateFile : intermediateFiles) {
+                    if (!intermediateFile.delete()) {
+                        intermediateFile.deleteOnExit();
+                    }
+                }
+                intermediateFiles.clear();
             } else {
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), 0);
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                baosPDF.writeTo(new FileOutputStream(tmpFile));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
+                try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
+                    baosPDF.writeTo(fos);
+                }
             }
-            StringBuilder sbFilename = new StringBuilder();
-            sbFilename.append("filename_");
-            sbFilename.append(".pdf");
+            String filename = "filename_.pdf";
 
             // set the Cache-Control header
             res.setHeader("Cache-Control", "max-age=0");
             res.setDateHeader("Expires", 0);
             res.setContentType("application/pdf");
 
-            // The Content-disposition value will be inline
-
-            StringBuilder sbContentDispValue = new StringBuilder();
-            sbContentDispValue.append("inline; filename="); //inline - display
-            sbContentDispValue.append(sbFilename);
-
-            res.setHeader("Content-disposition", sbContentDispValue.toString());
+            res.setHeader("Content-disposition", "inline; filename=\"" + filename + "\"");
             res.setContentLength((int) tmpFile.length());
 
             ServletOutputStream sout = res.getOutputStream();
@@ -153,42 +207,46 @@ public class EFormPDFServlet extends HttpServlet {
                 sout.write(buffer, 0, bytesRead);
             }
 
+        } catch (jakarta.servlet.ServletException | java.io.IOException e) {
+            throw e;
         } catch (Exception e) {
-            res.setContentType("text/html");
-            PrintWriter writer = res.getWriter();
-            writer.println("Exception from: " + this.getClass().getName() + " " + e.getClass().getName() + "<br>");
-            writer.println("<pre>");
-            writer.println(e.getMessage());
-            writer.println("</pre>");
-            writer.close();
+            log.error("Error generating eForm PDF", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         } finally {
             if (baosPDF != null) baosPDF.close();
             if (fis != null) fis.close();
-            if (tmpFile != null) tmpFile.deleteOnExit();
+            for (File intermediateFile : intermediateFiles) {
+                if (!intermediateFile.delete()) {
+                    intermediateFile.deleteOnExit();
+                }
+            }
+            if (tmpFile != null && !tmpFile.delete()) tmpFile.deleteOnExit();
         }
     }
 
 
     /**
-     * the form txt file has lines in the form:
-     * <p>
-     * For Checkboxes:
-     * ie.  ohip : left, 76, 193, 0, BaseFont.ZAPFDINGBATS, 8, \u2713
-     * requestParamName : alignment, Xcoord, Ycoord, 0, font, fontSize, textToPrint[if empty, prints the value of the request param]
-     * NOTE: the Xcoord and Ycoord refer to the bottom-left corner of the element
-     * <p>
-     * For single-line text:
-     * ie. patientCity  : left, 242, 261, 0, BaseFont.HELVETICA, 12
-     * See checkbox explanation
-     * <p>
-     * For multi-line text (textarea)
-     * ie.  aci : left, 20, 308, 0, BaseFont.HELVETICA, 8, _, 238, 222, 10
-     * requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines
-     * <p>
-     * NOTE: When working on these forms in linux, it helps to load the PDF file into gimp, switch to pt. coordinate system and use the mouse to find the coordinates.
-     * Prepare to be bored!
+     * Generates a PDF document by overlaying e-form field values onto a PDF template.
      *
-     * @throws Exception
+     * <p>The form txt config file has lines in the form:</p>
+     * <ul>
+     *   <li><strong>Checkboxes:</strong>
+     *     {@code paramName : alignment, X, Y, 0, BaseFont.ZAPFDINGBATS, fontSize, checkmark}</li>
+     *   <li><strong>Single-line text:</strong>
+     *     {@code paramName : alignment, X, Y, 0, font, fontSize}</li>
+     *   <li><strong>Multi-line text:</strong>
+     *     {@code paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing}</li>
+     * </ul>
+     * <p>Coordinates are in PDF points (1/72 inch) from the bottom-left corner.</p>
+     *
+     * @param req HttpServletRequest containing e-form field values and template parameters
+     * @param ctx ServletContext used for resource resolution of template and config files
+     * @param multiple int zero-based page index for multi-page rendering
+     * @return ByteArrayOutputStream containing the generated PDF bytes
+     * @throws Exception if template reading, PDF generation, or config loading fails
      */
     protected ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, int multiple) throws Exception {
 
@@ -198,6 +256,7 @@ public class EFormPDFServlet extends HttpServlet {
         ByteArrayOutputStream baosPDF = new ByteArrayOutputStream();
         Document document = new Document();
         PdfWriter writer = null;
+        PdfReader reader = null;
         try {
             writer = PdfWriterFactory.newInstance(document, baosPDF, FontSettings.HELVETICA_6PT);
 
@@ -215,8 +274,7 @@ public class EFormPDFServlet extends HttpServlet {
             Properties[][] graphicCfg = loadGraphicCfg(req, suffix, numPages);
             int cfgFileNo = printCfg == null ? 0 : printCfg.length;
 
-            Properties props = new Properties();
-            getPrintPropValues(props, req, suffix);
+            Properties props = getPrintPropValues(new Properties(), req, suffix);
 
             Properties measurements = new Properties();
 
@@ -224,7 +282,7 @@ public class EFormPDFServlet extends HttpServlet {
             List<List<List<String>>> xMeasurementValues = new ArrayList<List<List<String>>>();
             List<List<List<String>>> yMeasurementValues = new ArrayList<List<List<String>>>();
             for (int idx = 0; idx < numPages; ++idx) {
-                MiscUtils.getLogger().debug("Adding page " + idx);
+                MiscUtils.getLogger().debug("Adding page {}", idx);
                 xMeasurementValues.add(new ArrayList<List<String>>());
                 yMeasurementValues.add(new ArrayList<List<String>>());
             }
@@ -233,14 +291,14 @@ public class EFormPDFServlet extends HttpServlet {
             addDocumentProps(document, title, props);
 
             // create a reader for a certain document
-            String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + template;
-            PdfReader reader = null;
+            String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + template;
 
             try {
                 reader = new PdfReader(propFilename);
-                log.debug("Found template at " + propFilename);
+                log.debug("Found template at {}", LogSafe.sanitize(propFilename));
             } catch (Exception dex) {
-                log.warn("Cannot find template at : " + propFilename);
+                log.warn("Cannot find template at: {}", LogSafe.sanitize(propFilename));
+                throw new IOException("Cannot load PDF template.", dex);
             }
 
             // retrieve the total number of pages
@@ -270,15 +328,15 @@ public class EFormPDFServlet extends HttpServlet {
                 Properties[] tempPropertiesArray;
                 if (i <= graphicCfg.length) {
                     tempPropertiesArray = graphicCfg[i - 1];
-                    MiscUtils.getLogger().debug("Plotting page " + i);
+                    MiscUtils.getLogger().debug("Plotting page {}", i);
                 } else {
                     tempPropertiesArray = null;
-                    MiscUtils.getLogger().debug("Skipped Plotting page " + i);
+                    MiscUtils.getLogger().debug("Skipped Plotting page {}", i);
                 }
 
                 //if there are properties to plot
                 if (tempPropertiesArray != null) {
-                    MiscUtils.getLogger().debug("TEMP PROP LENGTH " + tempPropertiesArray.length);
+                    MiscUtils.getLogger().debug("TEMP PROP LENGTH {}", tempPropertiesArray.length);
                     for (int k = 0; k < tempPropertiesArray.length; k++) {
 
                         //initialise with measurement values which are mapped to config file by form get graphic function
@@ -301,11 +359,23 @@ public class EFormPDFServlet extends HttpServlet {
                 document.close();
             if (writer != null)
                 writer.close();
+            if (reader != null)
+                reader.close();
         }
 
         return baosPDF;
     }
 
+    /**
+     * Loads a CSV-format config file from the e-form image directory. Each entry maps a
+     * form field name to a CSV line defining alignment, coordinates, font, and size.
+     * The filename is validated against path traversal before access.
+     *
+     * @param cfgFilename String the configuration filename
+     * @return Properties the parsed field layout entries, or empty Properties if not found
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         
@@ -317,29 +387,29 @@ public class EFormPDFServlet extends HttpServlet {
         
         // Final safety check - ensure no path traversal characters remain
         if (cfgFilename.contains("..") || cfgFilename.contains("/") || cfgFilename.contains("\\")) {
-            log.warn("Potential path traversal attempt blocked: " + cfgFilename);
+            log.warn("Potential path traversal attempt blocked: {}", LogSafe.sanitize(cfgFilename));
             return ret;
         }
         
         // Validate filename format - should only be alphanumeric with dots, dashes, underscores
         if (!cfgFilename.matches("^[a-zA-Z0-9._-]+$")) {
-            log.warn("Invalid filename format: " + cfgFilename);
+            log.warn("Invalid filename format: {}", LogSafe.sanitize(cfgFilename));
             return ret;
         }
         
-        String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
+        String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
         InputStream is = null;
 
         try {
-            log.debug("1Looking for the prop file! " + propFilename);
+            log.debug("1Looking for the prop file! {}", LogSafe.sanitize(propFilename));
             is = new FileInputStream(propFilename); //getServletContext().getResourceAsStream(propFilename);
             if (is != null) {
-                log.debug("2Found the prop file! " + cfgFilename);
+                log.debug("2Found the prop file! {}", LogSafe.sanitize(cfgFilename));
                 ret.load(is);
                 is.close();
             }
         } catch (Exception e) {
-            log.warn("Can't find the prop file: " + cfgFilename);
+            log.warn("Can't find the prop file: {}", LogSafe.sanitize(cfgFilename));
         } finally {
             if (is != null) try {
                 is.close();
@@ -442,7 +512,7 @@ public class EFormPDFServlet extends HttpServlet {
         return graphicCfg;
     }
 
-    private void getPrintPropValues(Properties props, HttpServletRequest req, String suffix) {
+    private Properties getPrintPropValues(Properties props, HttpServletRequest req, String suffix) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         StringBuilder temp = new StringBuilder("");
         for (Enumeration<String> e = req.getParameterNames(); e.hasMoreElements(); ) {
@@ -450,13 +520,17 @@ public class EFormPDFServlet extends HttpServlet {
             props.setProperty(temp.toString(), req.getParameter(temp.toString()));
         }
 
-        if (req.getParameter("postProcessor" + suffix) != null) {
-            String className = "io.github.carlos_emr.carlos.form.pdfservlet." + req.getParameter("postProcessor" + suffix);
-            try {
-                FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
-                props = pp.process(props);
-            } catch (Exception e) {
-                //ignore
+        String postProcessorName = req.getParameter("postProcessor" + suffix);
+        if (postProcessorName != null) {
+            Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+            if (pp.isPresent()) {
+                try {
+                    props = pp.get().process(props);
+                } catch (Exception e) {
+                    log.warn("Post-processor {} failed during execution - form rendered without post-processing", LogSafe.sanitize(postProcessorName), e);
+                }
+            } else {
+                log.warn("Post-processor '{}' is not on the allowlist and will not be applied", LogSafe.sanitize(postProcessorName));
             }
         }
 
@@ -473,6 +547,7 @@ public class EFormPDFServlet extends HttpServlet {
         props.setProperty("current_user", currentUser);
         props.setProperty("current_date", currentDate);
         props.setProperty("printer_info", "Printed on " + currentDate + " by " + currentUser + ": Page " + currentPage + " of " + totalPages);
+        return props;
     }
 
     private void saveMeasurementValues(Properties measurements, Properties props, HttpServletRequest req, int numPages, List<List<List<String>>> xMeasurementValues, List<List<List<String>>> yMeasurementValues) {
@@ -494,7 +569,7 @@ public class EFormPDFServlet extends HttpServlet {
             //section allows graphing of more than one measurement axis e.g. if top of page is different graph than bottom of page see rourke
             //page is the pdf page it should be plotted on
             if (temp.toString().startsWith("xVal_")) {
-                MiscUtils.getLogger().debug("Processing " + temp.toString());
+                MiscUtils.getLogger().debug("Processing {}", LogSafe.sanitize(temp.toString()));
 
                 index = temp.indexOf("_");
                 index2 = temp.indexOf("_", index + 1);
@@ -511,7 +586,7 @@ public class EFormPDFServlet extends HttpServlet {
 
                 //if this is the first measurement of the section init array
                 while (xMeasurementValues.get(page).size() <= section) {
-                    MiscUtils.getLogger().debug("Adding section " + section);
+                    MiscUtils.getLogger().debug("Adding section {}", LogSafe.sanitize(String.valueOf(section)));
                     List<List<String>> list = xMeasurementValues.get(page);
                     list.add(new ArrayList<String>());
                 }
@@ -522,16 +597,18 @@ public class EFormPDFServlet extends HttpServlet {
                 }
 
                 xMeasurementValues.get(page).get(section).add((String) req.getAttribute(temp.toString()));
-                MiscUtils.getLogger().debug("Setting xMeasurementDate to " + (String) req.getAttribute(temp.toString()));
+                // Log the coordinate key only, never the measurement date value (growth-chart PHI).
+                MiscUtils.getLogger().debug("Setting xMeasurementDate for key {}", LogSafe.sanitize(temp.toString()));
 
                 temp = new StringBuilder("yVal_");
                 temp = temp.append(elementNum);
                 temp = temp.append("_" + section);
                 temp = temp.append("_" + page);
-                MiscUtils.getLogger().debug("Key " + temp);
+                MiscUtils.getLogger().debug("Key {}", LogSafe.sanitize(temp.toString()));
                 tempValue = (String) req.getAttribute(temp.toString());
                 yMeasurementValues.get(page).get(section).add(tempValue);
-                MiscUtils.getLogger().debug("Setting yMeasurementValue to " + tempValue);
+                // Log the coordinate key only, never the measurement value (growth-chart PHI).
+                MiscUtils.getLogger().debug("Setting yMeasurementValue for key {}", LogSafe.sanitize(temp.toString()));
             } else {
                 props.setProperty(temp.toString(), req.getAttribute(temp.toString()).toString());
             }
@@ -541,8 +618,8 @@ public class EFormPDFServlet extends HttpServlet {
     private void addDocumentProps(Document document, String title, Properties props) {
         document.addTitle(title);
         document.addSubject("");
-        document.addKeywords("pdf, itext");
-        document.addCreator("OSCAR");
+        document.addKeywords("pdf");
+        document.addCreator("CARLOS EMR");
         document.addAuthor("");
 
         // A0-A10, LEGAL, LETTER, HALFLETTER, _11x17, LEDGER, NOTE, B0-B5, ARCH_A-ARCH_E, FLSA
@@ -558,6 +635,18 @@ public class EFormPDFServlet extends HttpServlet {
         document.open();
     }
 
+    /**
+     * Core rendering loop that iterates config entries and draws form field content onto
+     * the PDF canvas. Handles multi-line text via ColumnText, rectangles, lines, static
+     * text (__-prefixed), and checkbox glyphs (ZapfDingbats).
+     *
+     * @param printCfg Properties field-name-to-CSV-layout mappings
+     * @param props Properties form field values from the request
+     * @param measurements Properties additional measurement values
+     * @param height float page height in points for coordinate conversion
+     * @param cb PdfContentByte the direct content layer to draw on
+     * @throws Exception if font creation or rendering fails
+     */
     private void writeContent(Properties printCfg, Properties props, Properties measurements, float height, PdfContentByte cb) throws Exception {
         for (Enumeration e = printCfg.propertyNames(); e.hasMoreElements(); ) {
             StringBuilder temp = new StringBuilder(e.nextElement().toString());
@@ -630,7 +719,7 @@ public class EFormPDFServlet extends HttpServlet {
                 float ury = Float.parseFloat(cfgVal[3].trim());
 
                 Rectangle rec = new Rectangle(llx, lly, urx, ury);
-                rec.setBackgroundColor(BaseColor.WHITE);
+                rec.setBackgroundColor(Color.WHITE);
                 cb.rectangle(rec);
 
             } else if (temp.toString().startsWith("__$line")) {
@@ -700,8 +789,9 @@ public class EFormPDFServlet extends HttpServlet {
             else if (temp.toString().equals("__className"))
                 className = tempValue;
             else {
-                MiscUtils.getLogger().debug("Adding xDate " + temp.toString() + " VAL: " + props.getProperty(temp.toString()));
-                MiscUtils.getLogger().debug("Adding yHeight " + tempValue + " VAL: " + props.getProperty(tempValue));
+                // Log the coordinate keys only, never the plotted measurement values (growth-chart PHI).
+                MiscUtils.getLogger().debug("Adding xDate for key {}", LogSafe.sanitize(temp.toString()));
+                MiscUtils.getLogger().debug("Adding yHeight for key {}", LogSafe.sanitize(tempValue));
                 xDate.add(props.getProperty(temp.toString()));
                 yHeight.add(props.getProperty(tempValue));
             }

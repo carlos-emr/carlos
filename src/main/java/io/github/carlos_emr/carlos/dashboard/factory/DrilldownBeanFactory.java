@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.dashboard.factory;
 
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
@@ -107,6 +108,11 @@ public class DrilldownBeanFactory {
         return drilldownBean;
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     private void setDrilldownBean(DrilldownBean drilldownBean) {
         // copy what is available in the entity bean
         try {

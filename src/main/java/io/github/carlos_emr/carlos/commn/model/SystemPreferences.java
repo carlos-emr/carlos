@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.Date;
 
 @Entity
@@ -65,7 +65,7 @@ public class SystemPreferences extends AbstractModel<Integer> {
     @Column(name = "name")
     private String name;
 
-    @Column(name = "value")
+    @Column(name = "`value`")
     private String value;
 
     @Column(name = "updateDate")

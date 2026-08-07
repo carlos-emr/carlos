@@ -28,25 +28,23 @@
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.xml.ws.WebServiceException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaTypeOptionDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
@@ -73,12 +71,6 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramQueueManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.service.VacancyTemplateManager;
 import io.github.carlos_emr.carlos.PMmodule.utility.ProgramAccessCache;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.Referral;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.ReferralWs;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.FunctionalCentreDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
@@ -86,20 +78,24 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.FunctionalCentre;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import io.github.carlos_emr.carlos.services.security.RolesManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action for comprehensive program management in the PMmodule.
@@ -116,7 +112,6 @@ import org.apache.struts2.ServletActionContext;
  * <li>Vacancy and vacancy template management</li>
  * <li>Program queue management</li>
  * <li>Program signature tracking for audit</li>
- * <li>Remote referral integration via CAISI Integrator</li>
  * </ul>
  * <p>
  * The action uses method-based routing where the "method" request parameter
@@ -126,6 +121,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2005-10-01
  */
 public class ProgramManager2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -172,76 +169,94 @@ public class ProgramManager2Action extends ActionSupport {
     private ProgramClientStatus client_status;
     private ProgramClientRestriction restriction;
 
+    @StrutsParameter(depth = 1)
     public ProgramClientRestriction getRestriction() {
         return restriction;
     }
 
+    @StrutsParameter
     public void setRestriction(ProgramClientRestriction restriction) {
         this.restriction = restriction;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramClientStatus getClient_status() {
         return client_status;
     }
 
+    @StrutsParameter
     public void setClient_status(ProgramClientStatus client_status) {
         this.client_status = client_status;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramTeam getTeam() {
         return team;
     }
 
+    @StrutsParameter
     public void setTeam(ProgramTeam team) {
         this.team = team;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramQueue getQueue() {
         return queue;
     }
 
+    @StrutsParameter
     public void setQueue(ProgramQueue queue) {
         this.queue = queue;
     }
 
     private ProgramTeam team;
 
+    @StrutsParameter(depth = 1)
     public ProgramFunctionalUser getFunction() {
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(ProgramFunctionalUser function) {
         this.function = function;
     }
 
+    @StrutsParameter(depth = 1)
     public Program getProgram() {
         return program;
     }
 
+    @StrutsParameter
     public void setProgram(Program program) {
         this.program = program;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramProvider getProvider() {
         return provider;
     }
 
+    @StrutsParameter
     public void setProvider(ProgramProvider provider) {
         this.provider = provider;
     }
 
+    @StrutsParameter(depth = 1)
     public Admission getAdmission() {
         return admission;
     }
 
+    @StrutsParameter
     public void setAdmission(Admission admission) {
         this.admission = admission;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramAccess getAccess() {
         return access;
     }
 
+    @StrutsParameter
     public void setAccess(ProgramAccess access) {
         this.access = access;
     }
@@ -264,7 +279,7 @@ public class ProgramManager2Action extends ActionSupport {
      * <li>save_restriction_settings/enable_restriction/disable_restriction - Service restrictions</li>
      * <li>save_vacancy/save_vacancy_template/viewVacancyTemplate/chooseTemplate - Vacancy management</li>
      * <li>activeTmplStatus/inactiveTmplStatus/saveVacancyStatus - Vacancy template status</li>
-     * <li>remove_queue/remove_remote_queue - Queue management</li>
+     * <li>remove_queue - Queue management</li>
      * <li>programSignatures - Signature display</li>
      * <li>assign_role - Role assignment</li>
      * </ul>
@@ -277,7 +292,12 @@ public class ProgramManager2Action extends ActionSupport {
      * @return String result name for Struts 2 result mapping
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String method = request.getParameter("method");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         if ("edit".equals(method)) {
             return edit();
         } else if ("programSignatures".equals(method)) {
@@ -310,8 +330,6 @@ public class ProgramManager2Action extends ActionSupport {
             return edit_team();
         } else if ("remove_queue".equals(method)) {
             return remove_queue();
-        } else if ("remove_remote_queue".equals(method)) {
-            return remove_remote_queue();
         } else if ("remove_team".equals(method)) {
             return remove_team();
         } else if ("save_restriction_settings".equals(method)) {
@@ -360,12 +378,24 @@ public class ProgramManager2Action extends ActionSupport {
         String searchStatus = this.getSearchStatus();
         String searchType = this.getSearchType();
         String searchFacilityId = this.getSearchFacilityId();
+        if (searchStatus == null) {
+            searchStatus = "";
+        }
+        if (searchType == null) {
+            searchType = "Any";
+        }
+        if (searchFacilityId == null || searchFacilityId.isBlank()) {
+            searchFacilityId = "0";
+        }
 
         String providerNo = (String) request.getSession().getAttribute("user");
         String userrole = (String) request.getSession().getAttribute("userrole");
+        if (userrole == null) {
+            userrole = "";
+        }
 
         List<Program> list = null;
-        if ("".equals(searchStatus)) {
+        if ("".equals(searchStatus) || "Any".equals(searchStatus)) {
             // what is 'any' used for? Temporarily commented them out.
             // when click 'program list' on PMM, it will not display community programs, only display bed and service programs.
             // searchStatus = "Any";
@@ -402,7 +432,7 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("vacancyOrTemplateId", getVacancyOrTemplateId());
 
 
-        if (id != null && id != "") {
+        if (StringUtils.isNotEmpty(id)) {
             Program program = programManager.getProgram(id);
 
             if (program == null) {
@@ -411,6 +441,7 @@ public class ProgramManager2Action extends ActionSupport {
             }
 
             this.setProgram(program);
+            request.setAttribute("program", program);
             request.setAttribute("oldProgram", program);
 
             List<FunctionalCentre> functionalCentres = functionalCentreDao.findAll();
@@ -428,10 +459,14 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, id);
 
-        if (id != null && id != "") {
+        if (StringUtils.isNotEmpty(id)) {
             request.setAttribute("service_restrictions", clientRestrictionManager.getActiveRestrictionsForProgram(Integer.valueOf(id), new Date()));
             request.setAttribute("disabled_service_restrictions", clientRestrictionManager.getDisabledRestrictionsForProgram(Integer.valueOf(id), new Date()));
         }
+        return editResult();
+    }
+
+    private String editResult() {
         return "edit";
     }
 
@@ -461,10 +496,11 @@ public class ProgramManager2Action extends ActionSupport {
 
     public String add() {
         this.setProgram(new Program());
+        request.setAttribute("program", this.getProgram());
 
         setEditAttributes(request, null);
 
-        return "edit";
+        return editResult();
     }
 
 
@@ -485,7 +521,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_team() {
@@ -508,7 +544,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_team_client() {
@@ -526,7 +562,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String delete() {
@@ -650,7 +686,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         ProgramAccessCache.setAccessMap(program.getId());
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_function() {
@@ -670,7 +706,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_provider() {
@@ -691,7 +727,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String edit_team() {
@@ -708,7 +744,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setTeam(pt);
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
 
@@ -725,26 +761,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
-    }
-
-    public String remove_remote_queue() {
-        Program program = this.getProgram();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        Integer remoteReferralId = Integer.valueOf(request.getParameter("remoteReferralId"));
-
-        try {
-            ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            referralWs.removeReferral(remoteReferralId);
-        } catch (MalformedURLException e) {
-            logger.error("Unexpected error", e);
-        } catch (WebServiceException e) {
-            logger.error("Unexpected error", e);
-        }
-
-        setEditAttributes(request, String.valueOf(program.getId()));
-        return "edit";
+        return editResult();
     }
 
     public String remove_team() {
@@ -776,7 +793,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_restriction_settings() {
@@ -852,7 +869,6 @@ public class ProgramManager2Action extends ActionSupport {
         if (request.getParameter("program.alcohol") == null) program.setAlcohol(false);
         if (request.getParameter("program.physicalHealth") == null) program.setPhysicalHealth(false);
         if (request.getParameter("program.mentalHealth") == null) program.setMentalHealth(false);
-        if (request.getParameter("program.enableOCAN") == null) program.setEnableOCAN(false);
         if (request.getParameter("program.housing") == null) program.setHousing(false);
         if (request.getParameter("program.enableEncounterTime") == null) program.setEnableEncounterTime(false);
         if (request.getParameter("program.enableEncounterTransportationTime") == null)
@@ -868,13 +884,13 @@ public class ProgramManager2Action extends ActionSupport {
                 if (admissions.size() > 0) {
                     addActionMessage(getText("program.client_in_the_program", program.getName()));
                     setEditAttributes(request, String.valueOf(program.getId()));
-                    return "edit";
+                    return editResult();
                 }
                 int numQueue = programQueueManager.getActiveProgramQueuesByProgramId((long) program.getId()).size();
                 if (numQueue > 0) {
                     addActionMessage(getText("program.client_in_the_queue", program.getName(), String.valueOf(numQueue)));
                     setEditAttributes(request, String.valueOf(program.getId()));
-                    return "edit";
+                    return editResult();
                 }
             }
         }
@@ -882,7 +898,7 @@ public class ProgramManager2Action extends ActionSupport {
         if (program.isHoldingTank()) {
             addActionMessage(getText("program.invalid_holding_tank"));
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         saveProgram(request, program);
@@ -927,7 +943,6 @@ public class ProgramManager2Action extends ActionSupport {
         oldProgram.setAlcohol(getParameterAsBoolean(request, "old_alcohol"));
         oldProgram.setPhysicalHealth(getParameterAsBoolean(request, "old_physicalHealth"));
         oldProgram.setMentalHealth(getParameterAsBoolean(request, "old_mentalHealth"));
-        oldProgram.setEnableOCAN(getParameterAsBoolean(request, "old_enableOCAN"));
         oldProgram.setHousing(getParameterAsBoolean(request, "old_housing"));
         oldProgram.setFacilityId(getParameterAsInteger(request, "old_facility_id", 0));
         oldProgram.setEnableEncounterTime(getParameterAsBoolean(request, "old_enableEncounterTime"));
@@ -956,7 +971,7 @@ public class ProgramManager2Action extends ActionSupport {
         List<Criteria> criterias = criteriaDAO.getCriteriaByTemplateId(Integer.valueOf(templateId));
         request.setAttribute("criterias", criterias);
 
-        return "edit";
+        return editResult();
     }
 
     public String chooseTemplate() {
@@ -975,7 +990,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_vacancy() {
@@ -1049,13 +1064,13 @@ public class ProgramManager2Action extends ActionSupport {
                     continue;
                 }
 
-                String required = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Required";
+                String required = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Required";
                 if (request.getParameter(required) == null)
                     newCriteria.setCanBeAdhoc(0);
                 else
                     newCriteria.setCanBeAdhoc(Integer.valueOf(request.getParameter(required)));
 
-                String targetName = "targetOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+                String targetName = "targetOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
                 String[] answers = parameters.get(targetName);
 
                 saveTemplateOrVacancy(parameters, answers, type, newCriteria, request);
@@ -1123,9 +1138,9 @@ public class ProgramManager2Action extends ActionSupport {
         for (CriteriaType type : typeList) {
             Criteria criteria = new Criteria();
             criteria.setTemplateId(vacancyTemplate.getId());
-            String required = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Required";
+            String required = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Required";
             criteria.setCanBeAdhoc(request.getParameter(required) == null ? 0 : Integer.valueOf(request.getParameter(required)));
-            String targetName = "targetOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+            String targetName = "targetOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
             String[] answers = parameters.get(targetName);
 
             saveTemplateOrVacancy(parameters, answers, type, criteria, request);
@@ -1137,6 +1152,8 @@ public class ProgramManager2Action extends ActionSupport {
         return edit();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void saveTemplateOrVacancy(HashMap<String, String[]> parameters, String[] answers, CriteriaType type, Criteria criteria, HttpServletRequest request) {
 
         if (type.getFieldType().equalsIgnoreCase("select_multiple") || type.getFieldType().equalsIgnoreCase("select_multiple_narrowing")) {
@@ -1145,15 +1162,15 @@ public class ProgramManager2Action extends ActionSupport {
 
         } else if (type.getFieldType().equalsIgnoreCase("select_one_range")) {
 
-            String sourceName = "sourceOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+            String sourceName = "sourceOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
             String[] singleAnswers = parameters.get(sourceName);
             String answer = "";
             if (singleAnswers != null && singleAnswers.length > 0)
                 answer = singleAnswers[0];
             criteria.setCriteriaValue(answer);
 
-            String minName = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Minimum";
-            String maxName = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Maximum";
+            String minName = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Minimum";
+            String maxName = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Maximum";
             if (!StringUtils.isBlank(request.getParameter(minName)))
                 criteria.setRangeStartValue(Integer.valueOf(request.getParameter(minName)));
             if (!StringUtils.isBlank(request.getParameter(maxName)))
@@ -1165,7 +1182,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         } else if (type.getFieldType().equalsIgnoreCase("select_one")) {
 
-            String sourceName = "sourceOf" + type.getFieldName().toLowerCase().replaceAll(" ", "_");
+            String sourceName = "sourceOf" + VacancyTemplateManager.criteriaFieldKey(type.getFieldName());
             String[] singleAnswers = parameters.get(sourceName);
             String answer = "";
             if (singleAnswers != null && singleAnswers.length > 0)
@@ -1178,7 +1195,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         } else if (type.getFieldType().equalsIgnoreCase("number")) {
 
-            String numberName = type.getFieldName().toLowerCase().replaceAll(" ", "_") + "Number";
+            String numberName = VacancyTemplateManager.criteriaFieldKey(type.getFieldName()) + "Number";
             String[] numberAnswers = parameters.get(numberName);
             String number = "";
             if (numberAnswers != null && numberAnswers.length > 0)
@@ -1225,7 +1242,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program.duplicate_access", program.getName()));
             this.setAccess(new ProgramAccess());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         String roles[] = request.getParameterValues("checked_role");
@@ -1248,7 +1265,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         ProgramAccessCache.setAccessMap(program.getId());
 
-        return "edit";
+        return editResult();
     }
 
     public String save_function() {
@@ -1262,7 +1279,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_function.duplicate", program.getName()));
             this.setFunction(new ProgramFunctionalUser());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
         programManager.saveFunctionalUser(function);
         addActionMessage(getText("program.saved", program.getName()));
@@ -1272,7 +1289,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setFunction(new ProgramFunctionalUser());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_provider() {
@@ -1285,7 +1302,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program.provider.exists"));
             this.setProvider(new ProgramProvider());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramProvider(provider);
@@ -1295,7 +1312,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setProvider(new ProgramProvider());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_team() {
@@ -1308,7 +1325,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_team.duplicate", team.getName()));
             this.setTeam(new ProgramTeam());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramTeam(team);
@@ -1318,13 +1335,13 @@ public class ProgramManager2Action extends ActionSupport {
         this.setTeam(new ProgramTeam());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     private void setEditAttributes(HttpServletRequest request, String programId) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (programId != null && programId != "") {
+        if (StringUtils.isNotEmpty(programId)) {
             request.setAttribute("id", programId);
             request.setAttribute("programName", programManager.getProgram(programId).getName());
             request.setAttribute("providers", programManager.getProgramProviders(programId));
@@ -1349,10 +1366,6 @@ public class ProgramManager2Action extends ActionSupport {
             request.setAttribute("accesses", programManager.getProgramAccesses(programId));
             request.setAttribute("queue", programQueueManager.getActiveProgramQueuesByProgramId(Long.valueOf(programId)));
 
-            if (CaisiIntegratorManager.isEnableIntegratedReferrals(loggedInInfo.getCurrentFacility())) {
-                request.setAttribute("remoteQueue", getRemoteQueue(loggedInInfo, Integer.parseInt(programId)));
-            }
-
             request.setAttribute("programFirstSignature", programManager.getProgramFirstSignature(Integer.valueOf(programId)));
         }
 
@@ -1362,77 +1375,6 @@ public class ProgramManager2Action extends ActionSupport {
         request.setAttribute("accessTypes", programManager.getAccessTypes());
 
         request.setAttribute("facilities", facilityDao.findAll(true));
-    }
-
-    public static class RemoteQueueEntry {
-        private Referral remoteReferral = null;
-        private String clientName = null;
-        private String providerName = null;
-
-        public Referral getReferral() {
-            return remoteReferral;
-        }
-
-        public void setReferral(Referral remoteReferral) {
-            this.remoteReferral = remoteReferral;
-        }
-
-        public String getClientName() {
-            return clientName;
-        }
-
-        public void setClientName(String clientName) {
-            this.clientName = clientName;
-        }
-
-        public String getProviderName() {
-            return providerName;
-        }
-
-        public void setProviderName(String providerName) {
-            this.providerName = providerName;
-        }
-
-    }
-
-    protected List<RemoteQueueEntry> getRemoteQueue(LoggedInInfo loggedInInfo, int programId) {
-        try {
-            DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            ReferralWs referralWs = CaisiIntegratorManager.getReferralWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            List<Referral> remoteReferrals = referralWs.getReferralsToProgram(programId);
-
-            ArrayList<RemoteQueueEntry> results = new ArrayList<RemoteQueueEntry>();
-            for (Referral remoteReferral : remoteReferrals) {
-                RemoteQueueEntry remoteQueueEntry = new RemoteQueueEntry();
-                remoteQueueEntry.setReferral(remoteReferral);
-
-                DemographicTransfer demographicTransfer = demographicWs.getDemographicByFacilityIdAndDemographicId(remoteReferral.getSourceIntegratorFacilityId(), remoteReferral.getSourceCaisiDemographicId());
-                if (demographicTransfer != null) {
-                    remoteQueueEntry.setClientName(demographicTransfer.getLastName() + ", " + demographicTransfer.getFirstName());
-                } else {
-                    remoteQueueEntry.setClientName("N/A");
-                }
-
-                FacilityIdStringCompositePk pk = new FacilityIdStringCompositePk();
-                pk.setIntegratorFacilityId(remoteReferral.getSourceIntegratorFacilityId());
-                pk.setCaisiItemId(remoteReferral.getSourceCaisiProviderId());
-                CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), pk);
-                if (cachedProvider != null) {
-                    remoteQueueEntry.setProviderName(cachedProvider.getLastName() + ", " + cachedProvider.getFirstName());
-                } else {
-                    remoteQueueEntry.setProviderName("N/A");
-                }
-
-                results.add(remoteQueueEntry);
-            }
-            return (results);
-        } catch (MalformedURLException e) {
-            logger.error("Unexpected Error.", e);
-        } catch (WebServiceException e) {
-            logger.error("Unexpected Error.", e);
-        }
-
-        return (null);
     }
 
     public String delete_status() {
@@ -1469,7 +1411,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setClient_status(pt);
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String save_status() {
@@ -1482,7 +1424,7 @@ public class ProgramManager2Action extends ActionSupport {
             addActionMessage(getText("program_status.duplicate", status.getName()));
             this.setClient_status(new ProgramClientStatus());
             setEditAttributes(request, String.valueOf(program.getId()));
-            return "edit";
+            return editResult();
         }
 
         programManager.saveProgramClientStatus(status);
@@ -1493,7 +1435,7 @@ public class ProgramManager2Action extends ActionSupport {
         this.setClient_status(new ProgramClientStatus());
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String assign_status_client() {
@@ -1511,7 +1453,7 @@ public class ProgramManager2Action extends ActionSupport {
 
         setEditAttributes(request, String.valueOf(program.getId()));
 
-        return "edit";
+        return editResult();
     }
 
     public String disable_restriction() {
@@ -1600,7 +1542,7 @@ public class ProgramManager2Action extends ActionSupport {
         obj.put("error", error);
 
         try {
-            response.getWriter().print(obj.toString());
+            JsonResponseWriter.write(response, obj);
         } catch (IOException e) {
             MiscUtils.getLogger().warn("error writing json", e);
         }
@@ -1634,7 +1576,7 @@ public class ProgramManager2Action extends ActionSupport {
                 || (program1.isAlcohol() ^ program2.isAlcohol())
                 || (program1.isPhysicalHealth() ^ program2.isPhysicalHealth())
                 || (program1.isMentalHealth() ^ program2.isMentalHealth())
-                || (program1.getFacilityId() != program2.getFacilityId())
+                || (!Objects.equals(program1.getFacilityId(), program2.getFacilityId()))
                 || (program1.isHousing() ^ program2.isHousing()))
 
             changed = true;
@@ -1650,7 +1592,7 @@ public class ProgramManager2Action extends ActionSupport {
         return ((in1 == null && in2 == null) || in1.equals(in2));
     }
 
-    @Required
+    @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;
     }
@@ -1692,7 +1634,7 @@ public class ProgramManager2Action extends ActionSupport {
 
     protected Integer getParameterAsInteger(HttpServletRequest request, String name, Integer defaultVal) {
         String param = request.getParameter(name);
-        if (!(param == null || param.equals("null") || param.equals(""))) {
+        if (param != null && !"null".equals(param) && !param.isEmpty()) {
             return Integer.valueOf(param);
         }
         return defaultVal;
@@ -1719,6 +1661,7 @@ public class ProgramManager2Action extends ActionSupport {
         return searchStatus;
     }
 
+    @StrutsParameter
     public void setSearchStatus(String searchStatus) {
         this.searchStatus = searchStatus;
     }
@@ -1727,6 +1670,7 @@ public class ProgramManager2Action extends ActionSupport {
         return searchType;
     }
 
+    @StrutsParameter
     public void setSearchType(String searchType) {
         this.searchType = searchType;
     }
@@ -1735,6 +1679,7 @@ public class ProgramManager2Action extends ActionSupport {
         return searchFacilityId;
     }
 
+    @StrutsParameter
     public void setSearchFacilityId(String searchFacilityId) {
         this.searchFacilityId = searchFacilityId;
     }
@@ -1743,6 +1688,7 @@ public class ProgramManager2Action extends ActionSupport {
         return vacancyOrTemplateId;
     }
 
+    @StrutsParameter
     public void setVacancyOrTemplateId(String vacancyOrTemplateId) {
         this.vacancyOrTemplateId = vacancyOrTemplateId;
     }

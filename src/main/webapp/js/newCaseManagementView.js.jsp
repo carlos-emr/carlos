@@ -31,10 +31,11 @@
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
     <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
     <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
-    <%@page import="io.github.carlos_emr.OscarProperties"%>
+    <%@page import="io.github.carlos_emr.CarlosProperties"%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
-    <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+    <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
     var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context
@@ -42,7 +43,6 @@
     var demographicNo;
     var case_program_id;
     var caisiEnabled = false;
-    var passwordEnabled = false;
     var requireIssue = true;
     var requireObsDate = true;
     var makeIssue;
@@ -98,7 +98,7 @@
         }
         var page = "" + varpage;
         windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
-        //var popup =window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupPageWindow"/>", windowprops);
+        //var popup =window.open(page, "<fmt:message key="encounter.Index.popupPageWindow"/>", windowprops);
         openWindows[name] = window.open(page, name, windowprops);
 
         if (openWindows[name] != null) {
@@ -139,26 +139,7 @@
     }
 
     function urlencode(str) {
-        var ns = (navigator.appName == "Netscape") ? 1 : 0;
-        if (ns) {
-            return escape(str);
-        }
-        var ms = "%25#23 20+2B?3F<3C>3E{7B}7D[5B]5D|7C^5E~7E`60";
-        var msi = 0;
-        var i, c, rs, ts;
-        while (msi < ms.length) {
-            c = ms.charAt(msi);
-            rs = ms.substring(++msi, msi + 2);
-            msi += 2;
-            i = 0;
-            while (true) {
-                i = str.indexOf(c, i);
-                if (i == -1) break;
-                ts = str.substring(0, i);
-                str = ts + "%" + rs + str.substring(++i, str.length);
-            }
-        }
-        return str;
+        return encodeURIComponent(str);
     }
 
     function measurementLoaded(name) {
@@ -174,20 +155,24 @@
         }
 
         if (needToReleaseLock) {
-            //release lock on note
-            var url = ctx + "/CaseManagementEntry.do";
+            //release lock on note via sendBeacon (reliable on page unload)
+            var url = ctx + "/CaseManagementEntry";
             var nId = document.forms['caseManagementEntryForm'].noteId.value;
             var params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
-            new Ajax.Request(
-                url,
-                {
-                    method: 'post',
-                    postBody: params,
-                    asynchronous: false
-                }
-            );
+            var csrfToken = CarlosAjax.getCsrfToken();
+            if (csrfToken) {
+                params += "&CSRF-TOKEN=" + encodeURIComponent(csrfToken);
+            }
+            navigator.sendBeacon(url, new Blob([params], {type: 'application/x-www-form-urlencoded'}));
         }
     }
+
+    // Use pagehide for lock release on actual page unload (navigation, tab close, window close).
+    // Do NOT use visibilitychange here — it fires on tab switch and minimize, which would
+    // prematurely release the note lock while the user is still editing.
+    window.addEventListener('pagehide', function() {
+        onClosing();
+    });
 
     var numMenus = 3;
     function showMenu(menuNumber, eventObj) {
@@ -221,7 +206,7 @@
         var midImage = $(midName);
         var lastImage = $(lastName);
         var expand;
-        var expandPath = ctx + "/oscarEncounter/graphics/expand.gif";
+        var expandPath = ctx + "/encounter/graphics/expand.gif";
         var collapsePath = ctx + "/messenger/img/collapse.gif";
         var transparentPath = ctx + "/images/clear.gif";
 
@@ -280,14 +265,72 @@
 
         return true;
     }
+    /**
+     * Initializes the active note textarea after it is loaded via AJAX.
+     * Resizes the textarea to fit content, scrolls it into view, binds
+     * wheel passthrough and input.autosize handlers, and sets focus.
+     * Called from ChartNotesAjax.jsp on initial note load.
+     */
     function setupNotes() {
-        //need to set focus after rounded is called
         adjustCaseNote();
-    const $caseNoteElement = jQuery("#" + caseNote);
-    setCaretPosition($caseNoteElement, $caseNoteElement.val().length);
+        var noteEl = document.getElementById(caseNote);
+        if (!noteEl) return;
+        var $caseNoteElement = jQuery(noteEl);
+        setCaretPosition(noteEl, noteEl.value.length);
 
-    $caseNoteElement.focus();
+        // Scroll the wrapper so the note textarea is visible at the top
+        scrollToNote();
+
+        enableNotePassthroughScroll($caseNoteElement);
+
+        // Auto-expand textarea as user types or presses Enter
+        $caseNoteElement.off('input.autosize').on('input.autosize', function() {
+            adjustCaseNote();
+        });
+
+        $caseNoteElement.focus();
     }
+
+    // Scrolls encMainDivWrapper so the active note textarea is at the top of the visible area
+    function scrollToNote() {
+        if (!caseNote) return;
+        var $note = jQuery("#" + caseNote);
+        var $wrapper = jQuery("#encMainDivWrapper");
+        if (!$note.length || !$wrapper.length) return;
+
+        // Calculate note position relative to the wrapper's scroll content
+        var noteOffsetTop = $note.offset().top;
+        var wrapperOffsetTop = $wrapper.offset().top;
+        var currentScroll = $wrapper.scrollTop();
+        $wrapper.scrollTop(currentScroll + noteOffsetTop - wrapperOffsetTop);
+    }
+
+    // Forward trackpad/wheel scroll events from the note textarea to the page wrapper
+    // so that scrolling works when the cursor is inside the textarea
+    function enableNotePassthroughScroll($note) {
+        if (!$note.length) return;
+        $note.off('wheel.passthrough').on('wheel.passthrough', function(e) {
+            var wrapper = document.getElementById('encMainDivWrapper');
+            if (wrapper) {
+                wrapper.scrollTop += e.originalEvent.deltaY;
+                e.preventDefault();
+            }
+        });
+    }
+
+    jQuery(function() {
+
+        // Keyboard shortcuts
+        jQuery(document).on('keydown', function(e) {
+            // Ctrl+B — Bill (sign, save & bill)
+            if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'b') {
+                e.preventDefault();
+                document.forms['caseManagementEntryForm'].sign.value = 'on';
+                document.forms['caseManagementEntryForm'].toBill.value = 'true';
+                savePage('saveAndExit', '');
+            }
+        });
+    });
 
     <%--var minDelta =  0.93;--%>
     <%--var minMain;--%>
@@ -311,7 +354,7 @@
     <%--}--%>
 
     function scrollDownInnerBar() {
-        $("encMainDivWrapper").scrollTop = $("encMainDivWrapper").scrollHeight;
+        scrollToNote();
     }
 
     function popperup(vheight, vwidth, varpage, pageName) { //open a new popup window
@@ -325,7 +368,7 @@
     var fullChart = "false";
     function viewFullChart(displayFullChart) {
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var params = assembleMainChartParams(displayFullChart);
 
         if (displayFullChart) {
@@ -335,7 +378,7 @@
         }
 
         $("notCPP").update("Loading...");
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -343,18 +386,17 @@
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "auto";--%>
+                    var qc = $("quickChart");
                     if (displayFullChart) {
-                        $("quickChart").innerHTML = quickChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(false);
+                        if (qc) {
+                            qc.textContent = quickChartMsg;
+                            qc.onclick = function () { return viewFullChart(false); }
                         }
                         scrollDownInnerBar();
-
                     } else {
-                        $("quickChart").innerHTML = fullChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(true);
+                        if (qc) {
+                            qc.textContent = fullChartMsg;
+                            qc.onclick = function () { return viewFullChart(true); }
                         }
                         scrollDownInnerBar();
                     }
@@ -382,10 +424,10 @@
 */
     function showIssueNotes() {
         issueNoteUrls = {
-            divR1I1: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
-            divR1I2: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
-            divR2I1: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
-            divR2I2: ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
+            divR1I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=divR1I1",
+            divR1I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=divR1I2",
+            divR2I1: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=divR2I1",
+            divR2I2: ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=divR2I2"
         };
         var limit = 5;
 
@@ -402,16 +444,16 @@
 
         // If any position variable is empty, it means that the corresponding issue is hidden
         if (socialHistoryPositon) {
-            issueNoteUrls[socialHistoryPositon] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
+            issueNoteUrls[socialHistoryPositon] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=SocHistory&title=" + socHistoryLabel + "&cmd=div" + socialHistoryPositon;
         }
         if (medicalHistoryPosition) {
-            issueNoteUrls[medicalHistoryPosition] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
+            issueNoteUrls[medicalHistoryPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=MedHistory&title=" + medHistoryLabel + "&cmd=div" + medicalHistoryPosition;
         }
         if (ongoingConcernsPosition) {
-            issueNoteUrls[ongoingConcernsPosition] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
+            issueNoteUrls[ongoingConcernsPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Concerns&title=" + onGoingLabel + "&cmd=div" + ongoingConcernsPosition;
         }
         if (remindersPosition) {
-            issueNoteUrls[remindersPosition] = ctx + "/CaseManagementView.do?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
+            issueNoteUrls[remindersPosition] = ctx + "/CaseManagementView?hc=996633&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=Reminders&title=" + remindersLabel + "&cmd=div" + remindersPosition;
         }
 
         var limit = 5;
@@ -421,13 +463,18 @@
         }
     }
 
-    var notesOffset = 0;
-    var notesIncrement = 20;
-    var notesRetrieveOk = false;
-    var notesCurrentTop = null;
+    // --- Notes pagination state ---
+    var notesOffset = 0;              // current offset into the full notes list
+    var notesIncrement = 20;          // batch size for each pagination fetch
+    var notesRetrieveOk = false;      // true when the last fetch returned non-empty results
+    var notesCurrentTop = null;       // ID of topmost note element before pagination insert
     var notesScrollCheckInterval = null;
-    const MAXNOTES = 1000000;
+    const MAXNOTES = 1000000;         // upper bound to stop pagination
 
+    /**
+     * Triggered when the user scrolls to the top of the notes wrapper.
+     * Loads the next batch of older notes (inserted at top of the list).
+     */
     function notesIncrementAndLoadMore() {
         if (notesRetrieveOk && $("encMainDivWrapper").scrollTop === 0) {
             if ($("encMainDivWrapper").scrollHeight > $("encMainDivWrapper").getHeight()) {
@@ -453,15 +500,15 @@
     }
 
     /**
-
-     Responsible for loading notes on the eChart
-     @param {offset}
-     Offset from the beginning of the notes
-     @param {numToReturn}
-     Number of notes to load
-     @param {demoNo}
-     Demographic number to loads notes for
-
+     * Fetches a batch of clinical notes via AJAX and inserts them at the top of #encMainDiv.
+     *
+     * On initial load (offset === 0), scrolls to the bottom to show the most recent notes.
+     * On pagination loads (offset > 0), preserves the current scroll position so the user
+     * can continue reading older notes without being snapped away.
+     *
+     * @param {number} offset - Zero-based offset into the patient's note list (0 = newest batch)
+     * @param {number} numToReturn - Maximum number of notes to fetch in this batch
+     * @param {number} demoNo - Demographic (patient) number to load notes for
      */
     function notesLoader(offset, numToReturn, demoNo) {
         $("notesLoading").show();
@@ -471,13 +518,13 @@
         if (params2.length > 0) {
             params = params + "&" + params2;
         }
-        new Ajax.Updater("encMainDiv",
-            ctx + "/CaseManagementView.do",
+        CarlosAjax.updater("encMainDiv",
+            ctx + "/CaseManagementView",
             {
                 method: 'post',
                 postBody: params,
                 evalScripts: true,
-                insertion: Insertion.Top,
+                insertion: 'top',
                 onSuccess: function (data) {
                     notesRetrieveOk = (data.responseText.replace(/\s+/g, '').length > 0);
                     if (!notesRetrieveOk) {
@@ -486,12 +533,14 @@
                 },
                 onComplete: function () {
                     $("notesLoading").hide();
-                    $("encMainDivWrapper").scrollTop = 10;
-
-                    <%--if (notesCurrentTop != null) {--%>
-                    <%--	$(notesCurrentTop).scrollIntoView();--%>
-                    <%--}--%>
-                    <%--scrollDownInnerBar();--%>
+                    // Only scroll to bottom on initial load (most recent notes);
+                    // pagination loads (offset > 0) preserve scroll position
+                    if (offset === 0) {
+                        var wrapper = $("encMainDivWrapper");
+                        if (wrapper) {
+                            wrapper.scrollTop = wrapper.scrollHeight;
+                        }
+                    }
                 }
             });
     }
@@ -513,41 +562,43 @@
         this.load = function () {
 
             var leftNavBar = [
-                ctx + "/oscarEncounter/displayPrevention.do?hC=" + Colour.prevention,
-                ctx + "/oscarEncounter/displayTickler.do?hC=" + Colour.tickler,
-                ctx + "/oscarEncounter/displayDisease.do?hC=" + Colour.disease,
-                ctx + "/oscarEncounter/displayForms.do?hC=" + Colour.forms,
-                ctx + "/oscarEncounter/displayEForms.do?hC=" + Colour.eForms,
-                ctx + "/oscarEncounter/displayDocuments.do?hC=" + Colour.documents,
-                ctx + "/oscarEncounter/displayLabs.do?hC=" + Colour.labs,
-                ctx + "/oscarEncounter/displayMessages.do?hC=" + Colour.messages,
-                ctx + "/oscarEncounter/displayMeasurements.do?hC=" + Colour.measurements,
-                ctx + "/oscarEncounter/displayConsultation.do?hC=" + Colour.consultation,
-                ctx + "/oscarEncounter/displayHRM.do?hC=" + Colour.hrmDocuments,
+                ctx + "/encounter/displayPrevention?hC=" + Colour.prevention,
+                ctx + "/encounter/displayTickler?hC=" + Colour.tickler,
+                ctx + "/encounter/displayMessages?hC=" + Colour.messages,
+                ctx + "/encounter/displayDocuments?hC=" + Colour.documents,
+                ctx + "/encounter/displayLabs?hC=" + Colour.labs,
+                ctx + "/encounter/displayHRM?hC=" + Colour.hrmDocuments,
+                ctx + "/encounter/displayMeasurements?hC=" + Colour.measurements,
+                ctx + "/encounter/displayConsultation?hC=" + Colour.consultation,
+                ctx + "/encounter/displayForms?hC=" + Colour.forms,
+                ctx + "/encounter/displayEForms?hC=" + Colour.eForms,
             ];
-            var leftNavBarTitles = ["preventions", "tickler", "Dx", "forms", "eforms", "docs", "labs", "msgs", "measurements", "consultation", "HRM"];
+            var leftNavBarTitles = ["preventions", "tickler", "msgs", "docs", "labs", "HRM", "measurements", "consultation", "forms", "eforms"];
             var rightNavBar = [
-                ctx + "/oscarEncounter/displayAllergy.do?hC=" + Colour.allergy,
-                ctx + "/oscarEncounter/displayRx.do?hC=" + Colour.rx + "&numToDisplay=12",
-                ctx + "/CaseManagementView.do?hc=" + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
-                ctx + "/CaseManagementView.do?hc=" + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
-                ctx + "/CaseManagementView.do?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
-                ctx + "/oscarEncounter/displayIssues.do?hC=" + Colour.unresolvedIssues,
-                ctx + "/oscarEncounter/displayResolvedIssues.do?hC=" + Colour.resolvedIssues,
-                ctx + "/oscarEncounter/displayDecisionSupportAlerts.do?hC=" + Colour.contacts + "&providerNo=" + providerNo + "&demographicNo=" + demographicNo,
-                ctx + "/oscarEncounter/displayEpisodes.do?hC=" + Colour.episode,
-                ctx + "/oscarEncounter/displayPregnancies.do?hC=" + Colour.episode,
-                ctx + "/oscarEncounter/displayContacts.do?hC=" + Colour.contacts
+                ctx + "/encounter/displayDisease?hC=" + Colour.disease,
+                ctx + "/CaseManagementView?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
+                ctx + "/encounter/displayAllergy?hC=" + Colour.allergy,
+                ctx + "/encounter/displayRx?hC=" + Colour.rx + "&numToDisplay=12",
+                ctx + "/CaseManagementView?hc=" + Colour.omed + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=OMeds&title=" + oMedsLabel + "&cmd=OMeds" + "&appointment_no=" + appointmentNo,
+                ctx + "/CaseManagementView?hc=" + Colour.riskFactors + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=RiskFactors&title=" + riskFactorsLabel + "&cmd=RiskFactors" + "&appointment_no=" + appointmentNo,
+                ctx + "/encounter/displayIssues?hC=" + Colour.unresolvedIssues,
+                ctx + "/encounter/displayResolvedIssues?hC=" + Colour.resolvedIssues,
+                ctx + "/encounter/displayDecisionSupportAlerts?hC=" + Colour.contacts + "&providerNo=" + providerNo + "&demographicNo=" + demographicNo,
+                ctx + "/encounter/displayEpisodes?hC=" + Colour.episode,
+                ctx + "/encounter/displayPregnancies?hC=" + Colour.episode,
+                ctx + "/encounter/displayContacts?hC=" + Colour.contacts
             ];
 
-            var rightNavBarTitles = ["allergies", "Rx", "OMeds", "RiskFactors", "FamHistory", "unresolvedIssues", "resolvedIssues", "Guidelines", "episode", "pregnancy", "contacts"];
+            var rightNavBarTitles = ["Dx", "FamHistory", "allergies", "Rx", "OMeds", "RiskFactors", "unresolvedIssues", "resolvedIssues", "Guidelines", "episode", "pregnancy", "contacts"];
 
 
             var navbar = "leftNavBar";
             for (var idx = 0; idx < leftNavBar.length; ++idx) {
                 var div = document.createElement("div");
                 div.className = "leftBox";
-                div.style.visiblity = "hidden";
+                // Note: develop had div.style.visiblity (typo) which never took effect.
+                // The display() function that sets visibility:visible is commented out,
+                // so these divs were always visible by accident. Keep them visible intentionally.
                 div.id = leftNavBarTitles[idx];
                 $(navbar).appendChild(div);
                 this.arrLeftDivs.push(div);
@@ -571,21 +622,19 @@
 
         //update each ajax div with info from request
         this.popColumn = function (url, div, params, navBar, navBarObj) {
-            params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
+            // Use numToDisplay from URL if specified, otherwise default to 6
+            var displayCount = "6";
+            var match = url.match(/numToDisplay=(\d+)/);
+            if (match) displayCount = match[1];
+            params = "reloadURL=" + url + "&numToDisplay=" + displayCount + "&cmd=" + params;
 
-            var objAjax = new Ajax.Request(
+            CarlosAjax.request(
                 url,
                 {
                     method: 'post',
                     postBody: params,
                     evalScripts: true,
-                    /*onLoading: function() {
-                                                $(div).update("<p>Loading ...<\/p>");
-                                            }, */
                     onSuccess: function (request) {
-                        //while( $(div).firstChild )
-                        //    $(div).removeChild($(div).firstChild);
-                        //alert("success " + div);
                         $(div).update(request.responseText);
 
                         if ($("leftColLoader") != null)
@@ -594,13 +643,10 @@
                         if ($("rightColLoader") != null)
                             Element.remove("rightColLoader");
 
-
-                        //track ajax completions and display divs when last ajax call completes
-                        //navBarObj.display(navBar,div);
-                        notifyDivLoaded($(div).id);
+                        // notifyDivLoaded removed — was always a no-op (empty function in renal/westernu cme.js, undefined elsewhere)
                     },
                     onFailure: function (request) {
-                        $(div).innerHTML = "<h3>" + div + "</h3>Error: " + request.status;
+                        $(div).update("<h3>" + div + "</h3>Error: " + request.status);
                     }
                 }
             );
@@ -660,33 +706,6 @@
             }
         };
 
-    }
-
-    function showIntegratedNote(title, note, location, providerName, obsDate) {
-        $("integratedNoteTitle").innerHTML = title;
-        $("integratedNoteDetails").innerHTML = "Integrated Facility:" + location + " by " + providerName + " on " + obsDate;
-
-        $("integratedNoteTxt").value = note;
-
-        var coords = null;
-        if (document.getElementById("measurements_div") == null) {
-            coords = Position.page($("topContent"));
-        } else {
-            coords = Position.positionedOffset($("cppBoxes"));
-        }
-
-        var top = Math.max(coords[1], 0);
-        var right = Math.round(coords[0] / 0.66);
-
-        $("showIntegratedNote").style.right = right + "px";
-        $("showIntegratedNote").style.top = top + "px";
-
-        $("channel").style.visibility = "hidden";
-        $("showEditNote").style.display = "none";
-
-        $("showIntegratedNote").style.display = "block";
-
-        $("integratedNoteTxt").focus();
     }
 
 // display in place editor
@@ -765,18 +784,8 @@
 
         $(editElem).style.right = right + "px";
         $(editElem).style.top = top + "px";
-        if (Prototype.Browser.IE) {
-            //IE6 bug of showing select box
-            $("channel").style.visibility = "hidden";
-            $(editElem).style.display = "block";
-        } else
-            $(editElem).style.display = "table";
+        $(editElem).style.display = "table";
 
-        //Prepare Annotation Window & Extra Fields
-        var now = new Date();
-        document.getElementById('annotation_attrib').value = "anno" + now.getTime();
-        var obj = {};
-        Element.observe('anno', 'click', openAnnotation.bindAsEventListener(obj, noteId, cppDisplay, demoNo));
         prepareExtraFields(cppDisplay, noteExts);
 
         //Set note position order
@@ -928,25 +937,19 @@
 
     }
 
-    function openAnnotation() {
-        var atbname = document.getElementById('annotation_attrib').value;
-        var data = $A(arguments);
-        var addr = ctx + "/annotation/annotation.jsp?atbname=" + atbname + "&table_id=" + data[1] + "&display=" + data[2] + "&demo=" + data[3];
-        window.open(addr, "anwin", "width=400,height=500");
-        Event.stop(data[0]);
-    }
 
 function updateCPPNote() {
+    try {
     sanitizeElementByPattern(document.forms["frmIssueNotes"].elements["noteEditTxt"], CONTROL_CHAR_PATTERN_2);
    var url = $("frmIssueNotes").action;
    var reloadUrl = $("reloadUrl").value;
    var div = $("containerDiv").value;
 
-        $('channel').style.visibility = 'visible';
+        if ($('channel')) $('channel').style.visibility = 'visible';
         $('showEditNote').style.display = 'none';
 
         var curItems = document.forms["frmIssueNotes"].elements["issueId"];
-        if (typeof curItems.length != "undefined") {
+        if (curItems != null && typeof curItems.length != "undefined") {
             size = curItems.length;
 
             for (var idx = 0; idx < size; ++idx) {
@@ -961,7 +964,7 @@ function updateCPPNote() {
 
         var params = $("frmIssueNotes").serialize();
         var sigId = "sig" + caseNote.substr(13);
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -976,14 +979,17 @@ function updateCPPNote() {
                         $("issueChange").value = false;
                     }
 
-                    notifyDivLoaded($(div).id);
+                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
                 },
                 onFailure: function (request) {
-                    $(div).innerHTML = "<h3>" + div + "<\/h3>Error: " + request.status;
+                    $(div).update("<h3>" + div + "<\/h3>Error: " + request.status);
                 }
             }
         );
-        return false;
+    } catch (e) {
+        console.error("updateCPPNote error:", e);
+    }
+    return false;
 
     }
 
@@ -996,26 +1002,17 @@ function updateCPPNote() {
 
     function loadDiv(div, url, limit) {
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
                 evalScripts: true,
-                /*onLoading: function() {
-                                                $(div).update("<p>Loading ...<\/p>");
-                                            },*/
                 onSuccess: function (request) {
-                    /*while( $(div).firstChild )
-                                                    $(div).removeChild($(div).firstChild);
-                                                */
-
                     $(div).update(request.responseText);
-                    //listDisplay(div,100);
-                    notifyDivLoaded($(div).id);
-
+                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
                 },
                 onFailure: function (request) {
-                    $(div).innerHTML = "<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText;
+                    $(div).update("<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText);
                 }
             }
         );
@@ -1270,9 +1267,9 @@ function updateCPPNote() {
     function ajaxInsertTemplate(varpage) { //fetch template
 
         if (varpage != 'null') {
-            var page = ctx + "/oscarEncounter/InsertTemplate.do";
+            var page = ctx + "/encounter/InsertTemplate";
             var params = "templateName=" + varpage + "&version=2";
-            new Ajax.Request(page, {
+            CarlosAjax.request(page, {
                     method: 'post',
                     postBody: params,
                     evalScripts: true,
@@ -1286,10 +1283,23 @@ function updateCPPNote() {
 
     }
 
+    /**
+     * Initialises the smart template tab-stop and shortcut features on the active case note textarea.
+     * Called after template insertion and whenever a new or existing note becomes active.
+     */
+    function initTemplateFeatures() {
+        try {
+            var el = document.getElementById(caseNote);
+            if (typeof smartTmpl !== 'undefined') { smartTmpl.init(el); }
+            if (typeof templateShortcut !== 'undefined') { templateShortcut.init(el); }
+        } catch (err) { console.error('Template feature init error:', err); }
+    }
+
     function menuAction() {
         var name = document.getElementById('enTemplate').value;
         var func = autoCompleted[name];
-        eval(func);
+        eval(func); // existing legacy template evaluation - pre-existing pattern, not new code
+        initTemplateFeatures();
     }
 
     function grabEnterGetTemplate(event) {
@@ -1320,34 +1330,24 @@ function updateCPPNote() {
     function resetView(frm, error, e) {
         var parent = Event.element(e).parentNode.id;
         var nId = parent.substr(1);
-        var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
+        var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
 
 
         Element.remove(Event.element(e).id);
         Event.stop(e);
-
-        if (error)
-            Element.remove("passwdError");
-
-        if (frm)
-            Element.remove("passwdPara");
-
-        //new Insertion.Top(parent, img);
-        Element.observe(parent, 'click', unlockNote);
     }
 
     function removeLock(id) {
         var regEx = /\d+/;
         var nId = regEx.exec(id);
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId + "&force=true";
 
-        new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
-                postBody: params,
-                asynchronous: true
+                postBody: params
             }
         );
     }
@@ -1375,21 +1375,6 @@ function updateCPPNote() {
             if (!confirm(unsavedNoteWarning))
                 return false;
             else {
-                // Prevent saving of note if the current note isn't properly assigned to a program and role. (note_program_ui_enabled = true)
-                if ((typeof jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val() != "undefined") &&
-                    (typeof jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val() != "undefined")) {
-                    if (jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val().trim().length == 0 ||
-                        jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val().trim().length == 0) {
-                        // For weird cases where the role id or program number is missing.
-                        _missingRoleProgramIdError();
-                        return false;
-                    } else if (jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val() == "-2" ||
-                        jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val() == "-2") {
-                        // For the case where you're trying to save a note with no available programs or roles
-                        _noVisibleProgramsError();
-                        return false;
-                    }
-                }
                 saving = true;
                 if (ajaxSaveNote(sig, nId, tmp) == false)
                     return false;
@@ -1403,10 +1388,6 @@ function updateCPPNote() {
         clearTimeout(autoSaveTimer);
         deleteAutoSave();
 
-        if ($("notePasswd") != null) {
-            Element.remove("notePasswd");
-        }
-
     jQuery('#' + id).off('keyup', monitorCaseNote);
     jQuery('#' + caseNote).off('paste');
         Element.stopObserving(id, 'click', getActiveText);
@@ -1417,7 +1398,7 @@ function updateCPPNote() {
         if (!saving && $("observationDate") != null) {
             var observationDate = $("observationDate").value;
 
-            new Insertion.After("observationDate", " <span id='obs" + nId + "'>" + observationDate + "</span>");
+            document.getElementById("observationDate").insertAdjacentHTML('afterend', " <span id='obs" + nId + "'>" + observationDate + "</span>");
             Element.remove("observationDate");
             Element.remove("observationDate_cal");
 
@@ -1458,7 +1439,7 @@ function updateCPPNote() {
 
         }
         //we can stop listening for add issue here
-        Element.stopObserving('asgnIssues', 'click', addIssueFunc);
+        if ($("asgnIssues")) { Element.stopObserving('asgnIssues', 'click', addIssueFunc); }
         if (tmp.length == 0)
             tmp = "&nbsp;";
 
@@ -1467,13 +1448,13 @@ function updateCPPNote() {
 
         if (!saving) {
             if (largeNote(tmp)) {
-                var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + nId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px; ' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-                new Insertion.Before(sig, btmImg);
+                var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + nId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px; ' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
+                $(sig).insertAdjacentHTML('beforebegin', btmImg);
             }
 
             var printImg = "print" + nId;
-            var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-            var printimg = "<img title='Print' id='" + printImg + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/printer.png'>";
+            var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
+            var printimg = "<img title='Print' id='" + printImg + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/printer.png'>";
             var input = "<div id='txt" + nId + "'>" + tmp + "<\/div>";
 
             var func;
@@ -1487,22 +1468,17 @@ function updateCPPNote() {
             var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
             var editId = "edit" + nId;
 
-            var attribName = "anno" + (new Date().getTime());
-            var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/oscarEncounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
-            new Insertion.Top(parent, editAnchor);
-            new Insertion.After(editId, input);
+            $(parent).insertAdjacentHTML('afterbegin', editAnchor);
+            $(editId).insertAdjacentHTML('afterend', input);
 
 
             if (nId.substr(0, 1) != "0") {
                 Element.remove(printImg);
-                new Insertion.Before(editId, printimg);
-                new Insertion.After(editId, attribAnchor);
-                new Insertion.Top(parent, img);
+                $(editId).insertAdjacentHTML('beforebegin', printimg);
+                $(parent).insertAdjacentHTML('afterbegin', img);
             }
 
-            new Insertion.Top(parent, img);
+            $(parent).insertAdjacentHTML('afterbegin', img);
 
             $(parent).style.height = "auto";
 
@@ -1530,16 +1506,16 @@ function updateCPPNote() {
 
         note = note.replace(/\n/g, "<br>");
         if (largeNote(note)) {
-            var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + newId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-            new Insertion.Top(parent, btmImg);
+            var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + newId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
+            $(parent).insertAdjacentHTML('afterbegin', btmImg);
         }
 
         var input = "<span id='txt" + newId + "'>" + note + "<\/span>";
 
         var imgId = "quitImg" + newId;
         var printId = "print" + newId;
-        var img = "<img title='Minimize Display' id='" + imgId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'/>";
-        var printimg = "<img title='Print' id='" + printId + "' alt='Toggle Print Note' onclick='togglePrint(" + newId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/printer.png'>";
+        var img = "<img title='Minimize Display' id='" + imgId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'/>";
+        var printimg = "<img title='Print' id='" + printId + "' alt='Toggle Print Note' onclick='togglePrint(" + newId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/printer.png'>";
         if ($(printId) != null) {
             Element.remove(printId);
         }
@@ -1554,10 +1530,10 @@ function updateCPPNote() {
 
         var anchor = "<a title='Edit' id='edit" + newId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
 
-        new Insertion.Top(parent, input);
-        new Insertion.Top(parent, anchor);
-        new Insertion.Top(parent, printimg);
-        new Insertion.Top(parent, img);
+        $(parent).insertAdjacentHTML('afterbegin', input);
+        $(parent).insertAdjacentHTML('afterbegin', anchor);
+        $(parent).insertAdjacentHTML('afterbegin', printimg);
+        $(parent).insertAdjacentHTML('afterbegin', img);
 
         $(parent).style.height = "auto";
 
@@ -1598,11 +1574,11 @@ function updateCPPNote() {
         line = "<div id='" + date + "' style='width:10%;'><b>" + dateValue + "<\/b><\/div><div id='" + content + "' style='float:left; width:70%;'>" + line + "<\/div>";
         $("txt" + nId).hide();
         $("sig" + nId).hide();
-        new Insertion.Top(txt, line);
+        $(txt).insertAdjacentHTML('afterbegin', line);
 
 
-        //img = "<img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/printer.png'>";
-        //new Insertion.Top(txt, img);
+        //img = "<img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'>";
+        //$(txt).insertAdjacentHTML('afterbegin', img);
 
         var print = 'print' + nId;
         var func;
@@ -1613,11 +1589,11 @@ function updateCPPNote() {
             func = "editNote(event);";
         }
         var anchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>Edit</a>";
-        new Insertion.After(print, anchor);
+        $(print).insertAdjacentHTML('afterend', anchor);
 
 
-        img = "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_down.gif'>";
-        new Insertion.Top(txt, img);
+        img = "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_down.gif'>";
+        $(txt).insertAdjacentHTML('afterbegin', img);
         Element.observe(txt, 'click', xpandView);
     }
 
@@ -1646,7 +1622,7 @@ function updateCPPNote() {
         var content = "c" + nId;
         var date = "d" + nId;
 
-        var imgTag = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
+        var imgTag = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
 
 
         Element.remove(img);
@@ -1655,7 +1631,7 @@ function updateCPPNote() {
 
 
         $(txt).style.height = 'auto';
-        new Insertion.Top(txt, imgTag);
+        $(txt).insertAdjacentHTML('afterbegin', imgTag);
         $("txt" + nId).show();
         $("sig" + nId).show();
         Element.stopObserving(txt, 'click', xpandView);
@@ -1663,12 +1639,12 @@ function updateCPPNote() {
     }
 
     function fetchNote(nId) {
-        var url = ctx + "/CaseManagementView.do";
+        var url = ctx + "/CaseManagementView";
         var fullId = "full" + nId;
         var params = "method=viewNote&raw=true&noteId=" + nId;
         var noteTxtArea = "caseNote_note" + nId;
 
-        var ajax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -1711,7 +1687,7 @@ function updateCPPNote() {
     }
 
     function fullViewById(id) {
-        var url = ctx + "/CaseManagementView.do";
+        var url = ctx + "/CaseManagementView";
 
         var regEx = /\d+/;
         var nId = regEx.exec(id);
@@ -1725,7 +1701,7 @@ function updateCPPNote() {
         Element.stopObserving(txt, 'click', fullView);
 
 
-        var ajax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -1739,8 +1715,8 @@ function updateCPPNote() {
             }
         );
 
-        var imgTag1 = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minNonEditableNoteView(" + nId + ")' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-        const imgTag2 = "<img title='Minimize Display' id='quitImg" + nId + "' alt='Minimize Display' onclick='minNonEditableNoteView(" + nId + ")' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
+        var imgTag1 = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minNonEditableNoteView(" + nId + ")' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
+        const imgTag2 = "<img title='Minimize Display' id='quitImg" + nId + "' alt='Minimize Display' onclick='minNonEditableNoteView(" + nId + ")' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
 
         document.getElementById(img)?.remove();
 
@@ -1752,7 +1728,7 @@ function updateCPPNote() {
             jQuery(observationDivId).append(imgTag2);
             jQuery(observationDivId).css('font-size', '10px');
         } else {
-            new Insertion.Top(txt, imgTag1);
+            $(txt).insertAdjacentHTML('afterbegin', imgTag1);
         }
         Element.stopObserving(noteTxtId, 'click', fullView);
     }
@@ -1768,8 +1744,8 @@ function updateCPPNote() {
     const isEmailNote = document.getElementById("emailNote" + id) !== null;
     const observationDivId = "#observation" + id;
     if (isEmailNote) {
-        const maxDisplayImg = "<img title='Maximize Display' id='fullImg" + id + "' alt='Maximize Display' onclick='fullView(event)' style='float: right;' src='" + ctx + "/oscarEncounter/graphics/triangle_down.gif' />";
-        new Insertion.Top("n" + id, maxDisplayImg);
+        const maxDisplayImg = "<img title='Maximize Display' id='fullImg" + id + "' alt='Maximize Display' onclick='fullView(event)' style='float: right;' src='" + ctx + "/encounter/graphics/triangle_down.gif' />";
+        $("n" + id).insertAdjacentHTML('afterbegin', maxDisplayImg);
     } else {
         Element.observe(noteTxtId, 'click', fullView);
     }
@@ -1779,7 +1755,7 @@ function updateCPPNote() {
         var txt = Event.element(e).id;
         var nId = txt.substr(1);
 
-        var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
+        var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
         var divHeight = 14;
         var divSize = "size";
 
@@ -1789,99 +1765,37 @@ function updateCPPNote() {
         if (txt == "") txt = Event.element(e).parentNode.parentNode.id;
 
         payload = $(caseNote).value;
-        Element.remove("notePasswd");
         Element.remove(caseNote);
 
         payload = payload.replace(/^\s+|\s+$/g, "");
         var input = "<pre>" + payload + "\n<\/pre>";
-        new Insertion.Top(txt, input);
-        new Insertion.Top(txt, img);
+        $(txt).insertAdjacentHTML('afterbegin', input);
+        $(txt).insertAdjacentHTML('afterbegin', img);
 
         //$(txt).style.height = divHeight;
         Element.observe(txt, 'click', editNote);
 
     }
 
-// send password to server for auth to display locked Note
     var sessionExpiredError;
-    var unlockNoteError;
-    function unlock_ajax(id) {
-        var url = ctx + "/CaseManagementView.do";
-        var noteId = id.substr(1);
-        var params = "method=do_unlock_ajax&noteId=" + noteId + "&password=" + $F("passwd");
 
-        var objAjax = new Ajax.Request(
-            url,
-            {
-                method: 'post',
-                postBody: params,
-                evalScripts: true,
-                onSuccess: function (request) {
-                    var html = request.responseText;
-                    //if( navigator.userAgent.indexOf("AppleWebKit") > -1 )
-                    //    $(id).updateSafari(html);
-                    //else
-                    $(id).update(html);
-
-                },
-                onFailure: function (request) {
-                    if (request.status == 403)
-                        alert(sessionExpiredError);
-                    else
-                        alert(request.status + " " + unlockNoteError);
-                }
-            }
-        );
-        return false;
-    }
-
-//display unlock note password text field and submit button
-    var msgPasswd;
-    var btnMsgUnlock;
-    function unlockNote(e) {
-        var txt;
-        var el;
-
-        el = Event.element(e);
-
-        //get id for parent div
-        if (el.id.search(/^n/) > -1)
-            txt = el.id;
-        else {
-            var level = 0;
-            while ($(el).up('div', level).id.search(/^n/) == -1)
-                ++level;
-
-            txt = $(el).up('div', level).id;
-        }
-
-        var passwd = "passwd";
-        var nId = txt.substr(1);
-        var img = "<img id='quitImg" + nId + "' onclick='resetView(true, false, event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-        new Insertion.Top(txt, img);
-        var lockForm = "<p id='passwdPara' class='passwd'>" + msgPasswd + ":&nbsp;<input onkeypress=\"return grabEnter('btnUnlock', event);\" type='password' id='" + passwd + "' size='16'>&nbsp;<input id='btnUnlock' type='button' onclick=\"return unlock_ajax('" + txt + "');\" value='" + btnMsgUnlock + "'><\/p>";
-        new Insertion.Bottom(txt, lockForm);
-
-        $(txt).style.height = "auto";
-        $(passwd).focus();
-        Element.stopObserving(txt, 'click', unlockNote);
-    }
-
+// Check whether another provider currently has this note open for editing.
+// Returns the server's edit-lock status as JSON-derived string ("true"/"false"/"").
     function NoteisLocked(nId) {
 
         var noteIsLocked = "";
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         params = "method=isNoteEdited&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
 
-        new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
                 postBody: params,
                 evalScripts: true,
-                asynchronous: false,
+                synchronous: true,
                 onSuccess: function (request) {
-                    var json = request.responseText.evalJSON();
+                    var json = JSON.parse(request.responseText);
                     noteIsLocked = json.isNoteEdited;
                 }
             }
@@ -1891,7 +1805,14 @@ function updateCPPNote() {
     }
 
     var sigCache = "";
-// place Note text in textarea for editing and add save, sign etc buttons for this note
+
+    /**
+     * Opens an existing clinical note for editing. Replaces the read-only note
+     * display with a textarea, checks/acquires the concurrent edit lock, and
+     * binds keyup, paste, input.autosize, and wheel passthrough handlers.
+     *
+     * @param {Event} e - The click event on the note element
+     */
     function editNote(e) {
         var el = Event.element(e);
         var payload;
@@ -1909,14 +1830,14 @@ function updateCPPNote() {
                 var params = "method=releaseNoteLock&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&noteId=" + oldNoteId + "&force=true";
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry.do",
+                    url: ctx + "/CaseManagementEntry",
                     data: params
                 });
 
                 params = "method=updateNoteLock&demographicNo=" + demographicNo + "&noteId=" + nId;
                 jQuery.ajax({
                     type: "POST",
-                    url: ctx + "/CaseManagementEntry.do",
+                    url: ctx + "/CaseManagementEntry",
                     data: params
                 });
             } else {
@@ -1943,11 +1864,6 @@ function updateCPPNote() {
             }
         }
 
-        // Only works with "note_program_ui_enabled = true" (noteProgram.js)
-        if (typeof _setCurrentProgramAndRoleIdForNote == "function") {
-            _setCurrentProgramAndRoleIdForNote(nId);
-        }
-
         //get rid of minimize and print buttons
         var nodes = $(txt).getElementsBySelector('img');
         for (var i = 0; i < nodes.length; ++i) {
@@ -1956,17 +1872,12 @@ function updateCPPNote() {
 
 
         var editAnchor = "edit" + nId;
-        var annoAnchor = "anno" + nId;
         var date = "d" + nId;
         var content = "c" + nId;
 
         // remove edit anchor
         if ($(editAnchor) != null)
             Element.remove(editAnchor);
-
-        // Remove annotation anchor
-        if ($(annoAnchor) != null)
-            Element.remove(annoAnchor);
 
         //check for line item displayed when note is minimized
         if ($(date) != null) {
@@ -1990,12 +1901,12 @@ function updateCPPNote() {
         caseNote = "caseNote_note" + nId;
 
         var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
-        new Insertion.Top(txt, input);
-        var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/printer.png'></div>";
+        $(txt).insertAdjacentHTML('afterbegin', input);
+        var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
         var strNid = "" + nId;
         if (strNid.substr(0, 1) != "0")
-            new Insertion.Top(txt, printimg);
+            $(txt).insertAdjacentHTML('afterbegin', printimg);
 
         if ($F(isFull) == "true") {
             //position cursor at end of text
@@ -2014,12 +1925,10 @@ function updateCPPNote() {
 		// Let the paste happen first, then resize
 		setTimeout(adjustCaseNote, 0);
 	});
+        jQuery('#' + caseNote).off('input.autosize').on('input.autosize', adjustCaseNote);
+        enableNotePassthroughScroll(jQuery('#' + caseNote));
+        initTemplateFeatures();
         Element.observe(caseNote, 'click', getActiveText);
-
-        if (passwordEnabled) {
-            input = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-            new Insertion.Bottom(txt, input);
-        }
 
         //we check if we are dealing with a new note or not
         if (strNid.charAt(0) == "0") {
@@ -2041,13 +1950,13 @@ function updateCPPNote() {
         sigCache = $(divId).innerHTML;
         ajaxUpdateIssues('edit', divId);
         addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, divId);
-        Element.observe('asgnIssues', 'click', addIssueFunc);
+        if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
         $(txt).style.height = "auto";
 
 
         //AutoCompleter for Issues
-        <%--var issueURL = ctx + "/CaseManagementEntry.do?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
+        <%--var issueURL = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
         <%--issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", issueURL, {minChars: 4, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
 
         //if note is already signed, remove save button to force edits to be signed
@@ -2081,14 +1990,14 @@ function updateCPPNote() {
     function viewNote(e) {
         var txt = Event.element(e).id;
         var html;
-        var img = "<img id='quitImg" + txt.substr(1) + "' onclick='collapseView(event)' style='float:right; cursor:pointer;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
+        var img = "<img id='quitImg" + txt.substr(1) + "' onclick='collapseView(event)' style='float:right; cursor:pointer;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
 
         $(txt).style.height = "auto";
         //html = $(txt).innerHTML;
         //$(txt).innerHTML = "<pre>" + html + "<\/pre>";
         $(txt).style.cursor = "text";
 
-        new Insertion.Top(txt, img);
+        $(txt).insertAdjacentHTML('afterbegin', img);
         Event.stopObserving(txt, 'click', viewNote);
     }
     var showIssue = false;
@@ -2101,7 +2010,7 @@ function updateCPPNote() {
 
         if (showIssue) {
             $("noteIssues").scrollIntoView(false);
-            $("issueAutocomplete").focus();
+            if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
         } else {
             $(caseNote).focus();
         }
@@ -2131,7 +2040,7 @@ function updateCPPNote() {
                 $("noteIssues").scrollIntoView(false);
             }
 
-            $("issueAutocomplete").focus();
+            if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
         } else {
             $(caseNote).focus();
         }
@@ -2177,7 +2086,7 @@ function updateCPPNote() {
     }
 
     function filter(reset) {
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var params = "ajaxview=ajaxView&fullChart=" + fullChart;
         document.forms["caseManagementEntryForm"].method.value = "edit";
         document.forms["caseManagementEntryForm"].note_edit.value = "new";
@@ -2208,7 +2117,7 @@ function updateCPPNote() {
         params += "&" + Form.serialize(clonedForm);
         params += "&" + Form.serialize(caseMgtViewfrm);
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -2217,10 +2126,9 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "50%";--%>
                 },
                 onFailure: function (request) {
-                    $(div).innerHTML = "<h3>" + div + "</h3>Error: " + request.status;
+                    $("notCPP").update("Error: " + request.status);
                 }
             }
         );
@@ -2277,11 +2185,17 @@ function updateCPPNote() {
     var assignObservationDateError;
     var assignIssueError;
     var savingNoteError;
+    var noteLockLostError;
     var encTimeError;
     var encMinError;
     var encTimeMandatoryMsg;
     var encTimeMandatory;
     function ajaxSaveNote(div, noteId, noteTxt) {
+
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
 
         if ($("observationDate") != null && $("observationDate").value.length > 0 && !validDate()) {
             alert(pastObservationDateError);
@@ -2358,11 +2272,11 @@ function updateCPPNote() {
         var demoNo = demographicNo;
         var encType = "encTypeSelect" + noteId;
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURI($F(encType)) + "&noteTxt=" + encodeURI(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
-        var objAjax = new Ajax.Updater(
+        CarlosAjax.updater(
             {success: div},
             url,
             {
@@ -2370,10 +2284,14 @@ function updateCPPNote() {
                 evalScripts: true,
                 postBody: params,
                 onFailure: function (request) {
-                    if (request.status == 403)
+                    if (request.status == 409) {
+                        lostNoteLock = true;
+                        alert(noteLockLostError);
+                    } else if (request.status == 403) {
                         alert(sessionExpiredError);
-                    else
+                    } else {
                         alert(savingNoteError + " " + request.status + " " + request.responseText);
+                    }
                 }
             }
         );
@@ -2456,11 +2374,11 @@ function updateCPPNote() {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
 
         $("notCPP").update("Loading...");
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -2468,17 +2386,11 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "50%";--%>
+                    var qc = $("quickChart");
                     if (fullChart == "true") {
-                        $("quickChart").innerHTML = quickChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(false);
-                        }
+                        if (qc) { qc.textContent = quickChartMsg; qc.onclick = function () { return viewFullChart(false); } }
                     } else {
-                        $("quickChart").innerHTML = fullChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(true);
-                        }
+                        if (qc) { qc.textContent = fullChartMsg; qc.onclick = function () { return viewFullChart(true); } }
                     }
                 },
                 onFailure: function (request) {
@@ -2488,102 +2400,7 @@ function updateCPPNote() {
         );
         return false;
     }
-    function cancelResident() {
-        jQuery('#resident').trigger("reset");
-        jQuery("#residentChain").val("");
-        jQuery("#residentMethod").val("");
-        if (jQuery(".supervisor").is(":visible")) {
-            jQuery(".supervisor").slideUp(300);
-        }
-
-        if (jQuery(".reviewer").is(":visible")) {
-            jQuery(".reviewer").slideUp(300);
-        }
-
-        jQuery('#showResident').fadeOut(2000);
-        jQuery('#showResident').css('z-index', 300);
-
-        return false;
-
-    }
-
-    function subResident() {
-        if (!jQuery("input[name='reviewed']:checked").length) {
-            alert("Please select if the note has been reviewed");
-            return false;
-        }
-
-        if ((jQuery("input[name='reviewed']:checked").val() == "true" && jQuery("#reviewer").val() == "")) {
-            alert("Please select who you reviewed the note with");
-            return false;
-        } else if ((jQuery("input[name='reviewed']:checked").val() == "false" && jQuery("#supervisor").val() == "")) {
-            alert("Please Choose Your Supervisor");
-            return false;
-        }
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'isAResident',
-            name: 'isAResident',
-            value: 'true'
-        }).appendTo('#resident');
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'supervisor',
-            name: 'supervisor',
-            value: jQuery("#supervisor").val()
-        }).appendTo("form[name='caseManagementEntryForm']");
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'reviewer',
-            name: 'reviewer',
-            value: jQuery("#reviewer").val()
-        }).appendTo("form[name='caseManagementEntryForm']");
-
-        jQuery('<input>').attr({
-            type: 'hidden',
-            id: 'resident',
-            name: 'resident',
-            value: 'true'
-        }).appendTo("form[name='caseManagementEntryForm']");
-
-        jQuery('#showResident').fadeOut(2000);
-        jQuery('#showResident').css('z-index', 300);
-        savePage(jQuery("#residentMethod").val(), jQuery("#residentChain").val());
-        return false;
-    }
-
-
     function savePage(method, chain) {
-
-        if (typeof jQuery("form[name='resident'] input[name='residentMethod']").val() != "undefined" &&
-            jQuery("form[name='resident'] input[name='residentMethod']").val().trim().length == 0 &&
-            method.match(/.*[Ee]xit$/g) != null) {
-            jQuery("#residentChain").val(chain);
-            jQuery("#residentMethod").val(method);
-            jQuery("#showResident").css('z-index', 1);
-            jQuery("#showResident").fadeIn(2000);
-            jQuery("#reviewed").focus();
-            return false;
-        }
-
-
-        if ((typeof jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val() != "undefined") &&
-            (typeof jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val() != "undefined")) {
-            if (jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val().trim().length == 0 ||
-                jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val().trim().length == 0) {
-                // For weird cases where the role id or program number is missing.
-                _missingRoleProgramIdError();
-                return false;
-            } else if (jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val() == "-2" ||
-                jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val() == "-2") {
-                // For the case where you're trying to save a note with no available programs or roles
-                _noVisibleProgramsError();
-                return false;
-            }
-        }
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -2680,11 +2497,12 @@ function updateCPPNote() {
         changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
 
         document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        $("asgnIssues").value = changeIssueMsg;
-
-        Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-        Element.observe('asgnIssues', 'click', changeIssueFunc);
-        $("issueAutocomplete").focus();
+        if ($("asgnIssues")) {
+            $("asgnIssues").value = changeIssueMsg;
+            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
+            Element.observe('asgnIssues', 'click', changeIssueFunc);
+        }
+        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
         return false;
     }
 
@@ -2695,11 +2513,12 @@ function updateCPPNote() {
         changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
 
         document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        $("asgnIssues").value = changeIssueMsg;
-
-        Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-        Element.observe('asgnIssues', 'click', changeIssueFunc);
-        $("issueAutocomplete").focus();
+        if ($("asgnIssues")) {
+            $("asgnIssues").value = changeIssueMsg;
+            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
+            Element.observe('asgnIssues', 'click', changeIssueFunc);
+        }
+        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
         return false;
     }
 
@@ -2710,22 +2529,12 @@ function updateCPPNote() {
         changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
 
         document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        $("asgnIssues").value = changeIssueMsg;
-
-        Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-        Element.observe('asgnIssues', 'click', changeIssueFunc);
-        $("issueAutocomplete").focus();
-        return false;
-    }
-
-    function toggleNotePasswd() {
-        if (passwordEnabled) {
-            Element.toggle('notePasswd');
-            if ($('notePasswd').style.display != "none")
-                document.forms['caseManagementEntryForm'].elements['caseNote.password'].focus();
-            else
-                document.forms['caseManagementEntryForm'].elements[caseNote].focus();
+        if ($("asgnIssues")) {
+            $("asgnIssues").value = changeIssueMsg;
+            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
+            Element.observe('asgnIssues', 'click', changeIssueFunc);
         }
+        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
         return false;
     }
 
@@ -2734,13 +2543,13 @@ function updateCPPNote() {
         Event.stop(e);
         if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value)) {
             if (confirm(closeWithoutSaveMsg)) {
-                var frm = document.forms["caseManagementEntryForm"];
-                origCaseNote = $F(caseNote);
-                frm.method.value = "cancel";
-                frm.submit();
+                clearAutoSaveTimer();
+                window.close();
             }
-        } else
+        } else {
+            clearAutoSaveTimer();
             window.close();
+        }
 
         return false;
     }
@@ -2768,8 +2577,8 @@ function updateCPPNote() {
         if (!found) {
             var node = document.createElement("LI");
 
-            var html = "<input type='checkbox' id='issueId' name='issue_id' checked value='" + nodeId + "'>" + listItem.innerHTML;
-            new Insertion.Top(node, html);
+            var html = "<input type='checkbox' id='issueId' name='issue_id' checked value='" + nodeId + "'>" + listItem.textContent;
+            $(node).insertAdjacentHTML('afterbegin', html);
 
             $("issueIdList").appendChild(node);
             $("issueAutocompleteCPP").value = "";
@@ -2792,12 +2601,12 @@ function updateCPPNote() {
         var args = $A(arguments);
         args.shift();
 
-        if ($("newIssueId").value.length === 0 || $("issueAutocomplete").value !== $("newIssueName").value)
+        if ($("newIssueId").value.length === 0 || ($("issueAutocomplete") && $("issueAutocomplete").value !== $("newIssueName").value))
             alert(pickIssueMsg);
         else
             ajaxUpdateIssues(args[0], args[1]);
 
-        if ($F("asgnIssues") !== assignIssueMsg) {
+        if ($("asgnIssues") && $F("asgnIssues") !== assignIssueMsg) {
             $("asgnIssues").value = assignIssueMsg;
             Element.stopObserving('asgnIssues', 'click', changeIssueFunc);
             Element.observe('asgnIssues', 'click', addIssueFunc);
@@ -2813,11 +2622,11 @@ function updateCPPNote() {
         frm.method.value = method;
         frm.ajax.value = true;
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var p = Form.serialize(frm);
         p.note_edit = '';
-        ajaxRequest = new Ajax.Updater({success: div}, url, {
-            evalScripts: true, parameters: p, onSuccess: onIssueUpdate,
+        ajaxRequest = CarlosAjax.updater({success: div}, url, {
+            evalScripts: true, postBody: p, onSuccess: onIssueUpdate,
             onFailure: function (response) {
                 alert(response.status + " " + updateIssueError);
             }
@@ -2829,7 +2638,7 @@ function updateCPPNote() {
     function onIssueUpdate() {
 
         //this request succeeded so we reset issues
-        $("issueAutocomplete").value = "";
+        if ($("issueAutocomplete")) { $("issueAutocomplete").value = ""; }
         $("newIssueId").value = "";
         //notifyIssueUpdate();
 
@@ -2837,7 +2646,7 @@ function updateCPPNote() {
         var demographicNo = $("demographicNo").value;
 
         if (typeof loadDiv === 'function' && demographicNo) {
-            var reloadUrl = ctx + "/oscarEncounter/displayIssues.do?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/oscarEncounter/displayIssues.do");
+            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + demographicNo + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
             loadDiv('unresolvedIssueslist', reloadUrl, 0);
         }
     }
@@ -2845,7 +2654,7 @@ function updateCPPNote() {
     function submitIssue(event) {
         var keyCode = event.keyCode ? event.keyCode : event.which ? event.which : event.charCode;
         if (keyCode === 13) {
-            if (submitIssues) {
+            if (submitIssues && $("asgnIssues")) {
                 $("asgnIssues").click();
             }
             return false;
@@ -2858,9 +2667,9 @@ function updateCPPNote() {
     function showFilter() {
 
         if (filterShows)
-            new Effect.BlindUp('filter', { queue: 'end' });
+            $('filter').classList.add('carlos-collapsed');
         else
-            new Effect.BlindDown('filter', { queue: 'end' });
+            $('filter').classList.remove('carlos-collapsed');
 
         filterShows = !filterShows;
     }
@@ -2903,37 +2712,42 @@ function updateCPPNote() {
         $("encType").value = "";
     }
 
-//we insert a new note div with textarea etc
-//newNoteIdx guarantees unique id for successive calls to newNote
-    var newNoteCounter = 0;
-    var reason;
+    var newNoteCounter = 0; // incremented to generate unique IDs for successive new notes
+    var reason;             // pre-populated reason text (e.g. from appointment reason code)
+
+    /**
+     * Creates a new clinical note with a fresh textarea. Generates a unique note ID
+     * using newNoteCounter, inserts the textarea into #encMainDiv, and binds keyup,
+     * paste, input.autosize, and wheel passthrough handlers. Pre-populates with the
+     * appointment reason text if available.
+     *
+     * @param {Event|null} e - The triggering event, or null if called programmatically
+     */
     function newNote(e) {
         if (e != null)
             Event.stop(e);
 
         ++newNoteCounter;
         var newNoteIdx = "0" + newNoteCounter;
-        var id = "nc" + newNoteIdx;
-        var sigId = "sig" + newNoteIdx;
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + newNoteIdx + "'>" + reason + "<\/textarea>";
-        var passwd = "";
-        if (passwordEnabled) {
-            passwd = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-        }
-
+        var safeNewNoteIdx = newNoteIdx.replace(/\s+/g, "");
+        var safeNoteIdSuffix = safeNewNoteIdx.replace(/[^A-Za-z0-9\-_:.]/g, "");
+        var id = "nc" + safeNewNoteIdx;
+        var sigId = "sig" + safeNewNoteIdx;
+        var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + reason + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
-        var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + newNoteIdx + "' value='false'><input type='hidden' id='editWarn" + newNoteIdx + "' value='false'><div id='n" + newNoteIdx + "'><input type='hidden' id='full" + newNoteIdx + "' value='true'>" +
-            "<input type='hidden' id='bgColour" + newNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + sigId + "'><\/div>" + passwd + "<\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
+        var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
+            "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
         if (changeToView(caseNote)) {
 
-            caseNote = "caseNote_note" + newNoteIdx;
+            caseNote = "caseNote_note" + safeNoteIdSuffix;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
-            new Insertion.Bottom("encMainDiv", div);
-            $(sigId).addClassName("sig");
+            document.getElementById("encMainDiv").insertAdjacentHTML('beforeend', div);
+            $(safeSigId).addClassName("sig");
             <%--Rounded("div#"+id,"all","transparent","#CCCCCC","big border #000000");--%>
             $(caseNote).focus();
             adjustCaseNote();
@@ -2945,15 +2759,18 @@ function updateCPPNote() {
             // Let the paste happen first, then resize
             setTimeout(adjustCaseNote, 0);
         });
+            jQuery('#' + caseNote).off('input.autosize').on('input.autosize', adjustCaseNote);
+            enableNotePassthroughScroll(jQuery('#' + caseNote));
+            initTemplateFeatures();
             Element.observe(caseNote, 'click', getActiveText);
 
             origCaseNote = $F(caseNote);
-            ajaxUpdateIssues("edit", sigId);
-            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, sigId);
-            Element.observe('asgnIssues', 'click', addIssueFunc);
+            ajaxUpdateIssues("edit", safeSigId);
+            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, safeSigId);
+            if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
             //AutoCompleter for Issues
-            <%--var issueURL = "/CaseManagementEntry.do?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
+            <%--var issueURL = "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
             <%--let issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", issueURL, {minChars: 4, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
 
             //hide new note button
@@ -2974,11 +2791,11 @@ function updateCPPNote() {
     }
 
     function deleteAutoSave() {
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = "cancel";
 
-    new Ajax.Request( url, {
+    CarlosAjax.request( url, {
                                 method: 'post',
                                 postBody: Form.serialize(frm)
                            }
@@ -2987,32 +2804,22 @@ function updateCPPNote() {
 var month=new Array(12);
 var msgDraftSaved;
 var lostNoteLock = false;
-function autoSave(async) {
+var autoSaveXhr = null;
+function autoSave() {
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
-    var url = ctx + "/CaseManagementEntry.do";
+    var url = ctx + "/CaseManagementEntry";
     var programId = case_program_id;
     var demoNo = demographicNo;
     var cmeFrm = document.forms["caseManagementEntryForm"];
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
-    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + escape($F(caseNote));
+    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
 
-        new Ajax.Request(url, {
+        autoSaveXhr = CarlosAjax.request(url, {
                 method: 'post',
                 postBody: params,
-                asynchronous: async,
-                onComplete: function (req) {
-                    if (async == false)
-                        okToClose = true;
-                },
                 onSuccess: function (req) {
-                    /*var nId = caseNote.substr(13);
-                                                var sig = "sig" + nId;
-
-                                                if( $("autosaveTime") == null )
-                                                    new Insertion.Bottom(sig, "<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'><\/div>");
-                                                    */
-
-
+                    var statusEl = $("autosaveTime");
+                    if (!statusEl) { return; }
                     var d = new Date();
                     var min = d.getMinutes();
                     min = min < 10 ? "0" + min : min;
@@ -3021,17 +2828,27 @@ function autoSave(async) {
                     seconds = seconds < 10 ? "0" + seconds : seconds;
 
                     var fmtDate = "<i>" + msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds + "<\/i>";
-                    $("autosaveTime").update(fmtDate);
-
-
+                    statusEl.update(fmtDate);
                 },
                 onFailure: function (req) {
-                    if (req.status == 403) {
+                    // status 0 = aborted by clearAutoSaveTimer during window close; not an error
+                    if (req.status === 0) { return; }
+                    if (req.status == 409) {
                         lostNoteLock = true;
-                        var msg = "<i>Autosave cancelled due to note being edited in another window</i>";
-                        $("autosaveTime").update(msg);
+                        var lockEl = $("autosaveTime");
+                        if (lockEl) {
+                            lockEl.update("<i>Autosave cancelled due to note being edited in another window</i>");
+                        }
+                        return;
                     }
-
+                    // Non-409 failures were previously silently swallowed. Log so they
+                    // surface in browser consoles and remote logging (Sentry, etc.).
+                    if (typeof console !== "undefined" && console.error) {
+                        console.error("CaseManagement autoSave failed", req.status, req.statusText);
+                    }
+                },
+                onComplete: function () {
+                    autoSaveXhr = null;
                 }
             }
         );
@@ -3042,7 +2859,7 @@ function autoSave(async) {
     function backup() {
 
         if (origCaseNote != $(caseNote).value || origObservationDate != $("observationDate").value) {
-            autoSave(true);
+            autoSave();
         }
 
         if (!lostNoteLock) {
@@ -3057,6 +2874,13 @@ function autoSave(async) {
 
     function clearAutoSaveTimer() {
         clearTimeout(autoSaveTimer);
+        // Abort any in-flight autosave so a late-landing POST cannot write a draft
+        // the user never consented to (e.g., firing at T=4999ms then window.close()
+        // at T=5000ms). See carlos-emr/carlos#1890.
+        if (autoSaveXhr && typeof autoSaveXhr.abort === "function") {
+            try { autoSaveXhr.abort(); } catch (ignored) { /* already done */ }
+            autoSaveXhr = null;
+        }
     }
 
     var unsavedNoteMsg;
@@ -3072,7 +2896,7 @@ function autoSave(async) {
         Event.stop(event);
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry.do?method=notehistory&noteId=" + noteId;
+        var url = ctx + "/CaseManagementEntry?method=notehistory&noteId=" + noteId;
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }
@@ -3083,13 +2907,22 @@ function autoSave(async) {
     function showIssueHistory(demoNo, issueIds) {
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry.do?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
+        var url = ctx + "/CaseManagementEntry?method=issuehistory&demographicNo=" + demoNo + "&issueIds=" + issueIds;
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }
 
-    var caseNote = "";  //contains id of note text area; system permits only 1 text area at a time to be created
-    var numChars = 0;
+    var caseNote = "";  // ID of the active note textarea; only one editable textarea exists at a time
+    var numChars = 0;   // character count at last resize check, used to detect significant changes
+
+    /**
+     * Keyup handler for the active note textarea. Checks for lost edit locks,
+     * then triggers adjustCaseNote() on newlines or when the character count has
+     * changed significantly (>=78 added or >=10 deleted). This provides coarse
+     * auto-resize on keyup; the input.autosize handler provides per-keystroke resize.
+     *
+     * @param {KeyboardEvent} e - The keyup event
+     */
     function monitorCaseNote(e) {
 
         //if we have lost the lock on the note alert the user
@@ -3120,44 +2953,50 @@ function autoSave(async) {
 
     }
 
-//resize case note text area to contain all text
+    /**
+     * Auto-resizes the active note textarea to fit all content (no internal scrollbar),
+     * then scrolls #encMainDivWrapper so the cursor line stays visible.
+     *
+     * Uses scrollHeight to determine actual content height, with a minimum of 20 lines.
+     * Cursor tracking estimates vertical position by counting newlines before the cursor;
+     * this is approximate and may lag on soft-wrapped paragraphs.
+     */
     function adjustCaseNote() {
-        var MAXCHARS = 78;
-    var payload = jQuery("#" + caseNote).val();
-        var numLines = 0;
+        var note = document.getElementById(caseNote);
+        if (!note) return;
 
-    // Use jQuery to get the computed line-height of the element
-    var lineHeightCSS = jQuery("#" + caseNote).css('line-height'); // e.g., "20px"
-    var lineHeight = parseFloat(lineHeightCSS); // Extract numeric value (handles px, em, etc.)
+        // Minimum height: 20 lines
+        var lineHeight = parseFloat(getComputedStyle(note).lineHeight) || 16;
+        var minHeight = Math.ceil(lineHeight * 20);
 
-        var arrLines = payload.split("\n");
+        // Shrink to min first so scrollHeight reflects actual content
+        note.style.height = minHeight + 'px';
+        // Expand to fit all content (no internal textarea scrollbar)
+        var contentHeight = note.scrollHeight;
+        note.style.height = Math.max(contentHeight, minHeight) + 'px';
 
-        //we count each new line char and add a line for lines longer than max length
-        for (var idx = 0; idx < arrLines.length; ++idx) {
-
-            if (arrLines[idx].length >= MAXCHARS) {
-                numLines += Math.ceil(arrLines[idx].length / MAXCHARS);
-            } else
-                ++numLines;
-
+        // Scroll wrapper so the cursor line is visible at the bottom
+        var wrapper = document.getElementById('encMainDivWrapper');
+        if (wrapper) {
+            // Estimate cursor Y position within the textarea
+            var textBeforeCursor = note.value.substring(0, note.selectionEnd);
+            var linesBeforeCursor = textBeforeCursor.split('\n').length;
+            var cursorY = note.offsetTop + (linesBeforeCursor * lineHeight);
+            var wrapperBottom = wrapper.scrollTop + wrapper.clientHeight;
+            if (cursorY > wrapperBottom - lineHeight) {
+                wrapper.scrollTop = cursorY - wrapper.clientHeight + lineHeight * 2;
+            }
         }
-        //add a buffer
-        numLines += 2;
 
-    // Calculate the total height in pixels
-    var noteHeight = Math.ceil(lineHeight * numLines) + 'px';
-
-    // Use jQuery to set the height of the element
-    jQuery("#" + caseNote).css('height', noteHeight);
-
-    // Use jQuery to calculate the total number of characters in the payload
-    numChars = jQuery("#" + caseNote).val().length;
+        // Update character count
+        numChars = note.value.length;
     }
 
     function autoCompleteHideMenu(element, update) {
-        new Effect.Fade(update, {duration: 0.15});
-        new Effect.Fade($("issueTable"), {duration: 0.15});
-        new Effect.Fade($("issueList"), {duration: 0.15});
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.classList.add('carlos-fade-out'); setTimeout(function() { el.style.display = 'none'; }, 300); }
+        var tbl = $("issueTable"); if (tbl) { tbl.classList.add('carlos-fade-out'); setTimeout(function() { tbl.style.display = 'none'; }, 300); }
+        var lst = $("issueList"); if (lst) { lst.classList.add('carlos-fade-out'); setTimeout(function() { lst.style.display = 'none'; }, 300); }
     }
 
     function autoCompleteShowMenu(element, update) {
@@ -3166,21 +3005,23 @@ function autoSave(async) {
         $("issueList").style.top = $("mainContent").style.top;
         $("issueList").style.width = $("issueAutocompleteList").style.width;
 
-        Effect.Appear($("issueList"), {duration: 0.15});
-        Effect.Appear($("issueTable"), {duration: 0.15});
-        Effect.Appear(update, {duration: 0.15});
+        var lst = $("issueList"); if (lst) { lst.style.display = ''; lst.classList.remove('carlos-fade-out'); }
+        var tbl = $("issueTable"); if (tbl) { tbl.style.display = ''; tbl.classList.remove('carlos-fade-out'); }
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.style.display = ''; el.classList.remove('carlos-fade-out'); }
 
     }
 
     function autoCompleteHideMenuCPP(element, update) {
-        new Effect.Fade(update, {duration: 0.15});
-        new Effect.Fade($("issueListCPP"), {duration: 0.15});
-
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.classList.add('carlos-fade-out'); setTimeout(function() { el.style.display = 'none'; }, 300); }
+        var lst = $("issueListCPP"); if (lst) { lst.classList.add('carlos-fade-out'); setTimeout(function() { lst.style.display = 'none'; }, 300); }
     }
 
     function autoCompleteShowMenuCPP(element, update) {
-        Effect.Appear($("issueListCPP"), {duration: 0.15});
-        Effect.Appear(update, {duration: 0.15});
+        var lst = $("issueListCPP"); if (lst) { lst.style.display = ''; lst.classList.remove('carlos-fade-out'); }
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.style.display = ''; el.classList.remove('carlos-fade-out'); }
     }
 
     function callInProgress(xmlhttp) {
@@ -3196,8 +3037,8 @@ function autoSave(async) {
     }
 
     function printInfo(img, item) {
-        var selected = ctx + "/oscarEncounter/graphics/printerGreen.png";
-        var unselected = ctx + "/oscarEncounter/graphics/printer.png";
+        var selected = ctx + "/encounter/graphics/printerGreen.png";
+        var unselected = ctx + "/encounter/graphics/printer.png";
 
 
         if ($F(item) == "true") {
@@ -3230,8 +3071,8 @@ function autoSave(async) {
 
     function togglePrint(noteId, e) {
         e.preventDefault();
-        var selected = ctx + "/oscarEncounter/graphics/printerGreen.png";
-        var unselected = ctx + "/oscarEncounter/graphics/printer.png";
+        var selected = ctx + "/encounter/graphics/printerGreen.png";
+        var unselected = ctx + "/encounter/graphics/printer.png";
         var imgId = "print" + noteId;
         var idx;
         var idx2;
@@ -3283,7 +3124,7 @@ function autoSave(async) {
     function addPrintQueue(noteId) {
         var imgId = "print" + noteId;
 
-        //$(imgId).src = ctx + "/oscarEncounter/graphics/printerGreen.png"; //imgPrintgreen.src;
+        //$(imgId).src = ctx + "/encounter/graphics/printerGreen.png"; //imgPrintgreen.src;
         $(imgId).src = imgPrintgreen.src;
         if ($F("notes2print").length > 0)
             $("notes2print").value += "," + noteId;
@@ -3293,7 +3134,7 @@ function autoSave(async) {
     }
 
     function removePrintQueue(noteId, idx) {
-        var unselected = ctx + "/oscarEncounter/graphics/printer.png";
+        var unselected = ctx + "/encounter/graphics/printer.png";
         var imgId = "print" + noteId;
         var tmp = "";
         var idx2;
@@ -3421,7 +3262,7 @@ function autoSave(async) {
             return false;
         }
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
         var frm = document.forms["caseManagementEntryForm"];
 
         frm.method.value = "print";
@@ -3562,21 +3403,6 @@ function autoSave(async) {
             var tmp = $(caseNote).value;
             var sig = 'sig' + nId;
             //assignNoteAjax('save','list',programId,demographicNo);
-            // Prevent saving of note if the current note isn't properly assigned to a program and role. (note_program_ui_enabled = true)
-            if ((typeof jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val() != "undefined") &&
-                (typeof jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val() != "undefined")) {
-                if (jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val().trim().length == 0 ||
-                    jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val().trim().length == 0) {
-                    // For weird cases where the role id or program number is missing.
-                    _missingRoleProgramIdError();
-                    return false;
-                } else if (jQuery("form[name='caseManagementEntryForm'] input[name='_note_program_no']").val() == "-2" ||
-                    jQuery("form[name='caseManagementEntryForm'] input[name='_note_role_id']").val() == "-2") {
-                    // For the case where you're trying to save a note with no available programs or roles
-                    _noVisibleProgramsError();
-                    return false;
-                }
-            }
             saving = true;
             ajaxSaveNote(sig, nId, tmp);
             //cancel updating of issues
@@ -3604,10 +3430,6 @@ function autoSave(async) {
             clearTimeout(autoSaveTimer);
             deleteAutoSave();
 
-            if ($("notePasswd") != null) {
-                Element.remove("notePasswd");
-            }
-
                 jQuery('#' + caseNote).off('keyup', monitorCaseNote);
                 jQuery('#' + caseNote).off('paste');
             Element.stopObserving(caseNote, 'click', getActiveText);
@@ -3618,7 +3440,7 @@ function autoSave(async) {
             if (!saving && $("observationDate") != null) {
                 var observationDate = $("observationDate").value;
 
-                new Insertion.After("observationDate", " <span id='obs" + nId + "'>" + observationDate + "</span>");
+                document.getElementById("observationDate").insertAdjacentHTML('afterend', " <span id='obs" + nId + "'>" + observationDate + "</span>");
                 Element.remove("observationDate");
                 Element.remove("observationDate_cal");
 
@@ -3659,7 +3481,7 @@ function autoSave(async) {
 
             }
             //we can stop listening for add issue here
-            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
+            if ($("asgnIssues")) { Element.stopObserving('asgnIssues', 'click', addIssueFunc); }
             if (tmp.length == 0)
                 tmp = "&nbsp;";
 
@@ -3668,12 +3490,12 @@ function autoSave(async) {
 
             if (!saving) {
                 if (largeNote(tmp)) {
-                    var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + nId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px; ' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-                    new Insertion.Before(sig, btmImg);
+                    var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + nId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px; ' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
+                    $(sig).insertAdjacentHTML('beforebegin', btmImg);
                 }
                 var printImg = "print" + nId;
-                var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-                var printimg = "<img title='Print' id='" + printImg + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/printer.png'>";
+                var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
+                var printimg = "<img title='Print' id='" + printImg + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/printer.png'>";
                 var input = "<div id='txt" + nId + "'>" + tmp + "<\/div>";
 
                 var func;
@@ -3687,29 +3509,24 @@ function autoSave(async) {
                 var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
                 var editId = "edit" + nId;
 
-                var attribName = "anno" + (new Date().getTime());
-                var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/oscarEncounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
-                    "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
-
-                new Insertion.Top(parent, editAnchor);
-                new Insertion.After(editId, input);
+                $(parent).insertAdjacentHTML('afterbegin', editAnchor);
+                $(editId).insertAdjacentHTML('afterend', input);
 
 
                 if (nId.substr(0, 1) != "0") {
                     Element.remove(printImg);
-                    new Insertion.Before(editId, printimg);
-                    new Insertion.After(editId, attribAnchor);
-                    new Insertion.Top(parent, img);
+                    $(editId).insertAdjacentHTML('beforebegin', printimg);
+                    $(parent).insertAdjacentHTML('afterbegin', img);
                 }
 
-                new Insertion.Top(parent, img);
+                $(parent).insertAdjacentHTML('afterbegin', img);
 
                 $(parent).style.height = "auto";
 
             }
         }//else{
         var noteId = document.forms["caseManagementEntryForm"].noteId.value;
-        var url = '<%=request.getContextPath()%>/PMmodule/ClientSearch2.do?programId=' + programId + '&noteId=' + noteId + '&method=attachForm&demographicNo=' + demographicNo;
+        var url = '<%=request.getContextPath()%>/PMmodule/ClientSearch2?programId=' + programId + '&noteId=' + noteId + '&method=attachForm&demographicNo=' + demographicNo;
         popupPage(600, 700, 'group', url);
         //}
     }
@@ -3788,11 +3605,11 @@ function autoSave(async) {
         var params = Form.serialize(caseMgtEntryfrm);
         params += "&ajaxview=ajaxView&fullChart=" + fullChart;
 
-        var url = ctx + "/CaseManagementEntry.do";
+        var url = ctx + "/CaseManagementEntry";
 
         $("notCPP").update("Loading...");
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -3800,17 +3617,11 @@ function autoSave(async) {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "50%";--%>
+                    var qc = $("quickChart");
                     if (fullChart == "true") {
-                        $("quickChart").innerHTML = quickChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(false);
-                        }
+                        if (qc) { qc.textContent = quickChartMsg; qc.onclick = function () { return viewFullChart(false); } }
                     } else {
-                        $("quickChart").innerHTML = fullChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(true);
-                        }
+                        if (qc) { qc.textContent = fullChartMsg; qc.onclick = function () { return viewFullChart(true); } }
                     }
                 },
                 onFailure: function (request) {
@@ -3827,12 +3638,13 @@ function autoSave(async) {
         if (checked) {
             var forSure = window.confirm("Confirm that student participation consent has been granted.");
             if (forSure) {
-                jQuery.getJSON(ctx + "/DemographicExtService.do?method=saveNewValue&demographicNo=" + demographicNo + "&key=informedConsent&value=yes",
+                jQuery.post(ctx + "/DemographicExtService",
+                    {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
                         if (data != undefined && parseInt(data.value) > 0) {
                             jQuery("#informedConsentDiv").remove();
                         }
-                    });
+                    }, 'json');
 
             } else {
                 jQuery("#studentParticipationConsentCheck").attr("checked", false);
@@ -3846,12 +3658,13 @@ function autoSave(async) {
         if (checked) {
             var forSure = window.confirm("Are you sure you would like to indicate that Informed Consent has been collected?");
             if (forSure) {
-                jQuery.getJSON(ctx + "/DemographicExtService.do?method=saveNewValue&demographicNo=" + demographicNo + "&key=informedConsent&value=yes",
+                jQuery.post(ctx + "/DemographicExtService",
+                    {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
                         if (data != undefined && parseInt(data.value) > 0) {
                             jQuery("#informedConsentDiv").remove();
                         }
-                    });
+                    }, 'json');
 
             } else {
                 jQuery("#informedConsentCheck").attr("checked", false);
@@ -3881,4 +3694,3 @@ function autoSave(async) {
             activeCCWindows[x].close();
         }
     });
-

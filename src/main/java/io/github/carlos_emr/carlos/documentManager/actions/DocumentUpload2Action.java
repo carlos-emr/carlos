@@ -16,19 +16,22 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.ResourceBundle;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -44,8 +47,10 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -56,10 +61,17 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class DocumentUpload2Action extends ActionSupport {
+import java.util.List;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+public class DocumentUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -73,6 +85,8 @@ public class DocumentUpload2Action extends ActionSupport {
         return executeUpload();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public String executeUpload() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -89,7 +103,7 @@ public class DocumentUpload2Action extends ActionSupport {
             try {
                 docFile = PathValidationUtils.validateUpload(docFile);
             } catch (SecurityException e) {
-                logger.error("Invalid upload source - potential path traversal: " + docFile.getPath());
+                logger.error("Invalid upload source - potential path traversal: {}", LogSafe.sanitize(docFile.getPath()));
                 map.put("error", "Invalid file upload");
                 docFile = null; // Treat as if no file was uploaded
             }
@@ -97,7 +111,10 @@ public class DocumentUpload2Action extends ActionSupport {
 
         if (docFile != null && destination != null && destination.equals("incomingDocs")) {
             String fileName = this.filedataFileName;
-            if (!fileName.toLowerCase().endsWith(".pdf")) {
+            String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
+            if (sanitizedFileName == null) {
+                map.put("error", props.getString("dms.error.invalidFilename"));
+            } else if (!sanitizedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 map.put("error", props.getString("dms.documentUpload.onlyPdf"));
             } else if (docFile.length() == 0) {
                 map.put("error", 4);
@@ -106,32 +123,44 @@ public class DocumentUpload2Action extends ActionSupport {
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                // Sanitize filename to prevent path traversal
-                String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
-                File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
-                if (f.exists()) {
-                    map.put("error", fileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
+                File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
+                WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
+                if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
+                    map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
+                    map.put("error", "Failed to write file. Please contact administrator");
+                    MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 } else {
-                    boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                    if (!success) {
-                        map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to " + destFolder);
-                    } else {
-                        map.put("name", docFile.getName());
-                        map.put("size", docFile.length());
-                    }
+                    map.put("name", docFile.getName());
+                    map.put("size", docFile.length());
                 }
 
-                request.getSession().setAttribute("preferredQueue", queueId);
+                if (queueId != null) {
+                    try {
+                        request.getSession().setAttribute("preferredQueue", String.valueOf(Integer.parseInt(queueId.trim()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                    } catch (NumberFormatException e) {
+                        // Do not store an invalid (non-integer) queue ID in the session (trust boundary protection)
+                        logger.warn("Invalid queue ID format — skipping session attribute update");
+                    }
+                }
                 if (docFile != null) {
-                    docFile.delete();
+                    deleteValidatedUploadTempFile(docFile);
                     docFile = null;
                 }
 
             }
-        } else {
+        } else if (docFile != null) {
             int numberOfPages = 0;
-            String fileName = MiscUtils.sanitizeFileName(this.filedataFileName);
+            String fileName;
+            try {
+                fileName = PathValidationUtils.validateFileName(this.filedataFileName);
+            } catch (FileValidationException e) {
+                logger.warn("Rejected invalid document upload filename");
+                map.put("error", props.getString("dms.error.invalidFilename"));
+                writeUploadResponse(map);
+                return null;
+            }
             String user = (String) request.getSession().getAttribute("user");
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A',
@@ -165,7 +194,7 @@ public class DocumentUpload2Action extends ActionSupport {
             }
             newDoc.setNumberOfPages(numberOfPages);
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
             String providerId = request.getParameter("providers");
             if (providerId != null) {
@@ -176,22 +205,43 @@ public class DocumentUpload2Action extends ActionSupport {
 
             String queueId = request.getParameter("queue");
             if (queueId != null && !queueId.equals("-1")) {
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
-                Integer qid = Integer.parseInt(queueId.trim());
-                Integer did = Integer.parseInt(doc_no.trim());
-                queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-                request.getSession().setAttribute("preferredQueue", queueId);
+                if (!queueId.trim().matches("\\d+")) {
+                    logger.warn("Invalid queue ID format — skipping queue link");
+                    request.getSession().removeAttribute("preferredQueue");
+                } else {
+                    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                    QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean(QueueDocumentLinkDao.class);
+                    Integer qid = Integer.parseInt(queueId.trim());
+                    Integer did = Integer.parseInt(doc_no.trim());
+                    queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
+                    request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+                }
             }
 
             map.put("name", docFile.getName());
             map.put("size", docFile.length());
 
             if (docFile != null) {
-                docFile.delete();
+                deleteValidatedUploadTempFile(docFile);
                 docFile = null;
             }
         }
+        writeUploadResponse(map);
+        return null;
+    }
+
+    private void deleteValidatedUploadTempFile(File uploadFile) {
+        try {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
+            if (!SpringUtils.getBean(NioFileManager.class).deleteTempFile(validatedUpload.getPath())) { // codeql[java/path-injection] validateUpload canonicalizes and restricts uploads to approved temp dirs before delegated cleanup.
+                logger.debug("Upload temp file cleanup did not delete a file");
+            }
+        } catch (SecurityException e) {
+            logger.warn("Skipped cleanup for invalid upload temp file");
+        }
+    }
+
+    private void writeUploadResponse(HashMap<String, Object> map) throws IOException {
         ArrayNode jsonArray = objectMapper.createArrayNode();
         ObjectNode jsonObject = objectMapper.valueToTree(map);
         jsonArray.add(jsonObject);
@@ -200,7 +250,6 @@ public class DocumentUpload2Action extends ActionSupport {
         response.setCharacterEncoding("UTF-8");
 
         objectMapper.writeValue(response.getOutputStream(), jsonArray);
-        return null;
     }
 
     /**
@@ -220,20 +269,39 @@ public class DocumentUpload2Action extends ActionSupport {
      * @param fileName the name for the file on disk
      * @throws Exception when an error occurs
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void writeLocalFile(File docFile, String fileName) throws Exception {
-        InputStream fis = null;
-        FileOutputStream fos = null;
-        try {
-            fis = Files.newInputStream(docFile.toPath());
-            String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-            if (!documentDir.endsWith(File.separator)) {
-                documentDir += File.separator;
-            }
-            // Validate the destination path using PathValidationUtils
-            File baseDir = new File(documentDir);
-            File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (!documentDir.endsWith(File.separator)) {
+            documentDir += File.separator;
+        }
+        // Validate the destination path using PathValidationUtils. Resolved BEFORE the source is
+        // opened so an invalid destination cannot leave an open input stream behind.
+        File baseDir = new File(documentDir);
+        File destinationFile = PathValidationUtils.validatePath(fileName, baseDir);
 
-            fos = new FileOutputStream(destinationFile);
+        // try-with-resources, not a finally chain: the previous `if (fis != null) fis.close();
+        // if (fos != null) fos.close();` closed the streams in sequence with no protection, so a
+        // throw from the FIRST close skipped the second entirely (leaking the output stream) and,
+        // worse, REPLACED the exception being propagated. The exception most likely to be in flight
+        // here is the FileAlreadyExistsException below, whose entire purpose is to be loud — a close
+        // failure silently substituting for it would restore the cross-patient overwrite as a
+        // confusing I/O error. Suppressed close exceptions now attach to the primary instead.
+        //
+        // CREATE_NEW (not truncate/overwrite): the upload filename carries only a one-second
+        // timestamp prefix, so two same-named uploads in the same second previously resolved to
+        // one path and the second silently overwrote the first — leaving a document row pointing
+        // at another patient's bytes. Failing closed here turns that silent cross-patient
+        // overwrite into a loud FileAlreadyExistsException the caller surfaces.
+        // Both paths are sanitized cross-method, which CodeQL cannot follow, so each sink carries its
+        // own trailing marker on the reported line — a marker on a preceding line is NOT honoured.
+        // docFile: PathValidationUtils.validateUpload at :104 confines it to the allowed temp dirs.
+        // destinationFile: PathValidationUtils.validatePath above sanitizes the name to
+        // [a-zA-Z0-9._-], enforces the extension allowlist, and canonically validates containment.
+        try (InputStream fis = Files.newInputStream(docFile.toPath()); // codeql[java/path-injection] -- validateUpload confined docFile to an allowed temp dir at :104
+                OutputStream fos = Files.newOutputStream(destinationFile.toPath(), // codeql[java/path-injection] -- validatePath canonically confined destinationFile to baseDir
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             byte[] buf = new byte[128 * 1024];
             int i = 0;
             while ((i = fis.read(buf)) != -1) {
@@ -242,62 +310,39 @@ public class DocumentUpload2Action extends ActionSupport {
         } catch (Exception e) {
             logger.error("Error writing local file", e);
             throw e;
-        } finally {
-            if (fis != null)
-                fis.close();
-            if (fos != null)
-                fos.close();
         }
     }
 
-    private boolean writeToIncomingDocs(File docFile, String queueId, String PdfDir, String fileName) {
-        if (queueId == null || PdfDir == null || fileName == null) {
+    private WriteToIncomingDocsResult writeToIncomingDocs(File docFile, File destinationFile) {
+        if (docFile == null || destinationFile == null) {
             logger.error("Invalid parameters provided for writeToIncomingDocs");
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        // Check that filename doesn't contain path traversal sequences
-        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
-            logger.error("Filename contains invalid path characters");
-            return false;
-        }
-
-        String parentPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, PdfDir);
-        if (!new File(parentPath).exists()) {
-            return false;
-        }
-
-        String savePath = IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, PdfDir, fileName);
-
-        // Validate the destination path using PathValidationUtils
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-        if (incomingDocDir == null || incomingDocDir.isEmpty()) {
-            logger.error("INCOMINGDOCUMENT_DIR not configured");
-            return false;
-        }
-
-        File baseDir = new File(incomingDocDir);
-        File destinationFile = new File(savePath);
         try {
-            PathValidationUtils.validateExistingPath(destinationFile.getParentFile(), baseDir);
-        } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: " + savePath);
-            return false;
-        }
-
-        // Write the file - validate source file at point of use for static analysis visibility
-        File validatedDocFile = PathValidationUtils.validateUpload(docFile);
-        try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
-                FileOutputStream fos = new FileOutputStream(destinationFile)) {
-            IOUtils.copy(fis, fos);
-        } catch (IOException e) {
+            // validateUpload throws SecurityException if the source escaped the allowed temp dir; keep it
+            // inside the handled block so this returns FAILED rather than escaping as an unhandled 500.
+            File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
+                    OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                IOUtils.copy(fis, fos);
+            }
+        } catch (FileAlreadyExistsException e) {
+            return WriteToIncomingDocsResult.ALREADY_EXISTS;
+        } catch (IOException | SecurityException e) {
             logger.error("Error writing file to incoming docs", e);
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        return true;
+        return WriteToIncomingDocsResult.SUCCESS;
     }
-    
+
+    private enum WriteToIncomingDocsResult {
+        SUCCESS,
+        ALREADY_EXISTS,
+        FAILED
+    }
+
     /**
      * Sanitizes a filename for use in incoming documents to prevent path traversal attacks.
      * Uses Apache Commons IO FilenameUtils for robust path traversal prevention.
@@ -310,7 +355,12 @@ public class DocumentUpload2Action extends ActionSupport {
             return null;
         }
 
-        String baseName = FilenameUtils.getName(fileName);
+        String baseName;
+        try {
+            baseName = FilenameUtils.getName(fileName);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
 
         // Ensure baseName doesn't contain any path separators
         if (baseName.contains("/") || baseName.contains("\\") || baseName.contains("..")) {
@@ -322,8 +372,8 @@ public class DocumentUpload2Action extends ActionSupport {
             return null;
         }
 
-        // Ensure baseName is not empty and ends with .pdf
-        if (baseName.trim().isEmpty() || !baseName.toLowerCase().endsWith(".pdf") || baseName.equals(".pdf")) {
+        // Ensure baseName is not empty
+        if (baseName.trim().isEmpty()) {
             return null;
         }
 
@@ -384,6 +434,36 @@ public class DocumentUpload2Action extends ActionSupport {
     private String filedataFileName;
     private String filedataContentType;
 
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null) {
+            for (UploadedFile uploaded : uploadedFiles) {
+                String inputName = uploaded.getInputName();
+                if ("filedata".equals(inputName)) {
+                    // Validation runs during Struts binding (before execute()). On rejection leave the
+                    // field null instead of throwing: executeUpload() already maps a null upload to a
+                    // graceful error, so a raw SecurityException here would otherwise bypass it as an
+                    // unhandled 500 to the AJAX uploader.
+                    try {
+                        this.filedata = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field filedata");
+                        this.filedata = null;
+                    }
+                    this.filedataContentType = uploaded.getContentType();
+                    this.filedataFileName = uploaded.getOriginalName();
+                } else if ("docFile".equals(inputName)) {
+                    try {
+                        this.docFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field docFile");
+                        this.docFile = null;
+                    }
+                }
+            }
+        }
+    }
+
     private String docPublic = "";
     private String mode = "";
     private String observationDate = "";
@@ -396,6 +476,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(String function) {
         this.function = function;
     }
@@ -404,6 +485,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return functionId;
     }
 
+    @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
     }
@@ -412,6 +494,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docType;
     }
 
+    @StrutsParameter
     public void setDocType(String docType) {
         this.docType = docType;
     }
@@ -420,6 +503,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docDesc;
     }
 
+    @StrutsParameter
     public void setDocDesc(String docDesc) {
         this.docDesc = docDesc;
     }
@@ -429,6 +513,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docCreator;
     }
 
+    @StrutsParameter
     public void setDocCreator(String docCreator) {
         this.docCreator = docCreator;
     }
@@ -437,6 +522,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return responsibleId;
     }
 
+    @StrutsParameter
     public void setResponsibleId(String responsibleId) {
         this.responsibleId = responsibleId;
     }
@@ -445,6 +531,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -453,6 +540,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docFile;
     }
 
+    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -461,6 +549,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
@@ -469,6 +558,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docPublic;
     }
 
+    @StrutsParameter
     public void setDocPublic(String docPublic) {
         this.docPublic = docPublic;
     }
@@ -477,6 +567,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return observationDate;
     }
 
+    @StrutsParameter
     public void setObservationDate(String observationDate) {
         this.observationDate = observationDate;
     }
@@ -485,6 +576,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return reviewerId;
     }
 
+    @StrutsParameter
     public void setReviewerId(String reviewerId) {
         this.reviewerId = reviewerId;
     }
@@ -493,6 +585,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return reviewDateTime;
     }
 
+    @StrutsParameter
     public void setReviewDateTime(String reviewDateTime) {
         this.reviewDateTime = reviewDateTime;
     }
@@ -501,6 +594,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return reviewDoc;
     }
 
+    @StrutsParameter
     public void setReviewDoc(boolean reviewDoc) {
         this.reviewDoc = reviewDoc;
     }
@@ -509,6 +603,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return html;
     }
 
+    @StrutsParameter
     public void setHtml(String html) {
         this.html = html;
     }
@@ -517,6 +612,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return filedata;
     }
 
+    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -525,6 +621,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return filedataFileName;
     }
 
+    @StrutsParameter
     public void setFiledataFileName(String filedataFileName) {
         this.filedataFileName = filedataFileName;
     }
@@ -533,6 +630,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return filedataContentType;
     }
 
+    @StrutsParameter
     public void setFiledataContentType(String filedataContentType) {
         this.filedataContentType = filedataContentType;
     }

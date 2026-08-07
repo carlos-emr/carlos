@@ -848,7 +848,6 @@
       "CN-37": "Shandong",
       "CN-14": "Shanxi",
       "CN-51": "Sichuan",
-      "CN-71": "Taiwan",
       "CN-53": "Yunnan",
       "CN-33": "Zhejiang",
       "CN-45": "Guangxi",
@@ -4290,28 +4289,6 @@
       "SY-TA": "Ţarţūs"
     }
   },
-  "TW": {
-    "name": "Taiwan",
-    "divisions": {
-      "TW-KHH": "Kaohsiung",
-      "TW-TPE": "Taipei",
-      "TW-CYI": "Chiayi",
-      "TW-HSZ": "Hsinchu",
-      "TW-KEE": "Keelung",
-      "TW-TXG": "Taichung",
-      "TW-TNN": "Tainan",
-      "TW-CHA": "Changhua",
-      "TW-HUA": "Hualien",
-      "TW-ILA": "Ilan",
-      "TW-MIA": "Miaoli",
-      "TW-NAN": "Nantou",
-      "TW-PEN": "Penghu",
-      "TW-PIF": "Pingtung",
-      "TW-TTT": "Taitung",
-      "TW-TAO": "Taoyuan",
-      "TW-YUN": "Yunlin"
-    }
-  },
   "TJ": {
     "name": "Tajikistan",
     "divisions": {
@@ -4608,6 +4585,28 @@
     "name": "Tuvalu",
     "divisions": {
       "TV-TV": "Tuvalu"
+    }
+  },
+  "TW": {
+    "name": "Taiwan",
+    "divisions": {
+      "TW-KHH": "Kaohsiung",
+      "TW-TPE": "Taipei",
+      "TW-CYI": "Chiayi",
+      "TW-HSZ": "Hsinchu",
+      "TW-KEE": "Keelung",
+      "TW-TXG": "Taichung",
+      "TW-TNN": "Tainan",
+      "TW-CHA": "Changhua",
+      "TW-HUA": "Hualien",
+      "TW-ILA": "Ilan",
+      "TW-MIA": "Miaoli",
+      "TW-NAN": "Nantou",
+      "TW-PEN": "Penghu",
+      "TW-PIF": "Pingtung",
+      "TW-TTT": "Taitung",
+      "TW-TAO": "Taoyuan",
+      "TW-YUN": "Yunlin"
     }
   },
   "UG": {

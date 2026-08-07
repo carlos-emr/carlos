@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Controller for managing laboratory and medical document data in the InboxHub system.
@@ -151,17 +152,17 @@ public class LabDataController {
      * <p>Supported result types and their display destinations:</p>
      * <ul>
      *   <li><b>MDS</b>: Routed to /SegmentDisplay.jsp for Medical Data Systems results</li>
-     *   <li><b>CML</b>: Routed to /lab/CA/ON/CMLDisplay.jsp for Ontario CML lab results</li>
+     *   <li><b>CML</b>: Routed to /lab/CA/ON/ViewCMLDisplay for Ontario CML lab results</li>
      *   <li><b>HL7 TEXT</b>: Routes based on discipline/category:
      *     <ul>
-     *       <li>REF_I12: Consultation/referral display via /oscarEncounter/ViewRequest.do</li>
-     *       <li>ORU_R01: Observation results via /lab/CA/ALL/viewOruR01.jsp</li>
-     *       <li>Other: Generic HL7 display via /lab/CA/ALL/labDisplay.jsp</li>
+     *       <li>REF_I12: Consultation/referral display via /encounter/ViewRequest</li>
+     *       <li>ORU_R01: Observation results via generic HL7 display</li>
+     *       <li>Other: Generic HL7 display via /lab/CA/ALL/ViewLabDisplay</li>
      *     </ul>
      *   </li>
-     *   <li><b>Document</b>: Routed to /documentManager/showDocument.jsp for medical documents</li>
-     *   <li><b>HRM</b>: Hospital Report Manager display via /hospitalReportManager/Display.do with duplicate handling</li>
-     *   <li><b>Other</b>: Default BC lab display via /lab/CA/BC/labDisplay.jsp</li>
+     *   <li><b>Document</b>: Routed to /documentManager/ViewShowDocument for medical documents</li>
+     *   <li><b>HRM</b>: Hospital Report Manager display via /hospitalReportManager/Display with duplicate handling</li>
+     *   <li><b>Other</b>: Default BC lab display via /lab/CA/BC/ViewLabDisplay</li>
      * </ul>
      *
      * <p>All URLs include properly encoded parameters for segment ID, provider numbers, result status,
@@ -184,26 +185,23 @@ public class LabDataController {
                 url.append("/SegmentDisplay.jsp?");
             }
             else if (labResult.isCML()) {
-                url.append("/lab/CA/ON/CMLDisplay.jsp?");
+                url.append("/lab/CA/ON/ViewCMLDisplay?");
             }
             else if (labResult.isHL7TEXT()) {
                 String categoryType = labResult.getDiscipline();
                 if ("REF_I12".equals(categoryType)) {
-                    url.append("/oscarEncounter/ViewRequest.do?");
-                }
-                else if (!categoryType.isEmpty() && categoryType.startsWith("ORU_R01:")) {
-                    url.append("/lab/CA/ALL/viewOruR01.jsp?");
+                    url.append("/encounter/ViewRequest?");
                 }
                 else {
-                    url.append("/lab/CA/ALL/labDisplay.jsp?inWindow=true");
+                    url.append("/lab/CA/ALL/ViewLabDisplay?inWindow=true");
                     url.append("&showLatest=true");
                 }
             }
             else if (labResult.isDocument()) {
-                url.append("/documentManager/showDocument.jsp?inWindow=true");
+                url.append("/documentManager/ViewShowDocument?inWindow=true");
             }
             else if (labResult.isHRM()) {
-                url.append("/hospitalReportManager/Display.do?");
+                url.append("/hospitalReportManager/Display?");
                 StringBuilder duplicateLabIds=new StringBuilder();
                 for (Integer duplicateLabId : labResult.getDuplicateLabIds())
                 {
@@ -216,7 +214,7 @@ public class LabDataController {
                 url.append(encodeURL(labResult.getSegmentID()));
             }
             else {
-                url.append("/lab/CA/BC/labDisplay.jsp?");
+                url.append("/lab/CA/BC/ViewLabDisplay?");
             }
             url.append("&segmentID=");
             url.append(encodeURL(labResult.getSegmentID()));
@@ -396,6 +394,8 @@ public class LabDataController {
      * @param typeFilterValue String optional document type filter ("doc", "lab", "hrm"),
      *                        or null to preserve existing type flags
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void sanitizeInboxFormQuery(LoggedInInfo loggedInInfo, InboxhubQuery query, String demographicFilter, String typeFilterValue) {
         String loggedInProviderNo = (String) loggedInInfo.getSession().getAttribute("user");
         Provider loggedInProvider = ProviderData.getProvider(loggedInProviderNo);
@@ -545,6 +545,8 @@ public class LabDataController {
         return encodedUrl;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private List<LabResultData> filterOldLabVersions(List<LabResultData> labs) {
         HashMap<String, LabResultData> labMap = new HashMap<>();
 

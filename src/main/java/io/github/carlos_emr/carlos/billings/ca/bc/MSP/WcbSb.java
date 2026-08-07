@@ -37,10 +37,11 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author Jef King
@@ -179,6 +180,8 @@ public class WcbSb {
         this.formNeeded = "" + w.getFormNeeded();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String validate() {
         StringBuilder m = new StringBuilder();
         if (billamountforfeeitem1 == null || billamountforfeeitem1.equalsIgnoreCase("NULL")) {
@@ -377,7 +380,7 @@ public class WcbSb {
     }
 
     private String ClaimNote1Head(String logNo) {
-        return Misc.forwardZero(OscarProperties.getInstance().getProperty("dataCenterId"), 5) + Misc.forwardZero(String.valueOf(logNo), 7) + Misc.forwardZero(this.w_payeeno, 5) + Misc.forwardZero(this.w_pracno, 5);
+        return Misc.forwardZero(CarlosProperties.getInstance().getProperty("dataCenterId"), 5) + Misc.forwardZero(String.valueOf(logNo), 7) + Misc.forwardZero(this.w_payeeno, 5) + Misc.forwardZero(this.w_pracno, 5);
     }
 
     public String dateFormat(String date) {

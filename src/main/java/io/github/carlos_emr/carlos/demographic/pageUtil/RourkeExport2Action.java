@@ -32,9 +32,10 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import cdsrourke.PatientDocument;
 import cdsrourke.PatientDocument.Patient;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlOptions;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DataExportDao;
@@ -44,23 +45,29 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.DataExport;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.model.FormRourke2009;
 import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.*;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RourkeExport2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -104,7 +111,7 @@ public class RourkeExport2Action extends ActionSupport {
     }
 
     public String getFile() {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         String zipName = request.getParameter("zipFile");
         String dir = properties.getProperty("DOCUMENT_DIR");
         Util.downloadFile(zipName, dir, response);
@@ -115,7 +122,12 @@ public class RourkeExport2Action extends ActionSupport {
     @SuppressWarnings("rawtypes")
     @Override
     public String execute() throws Exception {
-        OscarProperties properties = OscarProperties.getInstance();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        CarlosProperties properties = CarlosProperties.getInstance();
         Clinic clinic = clinicDAO.getClinic();
         List<DataExport> dataExportList = dataExportDAO.findAllByType(DataExportDao.ROURKE);
 
@@ -148,7 +160,7 @@ public class RourkeExport2Action extends ActionSupport {
         String tmpDir = properties.getProperty("TMP_DIR");
         if (!Util.checkDir(tmpDir)) {
             tmpDir = System.getProperty("java.io.tmpdir");
-            MiscUtils.getLogger().error("Error! Cannot write to TMP_DIR - Check oscar.properties or dir permissions. Using " + tmpDir);
+            MiscUtils.getLogger().error("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. Using " + tmpDir);
         }
         tmpDir = Util.fixDirName(tmpDir);
 
@@ -3674,6 +3686,8 @@ public class RourkeExport2Action extends ActionSupport {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void buildPatientDemographic(Demographic demo, Patient patient) {
 
         String healthCard = demo.getHin();
@@ -3710,7 +3724,7 @@ public class RourkeExport2Action extends ActionSupport {
 
 /*
 	private void buildProcedure2(Demographic demo, PatientRecord patientRecord) {
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             Calendar cal = Calendar.getInstance();
             Date procedureDate;
             boolean hasIssue;
@@ -3761,7 +3775,8 @@ public class RourkeExport2Action extends ActionSupport {
         options.setSaveOuter();
 
         String fileName = "Rourke2009Export.xml";
-        File xmlFile = new File(tmpDir, fileName);
+        File tmpDirectory = PathValidationUtils.resolveConfiguredDirectory(tmpDir, "Rourke export temp directory");
+        File xmlFile = PathValidationUtils.validateGeneratedChildPath(fileName, tmpDirectory);
         try {
             patientDocument.save(xmlFile, options);
         } catch (IOException e) {
@@ -3773,13 +3788,15 @@ public class RourkeExport2Action extends ActionSupport {
         //Zip export files
         String zipName = "rourke2009_export-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".zip";
         if (!Util.zipFiles(files, zipName, tmpDir)) {
+            // Abort rather than copying a missing/partial zip into DOCUMENT_DIR below.
             MiscUtils.getLogger().error("Error! Failed zipping export files");
+            throw new Exception("Failed to zip Rourke export files; aborting export");
         }
 
         //copy zip to document directory
-        File zipFile = new File(tmpDir, zipName);
-        OscarProperties properties = OscarProperties.getInstance();
-        File destDir = new File(properties.getProperty("DOCUMENT_DIR"));
+        File zipFile = PathValidationUtils.validateGeneratedChildPath(zipName, tmpDirectory);
+        CarlosProperties properties = CarlosProperties.getInstance();
+        File destDir = PathValidationUtils.resolveConfiguredDirectory(properties.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
 
         //Remove zip & export files from temp dir
@@ -3795,6 +3812,7 @@ public class RourkeExport2Action extends ActionSupport {
         return patientSet;
     }
 
+    @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
@@ -3809,6 +3827,7 @@ public class RourkeExport2Action extends ActionSupport {
         return orgName;
     }
 
+    @StrutsParameter
     public void setOrgName(String orgName) {
         this.orgName = orgName;
     }
@@ -3817,6 +3836,7 @@ public class RourkeExport2Action extends ActionSupport {
         return vendorId;
     }
 
+    @StrutsParameter
     public void setVendorId(String vendorId) {
         this.vendorId = vendorId;
     }
@@ -3825,6 +3845,7 @@ public class RourkeExport2Action extends ActionSupport {
         return vendorBusinessName;
     }
 
+    @StrutsParameter
     public void setVendorBusinessName(String vendorBusinessName) {
         this.vendorBusinessName = vendorBusinessName;
     }
@@ -3833,6 +3854,7 @@ public class RourkeExport2Action extends ActionSupport {
         return vendorCommonName;
     }
 
+    @StrutsParameter
     public void setVendorCommonName(String vendorCommonName) {
         this.vendorCommonName = vendorCommonName;
     }
@@ -3841,6 +3863,7 @@ public class RourkeExport2Action extends ActionSupport {
         return vendorSoftware;
     }
 
+    @StrutsParameter
     public void setVendorSoftware(String vendorSoftware) {
         this.vendorSoftware = vendorSoftware;
     }
@@ -3849,6 +3872,7 @@ public class RourkeExport2Action extends ActionSupport {
         return vendorSoftwareCommonName;
     }
 
+    @StrutsParameter
     public void setVendorSoftwareCommonName(String vendorSoftwareCommonName) {
         this.vendorSoftwareCommonName = vendorSoftwareCommonName;
     }
@@ -3857,6 +3881,7 @@ public class RourkeExport2Action extends ActionSupport {
         return vendorSoftwareVer;
     }
 
+    @StrutsParameter
     public void setVendorSoftwareVer(String vendorSoftwareVer) {
         this.vendorSoftwareVer = vendorSoftwareVer;
     }
@@ -3865,6 +3890,7 @@ public class RourkeExport2Action extends ActionSupport {
         return installDate;
     }
 
+    @StrutsParameter
     public void setInstallDate(String installDate) {
         this.installDate = installDate;
     }
@@ -3873,6 +3899,7 @@ public class RourkeExport2Action extends ActionSupport {
         return contactLName;
     }
 
+    @StrutsParameter
     public void setContactLName(String contactLName) {
         this.contactLName = contactLName;
     }
@@ -3881,6 +3908,7 @@ public class RourkeExport2Action extends ActionSupport {
         return contactFName;
     }
 
+    @StrutsParameter
     public void setContactFName(String contactFName) {
         this.contactFName = contactFName;
     }
@@ -3889,6 +3917,7 @@ public class RourkeExport2Action extends ActionSupport {
         return contactPhone;
     }
 
+    @StrutsParameter
     public void setContactPhone(String contactPhone) {
         this.contactPhone = contactPhone;
     }
@@ -3897,6 +3926,7 @@ public class RourkeExport2Action extends ActionSupport {
         return contactEmail;
     }
 
+    @StrutsParameter
     public void setContactEmail(String contactEmail) {
         this.contactEmail = contactEmail;
     }
@@ -3905,6 +3935,7 @@ public class RourkeExport2Action extends ActionSupport {
         return contactUserName;
     }
 
+    @StrutsParameter
     public void setContactUserName(String contactUserName) {
         this.contactUserName = contactUserName;
     }
@@ -3923,6 +3954,7 @@ public class RourkeExport2Action extends ActionSupport {
         return extractType;
     }
 
+    @StrutsParameter
     public void setExtractType(String extractType) {
         this.extractType = extractType;
     }

@@ -48,12 +48,4 @@ public interface IndicatorTemplateDao extends AbstractDao<IndicatorTemplate> {
     public List<IndicatorTemplate> getSharedIndicatorTemplates();
 
     public List<IndicatorTemplate> getIndicatorTemplatesByDashboardId(int id);
-
-    public List<String> getIndicatorCategories();
-
-    public List<String> getIndicatorSubCategories();
-
-    public List<IndicatorTemplate> getIndicatorTemplatesByCategory(String category);
-
-    public List<IndicatorTemplate> getIndicatorTemplatesBySubcategory(String subCategory);
 }

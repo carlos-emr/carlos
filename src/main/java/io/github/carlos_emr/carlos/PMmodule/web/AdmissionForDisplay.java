@@ -18,7 +18,7 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -31,15 +31,7 @@ import java.text.SimpleDateFormat;
 import java.util.Comparator;
 import java.util.Date;
 
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedAdmission;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProgram;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
 import io.github.carlos_emr.carlos.commn.model.Admission;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
@@ -54,13 +46,11 @@ public class AdmissionForDisplay {
         }
     };
 
-    private static final Logger logger = MiscUtils.getLogger();
     private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm";
 
     private SimpleDateFormat dateFormatter = new SimpleDateFormat(DATE_FORMAT);
 
     private Integer admissionId;
-    private boolean isFromIntegrator;
     private String programName;
     private String programType;
     private String facilityName;
@@ -74,7 +64,6 @@ public class AdmissionForDisplay {
 
     public AdmissionForDisplay(Admission admission) {
         admissionId = admission.getId().intValue();
-        isFromIntegrator = false;
         programName = admission.getProgramName();
         programType = admission.getProgramType();
         facilityName = "local";
@@ -94,43 +83,6 @@ public class AdmissionForDisplay {
         temporaryAdmission = String.valueOf(admission.isTemporaryAdmission());
     }
 
-    public AdmissionForDisplay(LoggedInInfo loggedInInfo, CachedAdmission cachedAdmission) {
-        isFromIntegrator = true;
-
-        FacilityIdIntegerCompositePk remoteProgramPk = new FacilityIdIntegerCompositePk();
-        int remoteFacilityId = cachedAdmission.getFacilityIdIntegerCompositePk().getIntegratorFacilityId();
-        remoteProgramPk.setIntegratorFacilityId(remoteFacilityId);
-        remoteProgramPk.setCaisiItemId(cachedAdmission.getCaisiProgramId());
-        try {
-            CachedProgram cachedProgram = CaisiIntegratorManager.getRemoteProgram(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteProgramPk);
-            programName = cachedProgram.getName();
-            programType = cachedProgram.getType();
-        } catch (Exception e) {
-            logger.error("Error retriving integrator program.", e);
-        }
-
-        try {
-            CachedFacility cachedFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteFacilityId);
-            facilityName = cachedFacility.getName();
-        } catch (Exception e) {
-            logger.error("Error retrieving integrator Facility.", e);
-        }
-
-        admissionDate = dateFormatter.format(cachedAdmission.getAdmissionDate().getTime());
-        facilityAdmission = "n/a";
-
-        if (cachedAdmission.getDischargeDate() != null) {
-            dischargeDate = dateFormatter.format(cachedAdmission.getDischargeDate());
-            daysInProgram = DateUtils.calculateDayDifference(cachedAdmission.getAdmissionDate(), cachedAdmission.getDischargeDate());
-        } else {
-            daysInProgram = DateUtils.calculateDayDifference(cachedAdmission.getAdmissionDate(), new Date());
-
-        }
-
-        facilityDischarge = "n/a";
-        temporaryAdmission = "n/a";
-    }
-
     public Integer getAdmissionId() {
         return admissionId;
     }
@@ -141,10 +93,6 @@ public class AdmissionForDisplay {
 
     public String getProgramType() {
         return programType;
-    }
-
-    public boolean isFromIntegrator() {
-        return isFromIntegrator;
     }
 
     public String getFacilityName() {

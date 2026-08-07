@@ -34,7 +34,7 @@ import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
-import net.sf.jasperreports.engine.export.JRPdfExporter;
+import net.sf.jasperreports.pdf.JRPdfExporter;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import org.apache.commons.lang3.StringUtils;
@@ -54,8 +54,8 @@ import io.github.carlos_emr.carlos.form.model.FormBCAR2020Data;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020Text;
 import io.github.carlos_emr.carlos.form.util.LanguageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
@@ -69,8 +69,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmBCAR20202Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -106,6 +107,8 @@ public class FrmBCAR20202Action extends ActionSupport {
         return "exit";
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String save() throws Exception {
         FrmBCAR2020Record bcar2020Record = (FrmBCAR2020Record) (new FrmRecordFactory()).factory(RECORD_NAME);
 
@@ -199,13 +202,13 @@ public class FrmBCAR20202Action extends ActionSupport {
             persistRecords.add(rec);
         }
 
-        bcar2020DataDao.batchPersist(persistRecords, 50);
+        bcar2020DataDao.batchPersistAtomically(persistRecords, 50);
 
         for (FormBCAR2020Text rec : addTextRecords) {
             persistTextRecords.add(rec);
         }
 
-        bcar2020TextDao.batchPersist(persistTextRecords, 50);
+        bcar2020TextDao.batchPersistAtomically(persistTextRecords, 50);
 
         String url = "/form/formBCAR2020pg";
         if (forwardTo == 6) {
@@ -214,7 +217,7 @@ public class FrmBCAR20202Action extends ActionSupport {
             url = url + forwardTo + ".jsp";
         }
         url = url + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
-        response.sendRedirect(url);
+        response.sendRedirect(request.getContextPath() + url);
         return NONE;
     }
 

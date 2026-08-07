@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import org.springframework.stereotype.Repository;
@@ -75,9 +75,10 @@ public class CaseManagementIssueNotesDaoImpl implements CaseManagementIssueNotes
             placeholders.append("?").append(i + 1);
         }
 
+        // nosemgrep: jpa-sqli -- placeholders are generated positional params (?1, ?2, ...) from array length, bound via setParameter below
         String sql = "select note_id from casemgmt_issue_notes where id in (" + placeholders.toString() + ")";
 
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = entityManager.createNativeQuery(sql); // nosemgrep: jpa-sqli — positional placeholders (?1,?2,...) generated from array length; values bound via setParameter
 
         for (int i = 0; i < issueId.length; i++) {
             query.setParameter(i + 1, issueId[i]);

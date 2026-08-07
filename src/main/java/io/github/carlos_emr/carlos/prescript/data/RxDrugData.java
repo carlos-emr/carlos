@@ -1,30 +1,27 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -721,25 +718,6 @@ public class RxDrugData {
     }
 
     /**
-     * Get list of drug components from official drug code.
-     *
-     * @param drugCode
-     * @return ArrayList
-     */
-    @Deprecated
-    public ArrayList getComponentsFromDrugCode(String drugCode) {
-        ArrayList lst = new ArrayList();
-        Vector v = new Vector();
-        RxDrugRef d = new RxDrugRef();
-        v = d.listComponents(drugCode);
-        for (int i = 0; i < v.size(); i++) {
-            Hashtable h = (Hashtable) v.get(i);
-            lst.add(h.get("name"));
-        }
-        return lst;
-    }
-
-    /**
      * Get ??
      *
      * @return ArrayList
@@ -854,6 +832,21 @@ public class RxDrugData {
         return getAllergyWarnings(atcCode, allerg, null);
     }
 
+    /**
+     * Returns allergy warnings for the given drug ATC code against the patient's allergy list.
+     * Calls the DrugRef XML-RPC service to identify which of the provided allergies are
+     * triggered by the specified drug. Optionally collects allergies that could not be
+     * matched by the service into the {@code missing} list.
+     *
+     * @param atcCode  String the ATC code of the drug to check for allergy warnings
+     * @param allergies Allergy[] array of patient allergies to check against; must not be null
+     * @param missing  List&lt;Allergy&gt; optional list to collect allergies that could not be
+     *                 matched by the DrugRef service; pass null to discard missing results
+     * @return Allergy[] array of allergies that triggered warnings for the specified drug;
+     *         empty array if no warnings are found
+     * @throws Exception if the drug reference service call fails
+     * @since 2026-02-26
+     */
     public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allergies, List<Allergy> missing) throws Exception {
         List<Map<String, String>> allergyDataList = new ArrayList<>();
         for (int i = 0; i < allergies.length; i++) {
@@ -884,17 +877,32 @@ public class RxDrugData {
                 List<String> warningIndices = (List<String>) warningData.get("warnings");
                 if (warningIndices != null) {
                     for (String indexStr : warningIndices) {
-                        int index = Integer.parseInt(indexStr);
-                        foundWarnings.add(allergies[index]);
-                        MiscUtils.getLogger().debug(indexStr);
+                        try {
+                            int index = Integer.parseInt(indexStr);
+                            if (index < 0 || index >= allergies.length) {
+                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: warning index '{}' out of bounds (size={})", indexStr, allergies.length);
+                                continue;
+                            }
+                            foundWarnings.add(allergies[index]);
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid warning index '{}' from DrugRef", indexStr);
+                        }
                     }
                 }
 
                 List<String> missingIndices = (List<String>) warningData.get("missing");
                 if (missingIndices != null && missing != null) {
                     for (String indexStr : missingIndices) {
-                        int index = Integer.parseInt(indexStr);
-                        missing.add(allergies[index]);
+                        try {
+                            int index = Integer.parseInt(indexStr);
+                            if (index < 0 || index >= allergies.length) {
+                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: missing index '{}' out of bounds (size={})", indexStr, allergies.length);
+                                continue;
+                            }
+                            missing.add(allergies[index]);
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid missing index '{}' from DrugRef", indexStr);
+                        }
                     }
                 }
             }

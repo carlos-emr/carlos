@@ -11,8 +11,8 @@
 server start && server log
 
 # 2. Verify database
-mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin FROM security WHERE user_name='openodoc';"
+mariadb -h db -uroot -ppassword oscar -e \
+  "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
 
 # 3. Create unique test run directory
 TIMESTAMP=$(date +%Y%m%d-%H%M%S-%3N)
@@ -37,7 +37,7 @@ Verify: Form visible, fonts correct, no 404s
 
 ### Step 2: Dashboard
 ```
-Action: Login (openodoc / openo2025 / 2025)
+Action: Login (carlosdoc / carlos2026 / 2026)
 Screenshot: ui-test-runs/$TIMESTAMP/test-1/screenshots/test-1-02-provider-dashboard.png
 Verify: Navigation menu (13 items), schedule visible, NO 404s
 ```
@@ -244,17 +244,17 @@ Approved by: [team member]
 ### Login Fails
 ```bash
 # Reset password
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "UPDATE security SET
-   password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96',
+   password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
    forcePasswordReset=0
-   WHERE user_name='openodoc';"
+   WHERE user_name='carlosdoc';"
 ```
 
 ### Search Returns No Results
 ```bash
 # Verify patient data
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT demographic_no, last_name, first_name, patient_status
    FROM demographic
    WHERE demographic_no IN (1, 182);"

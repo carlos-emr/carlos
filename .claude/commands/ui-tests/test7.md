@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mysql -h db -uroot -ppassword oscar *)
-  - Bash(mysql -h db -uroot -ppassword oscar -e *)
-  - Bash(mysql * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword oscar *)
+  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb * oscar * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -66,10 +66,10 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT hin FROM demographic WHERE demographic_no = 1;"`
+2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT hin FROM demographic WHERE demographic_no = 1;"`
    - Expected: Shows patient HIN
 
-3. **Billing Codes Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT COUNT(*) FROM billingservice WHERE region = 'ON';"`
+3. **Billing Codes Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT COUNT(*) FROM billingservice WHERE region = 'ON';"`
    - Expected: Returns count > 0
 
 **If checks fail**: Run `server start` to start Tomcat, or check billing configuration.
@@ -80,7 +80,7 @@ Follow the 15-step workflow defined in `docs/ui-tests/test-7/test-7-EXECUTION.md
 
 ### Phase 1: Authentication & Billing Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **Billing Module** - Click Billing link, screenshot
 
@@ -154,7 +154,7 @@ Billing actions may trigger **confirmation dialogs**:
 Service Code: A003 (Consultation)
 Diagnostic Code: J06.9 (Upper respiratory infection)
 Service Date: Today
-Provider: openodoc
+Provider: carlosdoc
 ```
 
 ## Post-Test Verification
@@ -165,7 +165,7 @@ After completing all 15 steps:
 2. **Verify Count**: Confirm exactly 15 screenshots captured
 3. **Database Verification**:
    ```bash
-   mysql -h db -uroot -ppassword oscar -e "
+   mariadb -h db -uroot -ppassword oscar -e "
    SELECT billing_no, billing_date, total FROM billing
    WHERE demographic_no = 1 ORDER BY billing_no DESC LIMIT 1;"
    ```

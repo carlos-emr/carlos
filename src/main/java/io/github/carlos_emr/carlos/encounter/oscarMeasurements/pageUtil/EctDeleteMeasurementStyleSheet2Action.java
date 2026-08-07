@@ -30,11 +30,12 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
@@ -46,8 +47,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.owasp.encoder.Encode;
+
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -70,9 +74,14 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
                     for (MeasurementGroupStyle style : styles) {
                         MeasurementCSSLocation location = lDao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
                         if (location != null) {
-                            addActionError(getText("error.oscarEncounter.Measurements.cannotDeleteStyleSheet", new String[]{location.getLocation()}));
-                            response.sendRedirect(request.getContextPath() + "/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp");
-                            return NONE;
+                            List<String> errors = new ArrayList<>();
+                            // Error bundle contains embedded <li>...</li> and the JSP renders
+                            // actionErrors unencoded, so HTML-encode the DB-sourced {0} value
+                            // before substitution to prevent breakout of the list-item context.
+                            errors.add(getText("error.encounter.Measurements.cannotDeleteStyleSheet",
+                                    new String[]{Encode.forHtml(location.getLocation())}));
+                            request.setAttribute("actionErrors", errors);
+                            return "error";
                         }
 
                         dao.remove(style);
@@ -93,6 +102,7 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
         return deleteCheckbox;
     }
 
+    @StrutsParameter
     public void setDeleteCheckbox(String[] deleteCheckbox) {
         this.deleteCheckbox = deleteCheckbox;
     }

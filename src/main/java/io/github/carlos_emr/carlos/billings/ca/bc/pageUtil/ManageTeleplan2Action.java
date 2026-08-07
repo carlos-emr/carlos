@@ -33,14 +33,16 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
@@ -48,11 +50,13 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MspErrorCodes;
 import io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanAPI;
@@ -68,10 +72,27 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ManageTeleplan2Action extends ActionSupport {
+    private static final Set<String> POST_ONLY_METHODS = Set.of(
+            "setUserName",
+            "updateBillingCodes",
+            "updateteleplanICDCodesList",
+            "updateExplanatoryCodesList",
+            "commitUpdateBillingCodes",
+            "getSequenceNumber",
+            "setSequenceNumber",
+            "sendFile",
+            "remit",
+            "setPass",
+            "changePass",
+            "checkElig");
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -84,9 +105,22 @@ public class ManageTeleplan2Action extends ActionSupport {
     public ManageTeleplan2Action() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
-        //log.debug("UNSPECIFIED ACTION!");
         String method = request.getParameter("method");
+        if (method != null && POST_ONLY_METHODS.contains(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        //log.debug("UNSPECIFIED ACTION!");
         if ("setUserName".equals(method)) {
             return setUserName();
         } else if ("updateBillingCodes".equals(method)) {
@@ -120,7 +154,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         String username = request.getParameter("user");
         String password = request.getParameter("pass");
 
-        log.debug("username " + username + " password " + password);
+        log.debug("username {} password [REDACTED]", LogSafe.sanitize(username));
 
         //TODO: validate username - make sure url is not null
 
@@ -140,7 +174,7 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.getAsciiFile("3");
 
-        log.debug("real filename " + tr.getRealFilename());
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
 
         File file = tr.getFile();
         TeleplanCodesManager tcm = new TeleplanCodesManager();
@@ -161,14 +195,14 @@ public class ManageTeleplan2Action extends ActionSupport {
         TeleplanAPI tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         TeleplanResponse tr = tAPI.getAsciiFile("2");
 
-        log.debug("real filename " + tr.getRealFilename());
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
 
         File file = tr.getFile();
 
         // Use PathValidationUtils to validate file is in allowed directory or temp
-        File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(file, allowedDir);
+            file = PathValidationUtils.validateExistingPath(file, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -176,24 +210,24 @@ public class ManageTeleplan2Action extends ActionSupport {
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(file));
-
         String line = null;
         Properties dxProp = new Properties();
-        while ((line = buff.readLine()) != null) {
-            if (!line.startsWith("REM")) {
-                log.debug(line.substring(0, 5).trim() + "=" + line.substring(4).trim());
-                String code = line.substring(0, 5).trim();
-                String desc = line.substring(4).trim();
+        try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
+            while ((line = buff.readLine()) != null) {
+                if (!line.startsWith("REM")) {
+                    log.debug("{}={}", LogSafe.sanitize(line.substring(0, 5).trim()), LogSafe.sanitize(line.substring(4).trim()));
+                    String code = line.substring(0, 5).trim();
+                    String desc = line.substring(4).trim();
 
-                if (dxProp.containsKey(code)) {//Some of the lines in file double up for a longer desc.
-                    String dxDesc = dxProp.getProperty(code);
-                    dxDesc += " " + desc;
-                    dxProp.setProperty(code, dxDesc);
-                } else {
-                    dxProp.put(code, desc);
+                    if (dxProp.containsKey(code)) {//Some of the lines in file double up for a longer desc.
+                        String dxDesc = dxProp.getProperty(code);
+                        dxDesc += " " + desc;
+                        dxProp.setProperty(code, dxDesc);
+                    } else {
+                        dxProp.put(code, desc);
+                    }
+
                 }
-
             }
         }
 
@@ -205,7 +239,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             List<DiagnosticCode> dxList = bDx.getByDxCode(code);
             if (dxList == null || dxList.size() == 0) { //New Code
                 DiagnosticCode dxCode = new DiagnosticCode();
-                log.debug("Adding new code " + code + " desc : " + desc);
+                log.debug("Adding new code {} desc : {}", LogSafe.sanitize(code), LogSafe.sanitize(desc));
                 dxCode.setDiagnosticCode(code);
                 dxCode.setDescription(desc);
                 dxCode.setRegion("BC");
@@ -234,14 +268,14 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.getAsciiFile("1");
 
-        log.debug("real filename " + tr.getRealFilename());
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
 
         File file = tr.getFile();
 
         // Use PathValidationUtils to validate file is in allowed directory or temp
-        File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(file, allowedDir);
+            file = PathValidationUtils.validateExistingPath(file, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -249,29 +283,29 @@ public class ManageTeleplan2Action extends ActionSupport {
             }
         }
 
-        BufferedReader buff = new BufferedReader(new FileReader(file));
-
         String line = null;
 
         boolean start = false;
         StringBuilder sb = new StringBuilder();
         MspErrorCodes errorCodes = new MspErrorCodes();
 
-        while ((line = buff.readLine()) != null) {
-            line = line.trim();
-            if (line != null && line.startsWith("--")) {
-                start = true;
-                continue;
-            }
-            if (start) {
-                if (line.trim().equals("")) {
-                    String togo = sb.toString();
-                    sb = new StringBuilder();
-                    if (!togo.equals("")) {
-                        errorCodes.put(togo.substring(0, 2), togo.substring(4));
+        try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
+            while ((line = buff.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith("--")) {
+                    start = true;
+                    continue;
+                }
+                if (start) {
+                    if (line.isEmpty()) {
+                        String togo = sb.toString();
+                        sb = new StringBuilder();
+                        if (!togo.isEmpty()) {
+                            errorCodes.put(togo.substring(0, 2), togo.substring(4));
+                        }
+                    } else {
+                        sb.append(line);
                     }
-                } else {
-                    sb.append(line);
                 }
             }
         }
@@ -283,7 +317,7 @@ public class ManageTeleplan2Action extends ActionSupport {
                 togo = togo.substring(0, i);
             }
 
-            if (!togo.equals("")) {
+            if (!togo.isEmpty()) {
                 errorCodes.put(togo.substring(0, 2), togo.substring(4));
             }
         }
@@ -302,8 +336,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         request.setAttribute("error", errorStr);
         //---------------------------------------------------------------------------
 
-        log.info("Msp error codes " + errorCodes.size());
-        log.debug(sb.toString());
+        log.info("Msp error codes {}", errorCodes.size());
+        log.debug("{}", LogSafe.sanitize(sb.toString()));
         return SUCCESS;
     }
 
@@ -328,11 +362,11 @@ public class ManageTeleplan2Action extends ActionSupport {
     public String getSequenceNumber()
             throws Exception {
         log.debug("getSequenceNumber");
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         String datacenter = prop.getProperty("dataCenterId", "");
         if (datacenter.length() != 5) {
             //this.addMessages() //TODO:ADD MESSAGE ABOUT DATA CENTER NOT BEING CORRECT
-            log.debug("returning because of datacenter #" + datacenter);
+            log.debug("returning because of datacenter #{}", LogSafe.sanitize(datacenter));
             return SUCCESS;
         }
         TeleplanUserPassDAO dao = new TeleplanUserPassDAO();
@@ -343,8 +377,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in getSequenceNumber", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
 
@@ -389,8 +423,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in sendFile", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return "submission";
         }
 
@@ -402,21 +436,20 @@ public class ManageTeleplan2Action extends ActionSupport {
         Billactivity b = (Billactivity) l.get(0);
         String filename = b.getOhipfilename();
 
-        OscarProperties prop = OscarProperties.getInstance();
-        String datacenter = prop.getProperty("HOME_DIR", "");
+        CarlosProperties prop = CarlosProperties.getInstance();
+        File homeDir = new File(prop.getProperty("HOME_DIR", ""));
+        File f = PathValidationUtils.validatePath(filename, homeDir);
 
-        File f = new File(datacenter, filename);
 
-
-        if (f != null && log.isDebugEnabled()) {
-            log.debug("File is Readable: " + f.canRead());
-            log.debug("File exists: " + f.exists());
-            log.debug("File Path " + f.getCanonicalPath());
+        if (log.isDebugEnabled()) {
+            log.debug("File is Readable: {}", f.canRead());
+            log.debug("File exists: {}", f.exists());
+            log.debug("File Path {}", LogSafe.sanitize(f.getCanonicalPath()));
         }
-        log.info("sending file " + f.getAbsolutePath());
+        log.info("sending file {}", LogSafe.sanitize(f.getAbsolutePath()));
 
         TeleplanResponse tr = tAPI.putMSPFile(f);
-        log.debug("sendFile End" + tr.getResult());
+        log.debug("sendFile End {}", LogSafe.sanitize(tr.getResult()));
         if (!tr.isSuccess()) {
             request.setAttribute("error", tr.getMsgs());
         } else {
@@ -437,14 +470,14 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in remit", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
 
         TeleplanResponse tr = tAPI.getRemittance(true);
-        log.debug(tr.toString());
-        log.debug("real filename " + tr.getRealFilename());
+        log.debug("{}", LogSafe.sanitize(tr.toString()));
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
         request.setAttribute("filename", tr.getRealFilename());
         return "remit";
     }
@@ -480,13 +513,13 @@ public class ManageTeleplan2Action extends ActionSupport {
 
 
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in changePass", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
 
         TeleplanResponse tr = tAPI.changePassword(userpass[0], userpass[1], newpass, confpass);
-        log.debug("change password " + tr.getResult());
+        log.debug("change password {}", LogSafe.sanitize(tr.getResult()));
         if (!tr.isSuccess()) {
             request.setAttribute("error", tr.getMsgs());
         } else {
@@ -495,11 +528,13 @@ public class ManageTeleplan2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String checkElig()
             throws Exception {
         log.debug("checkElig");
         String demographicNo = request.getParameter("demographic");
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         Demographic demo = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
@@ -513,8 +548,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug(e.getMessage(), e);
-            request.setAttribute("error", e.getMessage());
+            log.debug("Failed to connect to Teleplan API in checkElig", e);
+            request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return "checkElig";
         }
 
@@ -530,9 +565,9 @@ public class ManageTeleplan2Action extends ActionSupport {
         boolean patientrestriction = true;
 
         TeleplanResponse tr = tAPI.checkElig(phn, dateofbirthyyyy, dateofbirthmm, dateofbirthdd, dateofserviceyyyy, dateofservicemm, dateofservicedd, patientvisitcharge, lasteyeexam, patientrestriction);
-        log.debug(tr.getResult());
-        log.debug(tr.isSuccess());
-        log.debug(tr.toString());
+        log.debug("{}", LogSafe.sanitize(tr.getResult()));
+        log.debug("isSuccess: {}", tr.isSuccess());
+        log.debug("{}", LogSafe.sanitize(tr.toString()));
         request.setAttribute("Result", tr.getResult());
 
 
@@ -541,9 +576,9 @@ public class ManageTeleplan2Action extends ActionSupport {
             File file = tr.getFile();
 
             // Use PathValidationUtils to validate file is in allowed directory or temp
-            File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+            File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
             try {
-                PathValidationUtils.validateExistingPath(file, allowedDir);
+                file = PathValidationUtils.validateExistingPath(file, allowedDir);
             } catch (SecurityException e) {
                 // File might be in temp directory from Teleplan API
                 if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -551,24 +586,21 @@ public class ManageTeleplan2Action extends ActionSupport {
                 }
             }
 
-            BufferedReader buff = new BufferedReader(new FileReader(file));
-            StringBuilder sb = new StringBuilder();
+            List<String> msgLines = new ArrayList<>();
             String line = null;
 
-            while ((line = buff.readLine()) != null) {
-
-                if (line != null && line.startsWith("ELIG_ON_DOS:")) {
-                    String el = line.substring(12).trim();
-                    if (el.equalsIgnoreCase("no")) {
-                        request.setAttribute("Result", "Failure");
-
-                        line = "<span style=\"color:red; font-weight:bold;\">" + line + "</span>";
+            try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
+                while ((line = buff.readLine()) != null) {
+                    if (line.startsWith("ELIG_ON_DOS:")) {
+                        String el = line.substring(12).trim();
+                        if (el.equalsIgnoreCase("no")) {
+                            request.setAttribute("Result", "Failure");
+                        }
                     }
+                    msgLines.add(line);
                 }
-                sb.append(line);
-                sb.append("<br>");
             }
-            request.setAttribute("Msgs", sb.toString()); //tr.getMsgs());
+            request.setAttribute("MsgsLines", msgLines);
 
         } else {
             request.setAttribute("Msgs", tr.getMsgs());

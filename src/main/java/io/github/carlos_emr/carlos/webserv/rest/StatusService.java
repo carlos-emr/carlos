@@ -28,14 +28,14 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Path("/status")
@@ -48,9 +48,9 @@ public class StatusService extends AbstractServiceImpl {
     @GET
     @Path("/checkIfAuthed")
     @Produces("application/json")
-    public GenericRESTResponse checkIfAuthed() {
+    public RestResponse<String> checkIfAuthed() {
 
-        return new GenericRESTResponse(true, getLoggedInInfo().getLoggedInProviderNo());
+        return RestResponse.successResponse(getLoggedInInfo().getLoggedInProviderNo());
     }
 
 }

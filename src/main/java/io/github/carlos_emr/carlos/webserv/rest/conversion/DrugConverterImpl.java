@@ -115,7 +115,6 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             d.setOutsideProviderName(t.getExternalProvider());
             d.setSpecialInstruction(t.getAdditionalInstructions());
 
-            d.setDispenseInternal(falseIfNull(t.getDispenseInternal()));
             d.setDispenseInterval(t.getDispenseIntervalNumber());
             d.setRefillDuration(zeroIfNull(t.getRefillDuration()));
             d.setRefillQuantity(zeroIfNull(t.getRefillQuantity()));

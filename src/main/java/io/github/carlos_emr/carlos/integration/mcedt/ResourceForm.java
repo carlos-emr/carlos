@@ -29,14 +29,13 @@
 package io.github.carlos_emr.carlos.integration.mcedt;
 
 import ca.ontario.health.edt.Detail;
-import ca.ontario.health.edt.DetailData;
 import ca.ontario.health.edt.ResourceStatus;
 import ca.ontario.health.edt.TypeListResult;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ResourceForm {
 
@@ -64,21 +63,6 @@ public class ResourceForm {
 
     public void setDetail(Detail detail) {
         this.detail = detail;
-    }
-
-    public void removeResource(BigInteger resourceId) {
-        if (resourceId == null) {
-            return;
-        }
-
-        Iterator<DetailData> it = getDetail().getData().iterator();
-        while (it.hasNext()) {
-            DetailData d = it.next();
-
-            if (resourceId.equals(d.getResourceID())) {
-                it.remove();
-            }
-        }
     }
 
     public String getResourceType() {
@@ -115,6 +99,8 @@ public class ResourceForm {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ResourceStatus getStatusAsResourceStatus() {
         if (getStatus() == null) {
             return null;

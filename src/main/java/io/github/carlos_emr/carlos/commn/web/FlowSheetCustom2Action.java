@@ -52,12 +52,15 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.Recommendati
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetCondition;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import java.util.*;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public class FlowSheetCustom2Action extends ActionSupport {
@@ -175,14 +178,33 @@ public class FlowSheetCustom2Action extends ActionSupport {
         if (!result.isBlocked()) {
             return false;
         }
-        logger.warn("Cannot {} measurement {} - blocked at {} level", action, measurement, result.getBlockingLevel());
+        logger.warn("Cannot {} measurement {} - blocked at {} level", LogSafe.sanitize(action), LogSafe.sanitize(measurement), LogSafe.sanitize(result.getBlockingLevel())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         request.setAttribute("errorMessage",
-            "Cannot " + action + " measurement: blocked at " + result.getBlockingLevel() + " level");
+            "Cannot " + Encode.forHtml(action) + " measurement: blocked at " + Encode.forHtml(result.getBlockingLevel()) + " level");
         setResponseAttributes(ctx);
         return true;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            logger.warn("Rejected flowsheet customization request with method {} from {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_flowsheet", "w", null)) {
+            logger.warn("Denied flowsheet customization request with method {} from {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(String.valueOf(request.getMethod())),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            throw new SecurityException("missing required sec object (_flowsheet)");
+        }
+
         String method = request.getParameter("method");
         if ("save".equals(method)) {
             return save();
@@ -199,15 +221,32 @@ public class FlowSheetCustom2Action extends ActionSupport {
         } else if ("revertUpdate".equals(method)) {
             return revertUpdate();
         }
-        return SUCCESS;
+        logger.warn("Unknown flowsheet customization method {} from {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                LogSafe.sanitize(String.valueOf(method)),
+                LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+        request.setAttribute("errorMessage", "Unknown flowsheet customization method.");
+        request.setAttribute("demographic", Optional.ofNullable(request.getParameter("demographic")).orElse("0"));
+        request.setAttribute("flowsheet", request.getParameter("flowsheet"));
+        return ERROR;
     }
 
     public String save() throws Exception {
         String flowsheet = request.getParameter("flowsheet");
         String demographicNo = Optional.ofNullable(request.getParameter("demographic")).orElse("0");
         String scope = request.getParameter("scope");
+        String measurement = request.getParameter("measurement");
 
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
+
+        if (measurement == null || measurement.trim().isEmpty()) {
+            logger.warn("Rejected flowsheet save without measurement for flowsheet {} from {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(String.valueOf(flowsheet)),
+                    LogSafe.sanitize(String.valueOf(request.getRemoteAddr())));
+            request.setAttribute("errorMessage", "Measurement is required to save a flowsheet customization.");
+            request.setAttribute("demographic", demographicNo);
+            request.setAttribute("flowsheet", flowsheet);
+            return ERROR;
+        }
 
         MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
         MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(flowsheet);
@@ -237,7 +276,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 String s = en.nextElement();
                 if (s.startsWith("monthrange")) {
                     String extrachar = s.replaceAll("monthrange", "").trim();
-                    logger.debug("EXTRA CAH " + extrachar);
+                    logger.debug("EXTRA CAH {}", LogSafe.sanitize(extrachar)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
 
                     if (request.getParameter("monthrange" + extrachar) != null) {
                         String mRange = request.getParameter("monthrange" + extrachar);
@@ -261,10 +300,10 @@ public class FlowSheetCustom2Action extends ActionSupport {
                     loggedInInfo.getLoggedInProviderNo(), demographicNo);
 
                 if (cascadeResult.isBlocked()) {
-                    logger.warn("Cannot add measurement {} - blocked at {} level",
-                        measurementType, cascadeResult.getBlockingLevel());
+                    logger.warn("Cannot add measurement {} - blocked at {} level", // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        LogSafe.sanitize(measurementType), LogSafe.sanitize(cascadeResult.getBlockingLevel()));
                     request.setAttribute("errorMessage",
-                        "Cannot add measurement: blocked at " + cascadeResult.getBlockingLevel() + " level");
+                        "Cannot add measurement: blocked at " + Encode.forHtml(cascadeResult.getBlockingLevel()) + " level");
                     request.setAttribute("demographic", demographicNo);
                     request.setAttribute("flowsheet", flowsheet);
                     return ERROR;
@@ -286,7 +325,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust.setDemographicNo(demographicNo);
                 cust.setCreateDate(new Date());
 
-                logger.debug("SAVE " + cust);
+                logger.debug("SAVE {}", LogSafe.sanitizeObject(cust)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
 
                 flowSheetCustomizationDao.persist(cust);
 
@@ -306,7 +345,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = validateCustomizationPermissions(scope, demographicNo);
 
-        logger.debug("UPDATING FOR demographic " + demographicNo);
+        logger.debug("Updating flowsheet customization for demographic-scoped request");
 
         if (request.getParameter("updater") != null) {
             Hashtable<String, String> h = new Hashtable<String, String>();
@@ -333,7 +372,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 String s = en.nextElement();
                 if (s.startsWith("strength")) {
                     String extrachar = s.replaceAll("strength", "").trim();
-                    logger.debug("EXTRA CAH " + extrachar);
+                    logger.debug("EXTRA CAH {}", LogSafe.sanitize(extrachar)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     boolean go = true;
                     Recommendation rec = new Recommendation();
                     rec.setStrength(request.getParameter(s));
@@ -365,7 +404,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
                     }
                 } else if (s.startsWith("col")) {
                     String extrachar = s.replaceAll("col", "").trim();
-                    logger.debug("EXTRA CHA " + extrachar);
+                    logger.debug("EXTRA CHA {}", LogSafe.sanitize(extrachar)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     boolean go = true;
                     int targetCount = 1;
                     TargetColour tcolour = new TargetColour();
@@ -414,7 +453,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setMeasurement(item.getItemName()); //THIS THE MEASUREMENT TO SET THIS AFTER!
             cust.setProviderNo(providerNo);
 
-            logger.debug("UPDATE " + cust);
+            logger.debug("UPDATE {}", LogSafe.sanitizeObject(cust)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
 
             flowSheetCustomizationDao.persist(cust);
 
@@ -446,7 +485,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
         cust.setDemographicNo(ctx.demographicNo);
 
         flowSheetCustomizationDao.persist(cust);
-        logger.debug("HIDE " + cust);
+        logger.debug("HIDE {}", LogSafe.sanitizeObject(cust)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
 
         setResponseAttributes(ctx);
         return SUCCESS;
@@ -519,8 +558,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust.setArchived(true);
                 cust.setArchivedDate(new Date());
                 flowSheetCustomizationDao.merge(cust);
-                logger.info("Reverted UPDATE customization {} for measurement {}",
-                    cust.getId(), ctx.measurement);
+                logger.info("Reverted UPDATE customization {} for measurement {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    cust.getId(), LogSafe.sanitize(ctx.measurement));
             }
         }
 
@@ -546,10 +585,10 @@ public class FlowSheetCustom2Action extends ActionSupport {
                 cust, scope, currentProviderNo, demographicNo);
 
             if (canArchive.isBlocked()) {
-                logger.warn("Cannot archive customization {} - created at {} level",
-                    id, canArchive.getBlockingLevel());
+                logger.warn("Cannot archive customization {} - created at {} level", // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                    LogSafe.sanitize(id), LogSafe.sanitize(canArchive.getBlockingLevel()));
                 request.setAttribute("errorMessage",
-                    "Cannot remove customization: created at " + canArchive.getBlockingLevel() + " level");
+                    "Cannot remove customization: created at " + Encode.forHtml(canArchive.getBlockingLevel()) + " level");
                 request.setAttribute("demographic", demographicNo);
                 request.setAttribute("flowsheet", flowsheet);
                 return ERROR;
@@ -559,7 +598,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             cust.setArchivedDate(new Date());
             flowSheetCustomizationDao.merge(cust);
         }
-        logger.debug("archiveMod " + cust);
+        logger.debug("archiveMod {}", LogSafe.sanitizeObject(cust)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
 
         request.setAttribute("demographic", demographicNo);
         request.setAttribute("flowsheet", flowsheet);
@@ -569,6 +608,9 @@ public class FlowSheetCustom2Action extends ActionSupport {
     /*first add it as a flowsheet into the current system.  The save it to the database so that it will be there on reboot */
     public String createNewFlowSheet() {
         logger.debug("IN create new flowsheet");
+        String demographicNo = Optional.ofNullable(request.getParameter("demographic")).orElse("0");
+        String scope = request.getParameter("scope");
+        validateCustomizationPermissions(scope, demographicNo);
         //String name let oscar create the name
         String dxcodeTriggers = request.getParameter("dxcodeTriggers");
         String displayName = request.getParameter("displayName");
@@ -577,18 +619,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
         //String topHTML 				= request.getParameter("topHTML");  // Not supported yet
 
 
-        /// NEW FLOWSHEET CODE
-        MeasurementFlowSheet m = new MeasurementFlowSheet();
-        m.parseDxTriggers(dxcodeTriggers);
-        m.setDisplayName(displayName);
-        m.setWarningColour(warningColour);
-        m.setRecommendationColour(recommendationColour);
-
-        MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
-        templateConfig.addIndicatorsInCustomFlowsheet(m);
-        String name = templateConfig.addFlowsheet(m);
-        m.loadRuleBase();
-        /// END FLOWSHEET CODE
+        String name = addFlowSheetToTemplateConfig(
+            dxcodeTriggers, displayName, warningColour, recommendationColour);
 
         FlowSheetUserCreated fsuc = new FlowSheetUserCreated();
         fsuc.setName(name);
@@ -603,5 +635,23 @@ public class FlowSheetCustom2Action extends ActionSupport {
         request.setAttribute("flowsheet", fsuc.getName());
         request.setAttribute("displayName", fsuc.getDisplayName());
         return SUCCESS;
+    }
+
+    protected String addFlowSheetToTemplateConfig(
+            String dxcodeTriggers,
+            String displayName,
+            String warningColour,
+            String recommendationColour) {
+        MeasurementFlowSheet m = new MeasurementFlowSheet();
+        m.parseDxTriggers(dxcodeTriggers);
+        m.setDisplayName(displayName);
+        m.setWarningColour(warningColour);
+        m.setRecommendationColour(recommendationColour);
+
+        MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+        templateConfig.addIndicatorsInCustomFlowsheet(m);
+        String name = templateConfig.addFlowsheet(m);
+        m.loadRuleBase();
+        return name;
     }
 }

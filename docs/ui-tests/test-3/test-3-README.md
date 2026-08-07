@@ -32,9 +32,9 @@ Test 3 validates the appointment scheduling workflow in CARLOS EMR, including vi
 #### Provider Credentials
 | Field | Value |
 |-------|-------|
-| Username | openodoc |
-| Password | openo2025 |
-| PIN | 2025 |
+| Username | carlosdoc |
+| Password | carlos2026 |
+| PIN | 2026 |
 | Provider No | 999998 |
 
 #### Existing Test Patients (Must Exist)
@@ -95,7 +95,7 @@ Test 3 validates the appointment scheduling workflow in CARLOS EMR, including vi
 ### Appointment Details (Created During Test)
 ```
 Patient: FAKE-Jacky, FAKE-Jones (ID: 1)
-Provider: openodoc
+Provider: carlosdoc
 Type: (select first available)
 Reason: UI Test Appointment
 Duration: 15 minutes (default)

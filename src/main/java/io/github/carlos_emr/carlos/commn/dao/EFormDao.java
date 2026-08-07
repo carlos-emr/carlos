@@ -49,10 +49,6 @@ public interface EFormDao extends AbstractDao<EForm> {
 
     public List<EForm> findAll(Boolean current);
 
-    public boolean isIndivicaRTLEnabled();
-
-    public void setIndivicaRTLEnabled(boolean enabled);
-
     public List<EForm> findByStatus(boolean status);
 
     public List<EForm> findByStatus(boolean status, EFormSortOrder sortOrder);

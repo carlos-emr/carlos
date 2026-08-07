@@ -33,13 +33,13 @@ import java.io.IOException;
 import java.io.InputStream;
 
 
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.util.EntityUtils;
-import org.apache.http.HttpEntity;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.core5.net.URIBuilder;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.HttpEntity;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -76,7 +76,7 @@ public class HTTP {
             CloseableHttpResponse response = client.execute(get);
             HttpEntity entity = response.getEntity();
 
-            logger.debug("Status code: " + response.getStatusLine().getStatusCode());
+            logger.debug("Status code: " + response.getCode());
 
             if (entity != null) {
                 return entity.getContent(); // caller must close this InputStream
@@ -95,7 +95,7 @@ public class HTTP {
             HttpGet get = new HttpGet(uriBuilder.build());
 
             try (CloseableHttpResponse response = client.execute(get)) {
-                logger.error("Status code: " + response.getStatusLine().getStatusCode());
+                logger.error("Status code: " + response.getCode());
                 return EntityUtils.toString(response.getEntity(), "UTF-8");
             }
         } catch (Exception e) {

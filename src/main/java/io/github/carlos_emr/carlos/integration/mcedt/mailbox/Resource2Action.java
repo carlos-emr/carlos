@@ -30,17 +30,16 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
@@ -49,8 +48,10 @@ import ca.ontario.health.edt.ResourceStatus;
 import ca.ontario.health.edt.TypeListResult;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Resource2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -60,6 +61,7 @@ public class Resource2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
         if ("loadDownloadList".equals(method)) {
             return loadDownloadList();
@@ -67,36 +69,6 @@ public class Resource2Action extends ActionSupport {
             return loadSentList();
         } else if ("changeDisplay".equals(method)) {
             return changeDisplay();
-        } 
-        //functions needed for the upload page
-        ActionUtils.removeSuccessfulUploads(request);
-        ActionUtils.removeUploadResponseResults(request);
-        ActionUtils.removeSubmitResponseResults(request);
-        Date startDate = ActionUtils.getOutboxTimestamp();
-        Date endDate = new Date();
-        if (startDate != null && endDate != null) {
-            ActionUtils.moveOhipToOutBox(startDate, endDate);
-            
-            /*
-             * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
-             * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
-             * See ObecData.writeFile() for details on the updated process.
-             */
-            // ActionUtils.moveObecToOutBox(startDate,endDate);
-
-            ActionUtils.setOutboxTimestamp(endDate);
-        }
-        ActionUtils.setUploadResourceId(request, new BigInteger("-1"));
-
-
-        if (request.getSession().getAttribute("resourceList") != null) {
-            request.getSession().removeAttribute("resourceList");
-        }
-        if (request.getSession().getAttribute("resourceID") != null) {
-            request.getSession().removeAttribute("resourceID");
-        }
-        if (request.getSession().getAttribute("info") != null) {
-            request.getSession().removeAttribute("info");
         }
         return SUCCESS;
     }
@@ -107,7 +79,7 @@ public class Resource2Action extends ActionSupport {
         List<DetailDataCustom> resourceList;
         try {
             resourceList = loadList(ResourceStatus.DOWNLOADABLE);
-            request.getSession().setAttribute("resourceListDL", resourceList);
+            request.getSession().setAttribute("resourceListDL", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
         } catch (Exception e) {
             logger.error("Unable to load resource list ", e);
 
@@ -130,8 +102,8 @@ public class Resource2Action extends ActionSupport {
             }
             this.setStatus("UPLOADED");
             resourceList = loadList(ResourceStatus.UPLOADED);
-            request.getSession().setAttribute("resourceListSent", resourceList);
-            request.getSession().setAttribute("resourceStatus", "UPLOADED");
+            request.getSession().setAttribute("resourceListSent", resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
+            request.getSession().setAttribute("resourceStatus", "UPLOADED"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         } catch (Exception e) {
             return "successUserSent";
         }
@@ -144,7 +116,7 @@ public class Resource2Action extends ActionSupport {
 
             if (request.getSession().getAttribute("resourceTypeList") == null) {
                 this.setTypeListResult(getTypeList(request, delegate));
-                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult());
+                request.getSession().setAttribute("resourceTypeList", this.getTypeListResult()); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
             } else {
                 this.setTypeListResult((TypeListResult) request.getSession().getAttribute("resourceTypeList"));
             }
@@ -176,7 +148,7 @@ public class Resource2Action extends ActionSupport {
                 BigInteger resultSize = null;
                 if (result != null)
                     resultSize = result.getResultSize();
-                request.getSession().setAttribute("resultSize", resultSize);
+                request.getSession().setAttribute("resultSize", resultSize); // nosemgrep: tainted-session-from-http-request -- computed list size, not from user input
 
                 if (result != null && result.getData() != null) {
 
@@ -250,25 +222,11 @@ public class Resource2Action extends ActionSupport {
         this.detail = detail;
     }
 
-    public void removeResource(BigInteger resourceId) {
-        if (resourceId == null) {
-            return;
-        }
-
-        Iterator<DetailData> it = getDetail().getData().iterator();
-        while (it.hasNext()) {
-            DetailData d = it.next();
-
-            if (resourceId.equals(d.getResourceID())) {
-                it.remove();
-            }
-        }
-    }
-
     public String getResourceType() {
         return resourceType;
     }
 
+    @StrutsParameter
     public void setResourceType(String resourceType) {
         this.resourceType = resourceType;
     }
@@ -277,6 +235,7 @@ public class Resource2Action extends ActionSupport {
         return status;
     }
 
+    @StrutsParameter
     public void setStatus(String status) {
         this.status = status;
     }
@@ -285,6 +244,7 @@ public class Resource2Action extends ActionSupport {
         return pageNo;
     }
 
+    @StrutsParameter
     public void setPageNo(Integer pageNo) {
         this.pageNo = pageNo;
     }
@@ -299,6 +259,8 @@ public class Resource2Action extends ActionSupport {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ResourceStatus getStatusAsResourceStatus() {
         if (getStatus() == null) {
             return null;
@@ -324,6 +286,7 @@ public class Resource2Action extends ActionSupport {
         return serviceIdSent;
     }
 
+    @StrutsParameter
     public void setServiceIdSent(String serviceId) {
         this.serviceIdSent = serviceId;
     }

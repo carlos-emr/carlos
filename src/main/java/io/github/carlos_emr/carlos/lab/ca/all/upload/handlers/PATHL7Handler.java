@@ -47,13 +47,16 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author wrighd
@@ -69,6 +72,8 @@ public class PATHL7Handler implements MessageHandler {
 		return labNo;
 	}
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
     Document doc = null;
         try {
@@ -77,34 +82,24 @@ public class PATHL7Handler implements MessageHandler {
             }
 
             // Base directory - validate using PathValidationUtils
-            String baseDir = OscarProperties.getInstance().getDocumentDirectory();
+            String baseDir = CarlosProperties.getInstance().getDocumentDirectory();
             java.io.File baseDirFile = new java.io.File(baseDir);
             java.io.File targetFile = new java.io.File(fileName);
 
             // Validate the existing file is within the allowed directory
-            PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
+            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
-            DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
-            // Disable DTDs and external entities for XXE prevention
-            docFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            docFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            docFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            docFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-
-            // Disable XInclude
-            docFactory.setXIncludeAware(false);
-            // Disabled expansion of entity references
-            docFactory.setExpandEntityReferences(false);
+            DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
             doc = docBuilder.parse(targetFile);
 
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name: " + fileName, e);
+            logger.error("Invalid file name: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         } catch (ParserConfigurationException e) {
             logger.error("Failed to configure XML parser", e);
@@ -126,7 +121,7 @@ public class PATHL7Handler implements MessageHandler {
                 }
             } catch (Exception e) {
                 logger.error("Could not upload PATHL7 message", e);
-                MiscUtils.getLogger().error("Error in Lab #" + (i + 1) + " in batch file " + fileName, e);
+                MiscUtils.getLogger().error("Error in Lab #{} in batch file {}", i + 1, LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 MessageUploader.clean(fileId);
                 return null;
             }

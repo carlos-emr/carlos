@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 import org.springframework.stereotype.Repository;
@@ -100,54 +100,6 @@ public class IndicatorTemplateDaoImpl extends AbstractDaoImpl<IndicatorTemplate>
         Query query = entityManager
                 .createQuery("SELECT x FROM IndicatorTemplate x WHERE x.dashboardId = ?1 AND x.active = ?2");
         query.setParameter(1, id);
-        query.setParameter(2, Boolean.TRUE);
-        List<IndicatorTemplate> result = query.getResultList();
-        return result;
-    }
-
-    /**
-     * Get a list of all the Indicator categories
-     */
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<String> getIndicatorCategories() {
-        Query query = entityManager.createQuery("SELECT x.category FROM IndicatorTemplate x "
-                + "WHERE x.active IS TRUE "
-                + "GROUP BY x.category HAVING COUNT(x.category) > -1");
-        List<String> result = query.getResultList();
-        return result;
-    }
-
-    /**
-     * Get a list of all the Indicator sub-categories
-     */
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<String> getIndicatorSubCategories() {
-        Query query = entityManager.createQuery("SELECT x.subCategory FROM IndicatorTemplate x "
-                + "WHERE x.active IS TRUE "
-                + "GROUP BY x.subCategory HAVING COUNT(x.subCategory) > -1");
-        List<String> result = query.getResultList();
-        return result;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<IndicatorTemplate> getIndicatorTemplatesByCategory(String category) {
-        Query query = entityManager
-                .createQuery("SELECT x FROM IndicatorTemplate x WHERE x.category = ?1 AND x.active = ?2");
-        query.setParameter(1, category);
-        query.setParameter(2, Boolean.TRUE);
-        List<IndicatorTemplate> result = query.getResultList();
-        return result;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<IndicatorTemplate> getIndicatorTemplatesBySubcategory(String subCategory) {
-        Query query = entityManager.createQuery(
-                "SELECT x FROM IndicatorTemplate x WHERE x.subCategory = ?1 AND x.active = ?2");
-        query.setParameter(1, subCategory);
         query.setParameter(2, Boolean.TRUE);
         List<IndicatorTemplate> result = query.getResultList();
         return result;

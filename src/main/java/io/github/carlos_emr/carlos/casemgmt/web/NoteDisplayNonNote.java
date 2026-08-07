@@ -1,30 +1,25 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for
- * Centre for Research on Inner City Health, St. Michael's Hospital,
- * Toronto, Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import java.text.ParseException;
@@ -40,11 +35,12 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.commn.service.BillingONService;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * The echart seems to have non-note items in the note list. As a result this class will hold non-note items. A constructor can be made for each type of non-note item.
@@ -96,6 +92,8 @@ public class NoteDisplayNonNote implements NoteDisplay {
         isEncounterForm = true;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public NoteDisplayNonNote(BillingONCHeader1 h1) {
         Calendar cal1 = Calendar.getInstance();
         Calendar cal2 = Calendar.getInstance();
@@ -122,8 +120,8 @@ public class NoteDisplayNonNote implements NoteDisplay {
         }
 
         StringBuilder tmpNote = new StringBuilder();
-        BillingONService billingONService = (BillingONService) SpringUtils.getBean(BillingONService.class);
-        List<BillingONItem> items = billingONService.getNonDeletedInvoices(h1.getId());
+        BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
+        List<BillingONItem> items = bCh1Dao.findActiveItems(h1.getId());
         BillingONItem item;
 
         int size = items.size();
@@ -158,7 +156,7 @@ public class NoteDisplayNonNote implements NoteDisplay {
 
         note = tmpNote.toString();
         noteId = h1.getId();
-        linkInfo = "/billing/CA/ON/billingONCorrection.jsp?billing_no=" + noteId.toString();
+        linkInfo = "/billing/CA/ON/BillingONCorrection?billing_no=" + noteId.toString();
         isInvoice = true;
     }
 
@@ -210,10 +208,6 @@ public class NoteDisplayNonNote implements NoteDisplay {
     public String getProviderNo() {
         if (provider != null) return (provider.getProviderNo());
         else return ("");
-    }
-
-    public Integer getRemoteFacilityId() {
-        return null;
     }
 
     public String getRevision() {

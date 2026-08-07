@@ -35,19 +35,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class FrmSetupSelect2Action extends ActionSupport {
@@ -70,16 +70,10 @@ public class FrmSetupSelect2Action extends ActionSupport {
         ArrayList<EncounterForm> formHiddenVector = new ArrayList<EncounterForm>();
 
         for (EncounterForm encounterForm : forms) {
-            if (encounterForm.getFormName().equalsIgnoreCase("Discharge Summary")) {
-                String caisiProperty = OscarProperties.getInstance().getProperty("caisi");
-                if (caisiProperty != null && (caisiProperty.equalsIgnoreCase("yes")
-                        || caisiProperty.equalsIgnoreCase("true")
-                        || caisiProperty.equalsIgnoreCase("on"))) {
-                    // form in - keep it
-                } else {
-                    continue; //form out
-                }
+            if (EctFormData.isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
             }
+
             if (encounterForm.isHidden()) formHiddenVector.add(encounterForm);
             else formShownVector.put(encounterForm.getDisplayOrder(), encounterForm);
         }

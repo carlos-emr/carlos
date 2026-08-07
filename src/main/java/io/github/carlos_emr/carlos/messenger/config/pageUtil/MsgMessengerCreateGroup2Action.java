@@ -31,9 +31,9 @@ package io.github.carlos_emr.carlos.messenger.config.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
 import io.github.carlos_emr.carlos.commn.model.Groups;
@@ -43,8 +43,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.messenger.data.MsgAddressBookMaker;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 Action class for creating and renaming messenger groups in the OpenO EMR system.
@@ -162,6 +163,7 @@ public class MsgMessengerCreateGroup2Action extends ActionSupport {
      * 
      * @param type "1" for create new group, "2" for rename existing group
      */
+    @StrutsParameter
     public void setType2(String type) {
         this.type = type;
     }
@@ -183,6 +185,7 @@ public class MsgMessengerCreateGroup2Action extends ActionSupport {
      * 
      * @param parentID The group ID to use based on operation type
      */
+    @StrutsParameter
     public void setParentID(String parentID) {
         this.parentID = parentID;
     }
@@ -205,6 +208,7 @@ public class MsgMessengerCreateGroup2Action extends ActionSupport {
      * 
      * @param groupName The name to use for the group
      */
+    @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
     }

@@ -31,8 +31,8 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Msh;
 import io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults;

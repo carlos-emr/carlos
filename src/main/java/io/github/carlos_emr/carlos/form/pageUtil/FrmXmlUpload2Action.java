@@ -30,24 +30,32 @@
 
 package io.github.carlos_emr.carlos.form.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-public class FrmXmlUpload2Action extends ActionSupport {
+public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String ADMIN_SECURITY_OBJECT = "_admin";
+    private static final String ADMIN_EFORM_SECURITY_OBJECT = "_admin.eform";
+    private static final String WRITE_PRIVILEGE = "w";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -56,8 +64,20 @@ public class FrmXmlUpload2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_EFORM_SECURITY_OBJECT, WRITE_PRIVILEGE, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_SECURITY_OBJECT, WRITE_PRIVILEGE, null)) {
+            throw new SecurityException("missing required sec object (_admin.eform or _admin)");
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return ERROR;
         }
 
         int BUFFER = 2048;
@@ -70,7 +90,7 @@ public class FrmXmlUpload2Action extends ActionSupport {
         ServletContext servletContext = ServletActionContext.getServletContext();
 
         // Validate the paths
-        File safeDir = (File) servletContext.getAttribute("javax.servlet.context.tempdir"); // Use a safe directory
+        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         
         if (safeDir == null) {
             throw new IllegalStateException("Temporary directory attribute is not set.");
@@ -80,7 +100,7 @@ public class FrmXmlUpload2Action extends ActionSupport {
 
         // Validate file path using PathValidationUtils
         try {
-            PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
+            normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
         } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }
@@ -111,7 +131,23 @@ public class FrmXmlUpload2Action extends ActionSupport {
     private File file1; // Uploaded file
     private String file1FileName; // Name of the uploaded file
     private String file1ContentType; // Content type of the uploaded file
+    private String uploadValidationError;
 
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.file1 = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            this.file1ContentType = uploaded.getContentType();
+            try {
+                this.file1FileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.file1FileName = null;
+            }
+        }
+    }
 
     // Setters and Getters for file upload properties
     public File getFile1() {

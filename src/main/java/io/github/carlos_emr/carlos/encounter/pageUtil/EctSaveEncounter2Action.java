@@ -35,9 +35,9 @@ import java.util.Date;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
@@ -54,16 +54,24 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctSaveEncounter2Action extends ActionSupport {
+
+    static final int DEFAULT_ROW_ONE_SIZE = 60;
+    static final int DEFAULT_ROW_TWO_SIZE = 60;
+    static final int DEFAULT_ROW_THREE_SIZE = 378;
+    static final int DEFAULT_PRES_BOX_SIZE = 30;
+    private static final int MIN_LAYOUT_SIZE = 10;
+
     HttpServletRequest httpservletrequest = ServletActionContext.getRequest();
     HttpServletResponse httpservletresponse = ServletActionContext.getResponse();
 
@@ -72,6 +80,24 @@ public class EctSaveEncounter2Action extends ActionSupport {
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+
+    /**
+     * Parses a layout size from the given request parameter string.
+     * Returns {@code defaultValue} if the parameter is null, non-numeric,
+     * or below the minimum layout size threshold ({@value MIN_LAYOUT_SIZE} px).
+     *
+     * @param param        the raw request parameter string
+     * @param defaultValue the field-specific default to apply on invalid input
+     * @return the parsed size, or {@code defaultValue} if the input is invalid or too small
+     */
+    static int parseLayoutSize(String param, int defaultValue) {
+        int value = ConversionUtils.fromIntString(param);
+        if (value >= MIN_LAYOUT_SIZE) {
+            return value;
+        }
+        log.debug("parseLayoutSize: invalid or missing layout param, using default {}", defaultValue);
+        return defaultValue;
+    }
 
     private String getLatestID(String demoNo) {
         EChartDao dao = SpringUtils.getBean(EChartDao.class);
@@ -118,6 +144,8 @@ public class EctSaveEncounter2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws
             IOException, ServletException {
 
@@ -149,28 +177,28 @@ public class EctSaveEncounter2Action extends ActionSupport {
                         "Sign,Save and Bill")) {
                     sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
                             prop.
-                                    getString("oscarEncounter.class.EctSaveEncounterAction.msgSigned") +
+                                    getString("encounter.class.EctSaveEncounterAction.msgSigned") +
                             " " +
                             UtilDateUtilities.DateToString(date,
                                     prop.getString("date.yyyyMMddHHmmss"),
                                     httpservletrequest.getLocale()) +
                             " " +
                             prop.getString(
-                                    "oscarEncounter.class.EctSaveEncounterAction.msgSigBy") +
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
                             " " + sessionbean.userName + "]";
                 }
                 if (httpservletrequest.getParameter("btnPressed").equals(
                         "Sign,Save and Exit")) {
                     sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
                             prop.
-                                    getString("oscarEncounter.class.EctSaveEncounterAction.msgSigned") +
+                                    getString("encounter.class.EctSaveEncounterAction.msgSigned") +
                             " " +
                             UtilDateUtilities.DateToString(date,
                                     prop.getString("date.yyyyMMddHHmmss"),
                                     httpservletrequest.getLocale()) +
                             " " +
                             prop.getString(
-                                    "oscarEncounter.class.EctSaveEncounterAction.msgSigBy") +
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
                             " " + sessionbean.userName + "]";
                 }
                 if (httpservletrequest.getParameter("btnPressed").equals(
@@ -178,19 +206,19 @@ public class EctSaveEncounter2Action extends ActionSupport {
                     sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
                             prop.
                                     getString(
-                                            "oscarEncounter.class.EctSaveEncounterAction.msgVerAndSig") +
+                                            "encounter.class.EctSaveEncounterAction.msgVerAndSig") +
                             " " +
                             UtilDateUtilities.DateToString(date,
                                     prop.getString("date.yyyyMMddHHmmss"),
                                     httpservletrequest.getLocale()) +
                             " " +
                             prop.getString(
-                                    "oscarEncounter.class.EctSaveEncounterAction.msgSigBy") +
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
                             " " + sessionbean.userName + "]";
                 }
                 if (httpservletrequest.getParameter("btnPressed").equals("Split Chart")) {
                     sessionbean.subject = prop.getString(
-                            "oscarEncounter.class.EctSaveEncounterAction.msgSplitChart");
+                            "encounter.class.EctSaveEncounterAction.msgSplitChart");
                 }
                 sessionbean.template = "";
             } catch (Exception e) {
@@ -230,12 +258,11 @@ public class EctSaveEncounter2Action extends ActionSupport {
                 EChartDao dao = SpringUtils.getBean(EChartDao.class);
                 dao.persist(e);
                 sessionbean.eChartId = String.valueOf(e.getId());
-                httpservletrequest.getSession().setAttribute("eChartID", sessionbean.eChartId);
+                httpservletrequest.getSession().setAttribute("eChartID", sessionbean.eChartId); // nosemgrep: tainted-session-from-http-request
 
                 // add log here
                 String ip = httpservletrequest.getRemoteAddr();
-                LogAction.addLog((String) httpservletrequest.getSession().getAttribute(
-                                "user"), LogConst.ADD, LogConst.CON_ECHART,
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(httpservletrequest).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ECHART,
                         sessionbean.demographicNo, ip);
 
                 //change the appt status
@@ -275,10 +302,10 @@ public class EctSaveEncounter2Action extends ActionSupport {
 
         EncounterWindow ew = new EncounterWindow();
         ew.setProviderNo(sessionbean.providerNo);
-        ew.setRowOneSize(Integer.parseInt(httpservletrequest.getParameter("rowOneSize")));
-        ew.setRowTwoSize(Integer.parseInt(httpservletrequest.getParameter("rowTwoSize")));
-        ew.setRowThreeSize(Integer.parseInt(httpservletrequest.getParameter("rowThreeSize")));
-        ew.setPresBoxSize(Integer.parseInt(httpservletrequest.getParameter("presBoxSize")));
+        ew.setRowOneSize(parseLayoutSize(httpservletrequest.getParameter("rowOneSize"), DEFAULT_ROW_ONE_SIZE));
+        ew.setRowTwoSize(parseLayoutSize(httpservletrequest.getParameter("rowTwoSize"), DEFAULT_ROW_TWO_SIZE));
+        ew.setRowThreeSize(parseLayoutSize(httpservletrequest.getParameter("rowThreeSize"), DEFAULT_ROW_THREE_SIZE));
+        ew.setPresBoxSize(parseLayoutSize(httpservletrequest.getParameter("presBoxSize"), DEFAULT_PRES_BOX_SIZE));
         encounterWindowDao.persist(ew);
 
         String forward = null;
@@ -286,7 +313,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
         if (httpservletrequest.getParameter("btnPressed").equals(
                 "Sign,Save and Bill")) {
 
-            String billRegion = OscarProperties.getInstance().getProperty(
+            String billRegion = CarlosProperties.getInstance().getProperty(
                     "billregion");
             //
             BillingSessionBean bean = new BillingSessionBean();
@@ -302,11 +329,26 @@ public class EctSaveEncounter2Action extends ActionSupport {
             }
             bean.setBillForm(formBill);
             bean.setPatientNo(sessionbean.demographicNo);
-            bean.setApptNo(httpservletrequest.getParameter("appointment_no"));
+            String apptNoParam = httpservletrequest.getParameter("appointment_no");
+            if ("null".equalsIgnoreCase(apptNoParam) || (apptNoParam != null && apptNoParam.isEmpty())) {
+                apptNoParam = null;
+            } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,9}")) {
+                log.warn("Invalid appointment_no rejected");
+                return "failure";
+            }
+            bean.setApptNo(apptNoParam);
             bean.setApptDate(sessionbean.appointmentDate);
-            bean.setApptStatus(httpservletrequest.getParameter("status"));
+            // CWE-501: validate status against appointment status pattern before session storage
+            String statusParam = httpservletrequest.getParameter("status");
+            if (statusParam != null && !statusParam.matches("[a-zA-Z]{1,2}")) {
+                log.warn("Rejected invalid appointment status at trust boundary");
+                statusParam = null;
+            }
+            bean.setApptStatus(statusParam);
             httpservletrequest.setAttribute("encounter", "true");
-            httpservletrequest.getSession().setAttribute("billingSessionBean", bean);
+            // nosemgrep: tainted-session-from-http-request -- appointment_no validated numeric above; apptProvider/patientName/patientNo
+            // from authenticated EctSessionBean; billRegion/billForm from server config; apptDate from session; status validated [a-zA-Z]{1,2}
+            httpservletrequest.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): bean fields validated (appointment_no numeric, status [a-zA-Z]{1,2}); providerNo/patientNo from validated EctSessionBean
             forward = "bill";
         } else if (httpservletrequest.getParameter("btnPressed").equals("Sign,Save and Exit")) {
             forward = "success";

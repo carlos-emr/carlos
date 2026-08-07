@@ -36,13 +36,14 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -60,10 +61,15 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 /**
  * @author Jay Gallagher & Jackson Bi
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class RxManagePharmacy2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -71,6 +77,12 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
 
     public String execute() throws IOException, ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // The pharmacy management view can add/edit clinic pharmacy records, so opening it requires write access.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         String method = request.getParameter("method");
         if ("delete".equals(method)) {
             return delete();
@@ -95,19 +107,25 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         String actionType = this.getPharmacyAction();
+        if (StringUtils.isNullOrEmpty(actionType)) {
+            return SUCCESS;
+        }
+
         RxPharmacyData pharmacy = new RxPharmacyData();
 
-        if (actionType.equals("Add")) {
+        if ("Add".equals(actionType)) {
             pharmacy.addPharmacy(this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if (actionType.equals("Edit")) {
+        } else if ("Edit".equals(actionType)) {
             pharmacy.updatePharmacy(this.getID(), this.getName(), this.getAddress(), this.getCity(), this.getProvince(), this.getPostalCode(), this.getPhone1(), this.getPhone2(), this.getFax(), this.getEmail(), this.getServiceLocationIdentifier(), this.getNotes());
-        } else if (actionType.equals("Delete")) {
+        } else if ("Delete".equals(actionType)) {
             pharmacy.deletePharmacy(this.getID());
         }
 
         return SUCCESS;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String delete() throws IOException {
 
 
@@ -126,30 +144,40 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             retVal = "{\"success\":false}";
         }
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
         response.getWriter().write(jsonObject.toString());
 
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String unlink() {
 
+        ObjectNode jsonObject = objectMapper.createObjectNode();
         try {
             String pharmId = request.getParameter("pharmacyId");
             String demographicNo = request.getParameter("demographicNo");
 
-            ObjectMapper mapper = new ObjectMapper();
             RxPharmacyData pharmacy = new RxPharmacyData();
 
             pharmacy.unlinkPharmacy(pharmId, demographicNo);
 
-            response.setContentType("text/x-json");
-            String retVal = "{\"id\":\"" + pharmId + "\"}";
-            ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
-            response.getWriter().write(jsonObject.toString());
+            LoggedInInfo loggedInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            LogAction.addLog(loggedInfo.getLoggedInProviderNo(), LogConst.UNLINK, LogConst.CON_PHARMACY, pharmId);
+
+            jsonObject.put("id", pharmId);
         } catch (Exception e) {
             MiscUtils.getLogger().error("CANNOT UNLINK PHARMACY", e);
+            jsonObject.put("success", false);
+        }
+
+        try {
+            response.setContentType("application/json");
+            response.getWriter().write(jsonObject.toString());
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Cannot write unlink response", e);
         }
 
         return null;
@@ -167,9 +195,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         List<PharmacyInfo> pharmacyList;
         pharmacyList = pharmacyData.getPharmacyFromDemographic(demographicNo);
 
-        response.setContentType("text/x-json");
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.writeValue(response.getWriter(), pharmacyList);
+        response.setContentType("application/json");
+        objectMapper.writeValue(response.getWriter(), pharmacyList);
 
         return null;
     }
@@ -178,9 +205,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         RxPharmacyData pharmacy = new RxPharmacyData();
         try {
             PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), request.getParameter("demographicNo"), request.getParameter("preferredOrder"));
-            ObjectMapper mapper = new ObjectMapper();
-            response.setContentType("text/x-json");
-            mapper.writeValue(response.getWriter(), pharmacyInfo);
+            response.setContentType("application/json");
+            objectMapper.writeValue(response.getWriter(), pharmacyInfo);
         } catch (Exception e) {
             MiscUtils.getLogger().error("ERROR SETTING PREFERRED ORDER", e);
         }
@@ -188,6 +214,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String add() {
         RxPharmacyData pharmacy = new RxPharmacyData();
 
@@ -211,7 +239,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         try {
-            response.setContentType("text/x-json");
+            response.setContentType("application/json");
             response.getWriter().write(jsonObject.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Cannot write response", e);
@@ -248,9 +276,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         try {
-            response.setContentType("text/x-json");
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.writeValue(response.getWriter(), pharmacyInfo);
+            response.setContentType("application/json");
+            objectMapper.writeValue(response.getWriter(), pharmacyInfo);
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error writing response", e);
@@ -267,11 +294,10 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         List<PharmacyInfo> pharmacyList = pharmacy.searchPharmacy(searchStr);
 
-        response.setContentType("text/x-json");
-        ObjectMapper mapper = new ObjectMapper();
+        response.setContentType("application/json");
 
         try {
-            mapper.writeValue(response.getWriter(), pharmacyList);
+            objectMapper.writeValue(response.getWriter(), pharmacyList);
         } catch (IOException e) {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }
@@ -286,13 +312,12 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         RxPharmacyData pharmacy = new RxPharmacyData();
 
-        response.setContentType("text/x-json");
-        ObjectMapper mapper = new ObjectMapper();
+        response.setContentType("application/json");
 
         List<String> cityList = pharmacy.searchPharmacyCity(searchStr);
 
         try {
-            mapper.writeValue(response.getWriter(), cityList);
+            objectMapper.writeValue(response.getWriter(), cityList);
         } catch (IOException e) {
             MiscUtils.getLogger().error("ERROR WRITING RESPONSE ", e);
         }
@@ -373,6 +398,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param pharmacyAction New value of property pharmacyAction.
      */
+    @StrutsParameter
     public void setPharmacyAction(String pharmacyAction) {
         this.pharmacyAction = pharmacyAction;
     }
@@ -391,6 +417,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param ID New value of property ID.
      */
+    @StrutsParameter
     public void setID(String ID) {
         this.ID = ID;
     }
@@ -409,6 +436,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param name New value of property name.
      */
+    @StrutsParameter
     public void setName(String name) {
         this.name = name;
     }
@@ -427,6 +455,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param address New value of property address.
      */
+    @StrutsParameter
     public void setAddress(String address) {
         this.address = address;
     }
@@ -445,6 +474,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param city New value of property city.
      */
+    @StrutsParameter
     public void setCity(String city) {
         this.city = city;
     }
@@ -463,6 +493,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param province New value of property province.
      */
+    @StrutsParameter
     public void setProvince(String province) {
         this.province = province;
     }
@@ -481,6 +512,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param postalCode New value of property postalCode.
      */
+    @StrutsParameter
     public void setPostalCode(String postalCode) {
         this.postalCode = postalCode;
     }
@@ -499,6 +531,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param phone1 New value of property phone1.
      */
+    @StrutsParameter
     public void setPhone1(String phone1) {
         this.phone1 = phone1;
     }
@@ -517,6 +550,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param phone2 New value of property phone2.
      */
+    @StrutsParameter
     public void setPhone2(String phone2) {
         this.phone2 = phone2;
     }
@@ -535,6 +569,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param fax New value of property fax.
      */
+    @StrutsParameter
     public void setFax(String fax) {
         this.fax = fax;
     }
@@ -553,6 +588,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param email New value of property email.
      */
+    @StrutsParameter
     public void setEmail(String email) {
         this.email = email;
     }
@@ -572,6 +608,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param serviceLocationIdentifier New value
      */
+    @StrutsParameter
     public void setServiceLocationIdentifier(String serviceLocationIdentifier) {
         this.serviceLocationIdentifier = serviceLocationIdentifier;
     }
@@ -590,6 +627,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param notes New value of property notes.
      */
+    @StrutsParameter
     public void setNotes(String notes) {
         this.notes = notes;
     }

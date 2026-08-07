@@ -29,14 +29,18 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action for managing British Columbia supplementary service code associations.
@@ -57,6 +61,8 @@ import java.io.IOException;
  * @since 2006-04-20
  */
 public class SupServiceCodeAssoc2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -84,12 +90,19 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
      * @return String "success" to forward to list view, or NONE after redirect
      * @throws RuntimeException if redirect fails
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         SupServiceCodeAssocDAO dao = SpringUtils.getBean(SupServiceCodeAssocDAO.class);
         if (!MODE_VIEW.equals(this.getActionMode())) {
             if (validateForm()) {
                 try {
-                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingSVCTrayAssoc.jsp");
+                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -170,18 +183,22 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         return actionMode;
     }
 
+    @StrutsParameter
     public void setActionMode(String actionMode) {
         this.actionMode = actionMode;
     }
 
+    @StrutsParameter
     public void setSecondaryCode(String secondaryCode) {
         this.secondaryCode = secondaryCode;
     }
 
+    @StrutsParameter
     public void setPrimaryCode(String primaryCode) {
         this.primaryCode = primaryCode;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }

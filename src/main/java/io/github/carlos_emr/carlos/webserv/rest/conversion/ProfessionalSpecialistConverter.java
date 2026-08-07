@@ -49,10 +49,6 @@ public class ProfessionalSpecialistConverter extends AbstractConverter<Professio
         d.setWebSite(t.getWebSite());
         d.setEmailAddress(t.getEmailAddress());
         d.setSpecialtyType(t.getSpecialtyType());
-        d.seteDataUrl(t.geteDataUrl());
-        d.seteDataOscarKey(t.geteDataOscarKey());
-        d.seteDataServiceKey(t.geteDataServiceKey());
-        d.seteDataServiceName(t.geteDataServiceName());
         d.setAnnotation(t.getAnnotation());
         d.setReferralNo(t.getReferralNo());
         d.setInstitutionId(t.getInstitutionId());
@@ -77,10 +73,6 @@ public class ProfessionalSpecialistConverter extends AbstractConverter<Professio
         t.setWebSite(d.getWebSite());
         t.setEmailAddress(d.getEmailAddress());
         t.setSpecialtyType(d.getSpecialtyType());
-        t.seteDataUrl(d.geteDataUrl());
-        t.seteDataOscarKey(d.geteDataOscarKey());
-        t.seteDataServiceKey(d.geteDataServiceKey());
-        t.seteDataServiceName(d.geteDataServiceName());
         t.setAnnotation(d.getAnnotation());
         t.setReferralNo(d.getReferralNo());
         t.setInstitutionId(d.getInstitutionId());

@@ -1,0 +1,123 @@
+/*
+ *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ */
+
+/*
+ * eform_floating_toolbar_custom.css
+ *
+ * Toolbar-specific styles for the eForm floating toolbar (#toolbarWrapper / #eform_floating_toolbar).
+ * These rules were previously bundled inside eform_floating_toolbar_bootstrap_custom.min.css
+ * (a scoped Bootstrap 3 build). On migration to Bootstrap 5.3.3, plain bootstrap.min.css was
+ * substituted — which lacks the toolbar positioning and scoping rules below.
+ *
+ * Injected dynamically by eform_floating_toolbar.js into eForm pages alongside bootstrap.min.css.
+ *
+ * @since 2026-03-14
+ */
+
+/*
+ * Position the toolbar wrapper as a fixed overlay at the bottom of the viewport.
+ * Without this, the toolbar appears as inline content rather than a fixed footer bar.
+ */
+#toolbarWrapper {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    width: 100vw;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    max-height: 50px;
+    z-index: 10000;
+}
+
+/*
+ * Ensure box-sizing is set consistently for all toolbar children.
+ */
+div#eform_floating_toolbar *,
+#eform_floating_toolbar *:before,
+#eform_floating_toolbar *:after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/*
+ * Base styles for the toolbar container.
+ */
+#eform_floating_toolbar {
+    line-height: 1.5;
+    color: #333;
+    width: 100%;
+}
+
+/*
+ * Navbar within the toolbar: full width, flex layout.
+ */
+#toolbarWrapper #eform_floating_toolbar nav#eform_floating_toolbar_nav {
+    width: 100%;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/*
+ * Button and input normalization inside the toolbar.
+ */
+#eform_floating_toolbar button,
+#eform_floating_toolbar nav input,
+#eform_floating_toolbar nav ::placeholder {
+    color: inherit;
+    font: inherit;
+    margin: 0;
+}
+
+#eform_floating_toolbar button {
+    overflow: visible;
+    text-transform: none;
+}
+
+#eform_floating_toolbar button,
+#eform_floating_toolbar input[type="button"],
+#eform_floating_toolbar input[type="reset"],
+#eform_floating_toolbar input[type="submit"] {
+    -webkit-appearance: button;
+    cursor: pointer;
+}
+
+#eform_floating_toolbar button[disabled],
+#eform_floating_toolbar input[disabled] {
+    cursor: default;
+}
+
+#eform_floating_toolbar button::-moz-focus-inner,
+#eform_floating_toolbar input::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+#eform_floating_toolbar nav input {
+    line-height: normal;
+}

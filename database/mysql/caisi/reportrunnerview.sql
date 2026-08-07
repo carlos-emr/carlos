@@ -38,10 +38,10 @@ GROUP BY a.reportno, a.title, a.description, a.orgapplicable, a.reporttype, a.da
 
 
 create or replace view v_user_access as
-select a.provider_no, c.codetree orgcd, b.objectName,d.orgapplicable, max(b.privilege) privilege
+select a.provider_no, c.codetree orgcd, c.codecsv orgcdcsv, b.objectName,d.orgapplicable, max(b.privilege) privilege
 from secUserRole a, secObjPrivilege b, lst_orgcd c, secObjectName d
 where a.role_name = b.roleUserGroup
 and a.orgcd = c.code and b.objectName=d.objectName
 and a.activeyn=1 and c.activeyn=1
-group by a.provider_no, c.codetree, b.objectName,d.orgapplicable
+group by a.provider_no, c.codetree, c.codecsv, b.objectName,d.orgapplicable
 ;

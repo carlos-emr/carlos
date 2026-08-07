@@ -31,13 +31,17 @@
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 /**
  * The class should evaluate a query that has a count returned.  If the count is = 0 then false is returned if >0 is returned true
@@ -79,7 +83,7 @@ public class SQLNumerator implements Numerator {
                     outputfields[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Clinical report numerator query failed — patient may be excluded from results", e);
             }
         }
     }
@@ -100,17 +104,20 @@ public class SQLNumerator implements Numerator {
 
         try {
 
-            ResultSet rs = DBHandler.GetSQL(sql.replaceAll("\\$\\{" + processString + "\\}", demographicNo));
+            Object[] params = buildParams(sql, processString, demographicNo);
+            String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            while (rs.next()) {
-                int count = rs.getInt(identifier);
-                if (count > 0) {
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
+                while (rs.next()) {
+                    int count = rs.getInt(identifier);
+                    if (count > 0) {
 
-                    evalTrue = true;
+                        evalTrue = true;
+                    }
                 }
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
-            rs.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -121,29 +128,30 @@ public class SQLNumerator implements Numerator {
 
     //The difference between this version of evaluate is that it evaluates true if there are any rows returned from the query.
     //as apposed to looking for the value of count(*).
-    // change to get a list of params 
+    // change to get a list of params
     public boolean evaluate(LoggedInInfo loggedInInfo, String demographicNo) {
         boolean evalTrue = false;
 
         outputValues = null;
         try {
 
-            ResultSet rs = DBHandler.GetSQL(sql.replaceAll("\\$\\{" + processString + "\\}", demographicNo));
+            Object[] params = buildParams(sql, processString, demographicNo);
+            String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            if (rs.next()) {
-                evalTrue = true;
-                if (outputfields != null) {
-                    outputValues = new Hashtable();
-                    for (int i = 0; i < outputfields.length; i++) {
-                        outputValues.put(outputfields[i], Misc.getString(rs, outputfields[i]));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(paramSql), params)) {
+                if (rs.next()) {
+                    evalTrue = true;
+                    if (outputfields != null) {
+                        outputValues = new Hashtable();
+                        for (int i = 0; i < outputfields.length; i++) {
+                            outputValues.put(outputfields[i], Misc.getString(rs, outputfields[i]));
+                        }
+                        outputValues.put("_evaluation", Boolean.valueOf(evalTrue));
                     }
-                    outputValues.put("_evaluation", Boolean.valueOf(evalTrue));
                 }
-                //for 
-
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
-            rs.close();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -186,7 +194,7 @@ public class SQLNumerator implements Numerator {
                     replaceKeys[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Clinical report numerator query failed — patient may be excluded from results", e);
             }
         }
     }
@@ -205,6 +213,33 @@ public class SQLNumerator implements Numerator {
 
     public Hashtable getReplaceableValues() {
         return replaceableValues;
+    }
+
+    /**
+     * Builds an array of parameter values matching the number of ${key} placeholder
+     * occurrences in the SQL template, for use with parameterized queries.
+     *
+     * @param sqlTemplate the SQL template containing ${key} placeholders
+     * @param key the placeholder key name (without ${} wrapper)
+     * @param value the value to bind for each occurrence
+     * @return Object[] parameter values array with one entry per placeholder occurrence
+     */
+    private Object[] buildParams(String sqlTemplate, String key, String value) {
+        Pattern p = Pattern.compile(placeholderPattern(key));
+        Matcher m = p.matcher(sqlTemplate);
+        List<Object> params = new ArrayList<>();
+        while (m.find()) {
+            params.add(value);
+        }
+        return params.toArray();
+    }
+
+    String parameterizedSqlForProcessString() {
+        return sql.replaceAll(placeholderPattern(processString), "?");
+    }
+
+    private String placeholderPattern(String key) {
+        return "\\$\\{" + Pattern.quote(key) + "\\}";
     }
 
 }

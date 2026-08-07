@@ -1,0 +1,87 @@
+# GitHub Workflow: Semgrep Security Scan
+#
+# Description:
+# Runs Semgrep SAST analysis connected to Semgrep Cloud (app.semgrep.dev).
+# Results appear in both the Semgrep Cloud dashboard and the GitHub Security tab.
+#
+# Usage:
+# - Triggered on pushes to develop/main branches
+# - Triggered on pull requests targeting develop
+# - Scheduled weekly full scan
+# - Manual dispatch available
+#
+# Requirements:
+# - SEMGREP_APP_TOKEN secret must be configured in repository settings
+#   (Create at: https://semgrep.dev → Settings → Tokens)
+# - .semgrepignore in repo root controls file exclusions
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+
+name: Semgrep Security Scan
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch: {}
+  schedule:
+    - cron: '23 4 * * 1'  # Monday 4:23 UTC (weekly full scan)
+
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep SAST Analysis
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
+    env:
+      HAS_SEMGREP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN != '' }}
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Run Semgrep CI
+        id: run_semgrep
+        if: env.HAS_SEMGREP_TOKEN == 'true'
+        continue-on-error: true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          semgrep ci \
+            --sarif --output semgrep.sarif
+
+      - name: Run CARLOS custom Semgrep rules
+        id: run_semgrep_carlos
+        continue-on-error: true
+        run: semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif
+
+      - name: Filter suppressed Semgrep SARIF results
+        if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
+        run: python3 scripts/filter_suppressed_sarif.py semgrep.sarif
+
+      - name: Skip Semgrep CI when token is not configured
+        if: env.HAS_SEMGREP_TOKEN != 'true'
+        run: |
+          echo "SEMGREP_APP_TOKEN is not configured; skipping Semgrep Cloud scan."
+          echo "Configure repository secret SEMGREP_APP_TOKEN to enable this check."
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
+        with:
+          sarif_file: semgrep.sarif
+        if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
+
+      - name: Upload CARLOS Semgrep SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
+        with:
+          sarif_file: semgrep-carlos.sarif
+          category: semgrep-carlos
+        if: always() && steps.run_semgrep_carlos.outcome != 'skipped' && hashFiles('semgrep-carlos.sarif') != ''

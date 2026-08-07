@@ -32,8 +32,8 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 
 import java.util.ArrayList;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.report.data.DemographicSets;
@@ -41,10 +41,15 @@ import io.github.carlos_emr.carlos.report.data.DemographicSets;
 /**
  * @author Jay Gallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RptCreateDemographicSet2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -54,6 +59,11 @@ public class RptCreateDemographicSet2Action extends ActionSupport {
     }
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "w", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
 
         String setName = request.getParameter("setName");
         String sizestr = request.getParameter("size");

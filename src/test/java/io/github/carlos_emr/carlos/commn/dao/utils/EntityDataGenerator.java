@@ -26,10 +26,12 @@ package io.github.carlos_emr.carlos.commn.dao.utils;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,8 +39,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javassist.Modifier;
 
-import javax.persistence.EmbeddedId;
-import javax.persistence.Id;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -51,10 +55,33 @@ public class EntityDataGenerator {
 
     public static Object generateTestDataForModelClass(Object model) throws Exception {
 
+        // Some entities use property-access JPA annotations (on getters, not fields).
+        // Pre-scan getter methods to detect @Id/@GeneratedValue/@EmbeddedId on them.
+        Set<String> methodIdFields = new HashSet<>();
+        Set<String> methodGeneratedValueFields = new HashSet<>();
+        Set<String> methodEmbeddedIdFields = new HashSet<>();
+        for (Method m : model.getClass().getMethods()) {
+            String mName = m.getName();
+            if (mName.startsWith("get") && mName.length() > 3 && m.getParameterCount() == 0) {
+                String fieldName = Character.toLowerCase(mName.charAt(3)) + mName.substring(4);
+                if (m.isAnnotationPresent(Id.class)) {
+                    methodIdFields.add(fieldName);
+                }
+                if (m.isAnnotationPresent(GeneratedValue.class)) {
+                    methodGeneratedValueFields.add(fieldName);
+                }
+                if (m.isAnnotationPresent(EmbeddedId.class)) {
+                    methodEmbeddedIdFields.add(fieldName);
+                }
+            }
+        }
+
         Field f[] = model.getClass().getDeclaredFields();
         AccessibleObject.setAccessible(f, true);
         for (int i = 0; i < f.length; i++) {
             boolean isId = false;
+            boolean hasGeneratedValue = false;
+            String fieldName = f[i].getName();
             Annotation annotations[] = f[i].getAnnotations();
             for (int j = 0; j < annotations.length; j++) {
                 if (annotations[j].annotationType() == Id.class) {
@@ -63,8 +90,30 @@ public class EntityDataGenerator {
                 if (annotations[j].annotationType() == EmbeddedId.class) {
                     isId = true;
                 }
+                if (annotations[j].annotationType() == GeneratedValue.class) {
+                    hasGeneratedValue = true;
+                }
             }
-            if (isId)
+            // Also check getter-level annotations (property-access JPA entities)
+            if (methodIdFields.contains(fieldName)) {
+                isId = true;
+            }
+            if (methodGeneratedValueFields.contains(fieldName)) {
+                hasGeneratedValue = true;
+            }
+            // Skip @Id fields when @GeneratedValue is present (auto-assigned by DB).
+            // For manually-assigned IDs (no @GeneratedValue), generate a value.
+            // Always skip @EmbeddedId fields (complex composite keys).
+            if (isId && hasGeneratedValue)
+                continue;
+            boolean isEmbeddedId = false;
+            for (Annotation a : annotations) {
+                if (a.annotationType() == EmbeddedId.class) {
+                    isEmbeddedId = true;
+                    break;
+                }
+            }
+            if (isEmbeddedId || methodEmbeddedIdFields.contains(fieldName))
                 continue;
 
             int modifiers = f[i].getModifiers();
@@ -73,8 +122,23 @@ public class EntityDataGenerator {
             }
 
             if (f[i].getType() == String.class) {
-                String fieldName = f[i].getName();
                 String value;
+
+                // Determine max column length from @Column annotation (default 255)
+                // Check both field and getter for property-access entities
+                int maxLength = 255;
+                Column colAnnotation = f[i].getAnnotation(Column.class);
+                if (colAnnotation == null) {
+                    try {
+                        String getterName = "get" + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+                        Method getter = model.getClass().getMethod(getterName);
+                        colAnnotation = getter.getAnnotation(Column.class);
+                    } catch (NoSuchMethodException ignored) {
+                    }
+                }
+                if (colAnnotation != null && colAnnotation.length() > 0) {
+                    maxLength = colAnnotation.length();
+                }
 
                 // Handle special fields that have known constraints
                 if ("sex".equalsIgnoreCase(fieldName)) {
@@ -85,16 +149,49 @@ public class EntityDataGenerator {
                     value = "ON"; // Ontario version code
                 } else if ("hc_type".equalsIgnoreCase(fieldName) || "hcType".equalsIgnoreCase(fieldName)) {
                     value = "ON"; // Ontario health card type
-                } else if ("province".equalsIgnoreCase(fieldName)) {
+                } else if ("dateOfBirth".equalsIgnoreCase(fieldName) || "date_of_birth".equalsIgnoreCase(fieldName)) {
+                    value = String.format("%02d", (int) (Math.random() * 28) + 1); // "01"-"28"
+                } else if ("monthOfBirth".equalsIgnoreCase(fieldName) || "month_of_birth".equalsIgnoreCase(fieldName)) {
+                    value = String.format("%02d", (int) (Math.random() * 12) + 1); // "01"-"12"
+                } else if ("yearOfBirth".equalsIgnoreCase(fieldName) || "year_of_birth".equalsIgnoreCase(fieldName)) {
+                    value = String.valueOf(1950 + (int) (Math.random() * 70)); // "1950"-"2019"
+                } else if ("rosterTerminationReason".equalsIgnoreCase(fieldName) || "roster_termination_reason".equalsIgnoreCase(fieldName)) {
+                    value = "NR"; // Not Rostered
+                } else if ("postal".equalsIgnoreCase(fieldName) || "residentialPostal".equalsIgnoreCase(fieldName)) {
+                    value = "M5V2T6"; // Valid Canadian postal code, fits VARCHAR(9)
+                } else if ("chartNo".equalsIgnoreCase(fieldName) || "chart_no".equalsIgnoreCase(fieldName)) {
+                    int counter = uniqueCounter.incrementAndGet();
+                    value = "CH" + (counter % 100000); // Fits VARCHAR(10)
+                } else if ("sin".equalsIgnoreCase(fieldName)) {
+                    int counter = uniqueCounter.incrementAndGet();
+                    value = String.valueOf(100000000 + (counter % 900000000)); // 9-digit SIN, fits VARCHAR(15)
+                } else if ("province".equalsIgnoreCase(fieldName) || "residentialProvince".equalsIgnoreCase(fieldName)) {
                     value = "ON";
                 } else if ("roster_status".equalsIgnoreCase(fieldName) || "rosterStatus".equalsIgnoreCase(fieldName)) {
                     value = "RO";
                 } else if ("patient_status".equalsIgnoreCase(fieldName) || "patientStatus".equalsIgnoreCase(fieldName)) {
                     value = "AC";
                 } else {
-                    // For other string fields, generate a unique value using timestamp + counter to avoid constraint violations
-                    // Counter ensures uniqueness even for composite keys created in the same millisecond
-                    value = fieldName.substring(0, Math.min(3, fieldName.length())) + System.currentTimeMillis() + "_" + uniqueCounter.incrementAndGet();
+                    // Generate a unique value, respecting column length constraints.
+                    // Note: maxLength defaults to 255 for HBM-mapped entities where
+                    // @Column is not present, but HBM may define shorter lengths.
+                    // Use a compact format (prefix + counter) that fits most HBM
+                    // column lengths while still being unique.
+                    int counter = uniqueCounter.incrementAndGet();
+                    if (maxLength <= 5) {
+                        // Very short columns: use counter-based value
+                        value = String.valueOf(counter % 100000);
+                        if (value.length() > maxLength) {
+                            value = value.substring(0, maxLength);
+                        }
+                    } else {
+                        // Use compact format: 3-char prefix + counter (typically 8-12 chars)
+                        // This fits most HBM column lengths (>= 10) while staying unique
+                        value = fieldName.substring(0, Math.min(3, fieldName.length())) + counter;
+                        if (value.length() > maxLength) {
+                            value = value.substring(0, maxLength);
+                        }
+                    }
                 }
                 f[i].set(model, value);
             } else if (f[i].getType() == int.class || f[i].getType() == Integer.class) {

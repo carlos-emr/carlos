@@ -38,17 +38,17 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * the NioFileManager handles all file input and output of all OscarDocument files
  * by providing several convenience utilities.
  * <p>
- * One goal is to eliminate the use of "OscarProperties.getInstance().getProperty("DOCUMENT_DIR")"
+ * One goal is to eliminate the use of "CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")"
  * in every single page of OSCAR code.
  */
 public interface NioFileManager {
-    public static final String DOCUMENT_DIRECTORY = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    public static final String DOCUMENT_DIRECTORY = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum);
 
@@ -70,6 +70,30 @@ public interface NioFileManager {
      * @param fileName
      */
     public boolean removeCacheVersion(LoggedInInfo loggedInInfo, final String fileName);
+
+    /**
+     * Remove every cached page image produced by {@link #createCacheVersion2} for one source PDF.
+     * Page images are named {@code <boundedFilename>_<sourceKey>_<page>.png}, so callers that only hold
+     * the PDF's path (e.g. the fax-preview flush) cannot clear them with the single-file
+     * {@link #removeCacheVersion}; this rebuilds the same source-scoped prefix and removes all pages.
+     *
+     * @param loggedInInfo caller identity, logged at DEBUG only; unlike {@link #removeCacheVersion}
+     *                     this method applies no privilege gate of its own — the caller's
+     *                     {@code _fax} READ check is the authorization boundary
+     * @param sourceDirectory the directory the PDF was previewed from (its parent directory)
+     * @param filename        the PDF filename
+     * @return the number of cache page images removed
+     * @throws IOException when the cache directory cannot be enumerated, or when one or more
+     *         matching page images could not be removed after a best-effort pass over all of
+     *         them — cached preview pages are PHI-bearing, so a caller must not report a
+     *         successful flush while any remain on disk
+     * @throws IllegalArgumentException when {@code sourceDirectory} is not an allowed preview
+     *         source (not a real, existing CARLOS-owned temp subtree or the document root) and so
+     *         cannot be keyed. The source-scoped page prefix is then underivable, so the flush
+     *         cannot verify the PHI preview pages are gone; the caller must treat this as an
+     *         uncleared cache, not as "nothing to remove"
+     */
+    public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) throws IOException;
 
     /**
      * Save a file to the temporary directory from ByteArrayOutputStream
@@ -101,10 +125,10 @@ public interface NioFileManager {
     public Path getOscarDocument(Path fileNamePath);
 
     /**
-     * Copy file from given file path into the default OscarDocuments directory.
-     * This method deletes the temporary file after successful copy
+     * Atomically promotes a regular application-owned temporary file into document storage.
+     * The source remains intact so callers can retry safely.
      */
-    public String copyFileToOscarDocuments(String tempFilePath);
+    Path promoteApplicationTempFile(Path source) throws FilePromotionException;
 
     /**
      * True if given filename exists in OscarDocument directory.

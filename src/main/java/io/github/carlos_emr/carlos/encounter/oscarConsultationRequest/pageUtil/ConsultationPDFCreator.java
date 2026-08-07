@@ -15,8 +15,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -29,15 +29,21 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
+import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
+
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -45,11 +51,38 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ResourceBundle;
 import java.util.Set;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Generates a formatted PDF document for a clinical consultation request (referral letter).
+ *
+ * <p>Produces a letter-sized PDF containing a tabular layout with clinic letterhead, specialist
+ * and patient information, clinical details (reason for consultation, medications, allergies,
+ * concurrent problems), provider digital signature, and referring practitioner / MRP footer.
+ * Supports multi-site configurations with per-site logos and letterhead customization.</p>
+ *
+ * <p>The PDF is built using OpenPDF's table-based layout ({@link PdfPTable}/{@link PdfPCell})
+ * and extends {@link PdfPageEventHelper} for page lifecycle participation. Consultation data
+ * is loaded via {@link EctConsultationFormRequestUtil} from the request ID parameter.</p>
+ *
+ * <p>When used for fax transmission, an {@link EctConsultationFaxForm} can be provided to
+ * include fax copy-to recipient information in the specialist section.</p>
+ *
+ * @see ImagePDFCreator
+ * @see EctConsultationFormRequestUtil
+ * @see EctConsultationFaxForm
+ * @since 2012-04-09
+ */
 public class ConsultationPDFCreator extends PdfPageEventHelper {
+
+    private static final float SIGNATURE_IMAGE_SCALE_PERCENT = 40f;
+    private static final float SIGNATURE_IMAGE_MAX_WIDTH = 200f;
+    private static final float SIGNATURE_IMAGE_MAX_HEIGHT = 60f;
+    private static final float[] SIGNATURE_ROW_WIDTHS = new float[]{1.55f, 1.0f};
+    private static final float SIGNATURE_TOP_PADDING = 10f;
+    private static final float SIGNATURE_LABEL_BOTTOM_PADDING = 2f;
 
     private static Logger logger = MiscUtils.getLogger();
     private OutputStream os;
@@ -59,57 +92,78 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     private Font boldFontHeading;
     private Font heading;
     private EctConsultationFormRequestUtil reqFrm;
-    private OscarProperties props;
+    private byte[] signatureImageOverride;
+    private boolean suppressSignature;
+    private CarlosProperties props;
     private ClinicData clinic;
     private ResourceBundle oscarR;
     private EctConsultationFaxForm ectConsultationFaxForm;
 
     /**
-     * Prepares a ConsultationPDFCreator instance to print a consultation request to PDF.
+     * Constructs a ConsultationPDFCreator for generating a consultation request PDF.
      *
-     * @param request contains the information necessary to construct the consultation request
-     * @param os      the output stream where the PDF will be written
+     * <p>Initializes fonts (Helvetica at 10pt and 12pt), loads consultation request data from
+     * the {@code reqId} parameter, and resolves the locale-specific resource bundle for
+     * localized field labels.</p>
+     *
+     * @param request HttpServletRequest containing the {@code reqId} parameter (or attribute)
+     *                identifying the consultation request to render
+     * @param os      OutputStream where the generated PDF will be written
      */
     public ConsultationPDFCreator(HttpServletRequest request, OutputStream os) {
 
-        // Instantiate dependencies
         try {
             bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 10, Font.NORMAL);
-            // boldFont = new Font(bf, 10, Font.BOLD);
             heading = new Font(bf, 12, Font.NORMAL);
             boldFontHeading = new Font(bf, 12, Font.BOLD);
-        } catch (DocumentException e) {
-            logger.error("error", e);
-        } catch (IOException e) {
-            logger.error("error", e);
+        } catch (DocumentException | IOException e) {
+            throw new RuntimeException("Cannot create consultation PDF fonts", e);
         }
 
         this.os = os;
         reqFrm = new EctConsultationFormRequestUtil();
         reqFrm.estRequestFromId(LoggedInInfo.getLoggedInInfoFromSession(request), request.getParameter("reqId") == null ? (String) request.getAttribute("reqId") : request.getParameter("reqId"));
-        props = OscarProperties.getInstance();
+        Object signatureOverride = request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE);
+        if (signatureOverride instanceof byte[] byteArray) {
+            signatureImageOverride = byteArray;
+        }
+        suppressSignature = Boolean.TRUE.equals(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE));
+        props = CarlosProperties.getInstance();
         clinic = new ClinicData();
         oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
     }
 
+    /**
+     * Constructs a ConsultationPDFCreator for fax transmission with copy-to recipient details.
+     *
+     * @param ectConsultationFaxForm EctConsultationFaxForm containing the HTTP request and
+     *                               fax-specific data including copy-to recipients
+     * @param os                     OutputStream where the generated PDF will be written
+     */
     public ConsultationPDFCreator(EctConsultationFaxForm ectConsultationFaxForm, OutputStream os) {
         this(ectConsultationFaxForm.getRequest(), os);
         this.ectConsultationFaxForm = ectConsultationFaxForm;
     }
 
     /**
-     * Prints the consultation request.
+     * Generates the consultation request PDF and writes it to the configured output stream.
+     *
+     * <p>Creates a letter-sized PDF document containing the full consultation request layout:
+     * clinic header, specialist/patient details, clinical information, signature, and
+     * referring practitioner footer.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context for the current provider
+     * @throws DocumentException when OpenPDF encounters an error constructing the PDF
      */
     public void printPdf(LoggedInInfo loggedInInfo) throws DocumentException {
 
         // Create the document we are going to write to
         document = new Document();
         PdfWriter.getInstance(document, os);
-//		PdfWriterFactory.newInstance( document, os, FontSettings.HELVETICA_10PT );
         document.setPageSize(PageSize.LETTER);
         document.addTitle(getResource("msgConsReq"));
-        document.addCreator("OSCAR");
+        document.addCreator("CARLOS EMR");
         document.open();
 
         PdfPTable maintable = createConsultationRequest(loggedInInfo);
@@ -118,8 +172,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     }
 
     /**
-     * Creates and adds the table at the top of the document
-     * which contains the consultation request.
+     * Builds the main table structure containing all sections of the consultation request.
+     *
+     * <p>Assembles the full-page layout in order: logo/clinic header, consultation request
+     * title, date line, reply instructions, specialist and patient info side-by-side,
+     * clinical detail sections, digital signature, and referring practitioner/MRP footer.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @return PdfPTable the fully assembled consultation request table
      */
     private PdfPTable createConsultationRequest(LoggedInInfo loggedInInfo) {
 
@@ -178,8 +238,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // Creating a table with details for the consultation request.
         addTable(border, createConsultDetailTable());
 
-        // Add the providers's signature.
-        if (getlen(reqFrm.signatureImg) > 0) {
+        // Add the provider's signature.
+        if (shouldRenderSignature(suppressSignature, signatureImageOverride, reqFrm.signatureImg)) {
             addSignature(border);
         }
 
@@ -252,6 +312,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return cell;
     }
 
+    /**
+     * Creates a single-row table displaying the referral date or "Patient Will Book" indicator.
+     *
+     * @param alignment Integer horizontal alignment constant (e.g., {@link PdfPCell#ALIGN_RIGHT})
+     * @return PdfPTable containing the formatted date line
+     */
     protected PdfPTable createDateLine(Integer alignment) {
 
         PdfPTable datelineborder = new PdfPTable(1);
@@ -272,6 +338,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return datelineborder;
     }
 
+    /**
+     * Creates the "Consultation Request" heading row.
+     *
+     * @param alignment Integer horizontal alignment constant (e.g., {@link PdfPCell#ALIGN_CENTER})
+     * @return PdfPTable containing the bold heading text
+     */
     protected PdfPTable createConsultationRequestHeader(Integer alignment) {
 
         PdfPTable headerborder = new PdfPTable(1);
@@ -295,6 +367,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     /**
      * @deprecated use the createLogo method in the ClinicLogoUtility at io.github.carlos_emr.carlos.utility
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: site-logo path validated for containment within DOCUMENT_DIR; fax-logo path from a trusted config property
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; site-logo path validated for containment within DOCUMENT_DIR, fax-logo path from a trusted config property")
     @Deprecated
     private PdfPTable createLogoHeader() {
 
@@ -308,10 +383,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             if (site != null) {
                 if (site.getSiteLogoId() != null) {
                     io.github.carlos_emr.carlos.commn.model.Document d = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
-                    String dir = props.getProperty("DOCUMENT_DIR");
-                    filename = dir.concat(d.getDocfilename());
+                    // Validate the DB-stored logo filename stays within DOCUMENT_DIR - a docfilename
+                    // like "../../outside.png" would otherwise resolve outside it and be opened below.
+                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+                    filename = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).getPath();
                 } else {
-                    //If no logo file uploaded for this site, use the default one defined in oscar properties file.
+                    //If no logo file uploaded for this site, use the default one defined in carlos properties file.
                     filename = props.getProperty("faxLogoInConsultation");
                 }
             }
@@ -319,7 +396,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             filename = props.getProperty("faxLogoInConsultation");
         }
 
-        Path path = Paths.get(filename);
+        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+        Path path = imageFile.toPath();
         if (Files.exists(path)) {
             addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, 50f);
         }
@@ -327,9 +405,20 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
     }
 
+    /**
+     * Reads an image file and adds it as a scaled element to the given PDF table.
+     *
+     * @param pdfPTable PdfPTable the table to add the image cell to
+     * @param filename  String absolute path to the image file
+     * @param width     float maximum width in points to scale the image to
+     * @param height    float maximum height in points to scale the image to
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     protected void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
 
-        try (FileInputStream fileInputStream = new FileInputStream(filename)) {
+        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+        try (FileInputStream fileInputStream = new FileInputStream(imageFile)) {
 
             PdfPCell cell = new PdfPCell();
             byte[] faxLogImage = new byte[1024 * 256];
@@ -353,6 +442,16 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
     }
 
+    /**
+     * Creates the reply instruction header based on booking configuration.
+     *
+     * <p>Displays different messages depending on whether the patient will book their own
+     * appointment, custom appointment instructions are configured, or multi-site mode is
+     * active. Falls back to the standard "Please reply to [clinic name]" message.</p>
+     *
+     * @param alignment Integer horizontal alignment constant
+     * @return PdfPTable containing the reply instruction header
+     */
     protected PdfPTable createReplyHeader(Integer alignment) {
 
         PdfPTable infoTable = new PdfPTable(1);
@@ -371,7 +470,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         // If not set to Patient Will Book then maybe a Custom Appointment Instruction is used.
-        else if (OscarProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true")) {
+        else if (CarlosProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true")) {
             cell.setPhrase(new Phrase(reqFrm.getAppointmentInstructionsLabel(), boldFontHeading));
         } else if (IsPropertiesOn.isMultisitesEnable()) {
             cell.setPhrase(new Phrase("Please reply", boldFontHeading));
@@ -650,56 +749,158 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return infoTable;
     }
 
+    /**
+     * Adds the provider's digital signature image to the PDF if available.
+     *
+     * <p>Retrieves the {@link DigitalSignature} by ID from the consultation request form data,
+     * renders it as a scaled image, and appends it to the main table with a "Signature:" label.</p>
+     *
+     * @param pdfPTable PdfPTable the main consultation request table to append the signature to
+     */
     private void addSignature(PdfPTable pdfPTable) {
-        DigitalSignature digitalSignature = null;
-        String signatureImageId = reqFrm.getSignatureImg();
+        // Skip the stored-signature lookup when override bytes are already present.
+        DigitalSignatureManager digitalSignatureManager =
+                signatureImageOverride != null && signatureImageOverride.length > 0
+                        ? null
+                        : SpringUtils.getBean(DigitalSignatureManager.class);
+        byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
 
-        if (signatureImageId != null && !signatureImageId.isEmpty()) {
-            /*
-             *  This is not the preferred way to handle a potential NFE. Unfortunately
-             *  this entire thread was not designed well from the beginning.
-             *  Now maintainers are required to insert
-             *  odd patches in order to save valuable time on a full refactor.
-             */
+        if (signatureImage != null && signatureImage.length > 0) {
             try {
-				DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-				digitalSignature = digitalSignatureManager.getDigitalSignature(Integer.parseInt(signatureImageId));
-            } catch (Exception e) {
-                // do nothing
-                logger.warn("Consultation digital signature {} was not found or the identifier was incorrect", signatureImageId);
-            }
-        }
-
-        if (digitalSignature != null) {
-            float[] tableWidths = new float[]{0.55f, 2.75f};
-            PdfPTable table = new PdfPTable(tableWidths);
-            PdfPCell cell = new PdfPCell();
-
-            cell.setPhrase(new Phrase(getResource("msgSignature")));
-            cell.setBorder(0);
-            cell.setPadding(0);
-            cell.setPaddingTop(10f);
-            cell.setHorizontalAlignment(PdfPCell.ALIGN_BOTTOM);
-            cell.setVerticalAlignment(PdfPCell.ALIGN_LEFT);
-            table.addCell(cell);
-
-            try {
-                Image image = Image.getInstance(digitalSignature.getSignatureImage());
-                image.scalePercent(80f);
-                image.setBorder(0);
-                cell = new PdfPCell(image);
-                cell.setBorder(0);
-                cell.setPadding(0);
-                cell.setPaddingTop(10f);
-                table.addCell(cell);
+                Image image = createScaledSignatureImage(signatureImage);
+                addTable(pdfPTable, createRightAlignedSignatureTable(getResource("msgSignature"), image, font));
             } catch (BadElementException | IOException e) {
                 logger.error("An error occurred while trying to create an image from the signature", e);
             }
-
-            addTable(pdfPTable, table);
         }
     }
 
+    static Image createScaledSignatureImage(byte[] signatureImage) throws BadElementException, IOException {
+        Image image = Image.getInstance(signatureImage);
+        image.scalePercent(Math.min(SIGNATURE_IMAGE_SCALE_PERCENT, Math.min(
+                scalePercentToFit(image.getPlainWidth(), SIGNATURE_IMAGE_MAX_WIDTH),
+                scalePercentToFit(image.getPlainHeight(), SIGNATURE_IMAGE_MAX_HEIGHT))));
+        image.setBorder(0);
+        return image;
+    }
+
+    private static float scalePercentToFit(float sourceSize, float maxSize) {
+        if (sourceSize <= 0f) {
+            return SIGNATURE_IMAGE_SCALE_PERCENT;
+        }
+        return maxSize * 100f / sourceSize;
+    }
+
+    private static PdfPTable createRightAlignedSignatureTable(String signatureLabel, Image image, Font signatureFont) {
+        PdfPTable signatureBlock = new PdfPTable(1);
+        signatureBlock.setWidthPercentage(100f);
+
+        PdfPCell labelCell = new PdfPCell(new Phrase(signatureLabel, signatureFont));
+        labelCell.setBorder(0);
+        labelCell.setPadding(0);
+        labelCell.setPaddingBottom(SIGNATURE_LABEL_BOTTOM_PADDING);
+        signatureBlock.addCell(labelCell);
+
+        PdfPCell imageCell = new PdfPCell(image);
+        imageCell.setBorder(0);
+        imageCell.setPadding(0);
+        //imageCell.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
+        signatureBlock.addCell(imageCell);
+
+        PdfPTable table = new PdfPTable(SIGNATURE_ROW_WIDTHS);
+        table.setWidthPercentage(100f);
+        table.addCell(createSignatureSpacerCell());
+
+        PdfPCell signatureCell = new PdfPCell(signatureBlock);
+        signatureCell.setBorder(0);
+        signatureCell.setPadding(0);
+        signatureCell.setPaddingTop(SIGNATURE_TOP_PADDING);
+        table.addCell(signatureCell);
+        return table;
+    }
+
+    private static PdfPCell createSignatureSpacerCell() {
+        PdfPCell spacerCell = new PdfPCell(new Phrase(""));
+        spacerCell.setBorder(0);
+        spacerCell.setPadding(0);
+        spacerCell.setPaddingTop(SIGNATURE_TOP_PADDING);
+        return spacerCell;
+    }
+
+    /**
+     * Resolves the signature image bytes to render, preferring a non-mutating preview override over the
+     * persisted signature.
+     *
+     * <p>When {@code signatureImageOverride} is non-empty it is returned as-is and {@code mgr} is not
+     * consulted (this is the print-preview path that renders freshly-selected stamp/manual bytes without
+     * persisting a {@link DigitalSignature}). Otherwise the stored {@link DigitalSignature} is looked up
+     * by id.</p>
+     *
+     * @param signatureImageOverride non-mutating preview bytes, or {@code null}/empty when none
+     * @param signatureImageId       the persisted {@code DigitalSignature} id, or {@code null}/empty
+     * @param mgr                    manager used to load the persisted signature when no override is present
+     * @return the chosen signature bytes, or {@code null} when none are available, the id is blank/invalid
+     *         after trimming, or the signature cannot be loaded
+     */
+    @SuppressWarnings("java:S1168")
+    static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId, DigitalSignatureManager mgr) {
+        if (signatureImageOverride != null && signatureImageOverride.length > 0) {
+            return signatureImageOverride;
+        }
+        String normalizedSignatureImageId = signatureImageId == null ? "" : signatureImageId.strip();
+        if (normalizedSignatureImageId.isEmpty()) {
+            return null;
+        }
+        /*
+         *  This is not the preferred way to handle a potential NFE. Unfortunately
+         *  this entire thread was not designed well from the beginning.
+         *  Now maintainers are required to insert
+         *  odd patches in order to save valuable time on a full refactor.
+         */
+        int parsedId;
+        try {
+            parsedId = Integer.parseInt(normalizedSignatureImageId);
+        } catch (NumberFormatException e) {
+            // Malformed id is benign (the field is upstream-validated); render unsigned.
+            logger.debug("Consultation signature id {} is not a valid number", LogSafe.sanitize(normalizedSignatureImageId));
+            return null;
+        }
+        try {
+            DigitalSignature digitalSignature = mgr.getDigitalSignature(parsedId);
+            return digitalSignature != null ? digitalSignature.getSignatureImage() : null;
+        } catch (RuntimeException e) {
+            // A real lookup fault (DB/infra) - log WITH the stack trace rather than mislabel it
+            // "not found"; stay fail-soft so a transient blip renders unsigned instead of blanking the PDF.
+            logger.error("Error loading consultation digital signature {}", parsedId, e);
+            return null;
+        }
+    }
+
+    /**
+     * Determines whether the consultation PDF should render a signature image.
+     *
+     * <p>The explicit suppression flag wins over both freshly supplied signature bytes and stored
+     * signature identifiers. Otherwise, either non-empty override bytes or a non-blank stored id is
+     * enough to request signature rendering.
+     */
+    static boolean shouldRenderSignature(boolean suppressSignature, byte[] signatureImageOverride, String signatureImageId) {
+        if (suppressSignature) {
+            return false;
+        }
+        return (signatureImageOverride != null && signatureImageOverride.length > 0)
+                || StringUtils.isNotBlank(signatureImageId);
+    }
+
+    /**
+     * Creates the footer table showing the referring practitioner and Most Responsible Provider (MRP).
+     *
+     * <p>Display of each field is controlled by the {@code printPDF_referring_prac} and
+     * {@code mrp_model} properties respectively. Provider OHIP numbers are appended
+     * in parentheses when available.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context for demographic lookup
+     * @return PdfPTable a two-column table with referring practitioner and family doctor details
+     */
     private PdfPTable createReferringPracAndMRPDetailTable(LoggedInInfo loggedInInfo) {
         ProviderDao proDAO = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
         io.github.carlos_emr.carlos.commn.model.Provider pro = proDAO.getProvider(reqFrm.providerNo);
@@ -747,6 +948,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return setInfoCell(cell, phrase, null);
     }
 
+    /**
+     * Configures a cell with the given text and font, removing all borders.
+     *
+     * @param cell   PdfPCell the cell to configure
+     * @param phrase String the text content (null-safe, defaults to empty string)
+     * @param font   Font the font to use, or null to use the default 10pt Helvetica
+     * @return PdfPCell the configured cell
+     */
     private PdfPCell setInfoCell(PdfPCell cell, String phrase, Font font) {
 
         if (phrase == null) {
@@ -775,7 +984,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @return the value for the key provided
      */
     private String getResource(String key) {
-        return oscarR.getString("oscarEncounter.oscarConsultationRequest.consultationFormPrint." + key);
+        return oscarR.getString("encounter.oscarConsultationRequest.consultationFormPrint." + key);
     }
 
 

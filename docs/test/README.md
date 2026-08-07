@@ -46,7 +46,7 @@ src/test-modern/
 ├── java/io/github/carlos_emr/carlos/
 │   ├── test/
 │   │   ├── base/              # Base test classes
-│   │   ├── unit/              # Unit test infrastructure (OpenOUnitTestBase)
+│   │   ├── unit/              # Unit test infrastructure (CarlosUnitTestBase)
 │   │   └── mocks/             # Mock implementations
 │   ├── managers/              # Manager layer unit tests
 │   │   ├── DemographicUnitTestBase.java      # Base class with test data builders
@@ -103,10 +103,13 @@ mvn test -Dtest=TicklerDao*       # Specific test pattern
 
 ### 3. BDD Naming Convention
 ```java
-// Clear, self-documenting test names with ONE underscore
-void shouldReturnActiveTicklers_whenDemographicNumberProvided()  // camelCase + underscore
-void shouldReturnNull_whenNotFound()                              // Simple condition
-void shouldThrowException_whenPrivilegeDenied()                   // Exception testing
+// Clear, self-documenting test names with ONE underscore separator
+// Preposition after underscore (_when, _by, _for, _with, _to, _from) should read naturally
+void shouldReturnActiveTicklers_whenDemographicNumberProvided()  // _when for conditions
+void shouldReturnSpecialists_byServiceName()                      // _by for lookups
+void shouldPersistMeasurement_withBloodPressureData()             // _with for parameters
+void shouldReturnTrue_forOMedsCppCode()                           // _for for inputs
+void shouldConvertExtensionList_toMapKeyedByExtKey()              // _to for transformations
 ```
 
 ### 4. Comprehensive Tagging
@@ -131,11 +134,11 @@ Tests are organized by operation type for scalability:
 ```java
 @DisplayName("My Component Integration Tests")
 @Tag("integration")
-public class MyComponentIntegrationTest extends OpenOTestBase {
+public class MyComponentIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should perform expected action when condition is met")
-    void should_performAction_when_conditionMet() {
+    void shouldPerformExpectedAction_whenConditionMet() {
         // Given - setup
         Entity entity = createTestEntity();
 
@@ -157,7 +160,7 @@ public class MyComponentIntegrationTest extends OpenOTestBase {
 @Tag("unit")
 @Tag("fast")
 @Tag("manager")
-public class MyManagerUnitTest extends OpenOUnitTestBase {
+public class MyManagerUnitTest extends CarlosUnitTestBase {
 
     @Mock private SomeDao mockDao;
     @Mock private AnotherDao mockAnotherDao;
@@ -201,7 +204,7 @@ public class MyManagerUnitTest extends OpenOUnitTestBase {
 ## Common Issues and Solutions
 
 ### Issue: SpringUtils.getBean() returns null
-**Solution**: Ensure test extends `OpenOTestBase` and Spring context is configured
+**Solution**: Ensure test extends `CarlosTestBase` and Spring context is configured
 
 ### Issue: ByteBuddy Java 21 compatibility error
 **Solution**: Verify `-Dnet.bytebuddy.experimental=true` is in Maven configuration

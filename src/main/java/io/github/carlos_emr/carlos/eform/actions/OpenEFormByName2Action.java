@@ -32,8 +32,8 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.IOException;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
@@ -42,8 +42,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OpenEFormByName2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -52,6 +54,8 @@ public class OpenEFormByName2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException {
         String eform_name = request.getParameter("eform_name");
         String demographic_no = request.getParameter("demographic_no");
@@ -67,14 +71,20 @@ public class OpenEFormByName2Action extends ActionSupport {
 
         if (eform != null) fid = eform.getId();
 
-        String url = request.getRequestURL().toString();
-        String uri = request.getRequestURI();
-        String cp = request.getContextPath();
-        url = url.substring(0, url.length() - uri.length()) + cp;
+        // Use context path only — avoids host-header spoofing via getRequestURL()
+        String url = request.getContextPath();
 
         if (fid == null) url += "/eform_name_not_found";
         else if (demographic_no == null) url += "/demographic_no_not_provided";
-        else url += "/eform/efmformadd_data.jsp?fid=" + fid + "&demographic_no=" + demographic_no;
+        else {
+            try {
+                int demoNo = Integer.parseInt(demographic_no);
+                url += "/eform/efmformadd_data?fid=" + Encode.forUriComponent(fid.toString())
+                        + "&demographic_no=" + Encode.forUriComponent(Integer.toString(demoNo));
+            } catch (NumberFormatException e) {
+                url += "/demographic_no_invalid";
+            }
+        }
 
         response.sendRedirect(url);
         return null;

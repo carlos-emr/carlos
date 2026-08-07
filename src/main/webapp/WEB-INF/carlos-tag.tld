@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<taglib xmlns="http://java.sun.com/xml/ns/javaee"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-jsptaglibrary_2_1.xsd"
+        version="2.1">
+
+    <description>
+        CARLOS EMR custom tag library. Hosts the null-safe encoder tag
+        (`&lt;carlos:encode&gt;`) and EL functions (`${carlos:forXxx(...)}`).
+        Declare with: `&lt;%@ taglib uri="carlos" prefix="carlos" %&gt;`.
+
+        Most EL function names intentionally mirror `org.owasp.encoder.Encode`
+        method names exactly, so migration from `${e:forXxx(...)}` is usually a
+        literal prefix rename (`e:` → `carlos:`). CARLOS may also expose
+        additional null-safe convenience functions where the view layer needs
+        safe rendering behaviour beyond the OWASP baseline.
+    </description>
+    <display-name>CARLOS EMR tags</display-name>
+    <tlib-version>1.0</tlib-version>
+    <short-name>carlos</short-name>
+    <uri>carlos</uri>
+
+    <!-- ============================================================
+         TAG: carlos:encode value="..." context="..."
+         ============================================================ -->
+    <tag>
+        <description>
+            Null-safe OWASP encoder. Coalesces a null `value` to empty string
+            before delegating to the OWASP Encoder for the requested `context`.
+            This matches JSTL `&lt;c:out&gt;` null semantics (null -&gt; ""), unlike
+            `&lt;e:forHtmlContent&gt;` from owasp.encoder.jakarta.advanced which
+            renders null as the literal word "null".
+
+            Default context = "html" (HTML element content). Valid contexts:
+            html, htmlContent, htmlAttribute, htmlUnquotedAttribute, forHtml,
+            javaScript, javaScriptAttribute, javaScriptBlock, javaScriptSource,
+            uri, uriComponent, cssString, cssUrl,
+            xml, xmlAttribute, xmlContent, xmlComment, cdata, java.
+        </description>
+        <display-name>encode</display-name>
+        <name>encode</name>
+        <tag-class>io.github.carlos_emr.carlos.utility.tld.CarlosEncodeTag</tag-class>
+        <body-content>empty</body-content>
+        <attribute>
+            <description>The value to encode. Null is coalesced to empty string.</description>
+            <name>value</name>
+            <required>true</required>
+            <rtexprvalue>true</rtexprvalue>
+            <type>java.lang.String</type>
+        </attribute>
+        <attribute>
+            <description>
+                The OWASP encoding context to apply. Case-insensitive.
+                Defaults to "html" (forHtmlContent).
+            </description>
+            <name>context</name>
+            <required>false</required>
+            <rtexprvalue>true</rtexprvalue>
+            <type>java.lang.String</type>
+        </attribute>
+    </tag>
+
+    <!-- ============================================================
+         EL FUNCTIONS: ${carlos:forXxx(value)}
+
+         Most names match org.owasp.encoder.Encode.forXxx() one-to-one so that
+         ${e:forXxx(x)} migrates to ${carlos:forXxx(x)} as a 2-character
+         prefix rename. Each function delegates to SafeEncode.forXxx(x)
+         which coalesces null to empty; CARLOS-specific convenience helpers may
+         extend that set where needed.
+         ============================================================ -->
+
+    <function>
+        <description>Null-safe HTML encoding (forHtml context — escapes quotes).</description>
+        <name>forHtml</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forHtml(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe HTML content encoding (does not escape quotes).</description>
+        <name>forHtmlContent</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forHtmlContent(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe HTML content encoding with newline-to-&lt;br/&gt; conversion.</description>
+        <name>forHtmlContentWithBreaks</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forHtmlContentWithBreaks(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe HTML attribute encoding (quoted attribute value).</description>
+        <name>forHtmlAttribute</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forHtmlAttribute(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe HTML unquoted-attribute encoding.</description>
+        <name>forHtmlUnquotedAttribute</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forHtmlUnquotedAttribute(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe JavaScript string encoding.</description>
+        <name>forJavaScript</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forJavaScript(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe JavaScript encoding when embedded in an HTML attribute.</description>
+        <name>forJavaScriptAttribute</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forJavaScriptAttribute(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe JavaScript encoding inside a &lt;script&gt; block.</description>
+        <name>forJavaScriptBlock</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forJavaScriptBlock(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe JavaScript source-file encoding.</description>
+        <name>forJavaScriptSource</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forJavaScriptSource(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe URI encoding.</description>
+        <name>forUri</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forUri(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe URI-component (query parameter value) encoding.</description>
+        <name>forUriComponent</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forUriComponent(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe CSS string encoding.</description>
+        <name>forCssString</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forCssString(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe CSS url() encoding.</description>
+        <name>forCssUrl</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forCssUrl(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe XML encoding (generic).</description>
+        <name>forXml</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forXml(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe XML content encoding.</description>
+        <name>forXmlContent</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forXmlContent(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe XML attribute encoding.</description>
+        <name>forXmlAttribute</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forXmlAttribute(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe XML comment encoding.</description>
+        <name>forXmlComment</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forXmlComment(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe CDATA encoding.</description>
+        <name>forCDATA</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forCDATA(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe Java-string encoding.</description>
+        <name>forJava</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forJava(java.lang.String)</function-signature>
+    </function>
+
+</taglib>

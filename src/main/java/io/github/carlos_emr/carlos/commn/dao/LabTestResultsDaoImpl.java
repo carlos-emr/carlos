@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.LabTestResults;
 import org.springframework.stereotype.Repository;
@@ -49,7 +49,7 @@ public class LabTestResultsDaoImpl extends AbstractDaoImpl<LabTestResults> imple
 
     @Override
     public List<LabTestResults> findByTitleAndLabInfoId(Integer labId) {
-        Query query = createQuery("r", "r.title IS NOT EMPTY and r.labPatientPhysicianInfoId = :labId");
+        Query query = createQuery("r", "r.title IS NOT NULL AND r.title <> '' and r.labPatientPhysicianInfoId = :labId");
         query.setParameter("labId", labId);
         return query.getResultList();
     }
@@ -88,7 +88,7 @@ public class LabTestResultsDaoImpl extends AbstractDaoImpl<LabTestResults> imple
                 "AND p.labNo = ltr.labPatientPhysicianInfoId " +
                 "AND ltr.labPatientPhysicianInfoId = lpp.id " +
                 "AND ltr.testName IS NOT NULL " +
-                "AND ltr.testName IS NOT EMPTY " +
+                "AND ltr.testName <> '' " +
                 "ORDER BY ltr.title";
 
         Query query = entityManager.createQuery(jpql);

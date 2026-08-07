@@ -34,16 +34,22 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.owasp.encoder.Encode;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
+import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilMisc;
-
-import com.Ostermiller.util.CSVPrinter;
-
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * @author rjonasz
@@ -51,94 +57,124 @@ import com.Ostermiller.util.CSVPrinter;
 public class SQLReporter implements Reporter {
 
     /**
-     * Creates a new instance of SQLReporter
+     * Maximum number of UTF-8 bytes allowed for CSV export payloads transmitted via
+     * POST parameter. Prevents memory exhaustion and excessive request sizes.
      */
+    public static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
+
+    static final String CSV_EXPORT_LIMIT_MESSAGE =
+            "Warning: Report result is too large to download as CSV. Please narrow your search criteria.";
+
+    /** Value of {@link ReportTemplates#getActive()} that indicates an active template. */
+    private static final int ACTIVE_STATUS = 1;
+
     public SQLReporter() {
+    }
+
+    /**
+     * Validates that the given templateId refers to an active report template.
+     * Returns the {@link ReportTemplates} entity when valid, or {@code null} when the
+     * id is missing, non-numeric, zero, or does not correspond to an active template.
+     *
+     * @param templateId the raw string value of the {@code templateId} HTTP parameter
+     * @return the active {@link ReportTemplates} record, or {@code null} if invalid
+     */
+    private ReportTemplates resolveActiveTemplate(String templateId) {
+        if (templateId == null || templateId.isEmpty()) {
+            return null;
+        }
+        int id = ConversionUtils.fromIntString(templateId);
+        if (id <= 0) {
+            return null;
+        }
+        ReportTemplatesDao reportTemplatesDao = SpringUtils.getBean(ReportTemplatesDao.class);
+        ReportTemplates rt = reportTemplatesDao.find(id);
+        if (rt == null || rt.getActive() != ACTIVE_STATUS) {
+            return null;
+        }
+        return rt;
     }
 
     public boolean generateReport(HttpServletRequest request) {
         String templateId = request.getParameter("templateId");
+
+        // Validate templateId against the database before executing any query (CWE-501)
+        if (resolveActiveTemplate(templateId) == null) {
+            MiscUtils.getLogger().warn("generateReport: invalid or inactive templateId '{}'", LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
+            return false;
+        }
+
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
-        Map parameterMap = request.getParameterMap();
+        Map<String, String[]> parameterMap = request.getParameterMap();
 
         if (curReport.isSequence()) {
             return generateSequencedReport(request);
         }
 
-        String sql = curReport.getPreparedSQL(parameterMap);
-        if (sql == null || sql.trim().isEmpty()) {
-            request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
+        ParameterizedSql query;
+
+        if (curReport instanceof ReportObjectGeneric) {
+            query = ((ReportObjectGeneric) curReport).buildParameterizedSql(parameterMap);
+            if (query == null || query.getSql().trim().isEmpty()) {
+                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
+                request.setAttribute("templateid", templateId);
+                return false;
+            }
+        } else {
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type. Refusing to execute.", LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
             request.setAttribute("templateid", templateId);
             return false;
         }
 
-        String rsHtml = "An SQL query error has occured ";
-        String csv = "";
-        try (StringWriter swr = new StringWriter();
-             ResultSet rs = DBHandler.GetSQL(sql) ) {
-            if (!rs.isBeforeFirst()) {
-                rsHtml = "The query returned no results.";
-            } else {
-                rsHtml = RptResultStruct.getStructure2(rs);  //makes html from the result set
-                CSVPrinter csvp = new CSVPrinter(swr);
-                csvp.writeln(UtilMisc.getArrayFromResultSet(rs));
-                csv = swr.toString();
-            }
-        } catch (SQLException sqe) {
-            rsHtml += sqe.getCause() != null ? sqe.getCause() : sqe.getMessage();
-            MiscUtils.getLogger().error("Error", sqe);
-        } catch (IOException e) {
-            rsHtml = "Error: during creation of CSV : " + (e.getCause() != null ? e.getCause() : e.getMessage());
-            MiscUtils.getLogger().error("Error", e);
-        }
+        String[] result = executeQuery(query, false);
 
-        request.getSession().setAttribute("csv", csv);
+        String csv = enforceCsvExportLimit(request, "generateReport", templateId, result[1]);
+
         request.setAttribute("csv", csv);
-        request.setAttribute("sql", sql);
+        request.setAttribute("sql", query.getSql());
         request.setAttribute("reportobject", curReport);
-        request.setAttribute("resultsethtml", rsHtml);
+        request.setAttribute("resultsethtml", result[0]);
 
         return true;
     }
 
     public boolean generateSequencedReport(HttpServletRequest request) {
         String templateId = request.getParameter("templateId");
+
+        // Validate templateId against the database before executing any query (CWE-501)
+        if (resolveActiveTemplate(templateId) == null) {
+            MiscUtils.getLogger().warn("generateSequencedReport: invalid or inactive templateId '{}'", LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", "Error: Invalid or inactive report template.");
+            return false;
+        }
+
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
-        Map parameterMap = request.getParameterMap();
+        Map<String, String[]> parameterMap = request.getParameterMap();
 
         int x = 0;
-        String sql = null;
-        while ((sql = curReport.getPreparedSQL(x, parameterMap)) != null) {
-            if (sql == "") {
-                request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
-                request.setAttribute("templateid", templateId);
-                return false;
-            }
-
-            String rsHtml = "An SQL query error has occured ";
-            String csv = "";
-            try (StringWriter swr = new StringWriter();
-                ResultSet rs = DBHandler.GetSQL(sql) ) {
-                if (!rs.isBeforeFirst()) {
-                    rsHtml = sql + "<br/>The query returned no results.";
-                } else {
-                    rsHtml = RptResultStruct.getStructure2(rs);  //makes html from the result set
-                    CSVPrinter csvp = new CSVPrinter(swr);
-                    csvp.writeln(UtilMisc.getArrayFromResultSet(rs));
-                    csv = swr.toString();
+        if (curReport instanceof ReportObjectGeneric) {
+            ReportObjectGeneric genericReport = (ReportObjectGeneric) curReport;
+            ParameterizedSql query;
+            while ((query = genericReport.buildParameterizedSql(x, parameterMap)) != null) {
+                if (query.getSql().isEmpty()) {
+                    request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
+                    request.setAttribute("templateid", templateId);
+                    return false;
                 }
-            } catch (SQLException sqe) {
-                rsHtml += sqe.getCause() != null ? sqe.getCause() : sqe.getMessage();
-                MiscUtils.getLogger().error("Error", sqe);
-            } catch (IOException e) {
-                rsHtml = "Error: during creation of CSV : " + (e.getCause() != null ? e.getCause() : e.getMessage());
-                MiscUtils.getLogger().error("Error", e);
+                String[] result = executeQuery(query, true);
+                String csv = enforceCsvExportLimit(request, "generateSequencedReport", templateId, result[1]);
+                request.setAttribute("csv-" + x, csv);
+                request.setAttribute("sql-" + x, query.getSql());
+                request.setAttribute("resultsethtml-" + x, result[0]);
+                x++;
             }
-
-            request.setAttribute("csv-" + x, csv);
-            request.setAttribute("sql-" + x, sql);
-            request.setAttribute("resultsethtml-" + x, rsHtml);
-            x++;
+        } else {
+            MiscUtils.getLogger().error("Report template {} uses unsupported legacy non-parameterized report type (sequenced). Refusing to execute.", LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", "Error: This report template uses a legacy format that is no longer supported. Please contact your administrator to update the template.");
+            request.setAttribute("templateid", templateId);
+            return false;
         }
 
         request.setAttribute("sequenceLength", x);
@@ -147,4 +183,56 @@ public class SQLReporter implements Reporter {
         return true;
     }
 
+    /**
+     * Executes a SQL query and returns the HTML and CSV representations.
+     *
+     * @param query       the server-owned SQL template and request bind values
+     * @param showSqlOnEmpty if true, prefix the "no results" message with the SQL text
+     * @return {@code String[2]} where {@code [0]} is the HTML result and {@code [1]} is the CSV
+     */
+    private String[] executeQuery(ParameterizedSql query, boolean showSqlOnEmpty) {
+        String rsHtml = "An SQL query error has occured ";
+        String csv = "";
+        try (StringWriter swr = new StringWriter();
+             ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(query)) {
+            if (!rs.isBeforeFirst()) {
+                rsHtml = showSqlOnEmpty
+                        ? (Encode.forHtml(query.getSql()) + "<br/>The query returned no results.")
+                        : "The query returned no results.";
+            } else {
+                rsHtml = RptResultStruct.getStructure2(rs);
+                CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
+                String[][] data = UtilMisc.getArrayFromResultSet(rs);
+                for (String[] row : data) {
+                    csvp.printRecord((Object[]) row);
+                }
+                csvp.flush();
+                csv = swr.toString();
+            }
+        } catch (SQLException sqe) {
+            String detail = sqe.getCause() != null ? sqe.getCause().toString() : sqe.getMessage();
+            rsHtml += Encode.forHtml(detail);
+            MiscUtils.getLogger().error("Error", sqe);
+        } catch (IOException e) {
+            String detail = e.getCause() != null ? e.getCause().toString() : e.getMessage();
+            rsHtml = "Error: during creation of CSV : " + Encode.forHtml(detail);
+            MiscUtils.getLogger().error("Error", e);
+        }
+        return new String[]{rsHtml, csv};
+    }
+
+    private String enforceCsvExportLimit(HttpServletRequest request, String operation, String templateId, String csv) {
+        if (csv == null) {
+            MiscUtils.getLogger().warn("{}: CSV result for template '{}' was null; not exposing CSV download", operation, LogSafe.sanitize(templateId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", CSV_EXPORT_LIMIT_MESSAGE);
+            return "";
+        }
+        int csvBytes = csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (csvBytes > MAX_CSV_EXPORT_LENGTH) {
+            MiscUtils.getLogger().warn("{}: CSV result for template '{}' exceeds export size limit ({} bytes); not exposing CSV download", operation, LogSafe.sanitize(templateId), csvBytes); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("errormsg", CSV_EXPORT_LIMIT_MESSAGE);
+            return "";
+        }
+        return csv;
+    }
 }

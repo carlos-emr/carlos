@@ -32,17 +32,22 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.Doc2PDF;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for attaching PDF documents to messages.
@@ -95,6 +100,11 @@ public class MsgAttachPDF2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     /**
+     * Security manager used to enforce {@code _msg} privilege on every invocation.
+     */
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /**
      * Executes the PDF attachment workflow.
      * 
      * <p>This method handles two primary operations:</p>
@@ -119,21 +129,49 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * attachments are processed one at a time with a 500ms delay between
      * each to prevent server overload.</p>
      * 
-     * @return SUCCESS when all attachments are complete, "attaching" when more
-     *         attachments are pending, or null for preview mode
+     * @return {@link #SUCCESS} when all attachments are complete; {@code "attaching"}
+     *         when more attachments are pending; {@link #NONE} when the request
+     *         is rejected with HTTP 405 (non-POST); {@code null} for the
+     *         preview-mode happy path (PDF streamed directly to the response)
      * @throws IOException if there's an error writing to the response stream
      * @throws ServletException if there's a servlet processing error
+     * @throws SecurityException if the current user lacks {@code _msg} write privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @Override
     public String execute() throws IOException, ServletException {
-        logger.info("Starting...");
+        // Enforce _msg privilege on every invocation. The action both generates
+        // PHI-bearing PDF previews and mutates the messenger session bean, so
+        // both preview and attachment modes require the messaging privilege.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
+            logger.warn("MsgAttachPDF2Action denied: provider={} lacks _msg write",
+                    loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_msg)");
+        }
+
+        // Reject non-POST: the action processes request-supplied HTML (srcText)
+        // and mutates MsgSessionBean in attachment mode, so permitting GET would
+        // reintroduce the CSRF class of bug this PR is closing elsewhere.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            logger.warn("MsgAttachPDF2Action method not allowed: provider={} method={}",
+                    loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo(),
+                    request.getMethod());
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         // Retrieve the message session bean containing attachment state
         MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
 
         // Handle preview mode - generate PDF and send directly to client
         if (isPreview) {
-            logger.info("Got source text: " + srcText);
-            
+            // Do NOT log srcText: it contains rendered demographic/encounter/
+            // prescription content (PHI). Log length metadata only.
+            logger.debug("Preview mode: srcText length={}", srcText == null ? 0 : srcText.length());
+
             // Convert HTML to PDF and stream to response
             Doc2PDF.parseString2PDF(request, response, "<HTML>" + srcText + "</HTML>");
             // Reset preview flag after processing
@@ -160,7 +198,6 @@ public class MsgAttachPDF2Action extends ActionSupport {
                         bean.setAppendPDFAttachment(resultString, attachmentTitle);
                         // Increment the processed attachment counter
                         bean.setCurrentAttachmentCount(bean.getCurrentAttachmentCount() + 1);
-                        logger.info("Sleeping for a short period...");
                         // Brief delay to prevent server overload with multiple attachments
                         Thread.sleep(500);
                     }
@@ -241,6 +278,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param attachmentCount the number of attachments as a string
      */
+    @StrutsParameter
     public void setAttachmentCount(String attachmentCount) {
         this.attachmentCount = attachmentCount;
     }
@@ -259,6 +297,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param attachmentTitle the title to set for the attachment
      */
+    @StrutsParameter
     public void setAttachmentTitle(String attachmentTitle) {
         this.attachmentTitle = attachmentTitle;
     }
@@ -277,6 +316,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param srcText the HTML content to convert
      */
+    @StrutsParameter
     public void setSrcText(String srcText) {
         this.srcText = srcText;
     }
@@ -295,6 +335,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param preview true to enable preview mode, false to disable
      */
+    @StrutsParameter
     public void setIsPreview(boolean preview) {
         isPreview = preview;
     }
@@ -313,6 +354,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param attaching true if attachment is in progress
      */
+    @StrutsParameter
     public void setIsAttaching(boolean attaching) {
         isAttaching = attaching;
     }
@@ -331,6 +373,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param aNew true to indicate a new session requiring attachment clearing
      */
+    @StrutsParameter
     public void setIsNew(boolean aNew) {
         isNew = aNew;
     }
@@ -349,6 +392,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param indexArray the array of indices to set
      */
+    @StrutsParameter
     public void setIndexArray(String[] indexArray) {
         this.indexArray = indexArray;
     }

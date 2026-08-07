@@ -28,25 +28,44 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
-import com.itextpdf.text.Document;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfWriter;
+import java.util.Objects;
 
+import org.openpdf.text.Document;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfWriter;
+
+/**
+ * OpenPDF page event handler that stamps promotional or clinic-specific text
+ * centered in the footer of each page. Typically used to display the clinic name,
+ * tagline, or other branding information at the bottom of printed documents.
+ *
+ * @see FooterSupport
+ * @see PageNumberStamper
+ * @since 2011-04-21
+ */
 public class PromoTextStamper extends FooterSupport {
 
-    private String text;
+    private final String text;
 
+    /**
+     * Creates a new stamper with the specified promotional text and vertical offset.
+     *
+     * @param promoText String the text to stamp on each page footer
+     * @param offset    int the vertical distance (in points) below the document bottom margin
+     */
     public PromoTextStamper(String promoText, int offset) {
+        Objects.requireNonNull(promoText, "promoText must not be null");
         setBaseOffset(offset);
         this.text = promoText;
     }
 
     /**
-     * Adds promo text, date and current page number to each page
+     * Writes the promotional text centered in the page footer.
      *
-     * @param writer
-     * @param document
+     * @param writer PdfWriter the active PDF writer for the document
+     * @param document Document the current OpenPDF document
      */
+    @Override
     public void onEndPage(PdfWriter writer, Document document) {
         PdfContentByte cb = writer.getDirectContent();
         cb.saveState();

@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.form;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
@@ -40,11 +38,7 @@ import java.util.Properties;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicForm;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -54,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmLabReq10Record extends FrmRecord {
@@ -71,9 +65,9 @@ public class FrmLabReq10Record extends FrmRecord {
                 props.setProperty("demographic_no", String.valueOf(demographic.getDemographicNo()));
                 props.setProperty("patientName", demographic.getLastName() + ", " + demographic.getFirstName());
 
-                String uhipStatus = OscarProperties.getInstance().getProperty("demo_uhip_status", "");
+                String uhipStatus = CarlosProperties.getInstance().getProperty("demo_uhip_status", "");
                 if (!uhipStatus.isEmpty() && demographic.getRosterStatus().equals(uhipStatus)) {
-                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
+                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
                     props.setProperty("version", "");
                 } else {
                     props.setProperty("healthNumber", StringUtils.trimToEmpty(demographic.getHin()));
@@ -117,20 +111,19 @@ public class FrmLabReq10Record extends FrmRecord {
 
 
         } else {
-            String sql = "SELECT * FROM formLabReq10 WHERE demographic_no = " + demographicNo + " AND ID = "
-                    + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formLabReq10 WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
             String chartNo = props.getProperty("patientChartNo");
-            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.patientChartNo") + ":";
+            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.patientChartNo") + ":";
             int beginIdx = chartNo.lastIndexOf(chartNoLbl);
             if (beginIdx >= 0) {
                 chartNo = chartNo.substring(beginIdx + chartNoLbl.length());
                 props.setProperty("patientChartNo", chartNo);
             }
 
-            OscarProperties oscarProps = OscarProperties.getInstance();
+            CarlosProperties oscarProps = CarlosProperties.getInstance();
             if (oscarProps.getBooleanProperty("use_lab_clientreference", "true")) {
-                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
+                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
                 props.setProperty("clientRefNo", additionalInfo);
             }
         }
@@ -152,7 +145,7 @@ public class FrmLabReq10Record extends FrmRecord {
             }
         }
 
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         if ((oscarProps.getProperty("lab_req_provider") != null) && (oscarProps.getProperty("lab_req_billing_no") != null)) {
 
@@ -206,19 +199,19 @@ public class FrmLabReq10Record extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formLabReq10 WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formLabReq10 WHERE demographic_no=? AND ID=0";
 
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formLabReq10 WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-        return ((new FrmRecordHelp()).getPrintRecord(sql));
+        String sql = "SELECT * FROM formLabReq10 WHERE demographic_no = ? AND ID = ?";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public static List<Properties> getPrintRecords(int demographicNo) throws SQLException {
-        String sql = "SELECT * FROM formLabReq10 WHERE demographic_no = " + demographicNo;
-        return ((new FrmRecordHelp()).getPrintRecords(sql));
+        String sql = "SELECT * FROM formLabReq10 WHERE demographic_no = ?";
+        return ((new FrmRecordHelp()).getPrintRecords(sql, demographicNo));
     }
 
     public String findActionValue(String submit) throws SQLException {
@@ -230,26 +223,4 @@ public class FrmLabReq10Record extends FrmRecord {
     }
 
 
-    public static Properties getRemoteRecordProperties(LoggedInInfo loggedInInfo, Integer remoteFacilityId, Integer formId) throws IOException {
-        FacilityIdIntegerCompositePk pk = new FacilityIdIntegerCompositePk();
-        pk.setIntegratorFacilityId(remoteFacilityId);
-        pk.setCaisiItemId(formId);
-
-        DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-        CachedDemographicForm form = demographicWs.getCachedDemographicForm(pk);
-
-        ByteArrayInputStream bais = new ByteArrayInputStream(form.getFormData().getBytes());
-
-        Properties p = new Properties();
-        p.load(bais);
-
-        // missing
-        // props.setProperty("hcType", demographic.getHcType());
-        // props.setProperty("demoProvider", demographic.getProviderNo());
-        // props.setProperty("clinicProvince",oscar.Misc.getString(rs, "clinic_province"));
-
-        logger.debug("Remote properties : " + p);
-
-        return (p);
-    }
 }

@@ -36,19 +36,24 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.util.Hashtable;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.ResourceBundle;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.ConformanceTestHelper;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
@@ -66,9 +71,11 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -80,18 +87,62 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-public class AddEditDocument2Action extends ActionSupport {
+/**
+ * Struts2 action for adding and editing documents in the CARLOS EMR document management system.
+ *
+ * <p>Handles document upload, metadata editing, file persistence, and page count extraction.
+ * Supports both standard form-based uploads and HTML5 multi-file uploads. When a document
+ * is added under a patient demographic, a case management note is automatically created
+ * to record the event.
+ *
+ * <p>Security: All operations require the {@code _edoc} write privilege, enforced via
+ * {@link SecurityInfoManager}. File paths are validated using {@link PathValidationUtils}
+ * to prevent path traversal attacks. Filenames are sanitized before storage.
+ *
+ * <p>PDF page counting uses OpenPDF {@link PdfReader} to determine the number of pages
+ * in uploaded PDF documents.
+ *
+ * @see ManageDocument2Action
+ * @see EDocUtil
+ * @see PathValidationUtils
+ * @since 2006-07-27
+ */
+public class AddEditDocument2Action extends ActionSupport implements UploadedFilesAware {
+    private static final int MAX_SAFE_EXTENSION_LENGTH = 10;
+    private static final String PDF_EXTENSION = "pdf";
+    private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
+    private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
+    private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
+    private static final String PARAM_FUNCTION = "function";
+    private static final String PARAM_FUNCTION_ID = "functionid";
+    private static final String PARAM_CUR_USER = "curUser";
+    private static final String PARAM_APPOINTMENT_NO = "appointmentNo";
+    private static final String PARAM_PARENT_AJAX_ID = "parentAjaxId";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Handles HTML5 multi-file document uploads. Validates file size, saves the file
+     * locally, counts PDF pages using OpenPDF, persists the document record, and routes
+     * it to the specified provider inbox and queue.
+     *
+     * @return String null (response is sent directly via HTTP headers)
+     * @throws Exception if file write or document persistence fails
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String html5MultiUpload() throws Exception {
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
 
@@ -99,43 +150,87 @@ public class AddEditDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        File uploadedDocFile = this.getDocFile();
+        if (uploadedDocFile == null) {
+            if ("filenameinvalid".equals(docFileBindErrorKey)) {
+                response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
+                return NONE;
+            }
+            sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
+            return NONE;
+        }
+
         int numberOfPages = 0;
-        String fileName = MiscUtils.sanitizeFileName(this.getDocFile().getName());
-        String user = (String) request.getSession().getAttribute("user");
+        File validatedSource;
+        try {
+            validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Invalid uploaded document file", e);
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
+            return NONE;
+        }
+
+        String fileName;
+        try {
+            fileName = resolveSanitizedUploadedFileName(validatedSource, this.docFileFileName);
+        } catch (FileValidationException e) {
+            response.setHeader("oscar_error", props.getString("dms.error.invalidFilename"));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, props.getString("dms.error.invalidFilename"));
+            return NONE;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
+        String storedFileName = newDoc.getFileName();
         newDoc.setDocPublic("0");
         newDoc.setAppointmentNo(Integer.parseInt(this.getAppointmentNo()));
 
         // if the document was added in the context of a program
         ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
         if (pp != null && pp.getProgramId() != null) {
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
 
+        long expectedFileSize;
+        try {
+            expectedFileSize = validatedUploadSize(validatedSource);
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
+            return NONE;
+        }
         // save local file;
-        if (this.getDocFile().length() == 0) {
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
-            response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
-            return null;
+        if (expectedFileSize == 0) {
+            sendHtml5UploadError(props, HttpServletResponse.SC_BAD_REQUEST, ERROR_ZERO_SIZE_KEY);
+            return NONE;
         }
-        File file = writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName); // write file to local dir
-
-        if (!file.exists() || file.length() < this.getDocFile().length()) {
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
-            response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
-            return null;
+        // The upload source was validated above; keep all subsequent file I/O scoped to the
+        // validated temp file reference and use try-with-resources for explicit stream cleanup.
+        File file;
+        try {
+            file = writeValidatedUpload(validatedSource, storedFileName, false);
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Failed to write uploaded document file", e);
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
+            return NONE;
         }
 
-        if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+        if (!isWrittenUploadComplete(file, expectedFileSize)) {
+            deleteIncompleteWrittenUpload(file);
+            sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
+            return NONE;
+        }
+
+        if (storedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
             newDoc.setContentType("application/pdf");
             // get number of pages when document is pdf;
-            numberOfPages = countNumOfPages(fileName);
+            numberOfPages = countNumOfPages(storedFileName);
         }
         newDoc.setNumberOfPages(numberOfPages);
         String doc_no = EDocUtil.addDocumentSQL(newDoc);
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         String providerId = request.getParameter("providers");
 
         if (providerId != null) { // TODO: THIS NEEDS TO RUN THRU THE lab forwarding rules!
@@ -152,33 +247,54 @@ public class AddEditDocument2Action extends ActionSupport {
             Integer qid = Integer.parseInt(queueId.trim());
             Integer did = Integer.parseInt(doc_no.trim());
             queueDocumentLinkDAO.addActiveQueueDocumentLink(qid, did);
-            request.getSession().setAttribute("preferredQueue", queueId);
+            // nosemgrep: tainted-session-from-http-request -- queueId validated via Integer.parseInt and canonicalized to numeric string; stored after successful DAO operation
+            request.getSession().setAttribute("preferredQueue", String.valueOf(qid)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): qid is Integer.parseInt-validated queue ID
         }
 
-        return null;
+        return NONE;
 
     }
 
-    public static int countNumOfPages(String fileName) {// count number of pages in a local pdf file
+    /**
+     * Counts the number of pages in a local PDF file using OpenPDF PdfReader.
+     * The file is located in the configured DOCUMENT_DIR.
+     *
+     * @param fileName String the PDF filename (relative to DOCUMENT_DIR)
+     * @return int the number of pages, or 0 if the file cannot be read
+     */
+    public static int countNumOfPages(String fileName) {
 
         int numOfPage = 0;
-        String docdownload = OscarProperties.getInstance().getDocumentDirectory();
-        if (!docdownload.endsWith(File.separator)) {
-            docdownload += File.separator;
-        }
-        String filePath = docdownload + fileName;
-
+        File documentDir = new File(CarlosProperties.getInstance().getDocumentDirectory());
+        File validatedFile;
         try {
-            PdfReader reader = new PdfReader(filePath);
-            numOfPage = reader.getNumberOfPages();
-            reader.close();
+            validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Invalid PDF page count file path", e);
+            return numOfPage;
+        }
 
+        Path filePath = validatedFile.toPath().normalize().toAbsolutePath();
+        if (!Files.isRegularFile(filePath)) {
+            return numOfPage;
+        }
+
+        try (PdfReader reader = new PdfReader(filePath.toString())) {
+            numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to count document pages", e);
         }
         return numOfPage;
     }
 
+    /**
+     * Main Struts2 entry point. Dispatches to {@link #html5MultiUpload()} if the
+     * request method parameter is "html5MultiUpload", otherwise delegates to
+     * {@link #execute2()} for standard add/edit operations.
+     *
+     * @return String the Struts2 result name
+     * @throws Exception if document processing fails
+     */
     public String execute() throws Exception {
         if ("html5MultiUpload".equals(request.getParameter("method"))) {
             return html5MultiUpload();
@@ -186,6 +302,15 @@ public class AddEditDocument2Action extends ActionSupport {
         return execute2();
     }
 
+    /**
+     * Handles the standard add/edit document workflow. Routes to add mode, edit mode,
+     * or returns a file-size error based on the current mode and function parameters.
+     *
+     * @return String the Struts2 result name ("failEdit", "failAdd", "successEdit", or NONE)
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -202,17 +327,15 @@ public class AddEditDocument2Action extends ActionSupport {
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 String contextPath = request.getContextPath();
-                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
+                StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                redirect.append("&function=").append(request.getParameter("function"));
-                redirect.append("&functionid=").append(request.getParameter("functionid"));
-                redirect.append("&curUser").append(request.getParameter("curUser"));
-                redirect.append("&appointmentNo").append(request.getParameter("appointmentNo"));
-                String parentAjaxId = request.getParameter("parentAjaxId");
+                appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
+                appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
+                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (!parentAjaxId.equals("")) {
-                    redirect.append("&parentAjaxId").append(parentAjaxId);
-                    redirect.append("&updateParent").append("true");
+                if (filled(this.getParentAjaxId())) {
+                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
+                    appendQueryParameter(redirect, "updateParent", "true");
                 }
                 try {
                     response.sendRedirect(redirect.toString());
@@ -221,11 +344,11 @@ public class AddEditDocument2Action extends ActionSupport {
                 }
                 return NONE;
             } else {
-                request.setAttribute("function", request.getParameter("function"));
-                request.setAttribute("functionid", request.getParameter("functionid"));
-                request.setAttribute("parentAjaxId", request.getParameter("parentAjaxId"));
-                request.setAttribute("curUser", request.getParameter("curUser"));
-                request.setAttribute("appointmentNo", request.getParameter("appointmentNo"));
+                request.setAttribute(PARAM_FUNCTION, this.getFunction());
+                request.setAttribute(PARAM_FUNCTION_ID, this.getFunctionId());
+                request.setAttribute(PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
+                request.setAttribute(PARAM_CUR_USER, this.getCurUser());
+                request.setAttribute(PARAM_APPOINTMENT_NO, this.getAppointmentNo());
                 return "failAdd";
             }
         } else {
@@ -233,7 +356,16 @@ public class AddEditDocument2Action extends ActionSupport {
         }
     }
 
-    // returns true if successful
+    /**
+     * Adds a new document: validates required fields, saves the uploaded file locally,
+     * persists the EDoc record, creates audit log entries, and generates a case management
+     * note when the document is linked to a patient demographic.
+     *
+     * @param request HttpServletRequest the current request for session and parameter access
+     * @return boolean true if the document was added successfully, false on validation or I/O error
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean addDocument(HttpServletRequest request) {
 
         Hashtable errors = new Hashtable();
@@ -247,12 +379,28 @@ public class AddEditDocument2Action extends ActionSupport {
                 throw new Exception();
             }
             File docFile = this.getDocFile();
-            if (docFile.length() == 0) {
+            if (docFile == null) {
+                if ("filenameinvalid".equals(docFileBindErrorKey)) {
+                    errors.put("filenameinvalid", "dms.error.invalidFilename");
+                    throw new FileValidationException("dms.error.invalidFilename");
+                }
+                errors.put("uploaderror", "dms.error.uploadError");
+                throw new FileNotFoundException();
+            }
+            File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            long expectedFileSize = validatedDocFile.length();
+            if (expectedFileSize == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
             // sanitize the original file name first
-            String fileName1 = MiscUtils.sanitizeFileName(this.docFileFileName);
+            String fileName1;
+            try {
+                fileName1 = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName);
+            } catch (FileValidationException e) {
+                errors.put("filenameinvalid", "dms.error.invalidFilename");
+                throw e;
+            }
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName1, "", this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'A', this.getObservationDate(), "", "", this.getFunction(), this.getFunctionId());
             newDoc.setDocPublic(this.getDocPublic());
@@ -264,7 +412,20 @@ public class AddEditDocument2Action extends ActionSupport {
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            File file = writeLocalFile(Files.newInputStream(docFile.toPath()), fileName2);
+            File writtenFile;
+            try {
+                writtenFile = writeValidatedUpload(validatedDocFile, fileName2, false);
+            } catch (IOException e) {
+                errors.put("uploaderror", "dms.error.uploadError");
+                addActionError(getText("dms.error.uploadError"));
+                throw e;
+            }
+            if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
+                deleteIncompleteWrittenUpload(writtenFile);
+                errors.put("uploaderror", "dms.error.uploadError");
+                addActionError(getText("dms.error.uploadError"));
+                throw new IOException("Failed to write uploaded document");
+            }
             newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase().endsWith(".pdf")) {
@@ -298,10 +459,7 @@ public class AddEditDocument2Action extends ActionSupport {
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            if (ConformanceTestHelper.enableConformanceOnlyTestFeatures) {
-                storeDocumentInDatabase(file, Integer.parseInt(doc_no));
-            }
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
@@ -343,7 +501,6 @@ public class AddEditDocument2Action extends ActionSupport {
                 cmn.setReporter_caisi_role(doctorRole.getId().toString());
 
                 cmn.setReporter_program_team("0");
-                cmn.setPassword("NULL");
                 cmn.setLocked(false);
                 cmn.setHistory(strNote);
                 cmn.setPosition(0);
@@ -359,8 +516,11 @@ public class AddEditDocument2Action extends ActionSupport {
                 EDocUtil.addCaseMgmtNoteLink(cmnl);
             }
 
+        } catch (FileValidationException e) {
+            request.setAttribute("docerrors", errors);
+            return false;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to add uploaded document", e);
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
@@ -369,6 +529,15 @@ public class AddEditDocument2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Edits an existing document's metadata and optionally replaces its file content.
+     * Handles reviewer assignment, extra reviewer tracking, and document type updates.
+     *
+     * @param request HttpServletRequest the current request for session and parameter access
+     * @return String the Struts2 result name ("successEdit" or "failEdit")
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
         Hashtable errors = new Hashtable();
 
@@ -387,12 +556,23 @@ public class AddEditDocument2Action extends ActionSupport {
             }
             String fileName = "";
             boolean updateFileContent = false;
+            File validatedDocFile = null;
 
-            if (OscarProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
+            if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
+                if ("filenameinvalid".equals(docFileBindErrorKey)) {
+                    errors.put("filenameinvalid", "dms.error.invalidFilename");
+                    throw new FileValidationException("dms.error.invalidFilename");
+                }
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
-                    fileName = MiscUtils.sanitizeFileName(this.docFileFileName);
+                    validatedDocFile = PathValidationUtils.validateUpload(docFile);
+                    try {
+                        fileName = resolveSanitizedUploadedFileName(validatedDocFile, this.docFileFileName);
+                    } catch (FileValidationException e) {
+                        errors.put("filenameinvalid", "dms.error.invalidFilename");
+                        throw e;
+                    }
                     updateFileContent = true; // set update to true
                 }
             }
@@ -401,13 +581,14 @@ public class AddEditDocument2Action extends ActionSupport {
             String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
 
             if (!filled(reviewerId) && this.getReviewDoc()) {
-                reviewerId = (String) request.getSession().getAttribute("user");
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                reviewerId = loggedInInfo.getLoggedInProviderNo();
                 reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
                 if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
 request.getRemoteAddr(), this.getFunctionId());
                 } else {
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
 request.getRemoteAddr());
                 }
             }
@@ -427,9 +608,33 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             // if the update behavior is true, get the file name
             if (updateFileContent) {
-                fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
+                File uploadForUpdate = Objects.requireNonNull(validatedDocFile, "validatedDocFile");
+                long expectedFileSize = uploadForUpdate.length();
+                if (expectedFileSize == 0) {
+                    errors.put("uploaderror", "dms.error.uploadError");
+                    throw new FileNotFoundException("Uploaded document is empty");
+                }
+                try {
+                    fileName = PathValidationUtils.validateGeneratedFileName(newDoc.getFileName());
+                } catch (FileValidationException e) {
+                    errors.put("filenameinvalid", "dms.error.invalidFilename");
+                    throw e;
+                }
                 // save local file
-                writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);
+                File writtenFile;
+                try {
+                    writtenFile = writeValidatedUpload(uploadForUpdate, fileName);
+                } catch (IOException e) {
+                    errors.put("uploaderror", "dms.error.uploadError");
+                    addActionError(getText("dms.error.uploadError"));
+                    throw e;
+                }
+                if (!isWrittenUploadComplete(writtenFile, expectedFileSize)) {
+                    deleteIncompleteWrittenUpload(writtenFile);
+                    errors.put("uploaderror", "dms.error.uploadError");
+                    addActionError(getText("dms.error.uploadError"));
+                    throw new IOException("Failed to write uploaded document");
+                }
                 if (fileName.toLowerCase().endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -457,54 +662,119 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             EDocUtil.editDocumentSQL(newDoc, this.getReviewDoc());
 
             if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
             } else {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
 
             }
 
+        } catch (FileValidationException e) {
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
+        } catch (FileNotFoundException e) {
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            e.printStackTrace();
+            MiscUtils.getLogger().error("Failed to edit document", e);
             return "failEdit";
         }
         return "successEdit";
     }
 
 
+    /**
+     * Writes an uploaded file to the local document storage directory. The destination
+     * path is validated using {@link PathValidationUtils} to prevent path traversal.
+     *
+     * @param is InputStream the input stream of the file content to write
+     * @param fileName String the target filename (relative to DOCUMENT_DIR)
+     * @return File the written file
+     * @throws Exception if validation or writing fails
+     */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
-        FileOutputStream fos = null;
-        File file = null;
+        return writeLocalFile(is, fileName, true);
+    }
+
+    /**
+     * Writes an uploaded file to the local document storage directory, optionally
+     * replacing an existing destination file. Upload contents are staged in a temporary
+     * sibling file and atomically published only after the staged file is fully written
+     * and synced.
+     *
+     * @param is InputStream the input stream of the file content to write
+     * @param fileName String the target filename (relative to DOCUMENT_DIR)
+     * @param replaceExisting boolean true when an existing destination may be replaced
+     * @return File the written file
+     * @throws Exception if validation, staging, syncing, or atomic publication fails
+     */
+    public static File writeLocalFile(InputStream is, String fileName, boolean replaceExisting) throws Exception {
+        String docDir = CarlosProperties.getInstance().getDocumentDirectory();
+        File baseDirFile = new File(docDir);
+        File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
+        Path savePath = validatedFile.toPath().normalize().toAbsolutePath();
+        Path saveParent = savePath.getParent();
+        if (saveParent == null) {
+            throw new IOException("Document destination parent is missing");
+        }
+
+        Files.createDirectories(saveParent);
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
+        }
+
+        Path tempPath = null;
         try {
-            // Validate file path using PathValidationUtils
-            String docDir = OscarProperties.getInstance().getDocumentDirectory();
-            File baseDirFile = new File(docDir);
-            File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
-            Path savePath = validatedFile.toPath();
+            tempPath = Files.createTempFile(saveParent, "document-upload-", ".tmp");
+            writeUploadContents(is, tempPath);
+            moveUploadedFile(tempPath, savePath, replaceExisting);
+        } catch (Exception e) {
+            if (tempPath != null) {
+                deleteTempFile(tempPath, e);
+            }
+            throw e;
+        }
 
-            // Create the parent directory
-            Files.createDirectories(savePath.getParent());
+        return savePath.toFile();
+    }
 
-            String savePathStr = savePath.toString();
-            file = new File(savePathStr);
-
-            // Set file output stream to the save path 
-            fos = new FileOutputStream(savePathStr);
-            
+    private static void writeUploadContents(InputStream is, Path tempPath) throws IOException {
+        try (FileOutputStream fos = new FileOutputStream(tempPath.toFile())) {
             byte[] buf = new byte[128 * 1024];
             int i = 0;
             while ((i = is.read(buf)) != -1) {
                 fos.write(buf, 0, i);
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            if (fos != null) fos.close();
+            fos.getFD().sync();
         }
-        return file;
     }
 
+    private static void moveUploadedFile(Path tempPath, Path savePath, boolean replaceExisting) throws IOException {
+        if (!replaceExisting && Files.exists(savePath)) {
+            throw new FileAlreadyExistsException(savePath.toString());
+        }
+        Files.move(tempPath, savePath, StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    private static void deleteTempFile(Path tempPath, Exception originalError) {
+        try {
+            Files.deleteIfExists(tempPath);
+        } catch (IOException deleteError) {
+            originalError.addSuppressed(deleteError);
+        }
+    }
+
+    /**
+     * Stores the binary contents of a document file in the database as a {@link DocumentStorage}
+     * record. This provides an alternative to file-system-only storage.
+     *
+     * @param file File the document file to store
+     * @param documentNo Integer the document number to associate the storage record with
+     * @return int the generated storage record ID, or 0 if an error occurred
+     */
     public static int storeDocumentInDatabase(File file, Integer documentNo) {
         Integer ret = 0;
         FileInputStream fin = null;
@@ -520,11 +790,255 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             documentStorageDao.persist(docStor);
             ret = docStor.getId();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error putting file in database", e);
+            MiscUtils.getLogger().error("Failed to store document file in database", e);
         } finally {
             IOUtils.closeQuietly(fin);
         }
         return ret;
+    }
+
+    /**
+     * Binds Struts 7 {@link UploadedFile} instances to this action. The {@code docFile}
+     * input takes precedence over {@code filedata}; once a {@code docFile} entry has been
+     * bound, any subsequent entries (including additional {@code filedata} entries) are
+     * ignored to ensure deterministic selection regardless of list ordering.
+     * Each selected upload is validated immediately so the action only retains temp
+     * files from approved locations; business methods then re-validate at point of use
+     * before any file I/O as defense in depth.
+     *
+     * @param uploadedFiles List&lt;UploadedFile&gt; the uploads provided by the Struts file
+     *                      upload interceptor, or {@code null} if none were posted
+     */
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+
+        UploadedFile selected = null;
+        for (UploadedFile uploaded : uploadedFiles) {
+            if (uploaded != null) {
+                String inputName = uploaded.getInputName();
+                if ("docFile".equals(inputName)) {
+                    selected = uploaded;
+                    break;
+                }
+                if (selected == null && "filedata".equals(inputName)) {
+                    selected = uploaded;
+                }
+            }
+        }
+
+        if (selected != null) {
+            // Validate once when binding the Struts 7 upload so the action only stores
+            // temp files from approved locations. Business methods re-validate again
+            // immediately before file I/O for defense in depth and static-analysis visibility.
+            try {
+                File validatedUpload = PathValidationUtils.validateUpload(resolveUploadedContentFile(selected));
+                String sanitizedFileName = resolveSanitizedUploadedFileName(validatedUpload, selected.getOriginalName());
+                // All validation passed; commit all fields atomically so no partial state is stored.
+                this.docFile = validatedUpload;
+                this.docFileFileName = sanitizedFileName;
+                this.docFileContentType = selected.getContentType();
+            } catch (FileValidationException e) {
+                // Filename rejected at bind time. Store the error key so execute methods can
+                // surface a user-friendly form error rather than leaving docFile null silently.
+                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename", e);
+                this.docFileBindErrorKey = "filenameinvalid";
+            }
+            // SecurityException from validateUpload is intentionally not caught — a source file
+            // outside allowed temp roots is a security violation, not a recoverable user error.
+        }
+    }
+
+    /**
+     * Resolves the safest filename to associate with an uploaded temp file.
+     * Extracts only the basename from the supplied original name to discard any
+     * path components, sanitizes it, and falls back to the validated temp file
+     * name when the original value is null, blank, path-only, or sanitizes to
+     * blank. The fallback preserves a safe extension where possible so PDF
+     * handling is not bypassed solely because Struts omitted the original name.
+     * When the fallback path is taken and no extension can be derived from the
+     * original name, the temp file's first bytes are read to detect a PDF header —
+     * this is a deliberate I/O side effect during bind to avoid misclassifying PDFs.
+     *
+     * @param uploadedFile File the validated temporary upload file
+     * @param originalName String the original client-supplied filename, if any
+     * @return String the normalized and sanitized filename to use for storage
+     */
+    private String resolveSanitizedUploadedFileName(File uploadedFile, String originalName) {
+        String candidate;
+        try {
+            candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
+        } catch (IllegalArgumentException e) {
+            throw new FileValidationException(PathValidationUtils.INVALID_FILENAME_MESSAGE, e);
+        }
+        if (filled(candidate)) {
+            return PathValidationUtils.validateFileName(candidate);
+        }
+
+        return PathValidationUtils.validateFileName(resolveFallbackUploadFileName(uploadedFile, originalName));
+    }
+
+    private String resolveFallbackUploadFileName(File uploadedFile, String originalName) {
+        String fallbackName = MiscUtils.sanitizeFileName(uploadedFile.getName());
+        String safeExtension = safeExtension(originalName);
+        if (!filled(safeExtension) && isPdfUpload(uploadedFile)) {
+            safeExtension = PDF_EXTENSION;
+        }
+        if (!filled(safeExtension)) {
+            return fallbackName;
+        }
+
+        String currentExtension = FilenameUtils.getExtension(fallbackName);
+        if (safeExtension.equalsIgnoreCase(currentExtension)) {
+            return fallbackName;
+        }
+
+        String baseName = FilenameUtils.removeExtension(fallbackName);
+        String resolvedBaseName = filled(baseName) ? baseName : fallbackName;
+        return resolvedBaseName + "." + safeExtension.toLowerCase(Locale.ROOT);
+    }
+
+    private String safeExtension(String fileName) {
+        if (!filled(fileName)) {
+            return "";
+        }
+
+        String extension = FilenameUtils.getExtension(FilenameUtils.getName(fileName));
+        if (!filled(extension) || extension.length() > MAX_SAFE_EXTENSION_LENGTH) {
+            return "";
+        }
+        return extension.matches("[A-Za-z0-9]+") ? extension : "";
+    }
+
+    private boolean isPdfUpload(File uploadedFile) {
+        try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(uploadedFile)) {
+            byte[] header = inputStream.readNBytes(PDF_HEADER.length);
+            if (header.length != PDF_HEADER.length) {
+                return false;
+            }
+            for (int i = 0; i < PDF_HEADER.length; i++) {
+                if (header[i] != PDF_HEADER[i]) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check", e);
+            return false;
+        }
+    }
+
+    /**
+     * Resolves the filesystem-backed content from Struts' upload abstraction.
+     * CARLOS requires file-backed Struts uploads here so {@link PathValidationUtils}
+     * can canonicalize the temp file and enforce allowed upload-source directories
+     * before any file content is read.
+     *
+     * @param uploadedFile UploadedFile the selected Struts upload
+     * @return File the upload content file to validate
+     */
+    private File resolveUploadedContentFile(UploadedFile uploadedFile) {
+        Object content = uploadedFile.getContent();
+        if (content instanceof File uploadFile) {
+            return uploadFile;
+        }
+
+        throw new SecurityException("Selected document upload content must be file-backed");
+    }
+
+    private File writeValidatedUpload(File validatedUpload, String fileName) throws IOException {
+        return writeValidatedUpload(validatedUpload, fileName, true);
+    }
+
+    private File writeValidatedUpload(File validatedUpload, String fileName, boolean replaceExisting) throws IOException {
+        try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(validatedUpload)) {
+            return writeLocalFile(inputStream, fileName, replaceExisting);
+        } catch (Exception e) {
+            throw new IOException("Failed to write uploaded document", e);
+        }
+    }
+
+    private long validatedUploadSize(File validatedUpload) throws IOException {
+        File uploadForSize;
+        try {
+            uploadForSize = PathValidationUtils.validateUpload(validatedUpload);
+        } catch (SecurityException e) {
+            throw new IOException("Invalid upload file", e);
+        }
+        return Files.size(uploadForSize.toPath()); // codeql[java/path-injection] -- validateUpload restricts to allowed temp dirs immediately before this size read.
+    }
+
+    /**
+     * Verifies that an upload write produced a regular file with exactly the expected size.
+     *
+     * @param writtenFile File the destination returned by {@link #writeLocalFile(InputStream, String)}
+     * @param expectedFileSize long the validated source upload size in bytes
+     * @return boolean true when the destination file exists, is a regular file, and matches the source size
+     */
+    private boolean isWrittenUploadComplete(File writtenFile, long expectedFileSize) {
+        try {
+            Path writtenPath = resolveWrittenDocumentPath(writtenFile);
+            return Files.isRegularFile(writtenPath) && Files.size(writtenPath) == expectedFileSize;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Deletes an incomplete destination file produced by a failed upload write.
+     *
+     * @param writtenFile File the destination returned by {@link #writeLocalFile(InputStream, String)}
+     */
+    private void deleteIncompleteWrittenUpload(File writtenFile) {
+        if (writtenFile == null) {
+            return;
+        }
+
+        try {
+            Path writtenPath = resolveWrittenDocumentPath(writtenFile);
+            Files.deleteIfExists(writtenPath); // codeql[java/path-injection] -- writtenPath is constrained to DOCUMENT_DIR by PathValidationUtils.validateExistingPath
+        } catch (Exception e) {
+            MiscUtils.getLogger().warn("Failed to delete incomplete uploaded document file");
+        }
+    }
+
+    private void appendQueryParameter(StringBuilder redirect, String name, String value) {
+        redirect.append('&')
+                .append(name)
+                .append('=')
+                .append(SafeEncode.forUriComponent(value));
+    }
+
+    private void sendHtml5UploadError(ResourceBundle props, String errorKey) throws IOException {
+        sendHtml5UploadError(props, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorKey);
+    }
+
+    private void sendHtml5UploadError(ResourceBundle props, int statusCode, String errorKey) throws IOException {
+        String message = props.getString(errorKey);
+        response.setHeader("oscar_error", message);
+        response.sendError(statusCode, message);
+    }
+
+    /**
+     * Resolves a file returned from document storage into a normalized path that
+     * remains inside the configured document directory before any status check or
+     * cleanup operation uses it.
+     *
+     * @param writtenFile File the destination returned by {@link #writeLocalFile(InputStream, String)}
+     * @return Path the validated, normalized destination path under {@code DOCUMENT_DIR}
+     * @throws IOException when the destination is missing or cannot be resolved safely
+     * @throws SecurityException when the destination does not resolve inside {@code DOCUMENT_DIR}
+     */
+    private Path resolveWrittenDocumentPath(File writtenFile) throws IOException {
+        if (writtenFile == null) {
+            throw new IOException("Written upload file is missing");
+        }
+
+        File documentDir = new File(CarlosProperties.getInstance().getDocumentDirectory());
+        File validatedWrittenFile = PathValidationUtils.validateExistingPath(writtenFile, documentDir);
+        return validatedWrittenFile.toPath().normalize().toAbsolutePath();
     }
 
     private boolean filled(String s) {
@@ -543,7 +1057,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String sourceFacility = "";
     private File docFile;
 
-    private File filedata;
 
     private String docPublic = "";
     private String mode = "";
@@ -556,6 +1069,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String appointmentNo = "0";
 
+    private String curUser = "";
+    private String parentAjaxId = "";
+
     private boolean restrictToProgram = false;
     private String receivedDate = "";
     private String abnormal = "";
@@ -567,6 +1083,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(String function) {
         this.function = function;
     }
@@ -575,6 +1092,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return functionId;
     }
 
+    @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
     }
@@ -583,6 +1101,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docType;
     }
 
+    @StrutsParameter
     public void setDocType(String docType) {
         this.docType = docType;
     }
@@ -591,6 +1110,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docClass;
     }
 
+    @StrutsParameter
     public void setDocClass(String docClass) {
         this.docClass = docClass;
     }
@@ -599,6 +1119,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docSubClass;
     }
 
+    @StrutsParameter
     public void setDocSubClass(String docSubClass) {
         this.docSubClass = docSubClass;
     }
@@ -607,6 +1128,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docDesc;
     }
 
+    @StrutsParameter
     public void setDocDesc(String docDesc) {
         this.docDesc = docDesc;
     }
@@ -615,6 +1137,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docCreator;
     }
 
+    @StrutsParameter
     public void setDocCreator(String docCreator) {
         this.docCreator = docCreator;
     }
@@ -623,6 +1146,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return responsibleId;
     }
 
+    @StrutsParameter
     public void setResponsibleId(String responsibleId) {
         this.responsibleId = responsibleId;
     }
@@ -631,6 +1155,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -639,6 +1164,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return sourceFacility;
     }
 
+    @StrutsParameter
     public void setSourceFacility(String sourceFacility) {
         this.sourceFacility = sourceFacility;
     }
@@ -647,14 +1173,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFile;
     }
 
-    public void setDocFile(File docFile) {
-        this.docFile = docFile;
-    }
-
     public String getMode() {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
@@ -663,6 +1186,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docPublic;
     }
 
+    @StrutsParameter
     public void setDocPublic(String docPublic) {
         this.docPublic = docPublic;
     }
@@ -671,6 +1195,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return observationDate;
     }
 
+    @StrutsParameter
     public void setObservationDate(String observationDate) {
         this.observationDate = observationDate;
     }
@@ -679,6 +1204,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return reviewerId;
     }
 
+    @StrutsParameter
     public void setReviewerId(String reviewerId) {
         this.reviewerId = reviewerId;
     }
@@ -687,6 +1213,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return reviewDateTime;
     }
 
+    @StrutsParameter
     public void setReviewDateTime(String reviewDateTime) {
         this.reviewDateTime = reviewDateTime;
     }
@@ -695,6 +1222,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return contentDateTime;
     }
 
+    @StrutsParameter
     public void setContentDateTime(String contentDateTime) {
         this.contentDateTime = contentDateTime;
     }
@@ -703,6 +1231,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return reviewDoc;
     }
 
+    @StrutsParameter
     public void setReviewDoc(boolean reviewDoc) {
         this.reviewDoc = reviewDoc;
     }
@@ -711,30 +1240,59 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return html;
     }
 
+    @StrutsParameter
     public void setHtml(String html) {
         this.html = html;
-    }
-
-    public File getFiledata() {
-        return filedata;
-    }
-
-    public void setFiledata(File Filedata) {
-        this.filedata = Filedata;
     }
 
     public String getAppointmentNo() {
         return appointmentNo;
     }
 
+    @StrutsParameter
     public void setAppointmentNo(String appointment) {
         this.appointmentNo = appointment;
+    }
+
+    /**
+     * Gets the current user.
+     * @return String the current user identifier
+     */
+    public String getCurUser() {
+        return curUser;
+    }
+
+    /**
+     * Sets the current user.
+     * @param curUser String the current user identifier to set
+     */
+    @StrutsParameter
+    public void setCurUser(String curUser) {
+        this.curUser = curUser;
+    }
+
+    /**
+     * Gets the parent AJAX ID.
+     * @return String the parent AJAX ID
+     */
+    public String getParentAjaxId() {
+        return parentAjaxId;
+    }
+
+    /**
+     * Sets the parent AJAX ID.
+     * @param parentAjaxId String the parent AJAX ID to set
+     */
+    @StrutsParameter
+    public void setParentAjaxId(String parentAjaxId) {
+        this.parentAjaxId = parentAjaxId;
     }
 
     public boolean isRestrictToProgram() {
         return restrictToProgram;
     }
 
+    @StrutsParameter
     public void setRestrictToProgram(boolean restrictToProgram) {
         this.restrictToProgram = restrictToProgram;
     }
@@ -743,6 +1301,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return receivedDate;
     }
 
+    @StrutsParameter
     public void setReceivedDate(String receivedDate) {
         this.receivedDate = receivedDate;
     }
@@ -751,6 +1310,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return abnormal;
     }
 
+    @StrutsParameter
     public void setAbnormal(String abnormal) {
         this.abnormal = abnormal;
     }
@@ -759,6 +1319,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return extraReviewerId;
     }
 
+    @StrutsParameter
     public void setExtraReviewerId(String extraReviewerId) {
         this.extraReviewerId = extraReviewerId;
     }
@@ -767,15 +1328,26 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return extraReviewDoc;
     }
 
+    @StrutsParameter
     public void setExtraReviewDoc(boolean extraReviewDoc) {
         this.extraReviewDoc = extraReviewDoc;
     }
 
-    private String docFileFileName;    
-    private String docFileContentType; 
+    private String docFileFileName;
+    private String docFileContentType;
+    /** Error hashtable key set when filename validation fails during bind; checked by execute methods. */
+    private String docFileBindErrorKey;
+
+    public String getDocFileFileName() {
+        return docFileFileName;
+    }
 
     public void setDocFileFileName(String docFileFileName) {
         this.docFileFileName = docFileFileName;
+    }
+
+    public String getDocFileContentType() {
+        return docFileContentType;
     }
 
     public void setDocFileContentType(String docFileContentType) {

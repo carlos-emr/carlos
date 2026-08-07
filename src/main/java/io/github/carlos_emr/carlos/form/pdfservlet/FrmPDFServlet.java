@@ -21,36 +21,39 @@
  * Hamilton
  * Ontario, Canada
  */
-// javac -classpath .;..\lib\itext-1.01.jar -d . FrmPDFServlet.java
-// form/createpdf?__title=British+Columbia+Antenatal+Record+Part+1&__cfgfile=bcar1PrintCfgPg1&__cfgfile=bcar1PrintCfgPg2&__template=bcar1
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
 import io.github.carlos_emr.carlos.form.FrmRecordFactory;
@@ -59,49 +62,112 @@ import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfImportedPage;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfWriter;
-
+import java.awt.Color;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Element;
+import org.openpdf.text.Font;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.Rectangle;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfImportedPage;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfWriter;
 /**
+ * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
+ * BCAR antenatal records, and other configurable clinical forms).
  *
+ * <p>This servlet uses a configuration-driven approach where form layout is defined in
+ * external text files (config files) that specify field positions, fonts, and formatting.
+ * It overlays patient data onto imported PDF templates using OpenPDF's
+ * {@link PdfImportedPage} and {@link PdfContentByte} direct content rendering.
+ *
+ * <p>Key features:
+ * <ul>
+ *   <li>Multi-page form support with page-specific configuration files</li>
+ *   <li>Growth chart graphing via pluggable {@link FrmPdfGraphic} implementations</li>
+ *   <li>Supports checkboxes (ZapfDingbats), single-line text, multi-line text areas,
+ *       lines, and colored rectangles for redaction</li>
+ *   <li>Configurable page sizes (Letter, Half-Letter, A6)</li>
+ *   <li>Multi-form concatenation for batch printing</li>
+ *   <li>Post-processing hook via {@link FrmPDFPostValueProcessor}</li>
+ * </ul>
+ *
+ * <p>Configuration file format (see {@link #generatePDFDocumentBytes}):
+ * <pre>
+ *   Checkboxes:    paramName : alignment, X, Y, 0, font, fontSize, textToPrint
+ *   Single-line:   paramName : alignment, X, Y, 0, font, fontSize
+ *   Multi-line:    paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing
+ * </pre>
+ * Coordinates refer to the bottom-left corner, measured in PDF points (1/72 inch).
+ *
+ * @see FrmCustomedPDFServlet
+ * @see FrmPdfGraphic
+ * @see FrmRecordFactory
+ * @since 2001 (McMaster University)
  */
 public class FrmPDFServlet extends HttpServlet {
 
     Logger log = MiscUtils.getLogger();
 
     /**
-     *
+     * Default constructor required by the servlet container.
      */
     public FrmPDFServlet() {
         super();
     }
 
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
 
     /**
-     * @param req HTTP request object
-     * @param res HTTP response object
+     * Generates one or more medical form PDFs and streams the result to the response.
+     * If the {@code multiple} request parameter is present, generates that many PDFs
+     * (one per page index) and concatenates them via {@link ConcatPDF}.
+     *
+     * @param req HttpServletRequest containing form field values and configuration parameters
+     * @param res HttpServletResponse to write the generated PDF bytes to
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
-    public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
 
         ByteArrayOutputStream baosPDF = null;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        if (loggedInInfo == null) {
+            // This servlet renders form templates overlaid with patient data; require an authenticated
+            // session rather than serving anonymous requests. Handle the sendError IOException locally so
+            // it never escapes doPost() (Sonar S1989).
+            try {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN);
+            } catch (java.io.IOException ioe) {
+                log.warn("Unable to send 403 for unauthenticated form PDF request", ioe);
+            }
+            return;
+        }
+        // AUTHENTICATED IS NOT AUTHORIZED. The check above only proves someone is logged in; the
+        // patient whose form is rendered comes straight from the request (`demographic_no`, read at
+        // generatePDFDocumentBytes and passed to FrmRecord.getFormRecord, which does raw SQL with no
+        // gate of its own). Without this, any authenticated user — including a role holding no _form
+        // privilege at all — could POST an arbitrary demographic_no and receive that patient's stored
+        // form as a PDF, with the audit line written only AFTER the PHI had been streamed.
+        //
+        // Scoped to the requested demographic, matching the sibling this servlet parallels
+        // (EFormPDFServlet:149-152). One check covers every path: there is exactly one
+        // demographic_no parameter, and the `multiple` loop below varies only the page index.
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(
+                loggedInInfo, "_form", "r", req.getParameter("demographic_no"))) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
+        List<File> tempFiles = new ArrayList<>();
 
         try {
             File tmpFile = null;
@@ -111,17 +177,24 @@ public class FrmPDFServlet extends HttpServlet {
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = new ByteArrayOutputStream();
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, x);
-                    tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                    baosPDF.writeTo(new FileOutputStream(tmpFile));
-                    files.add(tmpFile.getAbsolutePath());
+                    File pageTmp = File.createTempFile("formpdf", ".pdf");
+                    tempFiles.add(pageTmp);
+                    try (FileOutputStream fos = new FileOutputStream(pageTmp)) {
+                        baosPDF.writeTo(fos);
+                    }
+                    files.add(pageTmp.getAbsolutePath());
                 }
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
             } else {
                 baosPDF = new ByteArrayOutputStream();
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, 0);
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                baosPDF.writeTo(new FileOutputStream(tmpFile));
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
+                try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+                    baosPDF.writeTo(fos);
+                }
             }
             StringBuilder sbFilename = new StringBuilder();
             sbFilename.append("filename_");
@@ -152,8 +225,7 @@ public class FrmPDFServlet extends HttpServlet {
 
 
             ServletOutputStream sout = res.getOutputStream();
-            FileInputStream fis = new FileInputStream(tmpFile);
-            try {
+            try (FileInputStream fis = new FileInputStream(tmpFile)) {
                 byte[] buffer = new byte[64000];
                 int bytesRead = 0;
 
@@ -164,23 +236,33 @@ public class FrmPDFServlet extends HttpServlet {
 
                     sout.write(buffer, 0, bytesRead);
                 }
-            } finally {
-                fis.close();
             }
 
             LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
 
         } catch (DocumentException dex) {
-            res.setContentType("text/html");
-            PrintWriter writer = res.getWriter();
-            writer.println("Exception from: " + this.getClass().getName() + " " + dex.getClass().getName() + "<br>");
-            writer.println("<pre>");
-            writer.println(dex.getMessage());
-            writer.println("</pre>");
+            log.error("Document error generating form PDF", dex);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
+        } catch (java.io.IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in FrmPDFServlet", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         } finally {
             if (baosPDF != null) {
                 baosPDF.reset();
                 //baosPDF.close();
+            }
+            for (File tempFile : tempFiles) {
+                if (tempFile.exists() && !tempFile.delete()) {
+                    tempFile.deleteOnExit();
+                }
             }
         }
 
@@ -225,7 +307,19 @@ public class FrmPDFServlet extends HttpServlet {
 
             String title = req.getParameter("__title" + suffix) != null ? req.getParameter("__title" + suffix) : "Unknown";
 
-            String template = req.getParameter("__template" + suffix) != null ? req.getParameter("__template" + suffix) + ".pdf" : "";
+            // Existing client code submits a present-but-blank __template= (see form/formScripts.js),
+            // which means "no template". Treat blank/whitespace-only as no template BEFORE appending the
+            // ".pdf" suffix — otherwise a blank value becomes ".pdf", whose leading dot validatePathComponent
+            // rejects, turning a routine "no template" request into a hard failure.
+            String templateParam = req.getParameter("__template" + suffix);
+            String template = "";
+            if (templateParam != null && !templateParam.isBlank()) {
+                // __template is user-controlled and gets concatenated into a filesystem path read by
+                // PdfReader (pdfFORMDIR and the /oscar/form/prop fallback). Validate the raw component
+                // (before the ".pdf" suffix) so "../" or an absolute path cannot escape the configured
+                // template directory; only then append the extension.
+                template = PathValidationUtils.validatePathComponent(templateParam.trim(), "__template") + ".pdf";
+            }
 
             int numPages = 1;
             String pages = req.getParameter("__numPages" + suffix);
@@ -306,13 +400,17 @@ public class FrmPDFServlet extends HttpServlet {
                 props.setProperty(temp.toString(), req.getParameter(temp.toString()));
             }
 
-            if (req.getParameter("postProcessor" + suffix) != null) {
-                String className = "io.github.carlos_emr.carlos.form.pdfservlet." + req.getParameter("postProcessor" + suffix);
-                try {
-                    FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
-                    props = pp.process(props);
-                } catch (Exception e) {
-                    //ignore
+            String postProcessorName = req.getParameter("postProcessor" + suffix);
+            if (postProcessorName != null) {
+                Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+                if (pp.isPresent()) {
+                    try {
+                        props = pp.get().process(props);
+                    } catch (Exception e) {
+                        log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                    }
+                } else {
+                    log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
                 }
             }
 
@@ -403,8 +501,8 @@ public class FrmPDFServlet extends HttpServlet {
 
             document.addTitle(title);
             document.addSubject("");
-            document.addKeywords("pdf, itext");
-            document.addCreator("OSCAR");
+            document.addKeywords("pdf");
+            document.addCreator("CARLOS EMR");
             document.addAuthor("");
             //document.addHeader("Expires", "0");
 
@@ -421,16 +519,16 @@ public class FrmPDFServlet extends HttpServlet {
 
             // create a reader for a certain document
             //String propFilename = "../../OscarDocument/" + getProjectName() + "/form/" + template;
-            String propFilename = OscarProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
+            String propFilename = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
             float height;
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at " + propFilename);
+                log.info("Found template at {}", LogSafe.sanitize(propFilename));
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from :" + propFilename);
+                log.debug("change path to inside oscar from: {}", LogSafe.sanitize(propFilename));
                 reader = new PdfReader("/oscar/form/prop/" + template);
-                log.debug("Found template at /oscar/form/prop/" + template);
+                log.debug("Found template at /oscar/form/prop/{}", LogSafe.sanitize(template));
             }
 
             // retrieve the total number of pages
@@ -509,11 +607,17 @@ public class FrmPDFServlet extends HttpServlet {
 
                         // write in a rectangle area
                         if (cfgVal.length >= 9) {
+                            int fontSize = 12;
+                            try {
+                                fontSize = Integer.parseInt(cfgVal[5].trim());
+                            } catch (NumberFormatException nfe) {
+                                log.warn("Invalid font size in form print config '{}': {}", tempName, cfgVal[5]);
+                            }
                             Font font;
                             if (fontFlags == Font.BOLD) { // Hack to stop blue outline from bold text
-                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags, BaseColor.BLACK);
+                                font = new Font(bf, fontSize, fontFlags, Color.BLACK);
                             } else {
-                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags);
+                                font = new Font(bf, fontSize, fontFlags);
                             }
                             //ct.setSimpleColumn(60, 300, 200, 500, 10,
                             // Element.ALIGN_LEFT);
@@ -546,7 +650,7 @@ public class FrmPDFServlet extends HttpServlet {
                             float ury = Float.parseFloat(cfgVal[3].trim());
 
                             Rectangle rec = new Rectangle(llx, lly, urx, ury);
-                            rec.setBackgroundColor(BaseColor.WHITE);
+                            rec.setBackgroundColor(Color.WHITE);
                             cb.rectangle(rec);
 
                         } else if (tempName.toString().startsWith("__$line")) {
@@ -566,12 +670,12 @@ public class FrmPDFServlet extends HttpServlet {
                                     .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
                             cb.endText();
                         } else if (tempName.toString().equals("forms_promotext")) {
-//	                        if ( OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
+//	                        if ( CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
 //	                            log.info("adding user placed forms_promotext");
 //	                            cb.beginText();
 //	                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
 //	                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER)),
-//	                                    OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
+//	                                    CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
 //	                                    Integer.parseInt(cfgVal[1].trim()),
 //	                                    (height - Integer.parseInt(cfgVal[2].trim())),
 //	                                    0);
@@ -593,18 +697,9 @@ public class FrmPDFServlet extends HttpServlet {
                     }
 
                     //----------
-                    if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
-//	                    log.info("adding forms_promotext");
-//
-//	                    // remove elements of the PDF file
-//	                    Rectangle rec = new Rectangle(160, 12, 465, 21);
-//	                    rec.setBackgroundColor(java.awt.Color.WHITE);
-//	                    cb.rectangle(rec);
-//
-//	                    cb.beginText();
-//	                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA,BaseFont.CP1252,BaseFont.NOT_EMBEDDED), 6);
-//	                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"), width/2, 16, 0);
-//	                    cb.endText();
+                    if (CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
+                        // Promo text rendering was already disabled (commented out) before the OpenPDF migration.
+                        // If needed, re-implement using PdfWriterFactory page event stampers.
                     }
 
 
@@ -807,6 +902,14 @@ public class FrmPDFServlet extends HttpServlet {
         return baosPDF;
     }
 
+    /**
+     * Loads a CSV-format property file containing PDF field layout configuration.
+     * Attempts filesystem first (under pdfFORMDIR), then falls back to webapp classpath.
+     * The filename is sanitized to prevent path traversal.
+     *
+     * @param cfgFilename String the configuration filename (e.g., "formRourke2020p1.txt")
+     * @return Properties the parsed field layout entries, or empty Properties if not found
+     */
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         
@@ -820,7 +923,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: " + cfgFilename);
+            log.warn("Invalid config filename after sanitization: {}", LogSafe.sanitize(cfgFilename));
             return ret;
         }
         
@@ -837,7 +940,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Now cleanFilename is safe to use
         
         // Try loading from file system
-        String pdfFormDir = OscarProperties.getInstance().getProperty("pdfFORMDIR", "");
+        String pdfFormDir = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "");
         if (!pdfFormDir.isEmpty()) {
             Properties fsProps = loadFromFileSystem(pdfFormDir, cleanFilename);
             if (fsProps != null) {
@@ -855,6 +958,8 @@ public class FrmPDFServlet extends HttpServlet {
         return ret;
     }
     
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Properties loadFromFileSystem(String baseDir, String safeFilename) {
         try {
             // Build and validate the full path using PathValidationUtils

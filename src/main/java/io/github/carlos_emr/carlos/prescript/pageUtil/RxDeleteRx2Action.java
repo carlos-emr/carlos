@@ -30,15 +30,16 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -63,8 +64,9 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for managing prescription deletion and discontinuation operations.
@@ -157,7 +159,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
                 Drug drug = drugDao.find(drugId);
                 setDrugDelete(drug);
                 drugDao.merge(drug);
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugArr[i], ip, "" + bean.getDemographicNo(), drug.getAuditString());
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -213,7 +215,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
             Drug drug = drugDao.find(Integer.parseInt(deleteRxId));
             setDrugDelete(drug);
             drugDao.merge(drug);
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, deleteRxId, ip, "" + bean.getDemographicNo(), drug.getAuditString());
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -235,6 +237,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * @return null (writes JSON response with drug ID directly to output stream)
      * @throws IOException if response writing fails
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String DeleteRxOnCloseRxBox()
             throws IOException {
 
@@ -260,7 +264,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
                     Drug drug = drugDao.find(drugId);
                     setDrugDelete(drug);
                     drugDao.merge(drug);
-                    LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString());
+                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_PRESCRIPTION, drugId.toString(), ip, "" + bean.getDemographicNo(), drug.getAuditString());
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
                 }
@@ -269,7 +273,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
             hm.put("drugId", drugId);
             ObjectNode jsonObject = objectMapper.valueToTree(hm);
             MiscUtils.getLogger().debug("jsonObject=" + jsonObject.toString());
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write(jsonObject.toString());
         }
         MiscUtils.getLogger().debug("===========================END DeleteRxOnCloseRxBox RxDeleteRx2Action========================");
         return null;
@@ -345,6 +351,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * @throws IOException if response writing fails
      */
     //STILL NEED TO SAVE REASON AND COMMENT "would like to create a summary note in the echart"
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String Discontinue() throws IOException {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
@@ -390,14 +398,14 @@ public final class RxDeleteRx2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DISCONTINUE, LogConst.CON_PRESCRIPTION, "" + drug.getId(), ip, "" + drug.getDemographicId(), logStatement);
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DISCONTINUE, LogConst.CON_PRESCRIPTION, "" + drug.getId(), ip, "" + drug.getDemographicId(), logStatement);
 
         Hashtable d = new Hashtable();
         d.put("id", "" + id);
         d.put("reason", reason);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
         return null;
     }
@@ -456,7 +464,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
         cmn.setReporter_caisi_role(doctorRole.getId().toString());
 
         cmn.setReporter_program_team("0");
-        cmn.setPassword("NULL");
         cmn.setLocked(false);
         cmn.setHistory(strNote);
         //cmn.setPosition(0);
@@ -519,6 +526,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
      *
      * @param RHS String comma-separated drug IDs
      */
+    @StrutsParameter
     public void setDrugList(String RHS) {
         this.drugList = RHS;
     }

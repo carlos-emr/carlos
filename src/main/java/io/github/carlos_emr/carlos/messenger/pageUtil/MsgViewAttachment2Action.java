@@ -31,9 +31,9 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
@@ -43,8 +43,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for viewing file attachments associated with messages.
@@ -161,6 +162,7 @@ public class MsgViewAttachment2Action extends ActionSupport {
      * 
      * @param str String the attachment/message ID
      */
+    @StrutsParameter
     public void setAttachId(String str) {
         this.attachId = str;
     }

@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -38,15 +37,15 @@ import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.commons.lang3.BooleanUtils;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 
@@ -92,6 +91,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
         bean.setProviderNo(user_no);
         bean.setDemographicNo(Integer.parseInt(this.getDemographicNo()));
 
+        // nosemgrep: tainted-session-from-http-request -- bean is built from session-sourced providerNo and validated demographicNo (parseInt)
         request.getSession().setAttribute("RxSessionBean", bean);
 
         RxPatientData rx = null;
@@ -102,25 +102,10 @@ public final class RxChoosePatient2Action extends ActionSupport {
         String provider = (String) request.getSession().getAttribute("user");
         WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
         userPropertyDAO = (UserPropertyDAO) ctx.getBean(UserPropertyDAO.class);
-        boolean providerUseRx3 = false;
-        UserProperty propUseRx3 = userPropertyDAO.getProp(provider, UserProperty.RX_USE_RX3);
-
-        if (propUseRx3 != null) {
-            providerUseRx3 = BooleanUtils.toBoolean(propUseRx3.getValue());
-        }
 
         if (patient != null) {
 
-            if (OscarProperties.getInstance().getBooleanProperty("RX3", "yes") || providerUseRx3) {
-                redirect = "successRX3";
-            }
-            // place holder.
-//			else if ( OscarProperties.getInstance().getBooleanProperty("ENABLE_RX4", "yes") ) {
-//				redirect = "successRX4";
-//			} 
-            else {
-                redirect = "success";
-            }
+            redirect = "success";
 
             // set the profile view
             UserProperty prop = userPropertyDAO.getProp(provider, UserProperty.RX_PROFILE_VIEW);
@@ -140,6 +125,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
                         }
                     }
 
+                    // nosemgrep: tainted-session-from-http-request -- hm is derived from DAO-sourced UserProperty, not raw user input
                     request.getSession().setAttribute("profileViewSpec", hm);
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Error", e);
@@ -147,6 +133,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
 
             }
 
+            // nosemgrep: tainted-session-from-http-request -- patient is DAO-sourced from RxPatientData.getPatient(), not raw user input
             request.getSession().setAttribute("Patient", patient);
         }
 
@@ -161,6 +148,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
         return (this.providerNo);
     }
 
+    @StrutsParameter
     public void setProviderNo(String RHS) {
         this.providerNo = RHS;
     }
@@ -169,6 +157,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
         return (this.demographicNo);
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }

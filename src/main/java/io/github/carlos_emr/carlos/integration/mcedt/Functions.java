@@ -34,7 +34,7 @@ import java.math.BigInteger;
 import java.util.Date;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import javax.xml.datatype.XMLGregorianCalendar;
 
 import ca.ontario.health.edt.UpdateRequest;

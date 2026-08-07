@@ -28,8 +28,8 @@
  */
 package io.github.carlos_emr.carlos.dashboard.display;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.dashboard.display.beans.DashboardBean;
@@ -44,8 +44,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class DisplayDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,7 +86,7 @@ public class DisplayDashboard2Action extends ActionSupport {
         if (canChgDashboardUser) {
             String requestedProviderNo = request.getParameter("providerNo");
             if (requestedProviderNo != null && !requestedProviderNo.isEmpty()) {
-                logger.info("DashboardDisplay of provider_no " + requestedProviderNo + " requested by provider_no " + loggedInInfo.getLoggedInProviderNo());
+                logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSafe.sanitize(requestedProviderNo), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
                 dashboardManager.setRequestedProviderNo(loggedInInfo, requestedProviderNo);
             } else if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {

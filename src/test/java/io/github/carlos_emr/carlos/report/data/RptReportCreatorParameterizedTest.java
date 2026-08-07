@@ -1,0 +1,315 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.report.data;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.Vector;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Unit tests for {@link RptReportCreator#getWhereValueClauseParameterized(String, Vector)}.
+ * Covers quote-context detection, placeholder rewriting, numeric-allowlist enforcement
+ * for unquoted contexts (legacy parity), and edge cases around missing parameter values.
+ *
+ * @since 2026-04-13
+ */
+@Tag("unit")
+@Tag("report")
+class RptReportCreatorParameterizedTest {
+
+    @Test
+    @DisplayName("should emit single ? placeholder and bind value for quoted string context")
+    void shouldBindValue_forQuotedStringContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName}'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.last_name=?");
+        assertThat(result.getParams()).containsExactly("Smith");
+    }
+
+    @Test
+    @DisplayName("should bind numeric value for unquoted context")
+    void shouldBindNumericValue_forUnquotedContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("42");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.age>?");
+        assertThat(result.getParams()).containsExactly("42");
+    }
+
+    @Test
+    @DisplayName("should bind negative and decimal numeric values for unquoted context")
+    void shouldAcceptNegativeAndDecimal_forUnquotedContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("-3.14");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "t.score=${s}", vec);
+
+        assertThat(result.getSql()).isEqualTo("t.score=?");
+        assertThat(result.getParams()).containsExactly("-3.14");
+    }
+
+    @Test
+    @DisplayName("should throw IllegalArgumentException when non-numeric value supplied in unquoted context")
+    void shouldThrow_whenNonNumericSuppliedInUnquotedContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("1 OR 1=1");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("placeholder index 0");
+    }
+
+    @Test
+    @DisplayName("should throw IllegalArgumentException when unquoted parameter value is missing from vector")
+    void shouldThrow_whenUnquotedParamMissingFromVector() {
+        Vector<String> vec = new Vector<>();
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should throw IllegalArgumentException for empty-string numeric value")
+    void shouldThrow_whenEmptyStringForNumericContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should bind empty string when quoted parameter value is missing from vector")
+    void shouldBindEmptyString_whenQuotedParamMissingFromVector() {
+        Vector<String> vec = new Vector<>();
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName}'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.last_name=?");
+        assertThat(result.getParams()).containsExactly("");
+    }
+
+    @Test
+    @DisplayName("should bind multiple placeholders in declaration order")
+    void shouldBindMultiplePlaceholders_inOrder() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");
+        vec.add("2026-01-01");
+        vec.add("100");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName}' and demographic.dob>='${dob}' and demographic.age<${age}",
+                vec);
+
+        assertThat(result.getSql()).isEqualTo(
+                "demographic.last_name=? and demographic.dob>=? and demographic.age<?");
+        assertThat(result.getParams()).containsExactly("Smith", "2026-01-01", "100");
+    }
+
+    @Test
+    @DisplayName("should not attempt injection via quoted value — single quotes stay in bind param, not SQL")
+    void shouldNotInjectViaQuotedValue() {
+        Vector<String> vec = new Vector<>();
+        vec.add("'; DROP TABLE demographic;--");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName}'", vec);
+
+        // Single ? placeholder, value preserved verbatim as bind param (PreparedStatement handles escaping)
+        assertThat(result.getSql()).isEqualTo("demographic.last_name=?");
+        assertThat(result.getParams()).containsExactly("'; DROP TABLE demographic;--");
+    }
+
+    @Test
+    @DisplayName("should return template unchanged when no ${var} placeholders present")
+    void shouldReturnUnchanged_whenNoPlaceholders() {
+        Vector<String> vec = new Vector<>();
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.status='AC'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.status='AC'");
+        assertThat(result.getParams()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should throw IllegalStateException on malformed placeholder without closing brace")
+    void shouldThrow_onMalformedPlaceholder() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName", vec))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Malformed report template");
+    }
+
+    @Test
+    @DisplayName("should throw IllegalStateException on empty ${} placeholder")
+    void shouldThrow_onEmptyPlaceholder() {
+        Vector<String> vec = new Vector<>();
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${}", vec))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("should reject UNION injection attempt in unquoted context")
+    void shouldReject_unionInjectionInUnquotedContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("1 UNION SELECT password FROM provider");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should reject comment-injection attempt in unquoted context")
+    void shouldReject_commentInjectionInUnquotedContext() {
+        Vector<String> vec = new Vector<>();
+        vec.add("1-- ");
+
+        assertThatThrownBy(() -> RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.age>${age}", vec))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should strip surrounding single quotes only for quoted context, not unquoted")
+    void shouldHandleMixedQuotedAndUnquoted() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");  // quoted
+        vec.add("42");     // unquoted
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName}' and demographic.age>${age}", vec);
+
+        assertThat(result.getSql()).isEqualTo(
+                "demographic.last_name=? and demographic.age>?");
+        assertThat(result.getParams()).containsExactly("Smith", "42");
+    }
+
+    @Test
+    @DisplayName("should treat null parameter in quoted context as empty string")
+    void shouldBindEmptyString_forNullValueInQuotedContext() {
+        Vector<Object> vec = new Vector<>();
+        vec.add(null);
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name='${lastName}'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.last_name=?");
+        assertThat(result.getParams()).containsExactly("");
+    }
+
+    // --- Quote-context detection for LIKE patterns ---
+
+    @Test
+    @DisplayName("should detect quoted context for like '%${name}%' pattern and fold wildcards into bound value")
+    void shouldBindLikeWildcardPattern_withPercentPrefixAndSuffix() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name like '%${lastName}%'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.last_name like ?");
+        assertThat(result.getParams()).containsExactly("%Smith%");
+    }
+
+    @Test
+    @DisplayName("should detect quoted context for like '%${name}' pattern (trailing wildcard only)")
+    void shouldBindLikeWildcardPattern_withPercentPrefixOnly() {
+        Vector<String> vec = new Vector<>();
+        vec.add("Smith");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "demographic.last_name like '%${lastName}'", vec);
+
+        assertThat(result.getSql()).isEqualTo("demographic.last_name like ?");
+        assertThat(result.getParams()).containsExactly("%Smith");
+    }
+
+    @Test
+    @DisplayName("should detect quoted context for ='abc${x}def' pattern (prefix and suffix inside quotes)")
+    void shouldFoldPrefixAndSuffix_insideQuotedLiteral() {
+        Vector<String> vec = new Vector<>();
+        vec.add("mid");
+
+        ParameterizedSql result = RptReportCreator.getWhereValueClauseParameterized(
+                "t.code='abc${x}def'", vec);
+
+        assertThat(result.getSql()).isEqualTo("t.code=?");
+        assertThat(result.getParams()).containsExactly("abcmiddef");
+    }
+
+    // --- isInsideQuotedLiteral helper ---
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should return true when index is inside single-quoted string")
+    void shouldReturnTrue_whenInsideQuotedLiteral() {
+        // "t.name='hello world'" — index of 'h' (8) is inside quotes
+        assertThat(RptReportCreator.isInsideQuotedLiteral("t.name='hello world'", 8)).isTrue();
+    }
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should return false when index is outside any quoted string")
+    void shouldReturnFalse_whenOutsideQuotedLiteral() {
+        // "t.name='hello' and t.age" — index of 'a' in 'and' (16) is outside quotes
+        assertThat(RptReportCreator.isInsideQuotedLiteral("t.name='hello' and t.age", 16)).isFalse();
+    }
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should handle escaped '' pairs correctly")
+    void shouldHandleEscapedQuotePairs() {
+        // "t.name='O''Brien'" — the '' is an escape, so index of 'B' (11) is still inside quotes
+        assertThat(RptReportCreator.isInsideQuotedLiteral("t.name='O''Brien'", 11)).isTrue();
+    }
+
+    @Test
+    @DisplayName("isInsideQuotedLiteral should return true for LIKE wildcard pattern")
+    void shouldReturnTrue_forLikeWildcardPattern() {
+        // "t.name like '%${x}%'" — the '%' before '$' is at index 14, which is inside quotes
+        String template = "t.name like '%${x}%'";
+        int dollarIdx = template.indexOf("${");
+        assertThat(RptReportCreator.isInsideQuotedLiteral(template, dollarIdx)).isTrue();
+    }
+}

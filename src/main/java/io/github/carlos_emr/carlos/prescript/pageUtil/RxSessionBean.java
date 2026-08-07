@@ -36,7 +36,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -55,7 +55,6 @@ public class RxSessionBean implements java.io.Serializable {
     private Hashtable allergyWarnings = new Hashtable();
     private Hashtable missingAllergyWarnings = new Hashtable();
     private Hashtable workingAllergyWarnings = new Hashtable();
-    private ArrayList attributeNames = new ArrayList();
     private String interactingDrugList = ""; //contains hash tables, each hashtable has the a
     private CopyOnWriteArrayList reRxDrugIdList = new CopyOnWriteArrayList<>();
     private HashMap randomIdDrugIdPair = new HashMap();
@@ -127,22 +126,6 @@ public class RxSessionBean implements java.io.Serializable {
 
     public void setDemographicNo(int RHS) {
         this.demographicNo = RHS;
-    }
-
-    public ArrayList getAttributeNames() {
-        return this.attributeNames;
-    }
-
-    public void setAttributeNames(ArrayList RHS) {
-        this.attributeNames = RHS;
-    }
-
-    public void addAttributeName(String RHS) {
-        this.attributeNames.add(RHS);
-    }
-
-    public void addAttributeName(String RHS, int index) {
-        this.attributeNames.set(index, RHS);
     }
 
     //--------------------------------------------------------------------------
@@ -346,7 +329,7 @@ public class RxSessionBean implements java.io.Serializable {
 
         //Check to see if Allergy checking property is on and if atccode is not null and if atccode is not "" or "null"
 
-        if (OscarProperties.getInstance().getBooleanProperty("RX_ALLERGY_CHECKING", "yes") && atccode != null && !atccode.equals("") && !atccode.equals("null")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("RX_ALLERGY_CHECKING", "yes") && atccode != null && !atccode.equals("") && !atccode.equals("null")) {
             logger.debug("Checking allergy reaction : " + atccode);
             if (allergyWarnings.containsKey(atccode)) {
 
@@ -467,7 +450,6 @@ public class RxSessionBean implements java.io.Serializable {
                 .append("allergyWarnings", allergyWarnings)
                 .append("missingAllergyWarnings", missingAllergyWarnings)
                 .append("workingAllergyWarnings", workingAllergyWarnings)
-                .append("attributeNames", attributeNames)
                 .append("interactingDrugList", interactingDrugList)
                 .append("reRxDrugIdList", reRxDrugIdList)
                 .append("randomIdDrugIdPair", randomIdDrugIdPair)

@@ -39,6 +39,12 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -49,23 +55,15 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.olis.dao.OLISSystemPreferencesDao;
-import io.github.carlos_emr.carlos.olis.model.OLISSystemPreferences;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
-import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class MessageUploader {
 
@@ -215,8 +213,6 @@ public final class MessageUploader {
             }
         }
 
-        boolean isTDIS = "TDIS".equals(type);
-        boolean hasBeenUpdated = false;
         Hl7TextMessage hl7TextMessage = new Hl7TextMessage();
         Hl7TextInfo hl7TextInfo = new Hl7TextInfo();
 
@@ -225,86 +221,60 @@ public final class MessageUploader {
             discipline = ((MEDITECHHandler) h).getDiscipline();
         }
 
-        if (isTDIS) {
-            List<Hl7TextInfo> matchingTdisLab = hl7TextInfoDao.searchByFillerOrderNumber(fillerOrderNum, sendingFacility);
-            if (matchingTdisLab.size() > 0) {
-
-                hl7TextMessageDao.updateIfFillerOrderNumberMatches(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING), fileId, matchingTdisLab.get(0).getLabNumber());
-
-                hl7TextInfoDao.updateReportStatusByLabId(reportStatus, matchingTdisLab.get(0).getLabNumber());
-                hasBeenUpdated = true;
-            }
-        }
         int insertID = 0;
-        if (!isTDIS || !hasBeenUpdated) {
-            hl7TextMessage.setFileUploadCheckId(fileId);
-            hl7TextMessage.setType(type);
-            hl7TextMessage.setBase64EncodedeMessage(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
-            hl7TextMessage.setServiceName(serviceName);
-            hl7TextMessageDao.persist(hl7TextMessage);
+        hl7TextMessage.setFileUploadCheckId(fileId);
+        hl7TextMessage.setType(type);
+        hl7TextMessage.setBase64EncodedeMessage(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
+        hl7TextMessage.setServiceName(serviceName);
+        hl7TextMessageDao.persist(hl7TextMessage);
 
-            insertID = hl7TextMessage.getId();
-            hl7TextInfo.setLabNumber(insertID);
-            hl7TextInfo.setLastName(lastName);
-            hl7TextInfo.setFirstName(firstName);
-            hl7TextInfo.setSex(sex);
-            hl7TextInfo.setHealthNumber(hin);
-            hl7TextInfo.setResultStatus(resultStatus);
-            hl7TextInfo.setFinalResultCount(finalResultCount);
-            hl7TextInfo.setObrDate(obrDate.trim());
-            hl7TextInfo.setPriority(priority);
-            hl7TextInfo.setRequestingProvider(requestingClient);
-            hl7TextInfo.setDiscipline(discipline);
-            hl7TextInfo.setReportStatus(reportStatus);
-            hl7TextInfo.setAccessionNumber(accessionNum);
-            hl7TextInfo.setSendingFacility(sendingFacility);
-            hl7TextInfo.setFillerOrderNum(fillerOrderNum);
+        insertID = hl7TextMessage.getId();
+        hl7TextInfo.setLabNumber(insertID);
+        hl7TextInfo.setLastName(lastName);
+        hl7TextInfo.setFirstName(firstName);
+        hl7TextInfo.setSex(sex);
+        hl7TextInfo.setHealthNumber(hin);
+        hl7TextInfo.setResultStatus(resultStatus);
+        hl7TextInfo.setFinalResultCount(finalResultCount);
+        hl7TextInfo.setObrDate(obrDate.trim());
+        hl7TextInfo.setPriority(priority);
+        hl7TextInfo.setRequestingProvider(requestingClient);
+        hl7TextInfo.setDiscipline(discipline);
+        hl7TextInfo.setReportStatus(reportStatus);
+        hl7TextInfo.setAccessionNumber(accessionNum);
+        hl7TextInfo.setSendingFacility(sendingFacility);
+        hl7TextInfo.setFillerOrderNum(fillerOrderNum);
 
-            label = mergeLabLabels(hl7TextInfoDao.searchByAccessionNumberOrderByObrDate(accessionNum), label);
-            hl7TextInfo.setLabel(label);
+        label = mergeLabLabels(hl7TextInfoDao.searchByAccessionNumberOrderByObrDate(accessionNum), label);
+        hl7TextInfo.setLabel(label);
 
-            hl7TextInfoDao.persist(hl7TextInfo);
-        }
+        hl7TextInfoDao.persist(hl7TextInfo);
 
         String demProviderNo = null;
 
-        try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
             demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, connection);
         }
 
-		if ("OLIS_HL7".equals(type) && "0".equals(demProviderNo)) {
-			OLISSystemPreferencesDao olisPrefDao = (OLISSystemPreferencesDao) SpringUtils.getBean("OLISSystemPreferencesDao");
-            OLISSystemPreferences olisPreferences = olisPrefDao.getPreferences();
+        Integer limit = null;
+        boolean orderByLength = false;
+        String search = null;
+        if ("Spire".equals(type)) {
+            limit = Integer.valueOf(1);
+            orderByLength = true;
+            search = "provider_no";
+        }
 
-            try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
-                if (olisPreferences.isFilterPatients()) {
-                    //set as unclaimed
-                    providerRouteReport(String.valueOf(insertID), null, connection, String.valueOf(0), type);
-                } else {
-                    providerRouteReport(String.valueOf(insertID), docNums, DbConnectionFilter.getThreadLocalDbConnection(), demProviderNo, type);
-                }
-            }
-        } else {
-            Integer limit = null;
-            boolean orderByLength = false;
-            String search = null;
-			if ("Spire".equals(type)) {
-                limit = Integer.valueOf(1);
-                orderByLength = true;
-                search = "provider_no";
-            }
+        if ( "MEDITECH".equals(type) || "ExcellerisON".equals(type) ) {
+            search = "practitionerNo"; // ie the college number <oscarDB>.Provider.practitionerNo
+        }
 
-			if ( "MEDITECH".equals(type) || "ExcellerisON".equals(type) ) {
-				search = "practitionerNo"; // ie the college number <oscarDB>.Provider.practitionerNo
-            }
+        if ("IHAPOI".equals(type)) {
+            search = "hso_no";
+        }
 
-            if ("IHAPOI".equals(type)) {
-                search = "hso_no";
-            }
-
-            try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
-                providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
-            }
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
         }
         retVal = h.audit();
         if (results != null) {
@@ -373,9 +343,15 @@ public final class MessageUploader {
         return index;
     }
 
+    // Allowed column names for provider search to prevent SQL injection
+    private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
+            "ohip_no", "provider_no", "last_name", "first_name", "practitioner_no");
+
     /**
      * Attempt to match the doctors from the lab to a providers
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength) throws Exception {
         // Using HashSet to avoid duplicate providers numbers
         LinkedHashSet<String> providerNums = new LinkedHashSet<>();
@@ -386,11 +362,17 @@ public final class MessageUploader {
         String sqlSearchOn = "ohip_no";
 
         if (search_on != null && search_on.length() > 0) {
-            sqlSearchOn = search_on;
+            // Whitelist column name to prevent SQL injection (normalize before checking)
+            String normalized = search_on.trim().toLowerCase(java.util.Locale.ROOT);
+            if (VALID_SEARCH_COLUMNS.contains(normalized)) {
+                sqlSearchOn = normalized;
+            } else {
+                MiscUtils.getLogger().warn("providerRouteReport: rejected invalid search column, using default 'ohip_no'");
+            }
         }
 
         if (limit != null && limit.intValue() > 0) {
-            sqlLimit = " limit " + limit.toString();
+            sqlLimit = " limit " + limit.intValue(); // nosemgrep: formatted-sql-string -- integer value, not user string
         }
 
         if (orderByLength) {
@@ -401,26 +383,29 @@ public final class MessageUploader {
             for (int i = 0; i < docNums.size(); i++) {
 
                 if (docNums.get(i) != null && !((String) docNums.get(i)).trim().equals("")) {
-                    if ("ON".equals(OscarProperties.getInstance().getProperty("billregion", "ON"))) {
+                    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
                         StringBuilder practitionerNum = new StringBuilder(((String) docNums.get(i)).trim());
                         if (sqlSearchOn.equalsIgnoreCase("ohip_no")) {
                             while (practitionerNum.length() < 6) {
                                 practitionerNum.insert(0, "0");
                             }
                         }
-                        sql = "select provider_no from provider where " + sqlSearchOn + " = '" + practitionerNum.toString() + "'" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.setString(1, practitionerNum.toString());
                     } else {
-                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE '" + ((String) docNums.get(i)) + "'" + sqlOrderByLength + sqlLimit;
+                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
+                        pstmt = conn.prepareStatement(sql);
+                        pstmt.setString(1, (String) docNums.get(i));
                     }
-                    pstmt = conn.prepareStatement(sql);
-                    ResultSet rs = pstmt.executeQuery();
+                    ResultSet rs = pstmt.executeQuery(); // nosemgrep: formatted-sql-string — sqlSearchOn whitelisted above; practitionerNum bound via PreparedStatement
                     while (rs.next()) {
                         providerNums.add(Misc.getString(rs, "provider_no"));
                     }
                     rs.close();
                     pstmt.close();
 
-                    String otherIdMatchKey = OscarProperties.getInstance().getProperty("lab.other_id_matching", "");
+                    String otherIdMatchKey = CarlosProperties.getInstance().getProperty("lab.other_id_matching", "");
                     if (otherIdMatchKey.length() > 0) {
                         OtherId otherId = OtherIdManager.searchTable(OtherIdManager.PROVIDER, otherIdMatchKey, (String) docNums.get(i));
                         if (otherId != null) {
@@ -455,199 +440,12 @@ public final class MessageUploader {
     }
 
 
-    public static Integer willOLISLabReportMatch(LoggedInInfo loggedInInfo, String lastName, String firstName, String sex, String dob, String hin) {
-        Connection conn = null;
-        PatientLabRoutingResult result = null;
-        String sql = null;
-        String demo = "0";
-        String provider_no = "0";
-        String dobYear = null;
-        String dobMonth = null;
-        String dobDay = null;
-        String hinMod = null;
-
-        try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
-
-            if (hin != null) {
-                hinMod = new String(hin);
-                if (hinMod.length() == 12) {
-                    hinMod = hinMod.substring(0, 10);
-                }
-            }
-            if (dob != null && !dob.equals("")) {
-                String[] dobArray = dob.trim().split("-");
-                dobYear = dobArray[0];
-                dobMonth = dobArray[1];
-                dobDay = dobArray[2];
-            }
-
-            if (hinMod == null || dobYear == null || dobMonth == null || dobDay == null) {
-                return null;
-            }
-
-            sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name = '" + lastName + "' and " + " year_of_birth = '" + dobYear + "' and " + " month_of_birth = '" + dobMonth + "' and " + " date_of_birth = '" + dobDay + "' and " + " sex = '" + sex + "' ";
-
-            logger.debug(sql);
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
-            int count = 0;
-
-            while (rs.next()) {
-                result = new PatientLabRoutingResult();
-                demo = Misc.getString(rs, "demographic_no");
-                provider_no = Misc.getString(rs, "provider_no");
-                result.setDemographicNo(Integer.parseInt(demo));
-                result.setProviderNo(provider_no);
-                count++;
-            }
-            rs.close();
-            pstmt.close();
-            if (count > 1) {
-                result = null;
-            }
-
-        } catch (SQLException sqlE) {
-            return null;
-        } finally {
-            DbConnectionFilter.releaseThreadLocalDbConnection();
-        }
-
-        if (result != null) {
-            DemographicMerged dm = new DemographicMerged();
-            Integer headDemo = dm.getHead(result.getDemographicNo());
-            if (headDemo != null && headDemo.intValue() != result.getDemographicNo()) {
-                Demographic demoTmp = demographicManager.getDemographic(loggedInInfo, headDemo);
-                if (demoTmp != null) {
-                    result.setDemographicNo(demoTmp.getDemographicNo());
-                    result.setProviderNo(demoTmp.getProviderNo());
-                } else {
-                    logger.info("Unable to load the head record of this patient record. (" + result.getDemographicNo() + ")");
-                    result = null;
-                }
-            }
-        }
-
-
-        return result != null ? result.getDemographicNo() : null;
-    }
-
-
-    private static String patientRouteReportOLIS(LoggedInInfo loggedInInfo, int labId, String lastName, String sex, String dob, String hin, Connection conn) throws SQLException {
-        PatientLabRoutingResult result = null;
-
-        String sql = null;
-        String demo = "0";
-        String provider_no = "0";
-        String dobYear = null;
-        String dobMonth = null;
-        String dobDay = null;
-        String hinMod = null;
-
-        try {
-            if (hin != null) {
-                hinMod = new String(hin);
-                if (hinMod.length() == 12) {
-                    hinMod = hinMod.substring(0, 10);
-                }
-            }
-            if (dob != null && !dob.equals("")) {
-                String[] dobArray = dob.trim().split("-");
-                dobYear = dobArray[0];
-                dobMonth = dobArray[1];
-                dobDay = dobArray[2];
-            }
-
-            if (hinMod == null || dobYear == null || dobMonth == null || dobDay == null) {
-                return null;
-            }
-
-            sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name = '" + lastName + "' and " + " year_of_birth = '" + dobYear + "' and " + " month_of_birth = '" + dobMonth + "' and " + " date_of_birth = '" + dobDay + "' and " + " sex = '" + sex + "' ";
-
-            logger.debug(sql);
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
-            int count = 0;
-
-            while (rs.next()) {
-                result = new PatientLabRoutingResult();
-                demo = Misc.getString(rs, "demographic_no");
-                provider_no = Misc.getString(rs, "provider_no");
-                result.setDemographicNo(Integer.parseInt(demo));
-                result.setProviderNo(provider_no);
-                count++;
-            }
-            rs.close();
-            pstmt.close();
-            if (count > 1) {
-                result = null;
-            }
-
-        } catch (SQLException sqlE) {
-            throw sqlE;
-        }
-
-
-        try {
-            //did this link a merged patient? if so, we need to make sure we are the head record, or update
-            //result to be the head record.
-            if (result != null) {
-                DemographicMerged dm = new DemographicMerged();
-                Integer headDemo = dm.getHead(result.getDemographicNo());
-                if (headDemo != null && headDemo.intValue() != result.getDemographicNo()) {
-                    Demographic demoTmp = demographicManager.getDemographic(loggedInInfo, headDemo);
-                    if (demoTmp != null) {
-                        result.setDemographicNo(demoTmp.getDemographicNo());
-                        result.setProviderNo(demoTmp.getProviderNo());
-                    } else {
-                        logger.info("Unable to load the head record of this patient record. (" + result.getDemographicNo() + ")");
-                        result = null;
-                    }
-                }
-            }
-
-
-            if (result == null) {
-                logger.info("Could not find patient for lab: " + labId);
-            } else {
-                Hl7textResultsData.populateMeasurementsTable("" + labId, result.getDemographicNo().toString());
-            }
-
-            if (result != null) {
-                sql = "insert into patientLabRouting (demographic_no, lab_no, lab_type, dateModified, created) values ('" + ((result != null && result.getDemographicNo() != null) ? result.getDemographicNo().toString() : "0") + "', '" + labId + "','HL7', now(), now())";
-                Connection c = null;
-                PreparedStatement pstmt = null;
-                try {
-                    c = DbConnectionFilter.getThreadLocalDbConnection();
-                    pstmt = c.prepareStatement(sql);
-                    pstmt.executeUpdate();
-
-                } finally {
-                    try {
-                        pstmt.close();
-                        c.close();
-                    } catch (SQLException e) {
-
-                    }
-                }
-
-            }
-        } catch (SQLException sqlE) {
-            logger.info("NO MATCHING PATIENT FOR LAB id =" + labId);
-            throw sqlE;
-        }
-
-        return (result != null) ? result.getProviderNo() : "0";
-    }
-
     /**
      * Attempt to match the patient from the lab to a demographic, return the patients providers which is to be used then no other providers can be found to match the patient to.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin, Connection conn) throws SQLException {
-
-        if ("OLIS_HL7".equals(labType)) {
-            return patientRouteReportOLIS(loggedInInfo, labId, lastName, sex, dob, hin, conn);
-        }
         PatientLabRoutingResult result = null;
 
         String sql = null;
@@ -660,38 +458,92 @@ public final class MessageUploader {
 
 
 			try {
-				if (hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
+				if (hin != null && hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
 				if (hin != null) {
 					hinMod = new String(hin);
-					if (hinMod.length() == 12) {
+                    // Ontario may be bare 10 digits or have the version code concacted 1234567890XX
+					// Quebec type hin look like HUTPyymmdd12 which is 12 characters
+					// BC hin MSP is a 9 digit code
+					if (hinMod.length() == 12 && StringUtils.isNumeric(hinMod.substring(0, 10))) {
+                        // strip the version code for Ontario
 						hinMod = hinMod.substring(0, 10);
 					}
 				}
 
-				if (dob != null && !dob.equals("") && !dob.equalsIgnoreCase("UNKNOWN")) {
+				if (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")) {
 					String[] dobArray = dob.trim().split("-");
 					dobYear = dobArray[0];
 					dobMonth = dobArray[1];
 					dobDay = dobArray[2];
 				}
-
-				// only the first letter of names
+                
+				List<String> sqlParams = new ArrayList<>();
+                
+                // if no hin but there is a dob try for a complete match against the full name DOB and gender
+				if ((hinMod == null || hinMod.trim().isEmpty())
+						&& dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")
+						&& StringUtils.isNotBlank(lastName)
+						&& StringUtils.isNotBlank(firstName)
+						&& StringUtils.isNotBlank(sex)
+						&& !sex.equalsIgnoreCase("UNKNOWN")) {
+					// Avoid logging PHI (name/DOB/sex). Lab id and match outcome are sufficient diagnostics.
+					logger.debug("Attempting no-HIN demographic match by name+DOB+sex for lab " + labId);
+					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name = ? and first_name = ?";
+					sqlParams.add(dobYear);
+					sqlParams.add(dobMonth);
+					sqlParams.add(dobDay);
+					sqlParams.add(sex + "%");
+                    sqlParams.add(lastName);
+					sqlParams.add(firstName);
+				}
+                
+				// only the first letter of names used for LAB_NOMATCH_NAMES=no
 				if (!firstName.equals("")) firstName = firstName.substring(0, 1);
 				if (!lastName.equals("")) lastName = lastName.substring(0, 1);
 
 
-				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
+				/*
+				 * HIN is PREFERRED for lab matching to ensure patient safety. The provincial Health Insurance Number
+				 * uniquely identifies a patient within the healthcare system, preventing cross-patient result delivery
+				 * and fatal patient mismatches that occurred in previous iterations.
+				 *
+				 * A no-HIN matching path is allowed ONLY when an exact match is found on all three demographic identifiers:
+				 * full legal name (first and last), date of birth (year, month, day), and gender. Gender matching is applied
+				 * EXCEPT when the stored sex value is not 'M' or 'F' - those non-binary/unspecified stored values act as a
+				 * wildcard and permit a match with any incoming lab gender value.
+				 *
+				 * For HIN-based matching (below), the LAB_NOMATCH_NAMES property controls whether name verification is required
+				 * in addition to HIN + DOB + gender validation. When LAB_NOMATCH_NAMES is "no", only the first letter of names
+				 * is used for matching.
+				 */
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
-					if (OscarProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
+                    // Gender matching allows the provided sex OR any stored sex value not explicitly 'F' or 'M'.
+                    // This permits matching when the stored demographic has non-binary/unspecified gender.
+					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
+						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
+						sqlParams.add(hinMod);
+						sqlParams.add(dobYear);
+						sqlParams.add(dobMonth);
+						sqlParams.add(dobDay);
+						sqlParams.add(sex + "%");
 					} else {
-						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name like '" + lastName + "%' and " + " first_name like '" + firstName + "%' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
+						sql = "select demographic_no, provider_no from demographic where hin=? and last_name like ? and first_name like ? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
+						sqlParams.add(hinMod);
+						sqlParams.add(lastName + "%");
+						sqlParams.add(firstName + "%");
+						sqlParams.add(dobYear);
+						sqlParams.add(dobMonth);
+						sqlParams.add(dobDay);
+						sqlParams.add(sex + "%");
 					}
-				}
+                }
 
 				if ( sql != null ) {
-					logger.debug(sql);
+					logger.debug("Matching patient demographics for lab routing");
 					PreparedStatement pstmt = conn.prepareStatement(sql);
+					for (int pi = 0; pi < sqlParams.size(); pi++) {
+						pstmt.setString(pi + 1, sqlParams.get(pi));
+					}
 					ResultSet rs = pstmt.executeQuery();
 					int count = 0;
 

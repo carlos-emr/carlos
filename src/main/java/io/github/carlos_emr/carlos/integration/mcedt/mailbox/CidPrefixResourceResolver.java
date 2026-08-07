@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import org.apache.xml.security.signature.XMLSignatureInput;
+import org.apache.xml.security.signature.XMLSignatureStreamInput;
 import org.apache.xml.security.utils.resolver.ResourceResolverContext;
 import org.apache.xml.security.utils.resolver.ResourceResolverException;
 import org.apache.xml.security.utils.resolver.ResourceResolverSpi;
@@ -11,7 +12,8 @@ import java.net.URLDecoder;
 import java.util.Collection;
 
 import org.apache.cxf.message.Attachment;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.AttachmentCachingInterceptor;
 
 /**
@@ -25,7 +27,7 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
 
     private static final String ATTACHMENT_PREFIX = "cid:";
 
-    private static Logger logger = Logger.getLogger(CidPrefixResourceResolver.class);
+    private static final Logger logger = LoggerFactory.getLogger(CidPrefixResourceResolver.class);
 
     private Collection<Attachment> attachments;
 
@@ -55,7 +57,7 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
 
         XMLSignatureInput result;
         try {
-            result = new XMLSignatureInput(attachment.getDataHandler().getInputStream());
+            result = new XMLSignatureStreamInput(attachment.getDataHandler().getInputStream());
         } catch (IOException e) {
             logger.error("Unable to create xml signature input", e);
 

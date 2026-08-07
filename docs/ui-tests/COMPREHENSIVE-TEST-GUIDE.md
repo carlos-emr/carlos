@@ -86,11 +86,11 @@ All tests use the same provider credentials:
 
 | Field | Value |
 |-------|-------|
-| Username | `openodoc` |
-| Password | `openo2025` |
-| PIN | `2025` |
+| Username | `carlosdoc` |
+| Password | `carlos2026` |
+| PIN | `2026` |
 | Provider No | `999998` |
-| Name | doctor openodoc |
+| Name | doctor carlosdoc |
 
 ### Required Test Patients
 
@@ -125,28 +125,28 @@ curl -sI http://localhost:8080/oscar/index.jsp | head -1
 
 ### 2. Database Connection
 ```bash
-mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
 # Expected: Returns 1
 ```
 
 ### 3. Test User Exists
 ```bash
-mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin FROM security WHERE user_name='openodoc';"
-# Expected: openodoc | 2025
+mariadb -h db -uroot -ppassword oscar -e \
+  "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
+# Expected: carlosdoc | 2026
 ```
 
 ### 4. Test Patients Exist
 ```bash
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT demographic_no, last_name, first_name FROM demographic WHERE demographic_no IN (1, 182);"
 # Expected: 2 rows
 ```
 
 ### 5. Reset Test Password (if needed)
 ```bash
-mysql -h db -uroot -ppassword oscar -e \
-  "UPDATE security SET password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96', forcePasswordReset=0 WHERE user_name='openodoc';"
+mariadb -h db -uroot -ppassword oscar -e \
+  "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
 ---
@@ -239,8 +239,8 @@ ui-test-runs/
 
 ```bash
 # Reset password
-mysql -h db -uroot -ppassword oscar -e \
-  "UPDATE security SET password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96', forcePasswordReset=0 WHERE user_name='openodoc';"
+mariadb -h db -uroot -ppassword oscar -e \
+  "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
 ### Application Not Responding
@@ -261,7 +261,7 @@ server log  # Watch for startup completion
 
 ```bash
 # Verify patient exists
-mysql -h db -uroot -ppassword oscar -e \
+mariadb -h db -uroot -ppassword oscar -e \
   "SELECT * FROM demographic WHERE demographic_no = 1;"
 ```
 

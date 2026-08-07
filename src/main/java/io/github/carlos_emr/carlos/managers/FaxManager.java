@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
@@ -51,27 +52,33 @@ public interface FaxManager {
 
     enum TransactionType {CONSULTATION, EFORM, FORM, RX, DOCUMENT}
 
-    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, FormTransportContainer formTransportContainer);
+    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, FormTransportContainer formTransportContainer) throws PDFGenerationException;
 
-    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo);
+    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo) throws PDFGenerationException;
 
     /**
-     * @return
-     * @Deprecated Move these rendering methods into a more generic class like the DocumentManager
+     * @deprecated Move these rendering methods into a more generic class like the DocumentManager
+     *
+     * @return Path to the rendered document, or {@code null} if rendering is not implemented for
+     *         the transaction type
+     * @throws PDFGenerationException when an EFORM or FORM document cannot be rendered; the message
+     *         carries the render diagnosis so callers fail with a real cause rather than a
+     *         context-free NullPointerException on a null return
      */
-    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo, FormTransportContainer formTransportContainer);
+    @Deprecated
+    Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo, FormTransportContainer formTransportContainer) throws PDFGenerationException;
 
     Path renderConsultationRequest(LoggedInInfo loggedInInfo, int requestId, int demographicNo);
 
     Path renderDocument(LoggedInInfo loggedInInfo, int documentNo, int demographicNo);
 
-    Path renderEform(LoggedInInfo loggedInInfo, int eformId, int demographicNo);
+    Path renderEform(LoggedInInfo loggedInInfo, int eformId, int demographicNo) throws PDFGenerationException;
 
     Path renderPrescription(LoggedInInfo loggedInInfo, int rxId, int demographicNo);
 
     Path renderForm(LoggedInInfo loggedInInfo, int formId, int demographicNo);
 
-    Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer);
+    Path renderForm(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) throws PDFGenerationException;
 
     /**
      * 1.) Creates the faxJob
@@ -82,10 +89,10 @@ public interface FaxManager {
      * recipient
      * recipientFaxNumber
      * comments (for cover page)
-     * isCoverpage
+     * coverpage
      * senderFaxNumber
      * demographicNo
-     * copytoRecipients (as String[])
+     * copyToRecipients (as String[])
      * <p>
      * The FaxJob list that is returned contains persisted FaxJob Objects
      */
@@ -98,10 +105,10 @@ public interface FaxManager {
      * recipient
      * recipientFaxNumber
      * comments (for cover page)
-     * isCoverpage
+     * coverpage
      * senderFaxNumber
      * demographicNo
-     * copytoRecipients (as String[])
+     * copyToRecipients (as String[])
      * The FaxJob returned is NEW UN-PERSISTED FaxJob Object with a single recipient
      */
     FaxJob createFaxJob(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap);
@@ -114,8 +121,7 @@ public interface FaxManager {
     List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, String[] faxRecipients);
 
     /**
-     * Create 1 faxJob for each fax recipient. Sets each faxJob to the
-     * default status of WAITNG.
+     * Create 1 faxJob copy for each fax recipient. Status is inherited from the original faxJob.
      */
     List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, List<FaxRecipient> faxRecipients);
 
@@ -168,6 +174,26 @@ public interface FaxManager {
     void logFaxJob(LoggedInInfo loggedInInfo, FaxJob faxJob, TransactionType transactionType, int transactionId);
 
     /**
+     * Persists a pre-built batch of consultation {@link FaxJob}s and writes each one's audit log in a
+     * single transaction. If persisting or logging any recipient fails, the whole batch is rolled back
+     * so no recipient is left as a sendable {@code WAITING} row while the caller reports failure. The
+     * caller is responsible for building each job (including cover pages and page counts) beforehand;
+     * those filesystem side effects are not covered by this transaction.
+     */
+    void persistAndLogConsultationFaxJobs(LoggedInInfo loggedInInfo, List<FaxJob> faxJobs, int requestId);
+
+    /**
+     * Creates, persists, and audit-logs a fax batch (primary + copy-to recipients) in a single
+     * transaction. Equivalent to {@link #createAndSaveFaxJob} followed by {@link #logFaxJob} for each
+     * persisted job, but bundled so a log failure rolls the persisted jobs back — otherwise the jobs
+     * commit, the clinician sees an error when the post-commit log throws, and a retry queues a second
+     * sendable set (the PHI fax transmits twice). Returns the job list (persisted WAITING jobs and
+     * un-persisted ERROR jobs) for the caller to render per-job status.
+     */
+    List<FaxJob> persistAndLogFaxJobs(LoggedInInfo loggedInInfo, java.util.Map<String, Object> faxJobMap,
+            TransactionType transactionType, Integer transactionId);
+
+    /**
      * Update the transaction logs with a new status.
      */
     void updateFaxLog(LoggedInInfo loggedInInfo, FaxJob faxJob);
@@ -190,10 +216,6 @@ public interface FaxManager {
      */
     boolean flush(LoggedInInfo loggedInInfo, String filePath);
 
-    /**
-     * Check if fax services are enabled.
-     */
-
     FaxJob getFaxJob(LoggedInInfo loggedInInfo, int jobId);
 
     /**
@@ -211,6 +233,8 @@ public interface FaxManager {
     boolean resendFax(LoggedInInfo loggedInInfo, String jobId, String destination);
 
     public void restartFaxScheduler(LoggedInInfo loggedInInfo);
+
+    void startFaxSchedulerIfNotRunning(LoggedInInfo loggedInInfo);
 
     public ObjectNode getFaxSchedularStatus(LoggedInInfo loggedInInfo);
 

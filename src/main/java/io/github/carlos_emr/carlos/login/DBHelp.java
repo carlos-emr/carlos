@@ -37,11 +37,12 @@ package io.github.carlos_emr.carlos.login;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.Misc;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * deprecated Use JPA instead, no new code should be written against this class.
@@ -49,17 +50,46 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 @Deprecated
 public final class DBHelp {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String QUERY_ERROR_MESSAGE = "Error";
 
 
-    public static ResultSet searchDBRecord(String sql) {
+    // searchDBRecord(String) removed — all callers migrated to searchDBRecord(String, Object...).
+    // See git history for the deprecated raw SQL execution wrapper.
+
+    /**
+     * Executes a parameterized query and returns a ResultSet.
+     *
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return the ResultSet, or {@code null} on error
+     */
+    public static ResultSet searchDBRecord(String sql, Object... params) {
         ResultSet ret = null;
         try {
-
-            ret = DBHandler.GetSQL(sql);
+            ret = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
         } catch (SQLException e) {
-            logger.error("Error", e);
+            logger.error(QUERY_ERROR_MESSAGE, e);
         }
+        return ret;
+    }
 
+    public static ResultSet searchDBRecord(ParameterizedSql sql) {
+        ResultSet ret = null;
+        try {
+            ret = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SQLException e) {
+            logger.error(QUERY_ERROR_MESSAGE, e);
+        }
+        return ret;
+    }
+
+    public static ResultSet searchDBRecord(LegacyJdbcQuery.TrustedSql sql, Object... params) {
+        ResultSet ret = null;
+        try {
+            ret = LegacyJdbcQuery.getPreparedResultSet(sql, params);
+        } catch (SQLException e) {
+            logger.error(QUERY_ERROR_MESSAGE, e);
+        }
         return ret;
     }
 

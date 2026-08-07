@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -84,7 +84,7 @@ public class CommonLabTestValues {
     }
 
     public static ArrayList<Hashtable<String, Serializable>> findUniqueLabsForPatient(String demographic) {
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
         String pathnet = op.getProperty("PATHNET_LABS");

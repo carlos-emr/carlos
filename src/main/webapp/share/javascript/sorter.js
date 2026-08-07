@@ -116,7 +116,7 @@ $(document).ready(function () {
             "<img style='box-shadow: none; -webkit-box-shadow: none; -moz-box-shadow: none' src='" + ctx + "/images/icons/114.png' /></span>";
     });
 
-    $(document).bind("contextmenu", function (e) {
+    $(document).on("contextmenu", function (e) {
         return false;
     });
 
@@ -178,7 +178,7 @@ $(document).ready(function () {
 
     $("#tool_savecontinue").click(function (e) {
         $("#builder").children().each(function () {
-            var num = $(this).find("span").html();
+            var num = $(this).find("span").text();
             var rotate = $(this).find("div").attr("rotate");
             $(this).attr("id", "page_" + num + "," + rotate);
         });
@@ -195,13 +195,17 @@ $(document).ready(function () {
 
         $("#tool_savecontinue span").html("Wait...");
 
-        $.getJSON(ctx + '/documentManager/SplitDocument.do?method=split&document=' + docnum + '&' + serialized + '&queueID=' + queueId,
-            function (data) {
+        $.ajax({
+            type: 'POST',
+            url: ctx + '/documentManager/SplitDocument',
+            data: serialized + '&method=split&document=' + docnum + '&queueID=' + queueId,
+            dataType: 'json',
+            success: function (data) {
                 $("#tool_savecontinue span").html("Save &amp; Continue");
-                popup(screen.height, screen.width, ctx + "/documentManager/showDocument.jsp?segmentID=" + data["newDocNum"] + '&demoName=' + encodeURIComponent(demoName) + "&inWindow=true", "assignDoc");
+                popup(screen.height, screen.width, ctx + "/documentManager/ViewShowDocument?segmentID=" + data["newDocNum"] + '&demoName=' + encodeURIComponent(demoName) + "&inWindow=true", "assignDoc");
                 return false;
             }
-        );
+        });
     });
 
     $("#tool_done").click(function (e) {
@@ -241,4 +245,4 @@ $(document).ready(function () {
     });
 });
 
-$(window).load(resizeUl);
+$(window).on('load', resizeUl);

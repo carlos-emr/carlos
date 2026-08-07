@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Collections;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import org.springframework.stereotype.Repository;
@@ -60,7 +60,7 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
     @Override
     public List<DemographicContact> findActiveByDemographicNo(int demographicNo) {
         String sql = "select x from " + this.modelClass.getName()
-                + " x where x.demographicNo=?1 and x.deleted=false and x.active=1";
+                + " x where x.demographicNo=?1 and x.deleted=false and x.active=true";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
         @SuppressWarnings("unchecked")
@@ -110,7 +110,7 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
     public List<DemographicContact> findAllByDemographicNoAndCategoryAndType(int demographicNo, String category,
                                                                              int type) {
         String sql = "select x from " + this.modelClass.getName()
-                + " x where x.demographicNo = ?1 and x.category = ?2 and x.type = ?3 and x.active=1 and deleted=false";
+                + " x where x.demographicNo = ?1 and x.category = ?2 and x.type = ?3 and x.active=true and deleted=false";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
         query.setParameter(2, category);
@@ -127,7 +127,7 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
     @Override
     public List<DemographicContact> findSDMByDemographicNo(int demographicNo) {
         String sql = "select x from " + this.modelClass.getName()
-                + " x where x.demographicNo = ?1 and x.sdm = 'true'  and x.active=1 and deleted=false";
+                + " x where x.demographicNo = ?1 and x.sdm = 'true'  and x.active=true and deleted=false";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
 

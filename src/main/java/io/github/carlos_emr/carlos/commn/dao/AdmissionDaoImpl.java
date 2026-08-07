@@ -35,9 +35,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
-import javax.persistence.Query;
+import java.util.Set;
+import jakarta.persistence.Query;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.model.AdmissionSearchBean;
@@ -348,20 +350,17 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         }
 
         List<Admission> currentAdmissions = getCurrentAdmissions(demographicNo);
+        Set<Integer> currentProgramIds = new HashSet<Integer>(currentAdmissions.size());
+        for (Admission currentAdmission : currentAdmissions) {
+            currentProgramIds.add(currentAdmission.getProgramId());
+        }
 
         List<Admission> fullyDischargedAdmissions = new ArrayList<Admission>();
 
         for (Admission d : dischargedAdmissions) {
-            boolean isDischarged = true;
-
-            for (Admission a : currentAdmissions) {
-                if (d.getProgramId().intValue() == a.getProgramId().intValue()) {
-                    isDischarged = false;
-                }
-            }
-
-            if (isDischarged)
+            if (!currentProgramIds.contains(d.getProgramId())) {
                 fullyDischargedAdmissions.add(d);
+            }
         }
 
         return fullyDischargedAdmissions;
@@ -537,7 +536,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
             throw new IllegalArgumentException();
         }
 
-        Admission admission = entityManager.find(Admission.class, id.intValue());
+        Admission admission = entityManager.find(Admission.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getAdmission: id= " + id + ", found: " + (admission != null));
@@ -784,7 +783,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         String status = "AC"; // only show active clients
         // get duplicated clients from this sql
         String q = "Select a From Demographic d, Admission a "
-                + "Where d.anonymous = ?1 and (d.PatientStatus=?2 or d.PatientStatus='' or d.PatientStatus=null) and d.DemographicNo=a.clientId and a.admissionStatus='current' and a.program.type != 'community'";
+                + "Where d.anonymous = ?1 and (d.patientStatus=?2 or d.patientStatus='' or d.patientStatus is null) and d.demographicNo=a.clientId and a.admissionStatus='current' and a.program.type != 'community'";
         Query query = entityManager.createQuery(q);
         query.setParameter(1, "one-time-anonymous");
         query.setParameter(2, status);

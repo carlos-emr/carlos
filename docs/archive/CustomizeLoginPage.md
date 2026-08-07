@@ -107,7 +107,7 @@ Images must be placed in the root of the login directory. The image names must b
 ## Acceptable Use Agreement
 The Acceptable Use Agreement should be saved as a text file inside the root of the login directory. Use of an AUA is a support provider preference. 
 
-Enable the AUA with the show_aua key in the oscar_mcmaster.properties file. 
+Enable the AUA with the show_aua key in the carlos.properties file. 
 
 ```
 /var/lib/OscarDocument/login/AcceptableUseAgreement.txt

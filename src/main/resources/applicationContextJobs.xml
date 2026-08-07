@@ -24,7 +24,7 @@
 	<util:list id="oscarJobTypes" value-type="java.lang.String">
     	<value>io.github.carlos_emr.carlos.commn.jobs.TestJob</value>
     	<value>io.github.carlos_emr.carlos.commn.jobs.TestJob1</value>
-    	<value>io.github.carlos_emr.OscarProperties</value>
+    	<value>io.github.carlos_emr.CarlosProperties</value>
    </util:list>
 
 	

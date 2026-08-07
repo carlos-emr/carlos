@@ -53,7 +53,6 @@ public class EctMeasurementsDataBean {
     private Date dateObservedAsDate = null;
     private Date dateEnteredAsDate = null;
     private String indicationColour = null;
-    String remoteFacility = null;
 
     public EctMeasurementsDataBean() {
     }
@@ -217,14 +216,6 @@ public class EctMeasurementsDataBean {
 
     public void setDateEnteredAsDate(Date dateEnteredAsDate) {
         this.dateEnteredAsDate = dateEnteredAsDate;
-    }
-
-    public String getRemoteFacility() {
-        return remoteFacility;
-    }
-
-    public void setRemoteFacility(String remoteFacility) {
-        this.remoteFacility = remoteFacility;
     }
 
     public int getNumMonthSinceObserved() {

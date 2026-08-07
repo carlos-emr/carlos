@@ -1,0 +1,268 @@
+/*
+ *
+ * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR - Clinical Assisting Recording Ledger Open Source
+ * https://github.com/carlos-emr/carlos
+ *
+ * @since 2026-02-16
+ */
+
+/* ============================================================
+   CARLOS EMR Global Stylesheet
+   ============================================================
+   Shared styles used across all pages via global-head.jspf.
+   Keep this file focused on truly universal patterns.
+   ============================================================ */
+
+/* CSS Custom Properties for the CARLOS color palette */
+:root {
+    --carlos-bg-light: #f5f5f5;
+    --carlos-border: #ddd;
+    --carlos-primary: #337ab7;
+    --carlos-link: #337ab7;
+    --carlos-text: #333;
+
+    /* Bootstrap 5 overrides — retheme via CARLOS variables */
+    --bs-primary: var(--carlos-primary);
+    --bs-link-color: var(--carlos-link);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--carlos-primary);
+    --bs-btn-border-color: var(--carlos-primary);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--carlos-primary) 85%, black);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--carlos-primary) 80%, black);
+    --bs-btn-active-bg: color-mix(in srgb, var(--carlos-primary) 75%, black);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--carlos-primary) 70%, black);
+}
+
+/* Retheme Bootstrap's outline-primary variant to use CARLOS blue (#337ab7)
+   instead of Bootstrap's default (#0d6efd). On hover/active the button fills
+   with the primary color, so text must flip to white for contrast. */
+.btn-outline-primary {
+    --bs-btn-color: var(--carlos-primary);
+    --bs-btn-border-color: var(--carlos-primary);
+    --bs-btn-hover-bg: var(--carlos-primary);
+    --bs-btn-hover-border-color: var(--carlos-primary);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--carlos-primary);
+    --bs-btn-active-border-color: var(--carlos-primary);
+    --bs-btn-active-color: #fff;
+}
+
+/* Bootstrap pagination — retheme to CARLOS blue via Bootstrap's own CSS
+   custom properties. Must target .pagination (not .page-link) because Bootstrap
+   defines these variables on the parent <ul> and child elements inherit them. */
+.pagination {
+    --bs-pagination-color: var(--carlos-primary);
+    --bs-pagination-hover-color: color-mix(in srgb, var(--carlos-primary) 75%, black);
+    --bs-pagination-hover-border-color: var(--carlos-primary);
+    --bs-pagination-focus-color: var(--carlos-primary);
+    --bs-pagination-active-bg: var(--carlos-primary);
+    --bs-pagination-active-border-color: var(--carlos-primary);
+}
+
+a {
+    color: var(--carlos-link);
+}
+
+a:hover {
+    color: #28619a;
+    color: color-mix(in srgb, var(--carlos-link) 75%, black);
+}
+
+/* Bootstrap form focus ring — retheme from default blue (#0d6efd) to CARLOS blue.
+   Applies to .form-control, .form-select, and any element using Bootstrap focus styles. */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus,
+.btn:focus {
+    border-color: var(--carlos-primary);
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--carlos-primary) 25%, transparent);
+}
+
+/* Bootstrap 5.3 checkbox/radio checked state — retheme to CARLOS blue.
+   Bootstrap renders checked checkboxes and radios via background-color AND
+   an inline SVG background-image that bakes in the color. Both must be
+   overridden. Uses !important to win over Bootstrap's specificity. */
+.form-check-input:checked {
+    background-color: #337ab7 !important;
+    border-color: #337ab7 !important;
+}
+
+.form-check-input:checked[type="checkbox"] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+}
+
+.form-check-input:checked[type="radio"] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e") !important;
+}
+
+/* Bootstrap form-select (dropdown) focus */
+.form-select:focus {
+    border-color: var(--carlos-primary);
+}
+
+/* Bootstrap range input */
+.form-range::-webkit-slider-thumb {
+    background-color: var(--carlos-primary);
+}
+.form-range::-moz-range-thumb {
+    background-color: var(--carlos-primary);
+}
+
+/* Base resets */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+        "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+        "Segoe UI Symbol", "Noto Color Emoji";
+    color: var(--carlos-text);
+}
+
+/* Page header bar — replaces inline styles like
+   style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd"
+   Add .page-header-bar--flex to lay the title and a search form side-by-side. */
+.page-header-bar {
+    width: 100%;
+    background: var(--carlos-bg-light);
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--carlos-border);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px !important;
+}
+
+.page-header-bar--flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.page-header-bar .page-header-title {
+    margin: 0;
+    font-size: 18px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+    line-height: 1.4;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* Ensure header bar child elements aren't overridden by legacy * { font-size: small !important } */
+.page-header-bar * {
+    font-size: inherit;
+}
+.page-header-bar .btn {
+    font-size: 14px !important;
+}
+
+.page-header-icon {
+    vertical-align: text-bottom;
+}
+
+/* Search form inside a flex page-header-bar — fills remaining space up to a max width
+   to prevent it from dominating the header on wide viewports. */
+.page-header-search-form {
+    flex: 1;
+    max-width: 450px;
+}
+
+/* Action links — replaces legacy <b><font size="+1"> wrappers */
+.action-link {
+    font-size: larger;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.action-link:hover {
+    text-decoration: underline;
+}
+
+/* Sidebar navigation — vertical pill nav used by config pages */
+.consult-sidebar {
+    position: sticky;
+    top: 15px;
+    align-self: flex-start;
+}
+
+.consult-sidebar + .col-md-9 {
+    padding-left: 25px;
+    padding-top: 5px;
+}
+
+.consult-sidebar .nav {
+    border: 1px solid var(--carlos-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.consult-sidebar .nav-link {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #fff;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0;
+    background-color: var(--carlos-primary);
+}
+
+.consult-sidebar .nav-link:last-child {
+    border-bottom: none;
+}
+
+.consult-sidebar .nav-link:hover {
+    background-color: color-mix(in srgb, var(--carlos-primary) 85%, black);
+    color: #fff;
+}
+
+.consult-sidebar .nav-link.active {
+    background-color: color-mix(in srgb, var(--carlos-primary) 70%, white);
+    color: #000;
+}
+
+/* Narrow checkbox column in data tables */
+.table .col-checkbox {
+    width: 30px;
+    text-align: center;
+}
+
+/* Action error messages */
+.action-errors {
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    color: #842029;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.action-errors ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+/* Print utilities */
+@media print {
+    .searchBox,
+    .page-header-bar {
+        display: none;
+    }
+}

@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 
@@ -47,13 +47,19 @@ import javax.servlet.http.HttpServletResponse;
  * One action here: save the collection of bills from the
  * session form bean.
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class QuickBillingBCSave2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -63,11 +69,16 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
 
     public String execute()
-            throws ServletException, IOException {
-
-        if (request.getSession().getAttribute("user") == null) {
+            throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
+
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
 
         QuickBillingBCHandler quickBillingHandler = new QuickBillingBCHandler();
 
@@ -100,6 +111,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         return halfBilling;
     }
 
+    @StrutsParameter
     public void setHalfBilling(String halfBilling) {
         this.halfBilling = halfBilling;
     }
@@ -108,10 +120,12 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         return creator;
     }
 
+    @StrutsParameter
     public void setCreator(String creator) {
         this.creator = creator;
     }
 
+    @StrutsParameter
     public void setIsHeaderSet(Boolean set) {
         this.isHeaderSet = set;
     }
@@ -120,10 +134,12 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         return isHeaderSet;
     }
 
+    @StrutsParameter(depth = 1)
     public List<ProviderData> getProviderList() {
         return providerList;
     }
 
+    @StrutsParameter
     public void setProviderList(List<ProviderData> providerList) {
         this.providerList = providerList;
     }
@@ -132,14 +148,17 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         return billingProviderNo;
     }
 
+    @StrutsParameter
     public void setBillingProviderNo(String billingProviderNo) {
         this.billingProviderNo = billingProviderNo;
     }
 
+    @StrutsParameter(depth = 1)
     public List<BillingFormData.BillingVisit> getBillingVisitTypes() {
         return billingVisitTypes;
     }
 
+    @StrutsParameter
     public void setBillingVisitTypes(List<BillingFormData.BillingVisit> billingVisitTypes) {
         this.billingVisitTypes = billingVisitTypes;
     }
@@ -148,6 +167,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         return billingProvider;
     }
 
+    @StrutsParameter
     public void setBillingProvider(String billingProvider) {
         this.billingProvider = billingProvider;
     }
@@ -156,6 +176,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         return serviceDate;
     }
 
+    @StrutsParameter
     public void setServiceDate(String serviceDate) {
         this.serviceDate = serviceDate;
     }
@@ -164,14 +185,17 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         return visitLocation;
     }
 
+    @StrutsParameter
     public void setVisitLocation(String visitLocation) {
         this.visitLocation = visitLocation;
     }
 
+    @StrutsParameter(depth = 1)
     public ArrayList<BillingSessionBean> getBillingData() {
         return billingData;
     }
 
+    @StrutsParameter
     public void setBillingData(ArrayList<BillingSessionBean> billingData) {
         this.billingData = billingData;
     }

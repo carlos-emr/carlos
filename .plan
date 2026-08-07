@@ -1,0 +1,160 @@
+# JasperReports Jakarta EE Migration Plan
+
+## Current State
+
+**pom.xml**: Already on `jasperreports:7.0.3` (Jakarta-compatible core)
+but missing the split extension artifacts introduced in JR7.
+
+**Java files using JasperReports** (8 files):
+
+| File | Key JR imports | Issue |
+|------|---------------|-------|
+| `PdfRecordPrinter.java` | `JRExporter`, `JRExporterParameter`, `JRPdfExporter` (from `engine.export`) | Uses **removed** `JRExporterParameter` API + old PDF package |
+| `OscarDocumentCreator.java` | `JRCsvExporter`, `JRXlsxExporter` (from `engine.export.ooxml`), `JasperExportManager` | CSV exporter moved to separate artifact; XLSX stays in core |
+| `FrmBCAR20202Action.java` | `JRPdfExporter` (from `engine.export`), `SimpleExporterInput/Output` | PDF package changed |
+| `FrmRourke2017Record.java` | Same as BCAR above | Same |
+| `FrmRourke2020Record.java` | Same as BCAR above | Same |
+| `ManageLetters.java` | `JRParameter`, `JasperReport` | Core imports — likely OK |
+| `ManagePatientLetters2Action.java` | `JasperCompileManager`, `JasperReport` | Core imports — likely OK |
+| `GeneratePatientLetters2Action.java` | `JasperExportManager`, `JasperFillManager` | Core imports — likely OK |
+
+**JRXML template files**: 40 files (Rourke 2017/2020, BCAR 2020, BC billing, ON billing, labels, day sheets)
+**Pre-compiled .jasper files**: 3 files (Ontario billing) — **MUST be recompiled**
+
+## Breaking Changes in JR 6→7
+
+1. **JRXML format change**: Digester→Jackson XML. Old v6 .jrxml files cannot be loaded by JR7.
+2. **Artifact split**: PDF exporter → `jasperreports-pdf`, CSV exporter → `jasperreports-csv` (separate JARs)
+3. **Package moves**: `net.sf.jasperreports.engine.export.JRPdfExporter` → `net.sf.jasperreports.pdf.JRPdfExporter`
+4. **Removed APIs**: `JRExporter`, `JRExporterParameter` (deprecated since JR5, removed in JR7)
+5. **JDT compiler**: `JRJdtCompiler` moved to separate `jasperreports-jdt` artifact
+6. **.jasper binary format**: Pre-compiled .jasper files from JR6 are NOT compatible with JR7
+
+## Implementation Plan
+
+### Step 1: Add missing JR7 extension artifacts to pom.xml
+
+```xml
+<!-- PDF export (JRPdfExporter moved here) -->
+<dependency>
+    <groupId>net.sf.jasperreports</groupId>
+    <artifactId>jasperreports-pdf</artifactId>
+    <version>7.0.3</version>
+</dependency>
+
+<!-- JDT compiler (required for runtime .jrxml compilation) -->
+<dependency>
+    <groupId>net.sf.jasperreports</groupId>
+    <artifactId>jasperreports-jdt</artifactId>
+    <version>7.0.3</version>
+</dependency>
+```
+
+Note: `JRXlsxExporter` stays in core jasperreports (no separate artifact needed).
+Note: `JRCsvExporter` — verify if still in core or needs `jasperreports-csv`. Check at compile time.
+
+### Step 2: Fix PdfRecordPrinter.java (removed API)
+
+This is the only file using the **removed** `JRExporter`/`JRExporterParameter` API.
+
+**Before** (lines 86-88, 426-430):
+```java
+import net.sf.jasperreports.engine.JRExporterParameter;
+import net.sf.jasperreports.engine.JRExporter;
+import net.sf.jasperreports.engine.export.JRPdfExporter;
+...
+JRExporter exporter = new JRPdfExporter();
+exporter.setParameter(JRExporterParameter.JASPER_PRINT, jasperPrint);
+exporter.setParameter(JRExporterParameter.OUTPUT_STREAM, os);
+exporter.exportReport();
+```
+
+**After**:
+```java
+import net.sf.jasperreports.pdf.JRPdfExporter;
+import net.sf.jasperreports.export.SimpleExporterInput;
+import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
+...
+JRPdfExporter exporter = new JRPdfExporter();
+exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(os));
+exporter.exportReport();
+```
+
+### Step 3: Fix PDF exporter import in 3 form files
+
+`FrmBCAR20202Action.java`, `FrmRourke2017Record.java`, `FrmRourke2020Record.java`
+already use the modern `SimpleExporterInput`/`SimpleOutputStreamExporterOutput` API.
+Only the import path for `JRPdfExporter` needs updating:
+
+```java
+// OLD:
+import net.sf.jasperreports.engine.export.JRPdfExporter;
+// NEW:
+import net.sf.jasperreports.pdf.JRPdfExporter;
+```
+
+### Step 4: Verify OscarDocumentCreator.java
+
+- `JasperExportManager.exportReportToPdfStream()` — verify this is still in core
+- `JRCsvExporter` — verify package location in JR7
+- `JRXlsxExporter` — stays in `net.sf.jasperreports.engine.export.ooxml` (confirmed in core)
+
+### Step 5: Convert all 40 JRXML files from v6 to v7 format
+
+This is the most labor-intensive step. JR7 uses Jackson XML instead of Digester, and old `.jrxml` files cannot be loaded.
+
+**Options** (in order of preference):
+
+**Option A: Build-time pre-compilation (RECOMMENDED)**
+- Add a Maven plugin to compile `.jrxml` → `.jasper` at build time using JR7
+- Ship only `.jasper` files; load with `JasperLoader` instead of `JasperCompileManager.compileReport()`
+- Eliminates runtime compilation overhead
+- Requires: writing a small Maven build step or using `jasperreports-maven-plugin`
+
+**Option B: Convert via Jaspersoft Studio 7**
+- Open each `.jrxml` in Jaspersoft Studio 7, which auto-converts to v7 format
+- Bulk conversion: right-click folder → "JasperReports > Update JasperReports files"
+- ⚠ Known issue: subreport conversion may produce blank subreports (GH#447)
+- Requires: installing Jaspersoft Studio 7 locally
+
+**Option C: Write a programmatic converter**
+- Use JR6 classes to load old JRXML, then JR7 classes to write new format
+- Not officially supported; fragile and version-dependent
+- Not recommended
+
+### Step 6: Delete pre-compiled .jasper files (3 files)
+
+These Ontario billing `.jasper` files were compiled with JR6 and are binary-incompatible:
+- `src/main/java/.../billings/ca/on/reports/end_year_statement_subreport.jasper`
+- `src/main/resources/.../ca/on/reports/end_year_statement_report.jasper`
+- `src/main/resources/.../ca/on/reports/end_year_statement_subreport.jasper`
+
+After converting the corresponding `.jrxml` files (Step 5), these should be either:
+- Deleted (if we switch to build-time compilation)
+- Recompiled from the converted `.jrxml` files
+
+### Step 7: Build and test
+
+- `make install` to verify compilation
+- Test PDF generation: Rourke forms, BCAR form, patient letters, billing reports
+- Test CSV/Excel export in OscarDocumentCreator
+- Test Ontario billing year-end statements (use .jasper files)
+
+## Risk Assessment
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| JRXML conversion corrupts templates | High — broken medical forms | Visual diff of rendered PDFs before/after |
+| Subreport conversion issues (GH#447) | Medium — Ontario billing has subreports | Test subreport rendering specifically |
+| Missing JDT compiler at runtime | High — can't compile JRXML | Add `jasperreports-jdt` dependency |
+| JRCsvExporter package changed | Low — only OscarDocumentCreator | Verify at compile time |
+
+## Order of Operations
+
+1. pom.xml changes (add extension artifacts)
+2. Java file import fixes (4 files)
+3. Build to verify Java compilation succeeds
+4. JRXML conversion (40 files) — this is the big one
+5. Delete/recompile .jasper files
+6. Full build + manual PDF rendering test

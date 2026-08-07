@@ -31,21 +31,32 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.entities.PaymentType;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ViewReceivePayment2Action
         extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         BillingViewBean bean = new BillingViewBean();
         String billingMasterNo = request.getParameter("lineNo");
         String billNo = request.getParameter("billNo");
@@ -76,14 +87,17 @@ public class ViewReceivePayment2Action
         return amountReceived;
     }
 
+    @StrutsParameter
     public void setAmountReceived(String amountReceived) {
         this.amountReceived = amountReceived;
     }
 
+    @StrutsParameter
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
 
+    @StrutsParameter
     public void setPayment(String payment) {
         this.payment = payment;
     }
@@ -92,23 +106,28 @@ public class ViewReceivePayment2Action
         this.paymentMethodList = paymentMethodList;
     }
 
+    @StrutsParameter
     public void setBillingmasterNo(String billingmasterNo) {
         this.billingmasterNo = billingmasterNo;
     }
 
+    @StrutsParameter
     public void setBillNo(String billNo) {
         this.billNo = billNo;
     }
 
+    @StrutsParameter
     public void setPaymentReceived(boolean paymentReceived) {
         this.paymentReceived = paymentReceived;
     }
 
+    @StrutsParameter
     public void setIsRefund(String isRefund) {
 
         this.isRefund = isRefund;
     }
 
+    @StrutsParameter
     public void setPayeeProviderNo(String payeeProviderNo) {
         this.payeeProviderNo = payeeProviderNo;
     }

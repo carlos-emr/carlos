@@ -28,9 +28,9 @@
  */
 package io.github.carlos_emr.carlos.commn.model.inbox;
 
-import javax.persistence.Column;
-import javax.persistence.EmbeddedId;
-import javax.persistence.Entity;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
 import java.util.Date;
 
 @Entity

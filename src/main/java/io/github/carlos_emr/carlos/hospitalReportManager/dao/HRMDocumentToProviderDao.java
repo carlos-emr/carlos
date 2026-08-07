@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
@@ -32,16 +32,6 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
 
     public HRMDocumentToProviderDao() {
         super(HRMDocumentToProvider.class);
-    }
-
-    public List<HRMDocumentToProvider> findAllUnsigned(Integer page, Integer pageSize) {
-        String sql = "select x from " + this.modelClass.getName() + " x where (x.signedOff IS NULL or x.signedOff = 0)";
-        Query query = entityManager.createQuery(sql);
-        query.setMaxResults(pageSize);
-        query.setFirstResult(page * pageSize);
-        @SuppressWarnings("unchecked")
-        List<HRMDocumentToProvider> documentToProviders = query.getResultList();
-        return documentToProviders;
     }
 
     public List<HRMDocumentToProvider> findByProviderNo(String providerNo, Integer page, Integer pageSize) {

@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Transactional
 public class EctProgramManagerImpl implements EctProgramManager {
@@ -82,6 +83,8 @@ public class EctProgramManagerImpl implements EctProgramManager {
         return pList;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<LabelValueBean> getProgramBeans(String providerNo, Integer facilityId) {
         if (providerNo == null || "".equalsIgnoreCase(providerNo.trim())) return new ArrayList<LabelValueBean>();
         Iterator<ProgramProvider> iter = programProviderDAOT.getProgramProvidersByProvider(providerNo).iterator();
@@ -94,7 +97,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
                 // Check if program is null before accessing its methods
                 if (program == null) continue;
 
-                if (facilityId != null && program.getFacilityId() != facilityId.intValue()) continue;
+                if (facilityId != null && !Objects.equals(program.getFacilityId(), facilityId)) continue;
 
                 if (program.isActive())
                     pList.add(new LabelValueBean(program.getName(), program.getId().toString()));
@@ -116,6 +119,8 @@ public class EctProgramManagerImpl implements EctProgramManager {
         return pList;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<LabelValueBean> getProgramForApptViewBeans(String providerNo, Integer facilityId) {
         if (providerNo == null || "".equalsIgnoreCase(providerNo.trim())) return new ArrayList<LabelValueBean>();
         Iterator<ProgramProvider> iter = programProviderDAOT.getProgramProvidersByProvider(providerNo).iterator();
@@ -125,7 +130,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
             if (p != null && p.getProgramId() != null && p.getProgramId().longValue() > 0) {
                 Program program = programDao.getProgramForApptView(Integer.valueOf(p.getProgramId().intValue()));
                 if (program == null) continue;
-                if (facilityId != null && program.getFacilityId() != facilityId.intValue()) continue;
+                if (facilityId != null && !Objects.equals(program.getFacilityId(), facilityId)) continue;
 
                 if (program.isActive()) pList.add(new LabelValueBean(program.getName(), program.getId().toString()));
             }

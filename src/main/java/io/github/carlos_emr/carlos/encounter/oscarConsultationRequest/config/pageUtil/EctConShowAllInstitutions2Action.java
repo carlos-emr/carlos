@@ -30,16 +30,17 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pa
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConShowAllInstitutions2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -66,6 +67,7 @@ public class EctConShowAllInstitutions2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }
@@ -74,6 +76,7 @@ public class EctConShowAllInstitutions2Action extends ActionSupport {
         return name;
     }
 
+    @StrutsParameter
     public void setName(String name) {
         this.name = name;
     }

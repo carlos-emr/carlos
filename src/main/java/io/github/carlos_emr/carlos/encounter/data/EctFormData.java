@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.data;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -40,31 +39,46 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 
-import javax.persistence.PersistenceException;
+import jakarta.persistence.PersistenceException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicForm;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+// FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
 public class EctFormData {
 
+    private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
+    private static final String LEGACY_FORM_SQL = "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
+    // Legacy built-in form table that is valid but not registered in encounterForm.
+    private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static Logger logger = MiscUtils.getLogger();
     private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
 
     public static final String DATE_FORMAT = "dd-MM-yyyy";
     public static final String DATETIME_FORMAT = "dd-MM-yyyy HH:mm:ss";
+
+    private static final List<String> REMOVED_CAISI_FORM_NAMES = Arrays.asList(
+            "Counsellor Assessment",
+            "Discharge Summary",
+            "Reception Assessment"
+    );
+
+    public static boolean isRemovedCaisiForm(String formName) {
+        return REMOVED_CAISI_FORM_NAMES.stream().anyMatch(removedName -> removedName.equalsIgnoreCase(formName));
+    }
 
     public static Form[] getForms() {
         List<EncounterForm> results = encounterFormDao.findAll();
@@ -72,6 +86,10 @@ public class EctFormData {
 
         ArrayList<Form> forms = new ArrayList<Form>();
         for (EncounterForm encounterForm : results) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             Form frm = new Form(encounterForm.getFormName(), encounterForm.getFormValue(), encounterForm.getFormTable(), encounterForm.isHidden());
             forms.add(frm);
         }
@@ -124,6 +142,10 @@ public class EctFormData {
         // grab patient forms for all the above form types grouped by date of edit
         ArrayList<PatientForm> allResults = new ArrayList<PatientForm>();
         for (EncounterForm encounterForm : encounterForms) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
                 allResults.addAll(getGroupedPatientFormsAsArrayList(demographicId.toString(), encounterForm.getFormName(), table, encounterForm.getFormValue()));
@@ -134,43 +156,35 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
-        table = StringUtils.trimToNull(table);
-        if (table == null) return (new ArrayList<PatientForm>());
+        String trustedTable = validateFormTable(table);
+        if (trustedTable == null) return (new ArrayList<PatientForm>());
 
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
+        Integer demographicNo = parseDemographicNo(demoNo);
+        if (demographicNo == null) return forms;
 
-        Connection c = null;
         try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
+            if (!trustedTable.equals("form")) {
+                String sql = groupedFormTableSql(trustedTable);
 
-            if (!table.equals("form")) {
-                String sql = "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + table + " WHERE demographic_no=? group by lastEdited";
-
-                java.sql.PreparedStatement ps = c.prepareStatement(sql);
-                ps.setInt(1, Integer.parseInt(demoNo));
-                ResultSet rs = ps.executeQuery();
-
-                while (rs.next()) {
-                    PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
-                    forms.add(frm);
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
+                        forms.add(frm);
+                    }
                 }
             } else {
-                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
-
-                java.sql.PreparedStatement ps = c.prepareStatement(sql);
-                ps.setInt(1, Integer.parseInt(demoNo));
-                ResultSet rs = ps.executeQuery();
-
-                while (rs.next()) {
-                    PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
-                    forms.add(frm);
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
+                        forms.add(frm);
+                    }
                 }
             }
         } catch (SQLException e) {
             logger.error("Unexpected error.", e);
             throw (new PersistenceException(e));
-        } finally {
-            SqlUtils.closeResources(c, null, null);
         }
 
         return (forms);
@@ -185,6 +199,10 @@ public class EctFormData {
         // grab all patient forms for all the above form types
         ArrayList<PatientForm> allResults = new ArrayList<PatientForm>();
         for (EncounterForm encounterForm : encounterForms) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
                 allResults.addAll(getPatientFormsAsArrayList(demographicId.toString(), encounterForm.getFormName(), table));
@@ -195,87 +213,88 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
-        table = StringUtils.trimToNull(table);
-        if (table == null) return (new ArrayList<PatientForm>());
+        String trustedTable = validateFormTable(table);
+        if (trustedTable == null) return (new ArrayList<PatientForm>());
 
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
+        Integer demographicNo = parseDemographicNo(demoNo);
+        if (demographicNo == null) return forms;
 
-        Connection c = null;
         try {
-            c = DbConnectionFilter.getThreadLocalDbConnection();
+            if (!trustedTable.equals("form")) {
+                String sql = patientFormTableSql(trustedTable);
 
-            if (!table.equals("form")) {
-                String sql = "SELECT ID, demographic_no, formCreated, formEdited FROM " + table + " WHERE demographic_no=? ORDER BY ID DESC";
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
 
-                java.sql.PreparedStatement ps = c.prepareStatement(sql);
-                ps.setInt(1, Integer.parseInt(demoNo));
-                ResultSet rs = ps.executeQuery();
+                        // identify the source table for this form
+                        frm.setTable(trustedTable);
 
-                while (rs.next()) {
-                    PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
-
-                    // identify the source table for this form
-                    frm.setTable(table);
-
-                    forms.add(frm);
+                        forms.add(frm);
+                    }
                 }
             } else {
-                String sql = "SELECT form_no, demographic_no, form_date from " + table + " where demographic_no=? order by form_no desc";
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
+                    while (rs.next()) {
+                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
 
-                java.sql.PreparedStatement ps = c.prepareStatement(sql);
-                ps.setInt(1, Integer.parseInt(demoNo));
-                ResultSet rs = ps.executeQuery();
+                        // identify the source table for this form
+                        frm.setTable(trustedTable);
 
-                while (rs.next()) {
-                    PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
-
-                    // identify the source table for this form
-                    frm.setTable(table);
-
-                    forms.add(frm);
+                        forms.add(frm);
+                    }
                 }
             }
         } catch (SQLException e) {
             logger.error("Unexpected error.", e);
             throw (new PersistenceException(e));
-        } finally {
-            SqlUtils.closeResources(c, null, null);
         }
 
         return (forms);
     }
 
-    public static ArrayList<PatientForm> getRemotePatientForms(LoggedInInfo loggedInInfo, Integer demographicId, String formName, String table) {
-        ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
-        List<CachedDemographicForm> remoteForms = null;
-        table = StringUtils.trimToNull(table);
-        if (table == null) return (new ArrayList<PatientForm>());
-
+    private static Integer parseDemographicNo(String demoNo) {
         try {
-            if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) return (forms);
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                remoteForms = demographicWs.getLinkedCachedDemographicForms(demographicId, table);
+            return Integer.valueOf(demoNo);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid demographic_no for form lookup: {}", LogSafe.sanitize(demoNo));
+            return null;
+        }
+    }
+
+    private static String validateFormTable(String table) {
+        String normalizedTable = StringUtils.trimToNull(table);
+        if (normalizedTable == null) {
+            return null;
+        }
+        if (!FORM_TABLE_NAME.matcher(normalizedTable).matches()) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Rejected invalid encounter form table name: {}", LogSafe.sanitize(normalizedTable));
             }
-        } catch (Exception e) {
-            logger.error("Error retriving remote forms :" + CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession()), e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
+            return null;
         }
-
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            remoteForms = IntegratorFallBackManager.getRemoteForms(loggedInInfo, demographicId, table);
+        if ("form".equals(normalizedTable) || INTERNAL_FORM_TABLES.contains(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
+            return normalizedTable;
         }
-
-        if (remoteForms == null) return (forms);
-
-        for (CachedDemographicForm cachedDemographicForm : remoteForms) {
-            Date date = cachedDemographicForm.getEditDate().getTime();
-            PatientForm frm = new PatientForm(formName, cachedDemographicForm.getFacilityIdIntegerCompositePk().getCaisiItemId(), cachedDemographicForm.getCaisiDemographicId(), date, date);
-            frm.setRemoteFacilityId(cachedDemographicForm.getFacilityIdIntegerCompositePk().getIntegratorFacilityId());
-            forms.add(frm);
+        if (logger.isWarnEnabled()) {
+            logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
         }
-        return (forms);
+        return null;
+    }
+
+    private static String groupedFormTableSql(String trustedTable) {
+        return "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + trustedTable + " WHERE demographic_no=? group by lastEdited";
+    }
+
+    private static String patientFormTableSql(String trustedTable) {
+        return "SELECT ID, demographic_no, formCreated, formEdited FROM " + trustedTable + " WHERE demographic_no=? ORDER BY ID DESC";
+    }
+
+    private static boolean isKnownEncounterFormTable(String table) {
+        // EncounterFormDaoImpl caches form-table lookups; keep validation here as the boundary.
+        return !encounterFormDao.findByFormTable(table).isEmpty();
     }
 
     public static PatientForm[] getPatientForms(String demoNo, String table) {
@@ -284,15 +303,6 @@ public class EctFormData {
 
     public static PatientForm[] getPatientFormsFromLocalAndRemote(LoggedInInfo loggedInInfo, String demoNo, String table) {
         ArrayList<PatientForm> results = getPatientFormsAsArrayList(demoNo, null, table);
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                ArrayList<PatientForm> remoteResults = getRemotePatientForms(loggedInInfo, Integer.parseInt(demoNo), null, table);
-                results.addAll(remoteResults);
-            } catch (Exception e) {
-                logger.error("Retrieving remote forms failed", e);
-            }
-        }
 
         Collections.sort(results, PatientForm.CREATED_DATE_COMPARATOR);
 
@@ -354,7 +364,6 @@ public class EctFormData {
         };
 
         public Integer formId;
-        private Integer remoteFacilityId;
         public Integer demographicId;
         public Date created;
         public Date edited;
@@ -428,14 +437,6 @@ public class EctFormData {
 
         public void setFormName(String formName) {
             this.formName = formName;
-        }
-
-        public Integer getRemoteFacilityId() {
-            return (remoteFacilityId);
-        }
-
-        public void setRemoteFacilityId(Integer remoteFacilityId) {
-            this.remoteFacilityId = remoteFacilityId;
         }
 
         /**

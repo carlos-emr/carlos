@@ -1,6 +1,9 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.managers.*;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.metrics.LongCounter;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
@@ -12,12 +15,16 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.utility.DateUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -25,12 +32,15 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.util.*;
 
 /**
@@ -64,6 +74,15 @@ import java.util.*;
  */
 @Service
 public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager {
+    private static final org.apache.logging.log4j.Logger logger =
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+    private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
+    private static final LongCounter TEMP_CLEANUP_FAILURES = GlobalOpenTelemetry.getMeter(
+                    "io.github.carlos_emr.carlos.documentManager")
+            .counterBuilder("carlos.eform.render.temp_cleanup.failures")
+            .setDescription("Failed deletions of intermediate eForm renderer temp files")
+            .build();
+
     @Autowired
     private ConsultDocsDao consultDocsDao;
     @Autowired
@@ -101,11 +120,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param documentType DocumentType the type of documents to retrieve (e.g., DOC, LAB, EFORM, HRM, FORM)
      * @param demographicNo Integer the patient's demographic number for security validation
      * @return List&lt;String&gt; a list of document IDs as strings attached to the consultation request
-     * @throws RuntimeException if the user lacks the required "_con" read privilege
+     * @throws SecurityException if the user lacks the required "_con" read privilege
      */
     public List<String> getConsultAttachments(LoggedInInfo loggedInInfo, Integer requestId, DocumentType documentType, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
         List<String> consultAttachments = new ArrayList<>();
@@ -301,11 +320,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param providerNo String the provider number performing the attachment operation
      * @param requestId Integer the unique identifier of the consultation request
      * @param demographicNo Integer the patient's demographic number for security validation
-     * @throws RuntimeException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
         DocumentAttach documentAttach = new DocumentAttach();
@@ -329,11 +348,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @param demographicNo Integer the patient's demographic number for security validation
      * @param editOnOcean Boolean when true, registers attachments for OceanMD transmission;
      *                            when false, performs standard local attachment only
-     * @throws RuntimeException if the user lacks the required "_con" write privilege
+     * @throws SecurityException if the user lacks the required "_con" write privilege
      */
     public void attachToConsult(LoggedInInfo loggedInInfo, DocumentType documentType, String[] attachments, String providerNo, Integer requestId, Integer demographicNo, Boolean editOnOcean) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_con)");
+            throw new SecurityException(MISSING_CONSULT_SECURITY_OBJECT);
         }
 
         DocumentAttach documentAttach = new DocumentAttach(demographicNo, editOnOcean);
@@ -378,12 +397,53 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during PDF concatenation or form field flattening
      */
     public Path concatPDF(ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        return concatPDF(pdfDocumentList, null);
+    }
+
+    /**
+     * Concatenates a packet, naming the temp file after the patient it belongs to.
+     *
+     * <p>The name matters beyond tidiness. It survives into {@code DOCUMENT_DIR}: temp files are
+     * promoted by their basename, so the packet name becomes the stored document name. Naming every
+     * packet {@code combinedPDF_<epochMillis>} made that basename patient-agnostic, so two packets
+     * built in the same millisecond — different patients, different specialists — competed for one
+     * destination. {@code promoteApplicationTempFile} now claims destinations atomically so neither
+     * can overwrite the other, but a name that cannot collide across patients in the first place is
+     * the better property to hold: it keeps a same-millisecond collision within one chart, where the
+     * worst case is a confusing duplicate rather than a cross-patient disclosure.</p>
+     *
+     * @param pdfDocumentList the documents to merge
+     * @param demographicNo the patient this packet belongs to; digits only, ignored when absent or
+     *        non-numeric so a malformed request attribute degrades to the previous naming rather
+     *        than injecting into a filename
+     */
+    // Package-private, not private: DocumentAttachmentManagerImplUnitTest spies on this to assert
+    // that a single unattached eForm PDF is passed through rather than needlessly re-merged, and
+    // Mockito cannot intercept a private method.
+    Path concatPDF(ArrayList<Object> pdfDocumentList, String demographicNo)
+            throws PDFGenerationException {
         Path path = null;
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            ConcatPDF.concat(pdfDocumentList, outputStream);
-            path = nioFileManager.saveTempFile("combinedPDF_" + new Date().getTime(), outputStream);
+            int skipped = ConcatPDF.concat(pdfDocumentList, outputStream);
+            if (skipped > 0) {
+                // A document PDFBox could not parse/open was dropped from the merge (ConcatPDF logs
+                // which). Do NOT ship a clinical packet silently missing content — a consult faxed
+                // without its lab attachment, or a cover page with nothing behind it — so fail here
+                // and let the caller surface it rather than mark the job WAITING/complete.
+                throw new PDFGenerationException(skipped + " of " + pdfDocumentList.size()
+                        + " document(s) could not be included in the merged PDF.");
+            }
+            boolean patientScoped = demographicNo != null && demographicNo.matches("\\d{1,15}");
+            String packetName = patientScoped
+                    ? "combinedPDF_" + demographicNo + "_" + new Date().getTime()
+                    : "combinedPDF_" + new Date().getTime();
+            path = nioFileManager.saveTempFile(packetName, outputStream);
             flattenPDFFormFields(path);
+            logger.debug("Concatenated {} PDF document(s) into a combined PDF ({} bytes)",
+                    pdfDocumentList.size(), outputStream.size());
         } catch (IOException e) {
+            logger.error("Failed to concatenate {} PDF document(s) into a combined eForm PDF",
+                    pdfDocumentList.size(), e);
             throw new PDFGenerationException("An error occurred while concatenating PDF.", e);
         }
         return path;
@@ -422,7 +482,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during document rendering
      */
     public Path renderDocument(HttpServletRequest request, HttpServletResponse response, DocumentType documentType) throws PDFGenerationException {
-        return renderDocument(null, request, response, documentType, 0);
+        return renderDocument(null, request, response, documentType, 0, null);
     }
 
     /**
@@ -440,7 +500,26 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during document rendering
      */
     public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId) throws PDFGenerationException {
-        return renderDocument(loggedInInfo, null, null, documentType, documentId);
+        return renderDocument(loggedInInfo, null, null, documentType, documentId, null);
+    }
+
+    /**
+     * Renders an eForm and returns its completeness report with the PDF, for callers that can show
+     * the reader what the render reported.
+     */
+    @Override
+    public EformDataManager.EformPdfRender renderEform(
+            LoggedInInfo loggedInInfo, Integer eFormId, EFormRenderApproval approval) throws PDFGenerationException {
+        return eformDataManager.createEformPdfWithCompleteness(loggedInInfo, eFormId, approval);
+    }
+
+    /**
+     * eForm-aware overload using a server-issued approval for an exact incomplete render.
+     */
+    @Override
+    public Path renderDocument(LoggedInInfo loggedInInfo, DocumentType documentType, Integer documentId,
+            EFormRenderApproval approval) throws PDFGenerationException {
+        return renderDocument(loggedInInfo, null, null, documentType, documentId, approval);
     }
 
     /**
@@ -481,7 +560,9 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
         attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-        return concatPDF(pdfDocumentList);
+        Path result = concatPDF(pdfDocumentList, demographicId);
+        cleanupRenderedTempInputs(pdfDocumentList, result);
+        return result;
     }
 
     /**
@@ -502,27 +583,174 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during rendering or concatenation
      */
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
+        return renderEFormWithAttachments(request, response, null);
+    }
+
+    /**
+     * Renders the eForm packet using exact approvals for any incomplete eForms it contains.
+     */
+    @Override
+    public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response,
+            EFormRenderApproval approval) throws PDFGenerationException {
+        return renderEFormPacket(request, response, approval).path();
+    }
+
+    /**
+     * Renders the eForm packet and returns the merged completeness alongside it, for callers that
+     * can show the reader what the render reported.
+     */
+    @Override
+    public EformDataManager.EformPdfRender renderEFormPacketWithCompleteness(
+            HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval)
+            throws PDFGenerationException {
+        return renderEFormPacket(request, response, approval);
+    }
+
+    /**
+     * Renders an eForm packet to a temporary PDF for the fax confirmation workflow.
+     *
+     * <p>The caller owns the returned path and must either register an incomplete packet with
+     * EFormRenderApprovalService.issueStagedFaxPreview(...) for session-bound cleanup, or delete
+     * the file after the fax pipeline finishes with it.</p>
+     *
+     * @param request authenticated fax request carrying the eForm and demographic identifiers
+     * @param response current response used while rendering supported packet attachments
+     * @return temporary PDF path together with packet and per-form completeness metadata
+     * @throws PDFGenerationException when the packet cannot be rendered or assembled
+     * @since 2026-07-28
+     */
+    @Override
+    public EformDataManager.EformPdfRender stageEFormPacketForFaxPreview(
+            HttpServletRequest request, HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException {
+        if (approval == null) {
+            throw new SecurityException("A staged fax preview requires an internal render approval");
+        }
+        return renderEFormPacket(request, response, approval);
+    }
+
+    private EformDataManager.EformPdfRender renderEFormPacket(HttpServletRequest request,
+            HttpServletResponse response, EFormRenderApproval approval) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
         String demographicId = (String) request.getAttribute("demographicId");
-        Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, Integer.parseInt(fdid));
-
-        List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
-        List<EDoc> attachedEDocs = EDocUtil.listDocsAttachedToEForm(loggedInInfo, demographicId, fdid, EDocUtil.ATTACHED);
-        CommonLabResultData labResultData = new CommonLabResultData();
-        List<LabResultData> attachedLabs = labResultData.populateLabResultsDataEForm(loggedInInfo, demographicId, fdid, CommonLabResultData.ATTACHED);
-        ArrayList<HashMap<String, ? extends Object>> attachedHRMs = eformDataManager.getHRMDocumentsAttachedToEForm(loggedInInfo, fdid, demographicId);
-        List<EctFormData.PatientForm> attachedForms = eformDataManager.getFormsAttachedToEForm(loggedInInfo, fdid, demographicId);
-
+        if (fdid == null || fdid.isBlank()) {
+            throw new PDFGenerationException("eForm render request did not carry an fdid.");
+        }
+        int fdidValue;
+        try {
+            fdidValue = Integer.parseInt(fdid);
+        } catch (NumberFormatException e) {
+            throw new PDFGenerationException("eForm render request carried a non-numeric fdid.");
+        }
+        EFormData storedEform = eformDataManager.findByFdid(loggedInInfo, fdidValue);
+        if (storedEform == null || storedEform.getDemographicId() == null) {
+            throw new PDFGenerationException("eForm render request referenced an unknown fdid.");
+        }
+        String storedDemographicId = String.valueOf(storedEform.getDemographicId());
+        if (demographicId != null && !storedDemographicId.equals(demographicId)) {
+            throw new SecurityException("eForm demographic does not match fdid");
+        }
+        demographicId = storedDemographicId;
+        request.setAttribute("demographicId", storedDemographicId);
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
-        pdfDocumentList.add(eFormPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
-        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
-        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
-        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
-        attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+        long packetStartedNanos = System.nanoTime();
+        try {
+            EformDataManager.EformPdfRender primary =
+                    eformDataManager.createEformPdfWithCompleteness(loggedInInfo, fdidValue, approval);
+            long primaryRenderedNanos = System.nanoTime();
+            Path eFormPath = primary.path();
+            // Advisory conditions no longer withhold the document, so they would otherwise vanish on
+            // this path. Merge every rendered eForm's report and hand it back for the caller to show.
+            EFormRenderCompletenessReport packetCompleteness = primary.completeness();
+            Map<Integer, EFormRenderCompletenessReport> formCompleteness =
+                    new LinkedHashMap<>(primary.formCompleteness());
+            pdfDocumentList.add(eFormPath.toString());
 
-        return concatPDF(pdfDocumentList);
+            List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
+            List<EDoc> attachedEDocs = EDocUtil.listDocsAttachedToEForm(loggedInInfo, demographicId, fdid, EDocUtil.ATTACHED);
+            CommonLabResultData labResultData = new CommonLabResultData();
+            List<LabResultData> attachedLabs = labResultData.populateLabResultsDataEForm(loggedInInfo, demographicId, fdid, CommonLabResultData.ATTACHED);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMs = eformDataManager.getHRMDocumentsAttachedToEForm(loggedInInfo, fdid, demographicId);
+            List<EctFormData.PatientForm> attachedForms = eformDataManager.getFormsAttachedToEForm(loggedInInfo, fdid, demographicId);
+            long attachmentsLocatedNanos = System.nanoTime();
+
+            logger.debug("Rendering eForm with attachments: fdid={} eforms={} edocs={} labs={} hrms={} forms={}",
+                    LogSafe.sanitize(fdid), attachedEForms.size(), attachedEDocs.size(), attachedLabs.size(),
+                    attachedHRMs.size(), attachedForms.size());
+
+            EFormPacketAttachments attached =
+                    attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, approval);
+            packetCompleteness = packetCompleteness.merge(attached.completeness());
+            formCompleteness.putAll(attached.formCompleteness());
+            attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
+            attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
+            attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
+            attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+            long attachmentsRenderedNanos = System.nanoTime();
+
+            Path result = preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList, demographicId);
+            cleanupRenderedTempInputs(pdfDocumentList, result);
+            long packetCompletedNanos = System.nanoTime();
+            if (logger.isInfoEnabled()) {
+                logger.info("eForm packet timing: fdid={} primaryRenderMs={} attachmentLookupMs={} "
+                                + "attachmentRenderMs={} mergeMs={} totalMs={} attachments={}",
+                        LogSafe.sanitize(fdid),
+                        (primaryRenderedNanos - packetStartedNanos) / 1_000_000L,
+                        (attachmentsLocatedNanos - primaryRenderedNanos) / 1_000_000L,
+                        (attachmentsRenderedNanos - attachmentsLocatedNanos) / 1_000_000L,
+                        (packetCompletedNanos - attachmentsRenderedNanos) / 1_000_000L,
+                        (packetCompletedNanos - packetStartedNanos) / 1_000_000L,
+                        attachedEForms.size() + attachedEDocs.size() + attachedLabs.size()
+                                + attachedHRMs.size() + attachedForms.size());
+            }
+            return new EformDataManager.EformPdfRender(result, packetCompleteness,
+                    Map.copyOf(formCompleteness));
+        } catch (PDFGenerationException | RuntimeException e) {
+            cleanupRenderedTempInputs(pdfDocumentList, null);
+            throw e;
+        }
+    }
+
+    Path preserveSingleEformPdfWhenUnattached(Path eFormPath, List<Object> pdfDocumentList,
+            String demographicNo) throws PDFGenerationException {
+        if (pdfDocumentList.size() == 1 && eFormPath.toString().equals(pdfDocumentList.get(0))) {
+            return eFormPath;
+        }
+        return concatPDF(new ArrayList<>(pdfDocumentList), demographicNo);
+    }
+
+    /**
+     * Deletes the intermediate renderer temp inputs once they have been folded into {@code result}.
+     * Two hard safety rules: never delete the returned {@code result} itself, and only ever delete a
+     * file that lives under the CARLOS-owned application temp subtree
+     * ({@link PathValidationUtils#isInApplicationTempDirectory}). The second rule makes it impossible
+     * to delete a document-store edoc/lab/HRM file that was referenced (not copied) into the list —
+     * so a stored patient document can never be removed by this cleanup. Best-effort only: the
+     * scheduled ApplicationTempPurgeJob remains the backstop, so a failed delete never fails the render.
+     */
+    // PATH_TRAVERSAL_IN: deletion is gated by isInApplicationTempDirectory; only CARLOS-owned temp files are ever removed.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "deletion is gated by isInApplicationTempDirectory; only CARLOS-owned temp files are ever removed")
+    private void cleanupRenderedTempInputs(List<Object> pdfDocumentList, Path result) {
+        String resultPath = (result == null) ? null : result.toString();
+        for (Object entry : pdfDocumentList) {
+            if (!(entry instanceof String path)) {
+                continue;
+            }
+            if (path.equals(resultPath)) {
+                continue;
+            }
+            try {
+                java.io.File file = new java.io.File(path);
+                if (PathValidationUtils.isInApplicationTempDirectory(file)) {
+                    Files.deleteIfExists(file.toPath());
+                }
+            } catch (RuntimeException | java.io.IOException e) {
+                TEMP_CLEANUP_FAILURES.add(1);
+                logger.error("event=eform_render_temp_cleanup_failure "
+                        + "the scheduled temp purge is the backstop");
+            }
+        }
     }
 
     /**
@@ -539,10 +767,20 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during rendering or document creation
      */
     public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
+        return saveEFormAsEDoc(request, response, null);
+    }
+
+    /**
+     * Archives the eForm packet as an eDoc, using an exact approval for a render the completeness
+     * gate refused.
+     */
+    @Override
+    public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response,
+            EFormRenderApproval approval) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
+        Path eFormPath = renderEFormWithAttachments(request, response, approval);
         String demographicId = (String) request.getAttribute("demographicId");
-        Path eFormPath = renderEFormWithAttachments(request, response);
         return eformDataManager.saveEFormWithAttachmentsAsEDoc(loggedInInfo, fdid, demographicId, eFormPath);
     }
 
@@ -572,7 +810,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return base64 != null ? base64 : "";
     }
 
-    private Path renderDocument(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response, DocumentType documentType, Integer documentId) throws PDFGenerationException {
+    private Path renderDocument(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response,
+            DocumentType documentType, Integer documentId, EFormRenderApproval approval) throws PDFGenerationException {
         Path path = null;
         switch (documentType) {
             case DOC:
@@ -582,14 +821,13 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 path = labManager.renderLab(loggedInInfo, documentId);
                 break;
             case EFORM:
-                path = eformDataManager.createEformPDF(loggedInInfo, documentId);
+                path = eformDataManager.createEformPDF(loggedInInfo, documentId, approval);
                 break;
             case HRM:
                 path = HRMUtil.renderHRM(loggedInInfo, documentId);
                 break;
             case FORM:
-                EctFormData.PatientForm patientForm = null;
-                path = formsManager.renderForm(request, response, patientForm);
+                path = formsManager.renderForm(request, response, null);
                 break;
             default:
                 break;
@@ -598,10 +836,30 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, null);
+    }
+
+    /**
+     * @return the merged completeness of every attached eForm, so an advisory condition on an
+     *         attachment is not silently dropped from the packet the clinician receives
+     */
+    private EFormPacketAttachments attachEFormPDFs(LoggedInInfo loggedInInfo,
+            List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList,
+            EFormRenderApproval approval) throws PDFGenerationException {
+        EFormRenderCompletenessReport merged = EFormRenderCompletenessReport.complete();
+        Map<Integer, EFormRenderCompletenessReport> formCompleteness = new LinkedHashMap<>();
         for (EFormData eForm : attachedEForms) {
-            Path path = renderDocument(loggedInInfo, DocumentType.EFORM, eForm.getId());
-            pdfDocumentList.add(path.toString());
+            EformDataManager.EformPdfRender rendered =
+                    eformDataManager.createEformPdfWithCompleteness(loggedInInfo, eForm.getId(), approval);
+            merged = merged.merge(rendered.completeness());
+            formCompleteness.putAll(rendered.formCompleteness());
+            pdfDocumentList.add(rendered.path().toString());
         }
+        return new EFormPacketAttachments(merged, Map.copyOf(formCompleteness));
+    }
+
+    private record EFormPacketAttachments(EFormRenderCompletenessReport completeness,
+            Map<Integer, EFormRenderCompletenessReport> formCompleteness) {
     }
 
     private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
@@ -648,20 +906,55 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * and platforms. This is particularly important for healthcare documents that must maintain
      * data integrity and comply with record-keeping regulations.
      *
-     * The operation modifies the PDF file in place, replacing the original file with the flattened version.
+     * <p>When the document carries an AcroForm the file is replaced with the flattened version,
+     * written to a sibling temp file and atomically moved over the original (never {@code save()}
+     * onto the live backing file). When there is no AcroForm the file is deliberately left
+     * byte-for-byte untouched (see the inline note below).</p>
      *
      * @param pdfPath Path the file system path to the PDF document to flatten
      * @throws PDFGenerationException if an error occurs while loading, processing, or saving the PDF file
      */
     public void flattenPDFFormFields(Path pdfPath) throws PDFGenerationException {
-        try (PDDocument document = PDDocument.load(pdfPath.toFile())) {
+        Path flattenedTemp = null;
+        try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
             PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
-            if (acroForm != null) {
-                acroForm.flatten();
+            if (acroForm == null) {
+                // Nothing to flatten — and, critically, do NOT rewrite the file: PDFBox loads from
+                // the file lazily, and save() onto the SAME path the open document is still backed
+                // by overwrites streams it has not yet read. That self-clobber corrupted the
+                // browser-rendered eForm page of every merged PDF (its embedded subset font program
+                // was destroyed, leaving glyph-shifted, unextractable text for PDF parsers).
+                return;
             }
-            document.save(pdfPath.toString());
+            acroForm.flatten();
+            // Save to a SIBLING temp file, then atomically move it over the original. This never
+            // save()s onto the live backing file (the self-clobber above), never truncates the input
+            // in place (a save/IO failure mid-write would otherwise destroy a valid merged PDF), and
+            // streams to disk instead of holding a second full in-heap copy of a possibly-large
+            // merged packet. document.save() fully reads every referenced stream before returning, so
+            // moving the backing file afterward is safe while the document is still open.
+            flattenedTemp = pdfPath.resolveSibling(pdfPath.getFileName() + ".flatten.tmp");
+            document.save(flattenedTemp.toFile());
+            try {
+                Files.move(flattenedTemp, pdfPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(flattenedTemp, pdfPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+            flattenedTemp = null;
         } catch (IOException e) {
-            throw new PDFGenerationException("Error while flattening the " + pdfPath.getFileName() + " file. " + e.getMessage(), e);
+            logger.warn("PDF form flattening failed: type={}", e.getClass().getName());
+            throw new PDFGenerationException("Unable to flatten PDF form fields.");
+        } finally {
+            if (flattenedTemp != null) {
+                try {
+                    Files.deleteIfExists(flattenedTemp);
+                } catch (IOException cleanupFailure) {
+                    // Best-effort cleanup on a failed move; the original file is intact. Log it (basename
+                    // only) so an orphaned flatten temp is recorded rather than silently left on disk.
+                    logger.warn("Could not remove orphaned flatten temp file: {}",
+                            LogSafe.sanitize(flattenedTemp.getFileName().toString()));
+                }
+            }
         }
     }
 }

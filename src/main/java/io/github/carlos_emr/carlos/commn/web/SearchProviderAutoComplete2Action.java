@@ -30,11 +30,15 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -47,17 +51,28 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 /**
  * @author jackson
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class SearchProviderAutoComplete2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         if ("labSearch".equals(request.getParameter("method"))) {
             return labSearch();
         }
@@ -73,13 +88,15 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         Hashtable d = new Hashtable();
         d.put("results", provList);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectNode jsonArray = objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
         return null;
 
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String labSearch() throws Exception {
 
         String searchStr = request.getParameter("term");
@@ -98,20 +115,17 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
 
         ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
         List<io.github.carlos_emr.carlos.commn.model.ProviderData> provList = providerDataDao.findByName(firstName, lastName, true);
-        StringBuilder searchResults = new StringBuilder("[");
-        int idx = 0;
+        List<Map<String, String>> results = new ArrayList<>();
 
         for (io.github.carlos_emr.carlos.commn.model.ProviderData provData : provList) {
-            searchResults.append("{\"label\":\"" + provData.getLastName() + ", " + provData.getFirstName() + "\",\"value\":\"" + provData.getId() + "\"}");
-            if (idx < provList.size() - 1) {
-                searchResults.append(",");
-            }
-            ++idx;
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("label", provData.getLastName() + ", " + provData.getFirstName());
+            item.put("value", String.valueOf(provData.getId()));
+            results.add(item);
         }
 
-        searchResults.append("]");
-        response.setContentType("text/x-json");
-        response.getWriter().write(searchResults.toString());
+        response.setContentType("application/json");
+        response.getWriter().write(objectMapper.writeValueAsString(results)); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
 
         return null;
     }

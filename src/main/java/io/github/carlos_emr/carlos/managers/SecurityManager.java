@@ -38,11 +38,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class SecurityManager {
@@ -85,9 +86,13 @@ public class SecurityManager {
         LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.updateSecurityRecord", "id=" + security.getId());
     }
 
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "\"0\" is a policy threshold sentinel (zero past passwords to check), "
+                    + "not a credential; compared against the pastPasswordsToNotUse config property")
+    // "0" = policy threshold, not a password — prevents false positive on method name containing "password"
     public boolean checkPasswordAgainstPrevious(String newPassword, String providerNo) {
         //check previous passwords policy if the password is being changed
-        String previousPasswordPolicy = OscarProperties.getInstance().getProperty("password.pastPasswordsToNotUse", "0");
+        String previousPasswordPolicy = CarlosProperties.getInstance().getProperty("password.pastPasswordsToNotUse", "0");
         try {
             Security dbSecurity = securityDao.getByProviderNo(providerNo);
 
@@ -227,7 +232,7 @@ public class SecurityManager {
 
     public List<Security> findAllOrderByUserName(LoggedInInfo loggedInInfo) {
 
-        List<Security> results = securityDao.findAllOrderBy("user_name");
+        List<Security> results = securityDao.findAllOrderBy("userName");
 
         LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.findAllOrderByUserName", "");
 

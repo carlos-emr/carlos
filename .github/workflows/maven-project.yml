@@ -2,7 +2,8 @@
 #
 # Description:
 # This workflow automates the build and testing for the CARLOS EMR Maven project.
-# It uses a parallelized approach: build first, then run modern and legacy tests in parallel.
+# It uses a parallelized approach: build first, then run tests and JSP compilation
+# in parallel.
 #
 # Container Images:
 # This workflow tries to pull pre-built container images from ghcr.io first.
@@ -22,22 +23,23 @@
 #   - Runs `make install` to verify the project builds successfully
 #   - Saves Maven dependencies to cache for parallel test jobs
 #
-# - modern-tests (parallel):
+# - tests (parallel):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
-#   - Runs modern tests (JUnit 5) using H2 in-memory database
+#   - Runs tests (JUnit 5) using H2 in-memory database
 #   - Does NOT require the database container
 #
-# - legacy-tests (parallel):
+# - jspc (parallel):
 #   - Restores Maven dependencies from cache (graceful fallback if miss)
-#   - Runs legacy tests (JUnit 4) using MariaDB
-#   - Requires the database container
+#   - Compiles all JSPs via the jspc Maven profile
+#   - Catches JSP syntax errors and EL/tag errors that do not surface at runtime
+#   - Does NOT require the database container
 #
 # License:
 # This GitHub Workflow file is part of the Carlos EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
-# January 2026
+# March 2026
 
 name: Check Carlos EMR
 
@@ -65,13 +67,10 @@ jobs:
       packages: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -109,9 +108,13 @@ jobs:
           echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
           exit 1
 
+      - name: Set up Docker Buildx
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
       - name: Cache Docker layers
         if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
@@ -121,12 +124,16 @@ jobs:
       - name: Cache Maven packages
         # Restores and saves Maven dependencies from/to GitHub Actions cache.
         # Parallel test jobs restore from this same cache key for faster builds.
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .m2-cache
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+
+      - name: Purge stale local_repo artifacts from Maven cache
+        run: |
+          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
 
       - name: Build dev container (fallback)
         if: steps.pull-image.outputs.pulled != 'true'
@@ -164,7 +171,7 @@ jobs:
             make install
           "
 
-  modern-tests:
+  tests:
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -172,15 +179,15 @@ jobs:
       packages: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Restore Maven cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cache-restore
         continue-on-error: true
         with:
           path: .m2-cache
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -190,11 +197,8 @@ jobs:
           echo "Cache miss or restore failed, Maven will download dependencies"
           mkdir -p .m2-cache
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -232,9 +236,13 @@ jobs:
           echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
           exit 1
 
+      - name: Set up Docker Buildx
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
       - name: Cache Docker layers
         if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
@@ -268,16 +276,41 @@ jobs:
             git config --global --add safe.directory /workspace
           "
 
-      - name: Run modern tests
+      - name: Purge stale local_repo artifacts from Maven cache
+        run: |
+          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+
+      - name: Run tests
         run: |
           docker exec carlos-tomcat-dev bash -c "
             echo '========================================='
-            echo 'Running Modern Tests (JUnit 5 with H2)'
+            echo 'Running Tests (JUnit 5 with H2)'
             echo '========================================='
-            make install --run-modern-tests
+            make install --run-tests
           "
 
-  legacy-tests:
+  encode-lint:
+    # Encoder null-safety lint — catches two silent-failure classes:
+    #   A) <e:forXxx> tags used without the owasp.encoder.jakarta taglib
+    #      directive declared (Jasper silently drops the tag output).
+    #   B) Direct <e:forXxx>, ${e:forXxx()}, or Encode.forXxx() usage where
+    #      the null-safe CARLOS wrappers are available.
+    # Does not need the docker image or Maven cache — runs in ~10 seconds.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Run encoder null-safety lint
+        run: bash scripts/lint/check-encoder-null-safety.sh
+      - name: Run encoder null-safety lint fixtures
+        run: bash scripts/lint/test-encoder-null-safety.sh
+      - name: Run SecurityException message convention lint
+        run: bash scripts/lint/check-security-exception-message-convention.sh
+      - name: Run SecurityException message convention lint fixtures
+        run: bash scripts/lint/test-security-exception-message-convention.sh
+  jspc:
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -285,15 +318,15 @@ jobs:
       packages: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Restore Maven cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cache-restore
         continue-on-error: true
         with:
           path: .m2-cache
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -303,102 +336,62 @@ jobs:
           echo "Cache miss or restore failed, Maven will download dependencies"
           mkdir -p .m2-cache
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Try to pull pre-built tomcat image from ghcr.io
-        id: pull-tomcat
+      - name: Try to pull pre-built image from ghcr.io
+        id: pull-image
         continue-on-error: true
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
         run: |
           echo "Attempting to pull pre-built image from $IMAGE..."
           # Capture stderr so we can distinguish "not found" from other errors
-          if docker pull "$IMAGE" 2>pull-tomcat-error.log; then
+          if docker pull "$IMAGE" 2>pull-image-error.log; then
             docker tag "$IMAGE" carlos-tomcat-dev
             echo "pulled=true" >> "$GITHUB_OUTPUT"
             echo "reason=success" >> "$GITHUB_OUTPUT"
-            echo "Successfully pulled pre-built tomcat image!"
+            echo "Successfully pulled pre-built image!"
           else
             echo "pulled=false" >> "$GITHUB_OUTPUT"
-            if grep -qiE 'manifest unknown|not found' pull-tomcat-error.log; then
+            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
               echo "reason=not-found" >> "$GITHUB_OUTPUT"
-              echo "Pre-built tomcat image not available (not found in registry), will build locally"
+              echo "Pre-built image not available (not found in registry), will build locally"
             else
               echo "reason=error" >> "$GITHUB_OUTPUT"
-              echo "Tomcat image pull failed due to an unexpected error:"
-              cat pull-tomcat-error.log
+              echo "Image pull failed due to an unexpected error:"
+              cat pull-image-error.log
             fi
           fi
-          rm -f pull-tomcat-error.log
+          rm -f pull-image-error.log
 
-      - name: Fail on unexpected tomcat image pull error
-        if: steps.pull-tomcat.outputs.reason == 'error'
+      - name: Fail on unexpected image pull error
+        if: steps.pull-image.outputs.reason == 'error'
         run: |
-          echo "::error::Failed to pull pre-built tomcat image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
           exit 1
 
-      - name: Try to pull pre-built mariadb image from ghcr.io
-        id: pull-mariadb
-        continue-on-error: true
-        env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev:latest
-        run: |
-          echo "Attempting to pull pre-built image from $IMAGE..."
-          # Capture stderr so we can distinguish "not found" from other errors
-          if docker pull "$IMAGE" 2>pull-mariadb-error.log; then
-            docker tag "$IMAGE" carlos-mariadb-dev
-            echo "pulled=true" >> "$GITHUB_OUTPUT"
-            echo "reason=success" >> "$GITHUB_OUTPUT"
-            echo "Successfully pulled pre-built mariadb image!"
-          else
-            echo "pulled=false" >> "$GITHUB_OUTPUT"
-            if grep -qiE 'manifest unknown|not found' pull-mariadb-error.log; then
-              echo "reason=not-found" >> "$GITHUB_OUTPUT"
-              echo "Pre-built mariadb image not available (not found in registry), will build locally"
-            else
-              echo "reason=error" >> "$GITHUB_OUTPUT"
-              echo "MariaDB image pull failed due to an unexpected error:"
-              cat pull-mariadb-error.log
-            fi
-          fi
-          rm -f pull-mariadb-error.log
+      - name: Set up Docker Buildx
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - name: Fail on unexpected mariadb image pull error
-        if: steps.pull-mariadb.outputs.reason == 'error'
-        run: |
-          echo "::error::Failed to pull pre-built mariadb image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
-          exit 1
-
-      - name: Cache Docker layers (tomcat)
-        if: steps.pull-tomcat.outputs.pulled != 'true' && steps.pull-tomcat.outputs.reason == 'not-found'
-        uses: actions/cache@v4
+      - name: Cache Docker layers
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Cache Docker layers (db)
-        if: steps.pull-mariadb.outputs.pulled != 'true' && steps.pull-mariadb.outputs.reason == 'not-found'
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache-db
-          key: ${{ runner.os }}-buildx-db-${{ hashFiles('.devcontainer/db/**', 'database/**') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-db-
-
       - name: Build dev container (fallback)
-        if: steps.pull-tomcat.outputs.pulled != 'true'
+        if: steps.pull-image.outputs.pulled != 'true'
         run: |
-          echo "Building tomcat container locally..."
+          echo "Building container locally..."
           docker buildx build \
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
@@ -408,86 +401,9 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-      - name: Build db container (fallback)
-        if: steps.pull-mariadb.outputs.pulled != 'true'
-        run: |
-          echo "Building mariadb container locally..."
-          docker buildx build \
-            --cache-from=type=local,src=/tmp/.buildx-cache-db \
-            --cache-to=type=local,dest=/tmp/.buildx-cache-db-new,mode=max \
-            --load \
-            -t carlos-mariadb-dev \
-            -f .devcontainer/db/Dockerfile .
-          rm -rf /tmp/.buildx-cache-db
-          mv /tmp/.buildx-cache-db-new /tmp/.buildx-cache-db
-
-      - name: Create network
-        run: docker network create open-o-network
-
-      - name: Start db container
-        run: |
-          # Container named 'db' so it's reachable at jdbc:mysql://db:3306 from tomcat container
-          docker run -d --name db \
-            --network open-o-network \
-            -e MYSQL_ROOT_PASSWORD=password \
-            -e MYSQL_PASSWORD=password \
-            -e TZ=America/Toronto \
-            carlos-mariadb-dev
-
-      - name: Wait for db to be ready
-        run: |
-          echo "Waiting for MariaDB to accept connections..."
-          connected=false
-          for i in {1..30}; do
-            if docker exec db mysqladmin ping -h localhost -u root -ppassword 2>/dev/null; then
-              echo "MariaDB is accepting connections!"
-              connected=true
-              break
-            fi
-            echo "Waiting for connection... ($i/30)"
-            sleep 2
-          done
-
-          if [ "$connected" != "true" ]; then
-            echo "ERROR: MariaDB failed to accept connections within timeout"
-            docker logs db
-            exit 1
-          fi
-
-          echo "Waiting for database initialization to complete..."
-          initialized=false
-          for i in {1..90}; do
-            # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
-            if docker logs db 2>&1 | grep -q "Database initialization complete!"; then
-              # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec db mysql -N -u root -ppassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
-              if [ "$provider_count" -gt 0 ]; then
-                echo "Database initialization complete and provider table populated (count=$provider_count)."
-                initialized=true
-                break
-              fi
-            fi
-            echo "Waiting for database initialization... ($i/90)"
-            sleep 2
-          done
-
-          if [ "$initialized" != "true" ]; then
-            echo "ERROR: Database initialization failed within timeout"
-            docker logs db
-            exit 1
-          fi
-
-          # Verify all databases exist
-          echo "Verifying databases..."
-          docker exec db mysql -u root -ppassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; exit 1; }
-          docker exec db mysql -u root -ppassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; exit 1; }
-          docker exec db mysql -u root -ppassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; exit 1; }
-          echo "All databases verified!"
-
-      - name: Start tomcat container
+      - name: Start container
         run: |
           docker run -d --name carlos-tomcat-dev \
-            --network open-o-network \
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
             -w /workspace \
@@ -499,11 +415,15 @@ jobs:
             git config --global --add safe.directory /workspace
           "
 
-      - name: Run legacy tests
+      - name: Purge stale local_repo artifacts from Maven cache
+        run: |
+          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+
+      - name: Compile JSPs
         run: |
           docker exec carlos-tomcat-dev bash -c "
             echo '========================================='
-            echo 'Running Legacy Tests (JUnit 4 with MariaDB)'
+            echo 'Compiling JSPs (jspc profile)'
             echo '========================================='
-            make install --run-legacy-tests
+            make jspc
           "

@@ -29,8 +29,9 @@
 
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.Validations;
@@ -42,11 +43,12 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValid
 import io.github.carlos_emr.carlos.report.oscarMeasurements.data.RptMeasurementsData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -55,6 +57,8 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -71,7 +75,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
         if (!validateForm()) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport.jsp");
+            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializePatientsInAbnormalRangeCDMReport");
             return NONE;
         }
 
@@ -380,6 +384,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return patientSeenCheckbox;
     }
 
+    @StrutsParameter
     public void setPatientSeenCheckbox(String[] patientSeenCheckbox) {
         this.patientSeenCheckbox = patientSeenCheckbox;
     }
@@ -390,6 +395,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return startDateA;
     }
 
+    @StrutsParameter
     public void setStartDateA(String startDateA) {
         this.startDateA = startDateA;
     }
@@ -400,6 +406,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return endDateA;
     }
 
+    @StrutsParameter
     public void setEndDateA(String endDateA) {
         this.endDateA = endDateA;
     }
@@ -414,6 +421,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return abnormalCheckbox;
     }
 
+    @StrutsParameter
     public void setAbnormalCheckbox(String[] abnormalCheckbox) {
         this.abnormalCheckbox = abnormalCheckbox;
     }
@@ -424,6 +432,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return startDateC;
     }
 
+    @StrutsParameter
     public void setStartDateC(String[] startDateC) {
         this.startDateC = startDateC;
     }
@@ -434,6 +443,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return endDateC;
     }
 
+    @StrutsParameter
     public void setEndDateC(String[] endDateC) {
         this.endDateC = endDateC;
     }
@@ -444,6 +454,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return upperBound;
     }
 
+    @StrutsParameter
     public void setUpperBound(String[] upperBound) {
         this.upperBound = upperBound;
     }
@@ -454,6 +465,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return lowerBound;
     }
 
+    @StrutsParameter
     public void setLowerBound(String[] lowerBound) {
         this.lowerBound = lowerBound;
     }

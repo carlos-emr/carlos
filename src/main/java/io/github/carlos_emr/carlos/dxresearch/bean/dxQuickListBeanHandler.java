@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.commn.model.QuickList;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class dxQuickListBeanHandler {
 
@@ -60,7 +60,7 @@ public class dxQuickListBeanHandler {
     }
 
     public boolean init(String providerNo, String codingSystem) {
-        String qlDefault = OscarProperties.getInstance().getProperty("DX_QUICK_LIST_DEFAULT");
+        String qlDefault = CarlosProperties.getInstance().getProperty("DX_QUICK_LIST_DEFAULT");
         QuickListDao dao = SpringUtils.getBean(QuickListDao.class);
 
         for (QuickList ql : dao.findByCodingSystem(codingSystem)) {

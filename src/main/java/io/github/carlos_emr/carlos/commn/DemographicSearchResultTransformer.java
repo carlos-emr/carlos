@@ -31,17 +31,22 @@ package io.github.carlos_emr.carlos.commn;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 
 import org.apache.tools.ant.util.DateUtils;
-import org.hibernate.transform.ResultTransformer;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 
-public class DemographicSearchResultTransformer implements ResultTransformer {
+/**
+ * Transforms native query tuples into {@link DemographicSearchResult} rows for the
+ * demographic search result set. Previously implemented Hibernate's
+ * {@code ResultTransformer} (removed in Hibernate 6); callers now invoke
+ * {@link #transformTuple(Object[], String[])} directly from a lambda passed to
+ * {@code NativeQuery.setTupleTransformer(...)}.
+ */
+public class DemographicSearchResultTransformer {
 
     private DemographicDao demographicDao;
     private SimpleDateFormat sdf = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN);
@@ -51,7 +56,6 @@ public class DemographicSearchResultTransformer implements ResultTransformer {
     }
 
 
-    @Override
     public Object transformTuple(Object[] tuple, String[] aliases) {
         Integer demographicNo = (Integer) tuple[0];
         String lastName = (String) tuple[1];
@@ -108,12 +112,6 @@ public class DemographicSearchResultTransformer implements ResultTransformer {
                 new DemographicSearchResult(demographicNo, lastName, firstName, chartNo, sex, providerNo, rosterStatus,
                         patientStatus, phone, dob, providerLastName, providerFirstName, hin);
         return result;
-    }
-
-    @Override
-    public List transformList(List collection) {
-
-        return collection;
     }
 
     public DemographicDao getDemographicDao() {

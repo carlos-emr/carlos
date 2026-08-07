@@ -38,7 +38,7 @@ import java.util.Properties;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmImmunAllergyRecord extends FrmRecord {
@@ -50,20 +50,20 @@ public class FrmImmunAllergyRecord extends FrmRecord {
 
         if (existingID <= 0) {
 
-            String sql = "SELECT demographic_no, last_name, first_name FROM demographic WHERE demographic_no = " + demographicNo;
-            ResultSet rs = DBHandler.GetSQL(sql);
-            if (rs.next()) {
-                props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
-                props.setProperty("c_surname", Misc.getString(rs, "last_name"));
-                props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
-                props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+            String sql = "SELECT demographic_no, last_name, first_name FROM demographic WHERE demographic_no = ?";
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
+                if (rs.next()) {
+                    props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
+                    props.setProperty("c_surname", Misc.getString(rs, "last_name"));
+                    props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
+                    props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                    //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                }
             }
-            rs.close();
         } else {
-            String sql = "SELECT * FROM formImmunAllergy WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formImmunAllergy WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -71,14 +71,14 @@ public class FrmImmunAllergyRecord extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formImmunAllergy WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formImmunAllergy WHERE demographic_no=? AND ID=0";
 
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formImmunAllergy WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-        return ((new FrmRecordHelp()).getPrintRecord(sql));
+        String sql = "SELECT * FROM formImmunAllergy WHERE demographic_no = ? AND ID = ?";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo, existingID));
     }
 
 

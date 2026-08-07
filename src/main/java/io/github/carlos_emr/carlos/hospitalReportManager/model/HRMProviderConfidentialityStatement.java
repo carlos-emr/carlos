@@ -13,8 +13,8 @@
  */
 package io.github.carlos_emr.carlos.hospitalReportManager.model;
 
-import javax.persistence.Entity;
-import javax.persistence.Id;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 

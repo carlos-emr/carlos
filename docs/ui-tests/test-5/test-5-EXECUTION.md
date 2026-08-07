@@ -12,12 +12,12 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
 
 ### 2. Database Connectivity
 ```bash
-mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
 ```
 
 ### 3. Test Patient Exists
 ```bash
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT demographic_no, last_name, first_name
 FROM demographic WHERE demographic_no = 1;"
 ```
@@ -42,9 +42,9 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-5"
 
 #### Step 2: Login
 **Action**: Fill and submit login form
-- Username: `openodoc`
-- Password: `openo2025`
-- PIN: `2025`
+- Username: `carlosdoc`
+- Password: `carlos2026`
+- PIN: `2026`
 
 **Screenshot**: `test-5-02-provider-dashboard.png`
 **Expected**: Provider dashboard with navigation menu
@@ -84,7 +84,7 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-5"
 **Action**:
 1. Enter message: "UI Test 5 - Follow up call needed"
 2. Set service date to 7 days from today
-3. Assign to provider: openodoc
+3. Assign to provider: carlosdoc
 4. Set priority: Normal
 
 **Screenshot**: `test-5-06-tickler-details.png`
@@ -157,7 +157,7 @@ ls -1 ui-test-runs/$TIMESTAMP/test-5/screenshots/test-5-*.png | wc -l
 ### 2. Database Verification
 ```bash
 # Verify tickler was created
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT tickler_no, message, demographic_no, status
 FROM tickler
 WHERE message LIKE '%UI Test 5%'

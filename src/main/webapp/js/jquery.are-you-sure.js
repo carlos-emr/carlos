@@ -117,8 +117,8 @@
             $(fields).each(function () {
                 storeOrigValue($(this));
             });
-            $(fields).unbind(settings.fieldEvents, checkForm);
-            $(fields).bind(settings.fieldEvents, checkForm);
+            $(fields).off(settings.fieldEvents, checkForm);
+            $(fields).on(settings.fieldEvents, checkForm);
             $form.data("ays-orig-field-count", $(fields).length);
             setDirtyStatus($form, false);
         };
@@ -144,7 +144,7 @@
                 var $field = $(this);
                 if (!$field.data('ays-orig')) {
                     storeOrigValue($field);
-                    $field.bind(settings.fieldEvents, checkForm);
+                    $field.on(settings.fieldEvents, checkForm);
                 }
             });
             // Check for changes while we're here
@@ -157,7 +157,7 @@
 
         if (!settings.silent && !window.aysUnloadSet) {
             window.aysUnloadSet = true;
-            $(window).bind('beforeunload', function () {
+            $(window).on('beforeunload', function () {
                 $dirtyForms = $("form").filter('.' + settings.dirtyClass);
                 if ($dirtyForms.length == 0) {
                     return;
@@ -185,13 +185,13 @@
             $form.submit(function () {
                 $form.removeClass(settings.dirtyClass);
             });
-            $form.bind('reset', function () {
+            $form.on('reset', function () {
                 setDirtyStatus($form, false);
             });
             // Add a custom events
-            $form.bind('rescan.areYouSure', rescan);
-            $form.bind('reinitialize.areYouSure', reinitialize);
-            $form.bind('checkform.areYouSure', checkForm);
+            $form.on('rescan.areYouSure', rescan);
+            $form.on('reinitialize.areYouSure', reinitialize);
+            $form.on('checkform.areYouSure', checkForm);
             initForm($form);
         });
     };

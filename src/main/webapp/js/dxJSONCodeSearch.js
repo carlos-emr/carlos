@@ -1,6 +1,6 @@
 function searchDxCode(request, response) {
     jQuery.ajax({
-        url: ctx + "/dxCodeSearchJSON.do",
+        url: ctx + "/dxCodeSearchJSON",
         type: 'POST',
         data: {
             method: request.method,

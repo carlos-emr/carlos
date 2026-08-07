@@ -30,24 +30,36 @@ package io.github.carlos_emr.carlos.www;
 import java.util.Date;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.commn.dao.SystemMessageDao;
 import io.github.carlos_emr.carlos.commn.model.SystemMessage;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class SystemMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static Logger logger = MiscUtils.getLogger();
 
     private SystemMessageDao systemMessageDao = SpringUtils.getBean(SystemMessageDao.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         String mtd = request.getParameter("method");
         if ("edit".equals(mtd)) {
             return edit();
@@ -69,14 +81,25 @@ public class SystemMessage2Action extends ActionSupport {
         String messageId = request.getParameter("id");
 
         if (messageId != null) {
-            SystemMessage msg = systemMessageDao.find(Integer.parseInt(messageId));
-
-            if (msg == null) {
-                addActionMessage(getText("system_message.missing"));
+            int parsedId;
+            try {
+                parsedId = Integer.parseInt(messageId);
+            } catch (NumberFormatException e) {
+                logger.warn("Non-numeric message ID rejected: {}", messageId);
                 return list();
             }
-            request.getSession().setAttribute("systemMessageId", messageId);
+
+            SystemMessage msg = systemMessageDao.find(parsedId);
+
+            if (msg == null) {
+                request.getSession().removeAttribute("systemMessageId");
+                addActionMessage(getText("system_message.missing"));
+                request.getSession().removeAttribute("systemMessageId");
+                return list();
+            }
+            request.getSession().setAttribute("systemMessageId", String.valueOf(msg.getId())); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): msg.getId() is DAO-sourced primary key
         } else {
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- value is hardcoded empty string literal, not user input
             request.getSession().setAttribute("systemMessageId", "");
         }
 
@@ -89,14 +112,23 @@ public class SystemMessage2Action extends ActionSupport {
         msg.setCreationDate(new Date());
         int messageId = 0;
         String messageId_str = (String) request.getSession().getAttribute("systemMessageId");
-        if (messageId_str != null && messageId_str != "") {
-            messageId = Integer.valueOf(messageId_str).intValue();
+        if (messageId_str != null && !messageId_str.isEmpty()) {
+            try {
+                messageId = Integer.valueOf(messageId_str).intValue();
+            } catch (NumberFormatException e) {
+                logger.warn("Non-numeric session message ID rejected: {}", messageId_str);
+                return list();
+            }
         }
 
-        if (messageId > 0 || (msg.getId() != null && msg.getId().intValue() > 0)) {
+        if (messageId > 0) {
             msg.setId(messageId);
             systemMessageDao.merge(msg);
         } else {
+            // New message: ensure attacker cannot set ID via @StrutsParameter POST
+            if (msg.getId() != null && msg.getId() > 0) {
+                msg.setId(null);
+            }
             systemMessageDao.persist(msg);
         }
 
@@ -115,10 +147,12 @@ public class SystemMessage2Action extends ActionSupport {
 
     private SystemMessage system_message;
 
+    @StrutsParameter(depth = 1)
     public SystemMessage getSystem_message() {
         return system_message;
     }
 
+    @StrutsParameter
     public void setSystem_message(SystemMessage system_message) {
         this.system_message = system_message;
     }

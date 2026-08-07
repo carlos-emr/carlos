@@ -29,14 +29,14 @@ package io.github.carlos_emr.carlos.PMmodule.web;
 
 import java.io.IOException;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
@@ -86,18 +86,18 @@ public class PMMFilter implements Filter {
             return;
         }
 
-        session.setAttribute("program_domain", providerManager.getProgramDomain(oscarUser));
+        session.setAttribute("program_domain", providerManager.getProgramDomain(oscarUser)); // nosemgrep: tainted-session-from-http-request -- DAO-sourced program domain list for authenticated provider
 
         if (session.getAttribute("pmm_admin") == null) {
             logger.debug("setting session variable: pmm_admin");
-            session.setAttribute("pmm_admin", Boolean.valueOf(oscarSecurityManager.hasAdminRole(oscarUser)));
+            session.setAttribute("pmm_admin", Boolean.valueOf(oscarSecurityManager.hasAdminRole(oscarUser))); // nosemgrep: tainted-session-from-http-request -- boolean derived from DAO-sourced role check on authenticated provider
         }
 		
 /* If the providers didn't have the role 'admin', he can still have the access to the administration links(eg. Add Program) on PMM.
  * Each link should be separately configurable under the role rights object screen.
  *
 
-		if (request.getRequestURI().indexOf("ProgramManager.do") != -1 && ((String) session.getAttribute("userrole")).indexOf("admin") == -1) {
+		if (request.getRequestURI().indexOf("ProgramManager") != -1 && ((String) session.getAttribute("userrole")).indexOf("admin") == -1) {
 			RequestDispatcher rd = baseRequest.getRequestDispatcher("/commons/auth.jsp");
 			rd.forward(baseRequest, baseResponse);
 			return;
@@ -106,7 +106,7 @@ public class PMMFilter implements Filter {
         // set local agency
         if (request.getSession().getServletContext().getAttribute("agency") == null) {
             Agency agency = agencyManager.getLocalAgency();
-            request.getSession().getServletContext().setAttribute("agency", agency);
+            request.getSession().getServletContext().setAttribute("agency", agency); // nosemgrep: tainted-session-from-http-request -- DAO-loaded local agency entity stored in application scope
             Agency.setLocalAgency(agency);
         }
 

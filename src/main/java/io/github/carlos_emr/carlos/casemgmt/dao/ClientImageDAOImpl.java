@@ -39,13 +39,16 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 /**
  * Anyone modifying get and set methods should take note of the dataCache and
  * add/remove items as appropriate.
  */
-public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientImageDAO {
+@Transactional
+public class ClientImageDAOImpl extends AbstractJpaDao implements ClientImageDAO {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -60,14 +63,26 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
     public void saveClientImage(ClientImage clientImage) {
         ClientImage existing = getClientImage(clientImage.getDemographic_no());
         if (existing != null) {
+            // Update the managed instance so Hibernate tracks the change correctly
             existing.setImage_data(clientImage.getImage_data());
             existing.setImage_type(clientImage.getImage_type());
             existing.setUpdate_date(new Date());
+            entityManager().merge(existing);
+        } else {
+            entityManager().persist(clientImage);
         }
-        getHibernateTemplate().saveOrUpdate(clientImage);
 
         // update cache
         dataCache.remove(clientImage.getDemographic_no());
+    }
+
+    @Override
+    public void deleteClientImage(Integer clientId) {
+        ClientImage clientImage = getClientImage(clientId);
+        if (clientImage != null) {
+            entityManager().remove(clientImage);
+            dataCache.remove(clientId);
+        }
     }
 
     @Override
@@ -80,8 +95,8 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
 
             // get from database
             @SuppressWarnings("unchecked")
-            List<ClientImage> results = (List<ClientImage>) getHibernateTemplate()
-                    .find("from ClientImage i where i.demographic_no=?0 order by update_date desc", clientId);
+            List<ClientImage> results = (List<ClientImage>) JpqlQueryHelper
+                    .find(entityManager(), "from ClientImage i where i.demographic_no=?1 order by update_date desc", clientId);
             if (results.size() > 0) {
                 clientImage = results.get(0);
 

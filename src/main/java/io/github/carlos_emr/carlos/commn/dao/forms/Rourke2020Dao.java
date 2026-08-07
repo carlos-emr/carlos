@@ -36,7 +36,7 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.form.model.FormBooleanValue;
 import io.github.carlos_emr.carlos.form.model.FormRourke2020;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -82,7 +82,7 @@ public class Rourke2020Dao extends AbstractDaoImpl<FormRourke2020> {
             value.getId().setFormName(FormRourke2020.FORM_TABLE);
         }
         FormBooleanValueDao formBooleanValueDao = SpringUtils.getBean(FormBooleanValueDao.class);
-        formBooleanValueDao.batchPersist(new ArrayList(form.getBooleanValueMap().values()));
+        formBooleanValueDao.batchPersistAtomically(new ArrayList(form.getBooleanValueMap().values()));
         return form;
     }
 }

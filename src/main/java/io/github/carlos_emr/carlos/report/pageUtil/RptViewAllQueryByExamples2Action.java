@@ -34,24 +34,35 @@ import java.io.IOException;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RptViewAllQueryByExamples2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler(startDate, endDate);
         request.setAttribute("allQueries", hd);
 
@@ -74,6 +85,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return sql;
     }
 
+    @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
     }
@@ -82,6 +94,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return selectedRecentSearch;
     }
 
+    @StrutsParameter
     public void setSelectedRecentSearch(String selectedRecentSearch) {
         this.selectedRecentSearch = selectedRecentSearch;
     }
@@ -90,6 +103,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return startDate;
     }
 
+    @StrutsParameter
     public void setStartDate(String startDate) {
         this.startDate = startDate;
     }
@@ -98,6 +112,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return endDate;
     }
 
+    @StrutsParameter
     public void setEndDate(String endDate) {
         this.endDate = endDate;
     }

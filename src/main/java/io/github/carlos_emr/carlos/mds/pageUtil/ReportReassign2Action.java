@@ -30,14 +30,15 @@
 
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -52,8 +53,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ReportReassign2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -66,6 +69,9 @@ public class ReportReassign2Action extends ActionSupport {
     public ReportReassign2Action() {
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "UNVALIDATED_REDIRECT"}, justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
 
@@ -109,7 +115,7 @@ public class ReportReassign2Action extends ActionSupport {
          * process.
          */
         String selectedProviders = request.getParameter("selectedProviders");
-        logger.info("selected providers to forward labs to " + selectedProviders);
+        logger.info("selected providers to forward labs to {}", LogSafe.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
         if (selectedProviders != null && !selectedProviders.isEmpty()) {
             try {
@@ -202,25 +208,34 @@ public class ReportReassign2Action extends ActionSupport {
 
             newURL = request.getRequestURI();
 
+            // Encode all query parameters — defense-in-depth for session-derived values,
+            // required for user-controlled searchProviderNo and status
+            String encodedProviderNo = Encode.forUriComponent(providerNo);
+            String encodedSearchProviderNo = Encode.forUriComponent(searchProviderNo != null ? searchProviderNo : "");
+            String encodedStatus = Encode.forUriComponent(status != null ? status : "");
+
             if (newURL.contains("labDisplay.jsp")) {
-                newURL = newURL + "?providerNo=" + providerNo + "&searchProviderNo=" + searchProviderNo + "&status=" + status;
+                newURL = newURL + "?providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
                 // the segmentID is needed when being called from a lab display
             } else {
-                newURL = newURL + "&providerNo=" + providerNo + "&searchProviderNo=" + searchProviderNo + "&status=" + status;
+                newURL = newURL + "&providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
             }
 
             if (!flaggedLabsList.isEmpty()) {
-                newURL = newURL + "&segmentID=" + flaggedLabsList.get(0);
+                // flaggedLabsList entries are String[] from split(":")  e.g. ["labId","type"]
+                // join them back to reconstruct "labId:type" before encoding
+                String segmentId = String.join(":", flaggedLabsList.get(0));
+                newURL = newURL + "&segmentID=" + Encode.forUriComponent(segmentId);
             }
             
             if (request.getParameter("lname") != null) {
-                newURL = newURL + "&lname=" + request.getParameter("lname");
+                newURL = newURL + "&lname=" + Encode.forUriComponent(request.getParameter("lname"));
             }
             if (request.getParameter("fname") != null) {
-                newURL = newURL + "&fname=" + request.getParameter("fname");
+                newURL = newURL + "&fname=" + Encode.forUriComponent(request.getParameter("fname"));
             }
             if (request.getParameter("hnum") != null) {
-                newURL = newURL + "&hnum=" + request.getParameter("hnum");
+                newURL = newURL + "&hnum=" + Encode.forUriComponent(request.getParameter("hnum"));
             }
         } catch (Exception e) {
             logger.error("exception in ReportReassign2Action", e);
@@ -242,7 +257,11 @@ public class ReportReassign2Action extends ActionSupport {
             }
             return null;
         } else {
-            response.sendRedirect(newURL);
+            // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection, Semgrep
+            // javasecurity:S5146): newURL is seeded from request.getRequestURI() (server-resolved
+            // path, no scheme/host) and appended parameters are all wrapped in Encode.forUriComponent.
+            // sendRedirect of a path-only URL is always same-origin.
+            response.sendRedirect(newURL); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- see comment above
             return NONE;
         }
     }

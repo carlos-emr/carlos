@@ -40,17 +40,17 @@ mvn test -Dtest=TicklerDaoIntegrationTest
 ```java
 package io.github.carlos_emr.carlos.your.domain;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
 
 @DisplayName("Your Component Integration Tests")
 @Tag("integration")
-public class YourComponentIntegrationTest extends OpenOTestBase {
+public class YourComponentIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should perform expected behavior when condition met")
-    void should_performExpectedBehavior_when_conditionMet() {
+    void shouldPerformExpectedBehavior_whenConditionMet() {
         // Given
         Entity entity = createTestEntity();
 
@@ -73,13 +73,13 @@ src/test-modern/
 ├── java/io/github/carlos_emr/carlos/
 │   ├── test/
 │   │   ├── base/              # Base test classes
-│   │   │   ├── OpenOTestBase.java
-│   │   │   ├── OpenODaoTestBase.java
-│   │   │   └── OpenOWebTestBase.java
+│   │   │   ├── CarlosTestBase.java
+│   │   │   ├── CarlosDaoTestBase.java
+│   │   │   └── CarlosWebTestBase.java
 │   │   ├── mocks/             # Mock implementations
 │   │   │   └── MockSecurityInfoManager.java
 │   │   ├── unit/              # Unit test infrastructure
-│   │   │   └── OpenOUnitTestBase.java
+│   │   │   └── CarlosUnitTestBase.java
 │   │   ├── examples/          # Example tests
 │   │   └── simple/            # Framework validation tests
 │   └── tickler/               # Domain-specific tests (example)
@@ -104,13 +104,13 @@ src/test-modern/
 ### Test Types
 
 #### Integration Tests
-- Extend `OpenOTestBase` or `OpenODaoTestBase`
+- Extend `CarlosTestBase` or `CarlosDaoTestBase`
 - Use real Spring context with H2 in-memory database
 - Test actual component interactions
 - File naming: `*IntegrationTest.java`
 
 #### Unit Tests
-- Extend `OpenOUnitTestBase` or domain-specific unit base
+- Extend `CarlosUnitTestBase` or domain-specific unit base
 - Mock SpringUtils and dependencies
 - Test logic in isolation
 - File naming: `*UnitTest.java`
@@ -119,7 +119,7 @@ src/test-modern/
 
 ### Base Classes
 
-#### OpenOTestBase
+#### CarlosTestBase
 Base class for all integration tests. Provides:
 - Spring context initialization
 - SpringUtils anti-pattern handling
@@ -127,7 +127,7 @@ Base class for all integration tests. Provides:
 - Common test utilities
 
 ```java
-public abstract class OpenOTestBase {
+public abstract class CarlosTestBase {
     @Autowired
     protected ApplicationContext applicationContext;
 
@@ -141,14 +141,14 @@ public abstract class OpenOTestBase {
 }
 ```
 
-#### OpenOUnitTestBase
+#### CarlosUnitTestBase
 Base class for unit tests with mocked dependencies:
 - MockedStatic for SpringUtils
 - Mock registry management
 - No Spring context required
 
 ```java
-public abstract class OpenOUnitTestBase {
+public abstract class CarlosUnitTestBase {
     protected MockedStatic<SpringUtils> springUtilsMock;
     protected Map<Class<?>, Object> mockedBeans = new HashMap<>();
 
@@ -195,17 +195,9 @@ Located in `src/test-modern/resources/`:
 Use BDD-style naming for clarity:
 
 ```java
-// Pattern 1: should_expectedBehavior_when_condition
+// Pattern: should<Action>_<prepositionOrContext><Condition>
 @Test
-void should_returnActiveTicklers_when_demographicNumberProvided() { }
-
-// Pattern 2: methodName_scenario_expectedOutcome
-@Test
-void findById_validId_returnsTickler() { }
-
-// Pattern 3: shouldExpectedBehavior (simple cases)
-@Test
-void shouldLoadSpringContext() { }
+void shouldReturnActiveTicklers_whenDemographicNumberProvided() { }
 ```
 
 ### Test Organization
@@ -216,14 +208,14 @@ void shouldLoadSpringContext() { }
 @DisplayName("Validation Logic")
 class ValidationLogic {
     @Test
-    void should_validateRequiredFields() { }
+    void shouldValidateRequiredFields_whenInputMissing() { }
 }
 
 @Nested
 @DisplayName("Business Operations")
 class BusinessOperations {
     @Test
-    void should_persistValidEntity() { }
+    void shouldPersistValidEntity_withValidInput() { }
 }
 ```
 
@@ -236,7 +228,7 @@ class BusinessOperations {
 
 3. **Create domain-specific base classes** for shared setup:
 ```java
-public abstract class TicklerTestBase extends OpenOTestBase {
+public abstract class TicklerTestBase extends CarlosTestBase {
     protected Tickler createTestTickler() {
         // Common test data creation
     }
@@ -255,7 +247,7 @@ public abstract class TicklerTestBase extends OpenOTestBase {
 @Test
 @Transactional
 @Rollback
-void should_persistAndRetrieveEntity() {
+void shouldPersistAndRetrieveEntity_withRollback() {
     // Database changes are automatically rolled back
 }
 ```
@@ -265,11 +257,11 @@ void should_persistAndRetrieveEntity() {
 The codebase uses static `SpringUtils.getBean()` calls. The framework handles this:
 
 #### For Integration Tests
-- OpenOTestBase automatically configures SpringUtils
+- CarlosTestBase automatically configures SpringUtils
 - Real Spring beans are available
 
 #### For Unit Tests
-- OpenOUnitTestBase provides MockedStatic
+- CarlosUnitTestBase provides MockedStatic
 - Register mocks before use:
 
 ```java
@@ -285,7 +277,7 @@ void setUp() {
 ### Testing DAOs
 
 ```java
-public class TicklerDaoIntegrationTest extends OpenODaoTestBase {
+public class TicklerDaoIntegrationTest extends CarlosDaoTestBase {
 
     private TicklerDao ticklerDao;
 
@@ -295,7 +287,7 @@ public class TicklerDaoIntegrationTest extends OpenODaoTestBase {
     }
 
     @Test
-    void should_findActiveTicklers() {
+    void shouldFindActiveTicklers_forDefaultQuery() {
         // Given - setup test data
         Tickler tickler = createAndPersistTickler();
 
@@ -326,7 +318,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     }
 
     @Test
-    void should_validateBeforePersisting() {
+    void shouldValidate_beforePersisting() {
         // Test business logic with mocked dependencies
     }
 }
@@ -337,7 +329,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 ### Common Issues
 
 #### SpringUtils.getBean() returns null
-- Ensure test extends OpenOTestBase
+- Ensure test extends CarlosTestBase
 - Check Spring context configuration
 - Verify bean is defined in test context
 

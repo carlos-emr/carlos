@@ -33,11 +33,12 @@ package io.github.carlos_emr;
 import java.util.Enumeration;
 import java.util.Properties;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.carlos.caisi_integrator.util.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Simple XML manipulation utility class for working with XML-like data structures.
@@ -80,7 +81,10 @@ public class SxmlMisc extends Properties {
 
             // Validate element name - only allow alphanumeric, underscore, hyphen
             if (!temp.matches("^[a-zA-Z0-9_-]+$")) {
-                log.error("Invalid XML element name: " + temp);
+                // temp is an attacker-controlled request parameter name and is logged here
+                // precisely because it failed the alphanumeric guard above, so it may contain
+                // CR/LF or control chars. Sanitize to prevent log forging (CodeQL log-injection).
+                log.error("Invalid XML element name: {}", LogSafe.sanitize(temp)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 continue; // Skip invalid parameter names
             }
 
@@ -178,47 +182,6 @@ public class SxmlMisc extends Properties {
     }
 
     /**
-     * Replaces the content between specified XML tags with a new value.
-     * If either tag is not found, returns the original string unchanged.
-     * 
-     * @param str the original string
-     * @param sTag the start tag (including angle brackets)
-     * @param eTag the end tag (including angle brackets)
-     * @param newVal the new value to insert between the tags
-     * @return the string with replaced content, or original string if tags not found
-     */
-    public static String replaceXmlContent(String str, String sTag, String eTag, String newVal) {
-        int s = str.indexOf(sTag);
-        int e = str.indexOf(eTag);
-        String newStr = str;
-        if (s != -1 && e != -1)
-            newStr = str.substring(0, s + sTag.length()) + newVal + str.substring(e);
-
-        return newStr;
-    }
-
-    /**
-     * Replaces the content between XML tags, or adds the tags with content if they don't exist.
-     * 
-     * @param str the original string
-     * @param sTag the start tag (including angle brackets)
-     * @param eTag the end tag (including angle brackets)
-     * @param newVal the value to insert between the tags
-     * @return the string with replaced/added content
-     */
-    public static String replaceOrAddXmlContent(String str, String sTag, String eTag, String newVal) {
-        int s = str.indexOf(sTag);
-        int e = str.indexOf(eTag);
-        String newStr = str;
-        if (s != -1 && e != -1)
-            newStr = str.substring(0, s + sTag.length()) + newVal + str.substring(e);
-        else
-            newStr = str + sTag + newVal + eTag;
-
-        return newStr;
-    }
-
-    /**
      * Replaces all occurrences of a substring with a new substring.
      * 
      * @param str the original string
@@ -245,7 +208,7 @@ public class SxmlMisc extends Properties {
      * Replaces &amp;, &gt;, and &lt; with their corresponding HTML entities.
      * 
      * <p><strong>Note:</strong> For better security, consider using
-     * {@link org.apache.commons.text.StringEscapeUtils#escapeXml11(String)} instead.</p>
+     * {@link org.owasp.encoder.Encode#forXml(String)} instead.</p>
      * 
      * @param str the string to escape
      * @return the escaped string safe for XML content

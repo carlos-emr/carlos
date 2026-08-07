@@ -39,10 +39,13 @@ import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RxUtil {
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String trimSpecial(Drug rx) {
         String special = rx.getSpecial();
         if (special == null || special.trim().length() == 0) return "";
@@ -95,7 +98,7 @@ public class RxUtil {
         special = m.replaceAll("");
         MiscUtils.getLogger().debug("after trimming mitte special=" + special);
         //assume drug name is before method and drug name is the first part of the instruction.
-        String rx_enhance = OscarProperties.getInstance().getProperty("rx_enhance");
+        String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
         //rx_enhance changes the behavior by not deleting anything up to the words Take, apply..
         if (!(rx_enhance != null && rx_enhance.equals("true"))) {
             if (special.indexOf("Take") != -1) {

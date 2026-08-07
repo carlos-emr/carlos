@@ -35,9 +35,9 @@ import java.util.Enumeration;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -46,10 +46,16 @@ import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmu
 import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizations;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -61,6 +67,11 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "w", null)) {
+            throw new SecurityException("missing required sec object (_prevention)");
+        }
+
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String providerNo = bean.providerNo;
         Enumeration e = request.getParameterNames();
@@ -175,6 +186,7 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
         return name;
     }
 
+    @StrutsParameter
     public void setName(String str) {
         name = str;
     }

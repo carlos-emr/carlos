@@ -3,20 +3,21 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.entities.S21;
 import org.apache.commons.io.IOUtils;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
@@ -33,10 +34,16 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  * @author Joel Legris
  * @version 1.0
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class CreateBillingReport2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -57,6 +64,11 @@ public class CreateBillingReport2Action extends ActionSupport {
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         request.getSession().getServletContext().getServletContextName();
         if (!System.getProperties().containsKey("jasper.reports.compile.class.path")) {
             String classpath = (String) ServletActionContext.getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
@@ -177,7 +189,9 @@ public class CreateBillingReport2Action extends ActionSupport {
                 }
 
                 try {
-                    osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, DbConnectionFilter.getThreadLocalDbConnection());
+                    try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                        osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, connection);
+                    }
                 } catch (SQLException e) {
                     MiscUtils.getLogger().error("Error", e);
                 }
@@ -225,7 +239,7 @@ public class CreateBillingReport2Action extends ActionSupport {
             IOUtils.closeQuietly(reportInstream);
         }
 
-        return SUCCESS;
+        return NONE;
     }
 
     /**
@@ -349,6 +363,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return docFormat;
     }
 
+    @StrutsParameter
     public void setDocFormat(String docFormat) {
         this.docFormat = docFormat;
     }
@@ -357,6 +372,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return selAccount;
     }
 
+    @StrutsParameter
     public void setSelAccount(String selAccount) {
         this.selAccount = selAccount;
     }
@@ -365,6 +381,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return selPayee;
     }
 
+    @StrutsParameter
     public void setSelPayee(String selPayee) {
         this.selPayee = selPayee;
     }
@@ -373,6 +390,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return selProv;
     }
 
+    @StrutsParameter
     public void setSelProv(String selProv) {
         this.selProv = selProv;
     }
@@ -381,6 +399,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showICBC;
     }
 
+    @StrutsParameter
     public void setShowICBC(String showICBC) {
         this.showICBC = showICBC;
     }
@@ -389,6 +408,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showMSP;
     }
 
+    @StrutsParameter
     public void setShowMSP(String showMSP) {
         this.showMSP = showMSP;
     }
@@ -397,6 +417,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showPRIV;
     }
 
+    @StrutsParameter
     public void setShowPRIV(String showPRIV) {
         this.showPRIV = showPRIV;
     }
@@ -405,6 +426,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showWCB;
     }
 
+    @StrutsParameter
     public void setShowWCB(String showWCB) {
         this.showWCB = showWCB;
     }
@@ -413,6 +435,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return verCode;
     }
 
+    @StrutsParameter
     public void setVerCode(String verCode) {
         this.verCode = verCode;
     }
@@ -421,6 +444,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return xml_appointment_date;
     }
 
+    @StrutsParameter
     public void setXml_appointment_date(String xml_appointment_date) {
         this.xml_appointment_date = xml_appointment_date;
     }
@@ -429,6 +453,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return xml_vdate;
     }
 
+    @StrutsParameter
     public void setXml_vdate(String xml_vdate) {
         this.xml_vdate = xml_vdate;
     }
@@ -437,6 +462,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return repType;
     }
 
+    @StrutsParameter
     public void setRepType(String repType) {
         this.repType = repType;
     }

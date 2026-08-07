@@ -12,19 +12,19 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/oscar/index.jsp
 
 ### 2. Database Connectivity
 ```bash
-mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
 ```
 
 ### 3. Test Patient Exists
 ```bash
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT demographic_no, last_name, first_name
 FROM demographic WHERE demographic_no = 1;"
 ```
 
 ### 4. Prevention Types Available
 ```bash
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT COUNT(*) as prevention_types FROM preventionsExt LIMIT 1;"
 ```
 
@@ -48,9 +48,9 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-9"
 
 #### Step 2: Login
 **Action**: Fill and submit login form
-- Username: `openodoc`
-- Password: `openo2025`
-- PIN: `2025`
+- Username: `carlosdoc`
+- Password: `carlos2026`
+- PIN: `2026`
 
 **Screenshot**: `test-9-02-provider-dashboard.png`
 **Expected**: Provider dashboard with navigation menu
@@ -143,7 +143,7 @@ ls -1 ui-test-runs/$TIMESTAMP/test-9/screenshots/test-9-*.png | wc -l
 ### 2. Database Verification
 ```bash
 # Verify immunization was added
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT id, demographic_no, prevention_type, prevention_date
 FROM preventions
 WHERE demographic_no = 1

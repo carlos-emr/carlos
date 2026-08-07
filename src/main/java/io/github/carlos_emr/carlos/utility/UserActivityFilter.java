@@ -34,17 +34,18 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Date;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Filter for determining the inactivity of a user with a session. Pages that automatically refresh should be marked with the parameter autoRefresh=true
@@ -62,6 +63,8 @@ public final class UserActivityFilter implements Filter {
     public void destroy() {
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         boolean redirectToLogout = false;
@@ -73,25 +76,26 @@ public final class UserActivityFilter implements Filter {
             Long now = (new Date()).getTime();
 
             HttpSession session = httpRequest.getSession(false);
-            if (session != null && !httpRequest.getRequestURL().toString().contains(httpRequest.getContextPath() + "/logout.jsp")) {
+            if (session != null && !httpRequest.getRequestURL().toString().contains(httpRequest.getContextPath() + "/logoutPage")) {
                 Long lastActivity = (Long) session.getAttribute(LAST_USER_ACTIVITY);
 
                 if (lastActivity == null) {
                     lastActivity = now; // set new last activity
                 }
                 if (now - lastActivity > session.getMaxInactiveInterval() * 1000L) {
-                    LogAction.addLog((String) session.getAttribute("user"), LogConst.LOGOUT, LogConst.CON_LOGIN, "logged out due to inactivity", request.getRemoteAddr());
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.LOGOUT, LogConst.CON_LOGIN, "logged out due to inactivity", request.getRemoteAddr());
                     logger.warn("User providerNo=" + loggedInInfo.getLoggedInProviderNo() + " logged out due to inactivity");
                     redirectToLogout = true;
                 } else if (isUserRequest(httpRequest)) {
                     // Reset activity timer in session
+                    // nosemgrep: tainted-session-from-http-request -- now is System.currentTimeMillis(), a server-generated timestamp
                     session.setAttribute(LAST_USER_ACTIVITY, now);
                 }
             }
         }
         if (redirectToLogout) {
             HttpServletResponse httpResponse = (HttpServletResponse) response;
-            httpResponse.sendRedirect(((HttpServletRequest) request).getContextPath() + "/logout.jsp?autoLogout=true&errorMessage=logged out due to inactivity");
+            httpResponse.sendRedirect(((HttpServletRequest) request).getContextPath() + "/logoutPage?autoLogout=true&errorMessage=logged out due to inactivity");
         } else {
             chain.doFilter(request, response);
         }

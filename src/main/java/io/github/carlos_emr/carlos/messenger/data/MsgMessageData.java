@@ -48,28 +48,21 @@ import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import io.github.carlos_emr.carlos.messenger.util.Msgxml;
 
 /**
- * Core data management class for messages in the OpenO EMR messaging system.
- * 
+ * Core data management class for messages in the CARLOS EMR messaging system.
+ *
  * <p>This class handles the creation, retrieval, and management of internal messages
  * between healthcare providers. It manages message metadata, recipient lists, attachments,
- * and the persistence of messages to the database. The class supports both local and
- * remote message recipients across connected healthcare facilities.</p>
- * 
+ * and the persistence of messages to the database.</p>
+ *
  * <p>Key responsibilities:
  * <ul>
  *   <li>Creating and sending messages to multiple recipients</li>
  *   <li>Managing message metadata (subject, date, time, attachments)</li>
- *   <li>Handling local and remote provider recipients</li>
+ *   <li>Handling provider recipients</li>
  *   <li>Retrieving message history and details</li>
  *   <li>Managing message status (new, read, deleted)</li>
- *   <li>XML-based message serialization for remote transmission</li>
  * </ul>
  * </p>
  * 
@@ -84,11 +77,6 @@ import io.github.carlos_emr.carlos.messenger.util.Msgxml;
 @Deprecated
 public class MsgMessageData {
 
-    /**
-     * Flag indicating if remote recipients are included in the message.
-     */
-    boolean areRemotes = false;
-    
     /**
      * Flag indicating if local recipients are included in the message.
      */
@@ -294,16 +282,16 @@ public class MsgMessageData {
      * 
      * <p>This comprehensive method handles message creation with all features including:
      * <ul>
-     *   <li>Multiple recipient support (local and remote)</li>
+     *   <li>Multiple recipient support</li>
      *   <li>File attachments</li>
      *   <li>PDF attachments with binary storage</li>
      *   <li>Message type classification</li>
      *   <li>Associated action links</li>
      * </ul>
      * </p>
-     * 
+     *
      * <p>The method properly escapes data for SQL injection prevention and handles
-     * both local database storage and remote XML transmission.</p>
+     * local database storage.</p>
      * 
      * @param message The message body content
      * @param subject The message subject line
@@ -419,91 +407,6 @@ public class MsgMessageData {
         }
 
         return providerArrayList;
-    }
-
-    public java.util.ArrayList<MsgProviderData> getRemoteProvidersStructure() {
-        java.util.ArrayList<MsgProviderData> arrayList = new java.util.ArrayList<MsgProviderData>();
-        if (providerArrayList != null) {
-            for (int i = 0; i < providerArrayList.size(); i++) {
-                MsgProviderData providerData = providerArrayList.get(i);
-                if (providerData.getId().getClinicLocationNo() > 0 && providerData.getId().getClinicLocationNo() != getCurrentLocationId()) {
-                    arrayList.add(providerData);
-                }
-            }
-        }
-        return arrayList;
-    }
-
-    public String getRemoteNames(java.util.ArrayList<MsgProviderData> arrayList) {
-
-        String[] arrayOfLocations = new String[arrayList.size()];
-        String[] sortedArrayOfLocations;
-        MsgProviderData providerData;
-        for (int i = 0; i < arrayList.size(); i++) {
-            providerData = arrayList.get(i);
-            arrayOfLocations[i] = providerData.getId().getClinicLocationNo() + "";
-        }
-        sortedArrayOfLocations = getDups4(arrayOfLocations);
-
-        java.util.ArrayList<ArrayList<String>> vectOfSortedProvs = new java.util.ArrayList<ArrayList<String>>();
-
-        for (int i = 0; i < sortedArrayOfLocations.length; i++) {
-            java.util.ArrayList<String> sortedProvs = new java.util.ArrayList<String>();
-            for (int j = 0; j < arrayList.size(); j++) {
-                providerData = arrayList.get(j);
-                if (providerData.getId().getClinicLocationNo() == Integer.parseInt(sortedArrayOfLocations[i])) {
-
-                    sortedProvs.add(providerData.getId().getContactId());
-                }
-            }
-            vectOfSortedProvs.add(sortedProvs);
-        }
-
-        StringBuilder stringBuffer = new StringBuilder();
-        for (int i = 0; i < sortedArrayOfLocations.length; i++) {
-            //for each location get there address book and there locationDesc
-            String theAddressBook = new String();
-            String theLocationDesc = new String();
-            OscarCommLocations oscarCommLocations = oscarCommLocationsDao.find(sortedArrayOfLocations[i]);
-            if (oscarCommLocations != null) {
-                theLocationDesc = oscarCommLocations.getLocationDesc();
-                theAddressBook = oscarCommLocations.getAddressBook();
-            }
-
-            Document xmlDoc = Msgxml.parseXML(theAddressBook);
-
-            if (xmlDoc != null) {
-                ArrayList<String> sortedProvs = vectOfSortedProvs.get(i);
-
-                stringBuffer.append("<br/><br/>Providers at " + theLocationDesc + " receiving this message: <br/> ");
-
-                Element addressBook = xmlDoc.getDocumentElement();
-                NodeList lst = addressBook.getElementsByTagName("address");
-
-                for (int z = 0; z < sortedProvs.size(); z++) {
-
-                    String providerNo = sortedProvs.get(z);
-
-                    for (int j = 0; j < lst.getLength(); j++) {
-                        Node currNode = lst.item(j);
-                        Element elly = (Element) currNode;
-
-
-                        if (providerNo.equals(elly.getAttribute("id"))) {
-                            j = lst.getLength();
-                            stringBuffer.append(elly.getAttribute("desc") + ". ");
-                        }
-                    }
-
-                }//for
-
-                stringBuffer.append(" ) ");
-
-            }//if
-
-        }//for
-
-        return stringBuffer.toString();
     }
 
     public String getSubject(String msgID) {

@@ -30,16 +30,19 @@
 
 package io.github.carlos_emr.carlos.scratch;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.commn.dao.ScratchPadDao;
 import io.github.carlos_emr.carlos.commn.model.JSONAction;
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.codehaus.jettison.json.JSONObject;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  *
@@ -56,7 +59,7 @@ public class Scratch2Action extends JSONAction {
     		throw new IllegalArgumentException("Missing required parameter: id");
     	}
 
-    	try {
+		try {
     		ScratchPad scratchPad = scratchPadDao.find(Integer.parseInt(id));
     		if (scratchPad == null) {
     			throw new IllegalArgumentException("ScratchPad not found for id: " + id);
@@ -68,19 +71,34 @@ public class Scratch2Action extends JSONAction {
     	}
     }
     
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
 
-        if ("showVersion".equals(request.getParameter("method"))) {
-            return showVersion();
+        String method = request.getParameter("method");
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            if ("delete".equals(method)) {
+                return delete();
+            }
+            // POST without a method parameter is the normal scratchpad save operation.
+        } else {
+            if ("showVersion".equals(method)) {
+                return showVersion();
+            }
+            return SUCCESS;
         }
-        if ("delete".equals(request.getParameter("method"))) {
-            return delete();
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            return "success";
         }
 
         String providerNo =  (String) request.getSession().getAttribute("user");
         String pNo = request.getParameter("providerNo");
-                
-        if (providerNo.equals(pNo)){
+        if (providerNo == null || providerNo.trim().isEmpty()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return null;
+        }
+
+        if (isRequestForSessionProvider(providerNo, pNo)){
         String id = request.getParameter("id");
         String scratchPad = request.getParameter("scratchpad");
         String windowId = request.getParameter("windowId");
@@ -120,19 +138,24 @@ public class Scratch2Action extends JSONAction {
                return null;
            }
            returnId = ""+databaseId;
-           MiscUtils.getLogger().debug( "database Id = "+databaseId+" request id "+id);
 
-		   if (id == null || id.trim().isEmpty()) {
+           if (id == null || id.trim().isEmpty()) {
                MiscUtils.getLogger().error("Request id parameter is null or empty");
                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                return null;
+           }
+
+           Logger logger = MiscUtils.getLogger();
+           if (logger.isDebugEnabled()) {
+               String safeRequestId = LogSafe.sanitize(id);
+               logger.debug("database Id = {} request id {}", databaseId, safeRequestId);
            }
 
            int requestId;
            try {
                requestId = Integer.parseInt(id);
            } catch (NumberFormatException e) {
-               MiscUtils.getLogger().error("Invalid request id format: {}", Encode.forJava(id), e);
+               MiscUtils.getLogger().error("Invalid request id format: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                return null;
            }
@@ -147,16 +170,22 @@ public class Scratch2Action extends JSONAction {
                MiscUtils.getLogger().debug("dirty field set");
            }
         }
-			JSONObject jsonObject = new JSONObject();
+			ObjectNode jsonObject = objectMapper.createObjectNode();
 			jsonObject.put("id", Encode.forHtmlContent(returnId));
 			jsonObject.put("text", Encode.forHtmlContent(returnText));
 			jsonObject.put("windowId", Encode.forHtmlContent(windowId));
 			jsonResponse(jsonObject);
 
         }else {
-        	MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
-        		Encode.forJava(pNo), Encode.forJava(providerNo));
-        	response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			Logger logger = MiscUtils.getLogger();
+			if (logger.isErrorEnabled()) {
+				logger.error("Scratch pad provider mismatch; request and session provider values omitted from log");
+			}
+			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Provider mismatch");
+            jsonResponse(jsonObject);
         }
         
         return null;      
@@ -164,7 +193,7 @@ public class Scratch2Action extends JSONAction {
     
     public String delete() {
     	String id = request.getParameter("id");
-	    JSONObject jsonObject = new JSONObject();
+	    ObjectNode jsonObject = objectMapper.createObjectNode();
 
         try {
             if (id != null && !id.isEmpty()) {
@@ -178,30 +207,18 @@ public class Scratch2Action extends JSONAction {
                         : null);
                     jsonObject.put("success", true);
                 } else {
-                    MiscUtils.getLogger().warn("ScratchPad not found for id: {}", Encode.forJava(id));
+                    MiscUtils.getLogger().warn("ScratchPad not found for id: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     jsonObject.put("success", false);
                 }
             } else {
                 jsonObject.put("success", false);
             }
         } catch (Exception e) {
-            // Log the failure without including any PHI
-            MiscUtils.getLogger().error(
-                "Failed to delete ScratchPad entry with id: " + Encode.forJava(id),
-                e
-            );
-            try {
-                // Ensure callers can detect the failure via HTTP status and JSON payload
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                jsonObject = new JSONObject();
-                jsonObject.put("success", false);
-            } catch (Exception jsonException) {
-                // Avoid throwing from error handling; just log the secondary failure
-                MiscUtils.getLogger().error(
-                    "Failed to build error JSON response for ScratchPad delete operation",
-                    jsonException
-                );
-            }
+            MiscUtils.getLogger().error("Failed to delete ScratchPad entry with id: {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            // Ensure callers can detect the failure via HTTP status and JSON payload
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
         }
 	    jsonResponse(jsonObject);
     	return null;
@@ -211,5 +228,13 @@ public class Scratch2Action extends JSONAction {
 		String s1 = scratchPad == null ? "" : scratchPad.trim();
 		String s2 = returnText == null ? "" : returnText.trim();
 		return !s1.equals(s2);
+	}
+
+	static boolean isRequestForSessionProvider(String sessionProviderNo, String requestProviderNo) {
+		return sessionProviderNo != null
+			&& !sessionProviderNo.trim().isEmpty()
+			&& (requestProviderNo == null
+				|| requestProviderNo.trim().isEmpty()
+				|| sessionProviderNo.equals(requestProviderNo));
 	}
 }

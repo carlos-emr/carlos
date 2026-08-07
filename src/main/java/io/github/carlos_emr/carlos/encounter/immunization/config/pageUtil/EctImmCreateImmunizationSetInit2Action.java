@@ -28,13 +28,19 @@
  */
 package io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ServletActionContext;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private HttpServletRequest request = ServletActionContext.getRequest();
     private String setName;
     private String numRows;
@@ -42,6 +48,11 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "w", null)) {
+            throw new SecurityException("missing required sec object (_prevention)");
+        }
+
         if (numCols != null) numCols = numCols.trim();
         if (numRows != null) numRows = numRows.trim();
 
@@ -92,6 +103,7 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
         return setName;
     }
 
+    @StrutsParameter
     public void setSetName(String setName) {
         this.setName = setName;
     }
@@ -100,6 +112,7 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
         return numRows;
     }
 
+    @StrutsParameter
     public void setNumRows(String numRows) {
         this.numRows = numRows;
     }
@@ -108,6 +121,7 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
         return numCols;
     }
 
+    @StrutsParameter
     public void setNumCols(String numCols) {
         this.numCols = numCols;
     }

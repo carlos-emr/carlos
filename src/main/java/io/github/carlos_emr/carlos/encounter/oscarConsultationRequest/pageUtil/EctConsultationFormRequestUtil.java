@@ -41,12 +41,29 @@ import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import org.owasp.encoder.Encode;
 
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Utility bean that aggregates patient, provider, specialist, and consultation data
+ * for the Consultation Request form ({@code ConsultationFormRequest.jsp}).
+ *
+ * <p>Instantiated by the JSP scriptlet and populated through a series of {@code est*()} methods
+ * that query DAOs to fill patient demographics, team lists, specialist details,
+ * and existing consultation data. The populated fields are then read directly by the JSP
+ * and by {@link EctViewRequest2Action#fillFormValues} to transfer values into the Struts form bean.</p>
+ *
+ * <p>This class uses public fields (not getters/setters) for most properties because the JSP
+ * accesses them as scriptlet expressions ({@code consultUtil.fieldName}). This is a legacy
+ * pattern inherited from the original OSCAR codebase.</p>
+ *
+ * @since 2003-09-18
+ */
 public class EctConsultationFormRequestUtil {
 
     public String patientName;
@@ -86,7 +103,14 @@ public class EctConsultationFormRequestUtil {
     public String specFax;
     public String specAddr;
     public String specEmail;
-    public Vector teamVec;
+    /**
+     * Provider team names for the "Send To" dropdown. Initialized to an empty Vector
+     * to prevent NullPointerException in JSP and {@link EctViewRequest2Action#fillFormValues}
+     * when no {@code estTeams*()} method has been called. Populated by
+     * {@link #estActiveTeams()}, {@link #estTeams()}, {@link #estTeamsBySite(String)},
+     * or {@link #estTeamsByTeam(String)}.
+     */
+    public Vector<String> teamVec = new Vector<>();
     public String demoNo;
     public String pwb;
     public String mrp = "";
@@ -138,10 +162,10 @@ public class EctConsultationFormRequestUtil {
             patientName = demographic.getFormattedName();
 
             StringBuilder patientAddressSb = new StringBuilder();
-            patientAddressSb.append(StringUtils.noNull(demographic.getAddress())).append("<br>")
-                    .append(StringUtils.noNull(demographic.getCity())).append(",")
-                    .append(StringUtils.noNull(demographic.getProvince())).append("<br>")
-                    .append(StringUtils.noNull(demographic.getPostal()));
+            patientAddressSb.append(Encode.forHtml(StringUtils.noNull(demographic.getAddress()))).append("\n")
+                    .append(Encode.forHtml(StringUtils.noNull(demographic.getCity()))).append(",")
+                    .append(Encode.forHtml(StringUtils.noNull(demographic.getProvince()))).append("\n")
+                    .append(Encode.forHtml(StringUtils.noNull(demographic.getPostal())));
             patientAddress = patientAddressSb.toString();
             patientPhone = StringUtils.noNull(demographic.getPhone());
             patientWPhone = StringUtils.noNull(demographic.getPhone2());
@@ -215,6 +239,8 @@ public class EctConsultationFormRequestUtil {
         return verdict;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean estRequestFromId(LoggedInInfo loggedInInfo, String id) {
 
         boolean verdict = true;
@@ -233,7 +259,7 @@ public class EctConsultationFormRequestUtil {
 
             // attempting to make this code as backwards compatible as possible while enabling
             // the use of a patients health care team directly in the Consultation module.
-            if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+            if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
                 Integer demographicContactId = cr.getDemographicContactId();
                 DemographicContact demographicContact = cr.getDemographicContact();
                 Integer contactType = null;
@@ -403,6 +429,8 @@ public class EctConsultationFormRequestUtil {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getSpecailistsName(String id) {
         if (id == null || id.trim().length() == 0) {
             return "-1";
@@ -437,6 +465,8 @@ public class EctConsultationFormRequestUtil {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getSpecailistsEmail(String id) {
         MiscUtils.getLogger().debug("in Get SPECAILISTS EMAIL \n\n" + id);
         String retval = "";

@@ -27,14 +27,15 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
 import io.github.carlos_emr.carlos.commn.model.ProviderSitePK;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import org.apache.logging.log4j.Logger;
 import org.apache.xml.security.utils.resolver.ResourceResolver;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorUpdateTask;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -46,14 +47,14 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelp
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
-public class ContextStartupListener implements javax.servlet.ServletContextListener {
+public class ContextStartupListener implements jakarta.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
-    private static final OscarProperties oscarProperties = OscarProperties.getInstance();
+    private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     @Override
-    public void contextInitialized(javax.servlet.ServletContextEvent sce) {
+    public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
 
         // ensure cxf uses log4j2
         System.setProperty("org.apache.cxf.Logger", "org.apache.cxf.commons.logging.Log4j2Logger");
@@ -63,9 +64,6 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
          */
         System.setProperty("log4j1.compatibility", "true");
 
-        // Disable unsafe serialization in commons-collections to prevent CVE-2015-7501
-        System.setProperty("org.apache.commons.collections.enableUnsafeSerialization", "false");
-        logger.info("Commons-collections unsafe serialization disabled for CVE-2015-7501 protection");
 
         try {
             String contextPath = sce.getServletContext().getContextPath();
@@ -81,10 +79,6 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
 
             createOscarProgramIfNecessary();
             createDefaultSiteIfNecessary();
-
-            if (oscarProperties.getBooleanProperty("INTEGRATOR_ENABLED", "true")) {
-                CaisiIntegratorUpdateTask.startTask();
-            }
 
             OscarJobUtils.initializeJobExecutionFramework();
 
@@ -125,17 +119,25 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
         SecroleDao secRoleDao = (SecroleDao) SpringUtils.getBean(SecroleDao.class);
         ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
+        FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);
 
         Program p = programDao.getProgramByName("OSCAR");
         if (p != null)
             return;
+
+        // Ensure a default Facility exists before creating the program
+        Integer facilityId = ensureDefaultFacilityExists(facilityDao);
+
         p = new Program();
-        p.setFacilityId(1);
+        p.setFacilityId(facilityId);
         p.setName("OSCAR");
         p.setMaxAllowed(99999);
         p.setType("Service");
         p.setProgramStatus("active");
         programDao.saveProgram(p);
+
+        // Re-fetch to get the generated ID (merge() doesn't update the passed object)
+        p = programDao.getProgramByName("OSCAR");
 
         ProgramProvider pp = new ProgramProvider();
         pp.setProviderNo("999998");
@@ -143,6 +145,22 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
         pp.setRoleId(secRoleDao.getRoleByName("doctor").getId());
         programProviderDao.saveProgramProvider(pp);
 
+    }
+
+    private Integer ensureDefaultFacilityExists(FacilityDao facilityDao) {
+        java.util.List<Facility> facilities = facilityDao.findAll(null);
+        if (facilities != null && !facilities.isEmpty()) {
+            return facilities.get(0).getId();
+        }
+
+        Facility facility = new Facility();
+        facility.setName("Default Facility");
+        facility.setDisabled(false);
+        facility.setOrgId(0);
+        facility.setSectorId(0);
+        facilityDao.persist(facility);
+        logger.info("Created default Facility (ID: " + facility.getId() + ")");
+        return facility.getId();
     }
 
     private void createDefaultSiteIfNecessary() {
@@ -178,10 +196,8 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
     }
 
     @Override
-    public void contextDestroyed(javax.servlet.ServletContextEvent sce) {
+    public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
-
-        CaisiIntegratorUpdateTask.stopTask();
 
         try {
             MiscUtils.checkShutdownSignaled();

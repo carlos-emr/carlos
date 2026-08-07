@@ -35,19 +35,34 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RxUpdateDrugref2Action extends ActionSupport {
+    private static final Logger logger = MiscUtils.getLogger();
+
+    /** RFC 8259 JSON content type. Replaces the legacy non-standard {@code text/x-json}. */
+    private static final String JSON_CONTENT_TYPE = "application/json;charset=UTF-8";
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -55,6 +70,11 @@ public class RxUpdateDrugref2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         if ("updateDB".equals(request.getParameter("method"))) {
             return updateDB();
         } else if ("verify".equals(request.getParameter("method"))) {
@@ -63,36 +83,55 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         return getLastUpdate();
     }
 
-    public String updateDB() throws Exception, ServletException {
-        RxDrugRef drugref = new RxDrugRef();
-        String s = drugref.updateDB();
-
-        HashMap<String, Object> d = new HashMap<String, Object>();
-        d.put("result", s);
-        response.setContentType("text/x-json;charset=UTF-8");
-
-        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+    public String updateDB() throws IOException, ServletException {
+        Map<String, Object> d = new HashMap<>();
+        d.put("result", runOrFallback("updateDB", () -> new RxDrugRef().updateDB(), null));
+        writeJson(d);
         return null;
     }
 
-    private String verify() throws Exception, ServletException {
-        RxDrugRef drugref = new RxDrugRef();
-        Map<String, String> verify = drugref.verify();
-        response.setContentType("text/x-json;charset=UTF-8");
-        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(verify);
-        response.getWriter().write(jsonArray.toString());
+    private String verify() throws IOException, ServletException {
+        // On failure, supply a payload with null fields — existing clients
+        // (TopLinks2.jspf, updateDrugref.jsp) treat a null lastUpdate as
+        // "DrugRef unavailable" and render a friendly banner instead of
+        // the HTTP 500 errorpage.jsp painted into the Rx print-preview iframe.
+        Map<String, String> fallback = new HashMap<>();
+        fallback.put("lastUpdate", null);
+        fallback.put("drugDatabase", null);
+        fallback.put("version", null);
+        writeJson(runOrFallback("verify", () -> new RxDrugRef().verify(), fallback));
         return null;
     }
 
-    private String getLastUpdate() throws Exception, ServletException {
-        RxDrugRef drugref = new RxDrugRef();
-        String s = drugref.getLastUpdateTime();
-        HashMap<String, String> d = new HashMap<String, String>();
-        d.put("lastUpdate", s);
-        response.setContentType("text/x-json;charset=UTF-8");
-        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+    private String getLastUpdate() throws IOException, ServletException {
+        Map<String, String> d = new HashMap<>();
+        d.put("lastUpdate", runOrFallback("getLastUpdateTime", () -> new RxDrugRef().getLastUpdateTime(), null));
+        writeJson(d);
         return null;
+    }
+
+    /**
+     * Invokes a DrugRef call and returns its result, substituting {@code fallback}
+     * (and logging) when the call throws. Failures are logged at {@code WARN} as a
+     * compact one-liner and at {@code DEBUG} with the full stack trace, so that
+     * repeated calls during a DrugRef outage (UI polling, admin retries) don't
+     * flood the logs with stack traces at warn level.
+     */
+    private <T> T runOrFallback(String operation, Callable<T> call, T fallback) {
+        try {
+            return call.call();
+        } catch (Exception e) {
+            logger.warn("DrugRef {} failed; treating service as unavailable: {}", operation, e.toString());
+            logger.debug("DrugRef {} failure details", operation, e);
+            return fallback;
+        }
+    }
+
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    private void writeJson(Object payload) throws IOException {
+        response.setContentType(JSON_CONTENT_TYPE);
+        ObjectNode json = (ObjectNode) objectMapper.valueToTree(payload);
+        response.getWriter().write(json.toString());
     }
 }

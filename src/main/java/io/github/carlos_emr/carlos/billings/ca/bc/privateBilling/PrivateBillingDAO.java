@@ -1,12 +1,17 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.privateBilling;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import org.apache.logging.log4j.Logger;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.Query;
+
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Data Access Object for managing private billing records in British Columbia.
@@ -22,30 +27,16 @@ import java.util.List;
  *   <li>List all private billing records for a specific healthcare provider</li>
  * </ul>
  *
- * <p><strong>Note:</strong> This class uses direct JDBC connections and manual resource management.
- * Callers should be aware that database connections are obtained via {@link DbUtil#getConnection()}
- * and resources are closed in finally blocks.</p>
+ * <p>Executes read-only native SQL via the JPA {@link jakarta.persistence.EntityManager}
+ * inherited from {@link AbstractJpaDao}, participating in Spring's transaction context.</p>
  *
  * @see PrivateBillingModel
- * @see DbUtil
  * @since 2026-01-24
  */
-public class PrivateBillingDAO {
-    private Connection connection;
-    private PreparedStatement statement;
-    private ResultSet rs;
-
-    /**
-     * Constructs a new PrivateBillingDAO instance.
-     *
-     * <p>Initializes database connection resources to null. Actual database connections
-     * are created on-demand when methods are invoked.</p>
-     */
-    public PrivateBillingDAO() {
-        connection = null;
-        statement = null;
-        rs = null;
-    }
+@Repository
+@Transactional(readOnly = true)
+public class PrivateBillingDAO extends AbstractJpaDao {
+    private static final Logger log = MiscUtils.getLogger();
 
     /**
      * Retrieves billing recipient information by recipient ID.
@@ -76,31 +67,21 @@ public class PrivateBillingDAO {
         }};
 
         try {
-            String sqlstmt = "SELECT name, address, city, province, postal FROM bill_recipients WHERE id=?";
-            connection = DbUtil.getConnection();
-            statement = connection.prepareStatement(sqlstmt);
-            statement.setString(1, recipientId);
-            rs = statement.executeQuery();
-            while (rs.next()) {
-                recipient.put("name", rs.getString("name"));
-                recipient.put("address", rs.getString("address"));
-                recipient.put("city", rs.getString("city"));
-                recipient.put("province", rs.getString("province"));
-                recipient.put("postal", rs.getString("postal"));
+            String sqlstmt = "SELECT name, address, city, province, postal FROM bill_recipients WHERE id = :recipientId";
+            Query query = entityManager().createNativeQuery(sqlstmt);
+            query.setParameter("recipientId", recipientId);
+
+            @SuppressWarnings("unchecked")
+            List<Object[]> rows = query.getResultList();
+            for (Object[] row : rows) {
+                recipient.put("name", asString(row[0]));
+                recipient.put("address", asString(row[1]));
+                recipient.put("city", asString(row[2]));
+                recipient.put("province", asString(row[3]));
+                recipient.put("postal", asString(row[4]));
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                rs.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            try {
-                statement.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        } catch (RuntimeException e) {
+            log.error("Failed to retrieve recipient by ID: {}", recipientId, e);
         }
 
         return recipient;
@@ -118,29 +99,8 @@ public class PrivateBillingDAO {
      *   <li>Recipient name</li>
      * </ul>
      *
-     * <p>Each item in the returned list contains a HashMap with the following keys:</p>
-     * <ul>
-     *   <li>{@code name} - String recipient name</li>
-     *   <li>{@code billing_no} - String billing number (invoice ID)</li>
-     *   <li>{@code demographic_no} - String patient demographic number</li>
-     *   <li>{@code provider_no} - String healthcare provider number</li>
-     *   <li>{@code demographic_name} - String patient name</li>
-     *   <li>{@code billing_date} - String date of billing</li>
-     *   <li>{@code total} - String total invoice amount</li>
-     *   <li>{@code status} - String billing status code</li>
-     *   <li>{@code payee_no} - String payee identifier</li>
-     *   <li>{@code billing_unit} - String billing units (may appear twice)</li>
-     *   <li>{@code bill_amount} - String billed amount</li>
-     *   <li>{@code billingmaster_no} - String billing master record number</li>
-     *   <li>{@code billing_code} - String service billing code</li>
-     *   <li>{@code gst} - String GST amount</li>
-     *   <li>{@code gstNo} - String GST registration number</li>
-     *   <li>{@code amount} - String line item amount</li>
-     *   <li>{@code amount_received} - String total amount received (aggregated from billing history)</li>
-     *   <li>{@code description} - String service description from billing service table</li>
-     * </ul>
-     *
-     * <p>Results are ordered by billing date in descending order (most recent first).</p>
+     * <p>Each item in the returned list contains a HashMap with billing/invoice detail keys.
+     * Results are ordered by billing date in descending order (most recent first).</p>
      *
      * @param demographicNumber String the patient's demographic number (patient ID)
      * @param recipientName String the name of the billing recipient to filter by
@@ -180,52 +140,43 @@ public class PrivateBillingDAO {
                     "WHERE b.billingtype = 'PRI'",
                     "AND bh.billingtype = 'PRI'",
                     "AND bm.billingstatus LIKE 'P'",
-                    "AND b.demographic_no LIKE ?", // <- demographic number
-                    "AND COALESCE(br.name,'') = ?", // <- recipient name?? why not using recipient Id??
+                    "AND b.demographic_no LIKE :demographicNumber",
+                    "AND COALESCE(br.name,'') = :recipientName",
                     "GROUP BY bh.billingmaster_no",
                     "HAVING bh.billingmaster_no",
                     "ORDER BY b.billing_date DESC");
-            connection = DbUtil.getConnection();
-            statement = connection.prepareStatement(sqlstmt);
-            statement.setString(1, demographicNumber);
-            statement.setString(2, recipientName);
-            rs = statement.executeQuery();
-            while (rs.next()) {
+            Query query = entityManager().createNativeQuery(sqlstmt);
+            query.setParameter("demographicNumber", demographicNumber);
+            query.setParameter("recipientName", recipientName);
+
+            @SuppressWarnings("unchecked")
+            List<Object[]> rows = query.getResultList();
+            for (Object[] row : rows) {
                 HashMap<String, String> invoiceItem = new HashMap<String, String>();
-                invoiceItem.put("name", rs.getString("name"));
-                invoiceItem.put("billing_no", rs.getString("billing_no"));
-                invoiceItem.put("demographic_no", rs.getString("demographic_no"));
-                invoiceItem.put("provider_no", rs.getString("provider_no"));
-                invoiceItem.put("demographic_name", rs.getString("demographic_name"));
-                invoiceItem.put("billing_date", rs.getString("billing_date"));
-                invoiceItem.put("total", rs.getString("total"));
-                invoiceItem.put("status", rs.getString("status"));
-                invoiceItem.put("payee_no", rs.getString("payee_no"));
-                invoiceItem.put("billing_unit", rs.getString("billing_unit"));
-                invoiceItem.put("bill_amount", rs.getString("bill_amount"));
-                invoiceItem.put("billingmaster_no", rs.getString("billingmaster_no"));
-                invoiceItem.put("billing_code", rs.getString("billing_code"));
-                invoiceItem.put("billing_unit", rs.getString("billing_unit"));
-                invoiceItem.put("gst", rs.getString("gst"));
-                invoiceItem.put("gstNo", rs.getString("gst_no"));
-                invoiceItem.put("amount", rs.getString("amount"));
-                invoiceItem.put("amount_received", rs.getString("amount_received"));
-                invoiceItem.put("description", rs.getString("description"));
+                // Column order matches the SELECT clause above (0-based indices)
+                invoiceItem.put("name", asString(row[1]));
+                invoiceItem.put("billing_no", asString(row[2]));
+                invoiceItem.put("demographic_no", asString(row[3]));
+                invoiceItem.put("provider_no", asString(row[4]));
+                invoiceItem.put("demographic_name", asString(row[5]));
+                invoiceItem.put("billing_date", asString(row[6]));
+                invoiceItem.put("total", asString(row[7]));
+                invoiceItem.put("status", asString(row[8]));
+                invoiceItem.put("payee_no", asString(row[9]));
+                invoiceItem.put("billing_unit", asString(row[10]));
+                invoiceItem.put("bill_amount", asString(row[11]));
+                invoiceItem.put("billingmaster_no", asString(row[12]));
+                invoiceItem.put("billing_code", asString(row[13]));
+                // index 14 is the duplicate billing_unit column (preserved from the original query)
+                invoiceItem.put("gst", asString(row[15]));
+                invoiceItem.put("gstNo", asString(row[16]));
+                invoiceItem.put("amount", asString(row[17]));
+                invoiceItem.put("amount_received", asString(row[18]));
+                invoiceItem.put("description", asString(row[19]));
                 bills.add(invoiceItem);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                rs.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            try {
-                statement.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        } catch (RuntimeException e) {
+            log.error("Failed to list private bill items", e);
         }
 
         return bills;
@@ -235,26 +186,8 @@ public class PrivateBillingDAO {
      * Retrieves a summarized list of all private billing records for a specific healthcare provider.
      *
      * <p>This method aggregates private billing data grouped by patient (demographic number) and
-     * recipient name. The query performs complex joins across billing tables to compile:</p>
-     * <ul>
-     *   <li>Count of billing items per patient/recipient combination</li>
-     *   <li>Total balance (sum of all bill amounts) for each group</li>
-     *   <li>Billing metadata including dates, status, and provider information</li>
-     * </ul>
-     *
-     * <p>The query filters by:</p>
-     * <ul>
-     *   <li>Billing type = 'PRI' (private billing)</li>
-     *   <li>Billing status = 'P' (presumably "posted" or "processed")</li>
-     *   <li>Status NOT LIKE 'A' (excludes archived or cancelled records)</li>
-     *   <li>Specific provider number</li>
-     * </ul>
-     *
-     * <p>Results are grouped by patient demographic number and recipient name, and ordered by
-     * billing date in descending order (most recent first).</p>
-     *
-     * <p>Each {@link PrivateBillingModel} in the returned list contains aggregated billing summary
-     * information for a unique patient/recipient combination.</p>
+     * recipient name. The query performs complex joins across billing tables to compile
+     * count, balance, and metadata per patient/recipient combination.</p>
      *
      * @param providerId String the healthcare provider's unique identifier
      * @return List&lt;PrivateBillingModel&gt; list of billing summary records grouped by patient and recipient.
@@ -289,45 +222,46 @@ public class PrivateBillingDAO {
                     "ON (b.billing_no = br.billingNo)",
                     "WHERE b.billingtype = 'PRI' AND b.status NOT LIKE 'A') bill",
                     "ON (bill.billing_no = bm.billing_no)",
-                    "WHERE bm.billingstatus LIKE 'P' AND bill.provider_no LIKE ?",
+                    "WHERE bm.billingstatus LIKE 'P' AND bill.provider_no LIKE :providerId",
                     "GROUP BY bill.demographic_no, bill.name",
                     "ORDER BY bill.billing_date DESC");
-            connection = DbUtil.getConnection();
-            statement = connection.prepareStatement(sqlstmt);
-            statement.setString(1, providerId);
+            Query query = entityManager().createNativeQuery(sqlstmt);
+            query.setParameter("providerId", providerId);
 
-            rs = statement.executeQuery();
-            while (rs.next()) {
+            @SuppressWarnings("unchecked")
+            List<Object[]> rows = query.getResultList();
+            for (Object[] row : rows) {
                 PrivateBillingModel model = new PrivateBillingModel();
-                model.setBillingCount(rs.getInt("items"));
-                model.setBillingNumber(rs.getString("billing_no"));
-                model.setBillingDate(rs.getString("billing_date"));
-                model.setBillingType(rs.getString("billingtype"));
-                model.setBillingStatus(rs.getString("billingstatus"));
-                model.setDemographicName(rs.getString("demographic_name"));
-                model.setDemographicNumber(rs.getString("demographic_no"));
-                model.setProviderNumber(rs.getString("provider_no"));
-                model.setRecipientId(rs.getString("recipient"));
-                model.setRecipientName(rs.getString("name"));
-                model.setBalance(rs.getString("balance"));
-                model.setStatus(rs.getString("status"));
+                // Column order matches the SELECT clause above (0-based indices)
+                model.setBillingCount(((Number) row[0]).intValue());
+                model.setRecipientId(asString(row[1]));
+                model.setDemographicName(asString(row[2]));
+                model.setDemographicNumber(asString(row[3]));
+                model.setBillingNumber(asString(row[4]));
+                model.setBillingType(asString(row[5]));
+                model.setProviderNumber(asString(row[6]));
+                model.setRecipientName(asString(row[7]));
+                model.setBillingDate(asString(row[8]));
+                model.setStatus(asString(row[9]));
+                model.setBillingStatus(asString(row[10]));
+                // index 11 is provider_ohip_no, not mapped onto the model (preserved from original)
+                model.setBalance(asString(row[12]));
                 bills.add(model);
             }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                rs.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            try {
-                statement.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        } catch (RuntimeException e) {
+            log.error("Failed to list private bills for provider: {}", providerId, e);
         }
         return bills;
+    }
+
+    /**
+     * Null-safe conversion of a query result column to a String, matching the behaviour
+     * of {@code ResultSet.getString()} which returns {@code null} for SQL NULL values.
+     *
+     * @param value the raw column value from the native query (may be null)
+     * @return String representation of the value, or {@code null} if the value is null
+     */
+    private static String asString(Object value) {
+        return value == null ? null : value.toString();
     }
 }

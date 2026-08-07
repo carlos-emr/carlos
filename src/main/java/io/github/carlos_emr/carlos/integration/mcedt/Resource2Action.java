@@ -32,20 +32,22 @@ import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.getResou
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Iterator;
+
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import ca.ontario.health.edt.*;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Resource2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -55,7 +57,12 @@ public class Resource2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("delete".equals(method) || "submit".equals(method) || "download".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("changeDisplay".equals(method)) {
             return changeDisplay();
         } else if ("reset".equals(method)) {
@@ -178,14 +185,16 @@ public class Resource2Action extends ActionSupport {
             ze.setComment(d.getDescription());
             ze.setSize(inputBytes.length);
 
-            zos.putNextEntry(ze);
-            zos.write(inputBytes);
+            zos.putNextEntry(ze); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/zip binary stream, ZipEntry header only
+            zos.write(inputBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/zip binary stream
             zos.closeEntry();
             zos.flush();
         }
         zos.close();
 
-        return null;
+        // This branch streams a ZIP directly; returning NONE prevents Struts result dispatch
+        // from appending page content after the archive bytes.
+        return NONE;
     }
 
     private String resourceType;
@@ -212,25 +221,11 @@ public class Resource2Action extends ActionSupport {
         this.detail = detail;
     }
 
-    public void removeResource(BigInteger resourceId) {
-        if (resourceId == null) {
-            return;
-        }
-
-        Iterator<DetailData> it = getDetail().getData().iterator();
-        while (it.hasNext()) {
-            DetailData d = it.next();
-
-            if (resourceId.equals(d.getResourceID())) {
-                it.remove();
-            }
-        }
-    }
-
     public String getResourceType() {
         return resourceType;
     }
 
+    @StrutsParameter
     public void setResourceType(String resourceType) {
         this.resourceType = resourceType;
     }
@@ -239,6 +234,7 @@ public class Resource2Action extends ActionSupport {
         return status;
     }
 
+    @StrutsParameter
     public void setStatus(String status) {
         this.status = status;
     }
@@ -247,6 +243,7 @@ public class Resource2Action extends ActionSupport {
         return pageNo;
     }
 
+    @StrutsParameter
     public void setPageNo(Integer pageNo) {
         this.pageNo = pageNo;
     }
@@ -261,6 +258,8 @@ public class Resource2Action extends ActionSupport {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ResourceStatus getStatusAsResourceStatus() {
         if (getStatus() == null) {
             return null;
@@ -286,6 +285,7 @@ public class Resource2Action extends ActionSupport {
         return serviceIdSent;
     }
 
+    @StrutsParameter
     public void setServiceIdSent(String serviceId) {
         this.serviceIdSent = serviceId;
     }

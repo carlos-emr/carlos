@@ -40,18 +40,21 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Vector;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctDisplayDx2Action extends EctDisplayAction {
     private String cmd = "Dx";
 
     PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
@@ -60,13 +63,12 @@ public class EctDisplayDx2Action extends EctDisplayAction {
 
             //set lefthand module heading and link
             String winName = "Disease" + bean.demographicNo;
-            String url = "popupPage(580,900,'" + winName + "','" + request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&quickList=')";
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.DxRegistry"));
-            Dao.setLeftURL(url);
+            String dxPath = request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch?demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&quickList=";
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.DxRegistry"));
+            Dao.setLeftPopup(580, 900, winName, dxPath);
 
             //set righthand link to same as left so we have visual consistency with other modules
-            url += "; return false;";
-            Dao.setRightURL(url);
+            Dao.setRightPopup(580, 900, winName, dxPath);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
             //grab all of the diseases associated with patient and add a list item for each

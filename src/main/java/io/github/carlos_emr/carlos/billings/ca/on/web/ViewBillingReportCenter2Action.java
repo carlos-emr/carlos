@@ -1,0 +1,107 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.web;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportCenterViewModel;
+import io.github.carlos_emr.carlos.commn.dao.ReportProviderDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
+/**
+ * View gate for {@code billing/CA/ON/billingReportCenter.jsp}. Enforces {@code _report}
+ * {@code r} privilege before forwarding to the JSP at its
+ * {@code /WEB-INF/jsp/} location.
+ *
+ * <p>Admin / doctor roles are redirected to the new-report dashboard to
+ * preserve the legacy {@code request.getRequestDispatcher("...").include}
+ * behaviour the JSP body used to perform inline.</p>
+ *
+ * <p>Resolves the provider-list select rows + the three echoed parameters
+ * ({@code xml_vdate}, {@code xml_appointment_date}, {@code providerview})
+ * into a {@link BillingReportCenterViewModel} so the JSP body renders pure
+ * EL/JSTL with no inline DAO lookups or parameter scriptlets.</p>
+ *
+ * @since 2026-04-13
+ */
+public class ViewBillingReportCenter2Action extends ActionSupport {
+
+    private final SecurityInfoManager securityInfoManager;
+    private final ReportProviderDao reportProviderDao;
+
+    public ViewBillingReportCenter2Action(SecurityInfoManager securityInfoManager,
+                                          ReportProviderDao reportProviderDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.reportProviderDao = reportProviderDao;
+    }
+    @Override
+    public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
+        // Mirror the legacy admin/doctor early-redirect to the new-report
+        // dashboard. The original JSP did this via
+        // request.getRequestDispatcher("...").include before any other body
+        // rendering; we replace it with a struts result so the redirect
+        // happens before forwarding to the JSP at all.
+        String userRole = (String) request.getSession().getAttribute("userrole");
+        if (userRole != null && (userRole.indexOf("admin") >= 0 || userRole.indexOf("doctor") >= 0)) {
+            return "newReport";
+        }
+
+        // Provider rows from the legacy "billingreport" report scope.
+        List<BillingReportCenterViewModel.ProviderRow> rows = new ArrayList<>();
+        List<io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow> joined =
+                reportProviderDao.search_reportprovider("billingreport");
+        if (joined != null) {
+            for (io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow row : joined) {
+                rows.add(new BillingReportCenterViewModel.ProviderRow(
+                        row.providerNo(), row.firstName(), row.lastName()));
+            }
+        }
+
+        BillingReportCenterViewModel model = BillingReportCenterViewModel.builder()
+                .providerRows(rows)
+                .selectedProviderView(request.getParameter("providerview"))
+                .xmlVdate(request.getParameter("xml_vdate"))
+                .xmlAppointmentDate(request.getParameter("xml_appointment_date"))
+                .build();
+
+        request.setAttribute("reportCenterModel", model);
+
+        return SUCCESS;
+    }
+}

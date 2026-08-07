@@ -30,16 +30,19 @@
 
 package io.github.carlos_emr.carlos.providers.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.providers.data.ProviderColourUpdater;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts 2 action for updating a healthcare provider's display colour preference.
@@ -55,6 +58,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2001-11-01
  */
 public class ProEditColour2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -85,6 +90,11 @@ public class ProEditColour2Action extends ActionSupport {
      */
     public String execute()
             throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
+            throw new SecurityException("missing required sec object (_pref)");
+        }
+
         String forward;
         String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         if (providerNo == null)
@@ -125,6 +135,7 @@ public class ProEditColour2Action extends ActionSupport {
      *
      * @param colour String colour code to set
      */
+    @StrutsParameter
     public void setColour(String colour) {
         this.colour = colour;
     }

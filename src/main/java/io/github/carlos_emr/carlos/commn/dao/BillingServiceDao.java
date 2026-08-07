@@ -50,7 +50,7 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<BillingService> findByServiceCodes(List<String> codes);
 
-    List<BillingService> finAllPrivateCodes();
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.PrivateBillingCode> finAllPrivateCodes();
 
     List<BillingService> findBillingCodesByCode(String code, String region, int order);
 
@@ -96,7 +96,7 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<BillingService> findByServiceCodeAndLatestDate(String serviceCode, Date date);
 
-    List<Object[]> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate);
+    List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate);
 
     List<Object> findBillingCodesByCodeAndTerminationDate(String serviceCode, Date terminationDate);
 

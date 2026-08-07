@@ -34,15 +34,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicAllergy;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
@@ -50,17 +45,12 @@ import io.github.carlos_emr.carlos.prescript.data.RxPatientData.Patient;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
 public final class AllergyHelperBean {
-    private static Logger logger = MiscUtils.getLogger();
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
     public static List<AllergyDisplay> getAllergiesToDisplay(LoggedInInfo loggedInInfo, Integer demographicId, Locale locale) {
         ArrayList<AllergyDisplay> results = new ArrayList<AllergyDisplay>();
 
         addLocalAllergies(loggedInInfo, demographicId, results, locale);
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            addIntegratorAllergies(loggedInInfo, demographicId, results, locale);
-        }
 
         return (results);
     }
@@ -94,44 +84,6 @@ public final class AllergyHelperBean {
             allergyDisplay.setLastUpdateDate(lastUpdateDate);
 
             results.add(allergyDisplay);
-        }
-    }
-
-    private static void addIntegratorAllergies(LoggedInInfo loggedInInfo, Integer demographicId, ArrayList<AllergyDisplay> results, Locale locale) {
-        try {
-            List<CachedDemographicAllergy> remoteAllergies = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    remoteAllergies = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicAllergies(demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                remoteAllergies = IntegratorFallBackManager.getRemoteAllergies(loggedInInfo, demographicId);
-            }
-
-
-            for (CachedDemographicAllergy remoteAllergy : remoteAllergies) {
-                AllergyDisplay allergyDisplay = new AllergyDisplay();
-
-                allergyDisplay.setRemoteFacilityId(remoteAllergy.getFacilityIdIntegerCompositePk().getIntegratorFacilityId());
-                allergyDisplay.setId(remoteAllergy.getFacilityIdIntegerCompositePk().getCaisiItemId());
-
-                allergyDisplay.setDescription(remoteAllergy.getDescription());
-                allergyDisplay.setEntryDate(DateUtils.formatDate(remoteAllergy.getEntryDate(), locale));
-                allergyDisplay.setOnSetCode(remoteAllergy.getOnSetCode());
-                allergyDisplay.setReaction(remoteAllergy.getReaction());
-                allergyDisplay.setSeverityCode(remoteAllergy.getSeverityCode());
-                allergyDisplay.setStartDate(DateUtils.formatDate(remoteAllergy.getStartDate(), locale));
-                allergyDisplay.setTypeCode(remoteAllergy.getTypeCode());
-
-                results.add(allergyDisplay);
-            }
-        } catch (Exception e) {
-            logger.error("error getting remote allergies", e);
         }
     }
 }

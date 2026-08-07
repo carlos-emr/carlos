@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 import ca.uhn.hl7v2.HL7Exception;
@@ -42,6 +43,7 @@ import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AlphaHandler extends DefaultGenericHandler implements MessageHandler {
 
@@ -57,7 +59,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
 
     /**
-     * Creates a new instance of ICLHandler
+     * Creates a new instance of AlphaHandler
      */
     public AlphaHandler() {
     }
@@ -426,6 +428,8 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int getOBXFinalResultCount() {
         try {
             int obrCount = getOBRCount();
@@ -521,7 +525,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
                     return "";
                 }
             } else {
-                // ICL likes to thrown reserved characters in their comments -- this is to compensate
+                // Some HL7 sources include reserved characters in NTE comments -- concatenate sub-components to compensate
                 String obxComment = getString(Terser.get(msg23.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k), 3, 0, 1, 1)) + " " +
                         getString(Terser.get(msg23.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k), 3, 0, 2, 1)).trim();
 
@@ -548,7 +552,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
             // if accessionNum can't be found in the OBR record of the first observation,
             //  look for it in subsequent observation records
-            if (accessionNum != "") {
+            if (StringUtils.isNotEmpty(accessionNum)) {
                 return (accessionNum);
             }
 
@@ -558,7 +562,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
                 } else {
                     accessionNum = getString(msg23.getRESPONSE().getORDER_OBSERVATION(j).getOBR().getFillerOrderNumber().getEntityIdentifier().getValue());
                 }
-                if (accessionNum != "") {
+                if (StringUtils.isNotEmpty(accessionNum)) {
                     return (accessionNum);
                 }
             }

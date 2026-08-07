@@ -33,43 +33,53 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
 /**
  * Originally developed by Prylynx for SJHCG
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class PrintReferralLabel2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public PrintReferralLabel2Action() {
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     @SuppressWarnings("resource")
     private InputStream getInputStream() {
         InputStream ins = null;
         try {
-            ins = new FileInputStream(System.getProperty("user.home") + "/reflabel.xml");
-        } catch (IOException e) {
-            MiscUtils.getLogger().warn("no reflabel.xml found in user's home directory, going to backup");
+            ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/reflabel.xml")));
+        } catch (IOException | SecurityException e) {
+            MiscUtils.getLogger().warn("no reflabel.xml found in user's home directory, going to backup", e);
         }
         if (ins == null) {
             ins = getClass().getResourceAsStream("/org/oscarehr/common/web/reflabel.xml");
@@ -78,6 +88,11 @@ public class PrintReferralLabel2Action extends ActionSupport {
     }
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         //patient
         String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
         System.setProperty("jasper.reports.compile.class.path", classpath);
@@ -116,7 +131,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
                         fos = new FileOutputStream(f);
                         ins = getInputStream();
                         parameters.put("billingreferral_no", ids[x]);
-                        osc.fillDocumentStream(parameters, fos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection());
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            osc.fillDocumentStream(parameters, fos, "pdf", ins, connection);
+                        }
                         printList.add(f.getAbsolutePath());
                     } finally {
                         IOUtils.closeQuietly(fos);
@@ -127,7 +144,9 @@ public class PrintReferralLabel2Action extends ActionSupport {
             } else {
                 ins = getInputStream();
                 OscarDocumentCreator osc = new OscarDocumentCreator();
-                osc.fillDocumentStream(parameters, sos, "pdf", ins, DbConnectionFilter.getThreadLocalDbConnection());
+                try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                    osc.fillDocumentStream(parameters, sos, "pdf", ins, connection);
+                }
             }
 
         } catch (Exception e) {
@@ -137,9 +156,12 @@ public class PrintReferralLabel2Action extends ActionSupport {
         }
 
         if ("true".equals(request.getParameter("useCheckList"))) {
+            // nosemgrep: tainted-session-from-http-request -- value is a new empty ArrayList literal, not user input
             request.getSession().setAttribute("billingReferralAdminCheckList", new ArrayList<ProfessionalSpecialist>());
         }
-        return SUCCESS;
+        // This action streams the PDF directly and its Struts mapping has no success result.
+        // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
+        return NONE;
     }
 
     private StringBuilder getHeader(HttpServletResponse response) {

@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Date;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "document_storage")

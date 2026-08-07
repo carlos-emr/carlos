@@ -31,8 +31,10 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
+import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import java.util.Date;
@@ -74,4 +76,15 @@ public interface PrescriptionManager {
     public boolean print(LoggedInInfo loggedInInfo, int scriptNo);
 
     boolean setPrescriptionSignature(LoggedInInfo loggedInInfo, int scriptNo, Integer digitalSignatureId);
+
+    /**
+     * Returns lightweight drug DTOs for a demographic. Enforces read privilege check.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo Integer the patient demographic number
+     * @return List of DrugListItemDTO for the patient's prescriptions
+     * @throws AccessDeniedException if the caller lacks {@code _demographic} read privilege for this patient
+     * @since 2026-04-11
+     */
+    List<DrugListItemDTO> getDrugDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);
 }

@@ -1,0 +1,104 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+
+<div id="confirmModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
+<div class="modal-dialog"><div class="modal-content">
+<div class="modal-header">
+<h3 id="confirmModalLabel">Modal header</h3>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body" id="confirmModalBody">
+<p></p>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
+<a href="" class="btn btn-danger contentLink" id="dataConfirmed">Delete</a>
+</div>
+</div></div></div>
+
+
+
+<script>
+$(document).ready(function() {
+    // Prevent re-initialization
+    if (window.confirmModalInitialized) { return; }
+    window.confirmModalInitialized = true;
+    
+    // Use event delegation for dynamic content
+    $(document).on("click", 'a[data-confirm]', function(e) {
+        var href = $(this).attr('href');
+        var parentForm = $(this).closest('form');
+        e.preventDefault();
+        $('#confirmModalBody').html($(this).attr('data-confirm'));
+        if (parentForm.length && parentForm.attr('method') === 'post') {
+            $('#dataConfirmed').removeAttr('href').data('confirmForm', parentForm);
+        } else {
+            $('#dataConfirmed').attr('href', href).removeData('confirmForm');
+        }
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
+        return false;
+    });
+
+    // Fix the double-handler issue
+    $(document).on("click", '#dataConfirmed', function(e) {
+        e.stopPropagation(); // Stop the contentLink handler from also firing
+        var confirmForm = $(this).data('confirmForm');
+        if (confirmForm && confirmForm.length) {
+            confirmForm.submit();
+        }
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();
+    });
+    
+    $(document).on("click", '#dataConfirmOK', function(e) {
+        e.preventDefault();
+        $("#dynamic-content").load($(this).attr("href"), function(response, status, xhr) {
+            if (status == "error") {
+                var msg = "Sorry but there was an error: ";
+                $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+            }
+        });
+    });
+    
+    // Exclude #dataConfirmed from contentLink handler
+    $(document).on("click", 'a.contentLink:not(#dataConfirmed)', function(e) {
+        e.preventDefault();
+        $("#dynamic-content").load($(this).attr("href"), function(response, status, xhr) {
+            if (status == "error") {
+                var msg = "Sorry but there was an error: ";
+                $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+            }
+            // Re-initialize Bootstrap dropdowns for dynamically loaded content
+            document.querySelectorAll('#dynamic-content .dropdown-toggle').forEach(function(el) { new bootstrap.Dropdown(el); });
+        });
+    });
+});
+</script>

@@ -37,18 +37,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.carlos.utility.SafeEncode;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.StreamingOutput;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
@@ -74,6 +76,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 @Path("/recordUX/")
@@ -146,7 +149,7 @@ public class RecordUxService extends AbstractServiceImpl {
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", "r", null)) {
-            menulist.add(new MenuItemTo1(idCounter++, "Rx", "../oscarRx/choosePatient.do?demographicNo=" + demographicNo));
+            menulist.add(new MenuItemTo1(idCounter++, "Rx", "../rx/choosePatient?demographicNo=" + demographicNo));
         }
 
 
@@ -180,44 +183,44 @@ public class RecordUxService extends AbstractServiceImpl {
         List<MenuItemTo1> morelist = new ArrayList<MenuItemTo1>();
 		
 		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.preventions", "r", null)) {
-			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../oscarPrevention/index.jsp?demographic_no="+demographicNo));
+			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../prevention/ViewPreventionIndex?demographic_no="+demographicNo));
 		}*/
 		
 		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
 			if ( org.oscarehr.commons.IsPropertiesOn.isTicklerPlusEnable()) {
-				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler.do?filter.demographicNo="+demographicNo));
+				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler?filter.demographicNo="+demographicNo));
 			}else {
-				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ticklerDemoMain.jsp?demoview="+demographicNo));
+				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ViewTicklerDemoMain?demoview="+demographicNo));
 			}
 		}*/
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.DxRegistry", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Disease Registry", "../oscarResearch/dxresearch/setupDxResearch.do?quickList=&demographicNo=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Disease Registry", "../oscarResearch/dxresearch/setupDxResearch?quickList=&demographicNo=" + demographicNo));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.oscarMsg", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Messenger", "../messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Messenger", "../messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=" + demographicNo));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.oscarMsg", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Create Message", "../messenger/SendDemoMessage.do?demographic_no=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Create Message", "../messenger/SendDemoMessage?demographic_no=" + demographicNo));
         }
         // Requires EctSession bean to open the window.  I think it's best to just redo measurements in a better interface in the record with angular
         //if (checkPermissions("_newCasemgmt.measurements", roleName)){
-        //	morelist.add(new MenuItemTo1(2, "Measurements", "../oscarEncounter/oscarMeasurements/SetupHistoryIndex.do?demographic_no="+demographicNo));
+        //	morelist.add(new MenuItemTo1(2, "Measurements", "../encounter/oscarMeasurements/SetupHistoryIndex?demographic_no="+demographicNo));
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(String.valueOf(demographicNo))));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../oscarEncounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../encounter/decisionSupport/guidelineAction?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
         }
 
-		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
-		 <a onclick="popupPage(500, 900,'episode69','/oscar/Episode.do?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
-		 <a onclick="popupPage(500, 900,'pregnancy69','/oscar/Pregnancy.do?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
+		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/encounter/oscarMeasurements/SetupHistoryIndex'); return false;" href="#">Measurements</a>
+		 <a onclick="popupPage(500, 900,'episode69','/oscar/Episode?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
+		 <a onclick="popupPage(500, 900,'pregnancy69','/oscar/Pregnancy?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
 		 */
         if (!morelist.isEmpty()) {  // If the more list is empty no sense in displaying it.
             moreMenu.setDropdownItems(morelist);
@@ -431,6 +434,8 @@ public class RecordUxService extends AbstractServiceImpl {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @GET
     @Path("/{demographicNo}/print")
     @Produces("application/pdf")
@@ -457,10 +462,10 @@ public class RecordUxService extends AbstractServiceImpl {
             if (jsonobject.has("dates")) {
                 ObjectNode datesJson = (ObjectNode) jsonobject.get("dates");
                 if (datesJson.has("start")) {
-                    startCal = javax.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start") != null ? datesJson.get("start").asText() : null);
+                    startCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start") != null ? datesJson.get("start").asText() : null);
                 }
                 if (datesJson.has("end")) {
-                    endCal = javax.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end") != null ? datesJson.get("end").asText() : null);
+                    endCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end") != null ? datesJson.get("end").asText() : null);
                 }
             }
             if (startCal != null && endCal != null) {

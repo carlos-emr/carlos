@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.MdsMSH;
 import org.springframework.stereotype.Repository;
@@ -49,7 +49,7 @@ public class MdsMSHDaoImpl extends AbstractDaoImpl<MdsMSH> implements MdsMSHDao 
 
     @Override
     public List<Object[]> findLabsByAccessionNumAndId(Integer id, String controlId) {
-        String sql = "FROM MdsMSH a, MdsMSH b " + "WHERE a.controlId like :controlId " + "AND b.id = :id" + "ORDER BY a.controlId";
+        String sql = "SELECT a, b FROM MdsMSH a, MdsMSH b WHERE a.controlId like :controlId AND b.id = :id ORDER BY a.controlId";
         Query query = entityManager.createQuery(sql);
         query.setParameter("id", id);
         query.setParameter("controlId", controlId);

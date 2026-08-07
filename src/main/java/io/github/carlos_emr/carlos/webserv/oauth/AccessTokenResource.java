@@ -30,9 +30,9 @@
 package io.github.carlos_emr.carlos.webserv.oauth;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
-import javax.ws.rs.*;
-import javax.ws.rs.core.*;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.*;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import io.github.carlos_emr.carlos.webserv.oauth.util.*;
@@ -67,19 +67,21 @@ public class AccessTokenResource {
         // 1) Load client + request token
         Client client = provider.getClient(oreq.consumerKey);
         if (client == null) {
-            logger.warn("Access token request failed: invalid consumer key [{}]", oreq.consumerKey);
+            // Do not log OAuth credential material (consumer keys, request tokens, verifiers,
+            // issued token keys) — they are secrets / capability tokens.
+            logger.warn("Access token request failed: unrecognized consumer key");
             return Response.status(401).entity("invalid_consumer").build();
         }
 
         RequestToken rt = provider.getRequestToken(oreq.token);
         if (rt == null) {
-            logger.warn("Access token request failed: invalid request token [{}]", oreq.token);
+            logger.warn("Access token request failed: unrecognized request token");
             return Response.status(401).entity("invalid_request_token").build();
         }
 
         // 2) Verify oauth_verifier
         if (oreq.verifier == null || !oreq.verifier.equals(rt.getVerifier())) {
-            logger.warn("Access token request failed: invalid verifier [{}] for token [{}]", oreq.verifier, oreq.token);
+            logger.warn("Access token request failed: verifier did not match the request token");
             return Response.status(401).entity("invalid_verifier").build();
         }
 
@@ -93,12 +95,11 @@ public class AccessTokenResource {
             String tokenFromSig = verifier.verifySignature(req, cfg);
 
             if (!oreq.token.equals(tokenFromSig)) {
-                logger.warn("Access token request failed: token mismatch (req [{}] vs sig [{}])",
-                        oreq.token, tokenFromSig);
+                logger.warn("Access token request failed: request token did not match the signature");
                 return Response.status(401).entity("invalid_signature").build();
             }
         } catch (Exception e) {
-            logger.error("Access token request failed: signature verification error for token [{}]", oreq.token, e);
+            logger.error("Access token request failed: signature verification error", e);
             return Response.status(401).entity("invalid_signature").build();
         }
 
@@ -107,8 +108,7 @@ public class AccessTokenResource {
 
         // 4) Create access token (provider will handle marking request token as used)
         AccessToken at = provider.createAccessToken(rt);
-        logger.debug("Access token [{}] issued for client [{}]",
-                at.getTokenKey(), client.getConsumerKey());
+        logger.debug("Access token issued");
 
         // 5) Respond form-encoded
         String body = "oauth_token=" + enc(at.getTokenKey())

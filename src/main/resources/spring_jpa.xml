@@ -47,9 +47,54 @@
 
 	</bean>
 
+	<!-- Flyway schema-version boot gate. Default mode is 'off' (no-op): schema stays managed
+	     out of band exactly as before. Set carlos.flyway.onBoot=validate in production (fail fast
+	     if the DB schema is behind the deployed WAR) once the consolidated baseline is adopted.
+	     =migrate applies pending migrations on boot but ONLY against an empty schema or one that
+	     already carries flyway_schema_history — the gate never auto-baselines, so a non-empty
+	     pre-Flyway datadir must first be adopted via the explicit operator baseline step
+	     (carlos-ctl db baseline at version 1.0.2, the full genesis).
+	     See docs/database-schema-management.md. -->
+	<bean id="flywaySchemaValidator" class="io.github.carlos_emr.carlos.db.FlywaySchemaValidator">
+		<constructor-arg ref="dataSource" />
+		<!-- Defaults inline so a rendered carlos.properties that predates these keys still boots
+		     (falls back to the no-op 'off' mode) instead of failing placeholder resolution.
+		     When locations are absent, the validator derives common + province migrations from
+		     billregion; when locations are present, it verifies they match billregion. -->
+		<constructor-arg value="${carlos.flyway.onBoot:off}" />
+		<constructor-arg value="${carlos.flyway.locations:}" />
+		<constructor-arg value="${billregion:ON}" />
+	</bean>
+
 	<!-- JPA -->
-	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+	<!-- primary="true" was originally needed to resolve autowiring ambiguity with a
+	     legacy Hibernate {@code sessionFactory} bean defined in
+	     {@code spring_hibernate.xml}. That legacy bean has since been retired, but
+	     the {@code primary} attribute is still meaningful in contexts (including
+	     some tests) that define another compatible {@code sessionFactory} or
+	     {@code EntityManagerFactory} bean. -->
+	<!-- depends-on makes the Flyway boot gate's ordering contractual: the schema is
+	     validated/migrated BEFORE Hibernate ever touches the database. XML definition
+	     order alone is not a guarantee of singleton initialization order. -->
+	<bean id="entityManagerFactory" primary="true" depends-on="flywaySchemaValidator"
+	      class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
 		<property name="dataSource" ref="dataSource" />
+		<!-- Hibernate 7 requires the EMF to know about all @Entity types referenced
+		     by JPA associations. packagesToScan discovers annotated model classes. -->
+		<property name="packagesToScan">
+			<list>
+				<value>io.github.carlos_emr.carlos.commn.model</value>
+				<value>io.github.carlos_emr.carlos.model</value>
+				<value>io.github.carlos_emr.carlos.PMmodule.model</value>
+				<value>io.github.carlos_emr.carlos.casemgmt.model</value>
+				<value>io.github.carlos_emr.carlos.entities</value>
+				<value>io.github.carlos_emr.carlos.billing</value>
+				<value>io.github.carlos_emr.carlos.billings</value>
+				<value>io.github.carlos_emr.carlos.hospitalReportManager.model</value>
+				<value>io.github.carlos_emr.carlos.form.model</value>
+				<value>io.github.carlos_emr.carlos.decisionSupport.model</value>
+			</list>
+		</property>
 		<property name="jpaVendorAdapter">
 			<bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter" />
 		</property>
@@ -65,9 +110,6 @@
 			</props>
 		</property>
 	</bean>
-	<!-- JPA annotations bean post processor -->
-	<bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor" />
-
 	<!-- TransactionManager -->
 	<bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager" autowire="byName">
 		<property name="entityManagerFactory" ref="entityManagerFactory" />
@@ -85,7 +127,6 @@
     <context:exclude-filter type="regex" expression=".*\.AppointmentArchiveDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.DemographicExtDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.OtherIdDAOImpl$"/>
-    <context:exclude-filter type="regex" expression=".*\.HL7HandlerMSHMappingDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.QueueDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.WaitingListNameDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.AppointmentTypeDaoImpl$"/>
@@ -97,7 +138,6 @@
     <context:exclude-filter type="regex" expression=".*\.Icd9DaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.DocumentMergeDemographicDAOImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.QueueDocumentLinkDaoImpl$"/>
-    <context:exclude-filter type="regex" expression=".*\.InboxResultsRepositoryImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.ProviderInboxRoutingDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.ProviderPreferenceDaoImpl$"/>
     <context:exclude-filter type="regex" expression=".*\.SecurityDaoImpl$"/>
@@ -111,10 +151,10 @@
 
 	<context:component-scan base-package="io.github.carlos_emr.carlos.fax.core" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.hospitalReportManager.dao" />
-	<context:component-scan base-package="io.github.carlos_emr.carlos.olis.dao" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.ON.dao" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.BC.dao" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billings.ca.bc.privateBilling" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.dao" />
 
 </beans>

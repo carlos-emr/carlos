@@ -42,7 +42,6 @@ import org.apache.logging.log4j.Logger;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.RemoteDrugAllergyHelper;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.UserDSMessagePrefsDao;
@@ -56,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.RxDsMessageTo1;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 
@@ -184,7 +183,7 @@ public class DrugrefUtil {
 
         Vector codes = new Vector(atcCodes);
 
-        if (Boolean.valueOf(OscarProperties.getInstance().getProperty("drug_allergy_interaction_warnings", "false"))) {
+        if (Boolean.valueOf(CarlosProperties.getInstance().getProperty("drug_allergy_interaction_warnings", "false"))) {
             RxDrugRef d = new RxDrugRef();
             Allergy[] allerg = RxPatientData.getPatient(loggedInInfo, demographicNo).getActiveAllergies();
             Vector vec = new Vector();
@@ -200,20 +199,8 @@ public class DrugrefUtil {
 
         logger.debug("Interaction, local drug atc codes : " + codes);
 
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            ArrayList<String> remoteDrugAtcCodes = RemoteDrugAllergyHelper.getAtcCodesFromRemoteDrugs(loggedInInfo, demographicNo);
-            codes.addAll(remoteDrugAtcCodes);
-            logger.debug("remote drug atc codes : " + remoteDrugAtcCodes);
-        }
-        logger.debug("Interaction, local + remote drug atc codes : " + codes);
-
-        logger.error("prescript local interaction " + OscarProperties.getInstance().getProperty("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER"));
-        if (OscarProperties.getInstance().isPropertyActive("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER")) {
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                ArrayList<String> remoteDrugRegionalIdentiferCodes = RemoteDrugAllergyHelper.getRegionalIdentiferCodesFromRemoteDrugs(loggedInInfo, demographicNo);
-                regionalIdentifiers.addAll(remoteDrugRegionalIdentiferCodes);
-            }
+        logger.error("prescript local interaction " + CarlosProperties.getInstance().getProperty("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER"));
+        if (CarlosProperties.getInstance().isPropertyActive("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER")) {
 
             try {
                 RxDrugRef rxDrugRef = new RxDrugRef();
@@ -251,7 +238,7 @@ public class DrugrefUtil {
 
         Vector codes = new Vector(atcCodes);
 
-        if (Boolean.valueOf(OscarProperties.getInstance().getProperty("drug_allergy_interaction_warnings", "false"))) {
+        if (Boolean.valueOf(CarlosProperties.getInstance().getProperty("drug_allergy_interaction_warnings", "false"))) {
             RxDrugRef d = new RxDrugRef();
             Allergy[] allerg = RxPatientData.getPatient(loggedInInfo, demographicNo).getActiveAllergies();
             Vector vec = new Vector();
@@ -267,21 +254,9 @@ public class DrugrefUtil {
 
         logger.debug("Interaction, local drug atc codes : " + codes);
 
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            ArrayList<String> remoteDrugAtcCodes = RemoteDrugAllergyHelper.getAtcCodesFromRemoteDrugs(loggedInInfo, demographicNo);
-            codes.addAll(remoteDrugAtcCodes);
-            logger.debug("remote drug atc codes : " + remoteDrugAtcCodes);
-        }
-        logger.debug("Interaction, local + remote drug atc codes : " + codes);
-
         List all = new ArrayList();
-        logger.error("prescript local interaction " + OscarProperties.getInstance().getProperty("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER"));
-        if (OscarProperties.getInstance().isPropertyActive("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER")) {
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                ArrayList<String> remoteDrugRegionalIdentiferCodes = RemoteDrugAllergyHelper.getRegionalIdentiferCodesFromRemoteDrugs(loggedInInfo, demographicNo);
-                regionalIdentifiers.addAll(remoteDrugRegionalIdentiferCodes);
-            }
+        logger.error("prescript local interaction " + CarlosProperties.getInstance().getProperty("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER"));
+        if (CarlosProperties.getInstance().isPropertyActive("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER")) {
 
             try {
                 RxDrugRef rxDrugRef = new RxDrugRef();

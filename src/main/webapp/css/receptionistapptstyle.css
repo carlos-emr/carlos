@@ -1,25 +1,25 @@
 /*
- * 
+ *
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
- * This software is published under the GPL GNU General Public License. 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License 
- * as published by the Free Software Foundation; either version 2 
- * of the License, or (at your option) any later version. * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
- * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
- * 
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
  * <OSCAR TEAM>
- * 
- * This software was written for the 
- * Department of Family Medicine 
- * McMaster University 
- * Hamilton 
- * Ontario, Canada 
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
  */
 
 table#firstTable tr {
@@ -70,15 +70,35 @@ table {
     border-collapse: collapse;
 }
 
+/* Override Bootstrap 5 reboot that sets border-style:solid on all table elements.
+   The schedule page relies on border-collapse and specific border declarations;
+   Bootstrap's blanket border-style:solid interferes with that. */
+table#scheduleTable td,
+table#scheduleTable tr,
+table#scheduleTable th,
+table#scheduleTable thead,
+table#scheduleTable tbody,
+table#scheduleTable tfoot {
+    border-style: none;
+    border-width: 0;
+}
+
+
+#fixedHeaderWrapper {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+#fixedHeaderWrapper > table {
+    margin-bottom: 0;
+}
 
 table#firstTable {
     width: 100%;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
     background-color: white;
-    z-index: 1000;
     border-bottom: 1px solid #c0c0c0;
     height: 25px;
 }
@@ -148,13 +168,8 @@ td#group {
 }
 
 table#scheduleNavigation, table#monthScheduleNavigation {
-    position: fixed;
-    top: 25px;
-    right: 0;
-    left: 0;
-    height: 25px;
     width: 100%;
-    /*! border-bottom: 1px solid #c0c0c0; */
+    height: 25px;
 }
 
 table#scheduleNavigation tr td {
@@ -164,6 +179,12 @@ table#scheduleNavigation tr td {
 
 .providerSchedule {
     background-color: #486ebd;
+}
+
+/* Ensure schedule table bgcolor attributes are reinforced via CSS.
+   Bootstrap 5 reboot can interfere with HTML bgcolor presentation. */
+table#scheduleTable {
+    background-color: #C0C0C0;
 }
 
 
@@ -233,8 +254,9 @@ div.appt-container div.navigation-tag {
     min-width: 5%;
 }
 
-table#scheduleTable {
-    margin-top: 51px;
+table#scheduleTable > tbody > tr > td,
+table#scheduleTable > tbody > tr > td > table > tbody > tr > td {
+    padding: 0;
 }
 
 .scheduleTimeNot00 a, .scheduleTime00 a {
@@ -303,6 +325,14 @@ table#firstTable a:focus-visible {
     background-color: #486ebd;
 }
 
+table#firstTable td#firstMenu ul#navlist li.nav-active,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:visited,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:active {
+    color: #00283c;
+    background-color: #d9d9d9;
+}
+
 input, select, textarea {
     background-color: #F4EaD7;
     border: 1px solid #0097cf;
@@ -315,6 +345,17 @@ td {
 
 hr {
     color: orange;
+    opacity: 1;
+}
+
+/* Override Bootstrap 5 reboot that sets opacity: 0.25 on <hr> elements */
+hr.timeline-marker {
+    opacity: 1;
+    color: tomato;
+    border: none;
+    border-top: 2px dotted tomato;
+    margin: 0;
+    padding: 0;
 }
 
 p {
@@ -390,16 +431,18 @@ table#firstTable .tabalert {
 }
 
 .tabalert:hover,
-a:hover .tabalert {
+a:hover .tabalert,
+a:focus .tabalert,
+a:focus-visible .tabalert {
     color: white !important;
 }
 
-table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
     line-height: 1;
     display: inline-block;
 }
 
-table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) > a {
     display: inline-block;
     padding: 5px;
 }
@@ -412,6 +455,35 @@ table#firstTable td#firstMenu #navlist li:hover {
 table#firstTable td#firstMenu #navlist li a:hover {
     color: #fff;
     background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a span {
+    color: #00283c !important;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible span {
+    color: #fff !important;
 }
 
 table#firstTable td#firstMenu #navlist #logoutMobile {
@@ -503,4 +575,180 @@ div.reason-tag a {
     .noprint {
         display: none !important;
     }
+}
+
+/* ===== Quick Patient Search Bar ===== */
+.quick-search-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.quick-search-input-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+#quickSearch {
+    width: 170px;
+    height: 24px;
+    padding: 2px 26px 2px 6px;
+    font-size: 0.8rem;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+#quickSearch:focus {
+    outline: none;
+    border-color: #4a90d9;
+    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+.quick-search-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    color: #6c757d;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.quick-search-clear:hover {
+    color: #343a40;
+}
+
+/* Dropdown container - floats over schedule */
+.quick-search-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 9999;
+    min-width: 360px;
+    max-width: 480px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* Result rows */
+.qs-result-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    background-color: #ffffff;
+}
+
+.qs-result-row.qs-alt {
+    background-color: #f7f9fb;
+}
+
+.qs-result-row:hover,
+.qs-result-row.qs-active {
+    background-color: #dce8f5;
+}
+
+/* Line 1: patient name + badges */
+.qs-line1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.qs-patient-name {
+    font-size: 0.875rem;
+    color: #212529;
+    font-weight: 700;
+}
+
+.qs-status-label {
+    font-weight: 400;
+    color: #6c757d;
+    font-size: 0.78rem;
+}
+
+/* Badge strip */
+.qs-badges {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.qs-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.qs-badge:hover {
+    text-decoration: none;
+    filter: brightness(0.85);
+}
+
+.qs-badge-m  { background: #6c757d; color: #fff; }
+.qs-badge-e  { background: #0d6efd; color: #fff; }
+.qs-badge-rx { background: #198754; color: #fff; }
+.qs-badge-appt { background: #fd7e14; color: #fff; }
+
+/* Lines 2-4: muted detail rows */
+.qs-line2,
+.qs-line3,
+.qs-line4 {
+    font-size: 0.775rem;
+    margin-top: 2px;
+}
+
+.qs-line2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.qs-muted {
+    color: #6c757d;
+}
+
+/* No-results and add-link rows */
+.qs-no-results {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.qs-add-link {
+    padding: 6px 10px;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.qs-add-link a {
+    font-size: 0.8rem;
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.qs-add-link a:hover {
+    text-decoration: underline;
 }

@@ -33,9 +33,12 @@ public enum ModuleType {
     PRESCRIPTION;
 
     public static ModuleType getByName(String name) {
+        if (name == null) {
+            return null;
+        }
         try {
             return valueOf(name);
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             return null;
         }
     }

@@ -28,40 +28,23 @@
 package io.github.carlos_emr.carlos.PMmodule.web.reports.custom;
 
 import java.io.File;
+import java.io.FileInputStream;
 
-import org.apache.commons.digester3.Digester;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.Unmarshaller;
+import javax.xml.transform.sax.SAXSource;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class UCRConfigurationManager {
 
     private static Logger logger = MiscUtils.getLogger();
-    static Digester digester = new Digester();
     static UCRConfiguration config;
 
     private String filename;
-
-    static {
-        digester.setValidating(false);
-        digester.addObjectCreate("report-config", UCRConfiguration.class);
-
-        digester.addObjectCreate("report-config/data-sources/data-source", DataSource.class);
-        digester.addBeanPropertySetter("report-config/data-sources/data-source/type", "type");
-        digester.addBeanPropertySetter("report-config/data-sources/data-source/bean", "bean");
-        digester.addSetNext("report-config/data-sources/data-source", "addDataSource");
-
-        digester.addObjectCreate("report-config/data-sources/data-source/forms/form", Form.class);
-        digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/name", "name");
-        digester.addSetNext("report-config/data-sources/data-source/forms/form", "addForm");
-
-        digester.addObjectCreate("report-config/data-sources/data-source/forms/form/items/item", Item.class);
-        digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/name", "name");
-        digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/type", "valueType");
-        //digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/page", "pageId");
-        //digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/section", "sectionId");
-        //digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/question", "questionId");
-        digester.addSetNext("report-config/data-sources/data-source/forms/form/items/item", "addItem");
-    }
 
     public UCRConfigurationManager() {
 
@@ -71,14 +54,21 @@ public class UCRConfigurationManager {
         this.filename = filename;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public UCRConfiguration getConfig(String basePath) throws Exception {
         logger.debug("loading up custom reports config");
         if (config == null) {
-            File f = new File(basePath, filename);
+            File f = PathValidationUtils.validateExistingPath(new File(basePath, filename), new File(basePath));
             if (f.exists()) {
                 logger.debug("found config file");
             }
-            config = (UCRConfiguration) digester.parse(f);
+            JAXBContext ctx = JAXBContext.newInstance(UCRConfiguration.class);
+            Unmarshaller unmarshaller = ctx.createUnmarshaller();
+            try (FileInputStream fis = new FileInputStream(f)) {
+                SAXSource source = XmlUtils.createSecureJaxbSource(fis);
+                config = (UCRConfiguration) unmarshaller.unmarshal(source);
+            }
             logger.debug("parsed config file");
             return config;
         } else {

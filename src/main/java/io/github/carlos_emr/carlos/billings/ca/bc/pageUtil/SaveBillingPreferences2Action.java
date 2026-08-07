@@ -29,21 +29,24 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
 
 import java.util.List;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for saving British Columbia billing preferences for a provider.
@@ -67,6 +70,8 @@ import org.apache.struts2.ServletActionContext;
  */
 public class SaveBillingPreferences2Action
         extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -91,6 +96,11 @@ public class SaveBillingPreferences2Action
      * @return String "success" to forward to the result page
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         BillingPreferencesDAO dao = SpringUtils.getBean(BillingPreferencesDAO.class);
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
@@ -250,15 +260,18 @@ public class SaveBillingPreferences2Action
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
 
         this.providerNo = providerNo;
     }
 
+    @StrutsParameter
     public void setReferral(String referral) {
         this.referral = referral;
     }
 
+    @StrutsParameter
     public void setPayeeProviderNo(String payeeProviderNo) {
         this.payeeProviderNo = payeeProviderNo;
     }
@@ -275,6 +288,7 @@ public class SaveBillingPreferences2Action
         return gstNo;
     }
 
+    @StrutsParameter
     public void setGstNo(String gstNo) {
         this.gstNo = gstNo;
     }
@@ -283,6 +297,7 @@ public class SaveBillingPreferences2Action
         return useClinicGstNo;
     }
 
+    @StrutsParameter
     public void setUseClinicGstNo(boolean useClinicGstNo) {
         this.useClinicGstNo = useClinicGstNo;
     }
@@ -291,6 +306,7 @@ public class SaveBillingPreferences2Action
         return invoicePayeeInfo;
     }
 
+    @StrutsParameter
     public void setInvoicePayeeInfo(String invoicePayeeInfo) {
         this.invoicePayeeInfo = invoicePayeeInfo;
     }
@@ -299,6 +315,7 @@ public class SaveBillingPreferences2Action
         return invoicePayeeDisplayClinicInfo;
     }
 
+    @StrutsParameter
     public void setInvoicePayeeDisplayClinicInfo(boolean invoicePayeeDisplayClinicInfo) {
         this.invoicePayeeDisplayClinicInfo = invoicePayeeDisplayClinicInfo;
     }
@@ -307,6 +324,7 @@ public class SaveBillingPreferences2Action
         return defaultBillingForm;
     }
 
+    @StrutsParameter
     public void setDefaultBillingForm(String defaultBillingForm) {
         this.defaultBillingForm = defaultBillingForm;
     }
@@ -315,6 +333,7 @@ public class SaveBillingPreferences2Action
         return formCode;
     }
 
+    @StrutsParameter
     public void setFormCode(String formCode) {
         this.formCode = formCode;
     }
@@ -323,6 +342,7 @@ public class SaveBillingPreferences2Action
         return description;
     }
 
+    @StrutsParameter
     public void setDescription(String description) {
         this.description = description;
     }
@@ -331,6 +351,7 @@ public class SaveBillingPreferences2Action
         return defaultBillingProvider;
     }
 
+    @StrutsParameter
     public void setDefaultBillingProvider(String defaultBillingProvider) {
         this.defaultBillingProvider = defaultBillingProvider;
     }
@@ -339,6 +360,7 @@ public class SaveBillingPreferences2Action
         return defaultServiceLocation;
     }
 
+    @StrutsParameter
     public void setDefaultServiceLocation(String defaultServiceLocation) {
         this.defaultServiceLocation = defaultServiceLocation;
     }
@@ -347,6 +369,7 @@ public class SaveBillingPreferences2Action
         return autoPopulateRefer;
     }
 
+    @StrutsParameter
     public void setAutoPopulateRefer(boolean autoPopulateRefer) {
         this.autoPopulateRefer = autoPopulateRefer;
     }

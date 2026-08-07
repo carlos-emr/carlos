@@ -14,13 +14,13 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import com.itextpdf.text.DocumentException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.openpdf.text.DocumentException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
-import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
@@ -29,30 +29,53 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.FaxManager;
-import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.FilePromotionException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import java.util.Set;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that handles faxing consultation requests to specialists and copy-to recipients.
+ *
+ * <p>Renders the consultation form (with all attachments) as a PDF via
+ * {@link DocumentAttachmentManager}, then creates {@link FaxJob} entries for each recipient.
+ * Supports optional cover pages prepended to the fax PDF. Each fax job is persisted and
+ * logged for audit purposes.</p>
+ *
+ * <p>Fax recipients include the primary specialist plus any additional copy-to recipients
+ * parsed from JSON-encoded form parameters. The sender's fax line is validated against
+ * configured {@link FaxConfig} entries.</p>
+ *
+ * <p>Requires {@code _con} read privilege via {@link SecurityInfoManager}.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see DocumentAttachmentManager
+ * @see FaxManager
+ * @since 2012-04-09
+ */
 public class EctConsultationFormFax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -60,7 +83,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
     private final ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
@@ -74,6 +96,24 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Renders the consultation form PDF and queues fax jobs for all recipients.
+     *
+     * <p>Processing flow:</p>
+     * <ol>
+     *   <li>Validates {@code _con} read privilege</li>
+     *   <li>Renders the consultation form with attachments into a PDF</li>
+     *   <li>Copies the PDF to the CARLOS documents directory</li>
+     *   <li>For each fax recipient: validates the fax number, optionally prepends a cover page,
+     *       creates and persists a {@link FaxJob}, and logs the transaction</li>
+     * </ol>
+     *
+     * @return String "success" on successful fax queuing, "cancel" if cancelled,
+     *         "error" on failure, or null on unexpected error
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal HTTP method name (GET/HEAD) for the method-verb gate; not a security or authorization decision on user identity.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "method-name comparison is the HTTP verb gate, not an identity decision")
     @Override
     public String execute() {
 
@@ -83,15 +123,46 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_con)");
         }
 
-        //EctConsultationFaxForm ectConsultationFaxForm = (EctConsultationFaxForm) form;
-
+        // Cancel is a no-op navigation (no render, persist, or file write), so it must stay reachable
+        // for a consult-only (_con read, no _fax write) user backing out of the dialog. Short-circuit
+        // it BEFORE the _fax write and method-verb gates below, which exist only to guard the
+        // side-effecting fax path.
         if ("cancel".equals(this.getMethod())) {
             return "cancel";
         }
 
+        // Faxing PHI to a request-selected recipient is a fax mutation, so it must also carry _fax
+        // write — the same gate Fax2Action enforces. _con read alone let a consult-only user queue
+        // PHI to an arbitrary fax number.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
+        // Reject GET/HEAD before any side effect (render, cover-page write, FaxJob persist): this
+        // action queues a PHI fax to a request-supplied number, and CSRFGuard validates non-GET
+        // requests only — a bare <img src="...ConsultationFormFax?..."> in the clinician's browser
+        // could otherwise fire a fax with no CSRF token. CoverPage.jsp submits via <form method="post">.
+        String httpMethod = request.getMethod();
+        if ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod)) {
+            sendErrorQuietly(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Method not allowed");
+            return NONE;
+        }
+
+        //EctConsultationFaxForm ectConsultationFaxForm = (EctConsultationFaxForm) form;
+
     	this.setRequest(request);
 	   	String reqId = this.getRequestId();
 		String demoNo = this.getDemographicNo();
+		// Patient-record access check (same as Fax2Action): a fax carries this demographic's PHI, so
+		// the user must be allowed to access this patient's record, not merely hold _con/_fax.
+		int demographicNoValue;
+		try {
+			demographicNoValue = Integer.parseInt(demoNo == null ? "" : demoNo.trim());
+		} catch (NumberFormatException e) {
+			throw new SecurityException("missing required patient access");
+		}
+		if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoValue)) {
+			throw new SecurityException("missing required patient access");
+		}
 		String faxNumber = this.getSenderFaxNumber();
 		String consultResponsePage = request.getParameter("consultResponsePage");
 		boolean doCoverPage = this.isCoverpage();
@@ -123,38 +194,85 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             faxPdf = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
         } catch (PDFGenerationException e) {
             logger.error(e.getMessage(), e);
-            String errorMessage = "This fax could not be sent. \\n\\n" + e.getMessage();
+            String errorMessage = "This fax could not be sent. \n\n" + e.getMessage();
             request.setAttribute("errorMessage", errorMessage);
             return "error";
         }
-        String faxPdfPath = nioFileManager.copyFileToOscarDocuments(faxPdf.toString());
-        faxPdf = Paths.get(faxPdfPath);
         Path pdfToFax;
         List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
-        boolean validFaxNumber;
-        int count = 0;
-        Set<FaxRecipient> faxRecipients = this.getAllFaxRecipients();
+        Set<FaxRecipient> faxRecipients;
+        try {
+            faxRecipients = this.getAllFaxRecipients();
+        } catch (RuntimeException e) {
+            logger.error("Consultation fax aborted: could not parse the copy-to recipient list", e);
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nOne or more copy-to recipients could not be read; no faxes were queued.");
+            return "error";
+        }
+
+        // Resolve the sender and validate every recipient before promoting files or persisting jobs.
+        FaxConfig matchedConfig = null;
+        for (FaxConfig faxConfig : faxConfigs) {
+            if (faxConfig.getFaxNumber().equals(faxNumber)) {
+                matchedConfig = faxConfig;
+                break;
+            }
+        }
+        if (matchedConfig == null) {
+            logger.error("Consultation fax aborted: no active fax account configured for the sender fax number {}",
+                    LogSafe.sanitize(faxNumber));
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe sending fax account is not configured; please contact your administrator.");
+            return "error";
+        }
+        List<String> invalidRecipients = new ArrayList<>();
+        for (FaxRecipient faxRecipient : faxRecipients) {
+            String recipientFax = faxRecipient.getFax();
+            if (recipientFax == null || recipientFax.length() < 7) {
+                invalidRecipients.add(faxRecipient.getName());
+            }
+        }
+        if (!invalidRecipients.isEmpty()) {
+            logger.error("Consultation fax aborted: {} recipient(s) have an invalid fax number; no jobs queued",
+                    invalidRecipients.size());
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nOne or more recipients have an invalid fax number; no faxes were queued.");
+            return "error";
+        }
+        sender.setFaxNumberOwner(matchedConfig.getAccountName());
+
+        int reqIdValue;
+        try {
+            reqIdValue = Integer.parseInt(reqId);
+        } catch (NumberFormatException nfe) {
+            logger.error("Consultation fax aborted: non-numeric consultation request id");
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe consultation request id is invalid.");
+            return "error";
+        }
+
+        Set<Path> attemptFiles = new HashSet<>();
+        try {
+            faxPdf = nioFileManager.promoteApplicationTempFile(faxPdf);
+            attemptFiles.add(faxPdf);
+        } catch (FilePromotionException e) {
+            logger.error("Consultation fax PDF could not be stored in the document directory; aborting fax", e);
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe fax document could not be stored for sending; please retry or contact your administrator.");
+            return "error";
+        }
+
+        // Build the complete filesystem-backed batch before the transactional database write.
+        List<FaxJob> builtFaxJobs = new ArrayList<>();
         try {
             for (FaxRecipient faxRecipient : faxRecipients) {
 
                 // reset target pdf.
                 pdfToFax = faxPdf;
 
-                String faxNo = faxRecipient.getFax();
+                String faxNo = faxRecipient.getFax().trim().replaceAll("\\D", "");
 
-                if (faxNo == null) {
-                    faxNo = "";
-                }
-
-                if (faxNo.length() < 7) {
-                    throw new DocumentException("Document target fax number '" + faxNo + "' is invalid.");
-                }
-
-                faxNo = faxNo.trim().replaceAll("\\D", "");
-
-                logger.info("Setting up fax to: " + faxRecipient.getName() + " at " + faxRecipient.getFax());
-
-                validFaxNumber = false;
+                logger.info("Setting up consultation fax to {}", LogSafe.sanitize(faxRecipient.getName()));
 
                 FaxJob faxJob = new FaxJob();
                 faxJob.setDestination(faxNo);
@@ -162,62 +280,31 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                 faxJob.setFax_line(faxNumber);
                 faxJob.setStamp(new Date());
                 faxJob.setOscarUser(provider_no);
-                faxJob.setDemographicNo(Integer.parseInt(demoNo));
+                faxJob.setDemographicNo(demographicNoValue);
+                // Sender account was validated above, so every recipient is a real WAITING job.
+                faxJob.setStatus(FaxJob.STATUS.WAITING);
+                faxJob.setUser(matchedConfig.getFaxUser());
 
-                inner:
-                for (FaxConfig faxConfig : faxConfigs) {
-                    if (faxConfig.getFaxNumber().equals(faxNumber)) {
-
-                        faxJob.setStatus(FaxJob.STATUS.WAITING);
-                        faxJob.setUser(faxConfig.getFaxUser());
-                        sender.setFaxNumberOwner(faxConfig.getAccountName());
-                        validFaxNumber = true;
-                        break inner;
-                    }
-                }
-
-                if (!validFaxNumber) {
-
-                    faxJob.setStatus(FaxJob.STATUS.ERROR);
-                    faxJob.setStatusString("Document outgoing fax number '" + faxNumber + "' is invalid.");
-                    logger.error("PROBLEM CREATING FAX JOB", new DocumentException("Document outgoing fax number '" + faxNumber + "' is invalid."));
-                } else {
-                    // redundant, but, what the heck!
-                    faxJob.setStatus(FaxJob.STATUS.WAITING);
-                }
-
-                //todo rethink this process.  It takes up too much disc space.
                 if (doCoverPage) {
                     pdfToFax = faxManager.addCoverPage(loggedInInfo, note, faxRecipient, sender, faxPdf);
-
-                    // delete the source file to save some disc space
-                    if (count == (faxRecipients.size() - 1)) {
-                        Files.deleteIfExists(faxPdf);
+                    if (pdfToFax == null || pdfToFax.getFileName() == null) {
+                        throw new IOException("The consultation fax cover page was not created.");
                     }
+                    attemptFiles.add(pdfToFax);
                 }
 
+                Path faxFileName = pdfToFax == null ? null : pdfToFax.getFileName();
+                if (faxFileName == null) {
+                    throw new IOException("The consultation fax document has no usable file name.");
+                }
                 int numPages = EDocUtil.getPDFPageCount(pdfToFax.toString());
 
-                faxJob.setFile_name(pdfToFax.getFileName().toString());
+                faxJob.setFile_name(faxFileName.toString());
                 faxJob.setNumPages(numPages);
 
-                faxJobDao.persist(faxJob);
+                builtFaxJobs.add(faxJob);
 
-                // start up a log track each time the CLIENT was run.
-                faxManager.logFaxJob(loggedInInfo, faxJob, TransactionType.CONSULTATION, Integer.parseInt(reqId));
-                // FaxClientLog faxClientLog = new FaxClientLog();
-                // faxClientLog.setFaxId(faxJob.getId()); // IMPORTANT! this is the id of the FaxJobID from the Faxes table. A 1:1 cardinality.
-                // faxClientLog.setProviderNo(faxJob.getOscarUser()); // the providers that sent this fax
-                // faxClientLog.setStartTime(new Date(System.currentTimeMillis())); // the exact time the fax was sent
-                // faxClientLog.setRequestId(Integer.parseInt(reqId));
-                // faxClientLogDao.persist(faxClientLog);
-
-                count++;
             }
-
-            LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
-            request.setAttribute("faxSuccessful", true);
-            return SUCCESS;
         } catch (DocumentException de) {
             error = "DocumentException";
             exception = de;
@@ -225,12 +312,53 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             error = "IOException";
             exception = ioe;
         }
-        if (!error.equals("")) {
-            logger.error(error + " occured insided ConsultationPrintAction", exception);
-            request.setAttribute("printError", Boolean.valueOf(true));
+        if (!error.isEmpty()) {
+            cleanupAttemptFiles(attemptFiles, List.of());
+            logger.error(error + " occurred inside ConsultationPrintAction", exception);
+            request.setAttribute("printError", Boolean.TRUE);
             return "error";
         }
-        return null;
+        try {
+            faxManager.persistAndLogConsultationFaxJobs(loggedInInfo, builtFaxJobs, reqIdValue);
+        } catch (RuntimeException e) {
+            cleanupAttemptFiles(attemptFiles, List.of());
+            logger.error("Consultation fax batch could not be persisted; no jobs were queued", e);
+            request.setAttribute("errorMessage",
+                    "This fax could not be sent. \n\nThe fax queue could not be updated; no faxes were queued.");
+            return "error";
+        }
+        cleanupAttemptFiles(attemptFiles, builtFaxJobs);
+        LogAction.addLog(provider_no, LogConst.SENT, LogConst.CON_FAX, "CONSULT " + reqId);
+        request.setAttribute("faxSuccessful", true);
+        return SUCCESS;
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "each deletion target is validated inside the CARLOS document directory before use")
+    private void cleanupAttemptFiles(Set<Path> attemptFiles, List<FaxJob> retainedJobs) {
+        Set<String> retainedNames = new HashSet<>();
+        for (FaxJob retainedJob : retainedJobs) {
+            if (retainedJob.getFile_name() != null) {
+                retainedNames.add(retainedJob.getFile_name());
+            }
+        }
+        for (Path attemptFile : attemptFiles) {
+            if (attemptFile == null) {
+                continue;
+            }
+            Path attemptFileName = attemptFile.getFileName();
+            if (attemptFileName == null || retainedNames.contains(attemptFileName.toString())) {
+                continue;
+            }
+            try {
+                Path validated = PathValidationUtils.validateExistingPath(
+                        attemptFile.toFile(), new File(NioFileManager.DOCUMENT_DIRECTORY)).toPath();
+                Files.deleteIfExists(validated);
+            } catch (IOException | SecurityException e) {
+                logger.warn("Unable to remove an unqueued consultation fax file: {}",
+                        LogSafe.sanitize(attemptFileName.toString()), e);
+            }
+        }
     }
 
 
@@ -254,18 +382,21 @@ public class EctConsultationFormFax2Action extends ActionSupport {
     public String getMethod() {
         return method;
     }
+    @StrutsParameter
     public void setMethod(String method) {
         this.method = method;
     }
     public String getRecipient() {
         return recipient;
     }
+    @StrutsParameter
     public void setRecipient(String recipient) {
         this.recipient = recipient;
     }
     public String getFrom() {
         return from;
     }
+    @StrutsParameter
     public void setFrom(String from) {
         this.from = from;
     }
@@ -275,18 +406,21 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         return recipientFaxNumber;
     }
+    @StrutsParameter
     public void setRecipientFaxNumber(String recipientFaxNumber) {
         this.recipientFaxNumber = recipientFaxNumber;
     }
     public String getSendersPhone() {
         return sendersPhone;
     }
+    @StrutsParameter
     public void setSendersPhone(String sendersPhone) {
         this.sendersPhone = sendersPhone;
     }
     public String getSendersFax() {
         return sendersFax;
     }
+    @StrutsParameter
     public void setSendersFax(String sendersFax) {
         this.sendersFax = sendersFax;
     }
@@ -295,6 +429,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         return senderFaxNumber;
     }
 
+    @StrutsParameter
     public void setSenderFaxNumber(String senderFaxNumber) {
         this.senderFaxNumber = senderFaxNumber;
     }
@@ -302,24 +437,28 @@ public class EctConsultationFormFax2Action extends ActionSupport {
     public String getComments() {
         return comments;
     }
+    @StrutsParameter
     public void setComments(String comments) {
         this.comments = comments;
     }
     public String getRequestId() {
         return requestId;
     }
+    @StrutsParameter
     public void setRequestId(String requestId) {
         this.requestId = requestId;
     }
     public String getTransType() {
         return transType;
     }
+    @StrutsParameter
     public void setTransType(String transType) {
         this.transType = transType;
     }
     public String getDemographicNo() {
         return demographicNo;
     }
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -329,15 +468,26 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         return faxRecipients;
     }
+    @StrutsParameter
     public void setFaxRecipients(String[] faxRecipients) {
         this.faxRecipients = faxRecipients;
     }
     public boolean isCoverpage() {
         return coverpage;
     }
+    @StrutsParameter
     public void setCoverpage(boolean coverpage) {
         this.coverpage = coverpage;
     }
+    /**
+     * Returns all fax recipients, including the primary recipient and any copy-to entries.
+     *
+     * <p>Lazily initialized on first access. Combines the primary recipient (from
+     * {@link #getRecipient()} and {@link #getRecipientFaxNumber()}) with all copy-to
+     * recipients from {@link #getCopiedTo()}.</p>
+     *
+     * @return Set of FaxRecipient all fax recipients for this consultation
+     */
     public Set<FaxRecipient> getAllFaxRecipients() {
         if (allFaxRecipients == null) {
             allFaxRecipients = new HashSet<FaxRecipient>();
@@ -348,18 +498,33 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         return allFaxRecipients;
     }
 
+    /**
+     * Parses and returns the copy-to fax recipients from the JSON-encoded form parameters.
+     *
+     * <p>Each entry in the {@code faxRecipients} array is a JSON fragment containing
+     * recipient name and fax number, parsed into {@link FaxRecipient} objects.</p>
+     *
+     * @return Set of FaxRecipient the copy-to recipients (empty set if none)
+     */
     public Set<FaxRecipient> getCopiedTo() {
         if (copiedTo == null) {
-            copiedTo = new HashSet<FaxRecipient>();
+            // Publish the parsed set only when every copy-to entry is valid.
+            Set<FaxRecipient> parsed = new HashSet<FaxRecipient>();
+            int failures = 0;
             for (String faxRecipient : getFaxRecipients()) {
                 try {
                     ObjectNode jsonObject = (ObjectNode) objectMapper.readTree("{" + faxRecipient + "}");
-                    copiedTo.add(new FaxRecipient(jsonObject));
+                    parsed.add(new FaxRecipient(jsonObject));
                 }
                 catch (Exception e) {
-                    logger.error("Error parsing copied to fax recipient: " + faxRecipient, e);
+                    failures++;
+                    logger.error("Consultation fax: a copy-to recipient entry could not be parsed (entry {})", failures);
                 }
             }
+            if (failures > 0) {
+                throw new IllegalArgumentException(failures + " copy-to fax recipient(s) could not be parsed");
+            }
+            copiedTo = parsed;
         }
         return copiedTo;
     }
@@ -372,6 +537,11 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         this.request = request;
     }
 
+    /**
+     * Builds and returns the sender's fax account details from form parameters.
+     *
+     * @return FaxAccount the sender account with fax number, letterhead name, and phone
+     */
     public FaxAccount getSender() {
         if (sender == null) {
             sender = new FaxAccount();
@@ -382,6 +552,18 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         sender.setPhone(getSendersPhone());
 
         return sender;
+    }
+
+    /**
+     * Writes an HTTP error status without letting an {@link IOException} escape into the Struts
+     * result pipeline (mirrors {@code Fax2Action.sendErrorQuietly}). Used by the GET/HEAD method gate.
+     */
+    private void sendErrorQuietly(int statusCode, String message) {
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ex) {
+            logger.error("Failed to send HTTP error response for the consultation fax method gate", ex);
+        }
     }
 
 }

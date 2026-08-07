@@ -38,8 +38,9 @@ import java.util.Properties;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmchfRecord extends FrmRecord {
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID) throws SQLException {
@@ -50,8 +51,8 @@ public class FrmchfRecord extends FrmRecord {
 
             String sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, "
                     + "sex, year_of_birth, month_of_birth, date_of_birth "
-                    + "FROM demographic WHERE demographic_no = " + demographicNo;
-            ResultSet rs = DBHandler.GetSQL(sql);
+                    + "FROM demographic WHERE demographic_no = ?";
+            ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
 
             if (rs.next()) {
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
@@ -69,9 +70,8 @@ public class FrmchfRecord extends FrmRecord {
             }
             rs.close();
         } else {
-            String sql = "SELECT * FROM formchf WHERE demographic_no = " + demographicNo + " AND ID = "
-                    + existingID;
-            props = (new FrmRecordHelp()).getFormRecord(sql);
+            String sql = "SELECT * FROM formchf WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -79,12 +79,14 @@ public class FrmchfRecord extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        // 
-        String sql = "SELECT * FROM formchf WHERE demographic_no=" + demographic_no + " AND ID=0";
+        //
+        String sql = "SELECT * FROM formchf WHERE demographic_no=? AND ID=0";
 
-        return ((new FrmRecordHelp()).saveFormRecord(props, sql));
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String findActionValue(String submit) throws SQLException {
         if (submit != null && submit.equalsIgnoreCase("print")) {
             return "print";
@@ -97,6 +99,8 @@ public class FrmchfRecord extends FrmRecord {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String createActionURL(String where, String action, String demoId, String formId) throws SQLException {
         String temp = null;
 

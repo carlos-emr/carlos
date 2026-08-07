@@ -36,63 +36,76 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts2 action for the Query-by-Example report tool. Allows admin users to execute
+ * custom SQL queries, persist them as recent searches, and display results.
+ *
+ * @since 2003-07-22
+ */
 public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
     private ReportByExamplesDao dao = SpringUtils.getBean(ReportByExamplesDao.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public RptByExample2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
+    RptByExample2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
-        String roleName$ = request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
-        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
-            throw new SecurityException("Insufficient Privileges");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendRedirect(request.getContextPath() + "/logout.htm");
+            return NONE;
         }
 
-        if (request.getSession().getAttribute("user") == null)
-            response.sendRedirect(request.getContextPath() + "/logout.htm");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
+        }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         SecUserRoleDao secUserRoleDao = SpringUtils.getBean(SecUserRoleDao.class);
 
         List<SecUserRole> userRoles = secUserRoleDao.findByRoleNameAndProviderNo("admin", providerNo);
         if (userRoles.isEmpty()) {
-            MiscUtils.getLogger().warn("providers " + providerNo + " does not have admin privileges to run query by example");
-            return "/oscarReport/RptByExample.jsp";
+            throw new SecurityException("missing required admin privileges to run query by example");
         }
 
         RptByExampleQueryBeanHandler hd = new RptByExampleQueryBeanHandler();
         Collection favorites = hd.getFavoriteCollection(providerNo);
         request.setAttribute("favorites", favorites);
-
-
-        //String sql = frm.getSql();
-
 
         if (sql != null) {
             write2Database(sql, providerNo);
@@ -100,7 +113,7 @@ public class RptByExample2Action extends ActionSupport {
             sql = "";
 
         RptByExampleData exampleData = new RptByExampleData();
-        Properties proppies = OscarProperties.getInstance();
+        Properties proppies = CarlosProperties.getInstance();
 
         String results = exampleData.exampleReportGenerate(sql, proppies) == null ? null : exampleData.exampleReportGenerate(sql, proppies);
         String resultText = exampleData.exampleTextGenerate(sql, proppies) == null ? null : exampleData.exampleTextGenerate(sql, proppies);
@@ -113,13 +126,6 @@ public class RptByExample2Action extends ActionSupport {
 
     public void write2Database(String query, String providerNo) {
         if (query != null && query.compareTo("") != 0) {
-
-
-            // StringEscapeUtils strEscUtils = new StringEscapeUtils();
-
-            //query = exampleData.replaceSQLString (";","",query);
-            //query = exampleData.replaceSQLString("\"", "\'", query);
-
             ReportByExamples r = new ReportByExamples();
             r.setProviderNo(providerNo);
             r.setQuery(query);
@@ -138,6 +144,7 @@ public class RptByExample2Action extends ActionSupport {
         return sql;
     }
 
+    @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
     }
@@ -146,6 +153,7 @@ public class RptByExample2Action extends ActionSupport {
         return selectedRecentSearch;
     }
 
+    @StrutsParameter
     public void setSelectedRecentSearch(String selectedRecentSearch) {
         this.selectedRecentSearch = selectedRecentSearch;
     }

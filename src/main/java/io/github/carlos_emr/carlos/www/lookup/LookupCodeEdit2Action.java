@@ -30,8 +30,8 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.MyDateFormat;
 
@@ -41,17 +41,27 @@ import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.services.LookupManager;
 import io.github.carlos_emr.carlos.utils.Utility;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class LookupCodeEdit2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private LookupManager lookupManager = SpringUtils.getBean(LookupManager.class);
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         if ("save".equals(request.getParameter("method"))) {
             return save();
         }
@@ -89,9 +99,33 @@ public class LookupCodeEdit2Action extends ActionSupport {
     }
 
     public String save() throws Exception {
-        LookupTableDefValue tableDef = this.getTableDef();
+        LookupTableDefValue submittedTableDef = this.getTableDef();
+        String tableId = submittedTableDef == null ? null : submittedTableDef.getTableId();
+        LookupTableDefValue tableDef = (Utility.IsEmpty(tableId) ? null : lookupManager.GetLookupTableDef(tableId));
         List fieldDefList = this.getCodeFields();
         boolean isNew = this.isNewCode();
+
+        if (tableDef == null || Utility.IsEmpty(tableDef.getTableId()) || !tableDef.getTableId().matches("^[A-Z0-9_]+$")) {
+            addActionMessage("Invalid lookup table identifier.");
+            return "edit";
+        }
+
+        LookupTableDefValue trustedTableDef = lookupManager.GetLookupTableDef(tableDef.getTableId());
+        if (trustedTableDef == null) {
+            addActionMessage("Lookup table not found.");
+            return "edit";
+        }
+        tableDef = trustedTableDef;
+
+        // Re-fetch field definitions from the database so that field metadata
+        // (fieldSQL, fieldType, genericIdx, etc.) is trusted and cannot be
+        // tampered with via Struts parameter binding.  Only the user-submitted
+        // .val values are applied from the request below.
+        fieldDefList = lookupManager.LoadFieldDefList(tableDef.getTableId());
+        if (fieldDefList == null || fieldDefList.isEmpty()) {
+            addActionMessage("Lookup table has no field definitions.");
+            return "edit";
+        }
 
         boolean isInActive = false;
 
@@ -172,10 +206,12 @@ public class LookupCodeEdit2Action extends ActionSupport {
     boolean newCode;
     String errMsg;
 
+    @StrutsParameter(depth = 1)
     public List getCodeFields() {
         return codeFields;
     }
 
+    @StrutsParameter
     public void setCodeFields(List codeFields) {
         this.codeFields = codeFields;
     }
@@ -184,14 +220,17 @@ public class LookupCodeEdit2Action extends ActionSupport {
         return newCode;
     }
 
+    @StrutsParameter
     public void setNewCode(boolean newCode) {
         this.newCode = newCode;
     }
 
+    @StrutsParameter(depth = 1)
     public LookupTableDefValue getTableDef() {
         return tableDef;
     }
 
+    @StrutsParameter
     public void setTableDef(LookupTableDefValue tableDef) {
         this.tableDef = tableDef;
     }

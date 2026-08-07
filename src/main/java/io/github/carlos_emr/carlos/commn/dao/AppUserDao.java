@@ -32,9 +32,16 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 
+import java.util.List;
+
 import io.github.carlos_emr.carlos.commn.model.AppUser;
 
 public interface AppUserDao extends AbstractDao<AppUser> {
 
     public AppUser findForProvider(int appId, String providerNo);
+
+    /**
+     * Finds app-user associations for the specified provider and app IDs.
+     */
+    public List<AppUser> findForProviderByAppIds(List<Integer> appIds, String providerNo);
 }

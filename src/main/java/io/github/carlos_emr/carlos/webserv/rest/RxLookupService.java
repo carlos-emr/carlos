@@ -42,8 +42,8 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -76,6 +76,9 @@ public class RxLookupService extends AbstractServiceImpl {
     @Path("/search")
     @Produces("application/json")
     public DrugLookupResponse search(@QueryParam("string") String s) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
 
         DrugLookupResponse resp = new DrugLookupResponse();
 
@@ -117,6 +120,9 @@ public class RxLookupService extends AbstractServiceImpl {
     @Path("/details")
     @Produces("application/json")
     public DrugLookupResponse details(@QueryParam("id") String s) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
 
         DrugLookupResponse resp = new DrugLookupResponse();
 
@@ -163,6 +169,9 @@ public class RxLookupService extends AbstractServiceImpl {
     @Path("/parse")
     @Produces
     public DrugResponse parseInstructions(@QueryParam("input") String instructions) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
 
         // the providers no, demographic no, etc... for this drug do not matter.
         // all we care about are the instruction fields.

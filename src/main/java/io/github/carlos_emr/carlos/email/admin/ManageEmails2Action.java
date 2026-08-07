@@ -1,7 +1,7 @@
 package io.github.carlos_emr.carlos.email.admin;
 
 import io.github.carlos_emr.carlos.managers.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -19,11 +20,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for managing and administering emails in the OpenO EMR system.
@@ -67,6 +69,8 @@ public class ManageEmails2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final PdfPreviewCapabilityService pdfPreviewCapabilityService =
+            SpringUtils.getBean(PdfPreviewCapabilityService.class);
 
     /**
      * Main entry point for the ManageEmails2Action, routing requests to appropriate handler methods.
@@ -137,6 +141,8 @@ public class ManageEmails2Action extends ActionSupport {
      * @see EmailManager#getEmailStatusByDateDemographicSenderStatus
      * @see EmailStatusResult
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String fetchEmails() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailStatus = request.getParameter("emailStatus");
@@ -155,8 +161,14 @@ public class ManageEmails2Action extends ActionSupport {
             demographic_no = null;
         }
 
-        List<EmailStatusResult> emailStatusResults = emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, dateBeginStr, dateEndStr, demographic_no, senderEmailAddress, emailStatus);
-        request.setAttribute("emailStatusResults", emailStatusResults);
+        try {
+            List<EmailStatusResult> emailStatusResults = emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, dateBeginStr, dateEndStr, demographic_no, senderEmailAddress, emailStatus);
+            request.setAttribute("emailStatusResults", emailStatusResults);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid email search filters", e);
+            request.setAttribute("emailValidationError", e.getMessage());
+            request.setAttribute("emailStatusResults", List.of());
+        }
 
         return "emailstatus";
     }
@@ -250,6 +262,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);
         request.setAttribute("senderAccounts", senderAccounts);
+        request.setAttribute("senderConfigId", emailLog.getEmailConfig() != null ? emailLog.getEmailConfig().getId() : null);
         request.setAttribute("senderEmail", emailLog.getFromEmail());
         request.setAttribute("subjectEmail", emailLog.getSubject());
         request.setAttribute("bodyEmail", emailLog.getBody());
@@ -260,7 +273,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList);
+        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         return "compose";
     }
@@ -336,6 +349,10 @@ public class ManageEmails2Action extends ActionSupport {
                     break;
                 default:
                     break;
+            }
+            if (emailAttachment.getFilePath() != null && !emailAttachment.getFilePath().isBlank()) {
+                emailAttachment.setPreviewToken(pdfPreviewCapabilityService.issue(
+                        request, loggedInInfo, Path.of(emailAttachment.getFilePath())));
             }
         }
         return emailAttachmentList;

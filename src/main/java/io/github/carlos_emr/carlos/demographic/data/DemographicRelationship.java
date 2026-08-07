@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.*;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * @author Jay Gallagher
@@ -108,7 +109,7 @@ public class DemographicRelationship {
 		Relationships r = dao.findActive(ConversionUtils.fromIntString(id));
 		ArrayList<Map<String, String>> list = new ArrayList<Map<String, String>>();
 		if (r == null) {
-			MiscUtils.getLogger().warn("Unable to find demographic relationship for ID {}", id);
+			MiscUtils.getLogger().warn("Unable to find demographic relationship for ID {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 			return list;
 		}
 

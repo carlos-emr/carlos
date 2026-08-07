@@ -38,9 +38,9 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
@@ -54,8 +54,8 @@ public class EctPatientData {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetSQL("SELECT provider_no FROM demographic WHERE demographic_no = "
-                    + demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT provider_no FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next())
                 ret = Misc.getString(rs, "provider_no");
 
@@ -81,8 +81,8 @@ public class EctPatientData {
         Patient p = null;
         ResultSet rs = null;
         try {
-            rs = DBHandler.GetSQL("SELECT demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, address, city, postal, phone, roster_status FROM demographic WHERE demographic_no = "
-                    + demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, address, city, postal, phone, roster_status FROM demographic WHERE demographic_no = ?",
+                    demographicNo);
             if (rs.next())
                 p = new Patient(rs.getInt("demographic_no"), Misc.getString(rs, "last_name"), Misc.getString(rs, "first_name"),
                         Misc.getString(rs, "sex"), UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
@@ -199,15 +199,13 @@ public class EctPatientData {
             }
 
             private void init() {
-                OscarProperties properties = OscarProperties.getInstance();
+                CarlosProperties properties = CarlosProperties.getInstance();
                 if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
                     ResultSet rs = null;
                     try {
 
-                        String sql = "select * from eChart where demographicNo=" + demographicNo
-                                + " ORDER BY eChartId DESC";
                         //                            + " ORDER BY eChartId DESC limit 1";
-                        rs = DBHandler.GetSQL(sql);
+                        rs = LegacyJdbcQuery.getPreparedResultSet("select * from eChart where demographicNo=? ORDER BY eChartId DESC", demographicNo);
                         if (rs.next()) {
                             this.eChartTimeStamp = rs.getTimestamp("timeStamp");
                             this.socialHistory = Misc.getString(rs, "socialHistory");

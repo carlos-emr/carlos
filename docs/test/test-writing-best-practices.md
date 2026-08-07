@@ -6,27 +6,22 @@
 All test methods follow BDD (Behavior-Driven Development) naming for self-documenting tests:
 
 ```java
-// Pattern 1: should<ExpectedBehavior>_when<Condition> (PREFERRED - camelCase with ONE underscore)
+// Pattern: should<Action>_<prepositionOrContext><Condition>
+// The segment after the single underscore can be _when, _by, _for, _with, _to, _from, etc.
 @Test
 void shouldReturnActiveTicklers_whenDemographicNumberProvided() { }
-
-// Pattern 2: <methodName>_<scenario>_<expectedOutcome>
-@Test
-void findById_validId_returnsTickler() { }
-
-// Pattern 3: should<ExpectedBehavior> (simple cases without conditions)
-@Test
-void shouldLoadSpringContext() { }
+void shouldReturnSpecialists_byServiceName() { }
+void shouldPersistMeasurement_withBloodPressureData() { }
 ```
 
-**IMPORTANT**: Use camelCase with exactly ONE underscore separating action from condition. Do NOT use multiple underscores like `should_return_tickler_when_valid()`.
+**IMPORTANT**: Use camelCase with exactly ONE underscore separating action from condition/context. Do NOT use zero-underscore names, multiple underscores, snake_case, or method-name-first names.
 
 ### @DisplayName Best Practices
 
 ```java
 @Test
 @DisplayName("should return tickler when valid ID is provided")  // lowercase 'should'
-void should_returnTickler_when_validIdProvided() { }
+void shouldReturnTickler_whenValidIdProvided() { }
 ```
 
 **Key Points:**
@@ -38,7 +33,7 @@ void should_returnTickler_when_validIdProvided() { }
 ### Benefits of BDD Naming
 
 1. **Self-Documenting**: Method names explain the test without reading implementation
-2. **Better Failure Messages**: `FAILED: should_returnOnlyActiveTicklers_when_searchingByDemographic` immediately tells you what behavior is broken
+2. **Better Failure Messages**: `FAILED: shouldReturnOnlyActiveTicklers_whenSearchingByDemographic` immediately tells you what behavior is broken
 3. **Living Documentation**: Tests serve as executable specifications
 4. **Searchable**: Consistent pattern makes tests easy to find
 
@@ -88,46 +83,46 @@ Organize related tests within a single file using @Nested:
 
 ```java
 @DisplayName("Tickler DAO Tests")
-class TicklerDaoMethodTest extends OpenOTestBase {
+class TicklerDaoMethodTest extends CarlosTestBase {
 
     @Nested
     @DisplayName("Find Operations")
     class FindOperations {
         @Test
-        void should_findById() { }
+        void shouldFindById_whenIdExists() { }
 
         @Test
-        void should_findActiveByDemographic() { }
+        void shouldFindActiveByDemographic_whenPatientHasRows() { }
     }
 
     @Nested
     @DisplayName("Query and Filter Operations")
     class QueryAndFilterOperations {
         @Test
-        void should_applyCustomFilter() { }
+        void shouldApplyCustomFilter_whenFilterPresent() { }
 
         @Test
-        void should_paginateResults() { }
+        void shouldPaginateResults_whenPageRequested() { }
     }
 
     @Nested
     @DisplayName("Aggregation Operations")
     class AggregationOperations {
         @Test
-        void should_countActiveTicklers() { }
+        void shouldCountActiveTicklers_forProvider() { }
 
         @Test
-        void should_groupByProvider() { }
+        void shouldGroupByProvider_forSummary() { }
     }
 
     @Nested
     @DisplayName("Write Operations")
     class WriteOperations {
         @Test
-        void should_persistNewTickler() { }
+        void shouldPersistNewTickler_withValidInput() { }
 
         @Test
-        void should_updateExistingTickler() { }
+        void shouldUpdateExistingTickler_withValidInput() { }
     }
 }
 ```
@@ -141,7 +136,7 @@ class TicklerDaoMethodTest extends OpenOTestBase {
 @Tag("dao")          // Level 2: Layer
 @Tag("read")         // Level 3: CRUD operation
 @Tag("filter")       // Level 4: Extended operation (optional)
-class TicklerDaoMethodTest extends OpenOTestBase {
+class TicklerDaoMethodTest extends CarlosTestBase {
 ```
 
 ### Standard Tag Definitions
@@ -195,12 +190,32 @@ mvn test -DexcludedGroups="slow"
 mvn test -Dgroups="unit,fast"
 ```
 
+## Shared Test Utilities
+
+Prefer shared helpers for cross-cutting test mechanics. For Log4j2 assertions,
+use `io.github.carlos_emr.carlos.test.logging.LogCapture`:
+
+```java
+try (LogCapture capture = LogCapture.forLogger(MyService.class)) {
+    service.run();
+
+    assertThat(capture.messages()).anyMatch(message ->
+            message.contains("expected audit text"));
+}
+```
+
+Do not add one-off `AbstractAppender`, `CapturingAppender`, or manual
+`LoggerConfig` copies inside individual tests. Root or shared logger mutations
+are fragile under parallel Surefire execution, and local copies drift quickly.
+`LogCapture` scopes the appender to the target logger, snapshots immutable
+events, and restores the Log4j2 configuration on close.
+
 ## Test Data Management
 
 ### Test Data Creation Pattern
 
 ```java
-public abstract class TicklerTestBase extends OpenOTestBase {
+public abstract class TicklerTestBase extends CarlosTestBase {
 
     protected Tickler createTestTickler() {
         Tickler tickler = new Tickler();
@@ -240,7 +255,7 @@ public abstract class TicklerTestBase extends OpenOTestBase {
 @Test
 @Transactional
 @Rollback  // Ensures database changes are rolled back after test
-void should_isolateTestData() {
+void shouldIsolateTestData_withRollback() {
     // All database changes in this test are automatically rolled back
 }
 ```
@@ -267,7 +282,7 @@ assertEquals("ACTIVE", result.getStatus());
 
 ```java
 @Test
-void should_returnCompleteTickler_when_foundById() {
+void shouldReturnCompleteTickler_whenFoundById() {
     // Given
     Tickler original = createAndPersistTickler();
 
@@ -387,7 +402,7 @@ Create a base class for each domain with test data builders:
 @Tag("unit")
 @Tag("fast")
 @Tag("demographic")
-public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
+public abstract class DemographicUnitTestBase extends CarlosUnitTestBase {
 
     protected SecurityInfoManager mockSecurityInfoManager;
     protected LoggedInInfo mockLoggedInInfo;
@@ -506,7 +521,7 @@ registerMock(OscarLogDao.class, mockOscarLogDao);
 ```java
 @Test
 @Transactional
-void should_handleConcurrentUpdates() {
+void shouldHandleConcurrentUpdates_whenRowsConflict() {
     // Given
     Tickler tickler = createAndPersistTickler();
 
@@ -533,7 +548,7 @@ void should_handleConcurrentUpdates() {
 
 ```java
 @Test
-void should_autowireAllRequiredBeans() {
+void shouldAutowireAllRequiredBeans_forSpringContext() {
     // Verify critical beans are available
     assertThat(SpringUtils.getBean(TicklerDao.class)).isNotNull();
     assertThat(SpringUtils.getBean(SecurityInfoManager.class)).isNotNull();
@@ -549,7 +564,7 @@ void should_autowireAllRequiredBeans() {
 @Test
 @Tag("slow")
 @DisplayName("should handle large dataset efficiently")
-void should_processLargeDataset() {
+void shouldProcessLargeDataset_withSlowTag() {
     // Test with 10,000+ records
     List<Tickler> ticklers = createMultipleTicklers(10000);
 
@@ -587,7 +602,7 @@ void should_processLargeDataset() {
 @DisplayName("Tickler DAO Integration Tests")
 @Tag("integration")
 @Tag("dao")
-public class TicklerDaoIntegrationTest extends OpenODaoTestBase {
+public class TicklerDaoIntegrationTest extends CarlosDaoTestBase {
 ```
 
 ### Method-Level Documentation
@@ -596,7 +611,7 @@ For complex test logic, add explanatory comments:
 
 ```java
 @Test
-void should_handleComplexFilterCriteria() {
+void shouldHandleComplexFilterCriteria_whenFilteringActiveRows() {
     // Given - Create ticklers with various states
     createTicklerWithStatus("ACTIVE");
     createTicklerWithStatus("COMPLETED");
@@ -621,13 +636,13 @@ void should_handleComplexFilterCriteria() {
 ```java
 // BAD - Testing internal implementation
 @Test
-void should_callSpecificInternalMethod() {
+void shouldCallSpecificInternalMethod_forBadExample() {
     verify(mockDao, times(1)).internalHelperMethod();
 }
 
 // GOOD - Testing behavior
 @Test
-void should_returnActiveTicklers() {
+void shouldReturnActiveTicklers_forDefaultQuery() {
     List<Tickler> results = dao.findActive();
     assertThat(results).allMatch(t -> "ACTIVE".equals(t.getStatus()));
 }
@@ -644,13 +659,13 @@ void testEverything() {
 
 // GOOD - Focused tests
 @Test
-void should_createTickler() { }
+void shouldCreateTickler_withValidInput() { }
 
 @Test
-void should_updateTickler() { }
+void shouldUpdateTickler_withValidInput() { }
 
 @Test
-void should_deleteTickler() { }
+void shouldDeleteTickler_withValidInput() { }
 ```
 
 ### ❌ Don't Use Random/Time-Dependent Data
@@ -689,7 +704,7 @@ Before committing a test, ensure:
 @Tag("read")
 @Tag("filter")
 @DisplayName("should return only active ticklers when multiple statuses exist")
-void should_returnOnlyActiveTicklers_when_searchingByDemographic() {
+void shouldReturnOnlyActiveTicklers_whenSearchingByDemographic() {
     // Given - Create ticklers with different statuses
     Tickler activeTickler = createTicklerWithStatus("ACTIVE", demographicNo);
     Tickler completedTickler = createTicklerWithStatus("COMPLETED", demographicNo);

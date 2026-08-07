@@ -38,8 +38,6 @@ public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpeci
 
     List<ProfessionalSpecialist> findAll();
 
-    List<ProfessionalSpecialist> findByEDataUrlNotNull();
-
     List<ProfessionalSpecialist> findByFullName(String lastName, String firstName);
 
     List<ProfessionalSpecialist> findByLastName(String lastName);
@@ -50,8 +48,6 @@ public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpeci
 
     ProfessionalSpecialist getByReferralNo(String referralNo);
 
-    boolean hasRemoteCapableProfessionalSpecialists();
-
     List<ProfessionalSpecialist> search(String keyword);
 
     List<ProfessionalSpecialist> findByFullNameAndSpecialtyAndAddress(String lastName, String firstName, String specialty, String address, Boolean showHidden);
@@ -59,4 +55,14 @@ public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpeci
     List<ProfessionalSpecialist> findByService(String serviceName);
 
     List<ProfessionalSpecialist> findByServiceId(Integer serviceId);
+
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities whose phone number contains the given fragment.
+     * Results are ordered by last name and first name.
+     *
+     * @param phone String the phone number fragment to search for (matched with LIKE contains)
+     * @param maxResults int the maximum number of results to return
+     * @return List&lt;ProfessionalSpecialist&gt; list of matching healthcare specialists, empty if none found
+     */
+    List<ProfessionalSpecialist> findByPhoneContains(String phone, int maxResults);
 }

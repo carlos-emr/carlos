@@ -3,8 +3,8 @@ package io.github.carlos_emr.carlos.email.action;
 import java.io.IOException;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -15,10 +15,13 @@ import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action controller for handling email sending functionality within the OpenO EMR system.
@@ -51,6 +54,8 @@ import org.apache.struts2.ServletActionContext;
  * @see io.github.carlos_emr.carlos.email.core.EmailData
  */
 public class EmailSend2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -72,6 +77,11 @@ public class EmailSend2Action extends ActionSupport {
      *         or transaction type name for cancel operations
      */
     public String execute () {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         if ("sendDirectEmail".equals(request.getParameter("method"))) {
             return sendDirectEmail();
         } else if ("cancel".equals(request.getParameter("method"))) {
@@ -96,6 +106,8 @@ public class EmailSend2Action extends ActionSupport {
      *
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String sendEFormEmail() {
         boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
 
@@ -153,12 +165,15 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 result identifier matching the transaction type name
      * @throws RuntimeException if IOException occurs during redirect for EFORM transactions
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
         EmailData emailData = prepareEmailFields(request);
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
-                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data.jsp?fdid="  + request.getParameter("fdid") + "&parentAjaxId=eforms");
+                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data?fdid="
+                        + SafeEncode.forUriComponent(request.getParameter("fdid")) + "&parentAjaxId=eforms");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -209,7 +224,7 @@ public class EmailSend2Action extends ActionSupport {
      *         ready for processing by EmailManager
      */
     private EmailData prepareEmailFields(HttpServletRequest request) {
-        String fromEmail = request.getParameter("senderEmailAddress");
+        String senderConfigId = request.getParameter("senderConfigId");
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter("subjectEmail");
         String body = request.getParameter("bodyEmail");
@@ -229,7 +244,7 @@ public class EmailSend2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         EmailData emailData = new EmailData();
-        emailData.setSender(fromEmail);
+        emailData.setSenderConfigId(senderConfigId);
         emailData.setRecipients(receiverEmails);
         emailData.setSubject(subject);
         emailData.setBody(body);

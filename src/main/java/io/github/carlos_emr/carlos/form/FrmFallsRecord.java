@@ -40,12 +40,15 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmFallsRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID)
             throws SQLException {
         Properties props = new Properties();
@@ -56,9 +59,8 @@ public class FrmFallsRecord extends FrmRecord {
 
         if (existingID <= 0) {
             sql =
-                    "SELECT demographic_no, address, city, province, postal, phone FROM demographic WHERE demographic_no = "
-                            + demographicNo;
-            rs = DBHandler.GetSQL(sql);
+                    "SELECT demographic_no, address, city, province, postal, phone FROM demographic WHERE demographic_no = ?";
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty(
                         "demographic_no",
@@ -70,8 +72,8 @@ public class FrmFallsRecord extends FrmRecord {
                                 _dateFormat));
             }
             rs.close();
-            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no='" + demographicNo + "'";
-            rs = DBHandler.GetSQL(sql);
+            sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
@@ -80,11 +82,8 @@ public class FrmFallsRecord extends FrmRecord {
             rs.close();
         } else {
             sql =
-                    "SELECT * FROM formFalls WHERE demographic_no = "
-                            + demographicNo
-                            + " AND ID = "
-                            + existingID;
-            rs = DBHandler.GetSQL(sql);
+                    "SELECT * FROM formFalls WHERE demographic_no = ? AND ID = ?";
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");
@@ -127,25 +126,20 @@ public class FrmFallsRecord extends FrmRecord {
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
         String sql =
-                "SELECT * FROM formFalls WHERE demographic_no="
-                        + demographic_no
-                        + " AND ID=0";
+                "SELECT * FROM formFalls WHERE demographic_no=? AND ID=0";
 
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).saveFormRecord(props, sql));
+        return ((frh).saveFormRecord(props, sql, demographic_no));
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID)
             throws SQLException {
         String sql =
-                "SELECT * FROM formFalls WHERE demographic_no = "
-                        + demographicNo
-                        + " AND ID = "
-                        + existingID;
+                "SELECT * FROM formFalls WHERE demographic_no = ? AND ID = ?";
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
-        return ((frh).getPrintRecord(sql));
+        return ((frh).getPrintRecord(sql, demographicNo, existingID));
     }
 
     public String findActionValue(String submit) throws SQLException {

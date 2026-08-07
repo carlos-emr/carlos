@@ -32,17 +32,18 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.servlet.http.HttpSession;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Response;
+import jakarta.servlet.http.HttpSession;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -90,7 +91,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.CaseManagementIssueConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.IssueConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.TicklerNoteResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.CaseManagementIssueTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
@@ -118,7 +119,23 @@ public class NotesService extends AbstractServiceImpl {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /**
+     * In-memory concurrent editing tracker for clinical notes.
+     *
+     * <p>Outer key: note UUID. Inner map: provider number to epoch-millis timestamp of
+     * last heartbeat. The UI polls {@link #setEditingNoteFlag} every ~5 minutes to
+     * renew the flag; {@link #clearDanglingFlags()} evicts entries older than 6 minutes
+     * to handle abandoned sessions. This prevents two providers from unknowingly
+     * overwriting each other's edits on the same note.</p>
+     *
+     * <p>Thread-safe: uses ConcurrentHashMap at both levels so concurrent REST calls
+     * from different providers do not corrupt the structure.</p>
+     */
     private static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> editList = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+    private static final int MAX_EDIT_LIST_SIZE = 10000;
 
     @Autowired
     private NoteService noteService;
@@ -152,7 +169,9 @@ public class NotesService extends AbstractServiceImpl {
     public NoteSelectionTo1 getNotesWithFilter(@PathParam("demographicNo") Integer demographicNo, @DefaultValue("20") @QueryParam("numToReturn") Integer numToReturn, @DefaultValue("0") @QueryParam("offset") Integer offset, ObjectNode jsonobject) {
         NoteSelectionTo1 returnResult = new NoteSelectionTo1();
         LoggedInInfo loggedInInfo = getLoggedInInfo();
-        logger.debug("The config " + jsonobject.toString());
+        if (logger.isDebugEnabled()) {
+            logger.debug("The config {}", jsonobject);
+        }
 
         // Get user role and username - support both session-based and OAuth authentication
         String userRole = "";
@@ -221,15 +240,18 @@ public class NotesService extends AbstractServiceImpl {
         processJsonArray(jsonobject, "filterIssues", criteria.getIssues());
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
+            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", criteria);
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("FOUND: " + result);
+            logger.debug("FOUND: {}", result);
             for (NoteDisplay nd : result.getNotes()) {
-                logger.debug("   " + nd.getClass().getSimpleName() + " " + nd.getNoteId() + " " + nd.getNote());
+                // PHI: do not log note content; log only type, id, and length
+                String noteText = nd.getNote();
+                logger.debug("   {} id={} length={}", nd.getClass().getSimpleName(), nd.getNoteId(),
+                        noteText != null ? noteText.length() : 0);
             }
         }
 
@@ -251,7 +273,6 @@ public class NotesService extends AbstractServiceImpl {
             note.setProgramName(nd.getProgramName());
             note.setLocation(nd.getLocation());
             note.setRoleName(nd.getRoleName());
-            note.setRemoteFacilityId(nd.getRemoteFacilityId());
             note.setUuid(nd.getUuid());
             note.setHasHistory(nd.getHasHistory());
             note.setLocked(nd.isLocked());
@@ -273,7 +294,7 @@ public class NotesService extends AbstractServiceImpl {
 
             noteList.add(note);
         }
-        logger.debug("returning note list size " + noteList.size() + "  numToReturn was " + numToReturn + " offset " + offset);
+        logger.debug("returning note list size {}  numToReturn was {} offset {}", noteList.size(), numToReturn, offset);
 
         return returnResult;
     }
@@ -284,7 +305,10 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public NoteTo1 tmpSaveNote(@PathParam("demographicNo") Integer demographicNo, NoteTo1 note) {
-        logger.debug("autosave " + note);
+        // PHI: note may contain clinical content; log only identifier
+        if (logger.isDebugEnabled()) {
+            logger.debug("autosave noteId={}", note != null ? note.getNoteId() : null);
+        }
 
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //  LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
@@ -326,8 +350,13 @@ public class NotesService extends AbstractServiceImpl {
         try {
             caseManagementMgr.deleteTmpSave(providerNo, "" + demographicNo, programId);
             caseManagementMgr.tmpSave(providerNo, "" + demographicNo, programId, noteId, noteStr);
-        } catch (Throwable e) {
-            logger.error("AutoSave Error: ", e);
+        } catch (Exception e) {
+            // Autosave failed. Do NOT echo the note back with HTTP 200 as if it saved: deleteTmpSave may
+            // already have removed the previous draft and the new draft was not persisted, so the client
+            // must learn the save failed and keep its dirty in-memory copy to retry. (Narrowed from
+            // Throwable so JVM Errors are not swallowed.)
+            logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy", e);
+            throw new WebApplicationException("Autosave failed", Response.Status.INTERNAL_SERVER_ERROR);
         }
 
         return note;
@@ -351,7 +380,7 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public NoteTo1 saveNote(@PathParam("demographicNo") Integer demographicNo, ObjectNode jsonNote) throws Exception {
-        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectMapper objectMapper = OBJECT_MAPPER;
         NoteTo1 note = null;
         if (jsonNote != null) {
             if (jsonNote.has("encounterNote")) {
@@ -361,7 +390,10 @@ public class NotesService extends AbstractServiceImpl {
             }
         }
 
-        logger.debug("saveNote " + note);
+        // PHI: note may contain clinical content; log only identifier
+        if (logger.isDebugEnabled()) {
+            logger.debug("saveNote noteId={}", note != null ? note.getNoteId() : null);
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -390,30 +422,30 @@ public class NotesService extends AbstractServiceImpl {
             cpp = new CaseManagementCPP();
             cpp.setDemographic_no(demo);
         }
-        logger.debug("enc TYPE " + note.getEncounterType());
+        logger.debug("enc TYPE {}", note.getEncounterType());
         caseMangementNote.setEncounter_type(note.getEncounterType());
 
         //caseMangementNote.setHourOfEncounterTime(note.getEncounterTime());
-        logger.debug("this is what the encounter time was " + note.getEncounterTime());
+        logger.debug("this is what the encounter time was {}", note.getEncounterTime());
 		/*String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-		if (hourOfEncounterTime != null && hourOfEncounterTime != "") {
+		if (hourOfEncounterTime != null && !"".equals(hourOfEncounterTime)) {
 			note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
 		}
 
 		String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-		if (minuteOfEncounterTime != null && minuteOfEncounterTime != "") {
+		if (minuteOfEncounterTime != null && !"".equals(minuteOfEncounterTime)) {
 			note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
 		}*/
 
-        logger.debug("this is what the encounter time was " + note.getEncounterTransportationTime());
+        logger.debug("this is what the encounter time was {}", note.getEncounterTransportationTime());
 		/*
 		String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-		if (hourOfEncTransportationTime != null && hourOfEncTransportationTime != "") {
+		if (hourOfEncTransportationTime != null && !"".equals(hourOfEncTransportationTime)) {
 			note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
 		}
 
 		String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-		if (minuteOfEncTransportationTime != null && minuteOfEncTransportationTime != "") {
+		if (minuteOfEncTransportationTime != null && !"".equals(minuteOfEncTransportationTime)) {
 			note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
 		}
 		*/
@@ -516,20 +548,12 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        // update password
-		/*
-		String passwd = cform.getCaseNote().getPassword();
-		if (passwd != null && passwd.trim().length() > 0) {
-			note.setPassword(passwd);
-			note.setLocked(true);
-		}
-		 */
         Date now = new Date();
 
         Date observationDate = note.getObservationDate();
         if (observationDate != null && !observationDate.equals("")) {
             if (observationDate.getTime() > now.getTime()) {
-                //request.setAttribute("DateError", props.getProperty("oscarEncounter.futureDate.Msg"));
+                //request.setAttribute("DateError", props.getProperty("encounter.futureDate.Msg"));
                 caseMangementNote.setObservation_date(now);
             } else {
                 caseMangementNote.setObservation_date(observationDate);
@@ -542,7 +566,7 @@ public class NotesService extends AbstractServiceImpl {
 		
 		/* Currently not available from this method
 		// Checks whether the user can set the program via the UI - if so, make sure that they can't screw it up if they do
-				if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+				if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
 					String noteProgramNo = request.getParameter("_note_program_no");
 					String noteRoleId = request.getParameter("_note_role_id");
 
@@ -565,15 +589,11 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        // Save annotation
-
-        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
-
         //String ongoing = null; // figure out this
         String lastSavedNoteString = null;
         String user = loggedInInfo.getLoggedInProvider().getProviderNo();
         String remoteAddr = ""; // Not sure how to get this
-        caseMangementNote = caseManagementMgr.saveCaseManagementNote(loggedInInfo, caseMangementNote, issuelist, cpp, ongoing, verify, getLocale(), now, annotationNote, userName, user, remoteAddr, lastSavedNoteString);
+        caseMangementNote = caseManagementMgr.saveCaseManagementNote(loggedInInfo, caseMangementNote, issuelist, cpp, ongoing, verify, getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
         caseManagementMgr.getEditors(caseMangementNote);
 
@@ -610,8 +630,8 @@ public class NotesService extends AbstractServiceImpl {
 			
 			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
 			//if other window has acquired lock we reject save									
-			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getRequestedSessionId().equals(casemgmtNoteLockSession.getSessionId()) ) {
-				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getRequestedSessionId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
+			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) ) {
+				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getSession().getId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
 				return -1L;
 			}
 		}
@@ -844,7 +864,7 @@ public class NotesService extends AbstractServiceImpl {
         Date observationDate = note.getObservationDate();
         if (observationDate != null && !observationDate.equals("")) {
             if (observationDate.getTime() > now.getTime()) {
-                //request.setAttribute("DateError", props.getProperty("oscarEncounter.futureDate.Msg"));
+                //request.setAttribute("DateError", props.getProperty("encounter.futureDate.Msg"));
                 caseMangementNote.setObservation_date(now);
             } else {
                 caseMangementNote.setObservation_date(observationDate);
@@ -929,16 +949,12 @@ public class NotesService extends AbstractServiceImpl {
          *
          */
 
-        // Save annotation
-        CaseManagementNote annotationNote = null; // (CaseManagementNote) session.getAttribute(attrib_name);
-        //logger.error(noteIssue.getAnnotation_attrib());
-
         //String ongoing = null; // figure out this
         String lastSavedNoteString = null;
         String user = loggedInInfo.getLoggedInProvider().getProviderNo();
         String remoteAddr = ""; // Not sure how to get this
 
-        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, annotationNote, userName, user, remoteAddr, lastSavedNoteString);
+        //caseMangementNote = caseManagementMgr.saveCaseManagementNote(caseMangementNote, issuelist, cpp, ongoing, verify, loggedInInfo.getLocale(), now, userName, user, remoteAddr, lastSavedNoteString);
 
         String savedStr = caseManagementMgr.saveNote(cpp, caseMangementNote, providerNo, userName, null, note.getRoleName());
         caseManagementMgr.saveCPP(cpp, providerNo);
@@ -950,16 +966,21 @@ public class NotesService extends AbstractServiceImpl {
         note.setUuid(caseMangementNote.getUuid());
         note.setUpdateDate(caseMangementNote.getUpdate_date());
         note.setObservationDate(caseMangementNote.getObservation_date());
-        logger.debug("note should return like this " + note.getNote());
+        // PHI: do not log note content; log only id and length
+        if (logger.isDebugEnabled()) {
+            String noteText = note.getNote();
+            logger.debug("note should return like this id={} length={}", note.getNoteId(),
+                    noteText != null ? noteText.length() : 0);
+        }
 
 
         long newNoteId = Long.valueOf(note.getNoteId());
 
-        logger.debug("ISSUES LIST START for note " + newNoteId);
+        logger.debug("ISSUES LIST START for note {}", newNoteId);
         CaseManagementIssueNotesDao cmeIssueNotesDao = (CaseManagementIssueNotesDao) SpringUtils.getBean(CaseManagementIssueNotesDao.class);
         List<CaseManagementIssue> issuesList = cmeIssueNotesDao.getNoteIssues(note.getNoteId());
         for (CaseManagementIssue issueItem : issuesList) {
-            logger.debug("ISSUES LIST " + issueItem + " for note " + newNoteId);
+            logger.debug("ISSUES LIST {} for note {}", issueItem, newNoteId);
         }
 
         if (note.getNoteId() != 0) {
@@ -1137,7 +1158,9 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public NoteTo1 getCurrentNote(@PathParam("demographicNo") Integer demographicNo, ObjectNode jsonobject) {
-        logger.debug("getCurrentNote " + jsonobject);
+        if (logger.isDebugEnabled()) {
+            logger.debug("getCurrentNote {}", jsonobject);
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1185,7 +1208,7 @@ public class NotesService extends AbstractServiceImpl {
         String forceNote = getString(jsonobject, "forceNote"); //request.getParameter("forceNote");
         if (forceNote == null) forceNote = "false";
 
-        logger.debug("NoteId " + nId);
+        logger.debug("NoteId {}", nId);
 
         CaseManagementTmpSave tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo, "" + demographicNo, programIdString);
 
@@ -1194,7 +1217,7 @@ public class NotesService extends AbstractServiceImpl {
         EctSessionBean bean = (session != null) ? (EctSessionBean) session.getAttribute("EctSessionBean") : null;
         String encType = getString(jsonobject, "encType");
 
-        logger.debug("Encounter Type : " + encType);
+        logger.debug("Encounter Type : {}", encType);
 
 
         // create a new note
@@ -1210,7 +1233,7 @@ public class NotesService extends AbstractServiceImpl {
             note.setDemographic_no("" + demographicNo);
 
 //////This adds the note text i think
-//			if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+//			if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
 //				this.insertReason(request, note);
 //			} else {
 //				note.setNote("");
@@ -1232,11 +1255,11 @@ public class NotesService extends AbstractServiceImpl {
         }
         // get the last temp note?
         else if (tmpsavenote != null && !forceNote.equals("true")) {
-            logger.debug("tempsavenote is NOT NULL == noteId :" + tmpsavenote.getNoteId());
+            logger.debug("tempsavenote is NOT NULL == noteId :{}", tmpsavenote.getNoteId());
             if (tmpsavenote.getNoteId() > 0) {
 //				session.setAttribute("newNote", "false");
                 note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
-                logger.debug("Restoring " + String.valueOf(note.getId()));
+                logger.debug("Restoring {}", note.getId());
             } else {
                 logger.debug("creating new note");
 //				session.setAttribute("newNote", "true");
@@ -1250,12 +1273,16 @@ public class NotesService extends AbstractServiceImpl {
             }
 
             note.setNote(tmpsavenote.getNote());
-            logger.debug("Setting note to " + note.getNote());
+            // PHI: do not log note content; log only length
+            if (logger.isDebugEnabled()) {
+                String nText = note.getNote();
+                logger.debug("Setting note length={}", nText != null ? nText.length() : 0);
+            }
 
         }
         // get an existing non-temp note?
         else if (nId != null && Integer.parseInt(nId) > 0) {
-            logger.debug("Using nId " + nId + " to fetch note");
+            logger.debug("Using nId {} to fetch note", nId);
 //			session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
 
@@ -1274,8 +1301,7 @@ public class NotesService extends AbstractServiceImpl {
             // A hack to load last unsigned note when not specifying a particular note to edit
             // if there is no unsigned note load a new one
 
-            Map unlockedNotesMap = null; //NEED THIS ??
-            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo, unlockedNotesMap)) == null) {
+            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo)) == null) {
 //				session.setAttribute("newNote", "true");
 //				//session.setAttribute("issueStatusChanged", "false");
 
@@ -1293,11 +1319,15 @@ public class NotesService extends AbstractServiceImpl {
         /*
          * do the restore if (restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo, demono, programId); if (tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
-        logger.debug("note ?" + note);
-        logger.debug("Set Encounter Type: " + note.getEncounter_type());
-        logger.debug("Fetched Note " + String.valueOf(note.getId()));
-
-        logger.debug("Populate Note with editors");
+        // PHI: do not log full note object; log id and encounter type only.
+        // Every branch above assigns note; the getEditors(note) / note.getId() calls below
+        // assume the manager lookups returned a non-null note (behaviour unchanged here).
+        if (logger.isDebugEnabled()) {
+            logger.debug("note id={}", note.getId());
+            logger.debug("Set Encounter Type: {}", note.getEncounter_type());
+            logger.debug("Fetched Note {}", note.getId());
+            logger.debug("Populate Note with editors");
+        }
         this.caseManagementMgr.getEditors(note);
 
 
@@ -1311,7 +1341,6 @@ public class NotesService extends AbstractServiceImpl {
 //		if (!note.isIncludeissue()) cform.setIncludeIssue("off");
 //		else cform.setIncludeIssue("on");
 
-//		boolean passwd = caseManagementMgr.getEnabled();
 //		String chain = request.getParameter("chain");
 
 
@@ -1365,7 +1394,6 @@ public class NotesService extends AbstractServiceImpl {
         returnNote.setProgramName(nd.getProgramName());
         returnNote.setLocation(nd.getLocation());
         returnNote.setRoleName(nd.getRoleName());
-        returnNote.setRemoteFacilityId(nd.getRemoteFacilityId());
         returnNote.setUuid(nd.getUuid());
         returnNote.setHasHistory(nd.getHasHistory());
         returnNote.setLocked(nd.isLocked());
@@ -1442,7 +1470,11 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(Long.valueOf(noteId));
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT KEY:" + l.getKeyVal() + l.getValue());
+            // PHI: do not log note content; log only the key and value length.
+            if (logger.isDebugEnabled()) {
+                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                        l.getValue() != null ? l.getValue().length() : 0);
+            }
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getDateValueStr());
@@ -1498,6 +1530,14 @@ public class NotesService extends AbstractServiceImpl {
     @Path("/getGroupNoteExt/{noteId}")
     @Produces("application/json")
     public NoteExtTo1 getGroupNoteExt(@PathParam("noteId") Long noteId) {
+        // Clinical note extension data (treatment, problem description, exposure
+        // details, etc.) is eChart content; require _eChart read before returning
+        // it. Without this an OAuth/REST caller could read any note's PHI by id,
+        // and because OAuthInterceptor skips credential-less requests the call is
+        // otherwise reachable with no authentication at all (see #2798).
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "r", null)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
 
         List<CaseManagementNoteExt> lcme = new ArrayList<CaseManagementNoteExt>();
         lcme.addAll(caseManagementMgr.getExtByNote(noteId));
@@ -1506,7 +1546,11 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(noteId);
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT KEY:" + l.getKeyVal() + l.getValue());
+            // PHI: do not log note content; log only the key and value length.
+            if (logger.isDebugEnabled()) {
+                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                        l.getValue() != null ? l.getValue().length() : 0);
+            }
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getValue());
@@ -1618,7 +1662,7 @@ public class NotesService extends AbstractServiceImpl {
     @Path("/ticklerSaveNote")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse ticklerSaveNote(ObjectNode json) {
+    public RestResponse<String> ticklerSaveNote(ObjectNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
@@ -1735,7 +1779,7 @@ public class NotesService extends AbstractServiceImpl {
         caseManagementMgr.updateNote(cmn);
 
 
-        return new GenericRESTResponse();
+        return RestResponse.successResponse(null);
     }
 
 
@@ -1861,87 +1905,132 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Registers or renews a provider's editing flag for a clinical note.
+     *
+     * <p>Called by the UI on note open and periodically (~5 min) as a heartbeat.
+     * If another provider already holds a flag on this note, returns an error
+     * so the UI can warn the current user before they begin editing.</p>
+     *
+     * @param noteUUID String the unique identifier of the note being edited
+     * @param providerNo String the provider number of the editing user
+     * @return RestResponse with success if no conflict, or error if another provider is editing
+     */
     @POST
     @Path("/setEditingNoteFlag")
     @Produces("application/json")
-    public GenericRESTResponse setEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
-        GenericRESTResponse resp = new GenericRESTResponse(false, "Parameter error");
+    public RestResponse<String> setEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
-            return resp;
+            return RestResponse.errorResponse("Parameter error");
 
-        ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList == null) {
-            noteList = new ConcurrentHashMap<String, Long>();
-            editList.put(noteUUID, noteList);
+        ConcurrentHashMap<String, Long> noteList = editList.computeIfAbsent(noteUUID, k -> new ConcurrentHashMap<String, Long>());
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
         }
-        clearDanglingFlags();
 
-        resp.setSuccess(true);
-        resp.setMessage(null);
+        boolean success = true;
 
         if (!noteList.containsKey(providerNo)) { // only check for other editing user when initializing flag
             for (String key : noteList.keySet()) {
-                if (key != providerNo) {
-                    resp.setSuccess(false);
+                if (!key.equals(providerNo)) {
+                    success = false;
                     break;
                 }
             }
         }
         noteList.put(providerNo, new Date().getTime());
         editList.put(noteUUID, noteList);
-        return resp;
+        return success ? RestResponse.successResponse(null) : RestResponse.errorResponse("Note is being edited by another user");
     }
 
+    /**
+     * Evicts stale editing flags from the in-memory edit tracker.
+     *
+     * <p>Any provider flag older than 6 minutes (360,000 ms) is removed, since the UI
+     * heartbeat renews every ~5 minutes. The 1-minute grace period accounts for network
+     * latency. Notes with no remaining flags are removed entirely.</p>
+     */
     private void clearDanglingFlags() {
         long now = new Date().getTime();
         String[] noteUUIDs = editList.keySet().toArray(new String[editList.keySet().size()]);
         for (String uuid : noteUUIDs) {
             ConcurrentHashMap<String, Long> noteList = editList.get(uuid);
+            if (noteList == null) continue; // concurrent removal
             String[] providerNos = noteList.keySet().toArray(new String[noteList.keySet().size()]);
             for (String providerNo : providerNos) {
                 Long editTime = noteList.get(providerNo);
+                if (editTime == null) continue; // concurrent removal
+                // 360,000 ms = 6 minutes; UI heartbeat renews every ~5 min, so 6 min means the session is stale
                 if (now - editTime >= 360000)
-                    noteList.remove(providerNo); //remove flag due 6 min (should be renewed/removed within 5 min)
+                    noteList.remove(providerNo);
             }
             if (noteList.isEmpty()) editList.remove(uuid);
-            else editList.put(uuid, noteList);
         }
     }
 
 
+    /**
+     * Checks whether another provider has edited this note since the current provider started editing.
+     *
+     * <p>Compares timestamps in the edit tracker: if any other provider's timestamp is newer
+     * than the current provider's, returns an error so the UI can warn about a concurrent edit.
+     * Returns success (no conflict) if the current provider is the only editor or no newer
+     * edits exist.</p>
+     *
+     * @param noteUUID String the unique identifier of the note
+     * @param providerNo String the provider number of the current editor
+     * @return RestResponse with success if no newer edits exist, or error if another provider edited since
+     */
     @POST
     @Path("/checkEditNoteNew")
     @Produces("application/json")
-    public GenericRESTResponse checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
-        GenericRESTResponse resp = new GenericRESTResponse(true, null);
+    public RestResponse<String> checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
-            return resp;
+            return RestResponse.successResponse(null);
+
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
+        }
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList == null) return resp;
-        if (noteList.size() == 1 && noteList.containsKey(providerNo)) return resp;
+        if (noteList == null) return RestResponse.successResponse(null);
+        if (noteList.size() == 1 && noteList.containsKey(providerNo)) return RestResponse.successResponse(null);
 
         long myEditTime = 0;
         if (noteList.containsKey(providerNo)) myEditTime = noteList.get(providerNo);
+        boolean hasNewEdit = false;
         for (String key : noteList.keySet()) {
-            if (key != providerNo) {
+            if (!key.equals(providerNo)) {
                 if (noteList.get(key) > myEditTime) {
-                    resp.setSuccess(false);
+                    hasNewEdit = true;
                     break;
                 }
             }
         }
-        return resp;  //true = no new edit, false = warn about new edit
+        // true = no new edit, false = warn about new edit
+        return hasNewEdit ? RestResponse.errorResponse("Note has been edited by another user") : RestResponse.successResponse(null);
     }
 
+    /**
+     * Removes a provider's editing flag when they finish or cancel editing a note.
+     *
+     * <p>Silently returns on invalid parameters to avoid UI errors on page unload,
+     * where the browser may fire this as a best-effort cleanup request.</p>
+     *
+     * @param noteUUID String the unique identifier of the note
+     * @param providerNo String the provider number to remove from the edit tracker
+     */
     @POST
     @Path("/removeEditingNoteFlag")
     public void removeEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty()) return;
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList != null && noteList.containsKey(providerNo)) noteList.remove(providerNo);
-        if (noteList.isEmpty()) editList.remove(noteUUID);
-        else editList.put(noteUUID, noteList);
+        if (noteList != null) {
+            noteList.remove(providerNo);
+            if (noteList.isEmpty()) {
+                editList.remove(noteUUID);
+            }
+        }
     }
 }

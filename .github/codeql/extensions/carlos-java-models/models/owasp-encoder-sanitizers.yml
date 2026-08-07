@@ -1,0 +1,81 @@
+# OWASP Encoder - XSS Sanitizer Models
+#
+# Registers all org.owasp.encoder.Encode methods as neutralModel entries so that
+# CodeQL does NOT auto-generate taint flow summaries for these methods. This
+# effectively cuts off XSS taint at the sanitizer boundary: any value that passes
+# through Encode.forHtml(), Encode.forJavaScript(), etc. is considered safe.
+#
+# OWASP Java Encoder (https://owasp.org/owasp-java-encoder/) performs
+# context-specific output encoding that prevents cross-site scripting. All
+# methods accept a String argument and return an encoded String that is safe
+# for the corresponding output context (HTML body, HTML attribute, JavaScript,
+# URL, CSS, XML).
+#
+# neutralModel format (6 columns):
+#   [package, type, name, signature, kind, provenance]
+#
+# See: pom.xml dependency org.owasp.encoder:encoder:1.4.0
+
+extensions:
+
+  - addsTo:
+      pack: codeql/java-all
+      extensible: neutralModel
+    data:
+      # --- HTML context encoders ---
+
+      # Encode.forHtml(String) — encodes for HTML body content
+      - ["org.owasp.encoder", "Encode", "forHtml", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forHtmlAttribute(String) — encodes for HTML attribute values
+      - ["org.owasp.encoder", "Encode", "forHtmlAttribute", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forHtmlContent(String) — encodes for HTML content (alias for forHtml)
+      - ["org.owasp.encoder", "Encode", "forHtmlContent", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forHtmlUnquotedAttribute(String) — encodes for unquoted HTML attributes
+      - ["org.owasp.encoder", "Encode", "forHtmlUnquotedAttribute", "(java.lang.String)", "summary", "manual"]
+
+      # --- JavaScript context encoders ---
+
+      # Encode.forJavaScript(String) — encodes for JavaScript string contexts
+      - ["org.owasp.encoder", "Encode", "forJavaScript", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forJavaScriptAttribute(String) — encodes for JS in HTML event attributes
+      - ["org.owasp.encoder", "Encode", "forJavaScriptAttribute", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forJavaScriptBlock(String) — encodes for JS in script blocks
+      - ["org.owasp.encoder", "Encode", "forJavaScriptBlock", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forJavaScriptSource(String) — encodes for JS source contexts
+      - ["org.owasp.encoder", "Encode", "forJavaScriptSource", "(java.lang.String)", "summary", "manual"]
+
+      # --- URI/URL context encoders ---
+
+      # Encode.forUri(String) — encodes for URI path segments
+      - ["org.owasp.encoder", "Encode", "forUri", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forUriComponent(String) — encodes for URI query parameter values
+      - ["org.owasp.encoder", "Encode", "forUriComponent", "(java.lang.String)", "summary", "manual"]
+
+      # --- XML context encoders ---
+
+      # Encode.forXml(String) — encodes for XML content
+      - ["org.owasp.encoder", "Encode", "forXml", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forXmlAttribute(String) — encodes for XML attribute values
+      - ["org.owasp.encoder", "Encode", "forXmlAttribute", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forXmlContent(String) — encodes for XML text content
+      - ["org.owasp.encoder", "Encode", "forXmlContent", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forXmlComment(String) — encodes for XML comments
+      - ["org.owasp.encoder", "Encode", "forXmlComment", "(java.lang.String)", "summary", "manual"]
+
+      # --- CSS context encoders ---
+
+      # Encode.forCssString(String) — encodes for CSS string values
+      - ["org.owasp.encoder", "Encode", "forCssString", "(java.lang.String)", "summary", "manual"]
+
+      # Encode.forCssUrl(String) — encodes for CSS url() values
+      - ["org.owasp.encoder", "Encode", "forCssUrl", "(java.lang.String)", "summary", "manual"]

@@ -32,21 +32,32 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class BillingAddCode2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     private HttpServletRequest request = ServletActionContext.getRequest();
 
-    public String execute() {
-        if (request.getSession().getAttribute("user") == null) {
+    public String execute() {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
+        }
+
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         String pCode = code;
@@ -114,6 +125,7 @@ public final class BillingAddCode2Action extends ActionSupport {
      *
      * @param codeId New value of property codeId.
      */
+    @StrutsParameter
     public void setCodeId(String codeId) {
         this.codeId = codeId;
     }
@@ -132,6 +144,7 @@ public final class BillingAddCode2Action extends ActionSupport {
      *
      * @param code New value of property code.
      */
+    @StrutsParameter
     public void setCode(String code) {
         this.code = code;
     }
@@ -150,6 +163,7 @@ public final class BillingAddCode2Action extends ActionSupport {
      *
      * @param desc New value of property desc.
      */
+    @StrutsParameter
     public void setDesc(String desc) {
         this.desc = desc;
     }
@@ -168,6 +182,7 @@ public final class BillingAddCode2Action extends ActionSupport {
      *
      * @param value New value of property value.
      */
+    @StrutsParameter
     public void setValue(String value) {
         this.value = value;
     }
@@ -186,6 +201,7 @@ public final class BillingAddCode2Action extends ActionSupport {
      *
      * @param whereTo New value of property whereTo.
      */
+    @StrutsParameter
     public void setWhereTo(String whereTo) {
         this.whereTo = whereTo;
     }

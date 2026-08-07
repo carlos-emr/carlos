@@ -28,8 +28,9 @@
 package io.github.carlos_emr.carlos.appt.web;
 
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
@@ -37,19 +38,28 @@ import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class AppointmentType2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     @Override
     public String execute() throws IOException, ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+
         String sOper = request.getParameter("oper");
         int typeNo = -1;
         if ((this.getId() != null ? this.getId().intValue() : -1) > 0) {
@@ -151,6 +161,7 @@ public class AppointmentType2Action extends ActionSupport {
         return typeNo;
     }
 
+    @StrutsParameter
     public void setTypeNo(int typeNo) {
         this.typeNo = typeNo;
     }
@@ -159,6 +170,7 @@ public class AppointmentType2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(Integer id) {
         this.id = id;
     }
@@ -167,6 +179,7 @@ public class AppointmentType2Action extends ActionSupport {
         return name;
     }
 
+    @StrutsParameter
     public void setName(String name) {
         this.name = name;
     }
@@ -175,6 +188,7 @@ public class AppointmentType2Action extends ActionSupport {
         return notes;
     }
 
+    @StrutsParameter
     public void setNotes(String notes) {
         this.notes = notes;
     }
@@ -183,6 +197,7 @@ public class AppointmentType2Action extends ActionSupport {
         return reason;
     }
 
+    @StrutsParameter
     public void setReason(String reason) {
         this.reason = reason;
     }
@@ -191,6 +206,7 @@ public class AppointmentType2Action extends ActionSupport {
         return location;
     }
 
+    @StrutsParameter
     public void setLocation(String location) {
         this.location = location;
     }
@@ -199,6 +215,7 @@ public class AppointmentType2Action extends ActionSupport {
         return resources;
     }
 
+    @StrutsParameter
     public void setResources(String resources) {
         this.resources = resources;
     }
@@ -207,6 +224,7 @@ public class AppointmentType2Action extends ActionSupport {
         return duration;
     }
 
+    @StrutsParameter
     public void setDuration(int duration) {
         this.duration = duration;
     }

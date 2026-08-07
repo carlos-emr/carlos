@@ -39,17 +39,18 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
-import javax.xml.soap.SOAPFault;
-import javax.xml.ws.soap.SOAPFaultException;
+import jakarta.xml.soap.SOAPFault;
+import jakarta.xml.ws.soap.SOAPFaultException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class OnlineHCValidator implements HCValidator {
     private static Logger logger = MiscUtils.getLogger();
@@ -58,7 +59,7 @@ public class OnlineHCValidator implements HCValidator {
     private EdtClientBuilder builder;
 
     public OnlineHCValidator() {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setLoggingRequired(!Boolean.valueOf(properties.getProperty("hcv.logging.skip")));
         config.setKeystoreUser(properties.getProperty("hcv.keystore.user"));
@@ -140,15 +141,17 @@ public class OnlineHCValidator implements HCValidator {
      * @param clientKeystorePropertiesPath String the absolute path to the client keystore properties file, or null to use default
      * @since 2026-01-29
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private static void setExternalClientKeystoreFilename(EdtClientBuilder builder, String clientKeystorePropertiesPath) {
         if (clientKeystorePropertiesPath == null || clientKeystorePropertiesPath.trim().isEmpty()) {
             return;
         }
-        Path signaturePropFile = Paths.get(clientKeystorePropertiesPath);
+        File signatureFile = PathValidationUtils.resolveTrustedPath(new File(clientKeystorePropertiesPath));
+        Path signaturePropFile = signatureFile.toPath();
         if (Files.exists(signaturePropFile)) {
-            File file = new File(clientKeystorePropertiesPath);
             try {
-                builder.setClientKeystoreFilename(file.toURI().toURL().toString());
+                builder.setClientKeystoreFilename(signatureFile.toURI().toURL().toString());
             } catch (MalformedURLException e) {
                 logger.error("Malformed URL: " + clientKeystorePropertiesPath, e);
             }

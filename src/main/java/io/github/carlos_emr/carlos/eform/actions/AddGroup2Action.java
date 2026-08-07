@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.eform.actions;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,8 +38,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class AddGroup2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
@@ -56,10 +57,12 @@ public class AddGroup2Action extends ActionSupport {
 
     private String groupName;
 
+    @StrutsParameter
     public java.lang.String getGroupName() {
         return groupName;
     }
 
+    @StrutsParameter
     public void setGroupName(java.lang.String groupName) {
         this.groupName = groupName;
     }

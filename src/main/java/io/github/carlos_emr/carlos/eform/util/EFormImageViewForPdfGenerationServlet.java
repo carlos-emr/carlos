@@ -5,7 +5,7 @@
  * GNU General Public License, Version 2, 1991 (GPLv2).
  * License details are available via "indivica.ca/gplv2"
  * and "gnu.org/licenses/gpl-2.0.html".
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -13,37 +13,224 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * The purpose of this servlet is to allow a local process to access eform images.
+ * Streams shared eForm template assets (background images, JS, CSS — plus the
+ * {@code vaccine-brands.json} data file) to the loopback browser PDF renderer and to
+ * authenticated in-app callers.
+ *
+ * <p>Contract: requests must originate from a loopback address (checked first), then satisfy ONE
+ * of two authorization regimes — an authenticated session holding {@code _eform} READ
+ * ({@code _prevention} READ is an accepted alternative for {@code vaccine-brands.json} only), or a
+ * live render-scoped grant minted by {@link EFormRenderTokenService} after the caller's
+ * {@code _eform} check. Render grants authorize only assets referenced by the bound eForm HTML.
+ * Filenames are validated as single path components against the eForm image directory, and content
+ * types come from the shared
+ * {@link EFormAssetContentType} allowlist. No PHI is served by this servlet.</p>
  */
 public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
-    private static final Logger logger = MiscUtils.getLogger();
+    private static final long serialVersionUID = 1L;
 
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the literal allowlist content-type
+    // string against "image/svg+xml" to decide the sandbox CSP; not a security/identity decision on
+    // user input (mirrors the sibling suppression on DisplayImage2Action.process).
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the literal content-type string against image/svg+xml for the sandbox-CSP decision; not user-identity folding")
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        // ensure it's a local machine request... no one else should be calling this servlet.
         String remoteAddress = request.getRemoteAddr();
-        logger.debug("EformPdfServlet request from : " + remoteAddress);
+        logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", remoteAddress);
 
-        if (!"127.0.0.1".equals(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : " + remoteAddress);
+        if (!isLocalRequest(remoteAddress)) {
+            logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", remoteAddress);
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
-        request.setAttribute("prepareForFax", true);
-        RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/displayImage.do");
-        requestDispatcher.forward(request, response);
+        try {
+            String fileName = validateRequestedFileName(request.getParameter("imagefile"));
+            // Use the existing session only; never allocate one. The sessionless render browser must
+            // not receive a session cookie, and rejected probes must not populate the session manager.
+            HttpSession session = request.getSession(false);
+            LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
+            if (loggedInInfo != null) {
+                enforceAssetReadPrivilege(loggedInInfo, fileName);
+                // Neutral wording: enforceAssetReadPrivilege accepts either _eform READ or, for
+                // vaccine-brands.json, _prevention READ — so do not claim it was specifically _eform.
+                logger.debug("eForm asset request authorized via authenticated session");
+            } else {
+                EFormRenderTokenService.RenderGrant grant =
+                        EFormRendererRequestAuthorization.grantFromCookie(request);
+                if (grant == null) {
+                    // The server-side PDF renderer fetches an eForm's asset images with no HTTP session
+                    // by design (no session cookie ever enters the render browser). Such requests are
+                    // authorized instead by a render-scoped grant that was minted only after an _eform
+                    // privilege check, is loopback-only, and is invalidated when the render finishes.
+                    logger.warn("eForm asset request rejected: no authenticated session and no valid render grant");
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                if (!grant.allowsAsset(fileName)) {
+                    logger.warn("eForm asset request rejected: asset is not authorized by render grant");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
+                logger.debug("eForm asset request authorized via render grant (sessionless render browser): fdid={}",
+                        grant.fdid());
+            }
+
+            File file = DisplayImage2Action.getImageFile(fileName);
+            // length() == 0, not just exists(): a zero-byte file would otherwise stream as a 200 with
+            // an empty body, and the render gate scores purely on status (isLoaded is 200..299). An
+            // empty asset would therefore be counted as LOADED, and its basename entered into
+            // loadedResourceNames — which additionally downgrades a genuine 404 for the same filename
+            // elsewhere in the render. A truncated scanned background (interrupted upload, disk full,
+            // partial copy of the image directory) would print as blank paper on a complete-looking
+            // PDF. Zero bytes is never a valid image; treat it as absent.
+            if (!file.exists() || !file.isFile() || file.length() == 0) {
+                logger.debug("eForm asset not found or empty: {}", LogSafe.sanitize(fileName));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+
+            // nosniff: the declared allowlist type is the contract; a browser second-guessing
+            // bytes into a scriptable type is never wanted on an asset route.
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            String contentType = resolveContentType(file);
+            // Mirror DisplayImage2Action.process: a stored text/html or image/svg+xml asset from the
+            // user-writable image directory runs embedded <script> when navigated to as a document,
+            // so it must carry the sandbox CSP (strips scripts, keeps passive <img>/CSS) or it is a
+            // stored-XSS channel in the authenticated origin. This servlet serves the same directory.
+            if (io.github.carlos_emr.carlos.utility.RequestNegotiation.isHtmlContentType(contentType)
+                    || "image/svg+xml".equalsIgnoreCase(contentType)) {
+                response.setHeader("Content-Security-Policy", "sandbox");
+            }
+            response.setContentType(contentType);
+            response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
+            try (InputStream stream = new FileInputStream(file)) {
+                OutputStream outputStream = response.getOutputStream();
+                IOUtils.copy(stream, outputStream);
+            }
+            logger.debug("Streamed eForm asset to render browser: {}", LogSafe.sanitize(fileName));
+        } catch (ServletException | IOException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            // Message-only: the wrapped FileValidationException's message can echo the
+            // caller-supplied imagefile value; this servlet's own message is safe to log.
+            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request: {}", e.getMessage());
+            sendErrorQuietly(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage(),
+                    "Unable to send bad-request response for EFormImageViewForPdfGenerationServlet");
+        } catch (SecurityException e) {
+            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request: {}", e.getMessage());
+            sendErrorQuietly(response, HttpServletResponse.SC_FORBIDDEN, e.getMessage(),
+                    "Unable to send forbidden response for EFormImageViewForPdfGenerationServlet");
+        } catch (Exception e) {
+            // Same redaction contract as the renderer and render-page servlet: this route's
+            // request URL carries the live render token, and container/machinery exceptions can
+            // embed the request URI — never attach the raw throwable.
+            logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet: type={} error={} at={}",
+                    e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
+                    RenderLogRedaction.stackSummary(e));
+            sendErrorQuietly(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.",
+                    "Unable to send internal-error response for EFormImageViewForPdfGenerationServlet");
+        }
     }
+
+    private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {
+        SecurityInfoManager manager = SpringUtils.getBean(SecurityInfoManager.class);
+        boolean hasEformRead = manager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
+        if (VACCINE_BRANDS_FILE.equals(fileName)) {
+            if (!hasEformRead && !manager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, null)) {
+                throw new SecurityException("missing required sec object (_eform or _prevention)");
+            }
+            return;
+        }
+        if (!hasEformRead) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+    }
+
+    private static String validateRequestedFileName(String fileName) {
+        try {
+            return PathValidationUtils.validatePathComponent(fileName, "imagefile");
+        } catch (FileValidationException e) {
+            // validatePathComponent signals malformed/blank/traversal input with a
+            // FileValidationException (a SecurityException). Translate it to IllegalArgumentException so
+            // doGet answers 400 (client error) instead of the 403 the SecurityException handler would
+            // emit — a bad imagefile is a bad request, not an authorization failure.
+            throw new IllegalArgumentException("Invalid imagefile parameter", e);
+        }
+    }
+
+    private static String resolveContentType(File file) {
+        // Shared with DisplayImage2Action: EFormAssetContentType owns the allowlist AND the
+        // extension parsing/lowercasing, so the two asset-streaming paths cannot drift on either.
+        return EFormAssetContentType.forFilename(file.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported eform asset type"));
+    }
+
+    private static String sanitizeHeaderValue(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        String sanitized = value
+                .replaceAll("[\u0000-\u001F\u007F-\u009F]", "")
+                .replace("\"", "")
+                .replace(";", "")
+                .replace("'", "");
+
+        if (sanitized.trim().isEmpty()) {
+            return "image";
+        }
+
+        return sanitized;
+    }
+
+    private static boolean isLocalRequest(String remoteAddress) {
+        return "127.0.0.1".equals(remoteAddress)
+                || "0:0:0:0:0:0:0:1".equals(remoteAddress)
+                || "::1".equals(remoteAddress);
+    }
+
+    private static void sendErrorQuietly(HttpServletResponse response, int statusCode, String message, String logMessage) {
+        if (response.isCommitted()) {
+            return;
+        }
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ioException) {
+            logger.debug(logMessage, ioException);
+        }
+    }
+
 }

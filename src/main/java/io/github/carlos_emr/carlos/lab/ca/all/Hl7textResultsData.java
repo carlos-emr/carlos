@@ -65,12 +65,13 @@ import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Hl7textResultsData {
 
@@ -90,6 +91,8 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
@@ -120,8 +123,8 @@ public class Hl7textResultsData {
                 measurementsDeletedList.add(measurementsDeleted);
                 measurementsToRemove.add(m);
             }
-            measurementsDeletedDao.batchPersist(measurementsDeletedList);
-            measurementDao.batchRemove(measurementsToRemove);
+            measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
+            measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
         // loop through the measurements for the lab and add them
 
@@ -130,7 +133,7 @@ public class Hl7textResultsData {
          * This OSCAR property determines what is allowed to be written to the measurements
          * table.  No more entire PDF documents written into measurements.
          */
-        String patternstring = OscarProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
+        String patternstring = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
         Pattern pattern = Pattern.compile(patternstring);
 
         /*
@@ -138,7 +141,7 @@ public class Hl7textResultsData {
          * should be mapped to a measurement by Name AND identifier.
          * Excelleris uses only LOINC identifiers for the most part.
          */
-        boolean isSearchName = Boolean.parseBoolean(OscarProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"));
+        boolean isSearchName = Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"));
 
         List<MeasurementsExt> measurementsExts = new ArrayList<>();
         for (int i = 0; i < h.getOBRCount(); i++) {
@@ -362,7 +365,7 @@ public class Hl7textResultsData {
                 }
             }
         }
-        measurementsExtDao.batchPersist(measurementsExts, 50);
+        measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
     }
 
     public static String getMatchingLabs_CLS(String lab_no) {

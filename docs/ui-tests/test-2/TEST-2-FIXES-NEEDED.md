@@ -49,10 +49,10 @@
 | Action | URL Pattern |
 |--------|-------------|
 | Search Page | `/oscar/demographic/search.jsp` |
-| Search Results | `/oscar/demographic/demographiccontrol.jsp?...` |
+| Search Results | `/oscar/demographic/DemographicSearch.do?...` |
 | Add Demographic (via link) | `/oscar/demographic/demographicaddarecordhtm.jsp?search_mode=...` |
-| Edit Demographic | `/oscar/demographic/demographiccontrol.jsp?demographic_no=X&displaymode=edit` |
-| View Demographic | `/oscar/demographic/demographiccontrol.jsp?demographic_no=X&displaymode=edit` |
+| Edit Demographic | `/oscar/demographic/DemographicEdit.do?demographic_no=X` |
+| View Demographic | `/oscar/demographic/DemographicEdit.do?demographic_no=X` |
 
 ## Expected Console Warnings (Non-blocking)
 

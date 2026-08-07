@@ -38,7 +38,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -263,7 +263,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<EFormData> findByFormId(Integer formId) {
 
         Query query = entityManager.createQuery(
-                "select x from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = 1");
+                "select x from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -276,7 +276,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<Integer> findDemographicNosByFormId(Integer formId) {
 
         Query query = entityManager.createQuery("select x.demographicId from " + modelClass.getSimpleName()
-                + " x where x.formId = ?1 and x.current = 1");
+                + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -317,7 +317,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<Integer> findAllCurrentFdidByFormId(Integer formId) {
 
         Query query = entityManager.createQuery(
-                "select distinct x.id from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = 1");
+                "select distinct x.id from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -330,7 +330,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<EFormData> findByFormIdProviderNo(List<String> providerNo, Integer formId) {
 
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.formId = ?1 and x.providerNo in (?2) and x.current = 1");
+                + " x where x.formId = ?1 and x.providerNo in (?2) and x.current = true");
         // query.setParameter(1,fid);
         query.setParameter(1, formId);
         query.setParameter(2, providerNo);
@@ -342,17 +342,14 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     /**
-     * Finds form data for the specified demographic record and form name
+     * Retrieves active form data for a specified demographic record and form name.
      *
      * @param demographicNo Demographic number to find the form data for
      * @param formName      Form name to find the data for
-     * @return Returns all active matching form data, ordered by creation date and
-     * time
+     * @return List of matching form data ordered by creation date and time
      */
-    @SuppressWarnings("unchecked")
-    @Override
     public List<EFormData> findByDemographicIdAndFormName(Integer demographicNo, String formName) {
-        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formName LIKE ?2 and status = '1' ORDER BY e.formDate, e.formTime DESC";
+        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formName LIKE ?2 and e.current = true ORDER BY e.formDate, e.formTime DESC";
         Query query = entityManager.createQuery(queryString);
         query.setParameter(1, demographicNo);
         query.setParameter(2, formName);
@@ -361,8 +358,14 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Retrieves a list of EFormData by demographic ID and form ID.
+     */
+    /**
+     * Retrieves a list of EFormData based on the specified demographic ID and form ID.
+     */
     public List<EFormData> findByDemographicIdAndFormId(Integer demographicNo, Integer fid) {
-        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formId = ?2 and status = '1' ORDER BY e.formDate DESC, e.formTime DESC";
+        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formId = ?2 and e.current = true ORDER BY e.formDate DESC, e.formTime DESC";
         Query query = entityManager.createQuery(queryString);
         query.setParameter(1, demographicNo);
         query.setParameter(2, fid);
@@ -375,7 +378,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
             return null;
 
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.current=1 and x.formId in (?1) and x.formDate>=?2 and x.formDate<?3");
+                + " x where x.current=true and x.formId in (?1) and x.formDate>=?2 and x.formDate<?3");
         query.setParameter(1, fids);
         query.setParameter(2, dateStart);
         query.setParameter(3, dateEnd);
@@ -524,7 +527,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     @Override
     public Integer getLatestFdid(Integer fid, Integer demographicNo) {
         Query query = entityManager.createQuery("select max(x.id) from " + modelClass.getSimpleName()
-                + " x where x.current=1 and x.formId = ?1 and x.demographicId = ?2");
+                + " x where x.current=true and x.formId = ?1 and x.demographicId = ?2");
         query.setParameter(1, fid);
         query.setParameter(2, demographicNo);
 
@@ -541,12 +544,13 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     /**
-     * This method war written for BORN Kid eConnect job to figure out which eforms
-     * don't have an eform_value present
+     * Returns demographic numbers for completions of the given eform that are missing
+     * the specified variable name in their eform_values rows.
      *
-     * @param fid
-     * @param varName
-     * @return
+     * @param fid     the eform id
+     * @param varName the eform variable name to check for
+     * @return list of demographic numbers whose completions of {@code fid} are missing
+     *         a value for {@code varName}
      */
     @Override
     public List<Integer> getDemographicNosMissingVarName(int fid, String varName) {

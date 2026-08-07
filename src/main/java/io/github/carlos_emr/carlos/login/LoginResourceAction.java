@@ -33,15 +33,18 @@ import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.file.Files;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * This class safely fetches static image resources for the login Index page.
@@ -54,63 +57,91 @@ import io.github.carlos_emr.OscarProperties;
  */
 public class LoginResourceAction extends HttpServlet {
 
+    private static final Logger log = MiscUtils.getLogger();
     private String images;
 
     public void init() throws ServletException {
-        String oscarDocument = OscarProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+        String oscarDocument = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
         // all image files for the login page go into OscarDocuments/login
         this.images = oscarDocument + File.separator + "login";
     }
 
+    protected String getImagesDir() {
+        return this.images;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     protected void doGet(HttpServletRequest request,
                          HttpServletResponse response) throws ServletException, IOException {
+        try {
+            String logoImage = request.getPathInfo();
+            File image = null;
+            String contentType = null;
 
-        String logoImage = request.getPathInfo();
-        File image = null;
-        String contentType = null;
-
-        if (logoImage != null) {
-            // Decode the path and extract just the filename without any directory components
-            String decodedPath = URLDecoder.decode(logoImage, "UTF-8");
-            
-            // Remove leading slash if present
-            if (decodedPath.startsWith("/")) {
-                decodedPath = decodedPath.substring(1);
+            if (logoImage != null) {
+                // Decode the path and extract just the filename without any directory components
+                String decodedPath = URLDecoder.decode(logoImage, java.nio.charset.StandardCharsets.UTF_8);
+                
+                // Remove leading slash if present
+                if (decodedPath.startsWith("/")) {
+                    decodedPath = decodedPath.substring(1);
+                }
+                
+                // Use FilenameUtils.getName to extract just the filename, removing any path components
+                String sanitizedFilename = FilenameUtils.getName(decodedPath);
+                
+                // Reject empty or invalid filenames
+                if (sanitizedFilename == null || sanitizedFilename.isEmpty() || 
+                    sanitizedFilename.contains("..") || sanitizedFilename.contains("/") || 
+                    sanitizedFilename.contains("\\")) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+                    return;
+                }
+                
+                // Construct and validate the file path using PathValidationUtils
+                try {
+                    File imagesDir = new File(getImagesDir());
+                    image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
+                } catch (SecurityException e) {
+                    log.warn("Path validation rejected for filename: {}", sanitizedFilename);
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+                    return;
+                }
             }
-            
-            // Use FilenameUtils.getName to extract just the filename, removing any path components
-            String sanitizedFilename = FilenameUtils.getName(decodedPath);
-            
-            // Reject empty or invalid filenames
-            if (sanitizedFilename == null || sanitizedFilename.isEmpty() || 
-                sanitizedFilename.contains("..") || sanitizedFilename.contains("/") || 
-                sanitizedFilename.contains("\\")) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+
+            // Send 404 if no valid image path was provided or file doesn't exist
+            if (image == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
-            
-            // Construct and validate the file path using PathValidationUtils
-            try {
-                File imagesDir = new File(images);
-                image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
-            } catch (SecurityException e) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid resource path");
+            if (!image.exists()) {
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
                 return;
             }
-        }
 
-        // Get content type by filename.        
-        if (image != null && image.exists()) {
+            // Get content type by filename
             contentType = getServletContext().getMimeType(image.getName());
-        }
 
-        if (contentType != null && contentType.startsWith("image")) {
+            if (contentType == null || !contentType.startsWith("image")) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+
             response.reset();
             response.setContentType(contentType);
-            response.setHeader("Content-Length", String.valueOf(image.length()));
+            response.setContentLengthLong(image.length());
 
             // Write image content to response.
             Files.copy(image.toPath(), response.getOutputStream());
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in LoginResourceAction", e);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
         }
     }
 

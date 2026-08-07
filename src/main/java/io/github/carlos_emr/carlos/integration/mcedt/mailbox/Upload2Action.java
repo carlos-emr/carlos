@@ -29,17 +29,23 @@
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import ca.ontario.health.edt.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.cxf.helpers.FileUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.CarlosProperties;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -51,7 +57,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-public class Upload2Action extends ActionSupport {
+public class Upload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -60,7 +66,14 @@ public class Upload2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("cancelUpload".equals(method) || "removeSelected".equals(method) || "uploadToMcedt".equals(method)
+                || "submitToMcedt".equals(method) || "uploadSubmitToMcedt".equals(method)
+                || "deleteUpload".equals(method) || "addUpload".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("cancelUpload".equals(method)) {
             return cancelUpload();
         } else if ("addNew".equals(method)) {
@@ -105,23 +118,30 @@ public class Upload2Action extends ActionSupport {
         ActionUtils.removeUploadResourceId(request);
         ActionUtils.removeUploadFileName(request);
         List<File> files = ActionUtils.getSuccessfulUploads(request);
-        OscarProperties props = OscarProperties.getInstance();
-        File sent = new File(props.getProperty("ONEDT_SENT", ""));
-        if (!sent.exists())
-            FileUtils.mkDir(sent);
+        CarlosProperties props = CarlosProperties.getInstance();
+        // ONEDT_SENT may be unconfigured (blank); resolveConfiguredDirectory rejects a blank path
+        // with a SecurityException, so skip archiving rather than letting that escape cancelUpload().
+        String sentDir = props.getProperty("ONEDT_SENT", "");
+        if (sentDir.trim().isEmpty()) {
+            logger.warn("ONEDT_SENT is not configured; cancelled uploads were not moved to the sent directory");
+        } else {
+            File sent = PathValidationUtils.resolveConfiguredDirectory(sentDir, "ONEDT_SENT");
+            if (!sent.exists())
+                FileUtils.mkDir(sent);
 
-        try {
-            if (files != null && files.size() > 0) {
-                for (File file : files) {
-                    ActionUtils.moveFileToDirectory(file, sent, false, true);
+            try {
+                if (files != null && files.size() > 0) {
+                    for (File file : files) {
+                        ActionUtils.moveFileToDirectory(file, sent, false, true);
+                    }
                 }
-            }
-        } catch (IOException e) {
-            logger.error("A exception has occured while moving files at " + new Date());
+            } catch (IOException e) {
+                logger.error("A exception has occured while moving files at " + new Date());
 
-            String errorMessage = McedtMessageCreator.exceptionToString(e);
-            addActionError(getText("uploadAction.upload.faultException", new String[]{errorMessage}));
-            return "failure";
+                String errorMessage = McedtMessageCreator.exceptionToString(e);
+                addActionError(getText("uploadAction.upload.faultException", new String[]{errorMessage}));
+                return "failure";
+            }
         }
         ActionUtils.removeSuccessfulUploads(request);
         ActionUtils.removeUploadResponseResults(request);
@@ -141,9 +161,12 @@ public class Upload2Action extends ActionSupport {
     public String uploadToMcedt() {
         if (this.getResourceId().equals(new BigInteger("-1"))) {
             List<UploadData> uploads = new ArrayList<UploadData>();
-            uploads.add(toUpload());
 
             try {
+                // toUpload() resolves ONEDT_OUTBOX and can throw (blank/misconfigured outbox →
+                // SecurityException, or unreadable file → RuntimeException). Build it inside the try so
+                // the outer catch returns a graceful "failure" instead of escaping as an unhandled 500.
+                uploads.add(toUpload());
                 EDTDelegate delegate = DelegateFactory.getEDTDelegateInstance(ActionUtils.getServiceId(this.getDescription()));
                 ResourceResult result;
 
@@ -159,8 +182,9 @@ public class Upload2Action extends ActionSupport {
 
                 if (result.getResponse().get(0).getResult().getCode().equals("IEDTS0001")) {
                     ActionUtils.setUploadResourceId(request, result.getResponse().get(0).getResourceID());
-                    OscarProperties props = OscarProperties.getInstance();
-                    File file = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
+                    CarlosProperties props = CarlosProperties.getInstance();
+                    File outboxDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+                    File file = validatedOutboxFile(this.getFileName(), outboxDir);
                     ActionUtils.setSuccessfulUploads(request, file);
                 } else {
                     ActionUtils.setUploadResourceId(request, new BigInteger("-2"));
@@ -247,14 +271,15 @@ public class Upload2Action extends ActionSupport {
                 }
 
                 List<BigInteger> ids = new ArrayList<BigInteger>();
-                OscarProperties props = OscarProperties.getInstance();
-                File sent = new File(props.getProperty("ONEDT_SENT", ""));
+                CarlosProperties props = CarlosProperties.getInstance();
+                File sent = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_SENT", ""), "ONEDT_SENT");
                 if (!sent.exists())
                     FileUtils.mkDir(sent);
                 for (ResponseResult edtResponse : result.getResponse()) {
                     if (edtResponse.getResult().getCode().equals("IEDTS0001")) {
                         ids.add(edtResponse.getResourceID());
-                        File file = new File(props.getProperty("ONEDT_OUTBOX", "") + edtResponse.getDescription());
+                        File outboxDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+                        File file = validatedOutboxFile(edtResponse.getDescription(), outboxDir);
                         ActionUtils.moveFileToDirectory(file, sent, false, true);
                         successUploads.add(McedtMessageCreator.resourceResultToString(result));
                     } else {
@@ -315,9 +340,10 @@ public class Upload2Action extends ActionSupport {
     public String deleteUpload() {
         try {
             List<String> fileNames = Arrays.asList(this.getFileName().trim().split(","));
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
+            File outboxDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             for (String fileName : fileNames) {
-                File file = new File(props.getProperty("ONEDT_OUTBOX", "") + fileName);
+                File file = validatedOutboxFile(fileName, outboxDir);
                 file.delete();
             }
 
@@ -331,12 +357,26 @@ public class Upload2Action extends ActionSupport {
     }
 
     public String addUpload() {
+        if (addUploadValidationError != null) {
+            addActionError(addUploadValidationError);
+            return "failure";
+        }
         if (!ActionUtils.isOBECFile(this.getFileName()) && !ActionUtils.isOHIPFile(this.getFileName())) {
             addActionError(getText("uploadAction.upload.add.failure", new String[]{this.getFileName() + " is not a supported file Name. Please upload only claim/OBEC files"}));
             return "failure";
         } else {
-            OscarProperties props = OscarProperties.getInstance();
-            File myFile = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
+            CarlosProperties props = CarlosProperties.getInstance();
+            String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+            if (outboxPath.trim().isEmpty()) {
+                // ONEDT_OUTBOX must be configured to stage an upload; resolveConfiguredDirectory rejects a
+                // blank path with an unchecked SecurityException, which would otherwise escape addUpload().
+                // Fail gracefully with the standard add-failure result instead.
+                logger.warn("ONEDT_OUTBOX is not configured; cannot add upload");
+                addActionError(getText("uploadAction.upload.add.failure", new String[]{"ONEDT_OUTBOX is not configured"}));
+                return "failure";
+            }
+            File outboxDir = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
+            File myFile = validatedOutboxFile(this.getFileName(), outboxDir);
             try (FileOutputStream outputStream = new FileOutputStream(myFile)) {
                 outputStream.write(Files.readAllBytes(this.getAddUploadFile().toPath()));
                 outputStream.close();
@@ -364,8 +404,9 @@ public class Upload2Action extends ActionSupport {
         UploadData result = new UploadData();
         result.setDescription(this.getDescription());
         result.setResourceType(this.getResourceType());
-        OscarProperties props = OscarProperties.getInstance();
-        File file = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
+        CarlosProperties props = CarlosProperties.getInstance();
+        File outboxDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+        File file = validatedOutboxFile(this.getFileName(), outboxDir);
         try (FileInputStream fis = new FileInputStream(file)) {
             byte[] data = new byte[fis.available()];
             fis.read(data);
@@ -384,12 +425,13 @@ public class Upload2Action extends ActionSupport {
         List<String> fileNames = Arrays.asList(this.getFileName().trim().split(","));
         List<String> resourceTypes = Arrays.asList(this.getResourceType().trim().split(","));
         if (fileNames.size() == resourceTypes.size()) {
+            CarlosProperties props = CarlosProperties.getInstance();
+            File outboxDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             for (int i = 0; i < fileNames.size(); i++) {
                 UploadData result = new UploadData();
                 result.setDescription(fileNames.get(i));
                 result.setResourceType(resourceTypes.get(i));
-                OscarProperties props = OscarProperties.getInstance();
-                File file = new File(props.getProperty("ONEDT_OUTBOX", "") + fileNames.get(i));
+                File file = validatedOutboxFile(fileNames.get(i), outboxDir);
                 try (FileInputStream fis = new FileInputStream(file);) {
                     byte[] data = new byte[fis.available()];
                     fis.read(data);
@@ -406,6 +448,11 @@ public class Upload2Action extends ActionSupport {
         return results;
     }
 
+    private File validatedOutboxFile(String rawFileName, File outboxDir) {
+        String safeFileName = PathValidationUtils.validateStrictFileName(rawFileName == null ? null : rawFileName.trim());
+        return PathValidationUtils.validatePath(safeFileName, outboxDir);
+    }
+
     private String description;
     private String resourceType;
     private String fileName;
@@ -413,11 +460,31 @@ public class Upload2Action extends ActionSupport {
     private File addUploadFile;
     private String addUploadFileFileName;
     private String addUploadFileContentType;
+    private String addUploadValidationError;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.addUploadFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            this.addUploadFileContentType = uploaded.getContentType();
+            try {
+                this.addUploadFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.addUploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.addUploadFileFileName = null;
+            }
+            // Replicate side effects from the original setters
+            this.setFileName(this.addUploadFileFileName);
+            this.setResourceType(uploaded.getContentType());
+        }
+    }
 
     public String getDescription() {
         return description;
     }
 
+    @StrutsParameter
     public void setDescription(String description) {
         this.description = description;
     }
@@ -426,6 +493,7 @@ public class Upload2Action extends ActionSupport {
         return resourceType;
     }
 
+    @StrutsParameter
     public void setResourceType(String resourceType) {
         this.resourceType = resourceType;
     }
@@ -434,6 +502,7 @@ public class Upload2Action extends ActionSupport {
         return fileName;
     }
 
+    @StrutsParameter
     public void setFileName(String fileName) {
         this.fileName = fileName;
     }
@@ -442,6 +511,7 @@ public class Upload2Action extends ActionSupport {
         return resourceId;
     }
 
+    @StrutsParameter
     public void setResourceId(BigInteger resourceId) {
         this.resourceId = resourceId;
     }

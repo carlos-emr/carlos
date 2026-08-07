@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -46,7 +46,8 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RxDeleteAllergy2Action extends ActionSupport {
@@ -59,28 +60,44 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
             throws IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "u", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
 
         // Setup variables
         // Add allergy
 
-        int id = Integer.parseInt(request.getParameter("ID"));
+        String idParam = request.getParameter("ID");
+        if (StringUtils.isBlank(idParam)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing ID parameter");
+            return NONE;
+        }
+
+        int id;
+        try {
+            id = Integer.parseInt(idParam);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID parameter");
+            return NONE;
+        }
         String demographicNo = request.getParameter("demographicNo");
         String action = request.getParameter("action");
 
         RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
 
         Allergy allergy = patient.getAllergy(id);
+        if (allergy == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
         if (action != null && action.equals("activate")) {
             patient.activateAllergy(id);
             String ip = request.getRemoteAddr();
-            LogAction.addLog((String) request.getSession().getAttribute("user"), "Activate", LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), "Activate", LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
         } else {
             patient.deleteAllergy(id);
             String ip = request.getRemoteAddr();
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.DELETE, LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
         }
 
         if (demographicNo != null) {

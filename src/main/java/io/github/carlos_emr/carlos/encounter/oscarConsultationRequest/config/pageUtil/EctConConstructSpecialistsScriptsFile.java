@@ -37,7 +37,7 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Vector;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceSpecialistsDao;
@@ -65,7 +65,7 @@ public class EctConConstructSpecialistsScriptsFile {
     public String makeFile() {
         serviceId = new Vector<String>();
         serviceDesc = new Vector<String>();
-        File file = new File("oscarEncounter/consult.js");
+        File file = new File("encounter/consult.js");
         try {
             FileWriter fileWriter = new FileWriter(file);
             retval = "writing file too ".concat(String.valueOf(String.valueOf(file.getAbsolutePath())));
@@ -118,9 +118,9 @@ public class EctConConstructSpecialistsScriptsFile {
         StringBuilder stringBuffer = new StringBuilder();
         stringBuffer.append("function makeSpecialistslist(dec){\n");
         stringBuffer.append(" if(dec=='1') \n");
-        stringBuffer.append("{K(-1,\"----" + props.getString("oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.optChooseServ") + "-------\");D(-1,\"--------" + props.getString("oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec") + "-----\");}\n");
+        stringBuffer.append("{K(-1,\"----" + props.getString("encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseServ") + "-------\");D(-1,\"--------" + props.getString("encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec") + "-----\");}\n");
         stringBuffer.append("else\n");
-        stringBuffer.append("{K(-1,\"----" + props.getString("oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.optAllServices") + "-------\");D(-1,\"--------" + props.getString("oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.optAllSpecs") + "-----\");}\n");
+        stringBuffer.append("{K(-1,\"----" + props.getString("encounter.oscarConsultationRequest.ConsultationFormRequest.optAllServices") + "-------\");D(-1,\"--------" + props.getString("encounter.oscarConsultationRequest.ConsultationFormRequest.optAllSpecs") + "-----\");}\n");
 
         List<ConsultationServices> services = consultationServiceDao.findActive();
         for (ConsultationServices cs : services) {
@@ -160,7 +160,7 @@ public class EctConConstructSpecialistsScriptsFile {
     }
 
     private String escapeString(String s) {
-        s = StringEscapeUtils.escapeEcmaScript(s);
+        s = Encode.forJavaScript(s);
         return s;
     }
 }

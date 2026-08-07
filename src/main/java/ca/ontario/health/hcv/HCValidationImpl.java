@@ -1,7 +1,7 @@
 package ca.ontario.health.hcv;
 
 import java.util.logging.Logger;
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 
 /**
  * Implementation of the Health Card Validation (HCV) web service for Ontario.
@@ -102,7 +102,7 @@ public class HCValidationImpl implements HCValidation
             return _return;
         }
         catch (final Exception ex) {
-            ex.printStackTrace();
+            HCValidationImpl.LOG.log(java.util.logging.Level.SEVERE, "Failed to validate health card", ex);
             throw new RuntimeException(ex);
         }
     }

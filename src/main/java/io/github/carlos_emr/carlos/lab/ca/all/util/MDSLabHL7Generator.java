@@ -145,6 +145,13 @@ public class MDSLabHL7Generator {
 		int testIndex = 1;
 		for (LabTest test : lab.getTests()) {
 			String testCode = safeWithDefault(test.getCode(), String.valueOf(testIndex * 100));
+
+			// Extract code portion to match MDSHandler.matchOBXToHeader() parsing logic
+			// MDSHandler uses substring(lastIndexOf("-") + 1) on OBX-4, so ZMN field 8 must contain the extracted portion
+			String zmnCode = testCode.contains("-")
+				? testCode.substring(testCode.lastIndexOf("-") + 1)
+				: testCode;
+
 			String testName = safeWithDefault(test.getName(), "TEST");
 			String units = safe(test.getCodeUnit());
 			String value = safe(test.getCodeValue());
@@ -156,7 +163,7 @@ public class MDSLabHL7Generator {
 				.append("|").append(units)
 				.append("|").append(value)
 				.append("|").append(refRange)
-				.append("|").append(testCode)
+				.append("|").append(zmnCode)
 				.append("|").append(flag)
 				.append("|1000\n"); // Group 1000 matches ZRG above
 
@@ -326,12 +333,18 @@ public class MDSLabHL7Generator {
 	 * @param refRange the human-readable reference range to include for the test result
 	 */
 	private static void appendObx(StringBuilder sb, LabTest test, String testCode, String refRange) {
+		// OBX-3 identifier requires dash prefix per MDS format convention
+		String obxIdentifier = "-" + testCode;
+
+		// OBX-4 uses original code; MDSHandler.matchOBXToHeader() extracts substring(lastIndexOf("-") + 1) to match ZMN
+		String obxSubId = testCode;
+
 		sb.append("OBX|1|")
-			.append(safeWithDefault(test.getCodeType(), "ST")).append("|-")
-			.append(testCode).append("^")
+			.append(safeWithDefault(test.getCodeType(), "ST")).append("|")
+			.append(obxIdentifier).append("^")
 			.append(safeUpper(test.getName(), "TEST"))
 			.append("^L|")
-			.append(testCode).append("-1-").append(testCode)
+			.append(obxSubId)
 			.append("|")
 			.append(safe(test.getCodeValue()))
 			.append("|").append(safe(test.getCodeUnit()))

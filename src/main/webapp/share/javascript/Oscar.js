@@ -22,14 +22,110 @@
  * Ontario, Canada
  */
 
+/**
+ * Returns true if the given URL must always open in a popup window, regardless of the
+ * "Open Encounters in Tab" provider preference.
+ *
+ * <p>Certain helper pages require access to {@code window.opener} (to read context or
+ * post updates back to the calling page) and cannot function correctly as standalone
+ * browser tabs. These pages are:
+ * <ul>
+ *   <li>{@code addappointment} — appointment booking; needs schedule page context</li>
+ *   <li>{@code editappointment} — appointment editing; needs schedule page context</li>
+ *   <li>{@code appointmentsearch} — appointment search popup; uses {@code window.opener} to refresh the caller before closing</li>
+ *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
+ *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
+ *   <li>{@code ViewAddTickler} / {@code ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
+ * </ul>
+ *
+ * @param {string} url - URL to test
+ * @returns {boolean} true if the URL must always open as a popup window
+ */
+window.forceWindowPaths = window.forceWindowPaths || [
+    'addappointment',
+    'editappointment',
+    'appointmentsearch',
+    'Scratch',
+    'CalendarPopup.jsp',
+    'CalendarPopup',
+    'ViewAddTickler',
+    'ForwardDemographicTickler'
+];
+
+function isForceWindowUrl(url) {
+    if (!url) return false;
+    const normalizedUrl = String(url).split('#')[0].split('?')[0];
+    return window.forceWindowPaths.some(function(path) {
+        const index = normalizedUrl.lastIndexOf(path);
+        return index !== -1 && index === (normalizedUrl.length - path.length);
+    });
+}
+
+/**
+ * Opens a URL in a named popup window or delegates to popupTab() if tab mode is active.
+ * URLs in the force-window list (see {@link isForceWindowUrl}) always open as popup
+ * windows regardless of the tab preference.
+ * @param {number} height - Popup window height in pixels
+ * @param {number} width - Popup window width in pixels
+ * @param {string} url - URL to open
+ * @param {string} windowName - Named window target; reused across calls with the same name
+ * @returns {Window|null} The opened Window object, or null if tab mode is active
+ */
 function popup(height, width, url, windowName) {
+    if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab && !isForceWindowUrl(url)) {
+        return popupTab(url);
+    }
     return popup2(height, width, 0, 0, url, windowName);
 }
 
+/**
+ * Opens a URL in a new browser tab with opener isolation.
+ *
+ * <p>Opens the tab without windowFeatures (so the browser returns a real Window reference),
+ * then immediately severs the opener relationship by setting {@code win.opener = null}.
+ * This achieves the same tabnabbing protection as passing {@code noopener} in windowFeatures,
+ * without the side-effect of {@code window.open()} returning {@code null}.
+ *
+ * <p><strong>Why not pass {@code noopener} as a window feature?</strong> Per the HTML spec,
+ * passing {@code noopener} or {@code noreferrer} in the third argument to {@code window.open()}
+ * causes all modern browsers to return {@code null}, making it impossible to detect
+ * whether the browser's popup blocker prevented the tab from opening, or to call {@code focus()}.
+ * See: https://html.spec.whatwg.org/multipage/nav-history-apis.html (window.open, noopener token)
+ *
+ * @param {string} url - URL to open in a new tab
+ * @returns {Window|null} The opened Window object, or null if the browser blocked the tab
+ */
+function popupTab(url) {
+    const win = window.open(url, '_blank');
+    if (win) {
+        // Manually sever the opener relationship to prevent reverse-tabnabbing.
+        // All URLs opened via this helper are same-origin CARLOS pages, so the
+        // brief window between open() and this assignment is not exploitable.
+        win.opener = null;
+        win.focus();
+    } else {
+        alert('Your browser blocked the new tab. Please allow popups for this site, or disable "Open in Tabs" in your preferences.');
+    }
+    return win;
+}
+
+/**
+ * Opens a URL in a full-viewport popup window sized to the current window, or
+ * delegates to popupTab() when the provider preference "Open Encounters in Tab" is enabled.
+ * URLs in the force-window list (see {@link isForceWindowUrl}) always open as popup
+ * windows regardless of the tab preference.
+ *
+ * @param {string} url - URL to open
+ * @param {string} windowName - Named window target; reused across calls with the same name
+ * @returns {Window|null} The opened Window object, or null if tab mode is active
+ */
 function newWindow(url, windowName) {
+    if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab && !isForceWindowUrl(url)) {
+        return popupTab(url);
+    }
     //this way the w&d works with older browsers as well
-    var w = document.getElementsByTagName('body')[0].clientWidth;//window.innerWidth;
-    var h = document.getElementsByTagName('body')[0].clientHeight;//window.innerHeight;
+    let w = document.getElementsByTagName('body')[0].clientWidth;//window.innerWidth;
+    let h = document.getElementsByTagName('body')[0].clientHeight;//window.innerHeight;
     w = Math.max(w, window.innerWidth);
     h = Math.max(h, window.innerHeight);
 

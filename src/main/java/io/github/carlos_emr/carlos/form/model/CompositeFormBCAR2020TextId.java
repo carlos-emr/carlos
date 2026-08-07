@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.form.model;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 import java.io.Serializable;
 
 public class CompositeFormBCAR2020TextId implements Serializable {

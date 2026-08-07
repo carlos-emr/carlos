@@ -29,8 +29,8 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Comparator;
 
-import javax.persistence.Entity;
-import javax.persistence.Id;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 
 @Entity
 public class FunctionalCentre extends AbstractModel<String> {

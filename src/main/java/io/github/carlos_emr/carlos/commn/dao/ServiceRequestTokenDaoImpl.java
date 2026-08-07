@@ -31,7 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import org.springframework.stereotype.Repository;
@@ -56,5 +56,15 @@ public class ServiceRequestTokenDaoImpl extends AbstractDaoImpl<ServiceRequestTo
         Query query = this.entityManager.createQuery("SELECT x FROM ServiceRequestToken x WHERE x.tokenId = ?1", ServiceRequestToken.class);
         query.setParameter(1, token);
         return this.getSingleResultOrNull(query);
+    }
+
+    @Override
+    public int deleteByTokenId(String token) {
+        // Bulk DELETE (not an entity remove) so it runs immediately as a single SQL statement that
+        // takes a row lock and returns the affected-row count — the atomic single-use consume the
+        // access-token exchange relies on.
+        Query query = this.entityManager.createQuery("DELETE FROM ServiceRequestToken x WHERE x.tokenId = ?1");
+        query.setParameter(1, token);
+        return query.executeUpdate();
     }
 }

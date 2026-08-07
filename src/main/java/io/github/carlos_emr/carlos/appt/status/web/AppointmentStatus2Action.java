@@ -25,8 +25,8 @@ package io.github.carlos_emr.carlos.appt.status.web;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
@@ -37,16 +37,27 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
 import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class AppointmentStatus2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+
         String method = request.getParameter("dispatch");
         if ("view".equals(method)) {
             return view();
@@ -142,6 +153,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return ID;
     }
 
+    @StrutsParameter
     public void setID(int ID) {
         this.ID = ID;
     }
@@ -150,6 +162,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptStatus;
     }
 
+    @StrutsParameter
     public void setApptStatus(String apptStatus) {
         this.apptStatus = apptStatus;
     }
@@ -158,6 +171,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptDesc;
     }
 
+    @StrutsParameter
     public void setApptDesc(String apptDesc) {
         this.apptDesc = apptDesc;
     }
@@ -166,6 +180,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptOldColor;
     }
 
+    @StrutsParameter
     public void setApptOldColor(String apptOldColor) {
         this.apptOldColor = apptOldColor;
     }
@@ -174,6 +189,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptColor;
     }
 
+    @StrutsParameter
     public void setApptColor(String apptColor) {
         this.apptColor = apptColor;
     }

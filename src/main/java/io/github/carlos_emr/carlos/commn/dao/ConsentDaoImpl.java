@@ -35,8 +35,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
-import javax.persistence.TemporalType;
+import jakarta.persistence.Query;
+import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import org.springframework.stereotype.Repository;
@@ -59,7 +59,7 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
     @Override
     public Consent findByDemographicAndConsentTypeId(int demographic_no, int consentTypeId) {
         String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=0";
+                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographic_no);
         query.setParameter(2, consentTypeId);
@@ -82,7 +82,7 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
 
     @Override
     public List<Consent> findByDemographic(int demographic_no) {
-        String sql = "select x from " + modelClass.getSimpleName() + " x where x.demographicNo=?1 AND x.deleted=0";
+        String sql = "select x from " + modelClass.getSimpleName() + " x where x.demographicNo=?1 AND x.deleted=false";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographic_no);
 
@@ -96,7 +96,7 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
         String sql = "SELECT x FROM "
                 + modelClass.getSimpleName()
                 + " x WHERE x.consentTypeId = ?1"
-                + " AND x.editDate  > ?2 AND x.deleted=0";
+                + " AND x.editDate  > ?2 AND x.deleted=false";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, consentTypeId);
@@ -119,8 +119,8 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
         String sql = "SELECT x.demographicNo FROM "
                 + modelClass.getSimpleName()
                 + " x WHERE x.consentTypeId = ?1"
-                + " AND x.optout = 0 "
-                + " AND x.deleted = 0";
+                + " AND x.optout = false "
+                + " AND x.deleted = false";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, consentTypeId);

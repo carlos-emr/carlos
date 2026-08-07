@@ -31,11 +31,14 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.util;
 import java.io.InputStream;
 import java.util.Vector;
 
-import org.apache.commons.digester3.Digester;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.Unmarshaller;
+import javax.xml.transform.sax.SAXSource;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBean;
@@ -59,32 +62,10 @@ public class EctFindMeasurementTypeUtil {
     static public EctFormProp getEctMeasurementsType(InputStream is) {
         EctFormProp ret = null;
         try {
-            Digester digester = new Digester();
-            digester.setValidating(false);
-
-            digester.addObjectCreate("formProp", EctFormProp.class);
-            digester.addObjectCreate("formProp/measurement", EctMeasurementTypesBean.class);
-            digester.addBeanPropertySetter("formProp/measurement/type", "type");
-            digester.addBeanPropertySetter("formProp/measurement/typeDesc", "typeDesc");
-            digester.addBeanPropertySetter("formProp/measurement/typeDisplayName", "typeDisplayName");
-            digester.addBeanPropertySetter("formProp/measurement/measuringInstrc", "measuringInstrc");
-            digester.addBeanPropertySetter("formProp/measurement/canPrefill", "canPrefill");
-
-            digester.addObjectCreate("formProp/measurement/validationRule", EctValidationsBean.class);
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/name", "name");
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/regularExp", "regularExp");
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/minValue", "minValue");
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/maxValue", "maxValue");
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/minLength", "minLength");
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/maxLength", "maxLength");
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/isNumeric", "isNumeric");
-            digester.addBeanPropertySetter("formProp/measurement/validationRule/isDate", "isDate");
-            digester.addSetNext("formProp/measurement/validationRule", "addValidationRule");
-
-            digester.addSetNext("formProp/measurement", "addMeasurementType");
-
-            ret = (EctFormProp) digester.parse(is);
-            digester.clear();
+            JAXBContext ctx = JAXBContext.newInstance(EctFormProp.class);
+            Unmarshaller unmarshaller = ctx.createUnmarshaller();
+            SAXSource source = XmlUtils.createSecureJaxbSource(is);
+            ret = (EctFormProp) unmarshaller.unmarshal(source);
         } catch (Exception exc) {
             MiscUtils.getLogger().error("Error", exc);
         }

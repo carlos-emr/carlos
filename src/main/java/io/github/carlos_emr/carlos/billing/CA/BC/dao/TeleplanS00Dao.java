@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -84,7 +84,7 @@ public class TeleplanS00Dao extends AbstractDaoImpl<TeleplanS00> {
 
     @SuppressWarnings("unchecked")
     public List<Object[]> search_taprovider(Integer s21Id) {
-        Query q = entityManager.createQuery("select r.practitionerNo, p.LastName,p.FirstName from TeleplanS00 r, Provider p where p.OhipNo=r.practitionerNo and r.s21Id=?1 group by r.practitionerNo");
+        Query q = entityManager.createQuery("select r.practitionerNo, p.lastName,p.firstName from TeleplanS00 r, Provider p where p.ohipNo=r.practitionerNo and r.s21Id=?1 group by r.practitionerNo");
         q.setParameter(1, s21Id);
         return q.getResultList();
     }

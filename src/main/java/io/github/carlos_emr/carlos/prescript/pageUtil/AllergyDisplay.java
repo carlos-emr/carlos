@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 public final class AllergyDisplay {
     private Integer id;
-    private Integer remoteFacilityId;
     private String entryDate;
     private String description;
     private int typeCode;
@@ -51,14 +50,6 @@ public final class AllergyDisplay {
 
     public void setId(Integer id) {
         this.id = id;
-    }
-
-    public Integer getRemoteFacilityId() {
-        return (remoteFacilityId);
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
     }
 
     public String getEntryDate() {

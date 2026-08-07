@@ -27,8 +27,8 @@ package io.github.carlos_emr.carlos.www.lookup;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
@@ -36,17 +36,27 @@ import io.github.carlos_emr.carlos.model.security.NoAccessException;
 import io.github.carlos_emr.carlos.services.LookupManager;
 import io.github.carlos_emr.carlos.utils.Utility;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class LookupList2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private LookupManager lookupManager = SpringUtils.getBean(LookupManager.class);
 
     public String execute() throws NoAccessException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         if ("search".equals(request.getParameter("method"))) {
             return search();
         }
@@ -110,6 +120,7 @@ public class LookupList2Action extends ActionSupport {
         return codeName;
     }
 
+    @StrutsParameter
     public void setCodeName(String codeName) {
         this.codeName = codeName;
     }
@@ -118,6 +129,7 @@ public class LookupList2Action extends ActionSupport {
         return descName;
     }
 
+    @StrutsParameter
     public void setDescName(String descName) {
         this.descName = descName;
     }
@@ -126,6 +138,7 @@ public class LookupList2Action extends ActionSupport {
         return openerForm;
     }
 
+    @StrutsParameter
     public void setOpenerForm(String openerForm) {
         this.openerForm = openerForm;
     }
@@ -134,6 +147,7 @@ public class LookupList2Action extends ActionSupport {
         return keywordName;
     }
 
+    @StrutsParameter
     public void setKeywordName(String keywordName) {
         this.keywordName = keywordName;
     }
@@ -142,6 +156,7 @@ public class LookupList2Action extends ActionSupport {
         return tableId;
     }
 
+    @StrutsParameter
     public void setTableId(String tableId) {
         this.tableId = tableId;
     }
@@ -158,6 +173,7 @@ public class LookupList2Action extends ActionSupport {
         return grandParentCode;
     }
 
+    @StrutsParameter
     public void setGrandParentCode(String grandParentCode) {
         this.grandParentCode = grandParentCode;
     }
@@ -166,6 +182,7 @@ public class LookupList2Action extends ActionSupport {
         return parentCode;
     }
 
+    @StrutsParameter
     public void setParentCode(String parentCode) {
         this.parentCode = parentCode;
     }

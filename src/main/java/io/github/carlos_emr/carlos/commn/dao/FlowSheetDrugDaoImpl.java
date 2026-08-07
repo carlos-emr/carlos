@@ -33,7 +33,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.FlowSheetDrug;
 import org.springframework.stereotype.Repository;
@@ -50,7 +50,7 @@ public class FlowSheetDrugDaoImpl extends AbstractDaoImpl<FlowSheetDrug> impleme
     }
 
     public List<FlowSheetDrug> getFlowSheetDrugs(String flowsheet, Integer demographic) {
-        Query query = entityManager.createQuery("SELECT fd FROM FlowSheetDrug fd WHERE fd.flowsheet=?1 and fd.archived=0 and fd.demographicNo=?2");
+        Query query = entityManager.createQuery("SELECT fd FROM FlowSheetDrug fd WHERE fd.flowsheet=?1 and fd.archived=false and fd.demographicNo=?2");
         query.setParameter(1, flowsheet);
         query.setParameter(2, demographic);
 

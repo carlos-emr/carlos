@@ -26,11 +26,12 @@
  */
 package io.github.carlos_emr.carlos.commn.model;
 
+import io.github.carlos_emr.carlos.commn.model.converter.DigitalSignatureModuleTypeConverter;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 
 import java.util.Date;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Entity
 public class DigitalSignature extends AbstractModel<Integer> {
@@ -45,7 +46,7 @@ public class DigitalSignature extends AbstractModel<Integer> {
     private Integer facilityId = null;
 
     /**
-     * The providers who captured the signature
+     * The provider who captured the signature
      */
     private String providerNo = null;
 
@@ -60,12 +61,12 @@ public class DigitalSignature extends AbstractModel<Integer> {
     private Date dateSigned = null;
 
     /**
-     * Image of the signature as a jpg
+     * Encrypted image data of the signature (format varies: PNG for stamp signatures, other formats for drawn signatures)
      */
     private byte[] signatureImage = null;
 
 	/** The module type of the signature */
-	@Enumerated(EnumType.STRING)
+	@Convert(converter = DigitalSignatureModuleTypeConverter.class)
 	private ModuleType moduleType = null;
 
     @Override

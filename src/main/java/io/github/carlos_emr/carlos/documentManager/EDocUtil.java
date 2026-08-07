@@ -42,27 +42,25 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Calendar;
+
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
-import org.apache.commons.io.FileUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDocument;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
@@ -82,28 +80,65 @@ import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
+
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 // all SQL statements here
 public final class EDocUtil {
 
-    private static ConsultDocsDao consultDocsDao = (ConsultDocsDao) SpringUtils.getBean(ConsultDocsDao.class);
-    private static DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
+    private static ConsultDocsDao consultDocsDao = null;
+    private static DocumentDao documentDao = null;
     private static Logger logger = MiscUtils.getLogger();
-    private static ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
-    private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    private static EFormDocsDao eformDocsDao = SpringUtils.getBean(EFormDocsDao.class);
+    private static ProgramManager2 programManager2 = null;
+    private static PartialDateDao partialDateDao = null;
+    private static EFormDocsDao eformDocsDao = null;
+
+    private static ConsultDocsDao getConsultDocsDao() {
+        if (consultDocsDao == null) {
+            consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
+        }
+        return consultDocsDao;
+    }
+
+    private static DocumentDao getDocumentDao() {
+        if (documentDao == null) {
+            documentDao = SpringUtils.getBean(DocumentDao.class);
+        }
+        return documentDao;
+    }
+
+    private static ProgramManager2 getProgramManager2() {
+        if (programManager2 == null) {
+            programManager2 = SpringUtils.getBean(ProgramManager2.class);
+        }
+        return programManager2;
+    }
+
+    private static PartialDateDao getPartialDateDao() {
+        if (partialDateDao == null) {
+            partialDateDao = SpringUtils.getBean(PartialDateDao.class);
+        }
+        return partialDateDao;
+    }
+
+    private static EFormDocsDao getEformDocsDao() {
+        if (eformDocsDao == null) {
+            eformDocsDao = SpringUtils.getBean(EFormDocsDao.class);
+        }
+        return eformDocsDao;
+    }
 
     public static final String PUBLIC = "public";
     public static final String PRIVATE = "private";
@@ -157,6 +192,8 @@ public final class EDocUtil {
      * @return boolean true if the module is "provider" or "providers" (case-insensitive), false otherwise
      * @since 2026-01-28
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isProviderModule(String module) {
         return "provider".equalsIgnoreCase(module) || "providers".equalsIgnoreCase(module);
     }
@@ -186,21 +223,25 @@ public final class EDocUtil {
         return modules;
     }
 
-    private static ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
-    private static CaseManagementNoteDAO caseManagementNoteDao = (CaseManagementNoteDAO) SpringUtils.getBean(CaseManagementNoteDAO.class);
-    private static TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
-    private static TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-    private static ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-    private static CtlDocTypeDao ctldoctypedao = (CtlDocTypeDao) SpringUtils.getBean(CtlDocTypeDao.class);
-    private static DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private static CtlDocumentDao ctlDocumentDao = (CtlDocumentDao) SpringUtils.getBean(CtlDocumentDao.class);
+    // Collaborator beans are resolved lazily (per call) instead of in static-final field
+    // initializers, so merely loading EDocUtil (e.g. Mockito.mockStatic in a unit test) no longer
+    // fetches from the Spring context at class-load time. SpringUtils.getBean returns the cached
+    // singleton, so the per-call cost is a map lookup and behavior is unchanged.
+    private static ProgramManager programManager() { return SpringUtils.getBean(ProgramManager.class); }
+    private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao() { return SpringUtils.getBean(CaseManagementNoteLinkDAO.class); }
+    private static CaseManagementNoteDAO caseManagementNoteDao() { return SpringUtils.getBean(CaseManagementNoteDAO.class); }
+    private static TicklerLinkDao ticklerLinkDao() { return SpringUtils.getBean(TicklerLinkDao.class); }
+    private static TicklerManager ticklerManager() { return SpringUtils.getBean(TicklerManager.class); }
+    private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
+    private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
+    private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
+    private static CtlDocumentDao ctlDocumentDao() { return SpringUtils.getBean(CtlDocumentDao.class); }
 
     public static String getProviderName(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {
             return "";
         }
-        Provider p = providerDao.getProvider(providerNo);
+        Provider p = providerDao().getProvider(providerNo);
         if (p != null) {
             return p.getLastName().toUpperCase() + ", " + p.getFirstName().toUpperCase();
         }
@@ -211,7 +252,7 @@ public final class EDocUtil {
         if (demographicNo == null || demographicNo.length() == 0) {
             return "";
         }
-        Demographic d = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        Demographic d = demographicManager().getDemographic(loggedInInfo, demographicNo);
         if (d != null) {
             return d.getLastName().toUpperCase() + ", " + d.getFirstName().toUpperCase();
         }
@@ -222,12 +263,12 @@ public final class EDocUtil {
         if (providerNo == null || providerNo.length() == 0) {
             return null;
         }
-        return providerDao.getProvider(providerNo);
+        return providerDao().getProvider(providerNo);
     }
 
     public static ArrayList<String> getDoctypesByStatus(String module, String[] statuses) {
         ArrayList<String> doctypes = new ArrayList<String>();
-        List<CtlDocType> result = ctldoctypedao.findByStatusAndModule(statuses, module);
+        List<CtlDocType> result = ctldoctypedao().findByStatusAndModule(statuses, module);
         for (CtlDocType obj : result) {
             doctypes.add(obj.getDocType());
         }
@@ -244,7 +285,7 @@ public final class EDocUtil {
     }
 
     public static String getDocStatus(String module, String doctype) {
-        List<CtlDocType> result = ctldoctypedao.findByDocTypeAndModule(doctype, module);
+        List<CtlDocType> result = ctldoctypedao().findByDocTypeAndModule(doctype, module);
         String status = "";
         for (CtlDocType obj : result) {
             status = obj.getStatus();
@@ -253,7 +294,7 @@ public final class EDocUtil {
     }
 
     public static void addCaseMgmtNoteLink(CaseManagementNoteLink cmnl) {
-        caseManagementNoteLinkDao.save(cmnl);
+        caseManagementNoteLinkDao().save(cmnl);
         logger.debug("ADD CASEMGMT NOTE LINK : Id=" + cmnl.getId());
     }
 
@@ -282,7 +323,7 @@ public final class EDocUtil {
         doc.setNumberofpages(newDocument.getNumberOfPages());
         doc.setAppointmentNo(newDocument.getAppointmentNo());
         doc.setRestrictToProgram(newDocument.isRestrictToProgram());
-        documentDao.persist(doc);
+        getDocumentDao().persist(doc);
 
         Integer document_no = doc.getId();
 
@@ -297,7 +338,7 @@ public final class EDocUtil {
         cdpk.setDocumentNo(document_no);
         cd.getId().setModuleId(ConversionUtils.fromIntString(newDocument.getModuleId()));
         cd.setStatus(String.valueOf(newDocument.getStatus()));
-        ctlDocumentDao.persist(cd);
+        ctlDocumentDao().persist(cd);
 
         return document_no.toString();
     }
@@ -311,33 +352,33 @@ public final class EDocUtil {
         ctldoctype.setDocType(docType);
         ctldoctype.setModule(module.toLowerCase(Locale.ROOT));
         ctldoctype.setStatus(status);
-        ctldoctypedao.persist(ctldoctype);
+        ctldoctypedao().persist(ctldoctype);
     }
 
     public static void changeDocTypeStatusSQL(String docType, String module, String status) {
-        ctldoctypedao.changeDocType(docType, module, status);
+        ctldoctypedao().changeDocType(docType, module, status);
     }
 
     /**
      * new method to let the user add a new DocumentType into the database
      */
     public static void addDocTypeSQL(String docType, String module) {
-        ctldoctypedao.addDocType(docType, module);
+        ctldoctypedao().addDocType(docType, module);
     }
 
     public static void detachDocConsult(String docNo, String consultId) {
-        List<ConsultDocs> consultDocs = consultDocsDao.findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), ConsultDocs.DOCTYPE_DOC);
+        List<ConsultDocs> consultDocs = getConsultDocsDao().findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), ConsultDocs.DOCTYPE_DOC);
         for (ConsultDocs consultDoc : consultDocs) {
             consultDoc.setDeleted("Y");
-            consultDocsDao.merge(consultDoc);
+            getConsultDocsDao().merge(consultDoc);
         }
     }
 
     public static void detachDocEForm(String docNo, String consultId) {
-        List<EFormDocs> eformDocs = eformDocsDao.findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), EFormDocs.DOCTYPE_DOC);
+        List<EFormDocs> eformDocs = getEformDocsDao().findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), EFormDocs.DOCTYPE_DOC);
         for (EFormDocs eformDoc : eformDocs) {
             eformDoc.setDeleted("Y");
-            eformDocsDao.merge(eformDoc);
+            getEformDocsDao().merge(eformDoc);
         }
     }
 
@@ -348,7 +389,7 @@ public final class EDocUtil {
         consultDoc.setDocType(ConsultDocs.DOCTYPE_DOC);
         consultDoc.setAttachDate(new Date());
         consultDoc.setProviderNo(providerNo);
-        consultDocsDao.persist(consultDoc);
+        getConsultDocsDao().persist(consultDoc);
     }
 
     public static void attachDocEForm(String providerNo, String docNo, String consultId) {
@@ -358,12 +399,12 @@ public final class EDocUtil {
         eformDoc.setDocType(ConsultDocs.DOCTYPE_DOC);
         eformDoc.setAttachDate(new Date());
         eformDoc.setProviderNo(providerNo);
-        eformDocsDao.persist(eformDoc);
+        getEformDocsDao().persist(eformDoc);
     }
 
     public static void editDocumentSQL(EDoc newDocument, boolean doReview) {
 
-        Document doc = documentDao.find(ConversionUtils.fromIntString(newDocument.getDocId()));
+        Document doc = getDocumentDao().find(ConversionUtils.fromIntString(newDocument.getDocId()));
         if (doc != null) {
             doc.setDoctype(newDocument.getType());
             doc.setDocClass(newDocument.getDocClass());
@@ -394,7 +435,7 @@ public final class EDocUtil {
 
             doc.setAbnormal(Boolean.parseBoolean(newDocument.getAbnormal()));
             doc.setReceivedDate(MyDateFormat.getSysDate(newDocument.getReceivedDate()));
-            documentDao.merge(doc);
+            getDocumentDao().merge(doc);
         }
     }
 
@@ -404,10 +445,10 @@ public final class EDocUtil {
      */
     //Consultation Request fetch documents
     public static ArrayList<EDoc> listDocs(LoggedInInfo loggedInInfo, String demoNo, String requestId, boolean attached) {
-        List<Object[]> docs = documentDao.findDocsAndConsultDocsByConsultId(ConversionUtils.fromIntString(requestId));
+        List<Object[]> docs = getDocumentDao().findDocsAndConsultDocsByConsultId(ConversionUtils.fromIntString(requestId));
         List<Object[]> ctlDocs = null;
         if (!attached) {
-            ctlDocs = documentDao.findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
+            ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
         return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
     }
@@ -416,20 +457,20 @@ public final class EDocUtil {
         if (StringUtils.isEmpty(requestId)) {
             return new ArrayList<EDoc>();
         }
-        List<Object[]> docs = documentDao.findDocsAndEFormDocsByFdid(ConversionUtils.fromIntString(requestId));
+        List<Object[]> docs = getDocumentDao().findDocsAndEFormDocsByFdid(ConversionUtils.fromIntString(requestId));
         List<Object[]> ctlDocs = null;
         if (!attached) {
-            ctlDocs = documentDao.findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
+            ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
         return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
     }
 
     //Consultation Response fetch documents
     public static ArrayList<EDoc> listResponseDocs(LoggedInInfo loggedInInfo, String demoNo, String responseId, boolean attached) {
-        List<Object[]> docs = documentDao.findDocsAndConsultResponseDocsByConsultId(ConversionUtils.fromIntString(responseId));
+        List<Object[]> docs = getDocumentDao().findDocsAndConsultResponseDocsByConsultId(ConversionUtils.fromIntString(responseId));
         List<Object[]> ctlDocs = null;
         if (!attached) {
-            ctlDocs = documentDao.findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
+            ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
         return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
     }
@@ -505,7 +546,7 @@ public final class EDocUtil {
             }
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -578,7 +619,7 @@ public final class EDocUtil {
         boolean includePublic = publicDoc.equals(PUBLIC);
         boolean includeDeleted = viewstatus.equals("deleted");
         boolean includeActive = viewstatus.equals("active");
-        List<Object[]> documents = documentDao.findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, null);
+        List<Object[]> documents = getDocumentDao().findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, null);
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
@@ -587,7 +628,7 @@ public final class EDocUtil {
             resultDocs.add(currentdoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -599,7 +640,7 @@ public final class EDocUtil {
 
     public static List<EDoc> listAllDemographicDocsSince(LoggedInInfo loggedInInfo, int demographicNo, Date since) {
 
-        List<Document> documents = documentDao.findByDemographicUpdateDate(demographicNo, since);
+        List<Document> documents = getDocumentDao().findByDemographicUpdateDate(demographicNo, since);
 
         List<EDoc> edocList = new ArrayList<EDoc>();
         for (Document document : documents) {
@@ -607,7 +648,7 @@ public final class EDocUtil {
             edocList.add(edoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             edocList = documentFacilityFiltering(loggedInInfo, edocList);
         }
 
@@ -621,7 +662,7 @@ public final class EDocUtil {
         boolean includeActive = viewstatus.equals("active");
 
 
-        List<Object[]> documents = documentDao.findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, since);
+        List<Object[]> documents = getDocumentDao().findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, since);
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
@@ -630,7 +671,7 @@ public final class EDocUtil {
             resultDocs.add(currentdoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -638,7 +679,7 @@ public final class EDocUtil {
     }
 
     public static ArrayList<Integer> listDemographicIdsSince(Date since) {
-        return (ArrayList<Integer>) documentDao.findDemographicIdsSince(since);
+        return (ArrayList<Integer>) getDocumentDao().findDemographicIdsSince(since);
     }
 
 
@@ -715,7 +756,7 @@ public final class EDocUtil {
 
         for (EDoc eDoc : eDocs) {
             Integer programId = eDoc.getProgramId();
-            if (programManager.hasAccessBasedOnCurrentFacility(loggedInInfo, programId)) results.add(eDoc);
+            if (programManager().hasAccessBasedOnCurrentFacility(loggedInInfo, programId)) results.add(eDoc);
         }
 
         return results;
@@ -727,7 +768,7 @@ public final class EDocUtil {
     private static ArrayList<EDoc> documentProgramFiltering(LoggedInInfo loggedInInfo, List<EDoc> eDocs) {
         ArrayList<EDoc> results = new ArrayList<EDoc>();
 
-        List<ProgramProvider> ppList = programManager2.getProgramDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+        List<ProgramProvider> ppList = getProgramManager2().getProgramDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
 
         for (EDoc eDoc : eDocs) {
 
@@ -779,7 +820,7 @@ public final class EDocUtil {
             resultDocs.add(currentdoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -838,7 +879,7 @@ public final class EDocUtil {
     }
 
     public String getDocumentName(String id) {
-        Document d = documentDao.find(ConversionUtils.fromIntString(id));
+        Document d = getDocumentDao().find(ConversionUtils.fromIntString(id));
         if (d != null) {
             return d.getDocfilename();
         }
@@ -846,53 +887,121 @@ public final class EDocUtil {
     }
 
     public static void undeleteDocument(String documentNo) {
-        CtlDocument cd = ctlDocumentDao.getCtrlDocument(ConversionUtils.fromIntString(documentNo));
+        CtlDocument cd = ctlDocumentDao().getCtrlDocument(ConversionUtils.fromIntString(documentNo));
         String status = "";
         if (cd != null) {
             status = cd.getStatus();
         }
 
-        Document d = documentDao.find(ConversionUtils.fromIntString(documentNo));
+        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
         if (d != null) {
             d.setStatus(status.toCharArray()[0]);
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
-            documentDao.merge(d);
+            getDocumentDao().merge(d);
         }
     }
 
     public static void deleteDocument(String documentNo) {
-        Document d = documentDao.find(ConversionUtils.fromIntString(documentNo));
+        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
         if (d != null) {
             d.setStatus('D');
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
-            documentDao.merge(d);
+            getDocumentDao().merge(d);
         }
     }
 
+    /**
+     * Derives the on-disk name used by the incoming-document refile queues.
+     * Stored document names normally begin with a fourteen-character timestamp;
+     * legacy short names are preserved intact.
+     */
+    private static String getRefiledDocumentFileName(String documentFileName) {
+        String destFileName = documentFileName;
+        if (destFileName.length() > 18) {
+            destFileName = destFileName.substring(14);
+        }
+        return "R" + destFileName;
+    }
+
+    private static String getStoredDocumentBaseName(String documentFileName) {
+        if (documentFileName.indexOf('\0') >= 0) {
+            throw new FileValidationException("Invalid filename");
+        }
+
+        int separatorIndex = Math.max(
+                documentFileName.lastIndexOf('/'), documentFileName.lastIndexOf('\\'));
+        String baseName = documentFileName.substring(separatorIndex + 1);
+        return PathValidationUtils.validatePathComponent(baseName, "stored document filename");
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
-        String sourceDocDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Document d = documentDao.find(ConversionUtils.fromIntString(documentNo));
-        File sourceFile = new File(sourceDocDir, d.getDocfilename());
-
-        String destFileName = sourceFile.getName();
-        if (destFileName.length() > 18) {
-            destFileName = destFileName.substring(14, destFileName.length());
+        File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        int parsedDocumentNo = parsePositiveId(documentNo, "documentNo");
+        Document d = getDocumentDao().find(parsedDocumentNo);
+        if (d == null) {
+            throw new FileNotFoundException("Document not found");
         }
+        if (d.getDocfilename() == null || d.getDocfilename().trim().isEmpty()) {
+            // HTML-only documents have no stored file, so there is nothing to refile.
+            throw new FileNotFoundException("Document has no stored file");
+        }
+        File sourceFile = PathValidationUtils.validateExistingPath(
+                new File(sourceBaseDir, d.getDocfilename()), sourceBaseDir);
 
-        String destPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, "Refile");
-        File destFile = new File(destPath, "R" + destFileName);
+        File destFile = prepareRefileDestination(sourceFile, queueId);
 
         try {
-            if (destFile.exists()) {
-                throw new IOException("Cannot refile document #" + documentNo + " " + d.getDocdesc() + ". Destination File " + destFile.getAbsolutePath() + " already exists");
-            } else {
-                FileUtils.copyFile(sourceFile, destFile);
-            }
+            copyRefiledDocument(sourceFile, destFile);
         } catch (IOException e) {
-            logger.error("Error", e);
-            throw new Exception(e);
+            // File-system exception messages can contain document filenames or paths.
+            logger.error("Unable to copy refiled document ({})", e.getClass().getSimpleName());
+            throw e;
         }
+    }
+
+    /**
+     * Validates the queue before creating its lazily initialized refile directory.
+     * The old FileUtils copy created parent directories implicitly; Files.copy does
+     * not, so the first refile into a new queue otherwise fails.
+     */
+    static File prepareRefileDestination(File sourceFile, String queueId) {
+        int parsedQueueId = parsePositiveId(queueId, "queueId");
+        if (SpringUtils.getBean(QueueDao.class).find(parsedQueueId) == null) {
+            throw new IllegalArgumentException("Queue not found");
+        }
+
+        String destPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, "Refile");
+        File destBaseDir = PathValidationUtils.validateConfiguredDirectory(
+                destPath, "incoming refile directory");
+        return PathValidationUtils.validatePath(
+                getRefiledDocumentFileName(sourceFile.getName()), destBaseDir);
+    }
+
+    private static int parsePositiveId(String value, String label) {
+        if (value == null || !value.matches("[1-9][0-9]*")) {
+            throw new IllegalArgumentException(label + " must be a positive integer");
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(label + " must be a positive integer", e);
+        }
+    }
+
+    /**
+     * Copies a refiled document without an exists-then-copy race. The default
+     * {@link Files#copy(Path, Path, java.nio.file.CopyOption...)} behavior fails
+     * when the destination already exists, including when another request creates
+     * it between path validation and the copy.
+     */
+    static void copyRefiledDocument(File sourceFile, File destFile) throws IOException {
+        if (!Files.isRegularFile(sourceFile.toPath())) {
+            throw new IOException("Source document is not a regular file");
+        }
+        Files.copy(sourceFile.toPath(), destFile.toPath(), StandardCopyOption.COPY_ATTRIBUTES);
     }
 
     public static String getDmsDateTime() {
@@ -939,11 +1048,11 @@ public final class EDocUtil {
         doc.setSource(source);
         doc.setSourceFacility(sourceFacility);
         doc.setNumberofpages(1);
-        doc.setReceivedDate(partialDateDao.StringToDate(receivedDate));
+        doc.setReceivedDate(getPartialDateDao().StringToDate(receivedDate));
 
-        documentDao.persist(doc);
+        getDocumentDao().persist(doc);
 
-        partialDateDao.setPartialDate(PartialDate.DOC, doc.getId(), PartialDate.DOC_RECEIVEDDATE, partialDateDao.getFormat(receivedDate));
+        getPartialDateDao().setPartialDate(PartialDate.DOC, doc.getId(), PartialDate.DOC_RECEIVEDDATE, getPartialDateDao().getFormat(receivedDate));
 
 
         if (doc.getDocumentNo() > 0) {
@@ -954,7 +1063,7 @@ public final class EDocUtil {
             cdpk.setDocumentNo(doc.getDocumentNo());
             cd.getId().setModuleId(ConversionUtils.fromIntString(demoNo));
             cd.setStatus(String.valueOf('A'));
-            ctlDocumentDao.persist(cd);
+            ctlDocumentDao().persist(cd);
 
         }
 
@@ -986,7 +1095,7 @@ public final class EDocUtil {
         FileInputStream fis = null;
         try {
             // first we get length of file and allocate mem for file
-            File file = new File(fpath);
+            File file = validateResolvedDocumentOrTempFile(fpath);
             long length = file.length();
             fdata = new byte[(int) length];
 
@@ -999,6 +1108,10 @@ public final class EDocUtil {
         } catch (FileNotFoundException ex) {
             logger.error("Error", ex);
         } catch (IOException ex) {
+            logger.error("Error", ex);
+        } catch (SecurityException ex) {
+            // PathValidationUtils rejecting a malformed document path leaves fdata null, matching the
+            // existing return-null contract instead of throwing an unchecked exception at the caller.
             logger.error("Error", ex);
         } finally {
             try {
@@ -1026,7 +1139,7 @@ public final class EDocUtil {
     // get noteId from tableId
     public static Long getNoteIdFromDocId(Long docId) {
         Long noteId = 0L;
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, docId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, docId);
         if (cmnLink != null) noteId = cmnLink.getNoteId();
         return noteId;
     }
@@ -1034,7 +1147,7 @@ public final class EDocUtil {
     // get tableId from noteId when table_name is document
     public static Long getTableIdFromNoteId(Long noteId) {
         Long tableId = 0L;
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByNote(noteId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByNote(noteId);
         if (cmnLink != null && cmnLink.getTableName().equals(CaseManagementNoteLink.DOCUMENT)) {
             tableId = cmnLink.getTableId();
         }
@@ -1060,97 +1173,25 @@ public final class EDocUtil {
         return doc;
     }
 
-    public static ArrayList<EDoc> getRemoteDocuments(LoggedInInfo loggedInInfo, Integer demographicId) {
-        ArrayList<EDoc> results = new ArrayList<EDoc>();
-
-        try {
-
-            List<CachedDemographicDocument> remoteDocuments = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                    remoteDocuments = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicDocuments(demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                MiscUtils.getLogger().debug("getting fall back documents for " + demographicId);
-                remoteDocuments = IntegratorFallBackManager.getRemoteDocuments(loggedInInfo, demographicId);
-            }
-
-            for (CachedDemographicDocument remoteDocument : remoteDocuments) {
-                results.add(toEDoc(remoteDocument));
-            }
-        } catch (Exception e) {
-            logger.error("Error retriving integrated documents.", e);
-        }
-
-        logger.debug("retreived remote documents, document count=" + results.size());
-
-        return (results);
-    }
-
-    private static EDoc toEDoc(CachedDemographicDocument remoteDocument) {
-        EDoc eDoc = new EDoc();
-
-        eDoc.setRemoteFacilityId(remoteDocument.getFacilityIntegerPk().getIntegratorFacilityId());
-
-        eDoc.setAppointmentNo(remoteDocument.getAppointmentNo());
-        eDoc.setContentType(remoteDocument.getContentType());
-        eDoc.setCreatorId(remoteDocument.getDocCreator());
-        eDoc.setDateTimeStamp(DateUtils.formatDate(remoteDocument.getUpdateDateTime(), null));
-        eDoc.setDateTimeStampAsDate(DateUtils.toDate(remoteDocument.getUpdateDateTime()));
-        eDoc.setDescription(remoteDocument.getDescription());
-        eDoc.setDocId(remoteDocument.getFacilityIntegerPk().getCaisiItemId().toString());
-        eDoc.setDocPublic("" + remoteDocument.getPublic1());
-        eDoc.setFileName(remoteDocument.getDocFilename());
-        eDoc.setHtml(remoteDocument.getDocXml());
-        eDoc.setModule("demographic");
-        eDoc.setModuleId("" + remoteDocument.getCaisiDemographicId());
-        eDoc.setNumberOfPages(remoteDocument.getNumberOfPages());
-
-        // to a string in yyyy-mm-dd
-        Calendar observationDate = remoteDocument.getObservationDate();
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        String observationDateString = simpleDateFormat.format(observationDate.getTime());
-        eDoc.setObservationDate(observationDateString);
-
-        eDoc.setProgramId(remoteDocument.getProgramId());
-        eDoc.setResponsibleId(remoteDocument.getResponsible());
-        eDoc.setReviewDateTimeDate(DateUtils.toDate(remoteDocument.getReviewDateTime()));
-        eDoc.setReviewDateTime(DateUtils.formatDate(remoteDocument.getReviewDateTime(), null));
-        eDoc.setReviewerId(remoteDocument.getReviewer());
-
-        // this will get used as a marker for an integrated result.
-        eDoc.setSource(remoteDocument.getSource() == null ? "integrator" : remoteDocument.getSource());
-        eDoc.setStatus(remoteDocument.getStatus() != null && remoteDocument.getStatus().length() > 0 ? remoteDocument.getStatus().charAt(0) : ' ');
-        eDoc.setType(remoteDocument.getContentType());
-
-        return (eDoc);
-    }
-
     public static void subtractOnePage(String docId) {
-        Document doc = documentDao.find(ConversionUtils.fromIntString(docId));
+        Document doc = getDocumentDao().find(ConversionUtils.fromIntString(docId));
         doc.setNumberofpages(doc.getNumberofpages() - 1);
 
-        documentDao.merge(doc);
+        getDocumentDao().merge(doc);
     }
 
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
 
         Long table_id = Long.valueOf(docId);
-        List<TicklerLink> linkList = ticklerLinkDao.getLinkByTableId("DOC", table_id);
+        List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
         String HtmlTickler = "";
         Integer ticklerNo;
 
         if (linkList != null) {
             for (TicklerLink tl : linkList) {
                 ticklerNo = tl.getTicklerNo();
-                Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo.intValue());
-                HtmlTickler += "<br>" + t.getMessage();
+                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo);
+                HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
             }
         }
         return HtmlTickler;
@@ -1164,7 +1205,7 @@ public final class EDocUtil {
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
         for (int i = 0; i < ackList.size(); i++) {
             ReportStatus report = ackList.get(i);
-            HtmlAcknowledgement += report.getProviderName() + ": ";
+            HtmlAcknowledgement += Encode.forHtml(report.getProviderName()) + ": ";
             String ackStatus = report.getStatus();
             if (ackStatus.equals("A")) {
                 ackStatus = props.getString("dms.documentBrowser.msgAcknowledgedOn");
@@ -1175,11 +1216,11 @@ public final class EDocUtil {
             }
 
             HtmlAcknowledgement += ackStatus;
-            HtmlAcknowledgement += " " + report.getTimestamp() + " ";
+            HtmlAcknowledgement += " " + Encode.forHtml(report.getTimestamp()) + " ";
 
             comment = report.getComment();
             if (comment != null) {
-                HtmlAcknowledgement += comment;
+                HtmlAcknowledgement += Encode.forHtml(comment);
             }
             HtmlAcknowledgement += "<br>";
 
@@ -1197,12 +1238,12 @@ public final class EDocUtil {
             tableId = Long.valueOf(docId);
         }
 
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, tableId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, tableId);
         CaseManagementNote p_cmn = null;
         if (cmnLink != null) {
-            p_cmn = caseManagementNoteDao.getNote(cmnLink.getNoteId());
+            p_cmn = caseManagementNoteDao().getNote(cmnLink.getNoteId());
             //get the most recent previous note from uuid.
-            p_cmn = caseManagementNoteDao.getMostRecentNote(p_cmn.getUuid());
+            p_cmn = caseManagementNoteDao().getMostRecentNote(p_cmn.getUuid());
         }
 
         //if get providers no is -1, it's a document note.
@@ -1211,7 +1252,7 @@ public final class EDocUtil {
         }  //don't use document note as annotation.
 
         if (p_cmn != null) {
-            note = p_cmn.getNote();
+            note = Encode.forHtml(p_cmn.getNote());
         }
         return note;
     }
@@ -1226,14 +1267,35 @@ public final class EDocUtil {
     public static byte[] readContent(String fileName) throws IOException {
         InputStream is = null;
         try {
-            is = new BufferedInputStream(new FileInputStream(new File(fileName)));
+            is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
             return IOUtils.toByteArray(is);
+        } catch (SecurityException e) {
+            // Honour the declared throws IOException: a rejected document path surfaces as a checked
+            // IOException rather than an unchecked SecurityException callers are not expecting. Throwing
+            // here also leaves is null, so the finally below must null-guard before closing.
+            throw new IOException("Unable to resolve document file", e);
         } finally {
             try {
-                is.close();
+                if (is != null) is.close();
             } catch (IOException e) {
                 logger.error("Unable to close output stream", e);
             }
+        }
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private static File validateResolvedDocumentOrTempFile(String fileName) {
+        File resolvedFile = new File(resolvePath(fileName));
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        try {
+            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
+        } catch (SecurityException e) {
+            if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
+                return PathValidationUtils.resolveTrustedPath(resolvedFile);
+            }
+            throw e;
         }
     }
 
@@ -1243,11 +1305,15 @@ public final class EDocUtil {
      *
      * @param fileName Name of the file to use for saving the content
      * @param content  Content to be saved into the file
-     * @throws IOException IOException is thrown in case of any save errors
+     * @throws IOException       IOException is thrown in case of any save errors
+     * @throws SecurityException if the fileName contains path traversal sequences
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
-        String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File file = new File(docDir, fileName);
+        String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDirFile = new File(docDir);
+        File file = PathValidationUtils.validatePath(fileName, docDirFile);
         writeContent(file.getAbsolutePath(), content);
     }
 
@@ -1258,14 +1324,16 @@ public final class EDocUtil {
      * @return Returns the absolute path on the file system.
      * @throws SecurityException if the resolved path is outside allowed directories
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String resolvePath(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
             throw new IllegalArgumentException("File name cannot be null or empty");
         }
 
         try {
-            String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-            File documentDir = new File(docDir);
+            String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR");
 
             // Determine the input file - if relative, resolve against document directory
             Path inputPath = Paths.get(fileName);
@@ -1283,7 +1351,7 @@ public final class EDocUtil {
             // Use PathValidationUtils for validation
             // First try document directory
             try {
-                PathValidationUtils.validateExistingPath(inputFile, documentDir);
+                inputFile = PathValidationUtils.validateExistingPath(inputFile, documentDir);
                 return canonicalPath;
             } catch (SecurityException e) {
                 // Not in document directory, check temp directories
@@ -1299,8 +1367,10 @@ public final class EDocUtil {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static void writeContent(String fileName, byte[] content) throws IOException {
-        String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
 
         // Use PathValidationUtils to validate and get safe file path
@@ -1361,6 +1431,8 @@ public final class EDocUtil {
      * @return number of pages
      * @throws IOException
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static int getPDFPageCount(String fileName) {
         int pagecount = 0;
 
@@ -1376,12 +1448,12 @@ public final class EDocUtil {
                 logger.debug("File not found (may be from different environment): " + fileName);
                 return 0;
             }
-            // resolvePath validates the path is within allowed directories
+            // resolvePath validates the path is within allowed directories, including temp directories.
             String resolvedPath = resolvePath(fileName);
             Path path = Paths.get(resolvedPath);
 
             if (Files.exists(path)) {
-                try (PDDocument pdf = PDDocument.load(path.toFile())) {
+                try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
                     logger.error("Could not read PDF file: " + fileName, e);
@@ -1401,23 +1473,58 @@ public final class EDocUtil {
     }
 
 	/**
-	 * Checks if a document with the given filename has already been refiled in the specified queue.
+	 * Checks whether the given document has already been refiled into the specified queue.
+	 *
+	 * <p>Pass the document's stored filename ({@code docfilename}), not its description:
+	 * {@link #refileDocument(String, String)} derives the refiled name from the filename, so
+	 * anything else compares two unrelated strings and reports every document as not refiled.</p>
+	 *
+	 * <p>This is a read-only predicate evaluated for every queue while document views render,
+	 * so it answers {@code false} instead of throwing when the queue has no refile directory
+	 * yet or the name cannot be resolved. A real refile still validates and fails loudly.</p>
 	 *
 	 * @see #refileDocument(String, String)
-	 * @param filename The original filename of the document.
+	 * @param documentFileName The document's stored filename.
 	 * @param queueId  The ID of the queue where the document might have been refiled.
 	 * @return {@code true} if a document with the refiled name exists in the queue's refile directory,
-	 * {@code false} otherwise.
+	 * {@code false} otherwise, including when the queue has no refile directory yet.
 	 */
-	public static boolean isDocumentAlreadyRefiledInQueue(String filename, int queueId) {
-		String destFileName = filename;
-		if (destFileName.length() > 18) {
-			destFileName = destFileName.substring(14, filename.length());
+	public static boolean isDocumentAlreadyRefiledInQueue(String documentFileName, int queueId) {
+		if (documentFileName == null || documentFileName.trim().isEmpty()) {
+			// HTML documents carry no filename, so there is nothing that could have been refiled.
+			return false;
 		}
 
-		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destFile = new File(destPath, "R" + destFileName);
-		return destFile.exists();
+		try {
+			String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
+			PathValidationUtils.validateConfiguredDirectory(
+					CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR"),
+					"incoming document root");
+			// Canonicalize through the trusted-directory helper instead of reconstructing the
+			// already validated path at the filesystem probe. This preserves lazy-directory
+			// behavior while making the containment boundary explicit to static analysis.
+			File destDir = PathValidationUtils.resolveConfiguredDirectory(
+					destPath, "incoming refile directory");
+			if (!destDir.isDirectory()) {
+				// Nothing has ever been refiled into this queue. Validating the missing directory
+				// as a misconfiguration threw out of showDocument.jsp, which calls this in a loop
+				// over every queue, so a single never-used queue broke viewing any document.
+				return false;
+			}
+
+			// Resolve the refiled name exactly the way refileDocument writes it. Normalizing here
+			// (spaces to underscores, parentheses dropped) looked for a name that was never
+			// written, so documents refiled under such names were reported as not refiled.
+			File destFile = PathValidationUtils.validatePath(
+					getRefiledDocumentFileName(getStoredDocumentBaseName(documentFileName)), destDir);
+			return destFile.exists();
+		} catch (FileValidationException e) {
+			// A stored name the validator rejects (a blocked final extension, say) is not a
+			// refile match. Configuration and containment failures deliberately stay loud.
+			logger.warn("Refile lookup rejected a queued name ({}), reporting not refiled",
+					e.getClass().getSimpleName());
+			return false;
+		}
 	}
 
 }

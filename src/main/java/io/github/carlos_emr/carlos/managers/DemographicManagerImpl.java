@@ -35,15 +35,13 @@ package io.github.carlos_emr.carlos.managers;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicTransfer;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.GetConsentTransfer;
+
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic.PatientStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -55,10 +53,10 @@ import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import java.net.MalformedURLException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Will provide access to demographic data, as well as closely related data such
@@ -130,7 +128,11 @@ public class DemographicManagerImpl implements DemographicManager {
 	 */
      @Override
      public Demographic getDemographic(LoggedInInfo loggedInInfo, Integer demographicId) throws PatientDirectiveException {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, (demographicId != null) ? demographicId : null); 
+        if (demographicId != null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        } else {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        }
         Demographic demographic = demographicDao.getDemographicById(demographicId); 
         if (demographic != null) {
 			this.getMRP(loggedInInfo, demographic);
@@ -364,13 +366,37 @@ public class DemographicManagerImpl implements DemographicManager {
         return providerList;
     }
 
+    /**
+     * Regex allowlist for {@link #getDemographicsNameRangeByProvider}: accepts only
+     * simple character-range expressions of the form {@code ^[X-Y]} where X and Y
+     * are single ASCII letters (e.g. {@code ^[A-M]}). This prevents ReDoS from
+     * a caller supplying an unbounded or catastrophic regex pattern.
+     */
+    private static final Pattern SAFE_NAME_RANGE_REGEX = Pattern.compile("^\\^\\[[A-Za-z]-[A-Za-z]\\]$");
+
     @Override
     public List<Demographic> getDemographicsNameRangeByProvider(LoggedInInfo loggedInInfo, Provider provider,
                                                                 String regex) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         if (provider == null || provider.getProviderNo() == null || regex == null) {
-            return new ArrayList<>(); // Return an empty list if providers or regex is null
+            return new ArrayList<>(); // Return an empty list if provider or regex is null
+        }
+
+        // Reject any regex that is not a simple letter-range expression (e.g. "^[A-M]").
+        // This prevents ReDoS: an attacker cannot supply patterns like "^(a+)+$".
+        if (!SAFE_NAME_RANGE_REGEX.matcher(regex).matches()) {
+            logger.warn("getDemographicsNameRangeByProvider: rejected unsafe regex pattern");
+            return new ArrayList<>();
+        }
+
+        // Validate that the character range is not reversed (e.g. "^[Z-A]" would pass the
+        // allowlist but throw PatternSyntaxException in Pattern.compile).
+        char rangeStart = Character.toUpperCase(regex.charAt(2));
+        char rangeEnd = Character.toUpperCase(regex.charAt(4));
+        if (rangeStart > rangeEnd) {
+            logger.warn("getDemographicsNameRangeByProvider: rejected reversed character range");
+            return new ArrayList<>();
         }
 
         List<Demographic> demographicList = demographicDao.getDemographicByProvider(provider.getProviderNo());
@@ -986,75 +1012,6 @@ public class DemographicManagerImpl implements DemographicManager {
     }
 
     /**
-     * Fetch the remote demographic file from the Integrator.
-     * <p>
-     * THIS IS AN INTEGRATOR FUNCTION ONLY. INTEGRATOR MUST BE ENABLED.
-     *
-     * @param loggedInInfo
-     * @param remoteFacilityId
-     * @param remoteDemographicId
-     * @return
-     */
-    @Override
-    public Demographic getRemoteDemographic(LoggedInInfo loggedInInfo, int remoteFacilityId, int remoteDemographicId) {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
-        Demographic demographic = null;
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                demographic = CaisiIntegratorManager.makeUnpersistedDemographicObjectFromRemoteEntry(loggedInInfo,
-                        loggedInInfo.getCurrentFacility(), remoteFacilityId, remoteDemographicId);
-            } catch (MalformedURLException e) {
-                logger.error("Error while importing patient file " + remoteDemographicId + " from facility "
-                        + remoteFacilityId, e);
-            }
-            LogAction.addLog(loggedInInfo, "DemographicManager.getRemoteDemographic", null, null,
-                    "" + remoteDemographicId, null);
-        }
-        return demographic;
-    }
-
-    /**
-     * Copies the given remotely Integrated demographic file into this local
-     * facility.
-     * <p>
-     * THIS IS AN INTEGRATOR FUNCTION ONLY. INTEGRATOR MUST BE ENABLED.
-     *
-     * @param loggedInInfo
-     * @param remoteFacilityId
-     * @param remoteDemographicId
-     * @return
-     */
-    @Override
-    public Demographic copyRemoteDemographic(LoggedInInfo loggedInInfo, Demographic remoteDemographic,
-                                             int remoteFacilityId, int remoteDemographicId) {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
-
-        remoteDemographic.setDemographicNo(null);
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                // find the program id
-                ProgramProvider programProvider = programManager2.getCurrentProgramInDomain(loggedInInfo);
-                createDemographic(loggedInInfo, remoteDemographic, (int) (long) programProvider.getProgramId());
-
-                // get the remote patient consent status
-                GetConsentTransfer consentTransfer = CaisiIntegratorManager.getConsentState(loggedInInfo,
-                        loggedInInfo.getCurrentFacility(), remoteFacilityId, remoteDemographicId);
-                updatePatientConsent(loggedInInfo, remoteDemographic.getDemographicNo(),
-                        UserProperty.INTEGRATOR_PATIENT_CONSENT,
-                        "ALL".equals(consentTransfer.getConsentState().value()));
-            } catch (MalformedURLException e) {
-                logger.error("Error while importing patient file " + remoteDemographicId + " from facility "
-                        + remoteFacilityId, e);
-            }
-
-            LogAction.addLog(loggedInInfo, "DemographicManager.copyRemoteDemographic", null, null,
-                    "" + remoteDemographicId, null);
-        }
-        return remoteDemographic;
-    }
-
-    /**
      * Update a patient's consent status.
      *
      * @param loggedInInfo
@@ -1093,110 +1050,6 @@ public class DemographicManagerImpl implements DemographicManager {
 
         ConsentType patientConsentType = patientConsentManager.getConsentType(consentType);
         return patientConsentManager.hasPatientConsented(demographic_no, patientConsentType);
-    }
-
-    /**
-     * Link the given demographic numbers with in the given remote facility.
-     * <p>
-     * THIS IS AN INTEGRATOR FUNCTION ONLY. INTEGRATOR MUST BE ENABLED.
-     */
-    @Override
-    public boolean linkDemographicToRemoteDemographic(LoggedInInfo loggedInInfo, int demographicNo,
-                                                      int remoteFacilityId, int remoteDemographicNo) {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                CaisiIntegratorManager.linkIntegratedDemographicFiles(loggedInInfo, demographicNo, remoteFacilityId,
-                        remoteDemographicNo);
-                String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-                MiscUtils.getLogger()
-                        .info("LINK DEMOGRAPHIC #### ProviderNo :" + providerNo + ", demo No :" + remoteDemographicNo
-                                + ", remoteFacilityId :" + remoteFacilityId + ", remoteDemographicId "
-                                + remoteDemographicNo + " orig demo " + demographicNo);
-
-                LogAction.addLog(loggedInInfo, "DemographicManager.linkDemographicToRemoteDemographic", null, null,
-                        "" + demographicNo, null);
-
-                return true;
-            } catch (MalformedURLException e) {
-                logger.error("Failure to link local demographic number " + demographicNo + " with demographicNo "
-                        + remoteDemographicNo + " from facility " + remoteFacilityId, e);
-            }
-
-        }
-        return false;
-    }
-
-    /**
-     * Fetch all the the demographic ids linked by the Integrator to the given local
-     * demographic number
-     * and given remote facility id.
-     * <p>
-     * THIS IS AN INTEGRATOR FUNCTION ONLY. INTEGRATOR MUST BE ENABLED.
-     *
-     * @param loggedInInfo
-     * @param demographicNo
-     * @param sourceFacilityId where the linked demographic should exist
-     * @return
-     */
-    @Override
-    public List<Integer> getLinkedDemographicIds(LoggedInInfo loggedInInfo, int demographicNo, int sourceFacilityId) {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicNo);
-
-        ArrayList<Integer> remoteDemographicNumbers = new ArrayList<Integer>();
-        List<DemographicTransfer> demographicTransferList = getLinkedDemographics(loggedInInfo, demographicNo);
-
-        /*
-         * Add the demographic number to the array if the demographic file is
-         * from the target facility (sourceFacilityId)
-         */
-        for (DemographicTransfer demographicTransfer : demographicTransferList) {
-            if (demographicTransfer.getIntegratorFacilityId() == sourceFacilityId) {
-                remoteDemographicNumbers.add(demographicTransfer.getCaisiDemographicId());
-            }
-        }
-
-        LogAction.addLog(loggedInInfo, "DemographicManager.getLinkedDemographicIds", null, null, "" + demographicNo,
-                null);
-
-        return remoteDemographicNumbers;
-    }
-
-    /**
-     * Fetch all the demographic files from all facilities linked by the Integrator
-     * to the given local demographic number
-     * Excludes the demographic file located in this facility
-     * <p>
-     * THIS IS AN INTEGRATOR FUNCTION ONLY. INTEGRATOR MUST BE ENABLED.
-     *
-     * @param loggedInInfo
-     * @param demographicNo
-     * @return
-     */
-    @Override
-    public List<DemographicTransfer> getLinkedDemographics(LoggedInInfo loggedInInfo, int demographicNo) {
-        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicNo);
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            /*
-             * Fetch all demographic files that are linked to this local demographic number.
-             * Excludes all results for this facility.
-             */
-            try {
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo,
-                        loggedInInfo.getCurrentFacility());
-                return demographicWs.getLinkedDemographicsByDemographicId(demographicNo);
-            } catch (MalformedURLException e) {
-                MiscUtils.getLogger().error("Integrator connection failed ", e);
-            }
-        }
-
-        LogAction.addLog(loggedInInfo, "DemographicManager.getLinkedDemographics(LoggedInInfo", null, null,
-                "" + demographicNo, null);
-
-        return Collections.emptyList();
     }
 
     @Override
@@ -1295,6 +1148,8 @@ public class DemographicManagerImpl implements DemographicManager {
      * @param role          (can be an numeric string or alpha string)
      * @return
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public DemographicContact getHealthCareMemberbyRole(LoggedInInfo loggedInInfo, Integer demographicNo, String role) {
         if (demographicNo == null) {
@@ -1447,6 +1302,42 @@ public class DemographicManagerImpl implements DemographicManager {
         String appointmentString = getNextAppointmentDate(loggedInInfo, demographic.getDemographicNo());
         demographic.setNextAppointment(appointmentString);
         return appointmentString;
+    }
+
+    // --- DTO projection methods ---
+
+    /** {@inheritDoc} */
+    @Override
+    public DemographicHeaderDTO getDemographicHeader(LoggedInInfo loggedInInfo, Integer demographicId) {
+        if (demographicId == null) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+            return null;
+        }
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ, demographicId);
+        DemographicHeaderDTO result = demographicDao.getDemographicHeader(demographicId);
+        if (result != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getDemographicHeader",
+                    "demographicId=" + result.getDemographicNo());
+        }
+        return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<DemographicListItemDTO> searchDemographicDTOs(LoggedInInfo loggedInInfo, String searchString,
+                                                              int startIndex, int itemsToReturn) {
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        List<DemographicListItemDTO> results = demographicDao.searchDemographicDTOByName(
+                searchString, itemsToReturn, startIndex, providerNo, false);
+
+        // --- log action ---
+        for (DemographicListItemDTO dto : results) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchDemographicDTOs result",
+                    "demographicId=" + dto.getDemographicNo());
+        }
+
+        return results;
     }
 
 }

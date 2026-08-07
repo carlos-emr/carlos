@@ -29,8 +29,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -44,17 +44,28 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
  *
  * @version 1.0
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.util.List;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ReceivePayment2Action
         extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         double dblAmount = Double.valueOf(this.getAmountReceived()).doubleValue();
         if ("true".equals(this.getIsRefund())) {
 
@@ -86,6 +97,7 @@ public class ReceivePayment2Action
         return amountReceived;
     }
 
+    @StrutsParameter
     public void setAmountReceived(String amountReceived) {
         this.amountReceived = amountReceived;
     }
@@ -94,6 +106,7 @@ public class ReceivePayment2Action
         return payment;
     }
 
+    @StrutsParameter
     public void setPayment(String payment) {
         this.payment = payment;
     }
@@ -102,14 +115,17 @@ public class ReceivePayment2Action
         return paymentMethod;
     }
 
+    @StrutsParameter
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
 
+    @StrutsParameter(depth = 1)
     public List getPaymentMethodList() {
         return paymentMethodList;
     }
 
+    @StrutsParameter
     public void setPaymentMethodList(List paymentMethodList) {
         this.paymentMethodList = paymentMethodList;
     }
@@ -118,6 +134,7 @@ public class ReceivePayment2Action
         return billingmasterNo;
     }
 
+    @StrutsParameter
     public void setBillingmasterNo(String billingmasterNo) {
         this.billingmasterNo = billingmasterNo;
     }
@@ -126,6 +143,7 @@ public class ReceivePayment2Action
         return billNo;
     }
 
+    @StrutsParameter
     public void setBillNo(String billNo) {
         this.billNo = billNo;
     }
@@ -134,6 +152,7 @@ public class ReceivePayment2Action
         return paymentReceived;
     }
 
+    @StrutsParameter
     public void setPaymentReceived(boolean paymentReceived) {
         this.paymentReceived = paymentReceived;
     }
@@ -142,6 +161,7 @@ public class ReceivePayment2Action
         return isRefund;
     }
 
+    @StrutsParameter
     public void setIsRefund(String isRefund) {
         this.isRefund = isRefund;
     }
@@ -150,6 +170,7 @@ public class ReceivePayment2Action
         return payeeProviderNo;
     }
 
+    @StrutsParameter
     public void setPayeeProviderNo(String payeeProviderNo) {
         this.payeeProviderNo = payeeProviderNo;
     }

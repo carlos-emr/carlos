@@ -28,12 +28,13 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -41,14 +42,17 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * @author Toby
  */
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingreferralEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -56,11 +60,15 @@ public class BillingreferralEdit2Action extends ActionSupport {
 
 
     private ProfessionalSpecialistDao psDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public String execute() throws Exception {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
         String method = request.getParameter("method");
         if ("searchByNo".equals(method)) {
             return searchByNo();
@@ -127,7 +135,12 @@ public class BillingreferralEdit2Action extends ActionSupport {
         return "list";
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String modifyBatch() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing write)");
+        }
         String referralId = request.getParameter("id");
         String checked = request.getParameter("checked");
         String clear = request.getParameter("clear");
@@ -162,10 +175,12 @@ public class BillingreferralEdit2Action extends ActionSupport {
             }
         }
 
-        request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs);
+        request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
-        response.getWriter().print(arr);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().print(arr); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
 
         return null;
     }
@@ -231,6 +246,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
         return search;
     }
 
+    @StrutsParameter
     public void setSearch(String search) {
         this.search = search;
     }

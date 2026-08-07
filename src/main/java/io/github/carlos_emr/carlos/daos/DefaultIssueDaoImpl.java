@@ -35,7 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.model.DefaultIssue;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;

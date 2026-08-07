@@ -62,9 +62,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.hl7.model.PatientId;
 import io.github.carlos_emr.carlos.integration.hl7.model.StaffId;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.parser.GenericParser;
 import ca.uhn.hl7v2.parser.Parser;
@@ -136,8 +139,10 @@ public class PhsStarHandler extends BasePhsStarHandler {
                 logger.debug("Found demographic:" + records.get(0).getDemographicNo());
                 return records.get(0).getDemographicNo();
             } else if (records.size() > 1) {
-                logger.debug("Found multiple demographics with health card " + hc.getId() + " " + hc.getAuthority());
-                throw new HL7Exception("Found multiple records with same HC!!!! - " + hc.getId() + " " + hc.getAuthority());
+                // Do NOT log or embed the health card number / authority (PHI) — including in the
+                // exception message, which propagates into logs and error surfaces.
+                logger.debug("Found multiple demographics matching the provided health card");
+                throw new HL7Exception("Found multiple demographic records matching the provided health card");
             }
         }
 
@@ -172,8 +177,8 @@ public class PhsStarHandler extends BasePhsStarHandler {
         demo.setDateJoined(new Date());
         demo.setEffDate(new Date());
 
-        if (OscarProperties.getInstance().hasProperty("DEFAULT_PHS_PROVIDER")) {
-            demo.setProviderNo(OscarProperties.getInstance().getProperty("DEFAULT_PHS_PROVIDER"));
+        if (CarlosProperties.getInstance().hasProperty("DEFAULT_PHS_PROVIDER")) {
+            demo.setProviderNo(CarlosProperties.getInstance().getProperty("DEFAULT_PHS_PROVIDER"));
         }
 
         //set MRN
@@ -213,7 +218,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
             OtherIdManager.saveIdDemographic(demographicNo, "TMR", tempMrn.getId());
         }
 
-        Program p = programDao.getProgramByName(OscarProperties.getInstance().getProperty("phs.default_program", "OSCAR"));
+        Program p = programDao.getProgramByName(CarlosProperties.getInstance().getProperty("phs.default_program", "OSCAR"));
         if (p != null && admissionDao.getCurrentAdmission(p.getId(), demographicNo) == null) {
             logger.info("need to do admission");
             doAdmit(demo, p, "000001");
@@ -1243,8 +1248,10 @@ public class PhsStarHandler extends BasePhsStarHandler {
         return programId;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private String readProgramMappingFile(String service, String patientType, String location) {
-        String filename = OscarProperties.getInstance().getProperty("phs_star.program_file");
+        String filename = CarlosProperties.getInstance().getProperty("phs_star.program_file");
         if (filename == null) {
             logger.warn("Cannot lookup program. Config file not found - " + filename);
             return null;
@@ -1252,10 +1259,10 @@ public class PhsStarHandler extends BasePhsStarHandler {
         InputStream is = null;
 
         try {
-            is = new FileInputStream(new File(filename));
+            is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
 
             if (is != null) {
-                SAXBuilder parser = new SAXBuilder();
+                SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
                 Document doc = null;
                 try {
                     doc = parser.build(is);

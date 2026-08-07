@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.prevention;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,10 +54,13 @@ import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class PreventionDisplayConfig {
     private static Logger log = MiscUtils.getLogger();
@@ -100,6 +104,8 @@ public class PreventionDisplayConfig {
         return prevHash.get(s);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void loadPreventions() {
         prevList = new ArrayList<HashMap<String, String>>();
         prevHash = new HashMap<String, HashMap<String, String>>();
@@ -107,20 +113,20 @@ public class PreventionDisplayConfig {
 
         InputStream is = null;
         try {
-            if (OscarProperties.getInstance().getProperty("PREVENTION_ITEMS") != null) {
-                String filename = OscarProperties.getInstance().getProperty("PREVENTION_ITEMS");
+            if (CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS") != null) {
+                String filename = CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS");
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {
-                    is = new FileInputStream(filename);
+                    is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
                 }
             } else {
-                is = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarPrevention/PreventionItems.xml");
+                is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionItems.xml");
             }
 
             List<String> addedSnomeds = new ArrayList<String>();
 
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
             List items = root.getChildren("item");
@@ -149,9 +155,10 @@ public class PreventionDisplayConfig {
 
                 }
 
-                prevList.add(h);
-                prevHash.put(h.get("name"), h);
-
+                if (h.get("name") != null) {
+                    prevList.add(h);
+                    prevHash.put(h.get("name"), h);
+                }
             }
 
             for (CVCImmunization imm : cvcManager.getGenericImmunizationList()) {
@@ -166,7 +173,7 @@ public class PreventionDisplayConfig {
                 h.put("showIfMinRecordNum", "1");
                 h.put("snomedConceptCode", imm.getSnomedConceptId());
                 h.put("ispa", String.valueOf(imm.isIspa()));
-                if (!addedSnomeds.contains(imm.getSnomedConceptId())) {
+                if (!addedSnomeds.contains(imm.getSnomedConceptId()) && imm.getPicklistName() != null) {
                     prevList.add(h);
                     prevHash.put(h.get("name"), h);
                 }
@@ -195,6 +202,8 @@ public class PreventionDisplayConfig {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void loadConfigurationSets() {
         getPreventions();
         configHash = new HashMap<String, Map<String, Object>>();
@@ -202,18 +211,18 @@ public class PreventionDisplayConfig {
 
         InputStream is = null;
         try {
-            if (OscarProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS") != null) {
-                String filename = OscarProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS");
+            if (CarlosProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS") != null) {
+                String filename = CarlosProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS");
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {
-                    is = new FileInputStream(filename);
+                    is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
                 }
             } else {
-                is = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarPrevention/PreventionConfigSets.xml");
+                is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionConfigSets.xml");
             }
 
-            SAXBuilder parser = new SAXBuilder();
+            SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
             List items = root.getChildren("set");

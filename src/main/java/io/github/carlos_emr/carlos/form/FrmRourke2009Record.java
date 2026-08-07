@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.dao.forms.Rourke2009DAO;
 import io.github.carlos_emr.carlos.form.model.FormRourke2009;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRourke2009Record extends FrmRecord {
     private static final String HEAD_CIRCUMFERENCE_GRAPH = "HEAD_CIRC";
@@ -89,13 +90,13 @@ public class FrmRourke2009Record extends FrmRecord {
 
         } else {
 
-            String sql = "SELECT * FROM formRourke2009 WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+            String sql = "SELECT * FROM formRourke2009 WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frmRec = new FrmRecordHelp();
             frmRec.setDateFormat("dd/MM/yyyy");
-            props = frmRec.getFormRecord(sql);
+            props = frmRec.getFormRecord(sql, demographicNo, existingID);
             sql = "SELECT demographic_no, CONCAT(last_name, ', ', first_name) AS pName, "
                     + "year_of_birth, month_of_birth, date_of_birth, sex, postal "
-                    + "FROM demographic WHERE demographic_no = " + demographicNo;
+                    + "FROM demographic WHERE demographic_no = ?";
             demo = demographicManager.getDemographic(loggedInInfo, demographicNo);
 
             if (demo != null) {
@@ -147,14 +148,16 @@ public class FrmRourke2009Record extends FrmRecord {
 
     public int saveFormRecord(Properties props) throws SQLException {
         String demographic_no = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formRourke2009 WHERE demographic_no=" + demographic_no + " AND ID=0";
+        String sql = "SELECT * FROM formRourke2009 WHERE demographic_no=? AND ID=0";
         FrmRecordHelp frmRec = new FrmRecordHelp();
         frmRec.setDateFormat("dd/MM/yyyy");
 
-        return frmRec.saveFormRecord(props, sql);
+        return frmRec.saveFormRecord(props, sql, demographic_no);
     }
 
     //////////////new/ Done By Jay////
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isFemale(LoggedInInfo loggedInInfo, int demoNo) {
         boolean retval = false;
         Demographic demo = demographicManager.getDemographic(loggedInInfo, demoNo);

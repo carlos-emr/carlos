@@ -34,9 +34,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -47,8 +47,9 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxUseFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -89,8 +90,6 @@ public final class RxUseFavorite2Action extends ActionSupport {
             // create Prescription
             RxPrescriptionData.Prescription rx =
                     rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), fav);
-
-            bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
 
             bean.setStashIndex(bean.addStashItem(loggedInInfo, rx));
             request.setAttribute("BoxNoFillFirstLoad", "true");
@@ -139,7 +138,6 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
             List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
             if (RxUtil.isRxUniqueInStash(bean, rx)) {
-                bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
                 listRxDrugs.add(rx);
                 int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
                 bean.setStashIndex(rxStashIndex);
@@ -163,6 +161,7 @@ public final class RxUseFavorite2Action extends ActionSupport {
         return (this.favoriteId);
     }
 
+    @StrutsParameter
     public void setFavoriteId(String favoriteId) {
         this.favoriteId = favoriteId;
     }

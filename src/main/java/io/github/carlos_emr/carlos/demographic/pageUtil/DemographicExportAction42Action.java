@@ -48,9 +48,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -75,6 +74,10 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
+import io.github.carlos_emr.carlos.commn.dao.Icd10Dao;
+import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
+import io.github.carlos_emr.carlos.commn.dao.SnomedCoreDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -115,11 +118,19 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import org.owasp.encoder.Encode;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -156,7 +167,7 @@ import cdsDt.ResidualInformation.DataElement;
 import cdsDt.ResultNormalAbnormalFlag;
 import cdsDt.YnIndicator;
 import cdsDt.YnIndicatorsimple.Enum;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -180,8 +191,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author Ronnie Cheng
@@ -192,16 +205,55 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-    private static final DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
-    private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    private static final HRMDocumentToDemographicDao hrmDocToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
-    private static final HRMDocumentDao hrmDocDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-    private static final HRMDocumentCommentDao hrmDocCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
-    private static final CaseManagementManager cmm = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-    private static final Hl7TextInfoDao hl7TxtInfoDao = (Hl7TextInfoDao) SpringUtils.getBean(Hl7TextInfoDao.class);
-    private static final Hl7TextMessageDao hl7TxtMssgDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
-    private static final DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
+    // Resolved on use, not at class load.
+    //
+    // These were `private static final X = SpringUtils.getBean(X.class)`, which runs during static
+    // initialization — so merely REFERENCING this class required a live Spring bean factory. A unit
+    // test touching the coding-system allowlist below (a plain Map.of constant needing no Spring at
+    // all) therefore died with ExceptionInInitializerError, and every subsequent test in the class
+    // with NoClassDefFoundError: "could not initialize class". CLAUDE.md forbids this shim in new
+    // code for the same reason; the beans are singletons, so resolving per call costs a map lookup
+    // and keeps no state that could go stale.
+    private static DemographicArchiveDao demoArchiveDao() {
+        return SpringUtils.getBean(DemographicArchiveDao.class);
+    }
+
+    private static DemographicContactDao contactDao() {
+        return SpringUtils.getBean(DemographicContactDao.class);
+    }
+
+    private static PartialDateDao partialDateDao() {
+        return SpringUtils.getBean(PartialDateDao.class);
+    }
+
+    private static HRMDocumentToDemographicDao hrmDocToDemographicDao() {
+        return SpringUtils.getBean(HRMDocumentToDemographicDao.class);
+    }
+
+    private static HRMDocumentDao hrmDocDao() {
+        return SpringUtils.getBean(HRMDocumentDao.class);
+    }
+
+    private static HRMDocumentCommentDao hrmDocCommentDao() {
+        return SpringUtils.getBean(HRMDocumentCommentDao.class);
+    }
+
+    private static CaseManagementManager cmm() {
+        return SpringUtils.getBean(CaseManagementManager.class);
+    }
+
+    private static Hl7TextInfoDao hl7TxtInfoDao() {
+        return SpringUtils.getBean(Hl7TextInfoDao.class);
+    }
+
+    private static Hl7TextMessageDao hl7TxtMssgDao() {
+        return SpringUtils.getBean(Hl7TextMessageDao.class);
+    }
+
+    private static DemographicExtDao demographicExtDao() {
+        return SpringUtils.getBean(DemographicExtDao.class);
+    }
+
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -218,17 +270,41 @@ public class DemographicExportAction42Action extends ActionSupport {
     private static final String REPORTBINARY = "Binary";
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
+    private static final String HTTP_METHOD_POST = "POST";
     public static final int CMS4 = 0;
     public static final int E2E = 1;
+
+    /** Characters unsafe in filenames across common filesystems; used to sanitize patient name components. */
+    private static final String UNSAFE_FILENAME_CHARS = "[/\\\\:*?\"<>|]";
+    private static final Set<String> ONTARIOMD_EXPORT_SCHEMA_IMPORTS = Set.of("EMR_Data_Migration_Schema_DT.xsd");
+
+    /**
+     * Allowlist of coding system names to their {@link AbstractCodeSystemDao} classes.
+     *
+     * <p>Replaces the previous {@code Class.forName()} reflection lookup (CWE-470) with
+     * a static, compile-time-safe map. Keys are lowercase coding system identifiers.
+     * Values read from {@code dxresearch.coding_system} are normalized to lowercase
+     * before lookup, so database casing differences do not break the mapping.</p>
+     *
+     * @since 2026-04-14
+     */
+    static final Map<String, Class<? extends AbstractCodeSystemDao>> ALLOWED_CODE_SYSTEM_DAOS = Map.of(
+            "icd9", Icd9Dao.class,
+            "icd10", Icd10Dao.class,
+            "snomedcore", SnomedCoreDao.class,
+            "msp", DiagnosticCodeDao.class
+    );
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
     HashMap<String, Integer> entries = new HashMap<String, Integer>();
-    OscarProperties oscarProperties = OscarProperties.getInstance();
+    CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         String strEditable = oscarProperties.getProperty("ENABLE_EDIT_APPT_STATUS");
@@ -241,6 +317,11 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographicExport", "r", null)) {
             throw new SecurityException("missing required security object (_demographicExport)");
+        }
+
+        boolean isExportSubmission = HTTP_METHOD_POST.equals(request.getMethod());
+        if (!isExportSubmission) {
+            return SUCCESS;
         }
 
         String setName = this.getPatientSet();
@@ -293,6 +374,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         String ffwd = "fail";
+        boolean fileStreamed = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
 
 
@@ -308,8 +390,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         switch (template) {
             case CMS4:
-                if (!new File(tmpDir).mkdir() || !Util.checkDir(tmpDir)) {
-                    logger.debug("Error! Cannot write to TMP_DIR - Check oscar.properties or dir permissions. (" + tmpDir + ")");
+                File exportDirectory = createTemporaryExportDirectory(tmpDir);
+                if (exportDirectory == null) {
+                    logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. (" + tmpDir + ")");
                 } else {
                     XmlOptions options = new XmlOptions();
                     options.put(XmlOptions.SAVE_PRETTY_PRINT);
@@ -348,7 +431,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             continue;
 
                         HashMap<String, String> demoExt = new HashMap<String, String>();
-                        demoExt.putAll(demographicExtDao.getAllValuesForDemo(Integer.parseInt(demoNo)));
+                        demoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(demoNo)));
 
                         OmdCdsDocument omdCdsDoc = OmdCdsDocument.Factory.newInstance();
                         OmdCdsDocument.OmdCds omdCds = omdCdsDoc.addNewOmdCds();
@@ -467,7 +550,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         }
 
 
-                        List<DemographicArchive> DAs = demoArchiveDao.findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
+                        List<DemographicArchive> DAs = demoArchiveDao().findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
                         Collections.reverse(DAs);
 
                         List<Enrolment> enList = new ArrayList<Enrolment>();
@@ -726,7 +809,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (!StringUtils.isNullOrEmpty(pi.getCity())) {
                                         address.setCity(StringUtils.maxLenString(StringUtils.noNull(pi.getCity()), 80, 79, ""));
                                     }
-                                    if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                    if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                         if (!StringUtils.isNullOrEmpty(pi.getProvince())) {
                                             address.setCountrySubdivisionCode(pi.getProvince());
                                         }
@@ -763,12 +846,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                         addReferringAndFamilyDoctor(loggedInInfo, demographic.getDemographicNo(), demo);
 
-                        List<CaseManagementNote> lcmn = cmm.getNotes(demoNo);
+                        List<CaseManagementNote> lcmn = cmm().getNotes(demoNo);
 
                         //find all "header"; cms4 only
                         List<CaseManagementNote> headers = new ArrayList<CaseManagementNote>();
                         for (CaseManagementNote cmn : lcmn) {
-                            if (cmn.getNote() != null && cmn.getNote().startsWith("imported.cms4.2011.06") && cmm.getLinkByNote(cmn.getId()).isEmpty())
+                            if (cmn.getNote() != null && cmn.getNote().startsWith("imported.cms4.2011.06") && cmm().getLinkByNote(cmn.getId()).isEmpty())
                                 headers.add(cmn);
                         }
 
@@ -804,14 +887,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     break;
                                 } else continue;
                             }
-                            if (!systemIssue && cmm.getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
+                            if (!systemIssue && cmm().getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
                                 encounter = cmn.getNote();
                                 if (encounter.startsWith("imported.cms4.2011.06"))
                                     continue; //this is a "header", cms4 only
                             }
 
                             annotation = getNonDumpNote(CaseManagementNoteLink.CASEMGMTNOTE, cmn.getId(), null);
-                            List<CaseManagementNoteExt> cmeList = cmm.getExtByNote(cmn.getId());
+                            List<CaseManagementNoteExt> cmeList = cmm().getExtByNote(cmn.getId());
 
 
                             if (exPersonalHistory) {
@@ -1187,7 +1270,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         cNote.addNewEventDateTime().setFullDateTime(Util.calDateTZD(cmn.getObservation_date()));
                                     }
 
-                                    List<CaseManagementNote> cmn_same = cmm.getNotesByUUID(cmn.getUuid());
+                                    List<CaseManagementNote> cmn_same = cmm().getNotesByUUID(cmn.getUuid());
                                     for (CaseManagementNote cm_note : cmn_same) {
 
                                         //participating providers
@@ -1287,11 +1370,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String code = dx.getCodingSystem().equalsIgnoreCase("icd9") ? Util.formatIcd9(dx.getDxresearchCode()) : dx.getDxresearchCode();
                                     diagnosis.setStandardCode(code);
 
-                                    AbstractCodeSystemDao dao = null;
-                                    try {
-                                        dao = (AbstractCodeSystemDao) SpringUtils.getBean(Class.forName("io.github.carlos_emr.carlos.commn.dao." + org.apache.commons.lang3.StringUtils.capitalize(dx.getCodingSystem()) + "Dao"));
-                                    } catch (ClassNotFoundException e) {
-                                        logger.warn("DAO class not found for coding system: " + dx.getCodingSystem(), e);
+                                    String codingSystem = dx.getCodingSystem();
+                                    Class<? extends AbstractCodeSystemDao> daoClass =
+                                            codingSystem == null ? null
+                                                    : ALLOWED_CODE_SYSTEM_DAOS.get(codingSystem.toLowerCase());
+                                    AbstractCodeSystemDao dao = (daoClass == null) ? null : SpringUtils.getBean(daoClass);
+                                    if (dao == null) {
+                                        logger.warn("Unknown coding system: {}", LogSafe.sanitize(codingSystem));
                                     }
                                     if (dao != null) {
                                         AbstractCodeSystemModel result = dao.findByCode(dx.getDxresearchCode());
@@ -1405,9 +1490,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
                                 if (allergy.getStartDate() != null) {
-                                    dateFormat = partialDateDao.getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_STARTDATE);
+                                    dateFormat = partialDateDao().getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_STARTDATE);
                                     Util.putPartialDate(alr.addNewStartDate(), allergy.getStartDate(), dateFormat);
-                                    aSummary = Util.addSummary(aSummary, "Start Date", partialDateDao.getDatePartial(allergy.getStartDate(), dateFormat));
+                                    aSummary = Util.addSummary(aSummary, "Start Date", partialDateDao().getDatePartial(allergy.getStartDate(), dateFormat));
                                 }
                                 if (allergy.getLifeStage() != null && "NICTA".contains(allergy.getLifeStage()) && allergy.getLifeStage().length() == 1) {
                                     alr.setLifeStage(cdsDt.LifeStage.Enum.forString(allergy.getLifeStage()));
@@ -1415,9 +1500,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
 
                                 if (allergies[j].getEntryDate() != null) {
-                                    dateFormat = partialDateDao.getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_ENTRYDATE);
+                                    dateFormat = partialDateDao().getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_ENTRYDATE);
                                     Util.putPartialDate(alr.addNewRecordedDate(), allergies[j].getEntryDate(), dateFormat);
-                                    aSummary = Util.addSummary(aSummary, "Recorded Date", partialDateDao.getDatePartial(allergies[j].getEntryDate(), dateFormat));
+                                    aSummary = Util.addSummary(aSummary, "Recorded Date", partialDateDao().getDatePartial(allergies[j].getEntryDate(), dateFormat));
                                 }
 
                                 annotation = getNonDumpNote(CaseManagementNoteLink.ALLERGIES, (long) allergies[j].getAllergyId(), null);
@@ -1540,12 +1625,12 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     immu.addNewDate().setFullDate(Util.calDate(preventionDate));
                                     imSummary = Util.addSummary(imSummary, "Date", preventionDate);
                                 } else { // partial date
-                                    String dateFormat = partialDateDao.getFormat(PartialDate.PREVENTION, Integer.parseInt((String) prevMap.get("id")), PartialDate.PREVENTION_PREVENTIONDATE);
+                                    String dateFormat = partialDateDao().getFormat(PartialDate.PREVENTION, Integer.parseInt((String) prevMap.get("id")), PartialDate.PREVENTION_PREVENTIONDATE);
                                     String sdfFormat = getSimpleDateFormatFromPatientDateFormat(dateFormat);
                                     if (UtilDateUtilities.StringToDate(preventionDate, sdfFormat) != null) {
                                         Date prevDate = UtilDateUtilities.StringToDate(preventionDate, sdfFormat);
                                         Util.putPartialDate(immu.addNewDate(), prevDate, dateFormat);
-                                        imSummary = Util.addSummary(imSummary, "Date", partialDateDao.getDatePartial(prevDate, dateFormat));
+                                        imSummary = Util.addSummary(imSummary, "Date", partialDateDao().getDatePartial(prevDate, dateFormat));
                                     } else {
                                         logger.error("Failed to export immunization date.");
                                     }
@@ -1580,16 +1665,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 MedicationsAndTreatments medi = patientRec.addNewMedicationsAndTreatments();
                                 String mSummary = "";
                                 if (arr[p].getWrittenDate() != null) {
-                                    String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_WRITTENDATE);
+                                    String dateFormat = partialDateDao().getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_WRITTENDATE);
                                     Util.putPartialDate(medi.addNewPrescriptionWrittenDate(), arr[p].getWrittenDate(), dateFormat);
-                                    mSummary = Util.addSummary("Prescription Written Date", partialDateDao.getDatePartial(arr[p].getWrittenDate(), dateFormat));
+                                    mSummary = Util.addSummary("Prescription Written Date", partialDateDao().getDatePartial(arr[p].getWrittenDate(), dateFormat));
                                 }
                                 if (arr[p].getRxDate() != null) {
                                     //medi.addNewStartDate().setFullDate(Util.calDate(arr[p].getRxDate()));
                                     //mSummary = Util.addSummary(mSummary,"Start Date", UtilDateUtilities.DateToString(arr[p].getRxDate(),"yyyy-MM-dd"));
-                                    String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
+                                    String dateFormat = partialDateDao().getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
                                     Util.putPartialDate(medi.addNewStartDate(), arr[p].getRxDate(), dateFormat);
-                                    mSummary = Util.addSummary("Start Date", partialDateDao.getDatePartial(arr[p].getRxDate(), dateFormat));
+                                    mSummary = Util.addSummary("Start Date", partialDateDao().getDatePartial(arr[p].getRxDate(), dateFormat));
                                 }
                                 String regionalId = arr[p].getRegionalIdentifier();
                                 if (StringUtils.filled(regionalId)) {
@@ -1859,10 +1944,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                             // LABORATORY RESULTS
 
                             //get lab readings from hl7 tables
-                            List<Object[]> infos = hl7TxtInfoDao.findByDemographicId(Integer.valueOf(demoNo));
+                            List<Object[]> infos = hl7TxtInfoDao().findByDemographicId(Integer.valueOf(demoNo));
                             for (Object[] info : infos) {
                                 Hl7TextInfo hl7TxtInfo = (Hl7TextInfo) info[0];
-                                Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(hl7TxtInfo.getLabNumber());
+                                Hl7TextMessage hl7TextMessage = hl7TxtMssgDao().find(hl7TxtInfo.getLabNumber());
                                 if (hl7TextMessage == null) continue;
 
                                 String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
@@ -1887,10 +1972,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         }
                                     }
 
-                                    if (!h.getMsgType().equals("PFHT")) {
-                                        testNameReportedByLab = null;
+                                    testNameReportedByLab = null;
+                                    if (h.getOBXCount(i) > 0) {
                                         for (int k=0; k < h.getOBRCommentCount(i); k++) {
-                                            if (h.getOBXName(i, 0).equals("")) { testNameReportedByLab = h.getOBRName(i); }
+                                            if (h.getOBXName(i, 0).isEmpty()) { testNameReportedByLab = h.getOBRName(i); }
                                             comments = h.getOBRComment(i, k);
                                             if (StringUtils.filled(comments)) {
                                                 comments = comments.replace("<br />", "\\.br\\");
@@ -1910,7 +1995,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 					String lab_no = labMea.getExtVal("lab_no");
 					if (StringUtils.filled(lab_no)) {
-						Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(Integer.valueOf(lab_no));
+						Hl7TextMessage hl7TextMessage = hl7TxtMssgDao().find(Integer.valueOf(lab_no));
 						String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
 						MessageHandler h = Factory.getHandler(hl7TextMessage.getType(), hl7Body);
 						for (int i=0; i<h.getOBRCount(); i++) {
@@ -2016,7 +2101,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                             for (int j = 0; j < edoc_list.size(); j++) {
                                 EDoc edoc = edoc_list.get(j);
 
-                                File f = new File(edoc.getFilePath());
+                                File f;
+                                try {
+                                    f = validateExportDocument(edoc);
+                                } catch (SecurityException e) {
+                                    exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
+                                    logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
+                                    continue;
+                                }
                                 if (!f.exists()) {
                                     exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
                                 } else if (f.length() > Runtime.getRuntime().freeMemory()) {
@@ -2032,16 +2124,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     rpr.setFormat(cdsDt.ReportFormat.TEXT);
 
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
-                                    InputStream in = new FileInputStream(f);
-                                    byte[] b = new byte[(int) f.length()];
-
-                                    int offset = 0, numRead = 0;
-                                    while ((numRead = in.read(b, offset, b.length - offset)) >= 0
-                                            && offset < b.length) offset += numRead;
-
-                                    if (offset < b.length)
-                                        throw new IOException("Could not completely read file " + f.getName());
-                                    in.close();
+                                    byte[] b = readExportDocumentBytes(f);
                                     if (edoc.getContentType() != null && edoc.getContentType().startsWith("text")) {
                                         String str = new String(b);
                                         rpc.setTextContent(str);
@@ -2106,30 +2189,30 @@ public class DemographicExportAction42Action extends ActionSupport {
                             }
 
                             //HRM reports
-                            List<HRMDocumentToDemographic> hrmDocToDemographics = hrmDocToDemographicDao.findByDemographicNo(demoNo);
+                            List<HRMDocumentToDemographic> hrmDocToDemographics = hrmDocToDemographicDao().findByDemographicNo(demoNo);
                             for (HRMDocumentToDemographic hrmDocToDemographic : hrmDocToDemographics) {
                                 String hrmDocumentId = hrmDocToDemographic.getHrmDocumentId() + "";
-                                List<HRMDocument> hrmDocs = hrmDocDao.findById(Integer.valueOf(hrmDocumentId));
+                                List<HRMDocument> hrmDocs = hrmDocDao().findById(Integer.valueOf(hrmDocumentId));
                                 for (HRMDocument hrmDoc : hrmDocs) {
                                     String reportFile = hrmDoc.getReportFile();
                                     if (StringUtils.empty(reportFile)) continue;
 
-                                    File hrmFile = new File(reportFile);
-
-                                    //check the DOCUMENT_DIR
-                                    if (!hrmFile.exists()) {
-                                        String place = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-                                        reportFile = place + File.separator + reportFile;
-                                        hrmFile = new File(reportFile);
+                                    File hrmFile;
+                                    try {
+                                        hrmFile = resolveHrmReportFile(reportFile);
+                                    } catch (SecurityException e) {
+                                        exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
+                                        logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
+                                        continue;
                                     }
 
-                                    if (!hrmFile.exists()) {
+                                    if (hrmFile == null) {
                                         exportError.add("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
                                         logger.error("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
                                         continue;
                                     }
 
-                                    ReadHRMFile hrm = new ReadHRMFile(reportFile);
+                                    ReadHRMFile hrm = new ReadHRMFile(hrmFile.getPath());
                                     for (int i = 0; i < hrm.getReportsReceivedTotal(); i++) {
                                         Reports rpr = patientRec.addNewReports();
 
@@ -2278,7 +2361,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 							}*/
 
                                         //Notes
-                                        List<HRMDocumentComment> comments = hrmDocCommentDao.getCommentsForDocument(Integer.parseInt(hrmDocumentId));
+                                        List<HRMDocumentComment> comments = hrmDocCommentDao().getCommentsForDocument(Integer.parseInt(hrmDocumentId));
                                         String notes = null;
                                         for (HRMDocumentComment comment : comments) {
                                             notes = Util.addLine(notes, comment.getComment());
@@ -2520,52 +2603,79 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
                         //export file to temp directory
+                        int fileCountBefore = files.size();
                         try {
-                            File directory = new File(tmpDir);
+                            File directory = exportDirectory;
                             if (!directory.exists()) {
                                 //this would never happen
                                 throw new Exception("Temporary Export Directory does not exist!");
                             }
 
                             //Standard format for xml exported file : PatientFN_PatientLN_PatientUniqueID_DOB (DOB: ddmmyyyy)
-                            String expFile = demographic.getFirstName() + "_" + demographic.getLastName();
+                            // Sanitize name components to remove path separators and other unsafe characters
+                            String safeFirst = demographic.getFirstName() != null ? demographic.getFirstName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String safeLast = demographic.getLastName() != null ? demographic.getLastName().replaceAll(UNSAFE_FILENAME_CHARS, "") : "";
+                            String expFile = safeFirst + "_" + safeLast;
                             expFile += "_" + demoNo;
                             expFile += "_" + demographic.getDateOfBirth() + demographic.getMonthOfBirth() + demographic.getYearOfBirth();
-                            files.add(new File(directory, expFile + ".xml"));
-                            dirs.add(getProviderName(demographic.getProviderNo()));
+                            // Compute both values before adding to either list so that if
+                            // getProviderName() throws, neither list is modified (atomic add).
+                            File validatedFile = validateExportFile(expFile + ".xml", directory);
+                            String providerName = getProviderName(demographic.getProviderNo());
+                            files.add(validatedFile);
+                            dirs.add(providerName);
                         } catch (Exception e) {
                             logger.error("Error", e);
                         }
+                        // Guard: only write if a new file entry was successfully added above.
+                        // Without this check, a validation failure would cause us to write
+                        // this patient's data into the previous patient's export file (PHI leak).
+                        if (files.size() <= fileCountBefore) {
+                            continue;
+                        }
                         try {
-                            FileWriter fw = new FileWriter(files.get(files.size() - 1));
-                            omdCdsDoc.save(fw, options);
-                            fw.flush();
-                            fw.close();
+                            saveExportFile(omdCdsDoc, options, files.get(files.size() - 1));
 
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
-                            logger.error("Error", ex);
-                            throw new Exception("Cannot write .xml file(s) to export directory.\n Please check directory permissions.");
+                            logger.error("Error writing export file to directory", ex);
+                            // Remove the file entry that could not be written so the list stays consistent
+                            if (!files.isEmpty()) {
+                                files.remove(files.size() - 1);
+                                dirs.remove(dirs.size() - 1);
+                            }
+                            ffwd = "fail";
+                            break;
                         }
                     }
 
                     // Validate export against xsd
+                    // The export filename is PHI, not an identifier: it is composed as
+                    // First_Last_demographicNo_DDMMYYYY a few lines above, so logging it writes a
+                    // patient's name and date of birth into the operator log. The log line carries
+                    // the position in the batch instead, which is what an operator needs to correlate
+                    // with the returned error list; the message shown to the USER may still name the
+                    // file, because that reader is already authorized to see this export.
+                    int exportIndex = 0;
                     for (File f : files) {
+                        exportIndex++;
                         Boolean valid = validateExport(f);
                         if (!valid) {
                             String msg = "Exported file " + f.getName() + " fails OntarioMD XSD validation";
-                            logger.warn(msg);
+                            logger.warn("Exported file {} of {} fails OntarioMD XSD validation",
+                                    exportIndex, files.size());
                             exportError.add(msg);
                         } else {
-                            logger.info("Exported file " + f.getName() + " is valid");
+                            logger.info("Exported file {} of {} is valid", exportIndex, files.size());
                         }
 
                     }
 
                     if (files.isEmpty()) {
                         logger.warn("no files to export");
-                        return "fail";
+                        ffwd = "fail";
+                        break;
                     }
 
                     //create ReadMe.txt & ExportEvent.log
@@ -2586,10 +2696,27 @@ public class DemographicExportAction42Action extends ActionSupport {
                     }
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
-                    // Sanitize zipName to prevent path traversal
-                    zipName = MiscUtils.sanitizeFileName(zipName);
+                    try {
+                        zipName = validateExportZipName(zipName, exportDirectory);
+                    } catch (FileValidationException e) {
+                        logger.warn("Rejected invalid demographic export zip filename");
+                        exportError.add("Error! Invalid export zip filename.");
+                        setExportStatusHeader(response, "error");
+                        ffwd = "fail";
+                        Util.cleanFiles(files);
+                        Util.cleanFile(tmpDir);
+                        break;
+                    }
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
-                        logger.debug("Error! Failed to zip export files");
+                        // A failed zip must STOP the export: otherwise the code below encrypts/downloads a
+                        // missing/broken file while reporting success to the user.
+                        logger.error("Error! Failed to zip export files");
+                        exportError.add("Error! Failed to create the export zip.");
+                        setExportStatusHeader(response, "error");
+                        ffwd = "fail";
+                        Util.cleanFiles(files);
+                        Util.cleanFile(tmpDir);
+                        break;
                     }
 
                     if (pgpReady.equals("Yes")) {
@@ -2597,28 +2724,32 @@ public class DemographicExportAction42Action extends ActionSupport {
                         PGPEncrypt pgp = new PGPEncrypt();
                         if (pgp.encrypt(zipName, tmpDir)) {
 
-                            // Set success cookie before download so JS knows export completed
-                            setExportStatusCookie(response, "success");
+                            // Set export status header so client-side JS knows export completed
+                            setExportStatusHeader(response, "success");
                             Util.downloadFile(zipName + ".pgp", tmpDir, response);
                             Util.cleanFile(zipName + ".pgp", tmpDir);
                             ffwd = "success";
+                            fileStreamed = true;
 
                         } else {
-                            setExportStatusCookie(response, "error");
+                            setExportStatusHeader(response, "error");
+                            // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
                         }
                     } else {
 
-                        if (!"true".equals(OscarProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
+                        if (!"true".equals(CarlosProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
                             logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
 
-                            // Set success cookie before download so JS knows export completed
-                            setExportStatusCookie(response, "success");
+                            // Set export status header so client-side JS knows export completed
+                            setExportStatusHeader(response, "success");
                             Util.downloadFile(zipName, tmpDir, response);
                             ffwd = "success";
+                            fileStreamed = true;
                         } else {
-                            setExportStatusCookie(response, "error");
+                            setExportStatusHeader(response, "error");
+                            // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
                         }
@@ -2638,7 +2769,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             // Remove unused E2E tools.
 //		case E2E:
 //			if (!Util.checkDir(tmpDir)) {
-//				logger.debug("Error! Cannot write to TMP_DIR - Check oscar.properties or dir permissions.");
+//				logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions.");
 //			} else {
 //				ArrayList<File> files = new ArrayList<File>();
 //				StringBuilder exportLog = new StringBuilder();
@@ -2740,9 +2871,144 @@ public class DemographicExportAction42Action extends ActionSupport {
                 break;
         }
 
-        return ffwd;
+        String exportedIds = null;
+        String exportOutcome = ffwd;
+        String exportException = null;
+        try {
+            StringBuilder exportedIdsBuilder = new StringBuilder();
+            boolean truncated = false;
+            for (String id : list) {
+                if (id == null) {
+                    continue;
+                }
+                if (exportedIdsBuilder.length() > 0) {
+                    if (exportedIdsBuilder.length() + 1 > 500) {
+                        truncated = true;
+                        break;
+                    }
+                    exportedIdsBuilder.append(',');
+                }
+                if (exportedIdsBuilder.length() + id.length() > 500) {
+                    truncated = true;
+                    break;
+                }
+                exportedIdsBuilder.append(id);
+            }
+            exportedIds = exportedIdsBuilder.toString();
+            if (truncated && !exportedIds.isEmpty()) {
+                int lastComma = exportedIds.lastIndexOf(',');
+                if (lastComma > 0) {
+                    exportedIds = exportedIds.substring(0, lastComma);
+                }
+                exportedIds = exportedIds + "...";
+            }
+        } catch (RuntimeException e) {
+            // Ensure failures in the export tail are still audited without exposing PHI
+            exportOutcome = "error";
+            exportException = e.getClass().getSimpleName();
+            throw e;
+        } finally {
+            if (exportedIds == null) {
+                exportedIds = "<unavailable>";
+            }
+            OscarLog exportAuditLog = new OscarLog();
+            if (loggedInInfo.getLoggedInSecurity() != null) {
+                exportAuditLog.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+            }
+            if (loggedInInfo.getLoggedInProvider() != null) {
+                exportAuditLog.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+            }
+            exportAuditLog.setAction(LogConst.EXPORT);
+            exportAuditLog.setContent(LogConst.CON_DEMOGRAPHIC);
+            exportAuditLog.setIp(loggedInInfo.getIp());
+            StringBuilder dataBuilder = new StringBuilder();
+            dataBuilder.append("Exported ").append(list.size()).append(" records; outcome=").append(exportOutcome);
+            if (exportException != null) {
+                dataBuilder.append("; error=").append(exportException);
+            }
+            dataBuilder.append("; ids=").append(exportedIds);
+            exportAuditLog.setData(dataBuilder.toString());
+            LogAction.addLogSynchronous(exportAuditLog);
+        }
+        // When a file was streamed to the response, return null to prevent Struts
+        // from rendering a JSP result into the already-committed response.
+        return fileStreamed ? null : ffwd;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: temporary export directory path is derived from trusted TMP_DIR configuration plus a random suffix
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "temporary export directory path is derived from trusted TMP_DIR configuration plus a random suffix")
+    private File createTemporaryExportDirectory(String tmpDir) throws Exception {
+        File directory = new File(tmpDir);
+        if (!directory.mkdir() || !Util.checkDir(tmpDir)) {
+            return null;
+        }
+        return directory;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: document file path is validated against DOCUMENT_DIR before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "document file path is validated against DOCUMENT_DIR before use")
+    private File validateExportDocument(EDoc edoc) {
+        return PathValidationUtils.validateExistingPath(
+                new File(edoc.getFilePath()),
+                new File(oscarProperties.getProperty("DOCUMENT_DIR")));
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: FileInputStream reads only from a previously PathValidationUtils-validated document path
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileInputStream reads only from a previously PathValidationUtils-validated document path")
+    private byte[] readExportDocumentBytes(File file) throws IOException {
+        byte[] bytes = new byte[(int) file.length()];
+        try (InputStream in = new FileInputStream(file)) {
+            int offset = 0;
+            int numRead;
+            while ((numRead = in.read(bytes, offset, bytes.length - offset)) >= 0
+                    && offset < bytes.length) {
+                offset += numRead;
+            }
+            if (offset < bytes.length) {
+                throw new IOException("Could not completely read file " + file.getName());
+            }
+        }
+        return bytes;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: HRM report path is validated against DOCUMENT_DIR before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "HRM report path is validated against DOCUMENT_DIR before use")
+    private File resolveHrmReportFile(String reportFile) {
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File hrmFile = new File(reportFile);
+        if (!hrmFile.exists()) {
+            hrmFile = new File(documentDir, reportFile);
+        }
+        if (!hrmFile.exists()) {
+            return null;
+        }
+        return PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: generated export file name is validated inside the temporary export directory before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "generated export file name is validated inside the temporary export directory before use")
+    private File validateExportFile(String generatedFileName, File directory) {
+        return PathValidationUtils.validatePath(generatedFileName, directory);
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: FileWriter writes only to a previously PathValidationUtils-validated export path
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileWriter writes only to a previously PathValidationUtils-validated export path")
+    private void saveExportFile(OmdCdsDocument omdCdsDoc, XmlOptions options, File exportFile) throws IOException {
+        try (FileWriter fw = new FileWriter(exportFile)) {
+            omdCdsDoc.save(fw, options);
+            fw.flush();
+        }
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: generated zip file name is validated inside the temporary export directory before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "generated zip file name is validated inside the temporary export directory before use")
+    private String validateExportZipName(String zipName, File exportDirectory) {
+        String safeZipName = PathValidationUtils.validateGeneratedFileName(zipName);
+        return PathValidationUtils.validateUserFilePath(safeZipName, exportDirectory).getName();
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: ReadMe path is generated inside the previously validated temporary export directory
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "ReadMe path is generated inside the previously validated temporary export directory")
     File makeReadMe(ArrayList<String> dirs, ArrayList<File> fs) throws IOException {
         ClinicData clinicData = new ClinicData();
         File readMe = new File(fs.get(0).getParentFile(), "ReadMe.txt");
@@ -2756,7 +3022,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         out.write("CMS Vendor, Product & Version : ");
         String vendor = oscarProperties.getProperty("Vendor_Product");
         if (StringUtils.empty(vendor)) {
-            exportError.add("Error! Vendor_Product not defined in oscar.properties");
+            exportError.add("Error! Vendor_Product not defined in carlos.properties");
         } else {
             out.write(vendor);
         }
@@ -2764,7 +3030,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         out.write("Application Support Contact   : ");
         String support = oscarProperties.getProperty("Support_Contact");
         if (StringUtils.empty(support)) {
-            exportError.add("Error! Support_Contact not defined in oscar.properties");
+            exportError.add("Error! Support_Contact not defined in carlos.properties");
         } else {
             out.write(support);
         }
@@ -2800,6 +3066,8 @@ public class DemographicExportAction42Action extends ActionSupport {
         return readMe;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: export log path is generated inside the previously validated temporary export directory
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "export log path is generated inside the previously validated temporary export directory")
     File makeExportLog(File dir) throws IOException {
         String[][] keyword = new String[2][16];
         keyword[0][0] = PATIENTID;
@@ -2968,12 +3236,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         List<CaseManagementNoteLink> cmll;
         if (StringUtils.empty(otherId))
-            cmll = cmm.getLinkByTableIdDesc(tableName, tableId);
+            cmll = cmm().getLinkByTableIdDesc(tableName, tableId);
         else
-            cmll = cmm.getLinkByTableIdDesc(tableName, tableId, otherId);
+            cmll = cmm().getLinkByTableIdDesc(tableName, tableId, otherId);
 
         for (CaseManagementNoteLink cml : cmll) {
-            CaseManagementNote n = cmm.getNote(cml.getNoteId().toString());
+            CaseManagementNote n = cmm().getNote(cml.getNoteId().toString());
             if (n.getNote() != null && !n.getNote().startsWith("imported.cms4.2011.06")) {//not from dumpsite
                 note = n.getNote();
                 break;
@@ -2982,6 +3250,8 @@ public class DemographicExportAction42Action extends ActionSupport {
         return note;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String formatHrmEnum(String hrmEnum) {
         if (StringUtils.empty(hrmEnum)) return null;
 
@@ -3006,7 +3276,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         ContactDao cDao = SpringUtils.getBean(ContactDao.class);
 
 
-        List<DemographicContact> demoContacts = contactDao.findByDemographicNoAndCategory(demoNo, "professional");
+        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(demoNo, "professional");
         for (DemographicContact dc : demoContacts) {
             if ("Referring Doctor".equals(dc.getRole())) {
                 if (dc.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
@@ -3045,8 +3315,10 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void addDemographicContacts(LoggedInInfo loggedInInfo, String demoNo, Demographics demo) {
-        List<DemographicContact> demoContacts = contactDao.findByDemographicNoAndCategory(Integer.valueOf(demoNo), "personal");
+        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(Integer.valueOf(demoNo), "personal");
         DemographicContact demoContact;
 
         //create a list of contactIds
@@ -3168,7 +3440,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         if (type == DemographicContact.TYPE_DEMOGRAPHIC) {
             Demographic relDemo = new DemographicData().getDemographic(loggedInInfo, contactId);
             HashMap<String, String> relDemoExt = new HashMap<String, String>();
-            relDemoExt.putAll(demographicExtDao.getAllValuesForDemo(Integer.parseInt(contactId)));
+            relDemoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(contactId)));
 
             Util.writeNameSimple(contact.addNewName(), relDemo.getFirstName(), relDemo.getLastName());
             if (StringUtils.empty(relDemo.getFirstName())) {
@@ -3534,37 +3806,28 @@ public class DemographicExportAction42Action extends ActionSupport {
     public Boolean validateExport(File f) {
         Boolean result = true;
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        
+        DocumentBuilderFactory factory = null;
         try {
-            // Disable external entities to prevent XXE attacks
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            factory.setXIncludeAware(false);
-            
-            // Disabled expansion of entity references
-            factory.setExpandEntityReferences(false);
+            factory = XmlUtils.createSecureDocumentBuilderFactory();
+            factory.setNamespaceAware(true);
         } catch (ParserConfigurationException e) {
-            logger.error("Failed to configure XML parser security features", e);
-            return false;
-        }
-        
-        DocumentBuilder builder = null;
-        try {
-            builder = factory.newDocumentBuilder();
-        } catch (ParserConfigurationException e1) {
-            logger.error("Parse exception", e1);
+            logger.error("Failed to create secure XML parser factory", e);
             return false;
         }
 
         URL url = getClass().getResource("/omdDataMigration/EMR_Data_Migration_Schema.xsd");
-        String constant = XMLConstants.W3C_XML_SCHEMA_NS_URI;
-        SchemaFactory xsdFactory = SchemaFactory.newInstance(constant);
+        SchemaFactory xsdFactory;
+        try {
+            xsdFactory = XmlUtils.createSecureSchemaFactory(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            // The OntarioMD export schema imports this bundled DT schema; all other imports remain blocked.
+            xsdFactory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                    DemographicExportAction42Action.class,
+                    "/omdDataMigration/",
+                    ONTARIOMD_EXPORT_SCHEMA_IMPORTS));
+        } catch (SAXException e) {
+            logger.error("Failed to create secure schema factory", e);
+            return false;
+        }
         Schema schema = null;
         try {
             schema = xsdFactory.newSchema(url);
@@ -3572,8 +3835,14 @@ public class DemographicExportAction42Action extends ActionSupport {
             logger.error("Parse exception", e);
             return false;
         }
-        factory.setSchema(schema);
 
+        DocumentBuilder builder = null;
+        try {
+            builder = factory.newDocumentBuilder();
+        } catch (ParserConfigurationException e1) {
+            logger.error("Parse exception", e1);
+            return false;
+        }
 
         Document doc = null;
         try {
@@ -3587,7 +3856,13 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         // Check whether document is valid; validation stops at first error detected.
-        Validator validator = schema.newValidator();
+        Validator validator;
+        try {
+            validator = XmlUtils.createSecureValidator(schema); // nosemgrep: validator-xxe -- XXE protection applied by XmlUtils.createSecureValidator()
+        } catch (SAXException e) {
+            logger.error("Failed to create secure validator", e);
+            return false;
+        }
         try {
             validator.validate(new DOMSource(doc));
         } catch (SAXException e) {
@@ -3726,74 +4001,92 @@ public class DemographicExportAction42Action extends ActionSupport {
      *
      * @param demographicNo
      */
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
 
+    @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
 
+    @StrutsParameter
     public void setPgpReady(String pgpReady) {
         this.pgpReady = pgpReady;
     }
 
+    @StrutsParameter
     public void setTemplate(String template) {
         this.template = template;
     }
 
+    @StrutsParameter
     public void setExPersonalHistory(boolean rhs) {
         this.exPersonalHistory = rhs;
     }
 
+    @StrutsParameter
     public void setExFamilyHistory(boolean rhs) {
         this.exFamilyHistory = rhs;
     }
 
+    @StrutsParameter
     public void setExPastHealth(boolean rhs) {
         this.exPastHealth = rhs;
     }
 
+    @StrutsParameter
     public void setExProblemList(boolean rhs) {
         this.exProblemList = rhs;
     }
 
+    @StrutsParameter
     public void setExRiskFactors(boolean rhs) {
         this.exRiskFactors = rhs;
     }
 
+    @StrutsParameter
     public void setExAllergiesAndAdverseReactions(boolean rhs) {
         this.exAllergiesAndAdverseReactions = rhs;
     }
 
+    @StrutsParameter
     public void setExMedicationsAndTreatments(boolean rhs) {
         this.exMedicationsAndTreatments = rhs;
     }
 
+    @StrutsParameter
     public void setExImmunizations(boolean rhs) {
         this.exImmunizations = rhs;
     }
 
+    @StrutsParameter
     public void setExLaboratoryResults(boolean rhs) {
         this.exLaboratoryResults = rhs;
     }
 
+    @StrutsParameter
     public void setExAppointments(boolean rhs) {
         this.exAppointments = rhs;
     }
 
+    @StrutsParameter
     public void setExClinicalNotes(boolean rhs) {
         this.exClinicalNotes = rhs;
     }
 
+    @StrutsParameter
     public void setExReportsReceived(boolean rhs) {
         this.exReportsReceived = rhs;
     }
 
+    @StrutsParameter
     public void setExAlertsAndSpecialNeeds(boolean rhs) {
         this.exAlertsAndSpecialNeeds = rhs;
     }
 
+    @StrutsParameter
     public void setExCareElements(boolean rhs) {
         this.exCareElements = rhs;
     }
@@ -3802,26 +4095,24 @@ public class DemographicExportAction42Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
 
     /**
-     * Sets a cookie to signal export status to the client-side JavaScript.
+     * Sets a response header to signal export status to the client-side JavaScript.
      * This allows the UI to know when the export has completed or failed.
      *
-     * <p>The Secure flag is set based on the request protocol - only set for HTTPS
-     * to ensure the cookie works in both development (HTTP) and production (HTTPS).</p>
+     * <p>Replaces the previous cookie-based approach to eliminate code-scanning alerts
+     * for missing HttpOnly/SameSite attributes. The client reads this header from the
+     * {@code fetch()} response instead of polling {@code document.cookie}.</p>
      *
-     * @param response the HTTP response to add the cookie to
+     * @param response the HTTP response to add the header to
      * @param status the export status ("success" or "error")
      */
-    private void setExportStatusCookie(HttpServletResponse response, String status) {
-        Cookie cookie = new Cookie("exportStatus", status);
-        cookie.setPath("/");
-        cookie.setMaxAge(60);
-        cookie.setSecure(request.isSecure());
-        response.addCookie(cookie);
+    private void setExportStatusHeader(HttpServletResponse response, String status) {
+        response.setHeader("X-Export-Status", status);
     }
 }
 

@@ -12,15 +12,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for managing Ocean eReferral consultation attachments.
@@ -61,6 +63,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2026-01-24
  */
 public class ERefer2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -83,7 +87,14 @@ public class ERefer2Action extends ActionSupport {
      *
      * @return String always returns {@link ActionSupport#SUCCESS} regardless of routing or execution outcome
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+
         String method = request.getParameter("method");
 
         if (method != null) {
@@ -155,8 +166,10 @@ public class ERefer2Action extends ActionSupport {
         EReferAttachmentDao eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDao.class);
         eReferAttachmentDao.persist(eReferAttachment);
 
+        response.setContentType("text/plain");
+        response.setCharacterEncoding("UTF-8");
         try (PrintWriter writer = response.getWriter()) {
-            writer.write(eReferAttachment.getId().toString());
+            writer.write(eReferAttachment.getId().toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- text/plain response writing numeric database ID
         } catch (IOException e) {
             logger.error("Failed to write the eReferAttachment ID to the response", e);
         }

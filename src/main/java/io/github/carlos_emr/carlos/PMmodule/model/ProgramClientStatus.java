@@ -27,9 +27,13 @@
 
 package io.github.carlos_emr.carlos.PMmodule.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 
-
+@Entity
+@Table(name = "program_clientstatus")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ProgramClientStatus implements Serializable {
     public static String REF = "ProgramClientStatus";
 
@@ -62,6 +66,9 @@ public class ProgramClientStatus implements Serializable {
      * generator-class="native"
      * column="clientstatus_id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "clientstatus_id")
     public Integer getId() {
         return id;
     }
@@ -79,6 +86,7 @@ public class ProgramClientStatus implements Serializable {
     /**
      * Return the value associated with the column: name
      */
+    @jakarta.persistence.Column(name = "name", length = 255)
     public String getName() {
         return name;
     }
@@ -95,6 +103,7 @@ public class ProgramClientStatus implements Serializable {
     /**
      * Return the value associated with the column: program_id
      */
+    @jakarta.persistence.Column(name = "program_id")
     public Integer getProgramId() {
         return programId;
     }

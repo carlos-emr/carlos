@@ -24,9 +24,9 @@ allowed-tools:
   - Bash(ls /workspace/.playwright-mcp/*)
   - Bash(wc *)
   - Bash(curl * http://localhost:8080/*)
-  - Bash(mysql -h db -uroot -ppassword oscar *)
-  - Bash(mysql -h db -uroot -ppassword oscar -e *)
-  - Bash(mysql * oscar * 2>&1 | tail -1)
+  - Bash(mariadb -h db -uroot -ppassword oscar *)
+  - Bash(mariadb -h db -uroot -ppassword oscar -e *)
+  - Bash(mariadb * oscar * 2>&1 | tail -1)
   - Bash(date *)
   - Bash(TIMESTAMP=*)
   - Write(path:ui-test-runs/**)
@@ -63,7 +63,7 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE demographic_no = 1;"`
+2. **Database Check**: Run `mariadb -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE demographic_no = 1;"`
    - Expected: Shows FAKE-Jones patient exists
 
 **If checks fail**: Run `server start` to start Tomcat, or check `server log` for errors.
@@ -74,7 +74,7 @@ Follow the 15-step workflow defined in `docs/ui-tests/test-3/test-3-EXECUTION.md
 
 ### Phase 1: Authentication & Schedule Access (Steps 1-3)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Day Schedule** - View provider schedule, screenshot
 
 ### Phase 2: Schedule Navigation (Steps 4-5)
@@ -142,7 +142,7 @@ The patient search uses an **autocomplete widget**:
 
 ```
 Patient: FAKE-Jacky, FAKE-Jones (ID: 1)
-Provider: openodoc
+Provider: carlosdoc
 Reason: UI Test Appointment
 Notes: Created by UI Test 3
 ```

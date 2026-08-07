@@ -26,9 +26,10 @@ package io.github.carlos_emr.carlos.prescript.web;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -38,13 +39,17 @@ import io.github.carlos_emr.carlos.commn.model.Favorites;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  *
  * @author toby
  */
 public class CopyFavorites2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -54,6 +59,11 @@ public class CopyFavorites2Action extends ActionSupport {
     FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
     
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
         String method = request.getParameter("dispatch");
         if ("update".equals(method)) {
             return update();
@@ -86,6 +96,11 @@ public class CopyFavorites2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public String copy() {
         logger.debug("copyFavorites-copy");
 
@@ -93,7 +108,6 @@ public class CopyFavorites2Action extends ActionSupport {
         //String providerNo = lazyForm.get("userProviderNo").toString();
         
         String providerNo = request.getParameter("providerNo");
-        //if ( lazyForm.get("ddl_provider") == null || lazyForm.get("ddl_provider").toString()=="")
         if (request.getParameter("ddl_provider") == null || request.getParameter("ddl_provider").equals(""))
             return SUCCESS;
 

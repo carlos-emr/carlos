@@ -29,8 +29,9 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -41,12 +42,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctDeleteData2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -55,6 +57,8 @@ public class EctDeleteData2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "d", null)) {
@@ -80,7 +84,7 @@ public class EctDeleteData2Action extends ActionSupport {
         if (this.getType() != null) {
             response.sendRedirect(
                 request.getContextPath()
-                    + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type="
+                    + "/encounter/oscarMeasurements/SetupDisplayHistory?type="
                     + URLEncoder.encode(this.getType(), StandardCharsets.UTF_8.name()));
             return NONE;
         }
@@ -93,6 +97,7 @@ public class EctDeleteData2Action extends ActionSupport {
         return deleteCheckbox;
     }
 
+    @StrutsParameter
     public void setDeleteCheckbox(String[] deleteCheckbox) {
         this.deleteCheckbox = deleteCheckbox;
     }
@@ -103,6 +108,7 @@ public class EctDeleteData2Action extends ActionSupport {
         return type;
     }
 
+    @StrutsParameter
     public void setType(String type) {
         this.type = type;
     }

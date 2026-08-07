@@ -52,10 +52,10 @@ public class FrmSelfAssessmentRecord extends FrmRecord {
             props.setProperty("demographic_no", String.valueOf(demographicNo));
             props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "dd/MM/yyyy"));
         } else {
-            String sql = "SELECT * FROM formSelfAssessment WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+            String sql = "SELECT * FROM formSelfAssessment WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frmRec = new FrmRecordHelp();
             frmRec.setDateFormat("dd/MM/yyyy");
-            props = frmRec.getFormRecord(sql);
+            props = frmRec.getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -64,11 +64,11 @@ public class FrmSelfAssessmentRecord extends FrmRecord {
     @Override
     public int saveFormRecord(Properties props) throws SQLException {
         String demographicNo = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formSelfAssessment WHERE demographic_no=" + demographicNo + " AND ID=0";
+        String sql = "SELECT * FROM formSelfAssessment WHERE demographic_no=? AND ID=0";
         FrmRecordHelp frmRec = new FrmRecordHelp();
         frmRec.setDateFormat("dd/MM/yyyy");
 
-        return frmRec.saveFormRecord(props, sql);
+        return frmRec.saveFormRecord(props, sql, demographicNo);
     }
 
     @Override

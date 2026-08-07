@@ -1,0 +1,207 @@
+/*
+ * CARLOS EMR - Encounter Page Styles
+ * Encounter-specific overrides for Bootstrap 5 layout.
+ * Uses CARLOS design tokens from global.css.
+ *
+ * @since 2026-02-20
+ */
+
+/* ============================================================
+   Header Bar
+   ============================================================ */
+.encounter-header {
+    background-color: #003399;
+    color: #fff;
+    min-height: 34px;
+    padding: 4px 8px;
+}
+.encounter-header a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 11px;
+}
+.encounter-header a:hover {
+    text-decoration: underline;
+}
+.encounter-header .patient-name {
+    font-weight: bold;
+    font-size: 11px;
+}
+
+/* ============================================================
+   Left Navbar
+   ============================================================ */
+#encounter-left-nav {
+    border-right: 2px solid #A9A9A9;
+    overflow-y: auto;
+    padding: 0;
+    background-color: #fff;
+}
+
+/* ============================================================
+   Section Cards
+   ============================================================ */
+.encounter-card {
+    background-color: #CCCCFF;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 2px;
+}
+.encounter-card .card-header {
+    background-color: #CCCCFF;
+    padding: 2px 4px;
+    border-bottom: none;
+    font-size: 9px;
+    font-variant: small-caps;
+    font-weight: bold;
+}
+.encounter-card .card-body {
+    padding: 0;
+}
+
+/* ============================================================
+   Resize Controls
+   ============================================================ */
+.resize-controls {
+    font-size: 8pt;
+    text-align: right;
+    white-space: nowrap;
+}
+.resize-controls a {
+    text-decoration: none;
+    color: #333;
+    padding: 0 1px;
+}
+.resize-controls a:hover {
+    text-decoration: underline;
+}
+
+/* ============================================================
+   Textareas
+   ============================================================ */
+.encounter-card textarea {
+    width: 100%;
+    font-family: Verdana, Tahoma, Arial, sans-serif;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    resize: vertical;
+}
+
+/* ============================================================
+   Prescription / Allergy Boxes
+   ============================================================ */
+.presBox {
+    overflow: auto;
+    font-size: 10px;
+}
+.presBox ul {
+    list-style: none;
+    padding-left: 4px;
+    margin: 0;
+}
+.presBox table {
+    font-size: 10px;
+    width: 100%;
+}
+.presBox td {
+    border-bottom: 1pt solid #888888;
+    font-size: 10px;
+    padding: 1px 2px;
+}
+.rx-current {
+    color: red;
+}
+
+/* ============================================================
+   Consumption Indicator
+   ============================================================ */
+.consumption-bar {
+    height: 12px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+/* ============================================================
+   Action Buttons
+   ============================================================ */
+.encounter-actions {
+    background-color: #CCCCFF;
+    padding: 4px;
+}
+.encounter-actions .btn {
+    height: 20px;
+    font-size: 11px;
+    padding: 0 8px;
+    line-height: 18px;
+}
+
+/* ============================================================
+   Split Chart Overlay
+   ============================================================ */
+#splitChartLayer {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    width: 150px;
+    visibility: hidden;
+    z-index: 1;
+}
+#splitChartLayer table {
+    background-color: #CCCCFF;
+    font-size: 11px;
+}
+
+/* ============================================================
+   Action Errors
+   ============================================================ */
+.action-errors {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 8px;
+    margin-bottom: 4px;
+}
+
+/* ============================================================
+   Template Autocompleter (Scriptaculous)
+   ============================================================ */
+.enTemplate_name_auto_complete {
+    width: 350px;
+    background: #fff;
+    font-size: 9px;
+    text-align: left;
+}
+.enTemplate_name_auto_complete ul {
+    border: 1px solid #888;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    list-style-type: square;
+    list-style-position: inside;
+}
+.enTemplate_name_auto_complete ul li {
+    margin: 0;
+    padding: 3px;
+}
+.enTemplate_name_auto_complete ul li.selected {
+    background-color: #ffb;
+    text-decoration: underline;
+}
+.enTemplate_name_auto_complete ul strong.highlight {
+    color: #800;
+    margin: 0;
+    padding: 0;
+}
+
+/* ============================================================
+   Print Styles
+   ============================================================ */
+@media print {
+    .encounter-header,
+    #encounter-left-nav,
+    .resize-controls,
+    .encounter-actions,
+    .hidePrint {
+        display: none !important;
+    }
+}

@@ -32,11 +32,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,8 +75,14 @@ public class FormsDao {
         if (demographicNo == null) {
             return findIdFormCreatedAndPatientNameFromFormLabReq07();
         }
-        String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = " + Integer.parseInt(demographicNo);
+        String sql = "SELECT ID, formCreated, patientName FROM formLabReq07 where demographic_no = :demoNo";
         Query query = entityManager.createNativeQuery(sql);
+        try {
+            query.setParameter("demoNo", Integer.parseInt(demographicNo));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in formLabReq07 query, returning empty result");
+            return new ArrayList<>();
+        }
         return query.getResultList();
     }
 
@@ -84,8 +91,14 @@ public class FormsDao {
         if (demographicNo == null) {
             return findIdFormCreatedAndPatientNameFromFormLabReq10();
         }
-        String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = " + Integer.parseInt(demographicNo);
+        String sql = "SELECT ID, formCreated, patientName FROM formLabReq10 where demographic_no = :demoNo";
         Query query = entityManager.createNativeQuery(sql);
+        try {
+            query.setParameter("demoNo", Integer.parseInt(demographicNo));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid non-numeric demographicNo in formLabReq10 query, returning empty result");
+            return new ArrayList<>();
+        }
         return query.getResultList();
     }
 
@@ -137,59 +150,6 @@ public class FormsDao {
         return query.getResultList();
     }
 
-    @NativeSql("formONAR")
-    public Object select_maxformar_id(String dateStart, String dateEnd) {
-        String sql = "select max(ID) from formONAR where c_finalEDB >= ? and c_finalEDB <= ? group by demographic_no";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, dateStart);
-        query.setParameter(2, dateEnd);
-
-        List<Object> results = query.getResultList();
-
-        if (!results.isEmpty())
-            return results.get(0);
-
-        return "0";
-    }
-
-    @NativeSql("formONAREnhancedRecord")
-    public List<Integer> select_maxformar_id2(String dateStart, String dateEnd) {
-        String sql = "select max(ID) from formONAREnhancedRecord where c_finalEDB >= ? and c_finalEDB <= ? group by demographic_no";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, dateStart);
-        query.setParameter(2, dateEnd);
-
-        List<Integer> results = query.getResultList();
-
-
-        return results;
-    }
-
-
-    @NativeSql("formONAR")
-    public List<Object[]> select_formar(String beginEdd, String endEdd, int limit, int offset) {
-        String sql = "select ID, demographic_no, c_finalEDB, concat(c_lastname,\",\",c_firstname) as c_pName, pg1_age, c_gravida, c_term, pg1_homePhone, provider_no from formONAR where c_finalEDB >= ? and c_finalEDB <= ? order by c_finalEDB desc";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, beginEdd);
-        query.setParameter(2, endEdd);
-        query.setMaxResults(limit);
-        query.setFirstResult(offset);
-
-        return query.getResultList();
-    }
-
-    @NativeSql("formONAR")
-    public List<Object[]> select_formar2(String beginEdd, String endEdd, int limit, int offset) {
-        String sql = "select ID, demographic_no, c_finalEDB, concat(c_lastName,\",\",c_firstName) as c_pName, pg1_age, c_gravida, c_term, pg1_homePhone, provider_no from formONAREnhancedRecord where c_finalEDB >= ? and c_finalEDB <= ? order by c_finalEDB desc";
-        Query query = entityManager.createNativeQuery(sql);
-        query.setParameter(1, beginEdd);
-        query.setParameter(2, endEdd);
-        query.setMaxResults(limit);
-        query.setFirstResult(offset);
-
-        return query.getResultList();
-    }
-
     /**
      * Executes a parameterized native SQL query with named parameters.
      * Parameters should be passed as alternating name-value pairs.
@@ -204,7 +164,8 @@ public class FormsDao {
             throw new IllegalArgumentException("Parameters must be provided in name-value pairs");
         }
 
-        Query query = entityManager.createNativeQuery(sql);
+        // nosemgrep: jpa-sqli -- this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
+        Query query = entityManager.createNativeQuery(sql); // nosemgrep: jpa-sqli — parameterized; callers provide SQL with :name placeholders, bound via setParameter loop below
 
         for (int i = 0; i < params.length; i += 2) {
             String paramName = (String) params[i];
@@ -225,7 +186,8 @@ public class FormsDao {
      */
     @SuppressWarnings("rawtypes")
     public List<Object[]> runParameterizedNativeQuery(String sql, Map<String, Object> params) {
-        Query query = entityManager.createNativeQuery(sql);
+        // nosemgrep: jpa-sqli -- this utility binds named parameters below; the SQL string itself must already use parameter placeholders (callers' responsibility)
+        Query query = entityManager.createNativeQuery(sql); // nosemgrep: jpa-sqli — parameterized; callers provide SQL with :name placeholders
 
         if (params != null) {
             for (Map.Entry<String, Object> entry : params.entrySet()) {

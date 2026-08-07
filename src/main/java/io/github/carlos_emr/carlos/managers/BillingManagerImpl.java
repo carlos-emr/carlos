@@ -66,8 +66,9 @@ public class BillingManagerImpl implements BillingManager {
     public List<ServiceType> getUniqueServiceTypes(LoggedInInfo loggedInInfo, String type) {
         List<ServiceType> result = new ArrayList<ServiceType>();
 
-        for (Object[] r : ctlBillingServiceDao.getUniqueServiceTypes(type)) {
-            result.add(new ServiceType((String) r[0], (String) r[1]));
+        for (io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow r
+                : ctlBillingServiceDao.getUniqueServiceTypes(type)) {
+            result.add(new ServiceType(r.serviceType(), r.serviceTypeName()));
         }
 
         return result;

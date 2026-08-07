@@ -33,8 +33,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -54,8 +54,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts 2 action for managing staff (healthcare providers) in the Program Management module.
@@ -77,6 +79,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2005-10-01
  */
 public class StaffManager2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -116,6 +120,11 @@ public class StaffManager2Action extends ActionSupport {
      * @return String result name for Struts 2 result mapping
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pmm_management", "w", null)) {
+            throw new SecurityException("missing required sec object (_pmm_management)");
+        }
+
         String method = request.getParameter("method");
         if ("add_to_facility".equals(method)) {
             return add_to_facility();
@@ -288,6 +297,7 @@ public class StaffManager2Action extends ActionSupport {
      *
      * @return ProgramProvider the program provider being edited
      */
+    @StrutsParameter(depth = 1)
     public ProgramProvider getProgram_provider() {
         return program_provider;
     }
@@ -299,6 +309,7 @@ public class StaffManager2Action extends ActionSupport {
      *
      * @param program_provider ProgramProvider the program provider to set
      */
+    @StrutsParameter
     public void setProgram_provider(ProgramProvider program_provider) {
         this.program_provider = program_provider;
     }
@@ -392,6 +403,7 @@ public class StaffManager2Action extends ActionSupport {
         return facilityId;
     }
 
+    @StrutsParameter
     public void setFacilityId(String facilityId) {
         this.facilityId = facilityId;
     }
@@ -400,14 +412,17 @@ public class StaffManager2Action extends ActionSupport {
         return programId;
     }
 
+    @StrutsParameter
     public void setProgramId(String programId) {
         this.programId = programId;
     }
 
+    @StrutsParameter(depth = 1)
     public Provider getProvider() {
         return provider;
     }
 
+    @StrutsParameter
     public void setProvider(Provider provider) {
         this.provider = provider;
     }

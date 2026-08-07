@@ -31,9 +31,13 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
@@ -55,6 +59,7 @@ import org.springframework.stereotype.Service;
 @Service
 //@Transactional
 public class EFormReportToolManagerImpl implements EFormReportToolManager {
+    private static final int FORM_DATA_ID_BATCH_SIZE = 500;
 
     private Logger logger = MiscUtils.getLogger();
 
@@ -127,6 +132,18 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
 
             //get all fdid for this fid
             List<Object[]> fdidList = eformDataDao.findMetaFieldsByFormId(eft.getEformId());
+            List<Integer> fdids = new ArrayList<>(fdidList.size());
+            for (Object[] data : fdidList) {
+                fdids.add((Integer) data[0]);
+            }
+
+            Map<Integer, List<EFormValue>> valuesByFormDataId = new HashMap<>();
+            for (int batchStartIndex = 0; batchStartIndex < fdids.size(); batchStartIndex += FORM_DATA_ID_BATCH_SIZE) {
+                List<Integer> fdidBatch = fdids.subList(batchStartIndex, Math.min(batchStartIndex + FORM_DATA_ID_BATCH_SIZE, fdids.size()));
+                for (EFormValue value : eformValueDao.findByFormDataIdList(fdidBatch)) {
+                    valuesByFormDataId.computeIfAbsent(value.getFormDataId(), key -> new ArrayList<>()).add(value);
+                }
+            }
 
             Date dateStarted = new Date();
 
@@ -136,7 +153,7 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
                 Integer demographicNo = (Integer) data[1];
                 Date dateFormCreated = createDateFromDateAndTime((Date) data[2], (Date) data[3]);
                 String providerNo = (String) data[4];
-                List<EFormValue> values = eformValueDao.findByFormDataId(fdid);
+                List<EFormValue> values = valuesByFormDataId.getOrDefault(fdid, Collections.emptyList());
 
                 if (values.isEmpty()) {
                     continue;

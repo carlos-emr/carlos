@@ -27,9 +27,16 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.reports.custom;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+
+@XmlAccessorType(XmlAccessType.NONE)
 public class Item {
     private String id;
+    @XmlElement(name = "name")
     private String name;
+    @XmlElement(name = "type")
     private String valueType;
 
 

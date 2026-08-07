@@ -28,11 +28,12 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.Date;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -44,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
@@ -59,6 +60,8 @@ public class DemographicExtService2Action extends ActionSupport {
         return saveNewValue();
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String saveNewValue() throws IOException {
         String demographicNo = request.getParameter("demographicNo");
         String key = request.getParameter("key");
@@ -93,6 +96,8 @@ public class DemographicExtService2Action extends ActionSupport {
         LogAction.addLog(providerNo, "write", id.toString(), value);
 
         String json = objectMapper.writeValueAsString(new LabelValueBean("id", String.valueOf(id)));
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         response.getWriter().println(json);
         return null;
     }

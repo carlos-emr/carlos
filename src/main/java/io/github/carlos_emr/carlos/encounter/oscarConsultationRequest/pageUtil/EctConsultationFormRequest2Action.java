@@ -34,51 +34,69 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.managers.*;
 import io.github.carlos_emr.carlos.utility.*;
-import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.v26.message.ORU_R01;
-import ca.uhn.hl7v2.model.v26.message.REF_I12;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01.ObservationData;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.RefI12;
-import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.SendingUtils;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import com.itextpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
-import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.persistence.PersistenceException;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SignatureException;
-import java.security.spec.InvalidKeySpecException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.TransactionException;
 
+/**
+ * Struts2 action that handles creating, updating, printing, faxing, and electronically
+ * sending consultation requests (clinical referrals).
+ *
+ * <p>This is the primary controller for the consultation request form. It processes form
+ * submissions based on the {@code submission} parameter prefix:</p>
+ * <ul>
+ *   <li><b>"Submit..."</b> - creates a new {@link ConsultationRequest}, persists it with all
+ *       attached documents (labs, forms, eForms, HRM reports), and processes digital signatures</li>
+ *   <li><b>"Update..."</b> - archives the existing consultation request, updates it with new
+ *       form data, and re-attaches documents</li>
+ *   <li><b>"...And Print Preview"</b> - renders the consultation form with attachments as a
+ *       base64-encoded PDF for inline preview</li>
+ *   <li><b>"...And Fax"</b> - prepares fax parameters (accounts, recipients, attached document
+ *       descriptions) and forwards to the fax confirmation page</li>
+ * </ul>
+ *
+ * <p>Supports the Health Care Team integration when the
+ * {@code ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS} property is enabled,
+ * bridging between the newer DemographicContact model and the legacy ProfessionalSpecialist
+ * module for backward compatibility.</p>
+ *
+ * <p>Requires {@code _con} write privilege via {@link SecurityInfoManager}.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see DocumentAttachmentManager
+ * @see ConsultationManager
+ * @since 2003-07-21
+ */
+@SuppressWarnings("java:S2629")
 public class EctConsultationFormRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -91,14 +109,190 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+    private transient ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String ATTR_SIGNATURE_NOT_APPLIED = "signatureNotApplied";
+    private static final String ATTR_ERROR_MESSAGE = "errorMessage";
+    private static final String ATTR_WARNING_MESSAGE = "warningMessage";
+    // Posted form field value that carries the signature reference through existing consultation flows.
+    private static final String ATTR_SIGNATURE_IMG = "signatureImg";
+    // Preview-only request attribute used to substitute a just-persisted signature id while rendering the PDF.
+    private static final String ATTR_PREVIEW_SIGNATURE_IMG = "consultPreviewSignatureImg";
+    private static final String SIGNATURE_NOT_APPLIED_WARNING = "The captured signature could not be saved and will not appear on the PDF.";
+    private static final String INVALID_DEMOGRAPHIC_NUMBER = "Invalid demographic number";
+    private static final String INVALID_CONSULTATION_REQUEST_ID = "Invalid consultation request id";
+    private static final String CONSULTATION_REQUEST_UNAVAILABLE = "Consultation request unavailable";
+    private static final String CONSULT_PREVIEW_UNAVAILABLE_PREFIX = "A print preview of this consultation could not be generated. \n\n";
+    private static final String CONSULT_PREVIEW_UNAVAILABLE_MESSAGE = CONSULT_PREVIEW_UNAVAILABLE_PREFIX + CONSULTATION_REQUEST_UNAVAILABLE + ".";
 
+    private enum ConsultationWriteTargetStatus {
+        VERIFIED,
+        INVALID_DEMOGRAPHIC,
+        INVALID_CONSULTATION_REQUEST_ID,
+        CONSULTATION_UNAVAILABLE
+    }
+
+    private record ConsultationWriteTarget(ConsultationRequest consult, int consultationRequestId,
+                                           int demographicId, String demographicNo) {
+    }
+
+    private record ConsultationWriteTargetVerification(ConsultationWriteTargetStatus status,
+                                                       ConsultationWriteTarget target,
+                                                       Integer consultationRequestId) {
+        private static ConsultationWriteTargetVerification verified(ConsultationWriteTarget target) {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.VERIFIED, target, target.consultationRequestId());
+        }
+
+        private static ConsultationWriteTargetVerification invalidDemographic() {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC, null, null);
+        }
+
+        private static ConsultationWriteTargetVerification invalidConsultationRequestId() {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.INVALID_CONSULTATION_REQUEST_ID, null, null);
+        }
+
+        private static ConsultationWriteTargetVerification consultationUnavailable(int consultationRequestId) {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.CONSULTATION_UNAVAILABLE, null, consultationRequestId);
+        }
+
+        private boolean isVerified() {
+            return status == ConsultationWriteTargetStatus.VERIFIED;
+        }
+
+        private boolean hasInvalidInput() {
+            return status == ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC
+                    || status == ConsultationWriteTargetStatus.INVALID_CONSULTATION_REQUEST_ID;
+        }
+    }
+
+    private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
+        try {
+            return Integer.parseInt(rawValue);
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().error(logMessage, LogSafe.sanitize(rawValue));
+            addActionError(actionErrorMessage);
+            return null;
+        }
+    }
+
+    private void requireConsultWritePrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+    }
+
+    private String requireMatchingConsultationDemographic(ConsultationRequest consult, int submittedDemographicId) {
+        Integer storedDemographicId = consult == null ? null : consult.getDemographicId();
+        if (storedDemographicId == null || !storedDemographicId.equals(submittedDemographicId)) {
+            throw new SecurityException("consultation request does not match demographic");
+        }
+        return String.valueOf(storedDemographicId);
+    }
+
+    private String consultationUpdateUnavailable(int consultationRequestId) {
+        MiscUtils.getLogger().error("Consultation request unavailable for update: {}", consultationRequestId);
+        addActionError(CONSULTATION_REQUEST_UNAVAILABLE);
+        return INPUT;
+    }
+
+    private String consultationWriteTargetFailureResult(ConsultationWriteTargetVerification verification) {
+        if (verification.hasInvalidInput()) {
+            return INPUT;
+        }
+        return consultationUpdateUnavailable(verification.consultationRequestId());
+    }
+
+    private ConsultationWriteTargetVerification verifyConsultationWriteTarget(LoggedInInfo loggedInInfo,
+                                                                             ConsultationRequestDao consultationRequestDao,
+                                                                             String requestId,
+                                                                             String demographicNo,
+                                                                             String demographicLogMessage,
+                                                                             String consultationRequestLogMessage) {
+        Integer parsedDemographicId = parseUpdateInteger(demographicNo, demographicLogMessage, INVALID_DEMOGRAPHIC_NUMBER);
+        if (parsedDemographicId == null) {
+            return ConsultationWriteTargetVerification.invalidDemographic();
+        }
+
+        String submittedDemographicNo = String.valueOf(parsedDemographicId);
+        requireConsultWritePrivilege(loggedInInfo, submittedDemographicNo);
+
+        Integer parsedConsultationRequestId = parseUpdateInteger(requestId, consultationRequestLogMessage, INVALID_CONSULTATION_REQUEST_ID);
+        if (parsedConsultationRequestId == null) {
+            return ConsultationWriteTargetVerification.invalidConsultationRequestId();
+        }
+        int consultationRequestId = parsedConsultationRequestId;
+
+        ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
+        if (consult == null) {
+            return ConsultationWriteTargetVerification.consultationUnavailable(consultationRequestId);
+        }
+
+        try {
+            String verifiedDemographicNo = requireMatchingConsultationDemographic(consult, parsedDemographicId);
+            ConsultationWriteTarget target = new ConsultationWriteTarget(
+                    consult, consultationRequestId, parsedDemographicId, verifiedDemographicNo);
+            return ConsultationWriteTargetVerification.verified(target);
+        } catch (SecurityException e) {
+            return ConsultationWriteTargetVerification.consultationUnavailable(consultationRequestId);
+        }
+    }
+
+    private String resolveConsultationPreviewDemographicNoOrSetError(LoggedInInfo loggedInInfo, ConsultationRequestDao consultationRequestDao, String requestId, String demographicNo) {
+        if (StringUtils.isBlank(requestId)) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Missing consultation request id.");
+            return null;
+        }
+
+        ConsultationWriteTargetVerification verification;
+        try {
+            verification = verifyConsultationWriteTarget(loggedInInfo, consultationRequestDao, requestId, demographicNo,
+                    "Invalid demographic number for consultation print preview: {}",
+                    "Invalid consultation request id for print preview: {}");
+        } catch (SecurityException e) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+            return null;
+        }
+
+        if (verification.status() == ConsultationWriteTargetStatus.VERIFIED) {
+            return verification.target().demographicNo();
+        }
+        if (verification.status() == ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Invalid demographic number.");
+            return null;
+        }
+        if (verification.status() == ConsultationWriteTargetStatus.INVALID_CONSULTATION_REQUEST_ID) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
+            return null;
+        }
+
+        request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+        return null;
+    }
+
+    /**
+     * Processes the consultation request form submission.
+     *
+     * <p>Dispatches to create, update, print preview, fax, or HL7 e-send based on the
+     * {@code submission} parameter. All paths enforce {@code _con} write privilege.</p>
+     *
+     * @return String the Struts2 result name ("success", "fax", "error", or NONE for redirects)
+     * @throws ServletException when form rendering encounters a servlet error
+     * @throws IOException      when an I/O error occurs during response writing or HL7 sending
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws ServletException, IOException {
+        request = ServletActionContext.getRequest();
+        response = ServletActionContext.getResponse();
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "w", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+        // Mutator: every legitimate entry (form submit and the AJAX print-preview fetch) is a POST.
+        // Reject GET/HEAD before any side effect fires. See MutatorActionGetRejectionContractUnitTest.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -122,18 +316,20 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         String submission = this.getSubmission();
         String providerNo = this.getProviderNo();
         String demographicNo = this.getDemographicNo();
+        String submittedRequestId = this.getRequestId();
 
         String requestId = "";
+        boolean consultTargetWriteVerified = false;
 
         boolean newSignature = request.getParameter("newSignature") != null && request.getParameter("newSignature").equalsIgnoreCase("true");
         String signatureId = null;
-        String signatureImg = this.getSignatureImg();
-        if (StringUtils.isBlank(signatureImg)) {
-            signatureImg = request.getParameter("newSignatureImg");
-            if (signatureImg == null) {
-                signatureImg = "";
-            }
-        }
+        String trimmedSignatureImg = StringUtils.trimToEmpty(this.getSignatureImg());
+        String newSignatureImg = StringUtils.trimToEmpty(request.getParameter("newSignatureImg"));
+        String manualSignatureRequestId = consultationSignatureService.resolveManualSignatureRequestId(trimmedSignatureImg, newSignatureImg);
+        // Classify the overloaded signatureImg field once (stored id / manual re-sign / stamp).
+        SignatureReference signatureRef = SignatureReference.parse(newSignature, trimmedSignatureImg, newSignatureImg);
+        String signatureProviderNo = consultationSignatureService.resolveSignatureProviderNo(
+                request.getParameter("signatureProviderNo"), providerNo, loggedInInfo.getLoggedInProviderNo());
 
         ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
         ConsultationRequestExtDao consultationRequestExtDao = (ConsultationRequestExtDao) SpringUtils.getBean(ConsultationRequestExtDao.class);
@@ -145,10 +341,46 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         if (submission.startsWith("Submit")) {
 
             try {
+                int demographicId;
+                try {
+                    demographicId = Integer.parseInt(demographicNo);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
+                    addActionError(INVALID_DEMOGRAPHIC_NUMBER);
+                    return INPUT;
+                }
+                demographicNo = String.valueOf(demographicId);
+                requireConsultWritePrivilege(loggedInInfo, demographicNo);
+
                 if (newSignature) {
-		   DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
-                   if (signature != null) {
+                    // Manual signature from tablet/signature pad. Capture intent up front: a null result
+                    // is a genuine failure only when a signature was actually collected (a stamp-less
+                    // provider who simply did not sign is the benign, common case).
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
+                    if (signature != null) {
                         signatureId = "" + signature.getId();
+                    } else if (manualCaptured) {
+                        // A signature was collected but could not be persisted; the consultation is still
+                        // saved. Log at error so it surfaces at the production default root level and warn
+                        // the provider that the consultation saved without a signature.
+                        logger.error("Captured manual signature could not be persisted for provider {} on new consultation", LogSafe.sanitize(signatureProviderNo));
+                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+                    } else {
+                        // No signature was collected - benign, save unsigned without alarming the provider.
+                        logger.debug("No manual signature captured for new consultation; saved without a signature");
+                    }
+                } else {
+                    // Stamp signature - create immutable copy from the selected consultation provider's stamp file.
+                    ConsultationStampOutcome outcome = consultationSignatureService.saveConsultationStamp(
+                            loggedInInfo, signatureProviderNo, demographicId);
+                    if (outcome.isSaved()) {
+                        signatureId = "" + outcome.signature().getId();
+                    } else if (outcome.isGenuineFailure()) {
+                        // Consultation is still persisted; the service logged the specific failure at
+                        // error. Warn the provider that the stamp was not applied (benign disabled /
+                        // no-session outcomes are intentionally silent).
+                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     }
                 }
 
@@ -191,7 +423,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setCurrentMeds(this.getCurrentMedications());
                 consult.setAllergies(this.getAllergies());
                 consult.setProviderNo(this.getProviderNo());
-                consult.setDemographicId(Integer.valueOf(this.getDemographicNo()));
+                consult.setDemographicId(demographicId);
                 consult.setStatus(this.getStatus());
                 consult.setStatusText(this.getAppointmentNotes());
                 consult.setSendTo(this.getSendTo());
@@ -219,7 +451,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // converting the newer Contacts Table and Health Care Team back and forth
                 // from the older professionalSpecialist module.
                 // This should persist and retrieve values to be backwards compatible.
-                if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
 
                     // when this is enabled the demographicContactId is being posted as a specId variable.
                     Integer demographicContactId = Integer.valueOf(specId);
@@ -252,7 +484,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
                 consultationRequestDao.persist(consult);
 
-                requestId = String.valueOf(consult.getId());
+                int consultationRequestId = consult.getId();
+                requestId = String.valueOf(consultationRequestId);
+                consultTargetWriteVerified = true;
                 MiscUtils.getLogger().debug("saved new consult id " + requestId);
 
                 Enumeration e = request.getParameterNames();
@@ -260,16 +494,16 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     String name = (String) e.nextElement();
                     if (name.startsWith("ext_")) {
                         String value = request.getParameter(name);
-                        consultationRequestExtDao.persist(createExtEntry(requestId, name.substring(name.indexOf("_") + 1), value));
+                        consultationRequestExtDao.persist(createExtEntry(consultationRequestId, name.substring(name.indexOf("_") + 1), value));
                     }
                 }
 
                 // now that we have consultation id we can save any attached docs as well
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
             } catch (ParseException e) {
                 MiscUtils.getLogger().error("Invalid Date", e);
             }
@@ -277,23 +511,72 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute("transType", "2");
 
         } else if (submission.startsWith("Update")) {
-            requestId = this.getRequestId();
-            consultationManager.archiveConsultationRequest(Integer.parseInt(requestId));
+            requestId = submittedRequestId;
+
+            // Load the consultation record before signature assignment so fallback branches use the
+            // DB-stored signature id rather than the client-submitted field (prevents a tampered
+            // form from associating an arbitrary DigitalSignature id with this consultation).
+            ConsultationWriteTargetVerification verification = verifyConsultationWriteTarget(loggedInInfo, consultationRequestDao, requestId, demographicNo,
+                    "Invalid demographic number for consultation update: {}",
+                    "Invalid consultation request id for update: {}");
+            if (!verification.isVerified()) {
+                return consultationWriteTargetFailureResult(verification);
+            }
+            ConsultationWriteTarget target = verification.target();
+            ConsultationRequest consult = target.consult();
+            int consultationRequestId = target.consultationRequestId();
+            int demographicId = target.demographicId();
+            demographicNo = target.demographicNo();
+            consultTargetWriteVerified = true;
 
             try {
+                consultationManager.archiveConsultationRequest(consultationRequestId);
+
+                String existingSignatureId = consult.getSignatureImg();
+                String preservedStoredSignatureId = SignatureReference.isStoredId(existingSignatureId)
+                        ? existingSignatureId
+                        : null;
+
                 if (newSignature) {
-		    DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-		    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
+                    // Manual re-sign from tablet/signature pad. See create-path note: warn only when a
+                    // signature was actually collected but failed to persist.
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else {
+                    } else if (preservedStoredSignatureId != null) {
+                        // Manual capture failed - fall back to the existing stored signature already on the
+                        // consultation record; do not trust the submitted field value.
+                        signatureId = preservedStoredSignatureId;
+                    } else if (manualCaptured) {
+                        // A signature was collected but could not be persisted and there is nothing to fall
+                        // back to; the update still saves. Log at error and warn the provider.
                         signatureId = null;
+                        logger.error("Captured manual signature could not be persisted for provider {} on consultation update (requestId={})", LogSafe.sanitize(signatureProviderNo), LogSafe.sanitize(requestId));
+                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+                    } else {
+                        // No signature was collected - benign, leave the update unsigned silently.
+                        signatureId = null;
+                        logger.debug("No manual signature captured for consultation update (requestId={}); saved without a signature", requestId);
+                    }
+                } else if (signatureRef.isStamp()) {
+                    // Stamp signature with no existing DigitalSignature - create immutable copy.
+                    ConsultationStampOutcome outcome = consultationSignatureService.saveConsultationStamp(
+                            loggedInInfo, signatureProviderNo, demographicId);
+                    if (outcome.isSaved()) {
+                        signatureId = "" + outcome.signature().getId();
+                    } else {
+                        signatureId = preservedStoredSignatureId;
+                        if (outcome.isGenuineFailure()) {
+                            // Update is still persisted; the service logged the specific failure at error.
+                            // Warn the provider that the stamp was not applied.
+                            request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+                        }
                     }
                 } else {
-                    signatureId = signatureImg;
+                    // Already has a DigitalSignature ID - preserve the DB-stored value, not the submitted field.
+                    signatureId = existingSignatureId;
                 }
-
-                ConsultationRequest consult = consultationRequestDao.find(Integer.valueOf(requestId));
                 Date date = null;
 
                 // By default, the referral date will not have a value on edit, so we need to make sure
@@ -321,7 +604,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // converting the newer Contacts Table and Health Care Team back and forth
                 // from the older professionalSpecialist module.
                 // This should persist and retrieve values to be backwards compatible.
-                if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
                     DemographicContact demographicContact = demographicManager.getHealthCareMemberbyId(loggedInInfo, specId);
                     if (demographicContact != null) {
                         consult.setDemographicContact(demographicContact);
@@ -363,7 +646,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 consult.setClinicalInfo(this.getClinicalInformation());
                 consult.setCurrentMeds(this.getCurrentMedications());
                 consult.setAllergies(this.getAllergies());
-                consult.setDemographicId(Integer.valueOf(this.getDemographicNo()));
+                consult.setDemographicId(demographicId);
                 consult.setStatus(this.getStatus());
                 consult.setStatusText(this.getAppointmentNotes());
                 consult.setSendTo(this.getSendTo());
@@ -383,22 +666,22 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
                 consultationRequestDao.merge(consult);
 
-                consultationRequestExtDao.clear(Integer.parseInt(requestId));
+                consultationRequestExtDao.clear(consultationRequestId);
                 Enumeration e = request.getParameterNames();
                 while (e.hasMoreElements()) {
                     String name = (String) e.nextElement();
                     if (name.startsWith("ext_")) {
                         String value = request.getParameter(name);
-                        consultationRequestExtDao.persist(createExtEntry(requestId, name.substring(name.indexOf("_") + 1), value));
+                        consultationRequestExtDao.persist(createExtEntry(consultationRequestId, name.substring(name.indexOf("_") + 1), value));
                     }
                 }
 
                 // save any additional attachments added on the update
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
+                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
             } catch (ParseException e) {
                 MiscUtils.getLogger().error("Error", e);
             }
@@ -406,9 +689,31 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute("transType", "1");
 
         } else if (submission.equalsIgnoreCase("And Print Preview")) {
-            renderConsultationFormWithAttachments(request, response, this.getRequestId(), demographicNo);
+            requestId = submittedRequestId;
+            String previewDemographicNo = resolveConsultationPreviewDemographicNoOrSetError(loggedInInfo, consultationRequestDao, requestId, demographicNo);
+            if (previewDemographicNo != null) {
+                try {
+                    if (persistManualSignatureForRendering(loggedInInfo, requestId, previewDemographicNo,
+                            newSignature, trimmedSignatureImg, manualSignatureRequestId,
+                            signatureProviderNo)) {
+                        if (!newSignature) {
+                            byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
+                                    loggedInInfo, false, trimmedSignatureImg, newSignatureImg, signatureProviderNo);
+                            if (signatureImageOverride != null && signatureImageOverride.length > 0) {
+                                request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
+                            }
+                        }
+                        renderConsultationFormWithAttachments(request, response, requestId, previewDemographicNo);
+                    }
+                } catch (RuntimeException e) {
+                    // Log the full exception server-side only; do not surface e.getMessage() to the
+                    // browser (it can carry internal/identifier detail and renders "null" when absent).
+                    logger.error("Error generating consultation print preview for requestId={}", LogSafe.sanitize(requestId), e);
+                    request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
+                }
+            }
             generatePDFResponse(request, response);
-            return null;
+            return NONE;
         }
 
 
@@ -422,6 +727,21 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             }
             return "error";
         } else if (submission.endsWith("And Fax")) {
+            if (!consultTargetWriteVerified) {
+                if (StringUtils.isBlank(requestId)) {
+                    requestId = submittedRequestId;
+                }
+
+                ConsultationWriteTargetVerification verification = verifyConsultationWriteTarget(loggedInInfo, consultationRequestDao, requestId, demographicNo,
+                        "Invalid demographic number for consultation fax: {}",
+                        "Invalid consultation request id for consultation fax: {}");
+                if (!verification.isVerified()) {
+                    return consultationWriteTargetFailureResult(verification);
+                }
+                ConsultationWriteTarget target = verification.target();
+                demographicNo = target.demographicNo();
+                requestId = String.valueOf(target.consultationRequestId());
+            }
 
             String[] faxRecipients = request.getParameterValues("faxRecipients");
             HashSet<FaxRecipient> copytoRecipients = new HashSet<FaxRecipient>();
@@ -450,7 +770,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             if (attachedDocumentList != null) {
                 for (EDoc documentItem : attachedDocumentList) {
                     String description = documentItem.getDescription();
-                    if (description == null || description == "") {
+                    if (StringUtils.isEmpty(description)) {
                         description = documentItem.getFileName();
                     }
                     documents.add(description);
@@ -496,103 +816,116 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 			
 			return "fax";
 			
-		} 
-		else if (submission.endsWith("esend"))
-		{
-			// upon success continue as normal with success message
-			// upon failure, go to consultation update page with message
-			try {
-	            doHl7Send(loggedInInfo, Integer.parseInt(requestId));
-	            WebUtils.addLocalisedInfoMessage(request, "oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESent");
-            } catch (Exception e) {
-                logger.error("Error contacting remote server.", e);
-
-                WebUtils.addLocalisedErrorMessage(request, "oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreatedUpdateESendError");
-                String forward = "/oscarEncounter/oscarConsultationRequest/ConsultationFormRequest.jsp" + "?de=" + demographicNo +
-                        "&requestId=" + requestId;
-                response.sendRedirect(forward);
-                return NONE;
-            }
-        }
+		}
 
         String contextPath = request.getContextPath();
-        String forward = contextPath + "/oscarEncounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp?de=" + demographicNo;
+        String forward = contextPath + "/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest?de=" + demographicNo;
+        // A genuine signature failure was flagged as a request attribute above, but this is a 302
+        // redirect to a separate request, so request attributes do not survive. Re-encode the signal as
+        // a query parameter (a non-sensitive constant) so the confirmation page can render the warning.
+        if (Boolean.TRUE.equals(request.getAttribute(ATTR_SIGNATURE_NOT_APPLIED))) {
+            forward += "&signatureNotApplied=1";
+        }
         response.sendRedirect(forward);
         return NONE;
     }
 
-    private ConsultationRequestExt createExtEntry(String requestId, String name, String value) {
+    private boolean persistManualSignatureForRendering(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
+                                                       boolean newSignature, String submittedSignatureImg,
+                                                       String manualSignatureRequestId, String signatureProviderNo) {
+        if (!newSignature) {
+            return true;
+        }
+
+        Integer demographicId = parseUpdateInteger(demographicNo,
+                "Invalid demographic number for consultation print preview signature: {}",
+                INVALID_DEMOGRAPHIC_NUMBER);
+        if (demographicId == null) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Invalid demographic number.");
+            return false;
+        }
+
+        Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
+                "Invalid consultation request id for print preview signature update: {}",
+                INVALID_CONSULTATION_REQUEST_ID);
+        if (parsedConsultationRequestId == null) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
+            return false;
+        }
+        int consultationRequestId = parsedConsultationRequestId;
+
+        ConsultationPreviewSignatureOutcome outcome;
+        try {
+            outcome = consultationSignatureService.saveManualSignatureForPreview(
+                    loggedInInfo, consultationRequestId, demographicId, submittedSignatureImg,
+                    manualSignatureRequestId, signatureProviderNo);
+        } catch (DataAccessException | PersistenceException | TransactionException e) {
+            logger.error("Unable to persist captured consultation signature before print preview (requestId={}, provider={})",
+                    consultationRequestId, LogSafe.sanitize(signatureProviderNo), e);
+            // Preserve preview access and warn the provider; the failed signature is not applied to the generated PDF.
+            warnSignatureNotApplied();
+            return true;
+        }
+        if (outcome.isSaved()) {
+            this.setSignatureImg(outcome.signatureId());
+            request.setAttribute(ATTR_PREVIEW_SIGNATURE_IMG, outcome.signatureId());
+            return true;
+        }
+        if (outcome.status() == ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED) {
+            warnSignatureNotApplied();
+            return true;
+        }
+        if (outcome.status() == ConsultationPreviewSignatureOutcome.Status.NOT_CAPTURED) {
+            return true;
+        }
+        if (outcome.status() == ConsultationPreviewSignatureOutcome.Status.REQUEST_NOT_FOUND) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+            return false;
+        }
+
+        request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+        return false;
+    }
+
+    private void warnSignatureNotApplied() {
+        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+        request.setAttribute(ATTR_WARNING_MESSAGE, SIGNATURE_NOT_APPLIED_WARNING);
+        request.setAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE, Boolean.TRUE);
+    }
+
+    /**
+     * Creates a consultation request extension entry for storing custom form fields.
+     *
+     * <p>Extension entries store additional key-value data beyond the core consultation
+     * request fields, identified by the {@code ext_} parameter name prefix.</p>
+     *
+     * @param requestId int the consultation request ID
+     * @param name      String the extension key (parameter name after "ext_" prefix)
+     * @param value     String the extension value
+     * @return ConsultationRequestExt the new extension entry ready for persistence
+     */
+    private ConsultationRequestExt createExtEntry(int requestId, String name, String value) {
         ConsultationRequestExt obj = new ConsultationRequestExt();
         obj.setDateCreated(new Date());
         obj.setKey(name);
         obj.setValue(value);
-        obj.setRequestId(Integer.parseInt(requestId));
+        obj.setRequestId(requestId);
         return obj;
     }
 
-    private void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException {
-
-        ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
-        ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-        Hl7TextInfoDao hl7TextInfoDao = (Hl7TextInfoDao) SpringUtils.getBean(Hl7TextInfoDao.class);
-        ClinicDAO clinicDAO = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
-
-        ConsultationRequest consultationRequest = consultationRequestDao.find(consultationRequestId);
-        ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(consultationRequest.getSpecialistId());
-        Clinic clinic = clinicDAO.getClinic();
-
-        // set status now so the remote version shows this status
-        consultationRequest.setStatus("2");
-
-        REF_I12 refI12 = RefI12.makeRefI12(clinic, consultationRequest);
-        SendingUtils.send(loggedInInfo, refI12, professionalSpecialist);
-
-        // save after the sending just in case the sending fails.
-        consultationRequestDao.merge(consultationRequest);
-
-        //--- send attachments ---
-        Provider sendingProvider = loggedInInfo.getLoggedInProvider();
-        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, consultationRequest.getDemographicId());
-
-        //--- process all documents ---
-        ArrayList<EDoc> attachments = EDocUtil.listDocs(loggedInInfo, demographic.getDemographicNo().toString(), consultationRequest.getId().toString(), EDocUtil.ATTACHED);
-        for (EDoc attachment : attachments) {
-            ObservationData observationData = new ObservationData();
-            observationData.subject = attachment.getDescription();
-            observationData.textMessage = "Attachment for consultation : " + consultationRequestId;
-            observationData.binaryDataFileName = attachment.getFileName();
-            observationData.binaryData = attachment.getFileBytes();
-
-            ORU_R01 hl7Message = OruR01.makeOruR01(clinic, demographic, observationData, sendingProvider, professionalSpecialist);
-            SendingUtils.send(loggedInInfo, hl7Message, professionalSpecialist);
-        }
-
-        //--- process all labs ---
-        CommonLabResultData labData = new CommonLabResultData();
-        ArrayList<LabResultData> labs = labData.populateLabResultsData(loggedInInfo, demographic.getDemographicNo().toString(), consultationRequest.getId().toString(), CommonLabResultData.ATTACHED);
-        for (LabResultData attachment : labs) {
-            try {
-                byte[] dataBytes = LabPDFCreator.getPdfBytes(attachment.getSegmentID(), sendingProvider.getProviderNo());
-                Hl7TextInfo hl7TextInfo = hl7TextInfoDao.findLabId(Integer.parseInt(attachment.getSegmentID()));
-
-                ObservationData observationData = new ObservationData();
-                observationData.subject = hl7TextInfo.getDiscipline();
-                observationData.textMessage = "Attachment for consultation : " + consultationRequestId;
-                observationData.binaryDataFileName = hl7TextInfo.getDiscipline() + ".pdf";
-                observationData.binaryData = dataBytes;
-
-
-                ORU_R01 hl7Message = OruR01.makeOruR01(clinic, demographic, observationData, sendingProvider, professionalSpecialist);
-                int statusCode = SendingUtils.send(loggedInInfo, hl7Message, professionalSpecialist);
-                if (HttpServletResponse.SC_OK != statusCode)
-                    throw (new ServletException("Error, received status code:" + statusCode));
-            } catch (DocumentException e) {
-                logger.error("Unexpected error.", e);
-            }
-        }
-    }
-
+    /**
+     * Renders the consultation form with all attachments as a base64-encoded PDF.
+     *
+     * <p>Sets the generated PDF and a suggested filename as request attributes for
+     * the print preview page. Returns false and sets an error message attribute
+     * if PDF generation fails.</p>
+     *
+     * @param request       HttpServletRequest the current request
+     * @param response      HttpServletResponse the current response
+     * @param requestId     String the consultation request ID
+     * @param demographicNo String the patient demographic number
+     * @return boolean true if PDF generation succeeded, false on error
+     */
     private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -604,9 +937,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
             base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
         } catch (PDFGenerationException e) {
+            // Log the full exception server-side only; the browser-facing message must not echo
+            // e.getMessage() (internal/identifier leakage, and renders "null" when absent).
             logger.error(e.getMessage(), e);
-            String errorMessage = "A print preview of this consultation could not be generated. \\n\\n" + e.getMessage();
-            request.setAttribute("errorMessage", errorMessage);
+            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
             return false;
         }
 
@@ -616,19 +950,52 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Writes a JSON response containing the base64-encoded PDF, filename, and any error message.
+     *
+     * @param request  HttpServletRequest containing the PDF data and filename as attributes
+     * @param response HttpServletResponse where the JSON is written
+     */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generatePDFResponse(HttpServletRequest request, HttpServletResponse response) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
-        json.put("errorMessage", (String) request.getAttribute("errorMessage"));
-        response.setContentType("text/javascript");
+        json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
+        json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
+        json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_PREVIEW_SIGNATURE_IMG));
         try {
+            if (!response.isCommitted()) {
+                response.resetBuffer();
+            }
+            response.setCharacterEncoding("UTF-8");
+            response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write(json.toString());
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
+            response.getWriter().flush();
+        } catch (IOException | IllegalStateException e) {
+            // IOException: write/flush failed (often a client disconnect). IllegalStateException:
+            // a response-pipeline state bug or a post-commit client disconnect.
+            logger.error("Unable to write consultation print preview JSON response", e);
+            // Own the error response: if nothing has been committed yet, send a real 500 so the
+            // client's response.json() handler surfaces the failure instead of a truncated 200.
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } catch (IOException | IllegalStateException sendErrorException) {
+                    logger.error("Unable to send error response for consultation print preview", sendErrorException);
+                }
+            }
         }
     }
 
+    /**
+     * Generates a PDF filename in the format {@code yyyy_MM_dd_LastName.pdf} for the given patient.
+     *
+     * @param loggedInInfo  LoggedInInfo the authenticated session context
+     * @param demographicNo int the patient demographic number
+     * @return String the generated filename
+     */
     private String generateFileName(LoggedInInfo loggedInInfo, int demographicNo) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
@@ -734,6 +1101,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistName));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistName(String professionalSpecialistName) {
         this.professionalSpecialistName = professionalSpecialistName;
     }
@@ -742,6 +1110,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistPhone));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistPhone(String professionalSpecialistPhone) {
         this.professionalSpecialistPhone = professionalSpecialistPhone;
     }
@@ -750,6 +1119,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistAddress));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistAddress(String professionalSpecialistAddress) {
         this.professionalSpecialistAddress = professionalSpecialistAddress;
     }
@@ -758,6 +1128,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferral;
     }
 
+    @StrutsParameter
     public void seteReferral(boolean eReferral) {
         this.eReferral = eReferral;
     }
@@ -766,6 +1137,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferralService;
     }
 
+    @StrutsParameter
     public void seteReferralService(String eReferralService) {
         this.eReferralService = eReferralService;
     }
@@ -774,6 +1146,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferralId;
     }
 
+    @StrutsParameter
     public void seteReferralId(String eReferralId) {
         this.eReferralId = eReferralId;
     }
@@ -782,6 +1155,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(providerName));
     }
 
+    @StrutsParameter
     public void setProviderName(String providerName) {
         this.providerName = providerName;
     }
@@ -790,6 +1164,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientAge));
     }
 
+    @StrutsParameter
     public void setPatientAge(String patientAge) {
         this.patientAge = patientAge;
     }
@@ -883,90 +1258,112 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
 
+    @StrutsParameter
     public void setAllergies(String str) {
         allergies = str;
     }
 
+    @StrutsParameter
     public void setAppointmentDate(String str) {
         appointmentDate = str;
     }
 
+    @StrutsParameter
     public void setAppointmentHour(String str) {
         appointmentHour = str;
     }
 
+    @StrutsParameter
     public void setAppointmentMinute(String str) {
         appointmentMinute = str;
     }
 
+    @StrutsParameter
     public void setAppointmentNotes(String str) {
         appointmentNotes = str;
     }
 
+    @StrutsParameter
     public void setAppointmentPm(String str) {
         appointmentPm = str;
     }
 
+    @StrutsParameter
     public void setAppointmentTime(String str) {
         appointmentTime = str;
     }
 
+    @StrutsParameter
     public void setClinicalInformation(String str) {
         clinicalInformation = str;
     }
 
+    @StrutsParameter
     public void setConcurrentProblems(String str) {
         concurrentProblems = str;
     }
 
+    @StrutsParameter
     public void setCurrentMedications(String str) {
         currentMedications = str;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String str) {
         demographicNo = str;
     }
 
+    @StrutsParameter
     public void setPatientWillBook(String str) {
         this.patientWillBook = str;
     }
 
+    @StrutsParameter
     public void setProviderNo(String str) {
         providerNo = str;
     }
 
+    @StrutsParameter
     public void setReasonForConsultation(String str) {
         reasonForConsultation = str;
     }
 
+    @StrutsParameter
     public void setReferalDate(String str) {
         referalDate = str;
     }
 
+    @StrutsParameter
     public void setRequestId(String str) {
         requestId = str;
     }
 
+    @StrutsParameter
     public void setSendTo(String str) {
         sendTo = str;
     }
 
+    @StrutsParameter
     public void setService(String str) {
         service = str;
     }
 
+    @StrutsParameter
     public void setSpecialist(String str) {
         specialist = str;
     }
 
+    @StrutsParameter
     public void setStatus(String str) {
         status = str;
     }
 
+    @StrutsParameter
     public void setSubmission(String str) {
         submission = str;
     }
 
+    @StrutsParameter
     public void setUrgency(String str) {
         urgency = str;
     }
@@ -979,6 +1376,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientAddress));
     }
 
+    @StrutsParameter
     public void setPatientAddress(String patientAddress) {
         this.patientAddress = patientAddress;
     }
@@ -987,6 +1385,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientPhone));
     }
 
+    @StrutsParameter
     public void setPatientPhone(String patientPhone) {
         this.patientPhone = patientPhone;
     }
@@ -995,6 +1394,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientWPhone));
     }
 
+    @StrutsParameter
     public void setPatientWPhone(String patientWPhone) {
         this.patientWPhone = patientWPhone;
     }
@@ -1003,10 +1403,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return StringUtils.trimToEmpty(patientCellPhone);
     }
 
+    @StrutsParameter
     public void setPatientCellPhone(String patientCellPhone) {
         this.patientCellPhone = patientCellPhone;
     }
 
+    @StrutsParameter
     public void setPatientEmail(String patientEmail) {
         this.patientEmail = patientEmail;
     }
@@ -1019,6 +1421,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientDOB));
     }
 
+    @StrutsParameter
     public void setPatientDOB(String patientDOB) {
         this.patientDOB = patientDOB;
     }
@@ -1027,6 +1430,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientSex));
     }
 
+    @StrutsParameter
     public void setPatientSex(String patientSex) {
         this.patientSex = patientSex;
     }
@@ -1035,6 +1439,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthNum));
     }
 
+    @StrutsParameter
     public void setPatientHealthNum(String patientHealthNum) {
         this.patientHealthNum = patientHealthNum;
     }
@@ -1043,6 +1448,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthCardVersionCode));
     }
 
+    @StrutsParameter
     public void setPatientHealthCardVersionCode(String patientHealthCardVersionCode) {
         this.patientHealthCardVersionCode = patientHealthCardVersionCode;
     }
@@ -1051,6 +1457,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthCardType));
     }
 
+    @StrutsParameter
     public void setPatientHealthCardType(String patientHealthCardType) {
         this.patientHealthCardType = patientHealthCardType;
     }
@@ -1059,6 +1466,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return hl7TextMessageId;
     }
 
+    @StrutsParameter
     public void setHl7TextMessageId(Integer hl7TextMessageId) {
         this.hl7TextMessageId = hl7TextMessageId;
     }
@@ -1067,6 +1475,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return patientFirstName;
     }
 
+    @StrutsParameter
     public void setPatientFirstName(String patientFirstName) {
         this.patientFirstName = patientFirstName;
     }
@@ -1075,46 +1484,26 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return patientLastName;
     }
 
+    @StrutsParameter
     public void setPatientLastName(String patientLastName) {
         this.patientLastName = patientLastName;
     }
 
     /**
-     * This url will include the context path.
-     */
-    public String getOruR01UrlString(HttpServletRequest request) {
-        // /lab/CA/ALL/sendOruR01.jsp
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append(request.getContextPath());
-        sb.append("/lab/CA/ALL/sendOruR01.jsp");
-
-        HashMap<String, Object> queryParameters = new HashMap<String, Object>();
-
-        // buildQueryString will take null into account
-        queryParameters.put("hl7TextMessageId", hl7TextMessageId);
-        queryParameters.put("clientFirstName", patientFirstName);
-        queryParameters.put("clientLastName", patientLastName);
-        queryParameters.put("clientHin", patientHealthNum);
-        queryParameters.put("clientBirthDate", patientDOB);
-        queryParameters.put("clientGender", patientSex);
-
-        sb.append(WebUtils.buildQueryString(queryParameters));
-
-        return (StringEscapeUtils.escapeHtml4(sb.toString()));
-    }
-
-    /**
-     * @return the followUpDate
+     * Returns the follow-up date for the consultation request.
+     *
+     * @return String the follow-up date in yyyy-MM-dd or yyyy/MM/dd format
      */
     public String getFollowUpDate() {
         return followUpDate;
     }
 
     /**
-     * @param followUpDate the followUpDate to set
+     * Sets the follow-up date for the consultation request.
+     *
+     * @param followUpDate String the follow-up date in yyyy-MM-dd or yyyy/MM/dd format
      */
+    @StrutsParameter
     public void setFollowUpDate(String followUpDate) {
         this.followUpDate = followUpDate;
     }
@@ -1126,6 +1515,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return siteName;
     }
 
+    @StrutsParameter
     public void setSiteName(String str) {
         this.siteName = str;
     }
@@ -1134,6 +1524,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return signatureImg;
     }
 
+    @StrutsParameter
     public void setSignatureImg(String signatureImg) {
         this.signatureImg = signatureImg;
     }
@@ -1142,6 +1533,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadName;
     }
 
+    @StrutsParameter
     public void setLetterheadName(String letterheadName) {
         this.letterheadName = letterheadName;
     }
@@ -1150,6 +1542,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadAddress;
     }
 
+    @StrutsParameter
     public void setLetterheadAddress(String letterheadAddress) {
         this.letterheadAddress = letterheadAddress;
     }
@@ -1158,6 +1551,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadPhone;
     }
 
+    @StrutsParameter
     public void setLetterheadPhone(String letterheadPhone) {
         this.letterheadPhone = letterheadPhone;
     }
@@ -1166,6 +1560,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadFax;
     }
 
+    @StrutsParameter
     public void setLetterheadFax(String letterheadFax) {
         this.letterheadFax = letterheadFax;
     }
@@ -1174,6 +1569,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return fdid;
     }
 
+    @StrutsParameter
     public void setFdid(Integer fdid) {
         this.fdid = fdid;
     }
@@ -1182,6 +1578,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -1190,6 +1587,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return appointmentInstructions;
     }
 
+    @StrutsParameter
     public void setAppointmentInstructions(String appointmentInstructions) {
         this.appointmentInstructions = appointmentInstructions;
     }
@@ -1198,6 +1596,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return appointmentInstructionsLabel;
     }
 
+    @StrutsParameter
     public void setAppointmentInstructionsLabel(String appointmentInstructionsLabel) {
         this.appointmentInstructionsLabel = appointmentInstructionsLabel;
     }
@@ -1209,6 +1608,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return docNo;
     }
 
+    @StrutsParameter
     public void setDocNo(String[] docNo) {
         this.docNo = docNo;
     }
@@ -1220,6 +1620,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return labNo;
     }
 
+    @StrutsParameter
     public void setLabNo(String[] labNo) {
         this.labNo = labNo;
     }
@@ -1231,6 +1632,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return formNo;
     }
 
+    @StrutsParameter
     public void setFormNo(String[] formNo) {
         this.formNo = formNo;
     }
@@ -1242,6 +1644,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eFormNo;
     }
 
+    @StrutsParameter
     public void seteFormNo(String[] eFormNo) {
         this.eFormNo = eFormNo;
     }
@@ -1253,6 +1656,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		return hrmNo;
 	}
 	
+	@StrutsParameter
 	public void setHrmNo(String[] hrmNo) {
 		this.hrmNo = hrmNo;
 	}
@@ -1261,6 +1665,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		return faxAccount;
 	}
 
+	@StrutsParameter
 	public void setFaxAccount(String faxAccount) {
 		this.faxAccount = faxAccount;
 	}

@@ -28,14 +28,13 @@
  */
 package io.github.carlos_emr.carlos.commn.model;
 
-import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.Date;
 import java.util.Locale;
 
@@ -64,7 +63,6 @@ public class TicklerComment extends AbstractModel<Integer> {
     @JoinColumn(name = "provider_no", referencedColumnName = "provider_no", insertable = false, updatable = false)
     @NotFound(action = NotFoundAction.IGNORE)
     @Fetch(FetchMode.SELECT)
-    @BatchSize(size = 25)
     private Provider provider;
 
     public TicklerComment() {

@@ -28,18 +28,38 @@
  */
 
 
+/** 
+* Utility class for generating HTML table structures from JDBC ResultSet data.
+* Provides HTML-encoded output to prevent XSS vulnerabilities.
+*
+* `@since` 1.0
+*/
+
 package io.github.carlos_emr.carlos.report.data;
 
 import io.github.carlos_emr.Misc;
+import org.owasp.encoder.Encode;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
 public class RptResultStruct {
+    
     public static String getStructure(ResultSet rs) throws SQLException {
+        
+    /**
+    * Generates an HTML table from a ResultSet with enhanced styling for report templates.
+    * Includes proper thead/tbody structure, alternating row classes, and XSS protection.
+    * Each column header and cell value is HTML-encoded using OWASP Encoder.
+    *
+    * `@param` rs the ResultSet containing data to display; must be positioned before the first row
+    * `@return` an HTML string containing a complete table with id="results" 
+    * `@throws` SQLException if a database access error occurs or the ResultSet is closed
+    * `@since` 1.0
+    */
 
-// assuming  multiple rows in rs
+    // assuming  multiple rows in rs
         StringBuilder sb = new StringBuilder();
 
         ResultSetMetaData rsmd = rs.getMetaData();
@@ -47,21 +67,21 @@ public class RptResultStruct {
         int columns = rsmd.getColumnCount();
         String rowColor = "rowColor1";
         String[] columnNames = new String[columns];
-        sb.append("<table>");
+        sb.append("<table id='results'>");
         for (int i = 0; i < columns; i++) {  // for each column in result set
             columnNames[i] = rsmd.getColumnName(i + 1);
             // put names in array
             // use i+1 or else you're going to get an exception
             //  insert headings for table
             sb.append("<th class='headerColor'>");
-            sb.append(columnNames[i]);
+            sb.append(Encode.forHtml(columnNames[i]));
             sb.append("</th>");
         }
         while (rs.next()) {
             sb.append("<tr class='" + rowColor + "'>");
             for (int j = 0; j < columns; j++) {
                 sb.append("<td>");
-                sb.append(Misc.getString(rs, columnNames[j]));
+                sb.append(Encode.forHtml(Misc.getString(rs, columnNames[j])));
                 sb.append("</td>");
 
             }
@@ -86,6 +106,17 @@ CSS:
 //~apavel (Paul)
     public static String getStructure2(ResultSet rs) throws SQLException {
 
+    /**
+    * Generates an HTML table from a ResultSet with enhanced styling for report templates.
+    * Includes proper thead/tbody structure, DataTables-compatible classes, and XSS protection.
+    * Each column header and cell value is HTML-encoded using OWASP Encoder.
+    *
+    * `@param` rs the ResultSet containing data to display; must be positioned before the first row
+    * `@return` an HTML string containing a complete table with id="report2" and DataTables classes
+    * `@throws` SQLException if a database access error occurs or the ResultSet is closed
+    * `@since` 1.0
+    */
+
 // assuming  multiple rows in rs
         StringBuilder sb = new StringBuilder();
         boolean results = true;
@@ -93,7 +124,7 @@ CSS:
 
         int columns = rsmd.getColumnCount();
         String[] columnNames = new String[columns];
-        sb.append("<table class=\"reportTable display compact\">");
+        sb.append("<table id=\"report2\" class=\"reportTable display compact\">");
         sb.append("<thead><tr>");
         for (int i = 0; i < columns; i++) {  // for each column in result set
             columnNames[i] = rsmd.getColumnName(i + 1);
@@ -101,7 +132,7 @@ CSS:
             // use i+1 or else you're going to get an exception
             //  insert headings for table
             sb.append("<th class=\"reportHeader\">");
-            sb.append(columnNames[i]);
+            sb.append(Encode.forHtml(columnNames[i]));
             sb.append("</th>");
         }
         sb.append("</tr></thead><tbody>");
@@ -114,7 +145,7 @@ CSS:
                 sb.append("<tr>");
                 for (int j = 0; j < columns; j++) {
                     sb.append("<td>");
-                    sb.append(Misc.getString(rs, columnNames[j]));
+                    sb.append(Encode.forHtml(Misc.getString(rs, columnNames[j])));
                     sb.append("</td>");
 
                 }

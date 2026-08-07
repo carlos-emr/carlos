@@ -36,16 +36,19 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
-public class AgencyDaoImpl extends HibernateDaoSupport implements AgencyDao {
+@Transactional
+public class AgencyDaoImpl extends AbstractJpaDao implements AgencyDao {
 
     private Logger log = MiscUtils.getLogger();
 
     public Agency getLocalAgency() {
         Agency agency = null;
 
-        List results = getHibernateTemplate().find("from Agency a");
+        List results = JpqlQueryHelper.find(entityManager(), "from Agency a");
 
         if (!results.isEmpty()) {
             agency = (Agency) results.get(0);
@@ -59,7 +62,11 @@ public class AgencyDaoImpl extends HibernateDaoSupport implements AgencyDao {
             throw new IllegalArgumentException();
         }
 
-        getHibernateTemplate().saveOrUpdate(agency);
+        if (agency.getId() == null) {
+            entityManager().persist(agency);
+        } else {
+            entityManager().merge(agency);
+        }
 
         if (log.isDebugEnabled()) {
             log.debug("saveAgency : id = " + agency.getId());

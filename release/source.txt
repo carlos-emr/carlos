@@ -1,0 +1,14 @@
+carlos-emr (current-version) RELEASED
+
+Release of carlos-emr
+build from CARLOS EMR source
+
+To conserve bandwidth this deb does not contain the source.
+The source is however made available to any who need it.
+To obtain the exact source for this build issue the following commands:
+
+git clone https://github.com/carlos-emr/carlos.git
+cd carlos
+git checkout <commit_hash_or_tag>
+
+Replace <commit_hash_or_tag> with the specific commit SHA or release tag for this build.

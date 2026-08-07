@@ -1,33 +1,25 @@
 /**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- * <p>
- * Modifications made by Magenta Health in 2024.
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
@@ -39,11 +31,13 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 @Repository
@@ -54,18 +48,30 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
     }
 
     public BillingOnTransaction getTransTemplate(BillingONCHeader1 cheader1, BillingONItem billItem, BillingONPayment billPayment, String curProviderNo, int itempaymentId) {
+        // Symmetric to getUpdateCheader1TransTemplate's strict-parse: the
+        // ch1 id is a required FK back to BillingONCHeader1 — a transient
+        // (still-null id) header here would NPE on the unboxing below and
+        // produce an audit row with a meaningless billNo. Fail loudly so
+        // the surrounding @Transactional unit-of-work can roll back.
+        if (cheader1.getId() == null) {
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: BillingONCHeader1 id is null (transient header)");
+        }
         int billNo = cheader1.getId();
         //Date curDate1 = billPayment.getPaymentDate();
         Date curDate = new Date();
         String staus = "P";
         SimpleDateFormat admissionDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         BillingOnTransaction billTrans = new BillingOnTransaction();
-        billTrans.setActionType(BillingDataHlp.ACTION_TYPE.C.name());
+        billTrans.setActionType(BillingOnConstants.ACTION_TYPE.C.name());
+        // BillingONCHeader1.getAdmissionDate() parses an internal String column that is nullable
+        // for non-admission claims. Surface the parse failure (malformed legacy data) but treat
+        // it as null on the audit row rather than aborting transaction-row creation entirely.
         try {
-            billTrans.setAdmissionDate(admissionDateFormat.parse(String.valueOf(cheader1.getAdmissionDate())));
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().info(e.toString());
+            billTrans.setAdmissionDate(cheader1.getAdmissionDate());
+        } catch (ParseException e) {
+            MiscUtils.getLogger().error("Malformed stored admission_date on ch1 {}: storing null on transaction row",
+                    billNo, e);
             billTrans.setAdmissionDate(null);
         }
         billTrans.setBillingDate(cheader1.getBillingDate());
@@ -97,51 +103,74 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
         return billTrans;
     }
 
-    public BillingOnTransaction getUpdateCheader1TransTemplate(BillingClaimHeader1Data cheader1, String curProviderNo) {
+    public BillingOnTransaction getUpdateCheader1TransTemplate(BillingClaimHeaderDto cheader1, String curProviderNo) {
         Date curDate = new Date();
         SimpleDateFormat admissionDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         BillingOnTransaction billTrans = new BillingOnTransaction();
-        billTrans.setActionType(BillingDataHlp.ACTION_TYPE.UH.name());
-        try {
-            billTrans.setAdmissionDate(admissionDateFormat.parse(cheader1.getAdmission_date()));
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().info(e.toString());
+        billTrans.setActionType(BillingOnConstants.ACTION_TYPE.UH.name());
+
+        // Admission date is nullable on the DTO; only attempt to parse when present.
+        String admission = cheader1.admissionDate();
+        if (admission == null || admission.isEmpty()) {
             billTrans.setAdmissionDate(null);
+        } else {
+            try {
+                billTrans.setAdmissionDate(admissionDateFormat.parse(admission));
+            } catch (ParseException e) {
+                MiscUtils.getLogger().error("Malformed admission_date {} on ch1 {}: storing null on transaction row",
+                        LogSafe.sanitize(admission), LogSafe.sanitize(cheader1.getId()), e);
+                billTrans.setAdmissionDate(null);
+            }
         }
+
+        // Billing date is required for OHIP submission — a malformed value would silently null
+        // the transaction's billing_date and produce a useless audit row. Fail loudly instead.
         try {
-            billTrans.setBillingDate(admissionDateFormat.parse(cheader1.getBilling_date()));
-        } catch (ParseException e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().info(e.toString());
-            billTrans.setBillingDate(null);
+            billTrans.setBillingDate(admissionDateFormat.parse(cheader1.billingDate()));
+        } catch (ParseException | NullPointerException e) {
+            MiscUtils.getLogger().error("Malformed billing_date {} on ch1 {}: aborting transaction-row build",
+                    LogSafe.sanitize(cheader1.billingDate()), LogSafe.sanitize(cheader1.getId()), e);
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: billing_date is missing or not yyyy-MM-dd", e);
         }
+
         billTrans.setBillingNotes(cheader1.getComment());
+
+        // ch1Id is the FK back to BillingONCHeader1 — persisting -1 would create an orphan
+        // audit row that cannot be reconciled. Surface the malformed input instead.
         try {
             billTrans.setCh1Id(Integer.parseInt(cheader1.getId()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
-            billTrans.setCh1Id(-1);
+        } catch (NumberFormatException | NullPointerException e) {
+            MiscUtils.getLogger().error("Non-numeric ch1 id {} supplied for transaction-row build",
+                    LogSafe.sanitize(cheader1.getId()), e);
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: ch1 id is missing or non-numeric", e);
         }
         billTrans.setClinic(cheader1.getClinic());
         billTrans.setCreator(cheader1.getCreator());
+
+        // demographic_no FK must point at a real patient — -1 sentinel would mask a tampered
+        // form post and break downstream patient-history queries.
         try {
-            billTrans.setDemographicNo(Integer.parseInt(cheader1.getDemographic_no()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().info(e.toString());
-            billTrans.setDemographicNo(-1);
+            billTrans.setDemographicNo(Integer.parseInt(cheader1.demographicNo()));
+        } catch (NumberFormatException | NullPointerException e) {
+            MiscUtils.getLogger().error("Non-numeric demographic_no {} supplied for ch1 {} transaction-row build",
+                    LogSafe.sanitize(cheader1.demographicNo()),
+                    LogSafe.sanitize(cheader1.getId()), e);
+            throw new BillingValidationException(
+                    "Cannot build BillingOnTransaction: demographic_no is missing or non-numeric", e);
         }
-        billTrans.setFacilityNum(cheader1.getFacilty_num());
-        billTrans.setManReview(cheader1.getMan_review());
-        billTrans.setPayProgram(cheader1.getPay_program());
+        billTrans.setFacilityNum(cheader1.facilityNumber());
+        billTrans.setManReview(cheader1.manualReview());
+        billTrans.setPayProgram(cheader1.payProgram());
         billTrans.setProviderNo(cheader1.getProviderNo());
         billTrans.setProvince(cheader1.getProvince());
-        billTrans.setRefNum(cheader1.getRef_num());
+        billTrans.setRefNum(cheader1.referralNumber());
         billTrans.setSliCode(cheader1.getLocation());
         billTrans.setStatus(cheader1.getStatus());
         billTrans.setUpdateDatetime(new Timestamp(curDate.getTime()));
         billTrans.setUpdateProviderNo(curProviderNo);
-        billTrans.setVisittype(cheader1.getVisittype());
+        billTrans.setVisittype(cheader1.visitType());
 
         return billTrans;
     }

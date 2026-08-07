@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
@@ -115,7 +115,7 @@ public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefau
 
     @Override
     public List<Program> findProgramsByFacilityId(Integer facilityId) {
-        String sql = "from Program p where p.id in (select distinct pg.id from Program pg,ProgramProvider pp where pp.ProgramId=pg.id and pg.facilityId=?1)";
+        String sql = "from Program p where p.id in (select distinct pg.id from Program pg,ProgramProvider pp where pp.programId=pg.id and pg.facilityId=?1)";
         Query query;
         try {
             query = entityManager.createQuery(sql);

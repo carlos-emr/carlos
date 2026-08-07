@@ -31,11 +31,13 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
@@ -43,9 +45,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.owasp.encoder.Encode;
 
-import com.opensymphony.xwork2.ActionSupport;
+
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -61,22 +66,30 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
             EctValidation validate = new EctValidation();
             String regExp = validate.getRegCharacterExp();
-            String contextPath = request.getContextPath();
+
+            // Error-bundle entries (e.g. errors.invalid) contain embedded HTML
+            // (<li>...</li>) and the target JSP renders actionErrors unencoded,
+            // so the {0} substitution must be HTML-encoded here to prevent the
+            // tainted groupName from breaking out of the list-item context.
+            String safeGroupName = Encode.forHtml(groupName);
 
             if (!validate.matchRegExp(regExp, groupName)) {
-                addActionError(getText("errors.invalid", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
-                return NONE;
+                List<String> errors = new ArrayList<>();
+                errors.add(getText("errors.invalid", new String[]{safeGroupName}));
+                request.setAttribute("actionErrors", errors);
+                return "error";
             }
 
             //Write the new groupName to the database if there's no duplication
             if (!write2Database(groupName, styleSheet)) {
-                addActionError(getText("error.oscarEncounter.addNewMeasurementGroup.duplicateGroupName", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/oscarEncounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
+                List<String> errors = new ArrayList<>();
+                errors.add(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{safeGroupName}));
+                request.setAttribute("actionErrors", errors);
+                return "error";
             }
 
             HttpSession session = request.getSession();
-            session.setAttribute("groupName", groupName);
+            session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter validated by EctValidation.matchRegExp before use; admin-only action
 
             return "continue";
 
@@ -122,6 +135,7 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
         return this.groupName;
     }
 
+    @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
     }
@@ -132,6 +146,7 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
         return this.styleSheet;
     }
 
+    @StrutsParameter
     public void setStyleSheet(String styleSheet) {
         this.styleSheet = styleSheet;
     }

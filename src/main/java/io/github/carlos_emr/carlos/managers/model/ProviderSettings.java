@@ -63,17 +63,8 @@ public class ProviderSettings {
     private String defaultDxCode;
     private boolean defaultDoNotDeleteBilling;
 
-    private boolean useRx3 = true;
     private boolean showPatientDob;
     private boolean printQrCodeOnPrescription;
-
-    private boolean eRxEnabled;
-    private boolean eRxTrainingMode;
-
-    private String eRxUsername;
-    private String eRxPassword;
-    private String eRxFacility;
-    private String eRxURL;
 
     private String signature;
     private String rxDefaultQuantity;
@@ -141,8 +132,6 @@ public class ProviderSettings {
     private boolean disableCommentOnAck;
     private boolean defaultPmm;
 
-    private String olisDefaultReportingLab = "";
-    private String olisDefaultExcludeReportingLab = "";
     private boolean dashboardShare;
 
 
@@ -322,14 +311,6 @@ public class ProviderSettings {
         this.defaultDoNotDeleteBilling = defaultDoNotDeleteBilling;
     }
 
-    public boolean isUseRx3() {
-        return useRx3;
-    }
-
-    public void setUseRx3(boolean useRx3) {
-        this.useRx3 = useRx3;
-    }
-
     public boolean isShowPatientDob() {
         return showPatientDob;
     }
@@ -344,54 +325,6 @@ public class ProviderSettings {
 
     public void setPrintQrCodeOnPrescription(boolean printQrCodeOnPrescription) {
         this.printQrCodeOnPrescription = printQrCodeOnPrescription;
-    }
-
-    public boolean iseRxEnabled() {
-        return eRxEnabled;
-    }
-
-    public void seteRxEnabled(boolean eRxEnabled) {
-        this.eRxEnabled = eRxEnabled;
-    }
-
-    public boolean iseRxTrainingMode() {
-        return eRxTrainingMode;
-    }
-
-    public void seteRxTrainingMode(boolean eRxTrainingMode) {
-        this.eRxTrainingMode = eRxTrainingMode;
-    }
-
-    public String geteRxUsername() {
-        return eRxUsername;
-    }
-
-    public void seteRxUsername(String eRxUsername) {
-        this.eRxUsername = eRxUsername;
-    }
-
-    public String geteRxPassword() {
-        return eRxPassword;
-    }
-
-    public void seteRxPassword(String eRxPassword) {
-        this.eRxPassword = eRxPassword;
-    }
-
-    public String geteRxFacility() {
-        return eRxFacility;
-    }
-
-    public void seteRxFacility(String eRxFacility) {
-        this.eRxFacility = eRxFacility;
-    }
-
-    public String geteRxURL() {
-        return eRxURL;
-    }
-
-    public void seteRxURL(String eRxURL) {
-        this.eRxURL = eRxURL;
     }
 
     public String getSignature() {
@@ -770,22 +703,6 @@ public class ProviderSettings {
 
     public void setDefaultPmm(boolean defaultPmm) {
         this.defaultPmm = defaultPmm;
-    }
-
-    public String getOlisDefaultReportingLab() {
-        return olisDefaultReportingLab;
-    }
-
-    public void setOlisDefaultReportingLab(String olisDefaultReportingLab) {
-        this.olisDefaultReportingLab = olisDefaultReportingLab;
-    }
-
-    public String getOlisDefaultExcludeReportingLab() {
-        return olisDefaultExcludeReportingLab;
-    }
-
-    public void setOlisDefaultExcludeReportingLab(String olisDefaultExcludeReportingLab) {
-        this.olisDefaultExcludeReportingLab = olisDefaultExcludeReportingLab;
     }
 
 

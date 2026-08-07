@@ -36,7 +36,7 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jaygallagher
@@ -61,7 +61,7 @@ public class WCBCodes {
 
     public String[] getFormCodes() {
         if (formRequiredCodes == null) {
-            String wcbFormNeededCodes = OscarProperties.getInstance().getProperty("WCB_FORM_REQUIRED_CODES", "19937,19938,19939,19940,19941,19943,19944,19167,19173,19174,19175,19134,19135");
+            String wcbFormNeededCodes = CarlosProperties.getInstance().getProperty("WCB_FORM_REQUIRED_CODES", "19937,19938,19939,19940,19941,19943,19944,19167,19173,19174,19175,19134,19135");
             formRequiredCodes = wcbFormNeededCodes.split(",");
             Arrays.sort(formRequiredCodes);
         }

@@ -41,7 +41,7 @@ import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 
 public class Textualizer {
 

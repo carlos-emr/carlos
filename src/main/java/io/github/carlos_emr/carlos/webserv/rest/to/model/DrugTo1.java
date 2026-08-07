@@ -29,9 +29,9 @@
 
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Date;
 
@@ -106,7 +106,6 @@ public class DrugTo1 implements Serializable {
 
     private Boolean noSubstitutions;
 
-    private Boolean dispenseInternal = null;
     private String dispenseIntervalNumber = null;
     private Integer refillDuration = null;
     private Integer refillQuantity = null;
@@ -366,14 +365,6 @@ public class DrugTo1 implements Serializable {
 
     public void setCustomName(String customName) {
         this.customName = customName;
-    }
-
-    public Boolean getDispenseInternal() {
-        return dispenseInternal;
-    }
-
-    public void setDispenseInternal(Boolean dispenseInternal) {
-        this.dispenseInternal = dispenseInternal;
     }
 
     public String getDispenseIntervalNumber() {

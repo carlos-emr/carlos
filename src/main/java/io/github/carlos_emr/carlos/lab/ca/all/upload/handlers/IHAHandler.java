@@ -36,10 +36,11 @@ import java.io.File;
 import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import ca.uhn.hl7v2.model.Message;
 import ca.uhn.hl7v2.util.Terser;
 
@@ -53,7 +54,8 @@ import org.w3c.dom.Node;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.DefaultGenericHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Deprecated
 /**
@@ -84,7 +86,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
 
         for (int i = 0; i < getOBRCount(); i++) {
             headerList.add(getOBRName(i));
-            logger.debug("ADDING to header " + getOBRName(i));
+            logger.debug("ADDING to header {}", LogSafe.sanitize(getOBRName(i)));
         }
         return headerList;
     }
@@ -149,12 +151,11 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
                         }
                         hl7Body = allNodes.item(i).getFirstChild().getTextContent();
 
-                        logger.debug("MESSAGE ID: " + msgId);
-                        logger.debug("MESSAGE: ");
-                        logger.debug(hl7Body);
+                        logger.debug("MESSAGE ID: {}", LogSafe.sanitize(msgId));
+                        logger.debug("MESSAGE BODY PRESENT: {}, LENGTH: {}", hl7Body != null, hl7Body != null ? hl7Body.length() : 0);
 
                         if (hl7Body != null && hl7Body.indexOf("\nPID|") > 0) {
-                            logger.info("using xml HL7 Type " + getHl7Type());
+                            logger.info("using xml HL7 Type {}", LogSafe.sanitize(getHl7Type())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                             MessageUploader.routeReport(loggedInInfo, serviceName, "IHA", hl7Body, fileId);
                             result += "success:" + msgId + ",";
                         }
@@ -186,47 +187,40 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
     /*
      *  Return the message as an xml document if it is in the xml format
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Document getXML(String fileName) {
         try {
             // Validate the file path using PathValidationUtils
             File file = new File(fileName);
 
+            // Validate the file is within the expected document directory
+            CarlosProperties props = CarlosProperties.getInstance();
+            String documentDir = props.getProperty("DOCUMENT_DIR");
+            if (documentDir == null || documentDir.trim().isEmpty()) {
+                logger.error("DOCUMENT_DIR is not configured while parsing XML file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
+            }
+            File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
+            file = PathValidationUtils.validateExistingPath(file, docDir);
+
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
-            // Validate the file is within the expected document directory
-            OscarProperties props = OscarProperties.getInstance();
-            String documentDir = props.getProperty("DOCUMENT_DIR");
-            if (documentDir != null && !documentDir.isEmpty()) {
-                File docDir = new File(documentDir).getCanonicalFile();
-                PathValidationUtils.validateExistingPath(file, docDir);
-            }
-
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setValidating(false);
-
-            try {
-                // Disable external entities to prevent XXE attacks
-                factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-                factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-                factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-                factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            } catch (ParserConfigurationException e) {
-                MiscUtils.getLogger().error("Failed to set XML parser features to prevent XXE attacks", e);
-                throw new RuntimeException(e);
-            }
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
             
             // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-            // Ignore exceptions and return false
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
         } catch (Exception e) {
-            logger.error("Error parsing XML file: " + fileName, e);
+            logger.error("Error parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return (null);
         }
     }

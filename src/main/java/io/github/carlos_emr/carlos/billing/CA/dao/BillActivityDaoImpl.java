@@ -35,7 +35,7 @@ package io.github.carlos_emr.carlos.billing.CA.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;

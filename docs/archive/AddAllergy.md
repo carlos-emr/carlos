@@ -8,9 +8,9 @@ A user may be searched by Name, Phone, DOB yyyy-mm-dd, Address, Health Ins. #, C
 In this scenario, the user's lastname was entered for the Name search.
 In the search listings, the Encounter link ("E") for the first patient was clicked.
 
-##### 2. User Encounter (/oscar/oscarEncounter/IncomingEncounter.do?providerNo=999998&appointmentNo=&demographicNo=1...)
+##### 2. User Encounter (/oscar/encounter/IncomingEncounter.do?providerNo=999998&appointmentNo=&demographicNo=1...)
 
-1. Forwards to oscarEncounter/Index2.jsp
+1. Forwards to encounter/Index2.jsp
 2. If module caisi is loaded, forwards to /casemgmt/forward.jsp?action=view
 3. forward.jsp executes to redirect to CaseManagementView.do /casemgmt/CaseManagementView.jsp
 

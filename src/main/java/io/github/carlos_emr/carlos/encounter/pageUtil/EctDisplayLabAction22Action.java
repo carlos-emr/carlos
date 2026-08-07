@@ -32,23 +32,18 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.w3c.dom.Document;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
-import io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import java.net.URLEncoder;
+import jakarta.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -71,50 +66,30 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             ArrayList<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, "", bean.demographicNo, "", "", "", "U");
             logger.debug("local labs found : " + labs.size());
 
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                ArrayList<LabResultData> remoteResults = CommonLabResultData.getRemoteLabs(loggedInInfo, Integer.parseInt(bean.demographicNo));
-                logger.debug("remote labs found : " + remoteResults.size());
-                labs.addAll(remoteResults);
-            }
-
-
             // set text for lefthand module title
-            Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Labs"));
+            Dao.setLeftHeading(getText("encounter.LeftNavBar.Labs"));
 
             // set link for lefthand module title
             String winName = "Labs" + bean.demographicNo;
-            String url = "popupPage(700,599,'" + winName + "','" + request.getContextPath() + "/lab/DemographicLab.jsp?demographicNo=" + bean.demographicNo + "'); return false;";
-            Dao.setLeftURL(url);
+            Dao.setLeftPopup(800, 1100, winName, request.getContextPath() + "/lab/ViewDemographicLab?demographicNo=" + bean.demographicNo);
 
             // we're going to display popup menu of 2 selections - row display and grid display
             String menuId = "2";
             Dao.setRightHeadingID(menuId);
             Dao.setRightURL("return !showMenu('" + menuId + "', event);");
-            Dao.setMenuHeader(getText("oscarEncounter.LeftNavBar.LabMenuHeading"));
+            Dao.setMenuHeader(getText("encounter.LeftNavBar.LabMenuHeading"));
 
             winName = "AllLabs" + bean.demographicNo;
 
-            if (OscarProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
-                url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues3.jsp?demographic_no=" + bean.demographicNo + "')";
-                Dao.addPopUpUrl(url);
-                Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1"));
-                if (OscarProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
-                    url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
-                    Dao.addPopUpUrl(url);
-                    Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1") + "-OLD");
-                }
-            } else {
-                url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
-                Dao.addPopUpUrl(url);
-                Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1"));
-            }
-            url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues.jsp?demographic_no=" + bean.demographicNo + "')";
-            Dao.addPopUpUrl(url);
-            Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem2"));
+            Dao.addPopUpMenu(950, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues3?demographic_no=" + bean.demographicNo);
+            Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem1"));
+            Dao.addPopUpMenu(700, 1000, winName, request.getContextPath() + "/lab/ViewCumulativeLabValues?demographic_no=" + bean.demographicNo);
+            Dao.addPopUpText(getText("encounter.LeftNavBar.LabMenuItem2"));
 
             // now we add individual module items
             LabResultData result;
             String labDisplayName, label;
+            String url;
             // String bgcolour = "FFFFCC";
             StringBuilder func;
             int hash;
@@ -148,40 +123,28 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
                 func = new StringBuilder("popupPage(700,960,'");
                 label = result.getLabel();
 
-                String remoteFacilityIdQueryString = "";
-                if (result.getRemoteFacilityId() != null) {
-                    try {
-                        remoteFacilityIdQueryString = "&remoteFacilityId=" + result.getRemoteFacilityId();
-                        String remoteLabKey = LabDisplayHelper.makeLabKey(Integer.parseInt(result.getLabPatientId()), result.getSegmentID(), result.labType, result.getDateTime());
-                        remoteFacilityIdQueryString = remoteFacilityIdQueryString + "&remoteLabKey=" + URLEncoder.encode(remoteLabKey, "UTF-8");
-                    } catch (Exception e) {
-                        logger.error("Error", e);
-                    }
-                }
-
                 if (result.isMDS()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus() + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/oscarMDS/ViewSegmentDisplay?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus();
                 } else if (result.isCML()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else if (result.isHL7TEXT()) {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    // url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?providerNo="+bean.providerNo+"&segmentID="+result.segmentID;
-                    url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    url = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId;
                 }
                 String labRead = "";
                 if (!oscarLogDao.hasRead(((String) request.getSession().getAttribute("user")), "lab", result.segmentID)) {
@@ -297,11 +260,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             MessageHandler handler = null;
 
             try {
-                if (!labData.isRemoteLab()) {
-                    handler = getLocalHandler(segmentId);
-                } else {
-                    handler = getRemoteHandler(loggedInInfo, labData);
-                }
+                handler = getLocalHandler(segmentId);
             } catch (Exception e) {
                 logger.error("Unable to get handler for " + labData, e);
             }
@@ -312,29 +271,6 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             String serviceDate = handler.getServiceDate();
             return serviceDate;
-        }
-
-        public MessageHandler getRemoteHandler(LoggedInInfo loggedInInfo, LabResultData labData) {
-            Integer labPatientId = null;
-            try {
-                labPatientId = Integer.parseInt(labData.getLabPatientId());
-            } catch (Exception e) {
-                logger.error("Unable to parse " + labData.getLabPatientId(), e);
-                return null;
-            }
-
-            String remoteLabKey = LabDisplayHelper.makeLabKey(labPatientId, labData.getSegmentID(), labData.labType, labData.getDateTime());
-            CachedDemographicLabResult remoteLabResult = LabDisplayHelper.getRemoteLab(loggedInInfo, labData.getRemoteFacilityId(), remoteLabKey, labPatientId);
-            Document xmlData = null;
-            try {
-                xmlData = LabDisplayHelper.getXmlDocument(remoteLabResult);
-            } catch (Exception e) {
-                logger.error("Unable to get remote lab result", e);
-                return null;
-            }
-
-            MessageHandler handler = LabDisplayHelper.getMessageHandler(xmlData);
-            return handler;
         }
 
         public MessageHandler getLocalHandler(String segmentId) {

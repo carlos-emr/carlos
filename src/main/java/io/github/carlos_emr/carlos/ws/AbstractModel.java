@@ -1,13 +1,13 @@
 package io.github.carlos_emr.carlos.ws;
 
-import javax.xml.bind.annotation.XmlSeeAlso;
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
+import jakarta.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
 /**
- * Abstract base class for JAXB-enabled web service data transfer objects (DTOs) in the OpenO EMR system.
+ * Abstract base class for JAXB-enabled web service data transfer objects (DTOs) in the CARLOS EMR system.
  *
  * <p>This class provides common JAXB XML binding configuration for all web service model objects,
  * ensuring consistent serialization behavior across REST API endpoints. The class is configured for
@@ -53,9 +53,8 @@ import java.io.Serializable;
  *
  * @since 2026-01-18
  * @see Client
- * @see io.github.carlos_emr.carlos.caisi_integrator.ws.HnrWs
- * @see javax.xml.bind.annotation.XmlAccessorType
- * @see javax.xml.bind.annotation.XmlType
+ * @see jakarta.xml.bind.annotation.XmlAccessorType
+ * @see jakarta.xml.bind.annotation.XmlType
  * @see java.io.Serializable
  */
 @XmlAccessorType(XmlAccessType.FIELD)

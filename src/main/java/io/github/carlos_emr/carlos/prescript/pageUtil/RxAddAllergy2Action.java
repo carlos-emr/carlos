@@ -32,9 +32,9 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.io.IOException;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RxAddAllergy2Action extends ActionSupport {
@@ -61,7 +61,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
     public String execute() throws IOException, ServletException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "w", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
         String id = request.getParameter("ID");
@@ -140,12 +140,18 @@ public final class RxAddAllergy2Action extends ActionSupport {
         patient.addAllergy(RxUtil.Today(), allergy);
 
         String ip = request.getRemoteAddr();
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
 
         // Archive old allergy if modifying an existing one
         if (allergyToArchive != null && !allergyToArchive.isEmpty() && !"null".equals(allergyToArchive)) {
-            patient.deleteAllergy(Integer.parseInt(allergyToArchive));
-            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ARCHIVE, LogConst.CON_ALLERGY, "" + allergyToArchive, ip, "" + patient.getDemographicNo(), null);
+            try {
+                boolean archived = patient.deleteAllergy(Integer.parseInt(allergyToArchive));
+                if (archived) {
+                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, "" + allergyToArchive, ip, "" + patient.getDemographicNo(), null);
+                }
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("Ignoring non-numeric allergyToArchive parameter: {}", allergyToArchive);
+            }
         }
 
         return SUCCESS;

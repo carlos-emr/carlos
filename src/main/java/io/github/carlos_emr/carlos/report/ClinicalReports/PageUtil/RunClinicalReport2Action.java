@@ -36,11 +36,11 @@ import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.collections.KeyValue;
+import org.apache.commons.collections4.KeyValue;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.report.ClinicalReports.Denominator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Numerator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class RunClinicalReport2Action extends ActionSupport {
@@ -111,7 +111,13 @@ public class RunClinicalReport2Action extends ActionSupport {
         }
 
 
-        Numerator n = reports.getNumeratorById(numeratorId);
+        // FP for SSRF scanners (CodeQL java/Ssrf): numeratorId is used only as a lookup
+        // key into the preloaded clinicalReports.xml config (reports.getNumeratorById).
+        // The downstream URL opened by DroolsHelper.loadFromUrl is built from a server-
+        // configured file path under the numerator entry, not from numeratorId itself.
+        // User-controlled input cannot influence the URL target, only which preconfigured
+        // numerator is selected. // lgtm[java/ssrf]
+        Numerator n = reports.getNumeratorById(numeratorId); // nosemgrep: java.lang.security.audit.ssrf.ssrf-java
         MiscUtils.getLogger().debug("n" + n + " " + n.hasReplaceableValues());
         if (n.hasReplaceableValues()) {
             String[] denomReplaceKeys = n.getReplaceableKeys();
@@ -180,7 +186,7 @@ public class RunClinicalReport2Action extends ActionSupport {
                 if (extraVal == null) {
                     extraVal = new LinkedList();
                 }
-                KeyValue kv = new org.apache.commons.collections.keyvalue.DefaultKeyValue(requestParam, request.getParameter(requestParam));
+                KeyValue kv = new org.apache.commons.collections4.keyvalue.DefaultKeyValue(requestParam, request.getParameter(requestParam));
                 extraVal.add(kv);
                 request.setAttribute(requestParam, request.getParameter(requestParam));
             }
@@ -206,7 +212,7 @@ public class RunClinicalReport2Action extends ActionSupport {
             arrList = new ArrayList();
         }
         arrList.add(re);
-        request.getSession().setAttribute("ClinicalReports", arrList);
+        request.getSession().setAttribute("ClinicalReports", arrList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- arrList contains ReportEvaluator results computed server-side from DAO queries
 
         request.setAttribute("extraValues", extraVal);
         request.setAttribute("name", re.getName());

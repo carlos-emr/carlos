@@ -33,10 +33,10 @@ package io.github.carlos_emr.carlos.commn.model;
 import java.io.Serializable;
 import java.util.Comparator;
 
-import javax.persistence.Column;
-import javax.persistence.EmbeddedId;
-import javax.persistence.Entity;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "mygroup")

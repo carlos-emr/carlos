@@ -33,9 +33,9 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 import java.io.IOException;
 import java.util.List;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
@@ -45,8 +45,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctAddMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -63,6 +64,11 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 
             String groupName = this.getGroupName();
+            // CWE-501: validate groupName BEFORE any use or session storage
+            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[^\\p{Cntrl}]+"))) {
+                throw new SecurityException("Invalid measurement group name");
+            }
+            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
             request.getSession().setAttribute("groupName", groupName);
 
             String requestId = "";
@@ -114,6 +120,7 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
         return selectedAddTypes;
     }
 
+    @StrutsParameter
     public void setSelectedAddTypes(String[] selectedAddTypes) {
         this.selectedAddTypes = selectedAddTypes;
     }
@@ -122,6 +129,7 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
         return selectedDeleteTypes;
     }
 
+    @StrutsParameter
     public void setSelectedDeleteTypes(String[] selectedDeleteTypes) {
         this.selectedDeleteTypes = selectedDeleteTypes;
     }
@@ -130,6 +138,7 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }
@@ -138,6 +147,7 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
         return groupName;
     }
 
+    @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
     }

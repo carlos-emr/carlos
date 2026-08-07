@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 import org.springframework.stereotype.Repository;
@@ -49,6 +49,20 @@ public class BatchBillingDaoImpl extends AbstractDaoImpl<BatchBilling> implement
         Query query = entityManager.createQuery("select b from BatchBilling b where b.demographicNo = :demo and b.serviceCode = :service_code");
         query.setParameter("demo", demographicNo);
         query.setParameter("service_code", service_code);
+
+        return query.getResultList();
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<BatchBilling> findForUpdate(Integer demographicNo, String service_code) {
+        if (demographicNo == null || service_code == null) {
+            return java.util.Collections.emptyList();
+        }
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM batch_billing WHERE demographic_no = ?1 AND service_code = ?2 FOR UPDATE",
+                BatchBilling.class);
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, service_code);
 
         return query.getResultList();
     }

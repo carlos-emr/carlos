@@ -35,7 +35,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author rjonasz
@@ -62,6 +63,8 @@ public class DepressionContinuityReporter implements Reporter {
     public DepressionContinuityReporter() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean generateReport(HttpServletRequest request) {
         String templateId = request.getParameter("templateId");
         ReportObject curReport = (new ReportManager()).getReportTemplateNoParam(templateId);
@@ -165,6 +168,8 @@ public class DepressionContinuityReporter implements Reporter {
         return csvCode;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void addAppt(String apptSQL, String curDemo, Date from, Date to, Boolean odd) {
         OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
 

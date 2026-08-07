@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * JavaBean for managing and displaying message lists in the messaging interface.
@@ -154,21 +155,16 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
     /**
      * Sets the search filter for message filtering.
-     * 
-     * <p>This method attempts to prevent SQL injection by replacing single quotes,
-     * though the implementation has a bug - replaceAll() returns a new string
-     * rather than modifying in place, so the sanitization doesn't actually work.</p>
-     * 
+     *
+     * <p>SQL injection prevention is handled downstream via parameterized queries
+     * in {@link #getSQLSearchFilterParameterized(String[])}.</p>
+     *
      * @param filter String search filter to apply, null to clear filter
      */
     public void setFilter(String filter) {
-        if (filter == null || filter.equals("")) {
+        if (filter == null || filter.isEmpty()) {
             this.filter = null;
         } else {
-            // BUG: This line doesn't actually sanitize the filter
-            // replaceAll() returns a new string, it doesn't modify in place
-            // Should be: filter = filter.replaceAll("'", "''");
-            filter.replaceAll("'", "''");
             this.filter = filter;
         }
     }
@@ -228,20 +224,19 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
     /**
      * Gets the current location ID for multi-location support.
-     * 
-     * <p>Lazily loads the location ID from the database on first access.
-     * Uses string comparison with == which is a bug - should use .equals().</p>
-     * 
+     *
+     * <p>Lazily loads the location ID from the database on first access when the
+     * current value is the sentinel {@code "0"}.</p>
+     *
      * @return String the current location ID
      */
     public String getCurrentLocationId() {
-        // BUG: Should use .equals() not == for string comparison
-        if (currentLocationId == "0") {
+        if ("0".equals(currentLocationId)) {
             OscarCommLocationsDao oscarCommLocationsDao = SpringUtils.getBean(OscarCommLocationsDao.class);
             List<OscarCommLocations> oscarCommLocations = oscarCommLocationsDao.findByCurrent1(1);
             Integer oscarCommLocationsID = null;
 
-            if (oscarCommLocations != null) {
+            if (oscarCommLocations != null && !oscarCommLocations.isEmpty()) {
                 oscarCommLocationsID = oscarCommLocations.get(0).getId();
             }
 
@@ -504,6 +499,8 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
      * @param page int the page number (1-based)
      * @return Vector<MsgDisplayMessage> collection of messages for display
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Vector<MsgDisplayMessage> estInbox(String orderby, int page) {
         String providerNo = this.getProviderNo();
         Vector<MsgDisplayMessage> msg = new Vector<MsgDisplayMessage>();

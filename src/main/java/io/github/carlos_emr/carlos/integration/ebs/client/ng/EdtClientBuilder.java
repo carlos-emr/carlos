@@ -1,8 +1,11 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.security.cert.X509Certificate;
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,12 +13,12 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.xml.namespace.QName;
-import javax.xml.soap.SOAPElement;
-import javax.xml.soap.SOAPFactory;
-import javax.xml.ws.BindingProvider;
-import javax.xml.ws.soap.SOAPBinding;
+import jakarta.xml.soap.SOAPElement;
+import jakarta.xml.soap.SOAPFactory;
+import jakarta.xml.ws.BindingProvider;
+import jakarta.xml.ws.soap.SOAPBinding;
 
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
@@ -343,17 +346,26 @@ public class EdtClientBuilder {
     }
 
     /**
-     * Configures SSL/TLS parameters on the HTTPConduit.
+     * Configures SSL/TLS parameters on the HTTPConduit using the JVM default
+     * trust store (cacerts). This trusts certificates signed by standard public
+     * CAs. If EDT/MCEDT endpoints use a private CA, import its certificate into
+     * the JVM trust store or configure a custom trust store via system properties
+     * (javax.net.ssl.trustStore / javax.net.ssl.trustStorePassword).
      */
     public static void configureSsl(HTTPConduit conduit) {
-        TLSClientParameters tls = conduit.getTlsClientParameters();
-        if (tls == null) {
-            tls = new TLSClientParameters();
+        try {
+            TLSClientParameters tls = conduit.getTlsClientParameters();
+            if (tls == null) {
+                tls = new TLSClientParameters();
+            }
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init((KeyStore) null);
+            tls.setTrustManagers(tmf.getTrustManagers());
+            tls.setSecureSocketProtocol("TLS");
+            conduit.setTlsClientParameters(tls);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to configure SSL trust for EDT client", e);
         }
-        tls.setDisableCNCheck(true);
-        tls.setTrustManagers(new X509TrustManager[]{new TrustAllManager()});
-        tls.setSecureSocketProtocol("TLS");
-        conduit.setTlsClientParameters(tls);
     }
 
     /**
@@ -369,14 +381,6 @@ public class EdtClientBuilder {
         this.clientKeystore = filename;
     }
 
-    /**
-     * Trust manager implementation that accepts all certificates.
-     */
-    public static class TrustAllManager implements X509TrustManager {
-        @Override public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-        @Override public void checkClientTrusted(X509Certificate[] chain, String authType) { /* no-op */ }
-        @Override public void checkServerTrusted(X509Certificate[] chain, String authType) { /* no-op */ }
-    }
 
     /**
      * Registers the attachment resolver and transform for custom MTOM handling.
@@ -396,6 +400,8 @@ public class EdtClientBuilder {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private Properties loadKeystoreProperties() {
         Properties props = new Properties();
 
@@ -416,7 +422,7 @@ public class EdtClientBuilder {
         }
 
         // If classpath resource not found, try filesystem
-        try (InputStream is = new FileInputStream(normalizedPath)) {
+        try (InputStream is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(normalizedPath)))) {
             props.load(is);
             return props;
         } catch (Exception e) {

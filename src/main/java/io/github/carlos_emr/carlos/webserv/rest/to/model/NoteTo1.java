@@ -35,7 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
@@ -56,7 +56,6 @@ public class NoteTo1 implements Serializable {
     private String programName;
     private String location;
     private String roleName;
-    private Integer remoteFacilityId;
     private String uuid;
     private Boolean hasHistory;
     private Boolean locked;
@@ -76,7 +75,7 @@ public class NoteTo1 implements Serializable {
     private ArrayList<String> issueDescriptions;
 
     //not controlled by note attributes / business logic like "editable".
-    //use this for a category of notes - like integrator, group notes, etc
+    //use this for a category of notes - like group notes
     private boolean isReadOnly;
     private boolean isGroupNote;
     private boolean isCpp;
@@ -192,14 +191,6 @@ public class NoteTo1 implements Serializable {
 
     public void setRoleName(String roleName) {
         this.roleName = roleName;
-    }
-
-    public Integer getRemoteFacilityId() {
-        return remoteFacilityId;
-    }
-
-    public void setRemoteFacilityId(Integer remoteFacilityId) {
-        this.remoteFacilityId = remoteFacilityId;
     }
 
     public String getUuid() {

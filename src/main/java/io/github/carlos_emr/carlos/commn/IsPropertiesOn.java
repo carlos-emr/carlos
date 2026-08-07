@@ -27,12 +27,15 @@
 
 package io.github.carlos_emr.carlos.commn;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class IsPropertiesOn {
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean propertiesOn(String proName) {
-        OscarProperties proper = OscarProperties.getInstance();
+        CarlosProperties proper = CarlosProperties.getInstance();
 
         if (proper.getProperty(proName, "").equalsIgnoreCase("yes") || proper.getProperty(proName, "").equalsIgnoreCase("true") || proper.getProperty(proName, "").equalsIgnoreCase("on"))
             return true;
@@ -57,7 +60,4 @@ public class IsPropertiesOn {
         return propertiesOn("multioffice.formalize.provider.id");
     }
 
-    public static boolean isIndivicaRichTextLetterEnable() {
-        return propertiesOn("indivica_rich_text_letter_enabled");
-    }
 }

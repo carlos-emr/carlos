@@ -1,9 +1,9 @@
 package ca.ontario.health.edt;
 
-import javax.xml.bind.annotation.XmlElementDecl;
-import javax.xml.bind.JAXBElement;
+import jakarta.xml.bind.annotation.XmlElementDecl;
+import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
-import javax.xml.bind.annotation.XmlRegistry;
+import jakarta.xml.bind.annotation.XmlRegistry;
 
 /**
  * JAXB ObjectFactory for Ontario Health EDT (Electronic Data Transfer) web service client.
@@ -21,7 +21,7 @@ import javax.xml.bind.annotation.XmlRegistry;
  * Transfer system, which is used for submitting and managing healthcare-related documents and data
  * between EMR systems and Ontario Health services.</p>
  *
- * @see javax.xml.bind.annotation.XmlRegistry
+ * @see jakarta.xml.bind.annotation.XmlRegistry
  * @see JAXBElement
  * @since 2026-01-24
  */

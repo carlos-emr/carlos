@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Service;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 @Service
@@ -366,7 +366,7 @@ public class OscarFhirResourceManager {
         LookupListItem lookupListItem = null;
 
         if (phuId == null || phuId.isEmpty()) {
-            phuId = OscarProperties.getInstance().getProperty(PublicHealthUnitType.PhuKey.default_phu.name(), null);
+            phuId = CarlosProperties.getInstance().getProperty(PublicHealthUnitType.PhuKey.default_phu.name(), null);
         }
 
         LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);

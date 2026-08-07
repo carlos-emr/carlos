@@ -31,9 +31,9 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pa
 import java.io.IOException;
 import java.util.ResourceBundle;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.DepartmentDao;
 import io.github.carlos_emr.carlos.commn.model.Department;
@@ -42,8 +42,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConEditDepartments2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -66,7 +67,7 @@ public class EctConEditDepartments2Action extends ActionSupport {
 
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-        if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
+        if (delete.equals(oscarR.getString("encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
             if (specialists.length > 0) {
                 for (int i = 0; i < specialists.length; i++) {
                     DepartmentDao.remove(Integer.parseInt(specialists[i]));
@@ -99,6 +100,7 @@ public class EctConEditDepartments2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }
@@ -110,6 +112,7 @@ public class EctConEditDepartments2Action extends ActionSupport {
         return delete;
     }
 
+    @StrutsParameter
     public void setDelete(String str) {
         MiscUtils.getLogger().debug("setter delete");
         delete = str;
@@ -122,6 +125,7 @@ public class EctConEditDepartments2Action extends ActionSupport {
         return specialists;
     }
 
+    @StrutsParameter
     public void setSpecialists(String str[]) {
         MiscUtils.getLogger().debug("setter specialists");
         specialists = str;

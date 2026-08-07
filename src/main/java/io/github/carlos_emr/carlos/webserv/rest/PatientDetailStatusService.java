@@ -30,27 +30,29 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.List;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.integration.mchcv.HCValidationFactory;
 import io.github.carlos_emr.carlos.integration.mchcv.HCValidationResult;
 import io.github.carlos_emr.carlos.integration.mchcv.HCValidator;
 import io.github.carlos_emr.carlos.integration.mchcv.OnlineHCValidator;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientDetailStatusTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.ValidateHCRequestTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 @Path("/patientDetailStatusService")
@@ -60,44 +62,22 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Autowired
     private DemographicManager demographicManager;
 
-    private OscarProperties oscarProperties = OscarProperties.getInstance();
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
+    private CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private Logger logger = MiscUtils.getLogger();
 
 
     @GET
     @Path("/getStatus")
     public PatientDetailStatusTo1 getStatus(@QueryParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         PatientDetailStatusTo1 status = new PatientDetailStatusTo1();
 
-        //Integrator status
-        status.setIntegratorEnabled(getLoggedInInfo().getCurrentFacility().isIntegratorEnabled());
-        if (status.isIntegratorEnabled()) {
-            status.setIntegratorOffline(CaisiIntegratorManager.isIntegratorOffline(getLoggedInInfo().getSession()));
-
-            int secondsTillConsideredStale = -1;
-            try {
-                secondsTillConsideredStale = Integer.parseInt(oscarProperties.getProperty("seconds_till_considered_stale"));
-            } catch (Exception e) {
-                logger.error("OSCAR Property: seconds_till_considered_stale did not parse to an int", e);
-                secondsTillConsideredStale = -1;
-            }
-
-            boolean allSynced = true;
-            try {
-                allSynced = CaisiIntegratorManager.haveAllRemoteFacilitiesSyncedIn(getLoggedInInfo(), getLoggedInInfo().getCurrentFacility(), secondsTillConsideredStale);
-            } catch (Exception remoteFacilityException) {
-                logger.error("Error checking Remote Facilities Sync status", remoteFacilityException);
-                CaisiIntegratorManager.checkForConnectionError(getLoggedInInfo().getSession(), remoteFacilityException);
-            }
-
-            if (secondsTillConsideredStale == -1) {
-                allSynced = true;
-            }
-            status.setIntegratorAllSynced(allSynced);
-        }
-
-
-        //from oscar.properties
+        //from carlos.properties
         status.setConformanceFeaturesEnabled(oscarProperties.isPropertyActive("ENABLE_CONFORMANCE_ONLY_FEATURES"));
         status.setWorkflowEnhance(oscarProperties.isPropertyActive("workflow_enhance"));
         status.setBillregion(oscarProperties.getProperty("billregion", ""));
@@ -109,9 +89,20 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
         return status;
     }
 
-    @GET
+    @POST
     @Path("/validateHC")
-    public HCValidationResult validateHC(@QueryParam("hin") String healthCardNo, @QueryParam("ver") String versionCode) {
+    public HCValidationResult validateHC(ValidateHCRequestTo1 request) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (request == null || request.getHin() == null || request.getHin().trim().isEmpty()) {
+            HCValidationResult error = new HCValidationResult();
+            error.setResponseCode(HCValidator.NOT_VALID_RESPONSE_CODE);
+            error.setResponseDescription("Invalid Health Card Number");
+            return error;
+        }
+        String healthCardNo = request.getHin().trim();
+        String versionCode = request.getVer() == null ? null : request.getVer().trim();
         HCValidator validator = HCValidationFactory.getHCValidator();
         HCValidationResult result = null;
 
@@ -139,16 +130,18 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
 
     @GET
     @Path("/isUniqueHC")
-    public GenericRESTResponse isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         if (healthCardNo != null && !healthCardNo.trim().isEmpty() && demographicNo != null) {
             List<Demographic> demos = demographicManager.searchByHealthCard(getLoggedInInfo(), healthCardNo);
             if (demos != null) {
                 if (demos.size() > 1 || (demos.size() == 1 && !demos.get(0).getDemographicNo().equals(demographicNo))) {
-                    response.setSuccess(false);
+                    return RestResponse.errorResponse("Health card number is not unique");
                 }
             }
         }
-        return response;
+        return RestResponse.successResponse(null);
     }
 }

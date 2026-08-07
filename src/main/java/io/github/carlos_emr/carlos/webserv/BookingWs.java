@@ -35,7 +35,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 
 import org.apache.cxf.annotations.GZIP;
 import org.apache.logging.log4j.Logger;

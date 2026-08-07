@@ -36,14 +36,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class SqlUtils {
     private static Logger logger = MiscUtils.getLogger();
@@ -56,13 +55,26 @@ public class SqlUtils {
      * @return List - The List of String[] results or null if no results were yielded
      */
     public static List<String[]> getQueryResultsList(String qry) {
+        return getQueryResultsList(qry, new Object[0]);
+    }
+
+    /**
+     * Returns a List of String[] which contain the results of the specified parameterized query.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return the List of String[] results or null if no results were yielded
+     */
+    public static List<String[]> getQueryResultsList(String qry, Object... params) {
         ArrayList<String[]> records = null;
         ResultSet rs = null;
 
         try {
             records = new ArrayList<String[]>();
 
-            rs = DBHandler.GetSQL(qry);
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(qry),
+                    params != null ? params : new Object[0]);
             int cols = rs.getMetaData().getColumnCount();
             while (rs.next()) {
                 String[] record = new String[cols];
@@ -90,6 +102,22 @@ public class SqlUtils {
     }
 
     /**
+     * Returns a single row from a parameterized query result.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return String[] the first result row, or null if no results
+     */
+    public static String[] getRow(String qry, Object... params) {
+        String ret[] = null;
+        List<String[]> list = getQueryResultsList(qry, params);
+        if (list != null && !list.isEmpty()) {
+            ret = list.get(0);
+        }
+        return ret;
+    }
+
+    /**
      * Returns a single row(the first row) from a quesry result Generally should only be used with queries that return a single result Returns null if there is no result
      *
      * @param qry String
@@ -98,57 +126,10 @@ public class SqlUtils {
     public static String[] getRow(String qry) {
         String ret[] = null;
         List<String[]> list = getQueryResultsList(qry);
-        if (list != null) {
+        if (list != null && !list.isEmpty()) {
             ret = list.get(0);
         }
         return ret;
-    }
-
-    /**
-     * Returns a List of Map objects which contain the results of the specified arbitrary query. The key contains the field names of the table and the value, the field value of the
-     * record
-     *
-     * @param qry String - The String SQL Query
-     * @return List - The List of String Map results or null if no results were yielded
-     */
-    public static List<Properties> getQueryResultsMapList(String qry) {
-        List<Properties> records = null;
-        ResultSet rs = null;
-
-        try {
-            records = new ArrayList<Properties>();
-
-            rs = DBHandler.GetSQL(qry);
-            int cols = rs.getMetaData().getColumnCount();
-            while (rs.next()) {
-                Properties record = new Properties();
-                for (int i = 0; i < cols; i++) {
-                    String columnName = rs.getMetaData().getColumnName(i + 1);
-                    String cellValue = Misc.getString(rs, i + 1);
-                    if (columnName != null && !"".equals(columnName)) {
-
-                        cellValue = cellValue == null ? "" : cellValue;
-                        record.setProperty(columnName, cellValue);
-                    } else {
-                        MiscUtils.getLogger().debug("Empty key for value: " + cellValue);
-                    }
-                }
-                records.add(record);
-            }
-        } catch (SQLException e) {
-            records = null;
-            MiscUtils.getLogger().error("Error", e);
-        }
-
-        if (rs != null) {
-            try {
-                rs.close();
-            } catch (SQLException ex1) {
-                MiscUtils.getLogger().error("Error", ex1);
-            }
-        }
-
-        return records;
     }
 
     /**
@@ -172,6 +153,25 @@ public class SqlUtils {
         }
         ret.append(")");
         return ret.toString();
+    }
+
+    /**
+     * Builds a comma-separated string of {@code ?} placeholders for use in a
+     * parameterized SQL {@code IN} clause.
+     *
+     * <p>Example: {@code buildInClausePlaceholders(3)} returns {@code "?,?,?"}.
+     * Wrap the result in parentheses when constructing the SQL:
+     * {@code "... IN (" + buildInClausePlaceholders(n) + ")"}.
+     *
+     * @param count the number of placeholders to generate (must be &gt; 0)
+     * @return String of comma-separated {@code ?} placeholders
+     * @throws IllegalArgumentException if count is less than 1
+     */
+    public static String buildInClausePlaceholders(int count) {
+        if (count < 1) {
+            throw new IllegalArgumentException("Placeholder count must be at least 1");
+        }
+        return String.join(",", java.util.Collections.nCopies(count, "?"));
     }
 
     /**
@@ -210,6 +210,8 @@ public class SqlUtils {
      * you retrieved the connection from something like hibernate/jpa you should not close the connection, let the entityManager / sessionManager do that, just close the statement
      * and resultset.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void closeResources(Connection c, Statement s, ResultSet rs) {
         closeResources(s, rs);
 
@@ -223,14 +225,6 @@ public class SqlUtils {
                     logger.warn("Error closing Connection.", e);
                 }
             }
-        }
-    }
-
-    public static void closeResources(Session session, Statement s, ResultSet rs) {
-        closeResources(s, rs);
-
-        if (session != null) {
-            session.close();
         }
     }
 

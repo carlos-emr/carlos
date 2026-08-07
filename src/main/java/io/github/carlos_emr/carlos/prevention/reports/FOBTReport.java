@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
@@ -64,6 +65,8 @@ public class FOBTReport implements PreventionReport {
     public FOBTReport() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
 
         int inList = 0;
@@ -76,10 +79,10 @@ public class FOBTReport implements PreventionReport {
 
             //search   prevention_date prevention_type  deleted   refused
             ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "FOBT", demo);
-            PreventionData.addRemotePreventions(loggedInInfo, prevs, demo, "FOBT", null);
+
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
             ArrayList<Map<String, Object>> colonoscopys = PreventionData.getPreventionData(loggedInInfo, "COLONOSCOPY", demo);
-            PreventionData.addRemotePreventions(loggedInInfo, colonoscopys, demo, "COLONOSCOPY", null);
+
             PreventionReportDisplay prd = new PreventionReportDisplay();
             prd.demographicNo = demo;
             prd.bonusStatus = "N";

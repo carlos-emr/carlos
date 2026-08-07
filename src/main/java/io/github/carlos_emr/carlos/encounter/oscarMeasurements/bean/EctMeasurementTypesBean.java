@@ -30,14 +30,22 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
 import java.util.Vector;
 
+@XmlAccessorType(XmlAccessType.NONE)
 public class EctMeasurementTypesBean {
 
     int id;
+    @XmlElement(name = "type")
     String type;
+    @XmlElement(name = "typeDisplayName")
     String typeDisplayName;
+    @XmlElement(name = "typeDesc")
     String typeDesc;
+    @XmlElement(name = "measuringInstrc")
     String measuringInstrc;
     String validation;
     String lastProviderFirstName = null;
@@ -47,10 +55,12 @@ public class EctMeasurementTypesBean {
     String lastComments = null;
     String lastDateObserved = null;
     String lastDateEntered = null;
+    @XmlElement(name = "validationRule")
     Vector validationRules = new Vector();
     private String validationName = null;
 
     //for forms connecting to miles, determine whether to prefill the data or not when a new form is opened
+    @XmlElement(name = "canPrefill")
     boolean canPrefill = false;
 
     public EctMeasurementTypesBean() {

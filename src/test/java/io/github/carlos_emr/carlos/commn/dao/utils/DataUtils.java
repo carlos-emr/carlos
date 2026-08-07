@@ -38,7 +38,7 @@ import javax.xml.parsers.SAXParserFactory;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -96,6 +96,11 @@ public class DataUtils {
 
         List<Integer> demos = demographicDao.getActiveDemographicIds();
         List<Provider> providers = providerDao.getActiveProviders();
+
+        if (providers.isEmpty() || demos.isEmpty()) {
+            logger.info("No active providers or demographics found; skipping populateProviders()");
+            return;
+        }
 
         for (int j = 0; j < demos.size(); j++) {
             Provider p = providers.get(j % providers.size());
@@ -161,7 +166,7 @@ public class DataUtils {
 	private static String getCanonicalPath(String fileName) {
 		String docDir = System.getProperty("DOCUMENT_DIR"); 
 		if (docDir == null || docDir.trim().equals("")) {
-			docDir = io.github.carlos_emr.OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+			docDir = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 			docDir = "/var/lib/OscarDocument";
 		}
 		
@@ -185,7 +190,7 @@ public class DataUtils {
 
                 String savePath = getCanonicalPath(labId);
                 save(savePath, lab.getBytes());
-                String status = msgHandler.parse(DaoTestFixtures.getLoggedInInfo(), "CML", savePath, 99, "127.0.0.1");
+                String status = msgHandler.parse(LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod(), "CML", savePath, 99, "127.0.0.1");
                 if (logger.isInfoEnabled()) {
                     if ("success".equals(status)) {
                         logger.info("Added lab: " + labId);
@@ -215,6 +220,11 @@ public class DataUtils {
         SAXParserFactory factory = SAXParserFactory.newInstance();
         SAXParser parser;
         try {
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
             parser = factory.newSAXParser();
             EntityManager entityManager = new EntityManagerImpl();
             DefaultHandler dh = new LoadingHandler(entityManager);

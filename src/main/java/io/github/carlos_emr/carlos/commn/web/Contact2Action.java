@@ -39,8 +39,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -73,10 +73,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.BeanUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Contact2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -191,6 +194,8 @@ public class Contact2Action extends ActionSupport {
         return "manage";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveManage() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -333,6 +338,8 @@ public class Contact2Action extends ActionSupport {
         return forward;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getReverseRole(String roleName, int targetDemographicNo) {
         Demographic demographic = demographicDao.getDemographicById(targetDemographicNo);
 
@@ -368,6 +375,8 @@ public class Contact2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String removeContact() {
 
@@ -377,9 +386,10 @@ public class Contact2Action extends ActionSupport {
         String[] contactIds = request.getParameterValues("contact.delete");
         String postMethod = request.getParameter("postMethod");
         String removeSingleId = request.getParameter("contactId");
+        String demographicNo = StringUtils.trimToNull(request.getParameter("demographic_no"));
         String actionForward = null;
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -432,7 +442,7 @@ public class Contact2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String addContact() {
         CtlRelationshipsDao relationshipDao = SpringUtils.getBean(CtlRelationshipsDao.class);
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         List<CtlRelationships> relationships = relationshipDao.findAllActive();
         request.setAttribute("relationships", relationships);
         request.setAttribute("region", prop.getProperty("billregion"));
@@ -444,7 +454,7 @@ public class Contact2Action extends ActionSupport {
     public String addProContact() {
         ContactSpecialtyDao specialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
         List<ContactSpecialty> specialties = specialtyDao.findAll();
-        OscarProperties prop = OscarProperties.getInstance();
+        CarlosProperties prop = CarlosProperties.getInstance();
         request.setAttribute("region", prop.getProperty("billregion"));
         request.setAttribute("specialties", specialties);
         request.setAttribute("pcontact.lastName", request.getParameter("keyword"));
@@ -453,6 +463,8 @@ public class Contact2Action extends ActionSupport {
         return "pForm";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String editHealthCareTeam() {
 
@@ -577,6 +589,8 @@ public class Contact2Action extends ActionSupport {
         return "pForm";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String saveContact() {
 
@@ -766,7 +780,7 @@ public class Contact2Action extends ActionSupport {
 
             demographicContactId = demographicContact.getId() + "";
 
-            logger.info("Linked contact id " + contactType + "-" + contactId + " with demographic " + demographic_no);
+            logger.info("Linked contact id {}-{} with demographic {}", LogSafe.sanitize(String.valueOf(contactType)), LogSafe.sanitize(String.valueOf(contactId)), LogSafe.sanitize(String.valueOf(demographic_no))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
             request.setAttribute("demographic_no", demographic_no);
             request.setAttribute("id", demographicContactId);
@@ -812,6 +826,8 @@ public class Contact2Action extends ActionSupport {
      * Set whether or not this external providers is allowed to be contacted
      * by the clinic.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String setDNC() {
 
@@ -879,7 +895,7 @@ public class Contact2Action extends ActionSupport {
 
         List<Contact> contacts = searchAllContacts(searchMode, orderBy, keyword);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectMapper mapper = new ObjectMapper();
         try {
             mapper.writeValue(response.getWriter(), contacts);
@@ -983,7 +999,7 @@ public class Contact2Action extends ActionSupport {
         Integer newPharmacyId = pharmacyManager.savePharmacyInfo(loggedInInfo, pharmacyInfo);
 
         // Link to demographic if this is a new contact generated from a demographic.
-        logger.info("Linking new Pharmacy " + newPharmacyId + " to demographic " + demographic_no);
+        logger.info("Linking new Pharmacy {} to demographic {}", newPharmacyId, LogSafe.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         if (newPharmacyId > 0 && !demographic_no.isEmpty() && currentPharmacyId == 0) {
             pharmacyManager.addPharmacy(loggedInInfo, Integer.parseInt(demographic_no), newPharmacyId, 0);
         }
@@ -1326,28 +1342,34 @@ public class Contact2Action extends ActionSupport {
     private Contact contact;
     private ProfessionalContact pcontact;
 
+    @StrutsParameter(depth = 1)
     public Contact getContact() {
         return contact;
     }
 
+    @StrutsParameter
     public void setContact(Contact contact) {
         this.contact = contact;
     }
 
+    @StrutsParameter(depth = 1)
     public ProfessionalContact getPcontact() {
         return pcontact;
     }
 
+    @StrutsParameter
     public void setPcontact(ProfessionalContact pcontact) {
         this.pcontact = pcontact;
     }
 
     private PharmacyInfo pharmacyInfo;
 
+    @StrutsParameter(depth = 1)
     public PharmacyInfo getPharmacyInfo() {
         return pharmacyInfo;
     }
 
+    @StrutsParameter
     public void setPharmacyInfo(PharmacyInfo pharmacyInfo) {
         this.pharmacyInfo = pharmacyInfo;
     }

@@ -42,8 +42,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -81,8 +81,9 @@ import io.github.carlos_emr.carlos.PMmodule.utility.UtilDateUtilities;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -93,8 +94,9 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
 /**
  * @author jaygallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class MeasurementGraphAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -105,11 +107,14 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final String NUMERIC_REGEX = "[^-.\\d]";
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ParseException {
         log.debug("In MeasurementGraphAction22Action");
         String userrole = (String) request.getSession().getAttribute("userrole");
         if (userrole == null) {
-            response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
+            return NONE;
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {
@@ -128,7 +133,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         String method = request.getParameter("method");
 
-        log.debug("Creating graph for demo " + demographicNo + " type1 :" + typeIdName + " type2 :" + typeIdName2);
+        log.debug("Creating graph for demo {} type1: {} type2: {}", LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(typeIdName), LogSafe.sanitize(typeIdName2));
         JFreeChart chart = null;
         if (method == null) {
             log.debug("Calling DefaultChart");
@@ -203,6 +208,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return dataset;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String[] getDrugSymbol(Integer demographic, String[] dins) {
         if (dins == null) {
             return new String[0];
@@ -298,7 +305,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
         //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
         // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
@@ -382,7 +388,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
         //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
         // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
@@ -509,7 +514,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -578,7 +582,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     }
                 }
             }
-            log.debug("RANGE " + mdb.get("range"));
 
             if (mdb.get("range") != null) {
                 String range = (String) mdb.get("range");
@@ -609,7 +612,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -676,20 +678,30 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
 
 
-        ArrayList<Map<String, Serializable>> list = null;
-        MiscUtils.getLogger().debug(" lab type >" + labType + "< >" + labType.equals("loinc") + "<" + testName + " " + identifier);
-        if (labType.equals("loinc")) {
+        ArrayList<Map<String, Serializable>> list = new ArrayList<>();
+        boolean loincLab = "loinc".equals(labType);
+        MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}",
+                LogSafe.sanitize(labType), loincLab, LogSafe.sanitize(testName), LogSafe.sanitize(identifier));
+        if (loincLab) {
             try {
 
-                Connection conn = DbConnectionFilter.getThreadLocalDbConnection();
-                list = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
-                MiscUtils.getLogger().debug("List ->" + list.size());
-                conn.close();
+                try (Connection conn = LegacyJdbcQuery.getConnection()) {
+                    ArrayList<Map<String, Serializable>> loincValues =
+                            CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
+                    if (loincValues != null) {
+                        list = loincValues;
+                    }
+                    MiscUtils.getLogger().debug("List ->{}", list.size());
+                }
             } catch (Exception ed) {
                 MiscUtils.getLogger().error("Error", ed);
             }
         } else {
-            list = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            ArrayList<Map<String, Serializable>> testValues =
+                    CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            if (testValues != null) {
+                list = testValues;
+            }
         }
         String typeYAxisName = "";
         ArrayList<OHLCDataItem> dataItems = new ArrayList<OHLCDataItem>();
@@ -724,7 +736,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 }
             }
 
-            log.debug("RANGE " + mdb.get("range"));
 
             if (mdb.get("range") != null) {
                 String range = (String) mdb.get("range");
@@ -755,7 +766,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -904,7 +914,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         plot.getDomainAxis().setAutoRange(true);
 
 
-        log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
         plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
         plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
         plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
@@ -967,7 +976,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
                     diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID:" + mdb.getId());
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset.addSeries(diastolic);
@@ -990,7 +999,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID:" + mdb.getId());
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset.addSeries(newSeries);
@@ -999,12 +1008,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
 
         if (typeIdName2 != null) {
-            log.debug("type id name 2" + typeIdName2);
+            log.debug("type id name 2: {}", LogSafe.sanitize(typeIdName2));
 
             ArrayList<EctMeasurementsDataBean> list2 = getList(demographicNo, typeIdName2);
             org.jfree.data.time.TimeSeriesCollection dataset2 = new org.jfree.data.time.TimeSeriesCollection();
 
-            log.debug("list2 " + list2);
 
             EctMeasurementsDataBean sampleLine2 = list2.get(0);
             String typeLegendName = sampleLine2.getTypeDisplayName();
@@ -1020,7 +1028,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                                 Double.parseDouble(result));
                     }
                 } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID:" + mdb.getId());
+                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
                 }
             }
             dataset2.addSeries(newSeries);

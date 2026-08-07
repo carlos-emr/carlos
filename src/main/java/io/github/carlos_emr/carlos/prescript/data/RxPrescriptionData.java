@@ -52,10 +52,19 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RxPrescriptionData {
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    static int safeLength(String value) {
+        return value == null ? 0 : value.length();
+    }
+
+    static String textViewLineForFullOutline(String fullOutLine) {
+        return StringUtils.defaultString(fullOutLine).replace(";", "\n");
+    }
 
     public static String getFullOutLine(String special) {
         String ret = "";
@@ -77,6 +86,8 @@ public class RxPrescriptionData {
         return ret;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Prescription getPrescription(int drugId) {
 
         DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
@@ -135,9 +146,11 @@ public class RxPrescriptionData {
         if (drug.getRefillDuration() != null) prescription.setRefillDuration(drug.getRefillDuration());
         if (drug.getRefillQuantity() != null) prescription.setRefillQuantity(drug.getRefillQuantity());
 
-        if (prescription.getSpecial() == null || prescription.getSpecial().length() <= 6) {
-            logger.warn("I strongly suspect something is wrong, either special is null or it appears to not contain anything useful. drugId=" + drugId + ", drug.special=" + prescription.getSpecial());
-            logger.warn("data from db is : " + drug.getSpecial());
+        String prescriptionSpecial = prescription.getSpecial();
+        String drugSpecial = drug.getSpecial();
+        if (prescriptionSpecial == null || prescriptionSpecial.length() <= 6) {
+            logger.warn("I strongly suspect something is wrong, either special is null or it appears to not contain anything useful. drugId={}, prescriptionSpecialLength={}, drugSpecialLength={}",
+                    drugId, safeLength(prescriptionSpecial), safeLength(drugSpecial));
         }
         prescription.setDispenseInternal(drug.getDispenseInternal());
         prescription.setPharmacyId(drug.getPharmacyId());
@@ -563,10 +576,10 @@ public class RxPrescriptionData {
 
             String fullOutLine = rx.getFullOutLine();
             if (fullOutLine == null || fullOutLine.length() < 6) {
-                logger.warn("Drug full outline appears to be null or empty : " + fullOutLine);
+                logger.warn("Drug full outline appears to be null or empty (length={})", safeLength(fullOutLine));
             }
 
-            txt = fullOutLine.replaceAll(";", "\n");
+            txt = textViewLineForFullOutline(fullOutLine);
             textView.append("\n" + txt);
         }
         // textView.append();
@@ -831,6 +844,8 @@ public class RxPrescriptionData {
             customNote = b;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public boolean isMitte() {
             if (unitName != null && (unitName.equalsIgnoreCase("D") || unitName.equalsIgnoreCase("W") || unitName.equalsIgnoreCase("M") || unitName.equalsIgnoreCase("day") || unitName.equalsIgnoreCase("week") || unitName.equalsIgnoreCase("month") || unitName.equalsIgnoreCase("days") || unitName.equalsIgnoreCase("weeks") || unitName.equalsIgnoreCase("months") || unitName.equalsIgnoreCase("mo")))
                 return true;
@@ -1076,6 +1091,8 @@ public class RxPrescriptionData {
             return b;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public void calcEndDate() {
             try {
                 GregorianCalendar cal = new GregorianCalendar(Locale.CANADA);
@@ -1165,6 +1182,8 @@ public class RxPrescriptionData {
             return this.customName;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public void setCustomName(String RHS) {
             this.customName = RHS;
             if (this.customName != null) {
@@ -1382,7 +1401,7 @@ public class RxPrescriptionData {
                 // it was tracked down to some code which required a special, but we couldn't figure out why a special was required or missing.
                 // so now we have code to log an error when a drug is missing a special, we still don't know why it's required or missing
                 // but at least we know which drug does it.
-                logger.warn("Some one is retrieving the drug special but it appears to be blank : " + special);
+                logger.warn("Someone is retrieving the drug special but it appears to be blank (length={})", safeLength(special));
             }
 
             return special;
@@ -1408,7 +1427,7 @@ public class RxPrescriptionData {
 
             //if (RHS == null || RHS.length() < 6) {
             if (RHS == null || RHS.length() < 4) {
-                logger.warn("Some one is setting the drug special but it appears to be blank : " + special);
+                logger.warn("Someone is setting the drug special but it appears to be blank (incomingLength={})", safeLength(RHS));
             }
 
             if (RHS != null) {
@@ -1423,7 +1442,7 @@ public class RxPrescriptionData {
 
             //if (special == null || special.length() < 6) {
             if (special == null || special.length() < 4) {
-                logger.warn("after processing the drug special but it appears to be blank : " + special);
+                logger.warn("after processing the drug special but it appears to be blank (length={})", safeLength(special));
             }
         }
 
@@ -1486,6 +1505,8 @@ public class RxPrescriptionData {
             return ret;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public String getRxDisplay() {
             try {
                 String ret;
@@ -2199,14 +2220,15 @@ public class RxPrescriptionData {
             if (this.takeMin > this.takeMax) {
                 this.takeMax = this.takeMin;
             }
-            if (getSpecial() == null || getSpecial().length() < 4) {
+            String special = getSpecial();
+            if (special == null || special.length() < 4) {
                 //if (getSpecial() == null || getSpecial().length() < 6) {
-                logger.warn("drug special appears to be null or empty : " + getSpecial());
+                logger.warn("drug special appears to be null or empty (length={})", safeLength(special));
             }
-            String parsedSpecial = RxUtil.replace(this.getSpecial(), "'", "");
+            String parsedSpecial = RxUtil.replace(special, "'", "");
             //if (parsedSpecial == null || parsedSpecial.length() < 6) {
             if (parsedSpecial == null || parsedSpecial.length() < 4) {
-                logger.warn("drug special after parsing appears to be null or empty : " + parsedSpecial);
+                logger.warn("drug special after parsing appears to be null or empty (length={})", safeLength(parsedSpecial));
             }
 
             FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);

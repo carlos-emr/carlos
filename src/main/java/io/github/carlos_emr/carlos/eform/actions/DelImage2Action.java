@@ -35,20 +35,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DelImage2Action extends ActionSupport {
@@ -58,6 +59,8 @@ public class DelImage2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
@@ -74,7 +77,7 @@ public class DelImage2Action extends ActionSupport {
         // Use FilenameUtils.getName to extract just the filename, removing any path components
         String sanitizedFilename = FilenameUtils.getName(imgname);
         
-        String imgpath = OscarProperties.getInstance().getEformImageDirectory();
+        String imgpath = CarlosProperties.getInstance().getEformImageDirectory();
         
         // Construct the file using the base directory and sanitized filename only
         File imageDir = new File(imgpath);
@@ -82,7 +85,7 @@ public class DelImage2Action extends ActionSupport {
         
         try {
             // Validate using PathValidationUtils to ensure the path is within the expected directory
-            PathValidationUtils.validateExistingPath(image, imageDir);
+            image = PathValidationUtils.validateExistingPath(image, imageDir);
 
             // Delete the file
             Path imagePath = image.toPath();

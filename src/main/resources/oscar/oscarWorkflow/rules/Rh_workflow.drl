@@ -1,157 +1,200 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - Rh Factor Workflow Decision Support Rules
+// ============================================================================
+//
+// This DRL file defines workflow rules for Rh-negative pregnancy management.
+// It tracks the progress of Rh immunoglobulin (RhIg/WinRho) administration
+// during pregnancy, using gestation age and workflow state to set colour
+// indicators on the pregnancy workflow dashboard.
+//
+// APPLICATION CONTEXT:
+//   Called from: RHWorkFlow.java (io.github.carlos_emr.carlos.workflow)
+//     - executeRules() creates WorkFlowInfo, passes to WorkFlowDS.getMessages()
+//     - getWorkFlowDS() delegates to WorkFlowDSFactory.getWorkFlowDS("Rh_workflow.drl")
+//   Loading: Two-tier priority via WorkFlowDSFactory:
+//     1. Filesystem path from WORKFLOW_DS_DIRECTORY property in carlos.properties
+//     2. Classpath fallback: /oscar/oscarWorkflow/rules/Rh_workflow.drl (this file)
+//   UI: Linked from RH Form via forwardshortcutname.do?formname=RH Form
+//   Struts: FrmFormAddRHWorkFlow2Action handles form submission
+//
+// CLINICAL CONTEXT:
+//   Rh-negative mothers carrying Rh-positive fetuses risk developing anti-D
+//   antibodies (Rh isoimmunization) which can cause hemolytic disease of the
+//   newborn (HDN) in subsequent pregnancies. Standard of care:
+//     - RhIg injection at 28 weeks gestation (prophylactic)
+//     - RhIg within 72 hours of delivery (if baby is Rh-positive)
+//   This workflow tracks the 28-week prophylactic injection timeline.
+//
+// Fact object: WorkFlowInfo (io.github.carlos_emr.carlos.workflow.WorkFlowInfo)
+//   - Bound as "w" in all rules
+//   - Key methods:
+//     getGestationAge() - current gestation in weeks (-1 if no EDD set)
+//     isCurrentState(String) - checks workflow state machine position
+//     setColour(String) - sets dashboard indicator colour
+//
+// WORKFLOW STATES (from WorkFlowState):
+//   "1" = Initial / No appointment booked for RhIg
+//   "2" = Appointment booked for RhIg injection
+//   "3" = 28-week injection completed
+//   "4" = Requires another injection (e.g., post-delivery)
+//   "5" = Missed appointment
+//   "6" = Follow-up appointment booked
+//
+// COLOUR INDICATORS:
+//   "#ccccff" (light blue) = On track, scheduled appropriately
+//   "green"   = Complete (not used in current rules - set elsewhere)
+//   "yellow"  = Follow-up scheduled, needs monitoring
+//   "orange"  = Approaching deadline or needs attention
+//   "red"     = Alert - overdue, missed, or no EDD set
+//
+// Converted from Drools 2.0 XML format to Drools 7.x DRL text format.
+// ============================================================================
+package RhFlowSheet;
 
-<rule-set name="RhFlowSheet"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java">
-<!--
-States
-0 NO EDD  doesn't matter the state
-  No Appt made
-1    - regular before 24 weeks
-2    - orange after 24 weeks
-3    - red after 27 weeks
-  Appt Booked
-4    - regular before 28 weeks
-5    - red after 28 Weeks
-  Injection 28
-6    - red after EDD
-  Requires Another Injection
-7    - orange
-  Missed Appt
-8     - red
-  Follow up Appt Booked
-      - yellow
-  Closed
+import io.github.carlos_emr.carlos.workflow.WorkFlowInfo;
 
-"1","No Appt made"
-"2","Appt Booked"
-"3","Injection 28"
-"4","Requires Another Injection"
-"5","Missed Appt"
-"C","Closed"
+// --------------------------------------------------------------------------
+// Rule 0: No EDD (Expected Date of Delivery) set
+// If gestation age is -1, no EDD has been entered in the patient record.
+// Cannot track Rh workflow without knowing gestation - flag as RED alert.
+// --------------------------------------------------------------------------
+rule "No EDD 0"
+    when
+        w : WorkFlowInfo()
+        eval( w.getGestationAge() == -1 )
+    then
+        w.setColour("red");
+end
 
+// --------------------------------------------------------------------------
+// Rules 1-3: State "1" - No appointment booked for RhIg injection
+// Escalating urgency based on gestation age:
+//   <24 weeks: Light blue (plenty of time to book)
+//   24-26 weeks: Orange (approaching 28-week window, book soon)
+//   >=27 weeks: Red (past recommended booking time, urgent)
+// NOTE: Rules 2 and 3 can both fire if gestation >=27 (both conditions met).
+//   Drools fires ALL matching rules, so the last one to set colour wins.
+//   Since rule 3 (>=27, red) is evaluated after rule 2 (>=24, orange),
+//   the final colour will be red for >=27 weeks.
+// --------------------------------------------------------------------------
+rule "No Appt 1"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("1") )
+        eval( w.getGestationAge() < 24 )
+    then
+        w.setColour("#ccccff");
+end
 
-#ccccff - normal
-orange - needs attention
-red imediate attention
--->      
-   <rule name="No EDD 0">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.getGestationAge() == -1</java:condition>
-        <java:consequence>                 
-              w.setColour("red");
-        </java:consequence>
-    </rule>
+rule "No Appt 2"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("1") )
+        eval( w.getGestationAge() >= 24 )
+    then
+        w.setColour("orange");
+end
 
+rule "No Appt 3"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("1") )
+        eval( w.getGestationAge() >= 27 )
+    then
+        w.setColour("red");
+end
 
-    <rule name="No Appt 1">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("1")</java:condition>
-        <java:condition>w.getGestationAge() &lt; 24</java:condition>
-        <java:consequence>                 
-              w.setColour("#ccccff");
-        </java:consequence>
-    </rule>
+// --------------------------------------------------------------------------
+// Rules 4-5: State "2" - Appointment booked for RhIg injection
+//   <=28 weeks: Light blue (on track, appointment is appropriately timed)
+//   >28 weeks: Red (appointment is too late, injection should have been given)
+// --------------------------------------------------------------------------
+rule "Appt Booked 4"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("2") )
+        eval( w.getGestationAge() <= 28 )
+    then
+        w.setColour("#ccccff");
+end
 
+rule "Appt Booked 5"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("2") )
+        eval( w.getGestationAge() > 28 )
+    then
+        w.setColour("red");
+end
 
-    <rule name="No Appt 2">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("1")</java:condition>
-        <java:condition>w.getGestationAge() &gt;= 24</java:condition>
-        <java:consequence>                 
-              w.setColour("orange");
-        </java:consequence>
-    </rule>
+// --------------------------------------------------------------------------
+// Rule 6: State "3" - 28-week RhIg injection completed
+// If gestation >42 weeks (post-term), flag RED - may need post-delivery RhIg.
+// Normal pregnancies would have delivered by 42 weeks; this catches overdue cases.
+// If gestation <=42, no rule fires (stays at whatever colour was set previously).
+// --------------------------------------------------------------------------
+rule "Injection 28 6"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("3") )
+        eval( w.getGestationAge() > 42 )
+    then
+        w.setColour("red");
+end
 
-    <rule name="No Appt 3">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("1")</java:condition>
-        <java:condition>w.getGestationAge() &gt;= 27</java:condition>
-        <java:consequence>                 
-              w.setColour("red");
-        </java:consequence>
-    </rule>
+// --------------------------------------------------------------------------
+// Rules 7-9: Post-injection states
+// Rule 7: State "4" - Requires another injection (post-delivery RhIg)
+//   Orange - needs attention but not as urgent as missed appointment
+// Rule 8: State "5" - Missed appointment for RhIg
+//   Orange - needs rescheduling
+// Rule 9: State "6" - Follow-up appointment booked
+//   Yellow - being tracked, awaiting follow-up completion
+// --------------------------------------------------------------------------
+rule "Requires Another Injection 7"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("4") )
+    then
+        w.setColour("orange");
+end
 
+rule "Missed Appt 8"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("5") )
+    then
+        w.setColour("orange");
+end
 
-    <rule name="Appt Booked 4">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("2")</java:condition>
-        <java:condition>w.getGestationAge() &lt;= 28</java:condition>
-        <java:consequence>      
-              w.setColour("#ccccff");
-        </java:consequence>
-    </rule>
-    
-    
-    <rule name="Appt Booked 5">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("2")</java:condition>
-        <java:condition>w.getGestationAge() &gt; 28</java:condition>
-        <java:consequence>              
-              w.setColour("red");  
-        </java:consequence>
-    </rule>
-    
-
-    <rule name="Injection 28 6">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("3")</java:condition>
-        <java:condition>w.getGestationAge() &gt; 42</java:condition>
-        <java:consequence>                 
-              w.setColour("red");
-        </java:consequence>
-    </rule>
-  
-
-    <rule name="Requires Another Injection 7">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("4")</java:condition>
-        <java:consequence>            
-              w.setColour("orange");
-        </java:consequence>
-    </rule>
-  
-
-    <rule name="Missed Appt 8">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("5")</java:condition>
-        <java:consequence>             
-              w.setColour("orange");
-        </java:consequence>
-    </rule>
-
-    <rule name="Follow up Appt Booked 9">
-        <parameter identifier="w">
-            <class>io.github.carlos_emr.carlos.workflow.WorkFlowInfo</class>
-        </parameter>
-        <java:condition>w.isCurrentState("6")</java:condition>
-        <java:consequence>              
-              w.setColour("yellow");
-        </java:consequence>
-    </rule>
-    
-
-  
-
-</rule-set>
-
-
+rule "Follow up Appt Booked 9"
+    when
+        w : WorkFlowInfo()
+        eval( w.isCurrentState("6") )
+    then
+        w.setColour("yellow");
+end

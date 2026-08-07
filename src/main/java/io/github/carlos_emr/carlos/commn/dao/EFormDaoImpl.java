@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import org.springframework.stereotype.Repository;
@@ -106,44 +106,6 @@ public class EFormDaoImpl extends AbstractDaoImpl<EForm> implements EFormDao {
         List<EForm> results = query.getResultList();
 
         return (results);
-    }
-
-    @Override
-    public boolean isIndivicaRTLEnabled() {
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("select x from ");
-        sb.append(modelClass.getSimpleName());
-        sb.append(" x where x.formName='Rich Text Letter' and x.subject='Rich Text Letter Generator'");
-        Query query = entityManager.createQuery(sb.toString());
-
-        @SuppressWarnings("unchecked")
-        List<EForm> forms = query.getResultList();
-
-        boolean enabled = false;
-        for (EForm form : forms) {
-            enabled |= form.isCurrent();
-        }
-
-        return enabled;
-    }
-
-    @Override
-    public void setIndivicaRTLEnabled(boolean enabled) {
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("select x from ");
-        sb.append(modelClass.getSimpleName());
-        sb.append(" x where x.formName='Rich Text Letter' and x.subject='Rich Text Letter Generator'");
-        Query query = entityManager.createQuery(sb.toString());
-
-        @SuppressWarnings("unchecked")
-        List<EForm> forms = query.getResultList();
-        for (EForm form : forms) {
-            form.setCurrent(enabled);
-            enabled |= form.isCurrent();
-            merge(form);
-        }
     }
 
     /**

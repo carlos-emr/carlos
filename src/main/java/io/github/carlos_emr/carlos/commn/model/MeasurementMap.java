@@ -28,12 +28,12 @@
  */
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 /**
  * Measurement mapping entity that links clinical measurements to standardized laboratory codes.
@@ -82,7 +82,7 @@ public class MeasurementMap extends AbstractModel<Integer> {
         CML, 
         /** GDML laboratory systems */
         GDML, 
-        /** ICL laboratory systems */
+        /** ICL measurement mapping only; parser handler removed */
         ICL
     }
 

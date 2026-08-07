@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.web.admin;
 
 import java.util.List;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.OscarKeyDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
@@ -57,15 +57,15 @@ public final class KeyManagerUIBean {
     }
 
     public static String getSericeNameEscaped(PublicKey publicKey) {
-        return (StringEscapeUtils.escapeHtml4(publicKey.getId()));
+        return (Encode.forHtmlAttribute(publicKey.getId()));
     }
 
     public static String getSericeDisplayString(PublicKey publicKey) {
-        return (StringEscapeUtils.escapeHtml4(publicKey.getId() + " (" + publicKey.getType() + ')'));
+        return (Encode.forHtml(publicKey.getId() + " (" + publicKey.getType() + ')'));
     }
 
     public static String getProfessionalSpecialistDisplayString(ProfessionalSpecialist professionalSpecialist) {
-        return (StringEscapeUtils.escapeHtml4(professionalSpecialist.getLastName() + ", " + professionalSpecialist.getFirstName() + " (" + professionalSpecialist.getId() + ')'));
+        return (Encode.forHtml(professionalSpecialist.getLastName() + ", " + professionalSpecialist.getFirstName() + " (" + professionalSpecialist.getId() + ')'));
     }
 
     public static void updateMatchingProfessionalSpecialist(String serviceName, Integer matchingProfessionalSpecialistId) {
@@ -79,6 +79,6 @@ public final class KeyManagerUIBean {
 
         if (oscarKey == null) return ("");
 
-        return (StringEscapeUtils.escapeHtml4(oscarKey.getPublicKey()));
+        return (Encode.forHtml(oscarKey.getPublicKey()));
     }
 }

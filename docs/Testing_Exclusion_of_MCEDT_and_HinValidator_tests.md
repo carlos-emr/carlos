@@ -28,7 +28,6 @@ The <excludes> tags in the pom.xml have been updated to include the HinValidator
               <exclude>**/HinValidatorTest.java</exclude>
               <exclude>**/AR2005*.java</exclude>
               <exclude>**/OntarioMDSpec4DataTest.java</exclude>
-              <exclude>**/ONAREnhancedBornConnectorTest.java</exclude>
               <exclude>org/oscarehr/e2e/**/*.java</exclude>
           </excludes>
         <systemPropertyVariables>

@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -39,8 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -53,7 +54,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctAddShortMeasurement2Action extends ActionSupport {
@@ -74,6 +75,8 @@ public class EctAddShortMeasurement2Action extends ActionSupport {
         return unspecified();
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String unspecified() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", null)) {
             throw new SecurityException("missing required sec object (_measurement)");
@@ -99,7 +102,7 @@ public class EctAddShortMeasurement2Action extends ActionSupport {
             String encodedFollowupValue = URLEncoder.encode(followUpValue != null ? followUpValue : "", "UTF-8");
             String encodedDate = URLEncoder.encode(UtilDateUtilities.DateToString(new Date()), "UTF-8");
             
-            response.getWriter().print("id=" + encodedId + 
+            response.getWriter().print("id=" + encodedId + // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- text/plain response with URLEncoder.encode()
                                       "&followupValue=" + encodedFollowupValue + 
                                       "&Date=" + encodedDate);
         }

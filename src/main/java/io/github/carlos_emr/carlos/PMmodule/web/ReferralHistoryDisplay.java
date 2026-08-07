@@ -18,7 +18,7 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -30,22 +30,11 @@ package io.github.carlos_emr.carlos.PMmodule.web;
 import java.util.Comparator;
 import java.util.Date;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProgram;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.Referral;
-import io.github.carlos_emr.carlos.commn.model.Facility;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-
-import io.github.carlos_emr.carlos.util.DateUtils;
 
 public class ReferralHistoryDisplay {
-    private static final Logger logger = MiscUtils.getLogger();
 
     public static final Comparator<ReferralHistoryDisplay> REFERRAL_DATE_COMPARATOR = new Comparator<ReferralHistoryDisplay>() {
         public int compare(ReferralHistoryDisplay arg0, ReferralHistoryDisplay arg1) {
@@ -60,10 +49,8 @@ public class ReferralHistoryDisplay {
     private Date completionDate;
     private String sourceProgramName;
     private String external;
-    private boolean isRemoteReferral;
 
     public ReferralHistoryDisplay(ClientReferral clientReferral) {
-        isRemoteReferral = false;
         id = clientReferral.getId().intValue();
         destinationProgramName = clientReferral.getProgramName();
         destinationProgramType = clientReferral.getProgramType();
@@ -71,35 +58,6 @@ public class ReferralHistoryDisplay {
         completionDate = clientReferral.getCompletionDate();
         sourceProgramName = clientReferral.getCompletionNotes();
         external = clientReferral.getNotes();
-    }
-
-    public ReferralHistoryDisplay(LoggedInInfo loggedInInfo, Facility facility, Referral referral) {
-        isRemoteReferral = true;
-        id = referral.getReferralId();
-
-        try {
-            FacilityIdIntegerCompositePk programId = new FacilityIdIntegerCompositePk();
-            programId.setIntegratorFacilityId(referral.getDestinationIntegratorFacilityId());
-            programId.setCaisiItemId(referral.getDestinationCaisiProgramId());
-
-            CachedProgram cachedProgram = CaisiIntegratorManager.getRemoteProgram(loggedInInfo, facility, programId);
-            destinationProgramName = cachedProgram.getName();
-            destinationProgramType = cachedProgram.getType();
-        } catch (Exception e) {
-            destinationProgramName = "N/A";
-            destinationProgramType = "N/A";
-            logger.error("unexpected error", e);
-        }
-
-        referralDate = DateUtils.toDate(referral.getReferralDate());
-
-        // no completion date available yet
-        // completionDate=referral.getCompletionDate();
-
-        // completionNotes=referral.getCompletionNotes();
-
-        // no exteral bit for remote referrals
-        // external=referral.getNotes();
     }
 
     public int getId() {
@@ -111,7 +69,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getDestinationProgramName() {
-        return (StringEscapeUtils.escapeHtml4(destinationProgramName));
+        return (Encode.forHtml(destinationProgramName));
     }
 
     public void setDestinationProgramName(String destinationProgramName) {
@@ -119,7 +77,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getDestinationProgramType() {
-        return (StringEscapeUtils.escapeHtml4(destinationProgramType));
+        return (Encode.forHtml(destinationProgramType));
     }
 
     public void setDestinationProgramType(String destinationProgramType) {
@@ -153,7 +111,7 @@ public class ReferralHistoryDisplay {
     }
 
     public String getSourceProgramName() {
-        return (StringEscapeUtils.escapeHtml4(sourceProgramName));
+        return (Encode.forHtml(sourceProgramName));
     }
 
     public void setSourceProgramName(String sourceProgramName) {
@@ -161,26 +119,10 @@ public class ReferralHistoryDisplay {
     }
 
     public String getExternal() {
-        return (StringEscapeUtils.escapeHtml4(external));
+        return (Encode.forHtml(external));
     }
 
     public void setExternal(String external) {
         this.external = external;
-    }
-
-    public boolean isRemoteReferral() {
-        return isRemoteReferral;
-    }
-
-    public void setRemoteReferral(boolean isRemoteReferral) {
-        this.isRemoteReferral = isRemoteReferral;
-    }
-
-    public boolean getIsRemoteReferral() {
-        return isRemoteReferral;
-    }
-
-    public void setIsRemoteReferral(boolean isRemoteReferral) {
-        this.isRemoteReferral = isRemoteReferral;
     }
 }

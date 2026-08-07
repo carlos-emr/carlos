@@ -39,11 +39,13 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarKeyDao;
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
@@ -52,19 +54,21 @@ import io.github.carlos_emr.carlos.commn.model.OtherId;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.HHSEmrDownloadHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.spec.SecretKeySpec;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
 import java.security.KeyFactory;
@@ -74,16 +78,35 @@ import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.List;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-public class LabUpload2Action extends ActionSupport {
+public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String REQUEST_ATTRIBUTE_AUDIT = "audit";
+    private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
+    private static final String OUTCOME_EXCEPTION = "exception";
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     protected static Logger logger = MiscUtils.getLogger();
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
+            request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, "");
+            return SUCCESS;
+        }
 
         String signature = request.getParameter("signature");
         String key = request.getParameter("key");
@@ -100,10 +123,10 @@ public class LabUpload2Action extends ActionSupport {
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
                 logger.error("No file provided for upload");
-                outcome = "exception";
+                outcome = OUTCOME_EXCEPTION;
                 httpCode = HttpServletResponse.SC_BAD_REQUEST;
-                request.setAttribute("outcome", outcome);
-                request.setAttribute("audit", audit);
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
                 return SUCCESS;
             }
 
@@ -112,10 +135,10 @@ public class LabUpload2Action extends ActionSupport {
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
                 logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
-                outcome = "exception";
+                outcome = OUTCOME_EXCEPTION;
                 httpCode = HttpServletResponse.SC_FORBIDDEN;
-                request.setAttribute("outcome", outcome);
-                request.setAttribute("audit", audit);
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
                 return SUCCESS;
             }
 
@@ -127,13 +150,13 @@ public class LabUpload2Action extends ActionSupport {
             } else {
                 filePath = Utilities.saveFile(is, fileName);
             }
-            File file = new File(filePath);
+            File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
 
             if (validateSignature(clientKey, signature, file)) {
                 logger.debug("Validated Successfully");
                 MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
 
-                if (type.equals("HHSEMR") && OscarProperties.getInstance().getProperty("lab.hhsemr.filter_ordering_provider", "false").equals("true")) {
+                if (type.equals("HHSEMR") && CarlosProperties.getInstance().getProperty("lab.hhsemr.filter_ordering_provider", "false").equals("true")) {
                     logger.info("Applying filter to HHS EMR lab");
                     String hl7Data = FileUtils.readFileToString(file, "UTF-8");
                     HHSEmrDownloadHandler filterHandler = new HHSEmrDownloadHandler();
@@ -173,11 +196,11 @@ public class LabUpload2Action extends ActionSupport {
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            outcome = "exception";
+            outcome = OUTCOME_EXCEPTION;
             httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         }
-        request.setAttribute("outcome", outcome);
-        request.setAttribute("audit", audit);
+        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+        request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
 
         if (request.getParameter("use_http_response_code") != null) {
             try {
@@ -204,7 +227,13 @@ public class LabUpload2Action extends ActionSupport {
             PrivateKey key = getServerPrivate();
 
             // Decrypt the secret key using the servers private key
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            // NOTE: PKCS1Padding (PKCS#1 v1.5) is theoretically vulnerable to Bleichenbacher
+            // padding oracle attacks. OAEP padding (RSA/ECB/OAEPWithSHA-256AndMGF1Padding)
+            // would be more secure, but this protocol is dictated by the external lab system
+            // sender which encrypts with PKCS#1 v1.5. Changing the padding here would break
+            // decryption of incoming lab uploads. This is decrypt-only (not encrypt), which
+            // limits the attack surface. If the external protocol is ever updated, migrate to OAEP.
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); // NOPMD HardCodedCryptoKey — JCA name, not key material // nosemgrep: java.lang.security.audit.crypto.ecb-cipher.ecb-cipher -- "ECB" is JCA convention for RSA single-block, not AES-ECB mode; PKCS#1v1.5 constraint documented above
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
 
@@ -232,18 +261,20 @@ public class LabUpload2Action extends ActionSupport {
 
         try {
 
-            InputStream msgIs = new FileInputStream(input);
-            Signature sig = Signature.getInstance("MD5WithRSA");
-            sig.initVerify(key);
+            try (InputStream msgIs = new FileInputStream(input)) {
+                // MD5WithRSA is required by the external lab upload protocol for signature
+                // verification. Do not change without coordinating with all lab data senders.
+                Signature sig = Signature.getInstance("MD5WithRSA"); // nosemgrep: java.lang.security.audit.crypto.weak-hash -- external lab protocol requirement
+                sig.initVerify(key);
 
-            // Read in the message bytes and update the signature
-            int numRead = 0;
-            while ((numRead = msgIs.read(buf)) >= 0) {
-                sig.update(buf, 0, numRead);
+                // Read in the message bytes and update the signature
+                int numRead = 0;
+                while ((numRead = msgIs.read(buf)) >= 0) {
+                    sig.update(buf, 0, numRead);
+                }
+
+                return (sig.verify(Base64.decodeBase64(sigString)));
             }
-            msgIs.close();
-
-            return (sig.verify(Base64.decodeBase64(sigString)));
 
         } catch (Exception e) {
             logger.debug("Could not validate signature: " + e);
@@ -310,6 +341,20 @@ public class LabUpload2Action extends ActionSupport {
     }
 
     private File importFile;
+    private String uploadValidationError;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            try {
+                PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            }
+        }
+    }
 
     public File getImportFile() {
         return importFile;

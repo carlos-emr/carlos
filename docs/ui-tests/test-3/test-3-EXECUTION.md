@@ -17,13 +17,13 @@ server status
 ### 2. Database Connectivity
 ```bash
 # Verify database connection
-mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
+mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
 ```
 
 ### 3. Test Data Exists
 ```bash
 # Verify test patient exists
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT demographic_no, last_name, first_name, patient_status
 FROM demographic
 WHERE demographic_no = 1;"
@@ -58,9 +58,9 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-3"
 
 #### Step 2: Login
 **Action**: Fill and submit login form
-- Username: `openodoc`
-- Password: `openo2025`
-- PIN: `2025`
+- Username: `carlosdoc`
+- Password: `carlos2026`
+- PIN: `2026`
 
 **Screenshot**: `test-3-02-provider-dashboard.png`
 **Expected**: Provider dashboard with schedule visible
@@ -222,7 +222,7 @@ ls -1 ui-test-runs/$TIMESTAMP/test-3/screenshots/test-3-*.png | wc -l
 ### 2. Database Verification (Optional)
 ```bash
 # Check no orphan test appointments remain
-mysql -h db -uroot -ppassword oscar -e "
+mariadb -h db -uroot -ppassword oscar -e "
 SELECT appointment_no, appointment_date, reason
 FROM appointment
 WHERE reason LIKE '%UI Test%'

@@ -42,19 +42,19 @@ public interface CtlBillingServiceDao {
     public List<CtlBillingService> findAll();
 
     /**
-     * Gets distinct service type for services with the specific service status
+     * Gets distinct service type for services with the specific service status.
      *
      * @param serviceStatus Status of the service to be retrieved
-     * @return Returns list containing arrays of strings, where the first element represents the service type and the second element is the service type name.
+     * @return List of typed {@code (serviceType, serviceTypeName)} rows.
      */
-    public List<Object[]> getUniqueServiceTypes(String serviceStatus);
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> getUniqueServiceTypes(String serviceStatus);
 
     /**
-     * Gets distinct service type for services with {@link #DEFAULT_STATUS}
+     * Gets distinct service type for services with {@link #DEFAULT_STATUS}.
      *
-     * @return Returns list containing arrays of strings, where the first element represents the service type code and the second element is the service type name.
+     * @return List of typed {@code (serviceType, serviceTypeName)} rows.
      */
-    public List<Object[]> getUniqueServiceTypes();
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow> getUniqueServiceTypes();
 
     public List<CtlBillingService> findByServiceTypeId(String serviceTypeId);
 
@@ -90,9 +90,9 @@ public interface CtlBillingServiceDao {
 
     public List<Object[]> findUniqueServiceTypesByCode(String serviceCode);
 
-    public List<Object[]> findServiceTypes();
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> findServiceTypes();
 
-    public List<Object[]> findServiceTypesByStatus(String status);
+    public List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> findServiceTypesByStatus(String status);
 
     public List<Object> findServiceCodesByType(String serviceType);
 

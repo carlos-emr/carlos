@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.integration.dashboard;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.NodeList;
@@ -50,7 +51,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class OutcomesDashboard2Action extends ActionSupport {
@@ -103,7 +104,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
 
         ObjectNode o = objectMapper.createObjectNode();
 
-        response.getWriter().print(o.toString());
+        JsonResponseWriter.write(response, o);
 
         return null;
     }

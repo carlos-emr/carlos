@@ -37,6 +37,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
@@ -54,6 +55,9 @@ public class AllergyManagerImpl implements AllergyManager {
     @Autowired
     private PatientConsentManager patientConsentManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     @Override
     public Allergy getAllergy(LoggedInInfo loggedInInfo, Integer id) {
         Allergy result = allergyDao.find(id);
@@ -68,13 +72,20 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Override
     public List<Allergy> getActiveAllergies(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        // Patient-scoped authorization: this REST-reachable read previously had NO privilege check at
+        // all, so any authenticated caller could enumerate any patient's active allergies by supplying
+        // an arbitrary demographicNo. Require _allergy read for the requested demographic, mirroring the
+        // gate on getAllergyDTOs (scoped to the patient here rather than role-level).
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r",
+                demographicNo == null ? null : String.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
+
         List<Allergy> results = allergyDao.findActiveAllergiesOrderByDescription(demographicNo);
 
-        // --- log action ---
-        if (results != null && results.size() > 0) {
-            LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getActiveAllergies",
-                    "demographicNo=" + demographicNo);
-        }
+        // Audit every authorized attempt, including empty results, so cross-patient probing is visible.
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getActiveAllergies",
+                "demographicNo=" + demographicNo);
 
         return (results);
     }
@@ -119,5 +130,21 @@ public class AllergyManagerImpl implements AllergyManager {
                         + ", updatedAfterThisDateInclusive=" + updatedAfterThisDateInclusive.getTime());
 
         return (results);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
+        List<AllergyListItemDTO> results = allergyDao.findAllergyDTOsByDemographicNo(demographicNo);
+
+        LogAction.addLogSynchronous(loggedInInfo, "AllergyManager.getAllergyDTOs",
+                "demographicNo=" + demographicNo);
+
+        return results;
     }
 }

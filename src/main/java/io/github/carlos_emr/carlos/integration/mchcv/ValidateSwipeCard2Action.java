@@ -28,12 +28,16 @@
  */
 package io.github.carlos_emr.carlos.integration.mchcv;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts 2 action for validating health card magnetic stripe data.
@@ -48,6 +52,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2006-04-20
  */
 public class ValidateSwipeCard2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -69,6 +75,11 @@ public class ValidateSwipeCard2Action extends ActionSupport {
      */
     @Override
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String magneticStripe = this.getMagneticStripe();
         HCMagneticStripe hcMagneticStripe = new HCMagneticStripe(magneticStripe);
 
@@ -105,6 +116,7 @@ public class ValidateSwipeCard2Action extends ActionSupport {
      *
      * @param magneticStripe String raw magnetic stripe data
      */
+    @StrutsParameter
     public void setMagneticStripe(String magneticStripe) {
         this.magneticStripe = magneticStripe;
     }

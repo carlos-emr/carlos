@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -29,77 +29,51 @@
 
 package io.github.carlos_emr.carlos.db;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Types;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
- * @deprecated Use JPA instead, no new code should be written against this class.
+ * @deprecated Use JPA via {@link jakarta.persistence.EntityManager#createNativeQuery(String)}
+ * instead. Inject or otherwise obtain an {@link jakarta.persistence.EntityManager}
+ * and create a native query from it. No new code should be written against this
+ * class. Scheduled for removal once remaining callers migrate.
  */
-@Deprecated
+@Deprecated(forRemoval = true)
 public final class DBHandler {
-
-    private static final Logger logger = LogManager.getLogger(DBHandler.class);
 
     private DBHandler() {
         // not intented for instantiation
     }
 
-    /**
-     * @deprecated This method is vulnerable to SQL injection. Use GetPreSQL with parameters or JPA instead.
-     * This method now includes basic SQL injection detection as a safety measure for legacy code.
-     */
-    @Deprecated
-    public static java.sql.ResultSet GetSQL(String SQLStatement) throws SQLException {
-        return GetSQL(SQLStatement, false);
+    // GetSQL(String) removed; all callers migrated to parameterized SQL.
+    // See git history for the deprecated raw SQL execution method.
+
+    public static ResultSet getPreSql(String sql, Object... params) throws SQLException {
+        return getPreSql(sql, false, params);
+    }
+
+    public static ResultSet getPreSql(String sql, boolean updatable, Object... params) throws SQLException {
+        return LegacyJdbcQuery.getPreparedResultSet(sql, updatable, params);
     }
 
     /**
-     * @deprecated This method is vulnerable to SQL injection. Use GetPreSQL with parameters or JPA instead.
-     * This method now includes basic SQL injection detection as a safety measure for legacy code.
+     * @deprecated Use {@link #getPreSql(String, Object...)}. Kept only as a
+     * migration compatibility wrapper while production callers move off this
+     * deprecated class.
      */
-    @Deprecated
-	public static ResultSet GetSQL(String SQLStatement, boolean updatable) throws SQLException {
-		// Log warning about deprecated usage
-		logger.warn("Deprecated GetSQL method called. SQL injection risk. Consider migrating to GetPreSQL or JPA. SQL: {}", 
-		    SQLStatement != null && SQLStatement.length() > 100 ? SQLStatement.substring(0, 100) + "..." : SQLStatement);
-		
-		Statement stmt;
+    @Deprecated(forRemoval = true)
+    public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
+        return getPreSql(sql, params);
+    }
 
-		if (updatable) {
-			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-		} else {
-			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-		}
-
-		ResultSet rs = stmt.executeQuery(SQLStatement);
-		return rs;
-	}
-
-	private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {
-		for (int i = 0; i < params.length; i++) {
-			Object p = params[i];
-			if (p == null) {
-				ps.setNull(i+1, Types.NULL);
-			} else {
-				ps.setObject(i+1, p);
-			}
-		}
-	}
-
-	public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
-		PreparedStatement ps = DbConnectionFilter
-			.getThreadLocalDbConnection()
-			.prepareStatement(sql);
-		bindParams(ps, params);
-		return ps.executeQuery();
-	}
+    /**
+     * @deprecated Use {@link #getPreSql(String, boolean, Object...)}. Kept only
+     * as a migration compatibility wrapper while production callers move off
+     * this deprecated class.
+     */
+    @Deprecated(forRemoval = true)
+    public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException {
+        return getPreSql(sql, updatable, params);
+    }
 
 }

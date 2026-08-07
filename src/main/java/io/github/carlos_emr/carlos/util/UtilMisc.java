@@ -39,10 +39,11 @@ import java.util.ArrayList;
 import io.github.carlos_emr.Misc;
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class UtilMisc {
     /**
-     * @deprecated use apache's StringEscapeUtils instead.
+     * @deprecated use OWASP Encoder's {@link org.owasp.encoder.Encode#forHtml(String)} instead.
      */
     @Deprecated
     public static String htmlEscape(String S) {
@@ -76,6 +77,8 @@ public class UtilMisc {
      * This method is used to generate html symbols,
      * e.g., change HTML entities to their character equivalents.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String rhtmlEscape(String S) {
         if (null == S) return S;
 
@@ -118,64 +121,6 @@ public class UtilMisc {
         return sb.toString();
     }
 
-    public static String charEscape(String S, char a) {
-        if (null == S) {
-            return S;
-        }
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '\\') {
-                sb.append("\\");
-            } else if (c == a) {
-                sb.append("\\" + a);
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
-    /**
-     * @deprecated use apache's StringEscapeUtils instead.
-     */
-    @Deprecated
-    public static String htmlJsEscape(String S) {
-        if (null == S) {
-            return S;
-        }
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '&') {
-                sb.append("&amp;");
-            } else if (c == '"') {
-                sb.append("&quot;");
-            } else if (c == '<') {
-                sb.append("&lt;");
-            } else if (c == '>') {
-                sb.append("&gt;");
-            } else if (c == '\'') {
-                sb.append("&#39;");
-            } else if (c == '\n') {
-                sb.append("<br>");
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
-    public static String nullMySQLEscape(String S) {
-        if (null == S) {
-            return S;
-        } else {
-            return "'" + mysqlEscape(S) + "'";
-        }
-    }
-
     public static String mysqlEscape(String S) {
         if (null == S) {
             return S;
@@ -198,7 +143,7 @@ public class UtilMisc {
     }
 
     /**
-     * @deprecated use apache's StringEscapeUtils instead.
+     * @deprecated use OWASP Encoder's {@link org.owasp.encoder.Encode#forJavaScript(String)} instead.
      */
     @Deprecated
     public static String JSEscape(String S) {

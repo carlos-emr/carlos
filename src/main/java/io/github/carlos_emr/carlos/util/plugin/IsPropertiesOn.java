@@ -23,13 +23,16 @@
 
 package io.github.carlos_emr.carlos.util.plugin;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class IsPropertiesOn {
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean propertiesOn(String proName) {
 
-        OscarProperties proper = OscarProperties.getInstance();
+        CarlosProperties proper = CarlosProperties.getInstance();
 
         if (proper.getProperty(proName, "").equalsIgnoreCase("yes")
                 || proper.getProperty(proName, "").equalsIgnoreCase("true")
@@ -40,21 +43,8 @@ public class IsPropertiesOn {
 
     }
 
-    public static boolean propertiesOff(String proName) {
-
-        OscarProperties proper = OscarProperties.getInstance();
-
-        if (proper.getProperty(proName, null) == null
-                || proper.getProperty(proName, "").equalsIgnoreCase("off")
-                || proper.getProperty(proName, "").equalsIgnoreCase("false"))
-            return true;
-        else
-            return false;
-
-    }
-
     public static String getProperty(String proName) {
-        OscarProperties proper = OscarProperties.getInstance();
+        CarlosProperties proper = CarlosProperties.getInstance();
         return proper.getProperty(proName, null);
     }
 

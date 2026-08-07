@@ -37,12 +37,14 @@ import io.github.carlos_emr.carlos.PMmodule.model.*;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProgramManagerImpl implements ProgramManager {
 
@@ -150,7 +152,7 @@ public class ProgramManagerImpl implements ProgramManager {
      * facilityId can be null, it will return all community programs optionally filtering by facility id if filtering is enabled.
      */
     public List<Program> getCommunityPrograms(Integer facilityId) {
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             return programDao.getCommunityProgramsByFacilityId(facilityId);
         } else {
             return programDao.getPrograms();
@@ -159,7 +161,7 @@ public class ProgramManagerImpl implements ProgramManager {
 
 
     public List<Program> getPrograms(Integer facilityId) {
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             return programDao.getProgramsByFacilityId(facilityId);
         } else {
             return programDao.getAllPrograms();
@@ -189,7 +191,7 @@ public class ProgramManagerImpl implements ProgramManager {
     }
 
     public void saveProgram(Program program) {
-        if (program.getHoldingTank()) {
+        if (program.isHoldingTank()) {
             programDao.resetHoldingTank();
         }
         programDao.saveProgram(program);
@@ -243,7 +245,8 @@ public class ProgramManagerImpl implements ProgramManager {
         programFunctionalUserDAO.deleteFunctionalUserType(Long.valueOf(id));
     }
 
-    public List<FunctionalUserType> getFunctionalUsers(String programId) {
+    @Override
+    public List<ProgramFunctionalUser> getFunctionalUsers(String programId) {
         return programFunctionalUserDAO.getFunctionalUsers(Long.valueOf(programId));
     }
 
@@ -366,7 +369,7 @@ public class ProgramManagerImpl implements ProgramManager {
 
         List<Program> results = new ArrayList<Program>();
         for (Program program : programs) {
-            if (program.getFacilityId() == loggedInInfo.getCurrentFacility().getId().intValue()) {
+            if (Objects.equals(program.getFacilityId(), loggedInInfo.getCurrentFacility().getId())) {
                 results.add(program);
             }
         }
@@ -377,6 +380,8 @@ public class ProgramManagerImpl implements ProgramManager {
         return programDao.getProgramsByType(null, Program.COMMUNITY_TYPE, null).toArray(new Program[0]);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<LabelValueBean> getProgramBeans(String providerNo) {
         if (providerNo == null || "".equalsIgnoreCase(providerNo.trim())) return new ArrayList<LabelValueBean>();
         ArrayList<LabelValueBean> pList = new ArrayList<LabelValueBean>();
@@ -463,7 +468,7 @@ public class ProgramManagerImpl implements ProgramManager {
         // check the providers facilities against the programs facilities
         Program program = getProgram(programId);
         if (program != null) {
-            return (program.getFacilityId() == loggedInInfo.getCurrentFacility().getId().intValue());
+            return Objects.equals(program.getFacilityId(), loggedInInfo.getCurrentFacility().getId());
         } else {
             return false;
         }

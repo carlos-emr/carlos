@@ -32,11 +32,10 @@ package io.github.carlos_emr;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -59,28 +58,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * <p>This is a final utility class with a private constructor to prevent instantiation.
  * All methods are static.</p>
  * 
- * @see StringEscapeUtils for HTML escaping implementation
+ * @see Encode for HTML escaping implementation
  */
 public final class Misc {
 
     private Misc() {
         // prevent instantiation
-    }
-
-    /**
-     * Creates a Hashtable from parallel arrays of names and values.
-     * If the names array is longer than the values array, only processes up to the values array length.
-     * 
-     * @param names array of key names
-     * @param values array of values corresponding to the keys
-     * @return Hashtable containing the name-value pairs
-     */
-    public static Hashtable hashDefs(String[] names, String[] values) {
-        Hashtable H = new Hashtable();
-        if (names.length > values.length) return H;
-        for (int i = 0; i < names.length; i++)
-            H.put(names[i], values[i]);
-        return H;
     }
 
     /**
@@ -101,7 +84,7 @@ public final class Misc {
 
     /**
      * Escapes HTML special characters to prevent XSS attacks.
-     * Uses Apache Commons Text StringEscapeUtils for proper HTML4 escaping.
+     * Uses OWASP Encoder for proper HTML escaping.
      * 
      * <p>Converts characters like &lt;, &gt;, &amp;, &quot;, and ' to their HTML entity equivalents.</p>
      * 
@@ -109,7 +92,7 @@ public final class Misc {
      * @return the HTML-escaped string, safe for output in HTML contexts
      */
     public static String htmlEscape(String s) {
-        return (StringEscapeUtils.escapeHtml4(s));
+        return (Encode.forHtml(s));
 
 //		if (null == S) return S;
 //		int N = S.length();
@@ -134,45 +117,6 @@ public final class Misc {
      * @param a the character to escape
      * @return the escaped string
      */
-    public static String charEscape(String S, char a) {
-        if (null == S) return S;
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '\\') sb.append("\\");
-            else if (c == a) sb.append("\\" + a);
-            else sb.append(c);
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Escapes HTML special characters and converts newlines to HTML line breaks.
-     * Useful for displaying user input that may contain line breaks in HTML.
-     * 
-     * @param s the string to escape
-     * @return the HTML-escaped string with newlines converted to &lt;br/&gt; tags
-     */
-    public static String htmlJsEscape(String s) {
-        return (StringEscapeUtils.escapeHtml4(s).replaceAll("\\n", "<br/>"));
-
-//		if (null == S) return S;
-//		int N = S.length();
-//		StringBuilder sb = new StringBuilder(N);
-//		for (int i = 0; i < N; i++) {
-//			char c = S.charAt(i);
-//			if (c == '&') sb.append("&amp;");
-//			else if (c == '"') sb.append("&quot;");
-//			else if (c == '<') sb.append("&lt;");
-//			else if (c == '>') sb.append("&gt;");
-//			else if (c == '\'') sb.append("&#39;");
-//			else if (c == '\n') sb.append("<br>");
-//			else sb.append(c);
-//		}
-//		return sb.toString();
-    }
-
     /**
      * Extracts the phone number portion (without area code) from a phone number string.
      * Removes all non-digit characters and returns everything after the first 3 digits.
@@ -519,85 +463,6 @@ public final class Misc {
     }
 
     /**
-     * Adds backslash escapes before specified special characters.
-     * 
-     * @param S the string to escape
-     * @param specials string containing all characters that should be escaped
-     * @return the escaped string
-     */
-    public static String quoteSpecialChars(String S, String specials) {
-        String R = ""; // should use stringbuffer for efficiency?
-        for (int i = 0; i < S.length(); i++) {
-            char c = S.charAt(i);
-            if (specials.indexOf(c) >= 0) R += "\\" + c;
-            else R += "" + c;
-        }
-        return R;
-
-    }
-
-    /**
-     * Converts a Hashtable to an attribute string format.
-     * Format: key1="value1" key2="value2" ...
-     * Special characters in values are escaped with backslash.
-     * 
-     * @param H the Hashtable containing key-value pairs
-     * @return the formatted attribute string
-     */
-    public static String hashAttribString(Hashtable H) {
-        // returns the attribute string joe="schmoe" john="smith" &c.
-        Enumeration KK = H.keys();
-        String S = "";
-        String specialChars = "\\\"";
-        while (KK.hasMoreElements()) {
-            String k = (String) KK.nextElement();
-            String v = (String) H.get(k);
-            S += " " + k + "=\"" + quoteSpecialChars(v, specialChars) + "\"";
-        }
-        return S;
-    }
-
-    /**
-     * Parses an attribute string into a Hashtable.
-     * Supports quotes: ", ', or any character following =
-     * Format: key1="value1" key2='value2' ...
-     * String must be delimited by blanks.
-     * 
-     * @param S the attribute string to parse
-     * @return Hashtable containing the parsed attributes
-     */
-    public static Hashtable attribStringHash(String S) {
-        // interprets the attribute string joe="schmoe" john="smith" &c.
-        // or joe='schmoe' john='smith' &c.
-        // or even joe=qschmoeq john=qsmithq &c
-        // but closing "quote" is required, and the string must be
-        // _delimited_ by blanks; no error checking yet.
-        Hashtable H = new Hashtable();
-        int loc = 0;
-        int lim = S.length();
-        while (loc < lim && ' ' == S.charAt(loc))
-            loc++;
-        while (loc < lim) { // pointing, e.g., at john="smith"
-            int eqLoc = S.indexOf("=", loc);
-            if (eqLoc < 0) return H;
-            String k = S.substring(loc, eqLoc);
-            char q = S.charAt(eqLoc + 1);
-            int endLoc = eqLoc + 2;
-            char c;
-            while (endLoc < lim && (c = S.charAt(endLoc)) != q)
-                if (c == '\\') endLoc += 2;
-                else endLoc++;
-            if (endLoc > lim) return H; // no closing quote
-            String v = S.substring(eqLoc + 2, endLoc);
-            H.put(k, evalQuotedChars(v));
-            loc = endLoc + 2;
-            while ((loc < lim) && ' ' == S.charAt(loc))
-                loc++;
-        }
-        return H;
-    }
-
-    /**
      * Removes line break characters (\n and \r) from a string, replacing them with spaces.
      * 
      * @param input the string to process
@@ -608,23 +473,6 @@ public final class Misc {
             input = input.replaceAll("\\n", " ").replaceAll("\\r", "");
         }
         return input;
-    }
-
-    /**
-     * Inserts a decimal point two places from the right in a numeric string.
-     * For converting cents to dollars (e.g., "1234" becomes "12.34").
-     * 
-     * @param input the numeric string representing cents
-     * @return the formatted string with decimal point, or "0.00" if conversion fails
-     */
-    public static String insertDecimalPoint(String input) {
-        String moneyStr = "0.00";
-        try {
-            moneyStr = new java.math.BigDecimal(input).movePointLeft(2).toString();
-        } catch (Exception moneyException) {
-            MiscUtils.getLogger().error("Error", moneyException);
-        }
-        return moneyStr;
     }
 
     /**

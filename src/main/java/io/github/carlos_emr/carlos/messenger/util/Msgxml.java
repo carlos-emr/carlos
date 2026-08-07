@@ -33,13 +33,12 @@ package io.github.carlos_emr.carlos.messenger.util;
 import java.io.StringReader;
 import java.io.StringWriter;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -63,8 +62,9 @@ public class Msgxml {
      */
     public static Document newDocument() {
         try {
-            return DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
         } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to create new XML document", e);
             return null;
         }
     }
@@ -128,7 +128,7 @@ public class Msgxml {
 
         try {
             // Transform the document to string representation
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
+            Transformer trans = XmlUtils.createSecureTransformerFactory().newTransformer();
             trans.transform(src, rslt);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -151,10 +151,11 @@ public class Msgxml {
             InputSource is = new InputSource(new StringReader(xmlInput));
 
             // Parse the XML string into a Document
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
+            Document doc = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
 
             return doc;
         } catch (Exception e) {
+            MiscUtils.getLogger().error("Failed to parse XML input", e);
             return null;
         }
     }

@@ -30,32 +30,44 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
-import com.opensymphony.xwork2.ActionSupport;
+import java.sql.Connection;
+
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.Date;
+import java.util.List;
 
-public class LabUpload2Action extends ActionSupport {
+public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
+    private static final String OUTCOME_ACCESS_DENIED = "accessDenied";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     Logger _logger = MiscUtils.getLogger();
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
@@ -67,9 +79,14 @@ public class LabUpload2Action extends ActionSupport {
             proNo = "";
         }
         String key = request.getParameter("key");
-        String keyToMatch = OscarProperties.getInstance().getProperty("CML_UPLOAD_KEY");
-        MiscUtils.getLogger().debug("key=" + key);
+        String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
+        _logger.debug("upload key present: {}", key != null);
         String outcome = "";
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_ACCESS_DENIED);
+            return SUCCESS;
+        }
 
         //Checks to verify key is matched and file should be saved locally.
         if (key != null && keyToMatch != null && keyToMatch.equals(key)) {
@@ -77,8 +94,8 @@ public class LabUpload2Action extends ActionSupport {
             try {
                 // Validate the uploaded file using PathValidationUtils
                 if (importFile == null) {
-                    outcome = "accessDenied";
-                    request.setAttribute("outcome", outcome);
+                    outcome = OUTCOME_ACCESS_DENIED;
+                    request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                     return SUCCESS;
                 }
 
@@ -87,8 +104,8 @@ public class LabUpload2Action extends ActionSupport {
                     importFile = PathValidationUtils.validateUpload(importFile);
                 } catch (SecurityException e) {
                     _logger.error("Invalid upload source: " + importFile.getPath());
-                    outcome = "accessDenied";
-                    request.setAttribute("outcome", outcome);
+                    outcome = OUTCOME_ACCESS_DENIED;
+                    request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                     return SUCCESS;
                 }
 
@@ -107,16 +124,16 @@ public class LabUpload2Action extends ActionSupport {
                 if (localFileName != null) {
                     // Validate the localFileName path using PathValidationUtils
                     File localFile = new File(localFileName);
-                    OscarProperties props = OscarProperties.getInstance();
+                    CarlosProperties props = CarlosProperties.getInstance();
                     String documentDir = props.getProperty("DOCUMENT_DIR");
                     if (documentDir != null) {
                         try {
                             File docDirFile = new File(documentDir);
-                            PathValidationUtils.validateExistingPath(localFile, docDirFile);
+                            localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
                         } catch (SecurityException e) {
                             _logger.error("Invalid file path: " + localFileName);
-                            outcome = "accessDenied";
-                            request.setAttribute("outcome", outcome);
+                            outcome = OUTCOME_ACCESS_DENIED;
+                            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                             return SUCCESS;
                         }
                     }
@@ -139,11 +156,13 @@ public class LabUpload2Action extends ActionSupport {
                         ABCDParser abc = new ABCDParser();
                         abc.parse(in);
 
-                        abc.save(DbConnectionFilter.getThreadLocalDbConnection());
+                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                            abc.save(connection);
+                        }
                         outcome = "uploaded";
                     }
                 } else {
-                    outcome = "accessDenied";  //file could not save
+                    outcome = OUTCOME_ACCESS_DENIED;  //file could not save
                     MiscUtils.getLogger().debug("Could not save file :" + filename + " to disk");
                 }
 
@@ -153,9 +172,9 @@ public class LabUpload2Action extends ActionSupport {
             }
 
         } else {
-            outcome = "accessDenied";
+            outcome = OUTCOME_ACCESS_DENIED;
         }
-        request.setAttribute("outcome", outcome);
+        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
         MiscUtils.getLogger().debug("forwarding outcome " + outcome);
         return SUCCESS;
     }
@@ -172,11 +191,13 @@ public class LabUpload2Action extends ActionSupport {
      * @param filename
      * @return String
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static String saveFile(InputStream stream, String filename) {
         String retVal = null;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");
 
@@ -223,6 +244,20 @@ public class LabUpload2Action extends ActionSupport {
     }
 
     private File importFile;
+    private String uploadValidationError;
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            try {
+                PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            }
+        }
+    }
 
     public File getImportFile() {
         return importFile;
@@ -231,4 +266,5 @@ public class LabUpload2Action extends ActionSupport {
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }
+
 }

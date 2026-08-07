@@ -37,15 +37,18 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public class ExcellerisOntarioHandler implements MessageHandler {
@@ -59,6 +62,8 @@ public class ExcellerisOntarioHandler implements MessageHandler {
 		return labNo;
 	}
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         Document doc = null;
         try {
@@ -70,7 +75,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             }
             
             // Get expected document directory for validation
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir == null || documentDir.isEmpty()) {
                 logger.error("DOCUMENT_DIR property not configured");
@@ -80,55 +85,40 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             // Use PathValidationUtils for validation
             File docDir = new File(documentDir).getCanonicalFile();
             if (!docDir.exists() || !docDir.isDirectory()) {
-                logger.error("Document directory does not exist or is not a directory: " + documentDir);
+                logger.error("Document directory does not exist or is not a directory: {}", LogSafe.sanitize(documentDir)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             // Create file object and validate using PathValidationUtils
             File file = new File(fileName);
             try {
-                PathValidationUtils.validateExistingPath(file, docDir);
+                file = PathValidationUtils.validateExistingPath(file, docDir);
             } catch (SecurityException e) {
-                logger.error("Attempted path traversal detected - file outside document directory: " + fileName);
-                throw new SecurityException("Access denied: file outside permitted directory");
+                logger.error("Attempted path traversal detected - file outside document directory: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
             }
 
             // Now safe to check if file exists and is a regular file
             if (!file.exists()) {
-                logger.error("File does not exist: " + fileName);
+                logger.error("File does not exist: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             if (!file.isFile()) {
-                logger.error("Path is not a regular file: " + fileName);
+                logger.error("Path is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
 
             // Ensure file is readable
             if (!file.canRead()) {
-                logger.error("File is not readable: " + fileName);
+                logger.error("File is not readable: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
             
-            DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
-            // Disable external entity processing to prevent XXE attacks
-            docFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            docFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            docFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            docFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            
-            // Disable XInclude
-            docFactory.setXIncludeAware(false);
-            
-            // Disabled expansion of entity references
-            docFactory.setExpandEntityReferences(false);
-            
+            DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
             // Use the validated file object - safe after all validation checks
             doc = docBuilder.parse(file);
-        } catch (SecurityException e) {
-            logger.error("Security violation in Excelleris ON message handling", e);
-            throw e; // Re-throw security exceptions
         } catch (ParserConfigurationException e) {
             logger.error("XML parser configuration error", e);
         } catch (Exception e) {

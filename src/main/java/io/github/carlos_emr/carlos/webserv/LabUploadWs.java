@@ -33,20 +33,22 @@ import org.apache.commons.io.FileUtils;
 import org.apache.cxf.annotations.GZIP;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.enumerator.LabType;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.springframework.stereotype.Component;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-import javax.jws.WebParam;
-import javax.jws.WebService;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.jws.WebParam;
+import jakarta.jws.WebService;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -138,7 +140,7 @@ public class LabUploadWs extends AbstractWs {
          * for Exelleris lab versions used in Ontario.
          * This wont be a forever solution.
          */
-        if (OscarProperties.getInstance().isOntarioBillingRegion()) {
+        if (CarlosProperties.getInstance().isOntarioBillingRegion()) {
             labType = LabType.ExcellerisON;
         }
 
@@ -250,11 +252,13 @@ public class LabUploadWs extends AbstractWs {
         return returnMessageHandler;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: request filename is validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "request filename is validated for directory containment via PathValidationUtils before use")
     private String importLab(String fileName, String labContent, LabType labType, String oscarProviderNo)
             throws Exception {
         HttpServletRequest request = getHttpServletRequest();
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String labFolderPath = props.getProperty("DOCUMENT_DIR") + "labs";
         String retVal = "";
 
@@ -290,8 +294,8 @@ public class LabUploadWs extends AbstractWs {
         File labFile;
         try {
             labFile = PathValidationUtils.validatePath(sanitizedFileName, labFolder);
-        } catch (SecurityException e) {
-            throw new SecurityException("Invalid file path: " + fileName, e);
+        } catch (FileValidationException e) {
+            throw new SecurityException("Invalid file path", e);
         }
 
         // Save a copy of the lab locally. This is done to mimic the manual lab

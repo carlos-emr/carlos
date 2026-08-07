@@ -52,9 +52,10 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ForwardingRules;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author wrighd
@@ -89,9 +90,11 @@ public class ProviderLabRouting {
         routeMagic(labId, provider_no, labType);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void routeMagic(int labId, String provider_no, String labType) {
         ForwardingRules fr = new ForwardingRules();
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
 
         ProviderLabRoutingDao dao = SpringUtils.getBean(ProviderLabRoutingDao.class);
@@ -116,7 +119,7 @@ public class ProviderLabRouting {
 
             // If the lab has already been sent to this providers check to make sure that
             // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the oscar.properties file
+            // set in the carlos.properties file
         } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
             List<ProviderLabRoutingModel> moreRoutings = dao.findByLabNoTypeAndStatus(labId, labType, "N");
             if (!moreRoutings.isEmpty()) {
@@ -147,9 +150,11 @@ public class ProviderLabRouting {
         return info;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void route(String labId, String provider_no, String labType) throws SQLException {
         ForwardingRules fr = new ForwardingRules();
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
 
         ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
@@ -175,7 +180,7 @@ public class ProviderLabRouting {
 
             // If the lab has already been sent to this providers check to make sure that
             // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the oscar.properties file
+            // set in the carlos.properties file
         } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
             rs = providerLabRoutingDao.getProviderLabRoutingForLabAndType(Integer.parseInt(labId), labType);
             if (rs.isEmpty()) {

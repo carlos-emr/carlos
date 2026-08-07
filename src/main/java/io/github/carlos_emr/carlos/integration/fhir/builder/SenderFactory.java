@@ -34,13 +34,13 @@ import io.github.carlos_emr.carlos.integration.fhir.model.Sender;
 import io.github.carlos_emr.carlos.integration.fhir.resources.Settings;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 public final class SenderFactory {
 
-    private static String buildName = OscarProperties.getInstance().getProperty("buildtag", "UNKNOWN");
-    private static String senderEndpoint = OscarProperties.getInstance().getProperty("ws_endpoint_url_base", "UNKNOWN");
+    private static String buildName = CarlosProperties.getInstance().getProperty("buildtag", "UNKNOWN");
+    private static String senderEndpoint = CarlosProperties.getInstance().getProperty("ws_endpoint_url_base", "UNKNOWN");
     private static ClinicDAO clinicDao = SpringUtils.getBean(ClinicDAO.class);
     private static String vendorName = "Oscar EMR";
     private static String softwareName = "Oscar";
