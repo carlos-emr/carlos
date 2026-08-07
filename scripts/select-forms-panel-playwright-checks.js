@@ -5,7 +5,7 @@
  * Issue #3377: Add, Delete, Move Up, and Move Down each POST the shared form to
  * /form/select, whose response is injected into #dynamic-content by the administration
  * AJAX handler. When the success result was a servlet-dispatch forward to the
- * /form/setupSelect action path, that response came back as HTTP 200 with zero bytes and
+ * /form/setupSelect action path, that response came back as HTTP 200 with an empty body and
  * the panel rendered white. This script drives all four buttons through the real
  * administration shell and asserts the panel keeps rendering.
  *
@@ -42,7 +42,9 @@ const consoleIssues = [];
 
 // The Select Forms panel is a table of <select> lists; anything materially smaller than this
 // means the AJAX handler injected an error fragment or an empty body rather than the panel.
-const MIN_PANEL_BYTES = 500;
+// Counted in JS string characters (UTF-16 code units), not bytes — the threshold only has to
+// separate "real panel" from "empty or error fragment", so exact payload size is irrelevant.
+const MIN_PANEL_CHARS = 500;
 
 // Playwright resource types whose absence (404 only) is cosmetic for this check.
 const IGNORED_MISSING_RESOURCE_TYPES = new Set(['image', 'font', 'stylesheet', 'media']);
@@ -171,13 +173,13 @@ async function openSelectFormsPanel(page) {
   await page.locator('#dynamic-content #selectForm').waitFor({ state: 'attached', timeout: 30000 });
 }
 
-/** Reads the two form lists plus the injected panel size out of #dynamic-content. */
+/** Reads the two form lists plus the injected panel character count out of #dynamic-content. */
 async function readPanel(page) {
   return page.evaluate(() => {
     const panel = document.getElementById('dynamic-content');
     const options = (name) => [...panel.querySelectorAll(`select[name="${name}"] option`)].map((o) => o.value);
     return {
-      bytes: panel.innerHTML.length,
+      chars: panel.innerHTML.length,
       hasSelectForm: !!panel.querySelector('#selectForm'),
       available: options('selectedAddTypes'),
       selected: options('selectedDeleteTypes'),
@@ -217,10 +219,10 @@ async function clickPanelButton(page, { buttonSelector, listName, formName, labe
   }, { selector: buttonSelector, list: listName, name: formName });
 
   const response = await responsePromise;
-  const responseBytes = (await response.text()).length;
+  const responseChars = (await response.text()).length;
   assert(
-    responseBytes >= MIN_PANEL_BYTES,
-    `${label}: POST /form/select returned ${response.status()} with ${responseBytes} bytes;`
+    responseChars >= MIN_PANEL_CHARS,
+    `${label}: POST /form/select returned ${response.status()} with ${responseChars} characters;`
       + ' the AJAX handler needs the re-rendered Select Forms panel in the response'
       + ' (issue #3377 blank panel)',
   );
@@ -233,7 +235,7 @@ async function clickPanelButton(page, { buttonSelector, listName, formName, labe
     previousForm,
     { timeout: 30000 },
   );
-  return { ...(await readPanel(page)), responseBytes };
+  return { ...(await readPanel(page)), responseChars };
 }
 
 /**
@@ -245,8 +247,8 @@ async function clickPanelButton(page, { buttonSelector, listName, formName, labe
 function assertPanelRendered(panel, label) {
   assert(panel.hasSelectForm, `${label}: #dynamic-content lost the Select Forms form`);
   assert(
-    panel.bytes >= MIN_PANEL_BYTES,
-    `${label}: #dynamic-content collapsed to ${panel.bytes} bytes (issue #3377 blank panel)`,
+    panel.chars >= MIN_PANEL_CHARS,
+    `${label}: #dynamic-content collapsed to ${panel.chars} characters (issue #3377 blank panel)`,
   );
 }
 
