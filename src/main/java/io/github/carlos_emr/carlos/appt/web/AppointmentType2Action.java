@@ -79,7 +79,10 @@ public class AppointmentType2Action extends ActionSupport {
 
         restoreDeleteSuccessMessage();
 
-        int typeNo = resolveTypeNumber();
+        int typeNo = -1;
+        if (EDIT.equals(sOper) || SAVE.equals(sOper) || DELETE.equals(sOper)) {
+            typeNo = resolveTypeNumber();
+        }
         if ((EDIT.equals(sOper) || DELETE.equals(sOper)) && typeNo <= 0 && !hasActionErrors()) {
             addActionError(getText("appointment.type.number.error"));
         }

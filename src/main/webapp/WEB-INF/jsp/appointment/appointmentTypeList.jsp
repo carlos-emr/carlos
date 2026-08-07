@@ -181,13 +181,13 @@
                                                                 face="arial"><fmt:message key="reason"/><fmt:message key="global.labelSeparator"/></font></font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="reason" COLS="40" ROWS="2" border="0" hspace="2"
-                                                                  maxlength="80">${carlos:forHtml(reason)}</TEXTAREA>
+                                                                  maxlength="80">${carlos:forHtmlContent(reason)}</TEXTAREA>
                                                     </td>
                                                     <td>
                                                         <div align="right"><font face="arial"><fmt:message key="Appointment.formNotes"/><fmt:message key="global.labelSeparator"/></font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="notes" COLS="40" ROWS="2" border="0" hspace="2"
-                                                                  maxlength="80">${carlos:forHtml(notes)}</TEXTAREA>
+                                                                  maxlength="80">${carlos:forHtmlContent(notes)}</TEXTAREA>
                                                     </td>
                                                 </tr>
                                                 <tr valign="middle" BGCOLOR="#EEEEFF">
@@ -199,7 +199,7 @@
                                                                 <c:forEach var="siteLocation" items="${locationsList}">
                                                                     <c:set var="locValue" value="${siteLocation.label}" />
                                                                     <option value="${carlos:forHtmlAttribute(locValue)}" <c:if test="${siteLocation.label eq location}">selected</c:if>>
-                                                                        ${carlos:forHtml(siteLocation.label)}
+                                                                        ${carlos:forHtmlContent(siteLocation.label)}
                                                                     </option>
                                                                 </c:forEach>
                                                             </select>

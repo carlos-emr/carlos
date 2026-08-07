@@ -204,6 +204,17 @@ class AppointmentType2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldIgnoreInvalidIdentifierOnPlainListView() throws Exception {
+        mockRequest.setMethod("GET");
+        addRequestParameter("id", "invalid");
+        addRequestParameter("no", "also-invalid");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getActionErrors()).isEmpty();
+        verify(appointmentTypeDao, never()).find(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
     void shouldRejectInvalidIdentifierInsteadOfCreatingNewType() throws Exception {
         configureSave("30");
         addRequestParameter("id", "invalid");
